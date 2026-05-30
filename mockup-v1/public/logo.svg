@@ -1,0 +1,42 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Streamaxxer">
+  <defs>
+    <!-- Bridges Twitch purple → Kick green: one mark for both platforms -->
+    <linearGradient id="sx-bg" x1="14" y1="10" x2="116" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a06bff"/>
+      <stop offset="0.52" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#3fbf12"/>
+    </linearGradient>
+    <linearGradient id="sx-drop" x1="64" y1="20" x2="64" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef0ff"/>
+    </linearGradient>
+    <filter id="sx-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#1a0b3a" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <!-- App tile -->
+  <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#sx-bg)"/>
+  <!-- top sheen -->
+  <rect x="4" y="4" width="120" height="120" rx="30" fill="#ffffff" opacity="0.10"
+        style="mix-blend-mode:soft-light"/>
+  <path d="M4 34 V34 C4 17.4 17.4 4 34 4 H94 C110.6 4 124 17.4 124 34 V44 C84 18 44 18 4 44 Z"
+        fill="#ffffff" opacity="0.14"/>
+
+  <!-- Droplet with a play triangle knocked out (even-odd hole) -->
+  <g filter="url(#sx-shadow)">
+    <path fill="url(#sx-drop)" fill-rule="evenodd" d="
+      M64 22
+      C 74 44, 96 60, 96 80
+      A 32 32 0 1 1 32 80
+      C 32 60, 54 44, 64 22 Z
+      M55 67
+      C 55 64.2, 58.1 62.6, 60.4 64.1
+      L 79.2 76.4
+      C 81.3 77.8, 81.3 80.9, 79.2 82.3
+      L 60.4 94.6
+      C 58.1 96.1, 55 94.5, 55 91.7
+      Z
+    "/>
+  </g>
+</svg>

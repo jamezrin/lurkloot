@@ -1,0 +1,297 @@
+import type { ChannelCandidate, DropCampaign, DropReward } from "../core/models";
+
+interface KickCampaignResponse {
+  data?: KickCampaign[] | KickCampaignBuckets;
+  campaigns?: KickCampaign[];
+  active?: KickCampaign[];
+  current?: KickCampaign[];
+  upcoming?: KickCampaign[];
+  expired?: KickCampaign[];
+  completed?: KickCampaign[];
+}
+
+interface KickCampaignBuckets {
+  campaigns?: KickCampaign[];
+  active?: KickCampaign[];
+  current?: KickCampaign[];
+  upcoming?: KickCampaign[];
+  expired?: KickCampaign[];
+  completed?: KickCampaign[];
+}
+
+interface KickCampaign {
+  id: string | number;
+  name?: string;
+  title?: string;
+  status?: string;
+  starts_at?: string;
+  ends_at?: string;
+  start_date?: string;
+  end_date?: string;
+  category_id?: string | number;
+  game_id?: string | number;
+  category?: { id?: string | number; name?: string; slug?: string; image_url?: string };
+  channels?: Array<{
+    slug?: string;
+    username?: string;
+    user_slug?: string;
+    name?: string;
+    profile_picture?: string;
+    user?: { username?: string; slug?: string; profile_picture?: string };
+  }>;
+  rewards?: KickReward[];
+  drops?: KickReward[];
+}
+
+interface KickReward {
+  id: string | number;
+  name?: string;
+  title?: string;
+  image_url?: string;
+  image?: string;
+  required_minutes?: number;
+  minutes_required?: number;
+  watch_time_required?: number;
+  is_claimed?: boolean;
+  claimed?: boolean;
+}
+
+interface KickProgressResponse {
+  data?: KickProgress[] | KickProgressBuckets;
+  progress?: KickProgress[];
+  campaigns?: KickProgress[];
+  active?: KickProgress[];
+  current?: KickProgress[];
+  completed?: KickProgress[];
+}
+
+interface KickProgressBuckets {
+  progress?: KickProgress[];
+  campaigns?: KickProgress[];
+  active?: KickProgress[];
+  current?: KickProgress[];
+  completed?: KickProgress[];
+}
+
+interface KickProgress {
+  id?: string | number;
+  campaign_id?: string | number;
+  drop_campaign_id?: string | number;
+  reward_id?: string | number;
+  drop_id?: string | number;
+  watched_minutes?: number;
+  current_minutes?: number;
+  progress_minutes?: number;
+  progress?: number;
+  percentage?: number;
+  status?: string;
+  claimed?: boolean;
+  is_claimed?: boolean;
+  claim_id?: string;
+  required_units?: number;
+  rewards?: KickProgressReward[];
+  progress_units?: number;
+  category?: { id?: string | number; name?: string; slug?: string; image_url?: string };
+}
+
+interface KickProgressReward {
+  id?: string | number;
+  reward_id?: string | number;
+  drop_id?: string | number;
+  progress?: number;
+  progress_units?: number;
+  required_units?: number;
+  claimed?: boolean;
+  is_claimed?: boolean;
+  status?: string;
+  claim_id?: string;
+}
+
+export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[]): DropCampaign[] {
+  const campaigns = collectKickCampaigns(input);
+
+  return campaigns.map((campaign) => {
+    const startsAt = campaign.starts_at ?? campaign.start_date;
+    const endsAt = campaign.ends_at ?? campaign.end_date;
+    const rewards = campaign.rewards ?? campaign.drops ?? [];
+    const categoryId = campaign.category_id ?? campaign.game_id ?? campaign.category?.id;
+    const status = parseCampaignStatus(
+      campaign.status,
+      startsAt,
+      endsAt,
+      rewards.length > 0 && rewards.every((reward) => reward.claimed || reward.is_claimed),
+    );
+    const allowedChannels = campaign.channels
+      ?.map((channel) => channel.slug ?? channel.username ?? channel.user_slug ?? channel.user?.slug ?? channel.user?.username ?? channel.name)
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase());
+
+    return {
+      id: String(campaign.id),
+      platform: "kick",
+      name: campaign.name ?? campaign.title ?? `Kick campaign ${campaign.id}`,
+      slug: campaign.category?.slug,
+      gameName: campaign.category?.name,
+      gameImageUrl: campaign.category?.image_url,
+      categoryId: categoryId == null ? undefined : String(categoryId),
+      startsAt,
+      endsAt,
+      status,
+      accountLinked: true,
+      eligibility: status === "active" && rewards.length > 0 ? "eligible" : status === "completed" ? "completed" : rewards.length === 0 ? "no_rewards" : status === "active" ? "eligible" : status,
+      eligibilityReason: status === "active" && rewards.length > 0 ? "Eligible" : status === "completed" ? "All rewards are claimed" : rewards.length === 0 ? "Campaign has no rewards" : `Campaign is ${status}`,
+      allowedChannels,
+      connectionUrls: allowedChannels?.map((username) => `https://kick.com/${username}`) ?? [],
+      isGeneralDrop: !allowedChannels?.length,
+      rewards: rewards.map(parseKickReward),
+    };
+  });
+}
+
+function parseKickReward(reward: KickReward): DropReward {
+  return {
+    id: String(reward.id),
+    name: reward.name ?? reward.title ?? `Reward ${reward.id}`,
+    imageUrl: reward.image_url ?? reward.image,
+    requiredMinutes:
+      reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0,
+    watchedMinutes: 0,
+    status: reward.claimed || reward.is_claimed ? "claimed" : "locked",
+  };
+}
+
+export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgressResponse | KickProgress[]): DropCampaign[] {
+  const progressItems = collectKickProgress(input);
+
+  return campaigns.map((campaign) => {
+    const campaignProgress = progressItems.find((item) => String(item.id ?? item.campaign_id ?? item.drop_campaign_id) === campaign.id);
+    const rewards = campaign.rewards.map((reward) => {
+      const flatProgress = progressItems.find((item) => {
+        const campaignId = item.campaign_id ?? item.drop_campaign_id;
+        const rewardId = item.reward_id ?? item.drop_id;
+        return String(campaignId) === campaign.id && String(rewardId) === reward.id;
+      });
+      const nestedProgress = campaignProgress?.rewards?.find((item) => {
+        const rewardId = item.id ?? item.reward_id ?? item.drop_id;
+        return String(rewardId) === reward.id;
+      });
+      const progress = nestedProgress ?? flatProgress;
+      if (!progress) return reward;
+
+      const watchedMinutes = progressMinutes(progress, reward);
+      const rawStatus = progress.status?.toLowerCase();
+      const status = progress.claimed || progress.is_claimed
+        ? "claimed"
+        : rawStatus === "claimable" || watchedMinutes >= reward.requiredMinutes
+          ? "claimable"
+          : watchedMinutes > 0
+            ? "in_progress"
+            : reward.status;
+
+      return {
+        ...reward,
+        watchedMinutes,
+        status,
+        claimId: progress.claim_id ?? reward.claimId,
+      };
+    });
+    const status = rewards.every((reward) => reward.status === "claimed")
+      ? "completed"
+      : campaignProgress?.status === "claimed"
+        ? "completed"
+        : campaign.status;
+
+    return {
+      ...campaign,
+      status,
+      gameName: campaignProgress?.category?.name ?? campaign.gameName,
+      gameImageUrl: campaignProgress?.category?.image_url ?? campaign.gameImageUrl,
+      categoryId: campaignProgress?.category?.id == null ? campaign.categoryId : String(campaignProgress.category.id),
+      rewards,
+    };
+  });
+}
+
+export function kickCandidatesFromCampaign(campaign: DropCampaign): ChannelCandidate[] {
+  return (campaign.allowedChannels ?? []).map((username) => ({
+    platform: "kick",
+    username,
+    displayName: username,
+    url: `https://kick.com/${username}`,
+    campaignId: campaign.id,
+    categoryId: campaign.categoryId,
+    categoryName: campaign.gameName,
+    isAclMatch: true,
+  }));
+}
+
+function progressMinutes(progress: KickProgress | KickProgressReward, reward: DropReward): number {
+  if ("watched_minutes" in progress || "current_minutes" in progress || "progress_minutes" in progress) {
+    return progress.watched_minutes ?? progress.current_minutes ?? progress.progress_minutes ?? reward.watchedMinutes;
+  }
+  if (progress.progress_units != null) return progress.progress_units;
+  if ("percentage" in progress && progress.percentage != null) {
+    return Math.round((progress.percentage / 100) * reward.requiredMinutes);
+  }
+  if (progress.progress != null) {
+    const required = progress.required_units ?? reward.requiredMinutes;
+    const multiplier = progress.progress > 1 ? progress.progress / 100 : progress.progress;
+    return Math.round(multiplier * required);
+  }
+  return reward.watchedMinutes;
+}
+
+function collectKickCampaigns(input: KickCampaignResponse | KickCampaign[]): KickCampaign[] {
+  if (Array.isArray(input)) return input;
+  const data = input.data;
+  if (Array.isArray(data)) return data;
+  return [
+    ...(input.campaigns ?? []),
+    ...(input.active ?? []),
+    ...(input.current ?? []),
+    ...(input.upcoming ?? []),
+    ...(input.expired ?? []),
+    ...(input.completed ?? []),
+    ...(data?.campaigns ?? []),
+    ...(data?.active ?? []),
+    ...(data?.current ?? []),
+    ...(data?.upcoming ?? []),
+    ...(data?.expired ?? []),
+    ...(data?.completed ?? []),
+  ];
+}
+
+function collectKickProgress(input: KickProgressResponse | KickProgress[]): KickProgress[] {
+  if (Array.isArray(input)) return input;
+  const data = input.data;
+  if (Array.isArray(data)) return data;
+  return [
+    ...(input.progress ?? []),
+    ...(input.campaigns ?? []),
+    ...(input.active ?? []),
+    ...(input.current ?? []),
+    ...(input.completed ?? []),
+    ...(data?.progress ?? []),
+    ...(data?.campaigns ?? []),
+    ...(data?.active ?? []),
+    ...(data?.current ?? []),
+    ...(data?.completed ?? []),
+  ];
+}
+
+function parseCampaignStatus(
+  rawStatus: string | undefined,
+  startsAt: string | undefined,
+  endsAt: string | undefined,
+  completed: boolean,
+): DropCampaign["status"] {
+  const normalized = rawStatus?.toLowerCase();
+  if (completed) return "completed";
+  if (normalized === "active" || normalized === "upcoming" || normalized === "expired" || normalized === "completed") {
+    return normalized;
+  }
+  const now = Date.now();
+  if (startsAt && Date.parse(startsAt) > now) return "upcoming";
+  if (endsAt && Date.parse(endsAt) < now) return "expired";
+  return "active";
+}

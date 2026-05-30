@@ -1,0 +1,221 @@
+import { describe, expect, it } from "vitest";
+import { mergeKickProgress, parseKickCampaigns } from "../src/platforms/kickParser";
+import { mergeTwitchCampaignProgress, parseTwitchInventory } from "../src/platforms/twitchParser";
+
+describe("Kick parsers", () => {
+  it("normalizes campaigns and merges progress", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: 10,
+        name: "Kick Drops",
+        category_id: 42,
+        channels: [{ slug: "creator" }],
+        rewards: [{ id: 99, name: "Skin", required_minutes: 30 }],
+      }],
+    });
+
+    const merged = mergeKickProgress(campaigns, {
+      progress: [{
+        campaign_id: 10,
+        reward_id: 99,
+        watched_minutes: 30,
+        claim_id: "claim-99",
+      }],
+    });
+
+    expect(merged[0].allowedChannels).toEqual(["creator"]);
+    expect(merged[0].connectionUrls).toEqual(["https://kick.com/creator"]);
+    expect(merged[0].rewards[0].status).toBe("claimable");
+    expect(merged[0].rewards[0].claimId).toBe("claim-99");
+  });
+
+  it("merges campaign-level Kick progress with nested rewards", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: "campaign",
+        status: "active",
+        category: { id: "cat", name: "Game" },
+        rewards: [{ id: "reward", name: "Reward", required_minutes: 100 }],
+      }],
+    });
+
+    const merged = mergeKickProgress(campaigns, {
+      data: [{
+        id: "campaign",
+        status: "in progress",
+        category: { id: "cat2", name: "Updated Game" },
+        rewards: [{ id: "reward", progress: 0.25, required_units: 100 }],
+      }],
+    });
+
+    expect(merged[0].categoryId).toBe("cat2");
+    expect(merged[0].gameName).toBe("Updated Game");
+    expect(merged[0].rewards[0].watchedMinutes).toBe(25);
+    expect(merged[0].rewards[0].status).toBe("in_progress");
+  });
+
+  it("normalizes bucketed Kick campaign and progress responses", () => {
+    const campaigns = parseKickCampaigns({
+      data: {
+        active: [{
+          id: "active-campaign",
+          title: "Active Drops",
+          category: { id: "game", name: "Game", slug: "game" },
+          drops: [{ id: "reward", title: "Reward", minutes_required: 80 }],
+        }],
+        upcoming: [{
+          id: "future-campaign",
+          title: "Future Drops",
+          start_date: "2999-01-01T00:00:00.000Z",
+          rewards: [{ id: "future-reward", required_minutes: 30 }],
+        }],
+      },
+    });
+
+    const merged = mergeKickProgress(campaigns, {
+      data: {
+        current: [{
+          campaign_id: "active-campaign",
+          reward_id: "reward",
+          percentage: 50,
+        }],
+      },
+    });
+
+    expect(merged.map((campaign) => campaign.id)).toEqual(["active-campaign", "future-campaign"]);
+    expect(merged[0]).toMatchObject({
+      status: "active",
+      categoryId: "game",
+      gameName: "Game",
+      slug: "game",
+      isGeneralDrop: true,
+    });
+    expect(merged[0].rewards[0]).toMatchObject({
+      watchedMinutes: 40,
+      status: "in_progress",
+    });
+    expect(merged[1].status).toBe("upcoming");
+  });
+
+  it("treats whole-number Kick progress values as percentages", () => {
+    const campaigns = parseKickCampaigns([{
+      id: "campaign",
+      rewards: [{ id: "reward", required_minutes: 200 }],
+    }]);
+
+    const merged = mergeKickProgress(campaigns, [{
+      campaign_id: "campaign",
+      reward_id: "reward",
+      progress: 25,
+    }]);
+
+    expect(merged[0].rewards[0].watchedMinutes).toBe(50);
+    expect(merged[0].rewards[0].status).toBe("in_progress");
+  });
+});
+
+describe("Twitch parsers", () => {
+  it("normalizes inventory campaigns with ACL and claim ids", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            dropCampaignsInProgress: [{
+              id: "abc",
+              name: "Twitch Drops",
+              game: { id: "game", name: "Game" },
+              allow: { channels: [{ login: "Streamer" }] },
+              timeBasedDrops: [{
+                id: "drop",
+                name: "Cape",
+                startAt: "2026-05-01T00:00:00.000Z",
+                endAt: "2026-06-01T00:00:00.000Z",
+                requiredMinutesWatched: 60,
+                benefitEdges: [{ benefit: { id: "benefit", name: "Cape", imageAssetURL: "https://image", distributionType: "DIRECT_ENTITLEMENT" } }],
+                self: { currentMinutesWatched: 60, dropInstanceID: "instance" },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].allowedChannels).toEqual(["streamer"]);
+    expect(campaigns[0].connectionUrls).toEqual(["https://www.twitch.tv/streamer"]);
+    expect(campaigns[0].rewards[0].imageUrl).toBe("https://image");
+    expect(campaigns[0].rewards[0].status).toBe("claimable");
+    expect(campaigns[0].rewards[0].claimId).toBe("instance");
+  });
+
+  it("merges Twitch inventory progress into campaign details", () => {
+    const details = parseTwitchInventory([{
+      id: "campaign",
+      name: "Details",
+      game: { slug: "game-slug", displayName: "Game" },
+      timeBasedDrops: [{
+        id: "drop",
+        name: "Reward",
+        requiredMinutesWatched: 120,
+        benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            dropCampaignsInProgress: [{
+              id: "campaign",
+              timeBasedDrops: [{
+                id: "drop",
+                requiredMinutesWatched: 120,
+                self: { currentMinutesWatched: 45, dropInstanceID: "claim-id", isClaimed: false },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].isGeneralDrop).toBe(true);
+    expect(merged[0].connectionUrls?.[0]).toContain("/directory/category/game-slug");
+    expect(merged[0].rewards[0].watchedMinutes).toBe(45);
+    expect(merged[0].rewards[0].status).toBe("in_progress");
+  });
+
+  it("evaluates Twitch reward preconditions from claimed prior drops", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "campaign",
+      name: "Chain",
+      timeBasedDrops: [{
+        id: "first",
+        name: "First",
+        requiredMinutesWatched: 30,
+        self: { currentMinutesWatched: 30, isClaimed: true },
+      }, {
+        id: "second",
+        name: "Second",
+        requiredMinutesWatched: 60,
+        preconditionDrops: [{ id: "first" }],
+      }],
+    }]);
+
+    expect(campaigns[0].rewards[1].preconditionsMet).toBe(true);
+  });
+
+  it("marks all-claimed Twitch campaigns as completed and not eligible", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "campaign",
+      name: "Done",
+      status: "ACTIVE",
+      timeBasedDrops: [{
+        id: "drop",
+        requiredMinutesWatched: 30,
+        self: { currentMinutesWatched: 30, isClaimed: true },
+      }],
+    }]);
+
+    expect(campaigns[0].status).toBe("completed");
+    expect(campaigns[0].eligibility).toBe("completed");
+  });
+});

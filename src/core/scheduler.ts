@@ -1,0 +1,495 @@
+import type { PlatformAdapter } from "../platforms/adapter";
+import type {
+  ChannelCandidate,
+  DropCampaign,
+  DropReward,
+  ExtensionSettings,
+  Platform,
+  SchedulerState,
+  WatchDecision,
+  WatchSession,
+} from "./models";
+
+const PLATFORMS: Platform[] = ["twitch", "kick"];
+const MAX_PLATFORM_BACKOFF_MINUTES = 30;
+
+function activeReward(campaign: DropCampaign): DropReward | undefined {
+  const earnable = campaign.rewards.filter((reward) => reward.preconditionsMet !== false && isRewardAvailableToEarn(reward));
+  return earnable.find((reward) => reward.status === "in_progress")
+    ?? earnable.find((reward) => reward.status === "locked");
+}
+
+function isEligible(campaign: DropCampaign, settings: ExtensionSettings): boolean {
+  if (campaign.status !== "active") return false;
+  if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
+  if (settings.excludedCampaignIds.includes(campaign.id)) return false;
+  if (campaign.accountLinked === false) return false;
+  return campaign.rewards.some((reward) => reward.status !== "claimed" && reward.preconditionsMet !== false && isRewardRelevantNow(reward));
+}
+
+function availabilityScore(campaign: DropCampaign): number {
+  if (campaign.allowedChannels?.length) return campaign.allowedChannels.length;
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function endScore(campaign: DropCampaign): number {
+  return campaign.endsAt ? Date.parse(campaign.endsAt) : Number.MAX_SAFE_INTEGER;
+}
+
+export function sortCampaigns(campaigns: DropCampaign[], settings: ExtensionSettings): DropCampaign[] {
+  return [...campaigns].sort((left, right) => {
+    const leftPriority = settings.campaignPriorities[left.id] ?? left.priority;
+    const rightPriority = settings.campaignPriorities[right.id] ?? right.priority;
+    if (leftPriority != null && rightPriority != null && leftPriority !== rightPriority) return rightPriority - leftPriority;
+    if (leftPriority != null && rightPriority == null) return -1;
+    if (rightPriority != null && leftPriority == null) return 1;
+
+    const gameOrder = gamePriorityScore(left, settings) - gamePriorityScore(right, settings);
+    if (gameOrder !== 0) return gameOrder;
+
+    const normalizedLeftPriority = leftPriority ?? 0;
+    const normalizedRightPriority = rightPriority ?? 0;
+    if (normalizedLeftPriority !== normalizedRightPriority) return normalizedRightPriority - normalizedLeftPriority;
+
+    if (settings.priorityMode === "lowest_availability") {
+      const availability = availabilityScore(left) - availabilityScore(right);
+      if (availability !== 0) return availability;
+    }
+
+    const ends = endScore(left) - endScore(right);
+    if (ends !== 0) return ends;
+    return left.name.localeCompare(right.name);
+  });
+}
+
+function gamePriorityScore(campaign: DropCampaign, settings: ExtensionSettings): number {
+  if (!campaign.categoryId && !campaign.gameName) return Number.MAX_SAFE_INTEGER;
+  const candidates = [campaign.categoryId, campaign.gameName]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase());
+  const index = settings.gamePriority.findIndex((value) => candidates.includes(value.toLowerCase()));
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+export async function chooseCampaignDecision(
+  platform: Platform,
+  campaigns: DropCampaign[],
+  settings: ExtensionSettings,
+  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "checkChannel">,
+): Promise<WatchDecision> {
+  const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
+
+  for (const campaign of sorted) {
+    const reward = activeReward(campaign);
+    if (!reward) continue;
+
+    const candidates = (await adapter.listCandidateChannels(campaign))
+      .filter((candidate) => !settings.excludedChannels.includes(candidate.username.toLowerCase()))
+      .sort((left, right) => {
+        if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
+        return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
+      });
+
+    const channel = await firstValidCandidate(candidates, campaign, adapter);
+    if (channel) {
+      return {
+        platform,
+        action: "watch",
+        campaign,
+        reward,
+        channel,
+        reason: "eligible campaign selected",
+      };
+    }
+  }
+
+  const fallbackCandidates = settings.platform[platform].fallbackStreamers
+    .map((username) => username.trim().toLowerCase())
+    .filter(Boolean)
+    .map((username) => fallbackChannel(platform, username));
+  const fallback = settings.skipOfflineFallbackChannels
+    ? await firstValidCandidate(fallbackCandidates, undefined, adapter)
+    : fallbackCandidates[0];
+
+  if (fallback) {
+    return {
+      platform,
+      action: "fallback",
+      channel: fallback,
+      reason: "no active campaigns; fallback streamer selected",
+    };
+  }
+
+  return { platform, action: "idle", reason: "no eligible campaigns or fallback streamers" };
+}
+
+async function firstValidCandidate(
+  candidates: ChannelCandidate[],
+  campaign: DropCampaign | undefined,
+  adapter: Pick<PlatformAdapter, "checkChannel">,
+): Promise<ChannelCandidate | undefined> {
+  for (const candidate of candidates) {
+    const check = await adapter.checkChannel(candidate, campaign);
+    if (check.live && check.categoryMatches) {
+      return {
+        ...candidate,
+        live: check.live,
+        categoryId: check.candidate.categoryId ?? candidate.categoryId,
+        categoryName: check.candidate.categoryName ?? candidate.categoryName,
+      };
+    }
+  }
+  return undefined;
+}
+
+function fallbackChannel(platform: Platform, username: string): ChannelCandidate {
+  const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
+  return {
+    platform,
+    username,
+    displayName: username,
+    url: `${host}/${username}`,
+  };
+}
+
+function sessionForDecision(
+  decision: WatchDecision,
+  previous: WatchSession,
+  keepStatus?: { keep: boolean; playbackChecks: number },
+): WatchSession {
+  if (decision.action === "idle") {
+    return {
+      ...previous,
+      status: "idle",
+      channel: undefined,
+      campaignId: undefined,
+      rewardId: undefined,
+      tabId: undefined,
+      tabManagedByExtension: undefined,
+      message: decision.reason,
+      playback: undefined,
+      playbackChecks: 0,
+    };
+  }
+
+  const sameChannel = previous.channel?.url === decision.channel?.url && previous.status === "watching";
+  const keepPlayback = sameChannel && keepStatus?.keep === true;
+  return {
+    ...previous,
+    status: "watching",
+    channel: decision.channel,
+    campaignId: decision.campaign?.id,
+    rewardId: decision.reward?.id,
+    startedAt: keepPlayback ? previous.startedAt : new Date().toISOString(),
+    message: decision.reason,
+    playback: keepPlayback ? previous.playback : undefined,
+    playbackChecks: keepStatus?.playbackChecks ?? 0,
+  };
+}
+
+export interface SchedulerTickResult {
+  state: SchedulerState;
+  decisions: WatchDecision[];
+}
+
+export async function runSchedulerTick(
+  state: SchedulerState,
+  settings: ExtensionSettings,
+  adapters: Record<Platform, PlatformAdapter>,
+): Promise<SchedulerTickResult> {
+  let nextState: SchedulerState = {
+    ...state,
+    campaigns: { ...state.campaigns },
+    sessions: { ...state.sessions },
+    lastTickAt: new Date().toISOString(),
+  };
+  const decisions: WatchDecision[] = [];
+
+  for (const platform of PLATFORMS) {
+    const previous = nextState.sessions[platform];
+    const platformSettings = settings.platform[platform];
+    const adapter = adapters[platform];
+
+    try {
+      if (!settings.running || !platformSettings.enabled) {
+        await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
+        nextState.sessions[platform] = {
+          ...previous,
+          status: "paused",
+          channel: undefined,
+          campaignId: undefined,
+          rewardId: undefined,
+          tabId: undefined,
+          tabManagedByExtension: undefined,
+          playback: undefined,
+          playbackChecks: 0,
+          errorChecks: 0,
+          retryAfter: undefined,
+          message: "automation disabled",
+        };
+        nextState = addTickEvent(nextState, platform, "info", "Automation disabled");
+        continue;
+      }
+
+      if (isInBackoff(previous)) {
+        nextState.sessions[platform] = {
+          ...previous,
+          status: "error",
+          lastCheckedAt: new Date().toISOString(),
+          message: `waiting until ${previous.retryAfter} before retrying after platform errors`,
+        };
+        nextState = addTickEvent(nextState, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred");
+        continue;
+      }
+
+      const discovered = await adapter.discoverCampaigns();
+      let campaigns = await adapter.readProgress(discovered, previous);
+      nextState.campaigns[platform] = campaigns;
+      nextState = addTickEvent(nextState, platform, "info", `Discovered ${campaigns.length} campaigns`);
+
+      if (settings.autoClaim) {
+        const claimResult = await claimReadyRewards(adapter, campaigns);
+        campaigns = claimResult.campaigns;
+        nextState.campaigns[platform] = campaigns;
+        for (const event of claimResult.events) {
+          nextState = addTickEvent(nextState, platform, event.level, event.message);
+        }
+      }
+
+      let decision = await chooseCampaignDecision(platform, campaigns, settings, adapter);
+      const shouldKeep = await shouldKeepWatching(previous, decision, settings, adapter);
+      if (shouldKeep.keep && previous.channel) {
+        decision = {
+          platform,
+          action: previous.campaignId ? "watch" : "fallback",
+          campaign: campaigns.find((campaign) => campaign.id === previous.campaignId),
+          reward: campaigns
+            .find((campaign) => campaign.id === previous.campaignId)
+            ?.rewards.find((reward) => reward.id === previous.rewardId),
+          channel: previous.channel,
+          reason: shouldKeep.reason,
+        };
+      } else if (previous.status === "watching" && previous.channel && shouldKeep.reason !== "no existing watch session") {
+        decision = {
+          ...decision,
+          reason: shouldKeep.reason,
+        };
+      }
+
+      decisions.push(decision);
+      nextState = addTickEvent(nextState, platform, decision.action === "idle" ? "warn" : "info", decision.reason);
+      if (decision.action === "idle") {
+        await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
+      }
+      const session = sessionForDecision(decision, previous, shouldKeep);
+      if (decision.channel && decision.action !== "idle") {
+        const prepared = await adapter.prepareWatchTab(decision.channel, previous, {
+          muted: settings.muteFarmingTabs,
+          closeManagedTabs: settings.autoCloseFinishedDrops,
+        });
+        session.tabId = prepared.tabId;
+        session.tabManagedByExtension = prepared.managedByExtension;
+        session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
+        session.playbackChecks = shouldKeep.playbackChecks;
+        if (settings.autoClaimChannelPoints && adapter.claimChannelPoints) {
+          try {
+            const claimed = await adapter.claimChannelPoints(decision.channel);
+            if (claimed) {
+              nextState = addTickEvent(nextState, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`);
+            }
+          } catch (error) {
+            nextState = addTickEvent(
+              nextState,
+              platform,
+              "warn",
+              error instanceof Error ? error.message : "Channel points claim failed",
+            );
+          }
+        }
+      }
+      session.lastCheckedAt = new Date().toISOString();
+      session.errorChecks = 0;
+      session.retryAfter = undefined;
+      nextState.sessions[platform] = session;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Platform scheduler failed";
+      const errorChecks = (previous.errorChecks ?? 0) + 1;
+      nextState.sessions[platform] = {
+        ...previous,
+        status: "error",
+        lastCheckedAt: new Date().toISOString(),
+        errorChecks,
+        retryAfter: nextRetryAfter(errorChecks),
+        message,
+      };
+      nextState = addTickEvent(nextState, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`);
+    }
+  }
+
+  return { state: nextState, decisions };
+}
+
+function isInBackoff(session: WatchSession): boolean {
+  if (session.status !== "error" || !session.retryAfter) return false;
+  const retryAt = Date.parse(session.retryAfter);
+  return !Number.isNaN(retryAt) && Date.now() < retryAt;
+}
+
+function nextRetryAfter(errorChecks: number): string {
+  const minutes = Math.min(MAX_PLATFORM_BACKOFF_MINUTES, 2 ** Math.max(0, errorChecks - 1));
+  return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+}
+
+async function claimReadyRewards(
+  adapter: PlatformAdapter,
+  campaigns: DropCampaign[],
+): Promise<{ campaigns: DropCampaign[]; events: Array<{ level: "info" | "warn" | "error"; message: string }> }> {
+  const events: Array<{ level: "info" | "warn" | "error"; message: string }> = [];
+  const updated: DropCampaign[] = [];
+
+  for (const campaign of campaigns) {
+    const rewards: DropReward[] = [];
+    for (const reward of campaign.rewards) {
+      if (reward.status === "claimable" && canClaimReward(reward)) {
+        try {
+          const claimed = await adapter.claimReward(campaign, reward);
+          rewards.push(claimed ? { ...reward, status: "claimed", watchedMinutes: reward.requiredMinutes } : reward);
+          events.push({
+            level: claimed ? "info" : "warn",
+            message: claimed
+              ? `Claimed ${reward.name} from ${campaign.name}`
+              : `Could not claim ${reward.name} from ${campaign.name}`,
+          });
+        } catch (error) {
+          rewards.push(reward);
+          events.push({
+            level: "error",
+            message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,
+          });
+        }
+      } else {
+        rewards.push(reward);
+      }
+    }
+    updated.push({
+      ...campaign,
+      rewards,
+      status: rewards.every((reward) => reward.status === "claimed") ? "completed" : campaign.status,
+    });
+  }
+
+  return { campaigns: updated, events };
+}
+
+function isRewardRelevantNow(reward: DropReward): boolean {
+  return canClaimReward(reward) || isRewardAvailableToEarn(reward);
+}
+
+function isRewardAvailableToEarn(reward: DropReward): boolean {
+  const now = Date.now();
+  const startsAt = reward.availableFrom ? Date.parse(reward.availableFrom) : undefined;
+  const endsAt = reward.availableUntil ? Date.parse(reward.availableUntil) : undefined;
+  if (startsAt != null && !Number.isNaN(startsAt) && now < startsAt) return false;
+  if (endsAt != null && !Number.isNaN(endsAt) && now >= endsAt) return false;
+  return reward.status !== "claimed" && reward.status !== "claimable";
+}
+
+function canClaimReward(reward: DropReward): boolean {
+  if (reward.status !== "claimable") return false;
+  if (!reward.claimUntil) return true;
+  const claimUntil = Date.parse(reward.claimUntil);
+  return Number.isNaN(claimUntil) || Date.now() < claimUntil;
+}
+
+async function shouldKeepWatching(
+  previous: WatchSession,
+  nextDecision: WatchDecision,
+  settings: ExtensionSettings,
+  adapter: Pick<PlatformAdapter, "checkChannel">,
+): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string }> {
+  if (!previous.channel || previous.status !== "watching") {
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "no existing watch session" };
+  }
+  if (nextDecision.action === "idle") {
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason };
+  }
+  if (previous.campaignId && nextDecision.action !== "watch") {
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "current campaign is no longer eligible" };
+  }
+  if (!settings.permawatchFallbackOnly && !previous.campaignId && nextDecision.action === "watch") {
+    const fallbackCheck = await adapter.checkChannel(previous.channel);
+    const fallbackOfflineChecks = fallbackCheck.live ? 0 : previous.offlineChecks + 1;
+    if (fallbackCheck.live && fallbackCheck.categoryMatches) {
+      const fallbackPlaybackChecks = isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
+      if (fallbackPlaybackChecks < settings.offlineRetryLimit) {
+        return {
+          keep: true,
+          offlineChecks: fallbackOfflineChecks,
+          playbackChecks: fallbackPlaybackChecks,
+          reason: "keeping current Permawatch tab",
+        };
+      }
+    }
+  }
+
+  const changedTarget = nextDecision.channel?.url !== previous.channel.url;
+  const differentCampaignAvailable = changedTarget
+    && nextDecision.action === "watch"
+    && nextDecision.campaign?.id !== previous.campaignId;
+  if (differentCampaignAvailable) {
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "higher priority eligible campaign available" };
+  }
+
+  const check = await adapter.checkChannel(previous.channel);
+  const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
+  if (offlineChecks >= settings.offlineRetryLimit) {
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "channel offline retry limit reached" };
+  }
+
+  if (!check.categoryMatches) {
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "channel category no longer matches" };
+  }
+
+  const playbackChecks = isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
+  if (playbackChecks >= settings.offlineRetryLimit) {
+    return {
+      keep: false,
+      offlineChecks,
+      playbackChecks,
+      reason: "watch tab playback did not become active",
+    };
+  }
+
+  return { keep: true, offlineChecks, playbackChecks, reason: "keeping current watch tab" };
+}
+
+function isPlaybackHealthy(session: WatchSession): boolean {
+  const playback = session.playback;
+  if (!playback) return false;
+  const checkedAt = Date.parse(playback.checkedAt);
+  if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return false;
+  return playback.videoCount > 0
+    && playback.mutedVideoCount > 0
+    && playback.playingVideoCount > 0;
+}
+
+function addTickEvent(
+  state: SchedulerState,
+  platform: Platform,
+  level: "info" | "warn" | "error",
+  message: string,
+): SchedulerState {
+  return {
+    ...state,
+    events: [
+      {
+        id: `${Date.now()}-${platform}-${Math.random().toString(16).slice(2)}`,
+        at: new Date().toISOString(),
+        platform,
+        level,
+        message,
+      },
+      ...state.events,
+    ].slice(0, 100),
+  };
+}
