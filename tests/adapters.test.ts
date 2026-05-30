@@ -15,6 +15,10 @@ function operation(init?: RequestInit): string {
   return JSON.parse(String(init?.body)).operationName;
 }
 
+function requestBody(init?: RequestInit): Record<string, unknown> {
+  return JSON.parse(String(init?.body)) as Record<string, unknown>;
+}
+
 describe("KickAdapter", () => {
   it("discovers campaigns, merges nested progress, and lists category streams", async () => {
     const fetcher = jsonFetcher((url) => {
@@ -129,6 +133,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "Inventory") {
+        expect(requestBody(init).variables).toMatchObject({ fetchRewardCampaigns: true });
         return {
           data: {
             currentUser: {
@@ -148,6 +153,7 @@ describe("TwitchAdapter", () => {
         };
       }
       if (op === "ViewerDropsDashboard") {
+        expect(requestBody(init).variables).toMatchObject({ fetchRewardCampaigns: true });
         return {
           data: {
             currentUser: {
@@ -181,6 +187,105 @@ describe("TwitchAdapter", () => {
 
     expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Twitch Campaign", isGeneralDrop: true });
     expect(campaigns[0].rewards[0]).toMatchObject({ status: "claimable", claimId: "claim" });
+  });
+
+  it("falls back to inventory campaigns when Twitch campaign details hash is stale", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        return {
+          data: {
+            currentUser: {
+              id: "user-id",
+              inventory: {
+                dropCampaignsInProgress: [{
+                  id: "campaign",
+                  name: "Inventory Campaign",
+                  game: { id: "game", slug: "game-slug", displayName: "Game" },
+                  timeBasedDrops: [{
+                    id: "drop",
+                    requiredMinutesWatched: 60,
+                    self: { currentMinutesWatched: 20, dropInstanceID: "claim", isClaimed: false },
+                  }],
+                }],
+              },
+            },
+          },
+        };
+      }
+      if (op === "ViewerDropsDashboard") {
+        return {
+          data: {
+            currentUser: {
+              login: "viewer",
+              dropCampaigns: [{ id: "campaign", status: "ACTIVE", self: { isAccountConnected: true } }],
+            },
+          },
+        };
+      }
+      if (op === "DropCampaignDetails") {
+        return { errors: [{ message: "PersistedQueryNotFound" }] };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    const campaigns = await new TwitchAdapter(fetcher).discoverCampaigns();
+
+    expect(campaigns).toHaveLength(1);
+    expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Inventory Campaign", status: "active" });
+    expect(campaigns[0].rewards[0]).toMatchObject({ watchedMinutes: 20, status: "in_progress", claimId: "claim" });
+  });
+
+  it("discovers upcoming Twitch dashboard campaigns without making them farmable", async () => {
+    const startsAt = "2999-01-01T00:00:00.000Z";
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        return { data: { currentUser: { inventory: { dropCampaignsInProgress: [] } } } };
+      }
+      if (op === "ViewerDropsDashboard") {
+        return {
+          data: {
+            currentUser: {
+              login: "viewer",
+              dropCampaigns: [{ id: "future", status: "UPCOMING", self: { isAccountConnected: true } }],
+            },
+          },
+        };
+      }
+      if (op === "DropCampaignDetails") {
+        return {
+          data: {
+            user: {
+              dropCampaign: {
+                id: "future",
+                name: "Future Campaign",
+                status: "UPCOMING",
+                startAt: startsAt,
+                endAt: "2999-01-02T00:00:00.000Z",
+                game: { id: "game", slug: "game-slug", displayName: "Game" },
+                timeBasedDrops: [{
+                  id: "drop",
+                  startAt: startsAt,
+                  endAt: "2999-01-02T00:00:00.000Z",
+                  requiredMinutesWatched: 30,
+                  benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
+                }],
+              },
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    const campaigns = await new TwitchAdapter(fetcher).discoverCampaigns();
+
+    expect(campaigns[0]).toMatchObject({
+      id: "future",
+      status: "upcoming",
+      eligibility: "upcoming",
+    });
   });
 
   it("retries transient GQL failures once", async () => {

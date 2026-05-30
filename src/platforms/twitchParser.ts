@@ -79,11 +79,14 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
     const startsAt = campaign.startAt;
     const endsAt = campaign.endAt;
     const accountLinked = campaign.self?.isAccountConnected ?? campaign.accountLinkURL == null;
+    const rawStatus = campaign.status?.toLowerCase();
     const status = startsAt && Date.parse(startsAt) > now
       ? "upcoming"
       : endsAt && Date.parse(endsAt) < now
         ? "expired"
-        : campaign.status?.toLowerCase() === "expired"
+        : rawStatus === "upcoming"
+          ? "upcoming"
+          : rawStatus === "expired"
           ? "expired"
           : "active";
     const parsedRewards = (campaign.timeBasedDrops ?? []).map((drop) =>
@@ -96,7 +99,7 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
       ),
     }));
 
-    const finalStatus = rewards.every((reward) => reward.status === "claimed") ? "completed" : status;
+    const finalStatus = rewards.length > 0 && rewards.every((reward) => reward.status === "claimed") ? "completed" : status;
 
     return {
       id: campaign.id,

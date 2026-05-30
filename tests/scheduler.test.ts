@@ -115,6 +115,35 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
+  it("keeps upcoming campaigns visible but does not select them for farming", async () => {
+    const listCandidateChannels = vi.fn(async () => [channel("creator")]);
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("future", {
+        status: "upcoming",
+        eligibility: "upcoming",
+        startsAt: "2999-01-01T00:00:00.000Z",
+        rewards: [{
+          ...reward("locked"),
+          availableFrom: "2999-01-01T00:00:00.000Z",
+          availableUntil: "2999-01-02T00:00:00.000Z",
+        }],
+      })],
+      settings(),
+      {
+        listCandidateChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision).toMatchObject({
+      action: "idle",
+      reason: "only upcoming campaigns are available and no fallback streamers",
+    });
+    expect(listCandidateChannels).not.toHaveBeenCalled();
+  });
+
   it("prefers ACL candidates over general category streams", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",

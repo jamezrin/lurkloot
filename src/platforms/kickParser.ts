@@ -49,6 +49,7 @@ interface KickReward {
   title?: string;
   image_url?: string;
   image?: string;
+  required_units?: number;
   required_minutes?: number;
   minutes_required?: number;
   watch_time_required?: number;
@@ -154,7 +155,7 @@ function parseKickReward(reward: KickReward): DropReward {
     name: reward.name ?? reward.title ?? `Reward ${reward.id}`,
     imageUrl: reward.image_url ?? reward.image,
     requiredMinutes:
-      reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0,
+      reward.required_units ?? reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0,
     watchedMinutes: 0,
     status: reward.claimed || reward.is_claimed ? "claimed" : "locked",
   };

@@ -9,12 +9,12 @@ const TWITCH_QUERIES = {
   inventory: {
     operationName: "Inventory",
     sha256Hash: "d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b",
-    variables: { fetchRewardCampaigns: false },
+    variables: { fetchRewardCampaigns: true },
   },
   dashboard: {
     operationName: "ViewerDropsDashboard",
     sha256Hash: "5a4da2ab3d5b47c9f9ce864e727b2cb346af1e3ea8b897fe8f704a97ff017619",
-    variables: { fetchRewardCampaigns: false },
+    variables: { fetchRewardCampaigns: true },
   },
   campaignDetailsHash: "039277bf98f3130929262cc7c6efd9c141ca3749cb6dca442fc8ead9a53f77c1",
   gameDirectoryHash: "c7c9d5aad09155c4161d2382092dc44610367f3536aac39019ec2582ae5065f9",
@@ -51,6 +51,7 @@ interface TwitchDashboardData {
 
 interface TwitchCampaignDetailsData {
   currentUser?: { id?: string; login?: string };
+  user?: { dropCampaign?: unknown };
   dropCampaign?: unknown;
 }
 
@@ -121,16 +122,21 @@ export class TwitchAdapter implements PlatformAdapter {
       this.gql<TwitchDashboardData>(TWITCH_QUERIES.dashboard.operationName, TWITCH_QUERIES.dashboard.sha256Hash, TWITCH_QUERIES.dashboard.variables),
     ]);
     const userLogin = dashboard.data?.currentUser?.login ?? dashboard.data?.currentUser?.id ?? "";
-    const activeCampaignIds = (dashboard.data?.currentUser?.dropCampaigns ?? [])
-      .filter((campaign) => campaign.id && campaign.status === "ACTIVE" && campaign.self?.isAccountConnected !== false)
+    const inventoryCampaigns = parseTwitchInventory(inventory as Parameters<typeof parseTwitchInventory>[0]);
+    const discoverableCampaignIds = (dashboard.data?.currentUser?.dropCampaigns ?? [])
+      .filter((campaign) =>
+        campaign.id
+        && (campaign.status === "ACTIVE" || campaign.status === "UPCOMING")
+        && campaign.self?.isAccountConnected !== false
+      )
       .map((campaign) => campaign.id as string);
 
-    if (activeCampaignIds.length === 0) {
-      return parseTwitchInventory(inventory as Parameters<typeof parseTwitchInventory>[0]);
+    if (discoverableCampaignIds.length === 0) {
+      return inventoryCampaigns;
     }
 
-    const details = await Promise.all(
-      activeCampaignIds.map((dropID) =>
+    const details = await Promise.allSettled(
+      discoverableCampaignIds.map((dropID) =>
         this.gql<TwitchCampaignDetailsData>("DropCampaignDetails", TWITCH_QUERIES.campaignDetailsHash, {
           channelLogin: userLogin,
           dropID,
@@ -138,10 +144,18 @@ export class TwitchAdapter implements PlatformAdapter {
       ),
     );
     const detailedCampaigns = details
-      .map((response) => response.data?.dropCampaign)
+      .map((result) => result.status === "fulfilled" ? result.value.data?.dropCampaign ?? result.value.data?.user?.dropCampaign : undefined)
       .filter((campaign): campaign is NonNullable<typeof campaign> => Boolean(campaign));
+    if (detailedCampaigns.length === 0) {
+      return inventoryCampaigns;
+    }
     const parsedDetails = parseTwitchInventory(detailedCampaigns as Parameters<typeof parseTwitchInventory>[0]);
-    return mergeTwitchCampaignProgress(parsedDetails, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
+    const mergedDetails = mergeTwitchCampaignProgress(parsedDetails, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
+    const detailedIds = new Set(mergedDetails.map((campaign) => campaign.id));
+    return [
+      ...mergedDetails,
+      ...inventoryCampaigns.filter((campaign) => !detailedIds.has(campaign.id)),
+    ];
   }
 
   async readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]> {

@@ -112,6 +112,18 @@ describe("Kick parsers", () => {
     expect(merged[0].rewards[0].watchedMinutes).toBe(50);
     expect(merged[0].rewards[0].status).toBe("in_progress");
   });
+
+  it("reads Kick reward durations from required_units", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: "campaign",
+        status: "active",
+        rewards: [{ id: "reward", name: "Reward", required_units: 90 }],
+      }],
+    });
+
+    expect(campaigns[0].rewards[0].requiredMinutes).toBe(90);
+  });
 });
 
 describe("Twitch parsers", () => {
@@ -217,5 +229,29 @@ describe("Twitch parsers", () => {
 
     expect(campaigns[0].status).toBe("completed");
     expect(campaigns[0].eligibility).toBe("completed");
+  });
+
+  it("preserves upcoming and no-reward Twitch campaign states", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "future",
+      name: "Future",
+      status: "UPCOMING",
+      startAt: "2999-01-01T00:00:00.000Z",
+      endAt: "2999-01-02T00:00:00.000Z",
+      timeBasedDrops: [{
+        id: "drop",
+        requiredMinutesWatched: 30,
+      }],
+    }, {
+      id: "empty",
+      name: "Empty",
+      status: "ACTIVE",
+      timeBasedDrops: [],
+    }]);
+
+    expect(campaigns[0].status).toBe("upcoming");
+    expect(campaigns[0].eligibility).toBe("upcoming");
+    expect(campaigns[1].status).toBe("active");
+    expect(campaigns[1].eligibility).toBe("no_rewards");
   });
 });

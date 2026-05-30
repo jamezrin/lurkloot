@@ -78,6 +78,7 @@ export async function chooseCampaignDecision(
   adapter: Pick<PlatformAdapter, "listCandidateChannels" | "checkChannel">,
 ): Promise<WatchDecision> {
   const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
+  const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
 
   for (const campaign of sorted) {
     const reward = activeReward(campaign);
@@ -121,11 +122,33 @@ export async function chooseCampaignDecision(
       platform,
       action: "fallback",
       channel: fallback,
-      reason: "no active campaigns; fallback streamer selected",
+      reason: `${noCampaignReason}; fallback streamer selected`,
     };
   }
 
-  return { platform, action: "idle", reason: "no eligible campaigns or fallback streamers" };
+  return { platform, action: "idle", reason: `${noCampaignReason} and no fallback streamers` };
+}
+
+function noEligibleCampaignReason(campaigns: DropCampaign[], settings: ExtensionSettings): string {
+  if (campaigns.length === 0) return "no campaigns discovered";
+  const notExcluded = campaigns.filter((campaign) => !settings.excludedCampaignIds.includes(campaign.id));
+  if (notExcluded.length === 0) return "all campaigns are excluded";
+  if (notExcluded.every((campaign) => campaign.status === "upcoming" || campaign.eligibility === "upcoming")) {
+    return "only upcoming campaigns are available";
+  }
+  if (notExcluded.every((campaign) => campaign.status === "expired" || campaign.eligibility === "expired")) {
+    return "only expired campaigns are available";
+  }
+  if (notExcluded.every((campaign) => campaign.status === "completed" || campaign.eligibility === "completed")) {
+    return "all campaigns are completed";
+  }
+  if (notExcluded.every((campaign) => campaign.eligibility === "no_rewards" || campaign.rewards.length === 0)) {
+    return "campaigns have no time-based rewards";
+  }
+  if (notExcluded.every((campaign) => campaign.accountLinked === false || campaign.eligibility === "account_not_linked")) {
+    return "campaign accounts are not linked";
+  }
+  return "no eligible campaigns";
 }
 
 async function firstValidCandidate(
