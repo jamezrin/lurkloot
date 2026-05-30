@@ -181,6 +181,19 @@ describe("background controller", () => {
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
   });
 
+  it("recreates the scheduler alarm when saving a custom tick interval", async () => {
+    const env = harness();
+
+    await env.controller.handleMessage({
+      type: "saveSettings",
+      settings: { ...env.settings, pollIntervalMinutes: 17 },
+    });
+
+    expect(env.settings.pollIntervalMinutes).toBe(17);
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: 17 });
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+  });
+
   it("runs a scheduler tick after saving settings when requested and automation is active", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
     const nextSettings = {

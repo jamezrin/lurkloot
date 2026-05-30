@@ -11,7 +11,6 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   notifyNoDropsLeft: true,
   autoStartDropFarming: true,
   permawatchFallbackOnly: true,
-  skipOfflineFallbackChannels: true,
   priorityMode: "ending_soonest",
   platform: {
     twitch: {
@@ -28,7 +27,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   excludedCampaignIds: [],
   excludedChannels: [],
   offlineRetryLimit: 3,
-  pollIntervalMinutes: 5,
+  pollIntervalMinutes: 1,
 };
 
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
@@ -44,7 +43,6 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_SETTINGS.notifyNoDropsLeft),
     autoStartDropFarming: booleanOr(value?.autoStartDropFarming, DEFAULT_SETTINGS.autoStartDropFarming),
     permawatchFallbackOnly: booleanOr(value?.permawatchFallbackOnly, DEFAULT_SETTINGS.permawatchFallbackOnly),
-    skipOfflineFallbackChannels: booleanOr(value?.skipOfflineFallbackChannels, DEFAULT_SETTINGS.skipOfflineFallbackChannels),
     priorityMode: value?.priorityMode === "lowest_availability" || value?.priorityMode === "ending_soonest"
       ? value.priorityMode
       : DEFAULT_SETTINGS.priorityMode,
@@ -63,7 +61,7 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     excludedCampaignIds: normalizeStringList(value?.excludedCampaignIds),
     excludedChannels: normalizeStringList(value?.excludedChannels),
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_SETTINGS.offlineRetryLimit),
-    pollIntervalMinutes: clampInteger(value?.pollIntervalMinutes, 1, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
+    pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 0.5, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
   };
 }
 
@@ -74,6 +72,11 @@ function booleanOr(value: boolean | undefined, fallback: boolean): boolean {
 function clampInteger(value: number | undefined, min: number, max: number, fallback: number): number {
   if (value == null || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function clampNumber(value: number | undefined, min: number, max: number, fallback: number): number {
+  if (value == null || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
 }
 
 function normalizeStringList(value: string[] | undefined): string[] {

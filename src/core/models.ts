@@ -124,7 +124,6 @@ export interface ExtensionSettings {
   notifyNoDropsLeft: boolean;
   autoStartDropFarming: boolean;
   permawatchFallbackOnly: boolean;
-  skipOfflineFallbackChannels: boolean;
   priorityMode: PriorityMode;
   platform: Record<Platform, PlatformSettings>;
   campaignPriorities: Record<string, number>;

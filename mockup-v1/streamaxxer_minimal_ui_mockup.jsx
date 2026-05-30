@@ -945,7 +945,6 @@ function SettingsView({ games, setGames, settings, setSettings }) {
 
       <SettingsSection title="Permawatch" description="Fallback queue behavior." icon={Play}>
         <SettingRow title="Only when no drops are active" description="Preserves drop priority automatically." checked={settings.permawatchFallbackOnly} onChange={set("permawatchFallbackOnly")} />
-        <SettingRow title="Skip offline channels" description="Jump to the next live fallback entry." checked={settings.skipOffline} onChange={set("skipOffline")} />
       </SettingsSection>
     </div>
   );
@@ -970,7 +969,6 @@ function Popup() {
     notifyNoDropsLeft: true,
     autoStartDropFarming: true,
     permawatchFallbackOnly: true,
-    skipOffline: true,
   });
 
   const gameMap = useMemo(() => Object.fromEntries(initialGames.map((g) => [g.id, g])), []);

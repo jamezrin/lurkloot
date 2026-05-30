@@ -563,6 +563,7 @@ function SortablePermawatch({ streamer, index, onRemove }: { streamer: StreamerI
 
 function SettingsView({ games, settings, onSettingsChange }: { games: GameItem[]; settings: ExtensionSettings; onSettingsChange(patch: Partial<ExtensionSettings>): Promise<void> }) {
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as Partial<ExtensionSettings>);
+  const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
   return (
     <div className="space-y-2.5">
       <SettingsSection title="General" description="Tab audio and cleanup behavior." icon={SettingsIcon}>
@@ -570,6 +571,7 @@ function SettingsView({ games, settings, onSettingsChange }: { games: GameItem[]
         <SettingRow title="Pause when watching manually" description="Stop farming while you have a stream open and are watching yourself." checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
         <SettingRow title="Auto-close farming tabs" description="Automatically close when the extension is idle (no drops to farm or no streamers to watch)." checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
         <SettingRow title="Auto-start on launch" description="Begin farming as soon as the extension loads." checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
+        <NumberSettingRow title="Scheduler interval" description="How often campaign and streamer status refreshes." value={pollIntervalSeconds} min={30} max={3600} suffix="sec" onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
       </SettingsSection>
       <SettingsSection title="Notifications" description="When Streamaxxer should ping you." icon={Bell}>
         <SettingRow title="Reward earned" description="Notify when a drop reward is claimable." checked={settings.notifyRewardEarned} onChange={set("notifyRewardEarned")} />
@@ -580,7 +582,6 @@ function SettingsView({ games, settings, onSettingsChange }: { games: GameItem[]
       </SettingsSection>
       <SettingsSection title="Permawatch" description="Fallback queue behavior." icon={Play}>
         <SettingRow title="Only when no drops are active" description="Preserves drop priority automatically." checked={settings.permawatchFallbackOnly} onChange={set("permawatchFallbackOnly")} />
-        <SettingRow title="Skip offline channels" description="Jump to the next live fallback entry." checked={settings.skipOfflineFallbackChannels} onChange={set("skipOfflineFallbackChannels")} />
       </SettingsSection>
     </div>
   );
@@ -666,6 +667,51 @@ function SettingRow({ title, description, checked, onChange }: { title: string; 
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
       <Toggle checked={checked} onChange={onChange} label={title} />
+    </div>
+  );
+}
+
+function NumberSettingRow({ title, description, value, min, max, suffix, onChange }: { title: string; description: string; value: number; min: number; max: number; suffix: string; onChange(value: number): void | Promise<void> }) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  function commit(rawValue = draft): void {
+    const nextValue = Number(rawValue);
+    if (!Number.isFinite(nextValue)) {
+      setDraft(String(value));
+      return;
+    }
+    const clamped = Math.min(max, Math.max(min, Math.round(nextValue)));
+    setDraft(String(clamped));
+    void onChange(clamped);
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
+        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+      </div>
+      <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+        <input
+          aria-label={title}
+          type="number"
+          min={min}
+          max={max}
+          step={1}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={() => commit()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
+          className="w-12 bg-transparent text-right text-xs font-semibold tabular text-zinc-900 outline-none dark:text-zinc-100"
+        />
+        {suffix}
+      </label>
     </div>
   );
 }

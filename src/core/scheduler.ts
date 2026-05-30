@@ -108,14 +108,7 @@ export async function chooseCampaignDecision(
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean)
     .map((username) => fallbackChannel(platform, username));
-  let fallback: ChannelCandidate | undefined;
-  if (settings.skipOfflineFallbackChannels) {
-    fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter);
-  } else if (fallbackCandidates[0]) {
-    const candidate = fallbackCandidates[0];
-    const check = await adapter.checkChannel(candidate);
-    fallback = channelFromCheck(candidate, check);
-  }
+  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter);
 
   if (fallback) {
     return {

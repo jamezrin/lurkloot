@@ -251,28 +251,6 @@ describe("scheduler campaign selection", () => {
     expect(decision.channel?.username).toBe("live");
   });
 
-  it("keeps first fallback streamer when offline skipping is disabled", async () => {
-    const decision = await chooseCampaignDecision(
-      "kick",
-      [],
-      settings({
-        skipOfflineFallbackChannels: false,
-        platform: { kick: { enabled: true, fallbackStreamers: ["offline", "live"] } } as ExtensionSettings["platform"],
-      }),
-      {
-        listCandidateChannels: vi.fn(),
-        checkChannel: vi.fn(async (candidate) => ({
-          live: candidate.username === "live",
-          categoryMatches: true,
-          candidate: { ...candidate, viewerCount: 1234 },
-        })),
-      },
-    );
-
-    expect(decision.action).toBe("fallback");
-    expect(decision.channel?.username).toBe("offline");
-    expect(decision.channel?.viewerCount).toBe(1234);
-  });
 });
 
 describe("scheduler tick", () => {
