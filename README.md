@@ -11,6 +11,8 @@ pnpm build
 pnpm build:firefox
 ```
 
+For implementation details, see [docs/architecture.md](docs/architecture.md).
+
 ## Scope
 
 - Twitch and Kick platform adapters are isolated behind a common interface.
