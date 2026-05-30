@@ -107,9 +107,14 @@ export async function chooseCampaignDecision(
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean)
     .map((username) => fallbackChannel(platform, username));
-  const fallback = settings.skipOfflineFallbackChannels
-    ? await firstValidCandidate(fallbackCandidates, undefined, adapter)
-    : fallbackCandidates[0];
+  let fallback: ChannelCandidate | undefined;
+  if (settings.skipOfflineFallbackChannels) {
+    fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter);
+  } else if (fallbackCandidates[0]) {
+    const candidate = fallbackCandidates[0];
+    const check = await adapter.checkChannel(candidate);
+    fallback = channelFromCheck(candidate, check);
+  }
 
   if (fallback) {
     return {
@@ -209,6 +214,7 @@ export async function runSchedulerTick(
     ...state,
     campaigns: { ...state.campaigns },
     sessions: { ...state.sessions },
+    managedWatchTabs: { ...state.managedWatchTabs },
     lastTickAt: new Date().toISOString(),
   };
   const decisions: WatchDecision[] = [];
@@ -235,6 +241,7 @@ export async function runSchedulerTick(
           retryAfter: undefined,
           message: "automation disabled",
         };
+        nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState = addTickEvent(nextState, platform, "info", "Automation disabled");
         continue;
       }
@@ -250,8 +257,16 @@ export async function runSchedulerTick(
         continue;
       }
 
-      const discovered = await adapter.discoverCampaigns();
-      let campaigns = await adapter.readProgress(discovered, previous);
+      let campaigns: DropCampaign[];
+      try {
+        const discovered = await adapter.discoverCampaigns();
+        campaigns = await adapter.readProgress(discovered, previous);
+      } catch (error) {
+        if (!hasFallbackStreamers(settings, platform)) throw error;
+        campaigns = [];
+        const message = error instanceof Error ? error.message : "Drop discovery failed";
+        nextState = addTickEvent(nextState, platform, "warn", `${message}; checking Permawatch fallback`);
+      }
       nextState.campaigns[platform] = campaigns;
       nextState = addTickEvent(nextState, platform, "info", `Discovered ${campaigns.length} campaigns`);
 
@@ -288,15 +303,31 @@ export async function runSchedulerTick(
       nextState = addTickEvent(nextState, platform, decision.action === "idle" ? "warn" : "info", decision.reason);
       if (decision.action === "idle") {
         await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
+        nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
       }
       const session = sessionForDecision(decision, previous, shouldKeep);
       if (decision.channel && decision.action !== "idle") {
-        const prepared = await adapter.prepareWatchTab(decision.channel, previous, {
+        const watchTabOptions = {
           muted: settings.muteFarmingTabs,
           closeManagedTabs: settings.autoCloseFinishedDrops,
-        });
+          ...(nextState.managedWatchTabs?.[platform] ? { managedTab: nextState.managedWatchTabs[platform] } : {}),
+        };
+        const prepared = await adapter.prepareWatchTab(decision.channel, previous, watchTabOptions);
         session.tabId = prepared.tabId;
         session.tabManagedByExtension = prepared.managedByExtension;
+        if (prepared.managedByExtension) {
+          nextState.managedWatchTabs = {
+            ...nextState.managedWatchTabs,
+            [platform]: prepared.managedTab ?? {
+              platform,
+              tabId: prepared.tabId,
+              channelUrl: decision.channel.url,
+              ownedByExtension: true as const,
+            },
+          };
+        } else {
+          nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+        }
         session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
         session.playbackChecks = shouldKeep.playbackChecks;
         if (settings.autoClaimChannelPoints && adapter.claimChannelPoints) {
@@ -335,6 +366,19 @@ export async function runSchedulerTick(
   }
 
   return { state: nextState, decisions };
+}
+
+function hasFallbackStreamers(settings: ExtensionSettings, platform: Platform): boolean {
+  return settings.platform[platform].fallbackStreamers.some((username) => username.trim());
+}
+
+function withoutManagedWatchTab(
+  managedWatchTabs: SchedulerState["managedWatchTabs"],
+  platform: Platform,
+): SchedulerState["managedWatchTabs"] {
+  const next = { ...managedWatchTabs };
+  delete next[platform];
+  return next;
 }
 
 function isInBackoff(session: WatchSession): boolean {
@@ -447,6 +491,16 @@ async function shouldKeepWatching(
     && nextDecision.campaign?.id !== previous.campaignId;
   if (differentCampaignAvailable) {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "higher priority eligible campaign available" };
+  }
+
+  // When watching a Permawatch fallback, a different selection means a
+  // higher-priority fallback streamer is now live (e.g. after reordering the
+  // queue or one coming online), so switch to it instead of staying put.
+  const differentFallbackAvailable = changedTarget
+    && nextDecision.action === "fallback"
+    && !previous.campaignId;
+  if (differentFallbackAvailable) {
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "higher priority fallback streamer available" };
   }
 
   const check = await adapter.checkChannel(previous.channel);

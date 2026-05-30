@@ -22,7 +22,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  ArrowLeft,
   Bell,
   Check,
   ChevronDown,
@@ -44,19 +43,53 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
-import type { DropCampaign, DropReward, ExtensionSettings, Platform } from "../../src/core/models";
+import type { DropCampaign, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
 import "./style.css";
 
 type PopupTab = "drops" | "permawatch";
 type GameItem = { id: string; name: string; short: string; accent: string };
-type StreamerItem = { id: string; name: string; live: boolean };
+type StreamerItem = { id: string; name: string; live: boolean; subtitle?: string; viewers?: number };
+type FarmingChannelView = { name: string; category?: string; viewers?: number };
+type RewardView = { id: string; name: string; progress: number; requiredMinutes: number; obtained: boolean; art: string; tint: string };
+type CampaignView = {
+  id: string;
+  gameId: string;
+  title: string;
+  linked: boolean;
+  ends: string;
+  allowedChannels: string[];
+  moreChannels: number;
+  farmingChannel?: FarmingChannelView;
+  thumbnail: string;
+  tint: string;
+  rewards: RewardView[];
+};
 
 const PLATFORMS: Record<Platform, { label: string; mark: string; color: string }> = {
   twitch: { label: "Twitch", mark: "T", color: "#9147ff" },
   kick: { label: "Kick", mark: "K", color: "#53fc18" },
 };
+const SELECTED_PLATFORM_KEY = "popup:selectedPlatform";
 
 const GAME_ACCENTS = ["#2563eb", "#0891b2", "#ef4444", "#16a34a", "#9333ea", "#f59e0b"];
+const CAMPAIGN_TINTS = [
+  "from-orange-400 via-sky-400 to-blue-700",
+  "from-cyan-400 via-zinc-700 to-rose-500",
+  "from-red-600 via-pink-500 to-cyan-300",
+  "from-zinc-700 via-slate-500 to-emerald-500",
+  "from-violet-500 via-fuchsia-400 to-emerald-300",
+  "from-amber-400 via-red-500 to-zinc-800",
+];
+const REWARD_TINTS = [
+  "from-lime-200 via-zinc-100 to-sky-200",
+  "from-lime-500 via-zinc-800 to-cyan-600",
+  "from-fuchsia-400 via-pink-300 to-lime-300",
+  "from-cyan-400 via-emerald-500 to-zinc-800",
+  "from-orange-400 via-red-500 to-zinc-800",
+  "from-yellow-100 via-zinc-100 to-stone-200",
+  "from-blue-400 via-blue-600 to-zinc-100",
+  "from-zinc-100 via-emerald-200 to-slate-500",
+];
 
 function send<T>(message: RuntimeMessage): Promise<T> {
   return browser.runtime.sendMessage(message) as Promise<T>;
@@ -74,6 +107,10 @@ function moveById<T extends { id: string }>(list: T[], activeId: string, overId:
   return arrayMove(list, oldIndex, newIndex);
 }
 
+function isPlatform(value: unknown): value is Platform {
+  return value === "twitch" || value === "kick";
+}
+
 function useDndSensors() {
   return useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -88,55 +125,68 @@ function Popup(): React.ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
-    void send<RuntimeSnapshot>({ type: "getSnapshot" }).then(setSnapshot);
+    void Promise.all([
+      send<RuntimeSnapshot>({ type: "getSnapshot" }),
+      browser.storage.local.get(SELECTED_PLATFORM_KEY),
+    ]).then(([nextSnapshot, stored]) => {
+      const savedPlatform = stored[SELECTED_PLATFORM_KEY];
+      if (isPlatform(savedPlatform)) setPlatform(savedPlatform);
+      setSnapshot(nextSnapshot);
+    });
   }, []);
 
-  async function updateSettings(patch: Partial<ExtensionSettings>): Promise<void> {
+  function selectPlatform(nextPlatform: Platform): void {
+    setPlatform(nextPlatform);
+    void browser.storage.local.set({ [SELECTED_PLATFORM_KEY]: nextPlatform });
+  }
+
+  async function updateSettings(patch: Partial<ExtensionSettings>, options?: { tickAfterSave?: boolean }): Promise<void> {
     if (!snapshot) return;
     const nextSettings = { ...snapshot.settings, ...patch };
     setSnapshot({ ...snapshot, settings: nextSettings });
-    setSnapshot(await send<RuntimeSnapshot>({ type: "saveSettings", settings: nextSettings }));
+    setSnapshot(await send<RuntimeSnapshot>({
+      type: "saveSettings",
+      settings: nextSettings,
+      tickAfterSave: options?.tickAfterSave,
+    }));
   }
 
   async function setAutomation(enabled: boolean): Promise<void> {
     if (!snapshot) return;
-    if (enabled && !snapshot.settings.running) {
-      setSnapshot(await send<RuntimeSnapshot>({ type: "setRunning", running: true }));
-    }
-    setSnapshot(await send<RuntimeSnapshot>({ type: "setPlatformEnabled", platform, enabled }));
+    setSnapshot(await send<RuntimeSnapshot>({ type: "setAutomation", platform, enabled }));
   }
 
   if (!snapshot) {
     return (
-      <main className="grid h-[600px] w-[400px] place-items-center rounded-[26px] border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
+      <main className="grid h-[600px] w-[400px] place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
         Loading
       </main>
     );
   }
 
   const settings = snapshot.settings;
-  const campaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform], settings);
+  const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform], settings);
+  const session = snapshot.state.sessions[platform];
+  const sessionChannel = channelViewFromSession(session);
+  const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(campaign, index, session));
   const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform], settings);
   const gameMap = Object.fromEntries(games.map((game) => [game.id, game]));
   const fallbackStreamers = settings.platform[platform].fallbackStreamers;
-  const permawatch = fallbackStreamers.map((username) => ({
-    id: username,
-    name: username,
-    live: snapshot.state.sessions[platform].channel?.username.toLowerCase() === username.toLowerCase(),
-  }));
+  const permawatch = fallbackStreamers.map((username) => streamerItemFromFallback(username, session));
   const enabled = settings.running && settings.platform[platform].enabled;
-  const topTitle = campaigns[0]?.name ?? snapshot.state.sessions[platform].channel?.displayName ?? snapshot.state.sessions[platform].channel?.username ?? "the highest priority target";
+  const topTitle = campaigns[0]?.title ?? sessionChannel?.name ?? "the highest priority target";
+  const farmingChannel = campaigns[0]?.farmingChannel ?? sessionChannel;
 
   return (
     <main
       data-platform={platform}
-      className="flex h-[600px] w-[400px] flex-col overflow-hidden rounded-[26px] border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
+      className="flex h-[600px] w-[400px] flex-col overflow-hidden border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
     >
       <div className="relative shrink-0 border-b border-zinc-200/70 bg-white/85 px-3 pb-3 pt-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[var(--accent)] to-transparent" />
         <header className="mb-3 flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-2.5">
-            <img src="/icon/48.png" alt="Streamaxxer" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" />
+            <img src="/logo-ring.svg" alt="Streamaxxer" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
             <div className="min-w-0 leading-tight">
               <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">Streamaxxer</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
@@ -155,7 +205,7 @@ function Popup(): React.ReactElement {
             twitch: settings.running && settings.platform.twitch.enabled,
             kick: settings.running && settings.platform.kick.enabled,
           }}
-          onChange={setPlatform}
+          onChange={selectPlatform}
         />
       </div>
 
@@ -164,17 +214,11 @@ function Popup(): React.ReactElement {
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <button type="button" onClick={() => setSettingsOpen(false)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
-                    <ArrowLeft size={14} /> Back
-                  </button>
-                  <Pill tone="muted">Settings</Pill>
-                </div>
                 <SettingsView games={games} settings={settings} onSettingsChange={updateSettings} />
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
-                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} farmingTitle={topTitle} onChange={setAutomation} />
+                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} farmingTitle={topTitle} farmingChannel={farmingChannel} onChange={setAutomation} />
                 <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
                   <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
                   <p className="leading-snug text-zinc-600 dark:text-zinc-300">
@@ -201,15 +245,18 @@ function Popup(): React.ReactElement {
                       <PermawatchPanel
                         platform={platform}
                         streamers={permawatch}
-                        onChange={(ordered) => updateSettings({
-                          platform: {
-                            ...settings.platform,
-                            [platform]: {
-                              ...settings.platform[platform],
-                              fallbackStreamers: ordered.map((streamer) => streamer.name),
+                        onChange={(ordered) => updateSettings(
+                          {
+                            platform: {
+                              ...settings.platform,
+                              [platform]: {
+                                ...settings.platform[platform],
+                                fallbackStreamers: ordered.map((streamer) => streamer.id),
+                              },
                             },
                           },
-                        })}
+                          { tickAfterSave: true },
+                        )}
                       />
                     )}
                   </motion.div>
@@ -246,7 +293,7 @@ function PlatformSwitcher({ active, automation, onChange }: { active: Platform; 
   );
 }
 
-function AutomationHero({ platformLabel, enabled, onChange, farmingTitle }: { platformLabel: string; enabled: boolean; onChange(value: boolean): Promise<void>; farmingTitle: string }) {
+function AutomationHero({ platformLabel, enabled, onChange, farmingTitle, farmingChannel }: { platformLabel: string; enabled: boolean; onChange(value: boolean): Promise<void>; farmingTitle: string; farmingChannel?: FarmingChannelView }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-3.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900" style={{ boxShadow: enabled ? "0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px var(--accent-ring)" : undefined }}>
       {enabled && <div aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full blur-2xl" style={{ backgroundColor: "var(--accent-glow)", opacity: 0.5 }} />}
@@ -259,9 +306,25 @@ function AutomationHero({ platformLabel, enabled, onChange, farmingTitle }: { pl
             <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{platformLabel} automation</span>
             <Pill tone={enabled ? "accent" : "muted"}>{enabled ? "Running" : "Paused"}</Pill>
           </div>
-          <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
-            {enabled ? <>Farming <span className="font-medium text-zinc-700 dark:text-zinc-200">{farmingTitle}</span></> : "Watching paused. Toggle to resume drop farming."}
-          </p>
+          <div className="mt-0.5 flex h-[34px] flex-col justify-center text-xs text-zinc-500 dark:text-zinc-400">
+            {enabled ? (
+              <>
+                <p className="truncate">Farming <span className="font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span></p>
+                {farmingChannel ? (
+                  <p className="flex items-center gap-1 truncate">
+                    <Radio size={11} className="shrink-0" style={{ color: "var(--accent-text)" }} />
+                    Watching
+                    <span className="truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingChannel.name}</span>
+                    {farmingChannel.viewers != null && <span className="shrink-0 text-zinc-400 dark:text-zinc-500">· {formatViewers(farmingChannel.viewers)}</span>}
+                  </p>
+                ) : (
+                  <p className="truncate">Waiting for an eligible stream</p>
+                )}
+              </>
+            ) : (
+              <p className="line-clamp-2 leading-snug">Watching paused. Toggle to resume drop farming.</p>
+            )}
+          </div>
         </div>
         <Toggle checked={enabled} onChange={onChange} label={`${platformLabel} automation`} />
       </div>
@@ -269,7 +332,7 @@ function AutomationHero({ platformLabel, enabled, onChange, farmingTitle }: { pl
   );
 }
 
-function DropsPanel({ campaigns, gameMap, onReorder }: { campaigns: DropCampaign[]; gameMap: Record<string, GameItem>; onReorder(campaigns: DropCampaign[]): void | Promise<void> }) {
+function DropsPanel({ campaigns, gameMap, onReorder }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; onReorder(campaigns: CampaignView[]): void | Promise<void> }) {
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const firstId = campaigns[0]?.id;
@@ -292,43 +355,43 @@ function DropsPanel({ campaigns, gameMap, onReorder }: { campaigns: DropCampaign
       <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-2">
           {campaigns.map((campaign, index) => (
-            <SortableCampaign key={campaign.id} campaign={campaign} index={index} game={gameMap[gameId(campaign)] ?? fallbackGame(campaign, index)} expanded={Boolean(expandedIds[campaign.id])} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} />
+            <SortableCampaign key={campaign.id} campaign={campaign} index={index} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index)} expanded={Boolean(expandedIds[campaign.id])} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} />
           ))}
         </div>
       </SortableContext>
       <DragOverlay dropAnimation={null}>
-        {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} game={gameMap[gameId(activeCampaign)] ?? fallbackGame(activeCampaign, activeIndex)} expanded={false} onToggle={() => undefined} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
+        {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex)} expanded={false} onToggle={() => undefined} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
       </DragOverlay>
     </DndContext>
   );
 }
 
-function SortableCampaign(props: { campaign: DropCampaign; index: number; game: GameItem; expanded: boolean; onToggle(): void }) {
+function SortableCampaign(props: { campaign: CampaignView; index: number; game: GameItem; expanded: boolean; onToggle(): void }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.campaign.id });
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
-      <CampaignCard {...props} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${props.campaign.name}`} />} />
+      <CampaignCard {...props} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${props.campaign.title}`} />} />
     </div>
   );
 }
 
-function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, isOverlay = false, dimmed = false }: { campaign: DropCampaign; index: number; game: GameItem; expanded: boolean; onToggle(): void; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
+function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; game: GameItem; expanded: boolean; onToggle(): void; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
   const stats = campaignStats(campaign);
   const isTop = index === 0;
-  const channelLabel = campaign.allowedChannels?.length ? `${campaign.allowedChannels.length} channels` : "All channels";
+  const channelLabel = campaign.allowedChannels[0] === "All" ? "All channels" : `${campaign.allowedChannels.length + campaign.moreChannels} channels`;
 
   return (
     <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", isTop ? "border-transparent" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={isTop ? { boxShadow: isOverlay ? "0 20px 50px -12px rgba(0,0,0,0.5)" : "0 0 0 1.5px var(--accent-ring), 0 10px 30px -18px var(--accent-glow)" } : undefined}>
       <div className="flex items-stretch">
         <div className="flex w-8 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">{dragHandle ?? <GripVertical size={16} className="text-zinc-300 dark:text-zinc-600" />}</div>
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-start gap-2.5 p-2.5 text-left outline-none">
-          <div className="relative flex h-12 w-12 shrink-0 items-end overflow-hidden rounded-xl p-1.5 shadow-inner" style={{ background: `linear-gradient(135deg, ${game.accent}, #18181b)` }}>
-            <span className="text-[11px] font-black leading-none tracking-normal text-white drop-shadow">{game.short}</span>
+          <div className={cn("relative flex h-12 w-12 shrink-0 items-end overflow-hidden rounded-xl bg-gradient-to-br p-1.5 shadow-inner", campaign.tint)}>
+            <span className="text-[11px] font-black leading-none tracking-normal text-white drop-shadow">{campaign.thumbnail}</span>
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="line-clamp-1 text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.name}</div>
+                <div className="line-clamp-1 text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</div>
                 <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                   <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: game.accent }} />
                   <span className="truncate">{game.name}</span>
@@ -339,7 +402,7 @@ function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, i
             <div className="mt-1.5 flex flex-wrap items-center gap-1">
               <Pill tone="accent">#{index + 1}</Pill>
               {isTop && <Pill tone="accent"><Radio size={9} /> Farming now</Pill>}
-              <Pill tone={campaign.accountLinked === false ? "danger" : "live"}><Link2 size={9} /> {campaign.accountLinked === false ? "Not linked" : "Linked"}</Pill>
+              <Pill tone={campaign.linked ? "live" : "danger"}><Link2 size={9} /> {campaign.linked ? "Linked" : "Not linked"}</Pill>
             </div>
           </div>
         </button>
@@ -348,12 +411,12 @@ function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, i
         <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
           <div className="mb-1.5 flex items-end justify-between gap-2">
             <div className="min-w-0">
-              <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> Ends {campaign.endsAt ? formatCountdown(campaign.endsAt) : "later"}</div>
-              <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">Next: <span className="font-medium text-zinc-800 dark:text-zinc-100">{stats.nextReward?.name ?? "No reward"}</span></div>
+              <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> Ends in {formatCountdown(campaign.ends)}</div>
+              <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">Next: <span className="font-medium text-zinc-800 dark:text-zinc-100">{stats.nextReward?.name}</span></div>
             </div>
             <div className="shrink-0 text-right">
-              <div className="text-sm font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>{stats.progress}%</div>
-              <div className="mt-0.5 text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.remainingMinutes)} left</div>
+              <div className="text-sm font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>{stats.progress.toFixed(0)}%</div>
+              <div className="mt-0.5 text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.remaining)} left</div>
             </div>
           </div>
           <ProgressBar value={stats.progress} glow={isTop} />
@@ -363,9 +426,9 @@ function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, i
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
               <div className="space-y-2.5 pt-2.5">
                 <div className="grid grid-cols-3 gap-1.5">
-                  <MetaStat icon={Clock3} label="Farmed" value={formatHours(stats.watchedMinutes)} />
-                  <MetaStat icon={RotateCcw} label="Left" value={formatMinutes(stats.remainingMinutes)} />
-                  <MetaStat icon={Trophy} label="Rewards" value={`${stats.claimed}/${campaign.rewards.length}`} />
+                  <MetaStat icon={Clock3} label="Farmed" value={formatHours(stats.totalFarmed)} />
+                  <MetaStat icon={RotateCcw} label="Left" value={formatMinutes(stats.remaining)} />
+                  <MetaStat icon={Trophy} label="Rewards" value={`${stats.completed}/${stats.totalRewards}`} />
                 </div>
                 <div>
                   <div className="mb-1.5 flex items-center justify-between">
@@ -379,7 +442,7 @@ function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, i
                 <div className="flex items-center gap-1.5 rounded-lg bg-zinc-50 px-2 py-1.5 text-[11px] text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
                   <Users size={12} className="shrink-0" />
                   <span className="truncate">{channelLabel}</span>
-                  {campaign.allowedChannels?.length ? <span className="truncate text-zinc-400 dark:text-zinc-500">· {campaign.allowedChannels.slice(0, 4).join(", ")}</span> : null}
+                  {campaign.allowedChannels[0] !== "All" ? <span className="truncate text-zinc-400 dark:text-zinc-500">· {campaign.allowedChannels.join(", ")}</span> : null}
                 </div>
               </div>
             </motion.div>
@@ -390,26 +453,25 @@ function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, i
   );
 }
 
-function RewardTile({ reward }: { reward: DropReward }) {
-  const progress = reward.requiredMinutes > 0 ? Math.min(100, Math.round((reward.watchedMinutes / reward.requiredMinutes) * 100)) : reward.status === "claimed" ? 100 : 0;
-  const done = reward.status === "claimed";
+function RewardTile({ reward }: { reward: RewardView }) {
+  const done = reward.obtained || reward.progress >= 100;
   return (
     <div className="w-[128px] shrink-0 rounded-xl border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
-        {reward.imageUrl ? <img src={reward.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <span className="px-1 text-center text-[11px] font-black tracking-normal text-zinc-400">{reward.name.slice(0, 8).toUpperCase()}</span>}
+      <div className={cn("relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br", reward.tint)}>
+        <span className="px-1 text-center text-[11px] font-black tracking-wide text-zinc-900/70 mix-blend-multiply">{reward.art}</span>
         {done && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={11} strokeWidth={3} /></span>}
       </div>
       <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200" title={reward.name}>{reward.name}</div>
-      <ProgressBar value={progress} size="sm" />
+      <ProgressBar value={reward.progress} size="sm" />
       <div className="mt-1.5 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
-        <span className="font-semibold tabular" style={progress > 0 ? { color: "var(--accent-text)" } : undefined}>{progress}%</span>
+        <span className="font-semibold tabular" style={reward.progress > 0 ? { color: "var(--accent-text)" } : undefined}>{reward.progress.toFixed(0)}%</span>
         <span className="tabular">{formatMinutes(reward.requiredMinutes)}</span>
       </div>
     </div>
   );
 }
 
-function PermawatchPanel({ platform, streamers, onChange }: { platform: Platform; streamers: StreamerItem[]; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
+function PermawatchPanel({ streamers, onChange }: { platform: Platform; streamers: StreamerItem[]; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -437,6 +499,10 @@ function PermawatchPanel({ platform, streamers, onChange }: { platform: Platform
     setAdding(false);
   }
 
+  function removeChannel(id: string): void {
+    void onChange(streamers.filter((streamer) => streamer.id !== id));
+  }
+
   return (
     <div className="space-y-2.5">
       <div className="flex items-start gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/60 p-2.5 text-[11px] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
@@ -447,11 +513,11 @@ function PermawatchPanel({ platform, streamers, onChange }: { platform: Platform
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
           <SortableContext items={streamers.map((streamer) => streamer.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
-              {streamers.map((streamer, index) => <SortablePermawatch key={streamer.id} streamer={streamer} index={index} />)}
+              {streamers.map((streamer, index) => <SortablePermawatch key={streamer.id} streamer={streamer} index={index} onRemove={() => removeChannel(streamer.id)} />)}
             </div>
           </SortableContext>
           <DragOverlay dropAnimation={null}>
-            {active ? <CompactRow isOverlay index={activeIndex} avatar={active.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={active.name} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<Pill tone={active.live ? "live" : "muted"}>{active.live ? "live" : PLATFORMS[platform].label}</Pill>} /> : null}
+            {active ? <CompactRow isOverlay index={activeIndex} avatar={active.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={active.name} subtitle={active.subtitle} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<PermawatchStatus streamer={active} />} /> : null}
           </DragOverlay>
         </DndContext>
       )}
@@ -469,11 +535,12 @@ function PermawatchPanel({ platform, streamers, onChange }: { platform: Platform
   );
 }
 
-function SortablePermawatch({ streamer, index }: { streamer: StreamerItem; index: number }) {
+function SortablePermawatch({ streamer, index, onRemove }: { streamer: StreamerItem; index: number; onRemove(): void }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: streamer.id });
+  const status = <PermawatchStatus streamer={streamer} />;
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
-      <CompactRow index={index} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${streamer.name}`} />} trailing={<Pill tone={streamer.live ? "live" : "muted"}>{streamer.live ? "live" : "queued"}</Pill>} />
+      <CompactRow index={index} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${streamer.name}`} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={`Remove ${streamer.name}`} onClick={onRemove} /></span>} />
     </div>
   );
 }
@@ -484,14 +551,15 @@ function SettingsView({ games, settings, onSettingsChange }: { games: GameItem[]
     <div className="space-y-2.5">
       <SettingsSection title="General" description="Tab audio and cleanup behavior." icon={SettingsIcon}>
         <SettingRow title="Mute farming tabs" description="Keep drop and Permawatch tabs muted while farming." checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} />
-        <SettingRow title="Auto-close finished drops" description="Close stream tabs once a campaign completes." checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
+        <SettingRow title="Pause when watching manually" description="Stop farming while you have a stream open and are watching yourself." checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
+        <SettingRow title="Auto-close farming tabs" description="Automatically close when the extension is idle (no drops to farm or no streamers to watch)." checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
+        <SettingRow title="Auto-start on launch" description="Begin farming as soon as the extension loads." checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
       </SettingsSection>
       <SettingsSection title="Notifications" description="When Streamaxxer should ping you." icon={Bell}>
         <SettingRow title="Reward earned" description="Notify when a drop reward is claimable." checked={settings.notifyRewardEarned} onChange={set("notifyRewardEarned")} />
         <SettingRow title="No drops left" description="Notify when all active campaigns are exhausted." checked={settings.notifyNoDropsLeft} onChange={set("notifyNoDropsLeft")} />
       </SettingsSection>
       <SettingsSection title="Drops" description="Farming priority is set by dragging campaigns in the Drops tab." icon={Gift}>
-        <SettingRow title="Auto-start on launch" description="Begin farming the top campaign when the extension loads." checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
         <GamePriority games={games} onChange={(ordered) => onSettingsChange({ gamePriority: ordered.map((game) => game.id) })} />
       </SettingsSection>
       <SettingsSection title="Permawatch" description="Fallback queue behavior." icon={Play}>
@@ -522,7 +590,7 @@ function GamePriority({ games, onChange }: { games: GameItem[]; onChange(games: 
         <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">Fallback game order</div>
         <Pill tone="accent">drag to sort</Pill>
       </div>
-      <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Used after explicit campaign order.</p>
+      <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Used when campaign order is reset to defaults.</p>
       {games.length === 0 ? <div className="text-[11px] text-zinc-400">No games discovered yet.</div> : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
           <SortableContext items={games.map((game) => game.id)} strategy={verticalListSortingStrategy}>
@@ -544,13 +612,16 @@ function SortableGameRow({ game, index }: { game: GameItem; index: number }) {
   );
 }
 
-function CompactRow({ avatar, avatarStyle, index, title, trailing, dragHandle, isOverlay = false, dimmed = false }: { avatar: string; avatarStyle: React.CSSProperties; index: number; title: string; trailing: React.ReactNode; dragHandle: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
+function CompactRow({ avatar, avatarStyle, index, title, subtitle, trailing, dragHandle, isOverlay = false, dimmed = false }: { avatar: string; avatarStyle: React.CSSProperties; index: number; title: string; subtitle?: string; trailing: React.ReactNode; dragHandle: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
   return (
     <div className={cn("flex items-center gap-2 rounded-xl border bg-white px-2 py-2 dark:bg-zinc-900", isOverlay ? "border-transparent shadow-2xl shadow-black/25" : "border-zinc-200 shadow-sm dark:border-zinc-800", dimmed && "opacity-40")}>
       {dragHandle}
       <span className="w-4 text-center text-[11px] font-bold tabular" style={{ color: "var(--accent-text)" }}>{index + 1}</span>
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold" style={avatarStyle}>{avatar}</span>
-      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{title}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-[13px] font-medium leading-tight text-zinc-900 dark:text-zinc-100">{title}</span>
+        {subtitle ? <span className="truncate text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">{subtitle}</span> : null}
+      </span>
       {trailing}
     </div>
   );
@@ -604,6 +675,23 @@ function Pill({ children, tone = "muted" }: { children: React.ReactNode; tone?: 
 
 function IconButton({ children, label, active, onClick }: { children: React.ReactNode; label: string; active?: boolean; onClick(): void }) {
   return <button type="button" title={label} aria-label={label} onClick={onClick} className={cn("flex h-8 w-8 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", active ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200")}>{children}</button>;
+}
+
+function RemoveRowButton({ label, onClick }: { label: string; onClick(): void }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors outline-none hover:bg-red-500/10 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500 dark:hover:text-red-400"
+    >
+      <X size={13} />
+    </button>
+  );
 }
 
 function DragHandle({ setActivatorNodeRef, attributes, listeners, label }: { setActivatorNodeRef(element: HTMLElement | null): void; attributes: React.ButtonHTMLAttributes<HTMLButtonElement>; listeners?: Record<string, unknown>; label: string }) {
@@ -669,7 +757,7 @@ function sortCampaignsForPopup(campaigns: DropCampaign[], settings: ExtensionSet
   });
 }
 
-function prioritiesFromOrder(campaigns: DropCampaign[]): Record<string, number> {
+function prioritiesFromOrder(campaigns: Array<{ id: string }>): Record<string, number> {
   return Object.fromEntries(campaigns.map((campaign, index) => [campaign.id, campaigns.length - index]));
 }
 
@@ -707,18 +795,88 @@ function gameId(campaign: DropCampaign): string {
   return (campaign.categoryId ?? campaign.gameName ?? campaign.name).trim().toLowerCase();
 }
 
-function fallbackGame(campaign: DropCampaign, index: number): GameItem {
-  return { id: gameId(campaign), name: campaign.gameName ?? "Drops campaign", short: initials(campaign.gameName ?? campaign.name), accent: GAME_ACCENTS[Math.max(0, index) % GAME_ACCENTS.length] };
+function fallbackGame(campaign: DropCampaign | CampaignView, index: number): GameItem {
+  const id = "gameId" in campaign ? campaign.gameId : gameId(campaign);
+  const name = "title" in campaign ? "Drops campaign" : campaign.gameName ?? "Drops campaign";
+  const short = "thumbnail" in campaign ? campaign.thumbnail : initials(campaign.gameName ?? campaign.name);
+  return { id, name, short, accent: GAME_ACCENTS[Math.max(0, index) % GAME_ACCENTS.length] };
 }
 
-function campaignStats(campaign: DropCampaign) {
-  const requiredMinutes = campaign.rewards.reduce((sum, reward) => sum + reward.requiredMinutes, 0);
-  const watchedMinutes = campaign.rewards.reduce((sum, reward) => sum + Math.min(reward.watchedMinutes, reward.requiredMinutes), 0);
-  const remainingMinutes = Math.max(0, requiredMinutes - watchedMinutes);
-  const progress = requiredMinutes > 0 ? Math.min(100, Math.round((watchedMinutes / requiredMinutes) * 100)) : 0;
-  const claimed = campaign.rewards.filter((reward) => reward.status === "claimed").length;
-  const nextReward = campaign.rewards.find((reward) => reward.status !== "claimed") ?? campaign.rewards.at(-1);
-  return { requiredMinutes, watchedMinutes, remainingMinutes, progress, claimed, nextReward };
+function campaignStats(campaign: CampaignView) {
+  const totalRequired = campaign.rewards.reduce((sum, reward) => sum + reward.requiredMinutes, 0);
+  const totalFarmed = campaign.rewards.reduce((sum, reward) => sum + (reward.requiredMinutes * reward.progress) / 100, 0);
+  const remaining = Math.max(totalRequired - totalFarmed, 0);
+  const progress = totalRequired ? Math.min(100, (totalFarmed / totalRequired) * 100) : 0;
+  const completed = campaign.rewards.filter((reward) => reward.obtained || reward.progress >= 100).length;
+  const nextReward = campaign.rewards.find((reward) => !reward.obtained && reward.progress < 100) ?? campaign.rewards.at(-1);
+  return { totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward };
+}
+
+function campaignViewFromCampaign(campaign: DropCampaign, index: number, session: WatchSession): CampaignView {
+  const visibleChannels = channelsForView(campaign);
+  return {
+    id: campaign.id,
+    gameId: gameId(campaign),
+    title: campaign.name,
+    linked: campaign.accountLinked !== false,
+    ends: campaign.endsAt ?? campaign.rewards.find((reward) => reward.availableUntil)?.availableUntil ?? "",
+    allowedChannels: visibleChannels.channels,
+    moreChannels: visibleChannels.more,
+    farmingChannel: session.campaignId === campaign.id ? channelViewFromSession(session) : undefined,
+    thumbnail: initials(campaign.gameName ?? campaign.name),
+    tint: CAMPAIGN_TINTS[index % CAMPAIGN_TINTS.length],
+    rewards: campaign.rewards.map((reward, rewardIndex) => {
+      const progress = reward.requiredMinutes > 0
+        ? Math.min(100, (Math.min(reward.watchedMinutes, reward.requiredMinutes) / reward.requiredMinutes) * 100)
+        : reward.status === "claimed" ? 100 : 0;
+      return {
+        id: reward.id,
+        name: reward.name,
+        progress,
+        requiredMinutes: reward.requiredMinutes,
+        obtained: reward.status === "claimed",
+        art: initials(reward.name).slice(0, 8),
+        tint: REWARD_TINTS[rewardIndex % REWARD_TINTS.length],
+      };
+    }),
+  };
+}
+
+function channelsForView(campaign: DropCampaign): { channels: string[]; more: number } {
+  if (campaign.isGeneralDrop || !campaign.allowedChannels?.length) return { channels: ["All"], more: 0 };
+  const channels = campaign.allowedChannels.slice(0, 4);
+  return { channels, more: Math.max(0, campaign.allowedChannels.length - channels.length) };
+}
+
+function channelViewFromSession(session: WatchSession): FarmingChannelView | undefined {
+  if (session.status !== "watching") return undefined;
+  const channel = session.channel;
+  if (!channel) return undefined;
+  return {
+    name: channel.displayName ?? channel.username,
+    category: channel.categoryName,
+    viewers: channel.viewerCount,
+  };
+}
+
+function streamerItemFromFallback(username: string, session: WatchSession): StreamerItem {
+  const channel = session.channel;
+  const live = channel != null && channel.username.toLowerCase() === username.toLowerCase() && session.status === "watching";
+  if (!live) return { id: username, name: username, live: false, subtitle: "Queued" };
+  return {
+    id: username,
+    name: channel.displayName ?? username,
+    live: true,
+    subtitle: channel.categoryName,
+    viewers: channel.viewerCount,
+  };
+}
+
+function PermawatchStatus({ streamer }: { streamer: StreamerItem }): React.ReactElement {
+  if (streamer.live) {
+    return <Pill tone="live"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{streamer.viewers != null ? formatViewers(streamer.viewers) : "live"}</Pill>;
+  }
+  return <Pill tone="muted">queued</Pill>;
 }
 
 function initials(value: string): string {
@@ -728,15 +886,15 @@ function initials(value: string): string {
 
 function formatCountdown(value: string): string {
   const timestamp = Date.parse(value);
-  if (Number.isNaN(timestamp)) return value;
+  if (!value || Number.isNaN(timestamp)) return "later";
   const diff = timestamp - Date.now();
-  if (diff <= 0) return "ended";
+  if (diff <= 0) return "Ended";
   const days = Math.floor(diff / 86_400_000);
   const hours = Math.floor((diff % 86_400_000) / 3_600_000);
   const minutes = Math.floor((diff % 3_600_000) / 60_000);
-  if (days > 0) return `in ${days}d ${hours}h`;
-  if (hours > 0) return `in ${hours}h ${minutes}m`;
-  return `in ${minutes}m`;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
 
 function formatMinutes(minutes: number): string {
@@ -749,6 +907,11 @@ function formatMinutes(minutes: number): string {
 
 function formatHours(minutes: number): string {
   return `${(minutes / 60).toFixed(1)}h`;
+}
+
+function formatViewers(count: number): string {
+  if (count >= 1000) return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}K`;
+  return String(count);
 }
 
 createRoot(document.getElementById("root")!).render(<Popup />);

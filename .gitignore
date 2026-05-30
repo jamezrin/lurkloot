@@ -15,6 +15,9 @@ web-ext.config.ts
 stats.html
 stats-*.json
 
+# Local reference material (third-party projects, not part of this repo)
+references/
+
 # Build / dist output
 dist/
 build/

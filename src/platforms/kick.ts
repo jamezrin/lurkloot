@@ -19,6 +19,9 @@ interface KickChannelResponse {
   livestream?: {
     is_live?: boolean;
     category?: { id?: string | number; name?: string };
+    categories?: Array<{ id?: string | number; name?: string }>;
+    viewer_count?: number;
+    session_title?: string;
   } | null;
 }
 
@@ -81,13 +84,21 @@ export class KickAdapter implements PlatformAdapter {
         `https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`,
       );
       const livestream = data.livestream;
-      const actualCategoryId = livestream?.category?.id == null ? undefined : String(livestream.category.id);
+      // Kick now returns a `categories` array; keep `category` as a fallback.
+      const category = livestream?.categories?.[0] ?? livestream?.category;
+      const actualCategoryId = category?.id == null ? undefined : String(category.id);
       const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
       return {
         live: Boolean(livestream?.is_live ?? livestream),
         categoryMatches: !expectedCategoryId || actualCategoryId === expectedCategoryId,
         reason: livestream ? undefined : "Kick channel is offline",
-        candidate: channel,
+        candidate: {
+          ...channel,
+          categoryId: actualCategoryId ?? channel.categoryId,
+          categoryName: category?.name ?? channel.categoryName,
+          viewerCount: livestream?.viewer_count ?? channel.viewerCount,
+          title: livestream?.session_title ?? channel.title,
+        },
       };
     } catch (error) {
       return this.checkChannelFromPage(channel, campaign, error);

@@ -50,6 +50,24 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     }
   }
 
+  async function handleTabRemoved(tabId: number): Promise<void> {
+    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    if (!settings.running) return;
+
+    for (const platform of ["twitch", "kick"] as Platform[]) {
+      const session = state.sessions[platform];
+      if (
+        settings.platform[platform].enabled
+        && session.status === "watching"
+        && session.tabManagedByExtension
+        && session.tabId === tabId
+      ) {
+        await tick();
+        return;
+      }
+    }
+  }
+
   async function recordPlaybackTelemetry(
     message: Extract<RuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId?: number,
@@ -181,10 +199,32 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
       return snapshot();
     }
 
+    if (message.type === "setAutomation") {
+      const current = await deps.loadSettings();
+      const settings = mergeSettings({
+        ...current,
+        running: message.enabled ? true : current.running,
+        platform: {
+          ...current.platform,
+          [message.platform]: {
+            ...current.platform[message.platform],
+            enabled: message.enabled,
+          },
+        },
+      });
+      await deps.saveSettings(settings);
+      await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+      if (settings.running) await tick();
+      return snapshot();
+    }
+
     if (message.type === "saveSettings") {
       const settings = mergeSettings(message.settings);
       await deps.saveSettings(settings);
       await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+      if (message.tickAfterSave && settings.running && hasEnabledPlatform(settings)) {
+        await tick();
+      }
       return snapshot();
     }
 
@@ -236,6 +276,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
 
   return {
     ensureAlarm,
+    handleTabRemoved,
     handleMessage,
     tick,
   };
@@ -243,6 +284,10 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   function settingsWithDefaults(settings: ExtensionSettings): ExtensionSettings {
     return mergeSettings(settings);
   }
+}
+
+function hasEnabledPlatform(settings: ExtensionSettings): boolean {
+  return (["twitch", "kick"] as Platform[]).some((platform) => settings.platform[platform].enabled);
 }
 
 function newlyEarnedRewards(

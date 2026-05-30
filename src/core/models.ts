@@ -86,6 +86,13 @@ export interface WatchSession {
   playback?: PlaybackTelemetry;
 }
 
+export interface ManagedWatchTab {
+  platform: Platform;
+  tabId: number;
+  channelUrl: string;
+  ownedByExtension: true;
+}
+
 export type PriorityMode = "ending_soonest" | "lowest_availability";
 
 export interface PlaybackTelemetry {
@@ -111,6 +118,7 @@ export interface ExtensionSettings {
   autoClaim: boolean;
   autoClaimChannelPoints: boolean;
   muteFarmingTabs: boolean;
+  pauseOnManualWatch: boolean;
   autoCloseFinishedDrops: boolean;
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;
@@ -148,6 +156,7 @@ export interface PlatformDiagnostics {
 
 export interface SchedulerState {
   sessions: Record<Platform, WatchSession>;
+  managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   campaigns: Record<Platform, DropCampaign[]>;
   diagnostics?: Partial<Record<Platform, PlatformDiagnostics>>;
   events: EventLogEntry[];

@@ -3,6 +3,7 @@ import type {
   ChannelCheck,
   DropCampaign,
   DropReward,
+  ManagedWatchTab,
   Platform,
   WatchSession,
 } from "../core/models";
@@ -10,11 +11,13 @@ import type {
 export interface PreparedWatchTab {
   tabId: number;
   managedByExtension: boolean;
+  managedTab?: ManagedWatchTab;
 }
 
 export interface WatchTabOptions {
   muted: boolean;
   closeManagedTabs: boolean;
+  managedTab?: ManagedWatchTab;
 }
 
 export interface PlatformAdapter {

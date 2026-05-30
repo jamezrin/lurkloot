@@ -10,7 +10,7 @@ export default defineConfig({
     plugins: [tailwindcss()],
   }),
   manifest: {
-    name: "Stream Farmer",
+    name: "Streamaxxer",
     description:
       "Farm Twitch and Kick drops through normal logged-in browser sessions and visible muted tabs.",
     permissions: ["alarms", "storage", "tabs", "scripting", "notifications"],
@@ -27,7 +27,7 @@ export default defineConfig({
       "128": "icon/128.png"
     },
     action: {
-      default_title: "Stream Farmer",
+      default_title: "Streamaxxer",
       default_icon: {
         "16": "icon/16.png",
         "32": "icon/32.png"

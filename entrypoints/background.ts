@@ -36,6 +36,10 @@ export default defineBackground(() => {
     }
   });
 
+  browser.tabs.onRemoved.addListener((tabId) => {
+    void controller.handleTabRemoved(tabId);
+  });
+
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
     void controller.handleMessage(message, sender).then(sendResponse);
     return true;

@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import type { ChannelCandidate, WatchSession } from "./models";
+import type { ChannelCandidate, ManagedWatchTab, WatchSession } from "./models";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 
 interface BrowserTabApi {
@@ -16,7 +16,17 @@ interface BrowserTabApi {
   };
 }
 
-const pageContextTabs = new Map<string, Promise<number>>();
+interface PageContextTab {
+  tabId: number;
+  createdByExtension: boolean;
+}
+
+interface PageContextEntry {
+  promise: Promise<PageContextTab>;
+  refs: number;
+}
+
+const pageContextTabs = new Map<string, PageContextEntry>();
 const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   muted: true,
   closeManagedTabs: true,
@@ -33,7 +43,28 @@ export async function openPinnedMutedTabWithBrowser(
   options?: Partial<WatchTabOptions>,
 ): Promise<PreparedWatchTab> {
   const tabOptions = { ...DEFAULT_WATCH_TAB_OPTIONS, ...options };
-  if (session?.tabId) {
+  const registered = tabOptions.managedTab ?? managedTabFromSession(session, channel.url);
+
+  if (registered) {
+    try {
+      const tab = await browserApi.tabs.get(registered.tabId);
+      if (tab?.id) {
+        await browserApi.tabs.update(tab.id, {
+          url: channel.url,
+          pinned: true,
+          muted: tabOptions.muted,
+          active: false,
+        });
+        return {
+          tabId: tab.id,
+          managedByExtension: true,
+          managedTab: managedTab(channel, tab.id),
+        };
+      }
+    } catch {
+      // The registered managed tab can go stale after browser restarts or manual tab closure.
+    }
+  } else if (session?.tabId && session.tabManagedByExtension === false) {
     try {
       const tab = await browserApi.tabs.get(session.tabId);
       if (tab?.id) {
@@ -43,18 +74,23 @@ export async function openPinnedMutedTabWithBrowser(
           muted: tabOptions.muted,
           active: false,
         });
-        return { tabId: tab.id, managedByExtension: session.tabManagedByExtension ?? true };
+        return { tabId: tab.id, managedByExtension: false };
       }
     } catch {
-      // The stored tab id can go stale after browser restarts or manual tab closure.
+      // Reused user tabs are best-effort only; if missing, create a managed tab.
     }
   }
 
-  const existing = await browserApi.tabs.query({ url: channel.url });
-  const reusable = existing.find((tab) => tab.id != null);
-  if (reusable?.id) {
-    await browserApi.tabs.update(reusable.id, { pinned: true, muted: tabOptions.muted, active: false });
-    return { tabId: reusable.id, managedByExtension: false };
+  const extraManagedTabIds = new Set<number>();
+  if (registered?.tabId != null) extraManagedTabIds.add(registered.tabId);
+  if (session?.tabManagedByExtension && session.tabId != null) extraManagedTabIds.add(session.tabId);
+  for (const tabId of extraManagedTabIds) {
+    if (!browserApi.tabs.remove) continue;
+    try {
+      await browserApi.tabs.remove(tabId);
+    } catch {
+      // Stale managed tab ids should not block creating the replacement.
+    }
   }
 
   const tab = await browserApi.tabs.create({
@@ -65,8 +101,27 @@ export async function openPinnedMutedTabWithBrowser(
   if (tab.id == null) {
     throw new Error(`Could not create ${channel.platform} watch tab`);
   }
-  await browserApi.tabs.update(tab.id, { muted: tabOptions.muted, active: false });
-  return { tabId: tab.id, managedByExtension: true };
+  await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
+  return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
+}
+
+function managedTabFromSession(session: WatchSession | undefined, channelUrl: string): ManagedWatchTab | undefined {
+  if (!session?.tabId || !session.tabManagedByExtension) return undefined;
+  return {
+    platform: session.platform,
+    tabId: session.tabId,
+    channelUrl,
+    ownedByExtension: true,
+  };
+}
+
+function managedTab(channel: ChannelCandidate, tabId: number): ManagedWatchTab {
+  return {
+    platform: channel.platform,
+    tabId,
+    channelUrl: channel.url,
+    ownedByExtension: true,
+  };
 }
 
 export async function stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
@@ -101,40 +156,76 @@ export async function fetchJsonInPageWithBrowser<T>(
   url: string,
   init?: RequestInit,
 ): Promise<T> {
-  const tabId = await getPageContextTab(browserApi, originUrl);
+  const origin = new URL(originUrl).origin;
+  const pageContext = await acquirePageContextTab(browserApi, originUrl, origin);
 
-  const runtimeBrowser = browserApi;
+  try {
+    const runtimeBrowser = browserApi;
 
-  if (runtimeBrowser.scripting?.executeScript) {
-    const [result] = await runtimeBrowser.scripting.executeScript({
-      target: { tabId },
-      args: [url, init ? JSON.stringify(init) : undefined],
-      func: pageFetchJson,
-    });
-    return result.result as T;
+    if (runtimeBrowser.scripting?.executeScript) {
+      const [result] = await runtimeBrowser.scripting.executeScript({
+        target: { tabId: pageContext.tabId },
+        // args must be JSON-serializable; `undefined` is rejected ("unserializable"),
+        // so pass `null` when there is no init (e.g. Kick GET requests).
+        args: [url, init ? JSON.stringify(init) : null],
+        // Run in the page's MAIN world: Cloudflare-protected APIs (Kick) reject
+        // fetches from the isolated content-script world, where the page's
+        // clearance context isn't available.
+        world: "MAIN",
+        func: pageFetchJson,
+      });
+      return result.result as T;
+    }
+
+    if (runtimeBrowser.tabs.executeScript) {
+      const code = `(${pageFetchJson.toString()})(${JSON.stringify(url)}, ${JSON.stringify(init ? JSON.stringify(init) : undefined)})`;
+      const results = await runtimeBrowser.tabs.executeScript(pageContext.tabId, { code });
+      const result = results?.[0];
+      return result as T;
+    }
+
+    throw new Error("No supported page script execution API is available");
+  } finally {
+    await releasePageContextTab(browserApi, origin, pageContext);
   }
-
-  if (runtimeBrowser.tabs.executeScript) {
-    const code = `(${pageFetchJson.toString()})(${JSON.stringify(url)}, ${JSON.stringify(init ? JSON.stringify(init) : undefined)})`;
-    const results = await runtimeBrowser.tabs.executeScript(tabId, { code });
-    const result = results?.[0];
-    return result as T;
-  }
-
-  throw new Error("No supported page script execution API is available");
 }
 
-async function getPageContextTab(browserApi: BrowserTabApi, originUrl: string): Promise<number> {
-  const origin = new URL(originUrl).origin;
+async function acquirePageContextTab(browserApi: BrowserTabApi, originUrl: string, origin: string): Promise<PageContextTab> {
   const existing = pageContextTabs.get(origin);
-  if (existing) return existing;
+  if (existing) {
+    existing.refs += 1;
+    return existing.promise;
+  }
 
-  const promise = findOrCreatePageContextTab(browserApi, originUrl, origin);
-  pageContextTabs.set(origin, promise);
+  const entry: PageContextEntry = {
+    promise: findOrCreatePageContextTab(browserApi, originUrl, origin),
+    refs: 1,
+  };
+  pageContextTabs.set(origin, entry);
   try {
-    return await promise;
-  } finally {
-    pageContextTabs.delete(origin);
+    return await entry.promise;
+  } catch (error) {
+    if (pageContextTabs.get(origin) === entry) {
+      pageContextTabs.delete(origin);
+    }
+    throw error;
+  }
+}
+
+async function releasePageContextTab(browserApi: BrowserTabApi, origin: string, pageContext: PageContextTab): Promise<void> {
+  const entry = pageContextTabs.get(origin);
+  if (!entry) return;
+
+  entry.refs -= 1;
+  if (entry.refs > 0) return;
+
+  pageContextTabs.delete(origin);
+  if (!pageContext.createdByExtension || !browserApi.tabs.remove) return;
+
+  try {
+    await browserApi.tabs.remove(pageContext.tabId);
+  } catch {
+    // The temporary context tab may have been closed manually before cleanup.
   }
 }
 
@@ -142,17 +233,17 @@ async function findOrCreatePageContextTab(
   browserApi: BrowserTabApi,
   originUrl: string,
   origin: string,
-): Promise<number> {
+): Promise<PageContextTab> {
   const tabs = await browserApi.tabs.query({ url: `${origin}/*` });
   const tabId = tabs.find((tab) => tab.id != null)?.id;
-  if (tabId != null) return tabId;
+  if (tabId != null) return { tabId, createdByExtension: false };
 
   const tab = await browserApi.tabs.create({ url: originUrl, pinned: false, active: false }) as { id?: number };
   if (tab.id == null) {
     throw new Error(`Could not open page context for ${originUrl}`);
   }
   await browserApi.tabs.update(tab.id, { muted: true, active: false });
-  return tab.id;
+  return { tabId: tab.id, createdByExtension: true };
 }
 
 async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
@@ -169,7 +260,9 @@ async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unkn
   const response = await fetch(targetUrl, {
     ...parsedInit,
     headers,
-    credentials: "include",
+    // Public queries pass credentials: "omit" so Twitch treats them as anonymous;
+    // logged-in GQL requests without an integrity token are rejected.
+    credentials: parsedInit?.credentials ?? "include",
   });
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`);

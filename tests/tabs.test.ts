@@ -27,7 +27,16 @@ describe("tab manager", () => {
 
     const result = await openPinnedMutedTabWithBrowser(browser, channel, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 4, tabManagedByExtension: true });
 
-    expect(result).toEqual({ tabId: 4, managedByExtension: true });
+    expect(result).toEqual({
+      tabId: 4,
+      managedByExtension: true,
+      managedTab: {
+        platform: "twitch",
+        tabId: 4,
+        channelUrl: channel.url,
+        ownedByExtension: true,
+      },
+    });
     expect(browser.tabs.update).toHaveBeenCalledWith(4, {
       url: channel.url,
       pinned: true,
@@ -37,15 +46,27 @@ describe("tab manager", () => {
     expect(browser.tabs.create).not.toHaveBeenCalled();
   });
 
-  it("falls back to an already open matching tab when stored tab is stale", async () => {
+  it("creates one new managed tab when the registered tab is stale", async () => {
     const browser = browserMock();
     browser.tabs.get.mockRejectedValue(new Error("missing"));
     browser.tabs.query.mockResolvedValue([{ id: 7 }]);
 
     const result = await openPinnedMutedTabWithBrowser(browser, channel, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 4, tabManagedByExtension: true });
 
-    expect(result).toEqual({ tabId: 7, managedByExtension: false });
-    expect(browser.tabs.update).toHaveBeenCalledWith(7, { pinned: true, muted: true, active: false });
+    expect(result).toEqual({
+      tabId: 9,
+      managedByExtension: true,
+      managedTab: {
+        platform: "twitch",
+        tabId: 9,
+        channelUrl: channel.url,
+        ownedByExtension: true,
+      },
+    });
+    expect(browser.tabs.query).not.toHaveBeenCalled();
+    expect(browser.tabs.remove).toHaveBeenCalledWith(4);
+    expect(browser.tabs.create).toHaveBeenCalledTimes(1);
+    expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
   });
 
   it("creates pinned tabs and then mutes them", async () => {
@@ -53,13 +74,70 @@ describe("tab manager", () => {
 
     const result = await openPinnedMutedTabWithBrowser(browser, channel);
 
-    expect(result).toEqual({ tabId: 9, managedByExtension: true });
+    expect(result).toEqual({
+      tabId: 9,
+      managedByExtension: true,
+      managedTab: {
+        platform: "twitch",
+        tabId: 9,
+        channelUrl: channel.url,
+        ownedByExtension: true,
+      },
+    });
     expect(browser.tabs.create).toHaveBeenCalledWith({
       url: channel.url,
       pinned: true,
       active: false,
     });
-    expect(browser.tabs.update).toHaveBeenCalledWith(9, { muted: true, active: false });
+    expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
+  });
+
+  it("updates a registered managed tab when switching channels", async () => {
+    const browser = browserMock();
+    const nextChannel = { ...channel, username: "next", url: "https://www.twitch.tv/next" };
+    browser.tabs.get.mockResolvedValue({ id: 4 });
+
+    const result = await openPinnedMutedTabWithBrowser(browser, nextChannel, undefined, {
+      managedTab: {
+        platform: "twitch",
+        tabId: 4,
+        channelUrl: channel.url,
+        ownedByExtension: true,
+      },
+    });
+
+    expect(result).toEqual({
+      tabId: 4,
+      managedByExtension: true,
+      managedTab: {
+        platform: "twitch",
+        tabId: 4,
+        channelUrl: nextChannel.url,
+        ownedByExtension: true,
+      },
+    });
+    expect(browser.tabs.update).toHaveBeenCalledWith(4, {
+      url: nextChannel.url,
+      pinned: true,
+      muted: true,
+      active: false,
+    });
+    expect(browser.tabs.create).not.toHaveBeenCalled();
+  });
+
+  it("does not treat user-opened matching tabs as managed or close them", async () => {
+    const browser = browserMock();
+    browser.tabs.query.mockResolvedValue([{ id: 7 }]);
+
+    await openPinnedMutedTabWithBrowser(browser, channel);
+
+    expect(browser.tabs.query).not.toHaveBeenCalled();
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+    expect(browser.tabs.create).toHaveBeenCalledWith({
+      url: channel.url,
+      pinned: true,
+      active: false,
+    });
   });
 
   it("closes extension-managed watch tabs on stop", async () => {
@@ -110,7 +188,56 @@ describe("tab manager", () => {
     expect(result).toEqual({ ok: true });
     expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
       target: { tabId: 3 },
+      // MAIN world is required so Cloudflare-protected APIs (Kick) accept the fetch.
+      world: "MAIN",
+      // args must be JSON-serializable: null, never undefined ("unserializable").
+      args: ["https://web.kick.com/api/v1/drops/progress", null],
     }));
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+  });
+
+  it("closes an extension-created page-context tab after a fetch", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => [{ result: { ok: true } }]),
+      },
+    };
+    browser.tabs.create.mockResolvedValue({ id: 14 });
+
+    const result = await fetchJsonInPageWithBrowser<{ ok: boolean }>(
+      browser,
+      "https://www.twitch.tv/drops/inventory",
+      "https://gql.twitch.tv/gql",
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(browser.tabs.create).toHaveBeenCalledWith({
+      url: "https://www.twitch.tv/drops/inventory",
+      pinned: false,
+      active: false,
+    });
+    expect(browser.tabs.update).toHaveBeenCalledWith(14, { muted: true, active: false });
+    expect(browser.tabs.remove).toHaveBeenCalledWith(14);
+  });
+
+  it("does not close an existing user tab reused for a page-context fetch", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => [{ result: { ok: true } }]),
+      },
+    };
+    browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+
+    await fetchJsonInPageWithBrowser(
+      browser,
+      "https://kick.com",
+      "https://web.kick.com/api/v1/drops/progress",
+    );
+
+    expect(browser.tabs.create).not.toHaveBeenCalled();
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
   });
 
   it("shares one page-context tab creation across concurrent fetches for the same origin", async () => {
@@ -141,5 +268,7 @@ describe("tab manager", () => {
     expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
       target: { tabId: 14 },
     }));
+    expect(browser.tabs.remove).toHaveBeenCalledTimes(1);
+    expect(browser.tabs.remove).toHaveBeenCalledWith(14);
   });
 });

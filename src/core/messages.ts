@@ -4,7 +4,8 @@ export type RuntimeMessage =
   | { type: "getSnapshot" }
   | { type: "setRunning"; running: boolean }
   | { type: "setPlatformEnabled"; platform: Platform; enabled: boolean }
-  | { type: "saveSettings"; settings: ExtensionSettings }
+  | { type: "setAutomation"; platform: Platform; enabled: boolean }
+  | { type: "saveSettings"; settings: ExtensionSettings; tickAfterSave?: boolean }
   | { type: "claimReward"; platform: Platform; campaignId: string; rewardId: string }
   | { type: "tickNow" }
   | {

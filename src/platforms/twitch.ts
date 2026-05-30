@@ -25,6 +25,17 @@ const TWITCH_QUERIES = {
   claimHash: "a455deea71bdc9015b78eb49f4acfbce8baa7ccbedd28e549bb025bd0f751930",
 };
 
+// Persisted query hashes for stream info rotate and eventually return
+// PersistedQueryNotFound. The viewer-count check sends this inline query instead
+// so it keeps working without depending on a server-side registered hash.
+const STREAM_INFO_QUERY = `query StreamInfo($channel: String!) {
+  user(login: $channel) {
+    id
+    displayName
+    stream { id type viewersCount game { id name } }
+  }
+}`;
+
 interface TwitchGqlResponse<T> {
   data?: T;
   errors?: Array<{ message?: string }>;
@@ -64,8 +75,10 @@ interface TwitchDirectoryData {
 interface TwitchStreamInfoData {
   user?: {
     id?: string;
+    displayName?: string;
     stream?: {
       type?: string;
+      viewersCount?: number;
       game?: { id?: string; name?: string };
     } | null;
   };
@@ -185,9 +198,13 @@ export class TwitchAdapter implements PlatformAdapter {
   async checkChannel(channel: ChannelCandidate, campaign?: DropCampaign): Promise<ChannelCheck> {
     try {
       const response = await this.gql<TwitchStreamInfoData>(
-        "VideoPlayerStreamInfoOverlayChannel",
+        "StreamInfo",
         TWITCH_QUERIES.streamInfoHash,
         { channel: channel.username },
+        STREAM_INFO_QUERY,
+        // Anonymous: this is public data, and logged-in GQL calls without an
+        // integrity token are rejected (which would mask the channel as live).
+        "omit",
       );
       const stream = response.data?.user?.stream;
       const actualCategoryId = stream?.game?.id;
@@ -196,7 +213,13 @@ export class TwitchAdapter implements PlatformAdapter {
         live: Boolean(stream),
         categoryMatches: !expectedCategoryId || actualCategoryId === expectedCategoryId,
         reason: stream ? undefined : "Twitch channel is offline",
-        candidate: channel,
+        candidate: {
+          ...channel,
+          displayName: response.data?.user?.displayName ?? channel.displayName,
+          categoryId: actualCategoryId ?? channel.categoryId,
+          categoryName: stream?.game?.name ?? channel.categoryName,
+          viewerCount: stream?.viewersCount ?? channel.viewerCount,
+        },
       };
     } catch (error) {
       return this.checkChannelFromPage(channel, campaign, error);
@@ -286,6 +309,8 @@ export class TwitchAdapter implements PlatformAdapter {
     operationName: string,
     sha256Hash: string,
     variables: Record<string, unknown>,
+    query?: string,
+    credentials?: RequestCredentials,
   ): Promise<TwitchGqlResponse<T>> {
     const request = {
       method: "POST",
@@ -293,16 +318,21 @@ export class TwitchAdapter implements PlatformAdapter {
         "content-type": "application/json",
         "client-id": TWITCH_CLIENT_ID,
       },
-      body: JSON.stringify({
-        operationName,
-        variables,
-        extensions: {
-          persistedQuery: {
-            version: 1,
-            sha256Hash,
-          },
-        },
-      }),
+      ...(credentials ? { credentials } : {}),
+      body: JSON.stringify(
+        query
+          ? { operationName, variables, query }
+          : {
+              operationName,
+              variables,
+              extensions: {
+                persistedQuery: {
+                  version: 1,
+                  sha256Hash,
+                },
+              },
+            },
+      ),
     } satisfies RequestInit;
     let response = await this.fetcher.fetchJson<TwitchGqlResponse<T>>("https://gql.twitch.tv/gql", request);
     if (response.errors?.some((error) => isTransientGqlError(error.message))) {

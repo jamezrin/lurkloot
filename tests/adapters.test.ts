@@ -65,7 +65,7 @@ describe("KickAdapter", () => {
   it("checks channel category and claims rewards through the page-context API", async () => {
     const fetcher = jsonFetcher((url, init) => {
       if (url === "https://kick.com/api/v2/channels/creator") {
-        return { livestream: { is_live: true, category: { id: 99, name: "Game" } } };
+        return { livestream: { is_live: true, category: { id: 99, name: "Game" }, viewer_count: 456, session_title: "Live now" } };
       }
       if (url === "https://web.kick.com/api/v1/drops/claim") {
         expect(init?.method).toBe("POST");
@@ -79,8 +79,25 @@ describe("KickAdapter", () => {
     const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
 
     await expect(adapter.checkChannel({ platform: "kick", username: "creator", url: "https://kick.com/creator" }, campaign))
-      .resolves.toMatchObject({ live: true, categoryMatches: true });
+      .resolves.toMatchObject({
+        live: true,
+        categoryMatches: true,
+        candidate: { categoryId: "99", categoryName: "Game", viewerCount: 456, title: "Live now" },
+      });
     await expect(adapter.claimReward(campaign, reward)).resolves.toBe(true);
+  });
+
+  it("reads category and viewer count from the new `categories` array shape", async () => {
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://kick.com/api/v2/channels/creator") {
+        return { livestream: { is_live: true, categories: [{ id: 13, name: "Rust" }], viewer_count: 164, session_title: "Live" } };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const check = await new KickAdapter(fetcher).checkChannel({ platform: "kick", username: "creator", url: "https://kick.com/creator" });
+    expect(check.live).toBe(true);
+    expect(check.candidate.viewerCount).toBe(164);
+    expect(check.candidate.categoryName).toBe("Rust");
   });
 
   it("falls back to Kick channel page data when the channel API fails", async () => {
@@ -198,22 +215,32 @@ describe("TwitchAdapter", () => {
     expect(attempts).toBe(3);
   });
 
-  it("maps stream info checks to live/category state", async () => {
+  it("maps stream info checks to live/category state via an inline query", async () => {
     const fetcher = jsonFetcher((_url, init) => {
-      expect(operation(init)).toBe("VideoPlayerStreamInfoOverlayChannel");
-      return { data: { user: { stream: { game: { id: "game" } } } } };
+      expect(operation(init)).toBe("StreamInfo");
+      const body = JSON.parse(String(init?.body));
+      // Inline query is used instead of a persisted hash, which rotates and breaks.
+      expect(body.query).toContain("viewersCount");
+      expect(body.extensions?.persistedQuery).toBeUndefined();
+      // Public query runs anonymously; logged-in GQL calls without integrity are rejected.
+      expect(init?.credentials).toBe("omit");
+      return { data: { user: { displayName: "Creator", stream: { viewersCount: 789, game: { id: "game", name: "Game" } } } } };
     });
     const adapter = new TwitchAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
       { categoryId: "game" } as DropCampaign,
-    )).resolves.toMatchObject({ live: true, categoryMatches: true });
+    )).resolves.toMatchObject({
+      live: true,
+      categoryMatches: true,
+      candidate: { categoryId: "game", categoryName: "Game", viewerCount: 789, displayName: "Creator" },
+    });
   });
 
   it("falls back to Twitch channel page data when stream info GQL fails", async () => {
     const fetcher = jsonFetcher((url, init) => {
-      if (url === "https://gql.twitch.tv/gql" && operation(init) === "VideoPlayerStreamInfoOverlayChannel") {
+      if (url === "https://gql.twitch.tv/gql" && operation(init) === "StreamInfo") {
         return { errors: [{ message: "PersistedQueryNotFound" }] };
       }
       if (url === "https://www.twitch.tv/creator") {

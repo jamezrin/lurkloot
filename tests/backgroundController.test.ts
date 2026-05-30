@@ -142,6 +142,33 @@ describe("background controller", () => {
     expect(snapshot.state.sessions.kick.status).toBe("watching");
   });
 
+  it("enables popup automation with one settings save and one initial scheduler pass", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { enabled: false, fallbackStreamers: [] },
+        kick: { enabled: false, fallbackStreamers: [] },
+      },
+    });
+
+    const snapshot = asSnapshot(await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    }));
+
+    expect(env.deps.saveSettings).toHaveBeenCalledTimes(1);
+    expect(env.settings.running).toBe(true);
+    expect(env.settings.platform.twitch.enabled).toBe(true);
+    expect(env.settings.platform.kick.enabled).toBe(false);
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(1);
+    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+    expect(snapshot.state.sessions.twitch.status).toBe("watching");
+    expect(snapshot.state.sessions.kick.status).toBe("paused");
+  });
+
   it("saves and normalizes settings without forcing a scheduler tick", async () => {
     const env = harness();
     const nextSettings = { ...DEFAULT_SETTINGS, running: true, pollIntervalMinutes: Number.NaN, offlineRetryLimit: 0 };
@@ -152,6 +179,47 @@ describe("background controller", () => {
     expect(env.settings.offlineRetryLimit).toBe(1);
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("runs a scheduler tick after saving settings when requested and automation is active", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const nextSettings = {
+      ...env.settings,
+      platform: {
+        ...env.settings.platform,
+        twitch: { ...env.settings.platform.twitch, fallbackStreamers: ["fallback"] },
+      },
+    };
+
+    const snapshot = asSnapshot(await env.controller.handleMessage({
+      type: "saveSettings",
+      settings: nextSettings,
+      tickAfterSave: true,
+    }));
+
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(snapshot.settings.platform.twitch.fallbackStreamers).toEqual(["fallback"]);
+  });
+
+  it("does not start automation after saving Permawatch settings while paused", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const nextSettings = {
+      ...env.settings,
+      platform: {
+        ...env.settings.platform,
+        twitch: { ...env.settings.platform.twitch, fallbackStreamers: ["fallback"] },
+      },
+    };
+
+    const snapshot = asSnapshot(await env.controller.handleMessage({
+      type: "saveSettings",
+      settings: nextSettings,
+      tickAfterSave: true,
+    }));
+
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(snapshot.settings.running).toBe(false);
+    expect(snapshot.settings.platform.twitch.fallbackStreamers).toEqual(["fallback"]);
   });
 
   it("records playback telemetry only for the managed watch tab", async () => {
@@ -193,6 +261,94 @@ describe("background controller", () => {
     }, { tab: { id: 999 } });
 
     expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
+  });
+
+  it("runs an immediate tick when the active managed Twitch tab is closed", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { enabled: false, fallbackStreamers: [] },
+      },
+    });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: true,
+    };
+
+    await env.controller.handleTabRemoved(10);
+
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+  });
+
+  it("ignores removed tabs that are not the active managed watch tab", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: true,
+    };
+
+    await env.controller.handleTabRemoved(999);
+
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+  });
+
+  it("does not reopen a closed tab for a disabled platform", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { enabled: false, fallbackStreamers: [] },
+      },
+    });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: true,
+    };
+
+    await env.controller.handleTabRemoved(10);
+
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+  });
+
+  it("tracks one managed watch tab per running platform", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+
+    await env.controller.tick();
+
+    expect(env.state.sessions.twitch.tabId).toBe(10);
+    expect(env.state.sessions.kick.tabId).toBe(20);
+    expect(env.state.managedWatchTabs).toMatchObject({
+      twitch: {
+        platform: "twitch",
+        tabId: 10,
+        channelUrl: "https://www.twitch.tv/twitch-creator",
+        ownedByExtension: true,
+      },
+      kick: {
+        platform: "kick",
+        tabId: 20,
+        channelUrl: "https://kick.com/kick-creator",
+        ownedByExtension: true,
+      },
+    });
   });
 
   it("manually claims a claimable reward through the platform adapter", async () => {

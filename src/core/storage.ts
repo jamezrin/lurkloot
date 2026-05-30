@@ -16,6 +16,7 @@ export const DEFAULT_STATE: SchedulerState = {
     twitch: emptySession("twitch"),
     kick: emptySession("kick"),
   },
+  managedWatchTabs: {},
   campaigns: {
     twitch: [],
     kick: [],
@@ -41,6 +42,10 @@ export async function loadState(): Promise<SchedulerState> {
     sessions: {
       ...DEFAULT_STATE.sessions,
       ...(data[STATE_KEY] as Partial<SchedulerState> | undefined)?.sessions,
+    },
+    managedWatchTabs: {
+      ...DEFAULT_STATE.managedWatchTabs,
+      ...(data[STATE_KEY] as Partial<SchedulerState> | undefined)?.managedWatchTabs,
     },
     campaigns: {
       ...DEFAULT_STATE.campaigns,
