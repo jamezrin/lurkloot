@@ -222,6 +222,21 @@ describe("background controller", () => {
     expect(snapshot.settings.platform.twitch.fallbackStreamers).toEqual(["fallback"]);
   });
 
+  it("runs an immediate scheduler tick when requested from the popup", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+
+    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "tickNow" }));
+
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(1);
+    expect(env.kick.discoverCampaigns).toHaveBeenCalledTimes(1);
+    expect(snapshot.state.sessions.twitch.status).toBe("watching");
+    expect(snapshot.state.sessions.kick.status).toBe("watching");
+    expect(snapshot.state.events[0]).toMatchObject({
+      level: "info",
+      message: "Scheduler tick completed",
+    });
+  });
+
   it("records playback telemetry only for the managed watch tab", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false });
     await env.controller.handleMessage({ type: "setRunning", running: true });

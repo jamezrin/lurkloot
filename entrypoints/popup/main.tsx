@@ -123,6 +123,7 @@ function Popup(): React.ReactElement {
   const [platform, setPlatform] = useState<Platform>("twitch");
   const [tab, setTab] = useState<PopupTab>("drops");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     void Promise.all([
@@ -154,6 +155,16 @@ function Popup(): React.ReactElement {
   async function setAutomation(enabled: boolean): Promise<void> {
     if (!snapshot) return;
     setSnapshot(await send<RuntimeSnapshot>({ type: "setAutomation", platform, enabled }));
+  }
+
+  async function refreshNow(): Promise<void> {
+    if (!snapshot || refreshing) return;
+    setRefreshing(true);
+    try {
+      setSnapshot(await send<RuntimeSnapshot>({ type: "tickNow" }));
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   if (!snapshot) {
@@ -195,9 +206,14 @@ function Popup(): React.ReactElement {
               </div>
             </div>
           </div>
-          <IconButton label={settingsOpen ? "Close settings" : "Open settings"} active={settingsOpen} onClick={() => setSettingsOpen((value) => !value)}>
-            {settingsOpen ? <X size={16} /> : <SettingsIcon size={16} />}
-          </IconButton>
+          <div className="flex items-center gap-1">
+            <IconButton label="Refresh schedule" onClick={() => void refreshNow()} disabled={refreshing}>
+              <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
+            </IconButton>
+            <IconButton label={settingsOpen ? "Close settings" : "Open settings"} active={settingsOpen} onClick={() => setSettingsOpen((value) => !value)}>
+              {settingsOpen ? <X size={16} /> : <SettingsIcon size={16} />}
+            </IconButton>
+          </div>
         </header>
         <PlatformSwitcher
           active={platform}
@@ -673,8 +689,8 @@ function Pill({ children, tone = "muted" }: { children: React.ReactNode; tone?: 
   return <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none whitespace-nowrap", tones[tone])}>{children}</span>;
 }
 
-function IconButton({ children, label, active, onClick }: { children: React.ReactNode; label: string; active?: boolean; onClick(): void }) {
-  return <button type="button" title={label} aria-label={label} onClick={onClick} className={cn("flex h-8 w-8 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", active ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200")}>{children}</button>;
+function IconButton({ children, label, active, disabled, onClick }: { children: React.ReactNode; label: string; active?: boolean; disabled?: boolean; onClick(): void }) {
+  return <button type="button" title={label} aria-label={label} onClick={onClick} disabled={disabled} className={cn("flex h-8 w-8 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", disabled ? "text-zinc-300 dark:text-zinc-700" : active ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200")}>{children}</button>;
 }
 
 function RemoveRowButton({ label, onClick }: { label: string; onClick(): void }) {
