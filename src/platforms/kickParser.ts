@@ -25,7 +25,11 @@ interface KickCampaign {
   title?: string;
   status?: string;
   starts_at?: string;
+  startsAt?: string;
+  startAt?: string;
   ends_at?: string;
+  endsAt?: string;
+  endAt?: string;
   start_date?: string;
   end_date?: string;
   category_id?: string | number;
@@ -111,9 +115,9 @@ interface KickProgressReward {
 export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[]): DropCampaign[] {
   const campaigns = collectKickCampaigns(input);
 
-  return campaigns.map((campaign) => {
-    const startsAt = campaign.starts_at ?? campaign.start_date;
-    const endsAt = campaign.ends_at ?? campaign.end_date;
+  return campaigns.map((campaign): DropCampaign => {
+    const startsAt = campaign.starts_at ?? campaign.startsAt ?? campaign.startAt ?? campaign.start_date;
+    const endsAt = campaign.ends_at ?? campaign.endsAt ?? campaign.endAt ?? campaign.end_date;
     const rewards = campaign.rewards ?? campaign.drops ?? [];
     const categoryId = campaign.category_id ?? campaign.game_id ?? campaign.category?.id;
     const status = parseCampaignStatus(
@@ -146,7 +150,7 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
       isGeneralDrop: !allowedChannels?.length,
       rewards: rewards.map(parseKickReward),
     };
-  });
+  }).filter((campaign) => campaign.status !== "expired" && campaign.status !== "completed");
 }
 
 function parseKickReward(reward: KickReward): DropReward {
@@ -251,14 +255,10 @@ function collectKickCampaigns(input: KickCampaignResponse | KickCampaign[]): Kic
     ...(input.active ?? []),
     ...(input.current ?? []),
     ...(input.upcoming ?? []),
-    ...(input.expired ?? []),
-    ...(input.completed ?? []),
     ...(data?.campaigns ?? []),
     ...(data?.active ?? []),
     ...(data?.current ?? []),
     ...(data?.upcoming ?? []),
-    ...(data?.expired ?? []),
-    ...(data?.completed ?? []),
   ];
 }
 
@@ -286,13 +286,24 @@ function parseCampaignStatus(
   endsAt: string | undefined,
   completed: boolean,
 ): DropCampaign["status"] {
-  const normalized = rawStatus?.toLowerCase();
   if (completed) return "completed";
-  if (normalized === "active" || normalized === "upcoming" || normalized === "expired" || normalized === "completed") {
-    return normalized;
-  }
+  const normalized = rawStatus?.trim().toLowerCase().replace(/[\s-]+/g, "_");
   const now = Date.now();
-  if (startsAt && Date.parse(startsAt) > now) return "upcoming";
-  if (endsAt && Date.parse(endsAt) < now) return "expired";
+  const startsAtTime = parseTimestamp(startsAt);
+  const endsAtTime = parseTimestamp(endsAt);
+  if (startsAtTime != null && startsAtTime > now) return "upcoming";
+  if (endsAtTime != null && endsAtTime < now) return "expired";
+  if (normalized === "active" || normalized === "in_progress" || normalized === "current") return "active";
+  if (normalized === "upcoming" || normalized === "scheduled") return "upcoming";
+  if (normalized === "expired" || normalized === "ended" || normalized === "inactive" || normalized === "finished") {
+    return "expired";
+  }
+  if (normalized === "completed" || normalized === "complete" || normalized === "claimed") return "completed";
   return "active";
+}
+
+function parseTimestamp(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? undefined : timestamp;
 }

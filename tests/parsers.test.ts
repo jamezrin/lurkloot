@@ -69,6 +69,16 @@ describe("Kick parsers", () => {
           start_date: "2999-01-01T00:00:00.000Z",
           rewards: [{ id: "future-reward", required_minutes: 30 }],
         }],
+        expired: [{
+          id: "expired-campaign",
+          title: "Expired Drops",
+          rewards: [{ id: "expired-reward", required_minutes: 30 }],
+        }],
+        completed: [{
+          id: "completed-campaign",
+          title: "Completed Drops",
+          rewards: [{ id: "completed-reward", required_minutes: 30 }],
+        }],
       },
     });
 
@@ -95,6 +105,34 @@ describe("Kick parsers", () => {
       status: "in_progress",
     });
     expect(merged[1].status).toBe("upcoming");
+  });
+
+  it("filters ended Kick campaigns from discovery", () => {
+    const campaigns = parseKickCampaigns({
+      data: {
+        campaigns: [{
+          id: "active-campaign",
+          status: "active",
+          endsAt: "2999-01-01T00:00:00.000Z",
+          rewards: [{ id: "active-reward", required_minutes: 30 }],
+        }, {
+          id: "ended-status",
+          status: "ended",
+          rewards: [{ id: "ended-reward", required_minutes: 30 }],
+        }, {
+          id: "past-end",
+          status: "active",
+          endAt: "2020-01-01T00:00:00.000Z",
+          rewards: [{ id: "past-reward", required_minutes: 30 }],
+        }, {
+          id: "finished-status",
+          status: "finished",
+          rewards: [{ id: "finished-reward", required_minutes: 30 }],
+        }],
+      },
+    });
+
+    expect(campaigns.map((campaign) => campaign.id)).toEqual(["active-campaign"]);
   });
 
   it("treats whole-number Kick progress values as percentages", () => {
