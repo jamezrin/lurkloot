@@ -131,15 +131,23 @@ async function firstValidCandidate(
   for (const candidate of candidates) {
     const check = await adapter.checkChannel(candidate, campaign);
     if (check.live && check.categoryMatches) {
-      return {
-        ...candidate,
-        live: check.live,
-        categoryId: check.candidate.categoryId ?? candidate.categoryId,
-        categoryName: check.candidate.categoryName ?? candidate.categoryName,
-      };
+      return channelFromCheck(candidate, check);
     }
   }
   return undefined;
+}
+
+function channelFromCheck(candidate: ChannelCandidate, check: { live: boolean; candidate: ChannelCandidate }): ChannelCandidate {
+  return {
+    ...candidate,
+    live: check.live,
+    displayName: check.candidate.displayName ?? candidate.displayName,
+    categoryId: check.candidate.categoryId ?? candidate.categoryId,
+    categoryName: check.candidate.categoryName ?? candidate.categoryName,
+    viewerCount: check.candidate.viewerCount ?? candidate.viewerCount,
+    title: check.candidate.title ?? candidate.title,
+    profileImageUrl: check.candidate.profileImageUrl ?? candidate.profileImageUrl,
+  };
 }
 
 function fallbackChannel(platform: Platform, username: string): ChannelCandidate {
@@ -266,7 +274,7 @@ export async function runSchedulerTick(
           reward: campaigns
             .find((campaign) => campaign.id === previous.campaignId)
             ?.rewards.find((reward) => reward.id === previous.rewardId),
-          channel: previous.channel,
+          channel: shouldKeep.channel ?? previous.channel,
           reason: shouldKeep.reason,
         };
       } else if (previous.status === "watching" && previous.channel && shouldKeep.reason !== "no existing watch session") {
@@ -406,7 +414,7 @@ async function shouldKeepWatching(
   nextDecision: WatchDecision,
   settings: ExtensionSettings,
   adapter: Pick<PlatformAdapter, "checkChannel">,
-): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string }> {
+): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string; channel?: ChannelCandidate }> {
   if (!previous.channel || previous.status !== "watching") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "no existing watch session" };
   }
@@ -426,6 +434,7 @@ async function shouldKeepWatching(
           keep: true,
           offlineChecks: fallbackOfflineChecks,
           playbackChecks: fallbackPlaybackChecks,
+          channel: channelFromCheck(previous.channel, fallbackCheck),
           reason: "keeping current Permawatch tab",
         };
       }
@@ -460,7 +469,13 @@ async function shouldKeepWatching(
     };
   }
 
-  return { keep: true, offlineChecks, playbackChecks, reason: "keeping current watch tab" };
+  return {
+    keep: true,
+    offlineChecks,
+    playbackChecks,
+    channel: channelFromCheck(previous.channel, check),
+    reason: "keeping current watch tab",
+  };
 }
 
 function isPlaybackHealthy(session: WatchSession): boolean {

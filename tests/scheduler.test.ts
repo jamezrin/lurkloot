@@ -349,6 +349,58 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.playback?.playingVideoCount).toBe(1);
   });
 
+  it("refreshes viewer metadata while keeping the current watch tab", async () => {
+    const old = channel("old", { viewerCount: 10, title: "Old title" });
+    const twitch = adapter("twitch", [campaign("drops")], [channel("new")]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: {
+        ...old,
+        categoryName: "Updated game",
+        viewerCount: 1234,
+        title: "Updated title",
+      },
+    });
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: old,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            tabId: 7,
+            playback: {
+              platform: "twitch",
+              checkedAt: new Date().toISOString(),
+              videoCount: 1,
+              mutedVideoCount: 1,
+              playingVideoCount: 1,
+              blockedPlaybackCount: 0,
+              documentHidden: true,
+            },
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        events: [],
+      },
+      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.channel).toMatchObject({
+      username: "old",
+      categoryName: "Updated game",
+      viewerCount: 1234,
+      title: "Updated title",
+    });
+  });
+
   it("reloads the watch tab after repeated playback failures", async () => {
     const old = channel("old");
     const twitch = adapter("twitch", [campaign("drops")], [old]);
