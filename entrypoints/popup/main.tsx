@@ -52,7 +52,7 @@ type PopupTab = "drops" | "watchQueue";
 type GameItem = { id: string; name: string; short: string; accent: string };
 type StreamerItem = { id: string; name: string; live: boolean; subtitle?: string; viewers?: number };
 type FarmingChannelView = { name: string; category?: string; viewers?: number };
-type RewardView = { id: string; name: string; progress: number; requiredMinutes: number; obtained: boolean; art: string; tint: string };
+type RewardView = { id: string; name: string; progress: number; requiredMinutes: number; obtained: boolean; art: string; tint: string; imageUrl?: string };
 type CampaignView = {
   id: string;
   gameId: string;
@@ -64,6 +64,7 @@ type CampaignView = {
   farmingChannel?: FarmingChannelView;
   thumbnail: string;
   tint: string;
+  imageUrl?: string;
   rewards: RewardView[];
 };
 
@@ -735,6 +736,12 @@ function SortableCampaign(props: { campaign: CampaignView; index: number; game: 
   );
 }
 
+function ImageWithFallback({ src, alt, className, fit = "cover", fallback }: { src?: string; alt: string; className?: string; fit?: "cover" | "contain"; fallback: React.ReactNode }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return <>{fallback}</>;
+  return <img src={src} alt={alt} loading="lazy" className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-contain", className)} onError={() => setFailed(true)} />;
+}
+
 function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; game: GameItem; expanded: boolean; onToggle(): void; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
   const stats = campaignStats(campaign);
   const isTop = index === 0;
@@ -745,8 +752,12 @@ function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, i
       <div className="flex items-stretch">
         <div className="flex w-8 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">{dragHandle ?? <GripVertical size={16} className="text-zinc-300 dark:text-zinc-600" />}</div>
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-start gap-2.5 p-2.5 text-left outline-none">
-          <div className={cn("relative flex h-12 w-12 shrink-0 items-end overflow-hidden rounded-xl bg-gradient-to-br p-1.5 shadow-inner", campaign.tint)}>
-            <span className="text-[11px] font-black leading-none tracking-normal text-white drop-shadow">{campaign.thumbnail}</span>
+          <div className="relative flex h-12 w-12 shrink-0 items-end overflow-hidden rounded-xl shadow-inner">
+            <ImageWithFallback src={campaign.imageUrl} alt={campaign.title} fit="cover" fallback={
+              <div className={cn("flex h-full w-full items-end bg-gradient-to-br p-1.5", campaign.tint)}>
+                <span className="text-[11px] font-black leading-none tracking-normal text-white drop-shadow">{campaign.thumbnail}</span>
+              </div>
+            } />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
@@ -817,8 +828,12 @@ function RewardTile({ reward }: { reward: RewardView }) {
   const done = reward.obtained || reward.progress >= 100;
   return (
     <div className="w-[128px] shrink-0 rounded-xl border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className={cn("relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br", reward.tint)}>
-        <span className="px-1 text-center text-[11px] font-black tracking-wide text-zinc-900/70 mix-blend-multiply">{reward.art}</span>
+      <div className="relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-zinc-50 dark:bg-zinc-800/40">
+        <ImageWithFallback src={reward.imageUrl} alt={reward.name} fit="contain" className="p-1" fallback={
+          <div className={cn("flex h-full w-full items-center justify-center bg-gradient-to-br", reward.tint)}>
+            <span className="px-1 text-center text-[11px] font-black tracking-wide text-zinc-900/70 mix-blend-multiply">{reward.art}</span>
+          </div>
+        } />
         {done && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={11} strokeWidth={3} /></span>}
       </div>
       <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200" title={reward.name}>{reward.name}</div>
@@ -1393,6 +1408,7 @@ function campaignViewFromCampaign(campaign: DropCampaign, index: number, session
     farmingChannel: session.campaignId === campaign.id ? channelViewFromSession(session) : undefined,
     thumbnail: initials(campaign.gameName ?? campaign.name),
     tint: CAMPAIGN_TINTS[index % CAMPAIGN_TINTS.length],
+    imageUrl: campaign.gameImageUrl,
     rewards: campaign.rewards.map((reward, rewardIndex) => {
       const progress = reward.requiredMinutes > 0
         ? Math.min(100, (Math.min(reward.watchedMinutes, reward.requiredMinutes) / reward.requiredMinutes) * 100)
@@ -1405,6 +1421,7 @@ function campaignViewFromCampaign(campaign: DropCampaign, index: number, session
         obtained: reward.status === "claimed",
         art: initials(reward.name).slice(0, 8),
         tint: REWARD_TINTS[rewardIndex % REWARD_TINTS.length],
+        imageUrl: reward.imageUrl,
       };
     }),
   };
