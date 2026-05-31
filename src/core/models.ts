@@ -93,6 +93,14 @@ export interface ManagedWatchTab {
   ownedByExtension: true;
 }
 
+export interface ManagedPageContextTab {
+  platform: Platform;
+  tabId: number;
+  originUrl: string;
+  origin: string;
+  ownedByExtension: true;
+}
+
 export type PriorityMode = "ending_soonest" | "lowest_availability";
 
 export interface PlaybackTelemetry {
@@ -158,6 +166,7 @@ export interface PlatformDiagnostics {
 export interface SchedulerState {
   sessions: Record<Platform, WatchSession>;
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
+  managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   campaigns: Record<Platform, DropCampaign[]>;
   diagnostics?: Partial<Record<Platform, PlatformDiagnostics>>;
   events: EventLogEntry[];

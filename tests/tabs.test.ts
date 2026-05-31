@@ -1,6 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate } from "../src/core/models";
-import { fetchJsonInPageWithBrowser, openPinnedMutedTabWithBrowser, stopWatchTabWithBrowser } from "../src/core/tabs";
+import {
+  currentManagedPageContextTabs,
+  fetchJsonInPageWithBrowser,
+  openPinnedMutedTabWithBrowser,
+  registerManagedPageContextTabs,
+  stopWatchTabWithBrowser,
+} from "../src/core/tabs";
 
 const channel: ChannelCandidate = {
   platform: "twitch",
@@ -21,6 +27,10 @@ function browserMock() {
 }
 
 describe("tab manager", () => {
+  beforeEach(() => {
+    registerManagedPageContextTabs({});
+  });
+
   it("reuses and repins an existing stored tab", async () => {
     const browser = browserMock();
     browser.tabs.get.mockResolvedValue({ id: 4 });
@@ -284,6 +294,75 @@ describe("tab manager", () => {
     expect(browser.tabs.remove).toHaveBeenCalledWith(14);
   });
 
+  it("retains an extension-created page-context tab when requested", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => [{ result: { ok: true } }]),
+      },
+    };
+    browser.tabs.create.mockResolvedValue({ id: 14 });
+
+    const result = await fetchJsonInPageWithBrowser<{ ok: boolean }>(
+      browser,
+      "https://www.twitch.tv/drops/inventory",
+      "https://gql.twitch.tv/gql",
+      undefined,
+      { retainPageContext: { platform: "twitch" } },
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(browser.tabs.create).toHaveBeenCalledWith({
+      url: "https://www.twitch.tv/drops/inventory",
+      pinned: false,
+      active: false,
+    });
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+    expect(currentManagedPageContextTabs()).toMatchObject({
+      twitch: {
+        platform: "twitch",
+        tabId: 14,
+        originUrl: "https://www.twitch.tv/drops/inventory",
+        origin: "https://www.twitch.tv",
+        ownedByExtension: true,
+      },
+    });
+  });
+
+  it("reuses a retained page-context tab instead of creating a new one", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => [{ result: { ok: true } }]),
+      },
+    };
+    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://www.twitch.tv/drops/inventory" });
+    registerManagedPageContextTabs({
+      twitch: {
+        platform: "twitch",
+        tabId: 14,
+        originUrl: "https://www.twitch.tv/drops/inventory",
+        origin: "https://www.twitch.tv",
+        ownedByExtension: true,
+      },
+    });
+
+    await fetchJsonInPageWithBrowser(
+      browser,
+      "https://www.twitch.tv/drops/inventory",
+      "https://gql.twitch.tv/gql",
+      undefined,
+      { retainPageContext: { platform: "twitch" } },
+    );
+
+    expect(browser.tabs.get).toHaveBeenCalledWith(14);
+    expect(browser.tabs.create).not.toHaveBeenCalled();
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+    expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
+      target: { tabId: 14 },
+    }));
+  });
+
   it("does not close an existing user tab reused for a page-context fetch", async () => {
     const browser = {
       ...browserMock(),
@@ -301,6 +380,40 @@ describe("tab manager", () => {
 
     expect(browser.tabs.create).not.toHaveBeenCalled();
     expect(browser.tabs.remove).not.toHaveBeenCalled();
+  });
+
+  it("prefers an existing user tab over a retained page-context tab", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => [{ result: { ok: true } }]),
+      },
+    };
+    browser.tabs.query.mockResolvedValue([{ id: 3 }, { id: 14 }]);
+    registerManagedPageContextTabs({
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
+    });
+
+    await fetchJsonInPageWithBrowser(
+      browser,
+      "https://kick.com",
+      "https://web.kick.com/api/v1/drops/progress",
+      undefined,
+      { retainPageContext: { platform: "kick" } },
+    );
+
+    expect(browser.tabs.get).not.toHaveBeenCalled();
+    expect(browser.tabs.create).not.toHaveBeenCalled();
+    expect(browser.tabs.remove).toHaveBeenCalledWith(14);
+    expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
+      target: { tabId: 3 },
+    }));
   });
 
   it("shares one page-context tab creation across concurrent fetches for the same origin", async () => {

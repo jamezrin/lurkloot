@@ -112,7 +112,9 @@ export class TwitchAdapter implements PlatformAdapter {
 
   constructor(
     private readonly fetcher: PageFetcher = {
-      fetchJson: (url, init) => fetchJsonInPage("https://www.twitch.tv/drops/inventory", url, init),
+      fetchJson: (url, init) => fetchJsonInPage("https://www.twitch.tv/drops/inventory", url, init, {
+        retainPageContext: { platform: "twitch" },
+      }),
     },
   ) {}
 

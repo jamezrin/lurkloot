@@ -9,6 +9,7 @@ import type {
   WatchDecision,
   WatchSession,
 } from "./models";
+import { currentManagedPageContextTabs, registerManagedPageContextTabs, stopManagedPageContextTabs } from "./tabs";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -233,11 +234,13 @@ export async function runSchedulerTick(
   adapters: Record<Platform, PlatformAdapter>,
   options: SchedulerTickOptions = {},
 ): Promise<SchedulerTickResult> {
+  registerManagedPageContextTabs(state.managedPageContextTabs ?? {});
   let nextState: SchedulerState = {
     ...state,
     campaigns: { ...state.campaigns },
     sessions: { ...state.sessions },
     managedWatchTabs: { ...state.managedWatchTabs },
+    managedPageContextTabs: { ...state.managedPageContextTabs },
     lastTickAt: new Date().toISOString(),
   };
   const decisions: WatchDecision[] = [];
@@ -266,6 +269,7 @@ export async function runSchedulerTick(
           message: "automation disabled",
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+        nextState.managedPageContextTabs = await stopManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
         nextState = addTickEvent(nextState, platform, "info", "Automation disabled");
         continue;
       }
@@ -353,6 +357,7 @@ export async function runSchedulerTick(
         } else {
           nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         }
+        nextState.managedPageContextTabs = await stopManagedPageContextTabs(currentManagedPageContextTabs(), { platforms: [platform] });
         session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
         session.playbackChecks = shouldKeep.playbackChecks;
         if (settings.autoClaimChannelPoints && adapter.claimChannelPoints) {
@@ -375,6 +380,7 @@ export async function runSchedulerTick(
       session.errorChecks = 0;
       session.retryAfter = undefined;
       nextState.sessions[platform] = session;
+      nextState.managedPageContextTabs = currentManagedPageContextTabs();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Platform scheduler failed";
       const errorChecks = (previous.errorChecks ?? 0) + 1;
@@ -386,10 +392,12 @@ export async function runSchedulerTick(
         retryAfter: nextRetryAfter(errorChecks),
         message,
       };
+      nextState.managedPageContextTabs = currentManagedPageContextTabs();
       nextState = addTickEvent(nextState, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`);
     }
   }
 
+  nextState.managedPageContextTabs = currentManagedPageContextTabs();
   return { state: nextState, decisions };
 }
 

@@ -17,6 +17,7 @@ export const DEFAULT_STATE: SchedulerState = {
     kick: emptySession("kick"),
   },
   managedWatchTabs: {},
+  managedPageContextTabs: {},
   campaigns: {
     twitch: [],
     kick: [],
@@ -46,6 +47,10 @@ export async function loadState(): Promise<SchedulerState> {
     managedWatchTabs: {
       ...DEFAULT_STATE.managedWatchTabs,
       ...(data[STATE_KEY] as Partial<SchedulerState> | undefined)?.managedWatchTabs,
+    },
+    managedPageContextTabs: {
+      ...DEFAULT_STATE.managedPageContextTabs,
+      ...(data[STATE_KEY] as Partial<SchedulerState> | undefined)?.managedPageContextTabs,
     },
     campaigns: {
       ...DEFAULT_STATE.campaigns,

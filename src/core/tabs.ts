@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import type { ChannelCandidate, ManagedWatchTab, WatchSession } from "./models";
+import type { ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "./models";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 
 interface BrowserTabApi {
@@ -7,7 +7,7 @@ interface BrowserTabApi {
     get(tabId: number): Promise<BrowserTab | undefined>;
     update(tabId: number, properties: Record<string, unknown>): Promise<unknown>;
     remove?(tabId: number): Promise<void>;
-    query(queryInfo: Record<string, unknown>): Promise<Array<{ id?: number }>>;
+    query(queryInfo: Record<string, unknown>): Promise<Array<{ id?: number; url?: string }>>;
     create(createProperties: Record<string, unknown>): Promise<{ id?: number } | void>;
     executeScript?: (tabId: number, details: { code: string }) => Promise<unknown[] | undefined>;
   };
@@ -27,6 +27,7 @@ interface BrowserTab {
 interface PageContextTab {
   tabId: number;
   createdByExtension: boolean;
+  retainedContext?: ManagedPageContextTab;
 }
 
 interface PageContextEntry {
@@ -35,6 +36,7 @@ interface PageContextEntry {
 }
 
 const pageContextTabs = new Map<string, PageContextEntry>();
+const retainedPageContextTabs = new Map<Platform, ManagedPageContextTab>();
 const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   muted: true,
   closeManagedTabs: true,
@@ -204,8 +206,20 @@ export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session
   }
 }
 
-export async function fetchJsonInPage<T>(originUrl: string, url: string, init?: RequestInit): Promise<T> {
-  return fetchJsonInPageWithBrowser(browser as BrowserTabApi, originUrl, url, init);
+export interface PageFetchOptions {
+  retainPageContext?: {
+    platform: Platform;
+    managedContext?: ManagedPageContextTab;
+  };
+}
+
+export async function fetchJsonInPage<T>(
+  originUrl: string,
+  url: string,
+  init?: RequestInit,
+  options?: PageFetchOptions,
+): Promise<T> {
+  return fetchJsonInPageWithBrowser(browser as BrowserTabApi, originUrl, url, init, options);
 }
 
 export async function fetchJsonInPageWithBrowser<T>(
@@ -213,9 +227,10 @@ export async function fetchJsonInPageWithBrowser<T>(
   originUrl: string,
   url: string,
   init?: RequestInit,
+  options?: PageFetchOptions,
 ): Promise<T> {
   const origin = new URL(originUrl).origin;
-  const pageContext = await acquirePageContextTab(browserApi, originUrl, origin);
+  const pageContext = await acquirePageContextTab(browserApi, originUrl, origin, options);
 
   try {
     const runtimeBrowser = browserApi;
@@ -248,7 +263,12 @@ export async function fetchJsonInPageWithBrowser<T>(
   }
 }
 
-async function acquirePageContextTab(browserApi: BrowserTabApi, originUrl: string, origin: string): Promise<PageContextTab> {
+async function acquirePageContextTab(
+  browserApi: BrowserTabApi,
+  originUrl: string,
+  origin: string,
+  options?: PageFetchOptions,
+): Promise<PageContextTab> {
   const existing = pageContextTabs.get(origin);
   if (existing) {
     existing.refs += 1;
@@ -256,7 +276,7 @@ async function acquirePageContextTab(browserApi: BrowserTabApi, originUrl: strin
   }
 
   const entry: PageContextEntry = {
-    promise: findOrCreatePageContextTab(browserApi, originUrl, origin),
+    promise: findOrCreatePageContextTab(browserApi, originUrl, origin, options),
     refs: 1,
   };
   pageContextTabs.set(origin, entry);
@@ -279,6 +299,10 @@ async function releasePageContextTab(browserApi: BrowserTabApi, origin: string, 
 
   pageContextTabs.delete(origin);
   if (!pageContext.createdByExtension || !browserApi.tabs.remove) return;
+  if (pageContext.retainedContext) {
+    retainedPageContextTabs.set(pageContext.retainedContext.platform, pageContext.retainedContext);
+    return;
+  }
 
   try {
     await browserApi.tabs.remove(pageContext.tabId);
@@ -291,18 +315,92 @@ async function findOrCreatePageContextTab(
   browserApi: BrowserTabApi,
   originUrl: string,
   origin: string,
+  options?: PageFetchOptions,
 ): Promise<PageContextTab> {
+  const retain = options?.retainPageContext;
+  const retained = retain?.managedContext ?? (retain ? retainedPageContextTabs.get(retain.platform) : undefined);
   const tabs = await browserApi.tabs.query({ url: `${origin}/*` });
-  const tabId = tabs.find((tab) => tab.id != null)?.id;
-  if (tabId != null) return { tabId, createdByExtension: false };
+  const retainedIds = new Set(
+    [...retainedPageContextTabs.values(), retained]
+      .filter((tab): tab is ManagedPageContextTab => tab != null && tab.origin === origin)
+      .map((tab) => tab.tabId),
+  );
+  const tabId = tabs.find((tab) => tab.id != null && !retainedIds.has(tab.id))?.id;
+  if (tabId != null) {
+    if (retained?.origin === origin) {
+      retainedPageContextTabs.delete(retained.platform);
+      try {
+        await browserApi.tabs.remove?.(retained.tabId);
+      } catch {
+        // The retained page context may already be gone.
+      }
+    }
+    return { tabId, createdByExtension: false };
+  }
+
+  if (retained?.origin === origin) {
+    try {
+      const tab = await browserApi.tabs.get(retained.tabId);
+      if (tab?.id) {
+        retainedPageContextTabs.set(retained.platform, retained);
+        return { tabId: tab.id, createdByExtension: true, retainedContext: retained };
+      }
+    } catch {
+      retainedPageContextTabs.delete(retained.platform);
+    }
+  }
 
   const tab = await browserApi.tabs.create({ url: originUrl, pinned: false, active: false }) as { id?: number };
   if (tab.id == null) {
     throw new Error(`Could not open page context for ${originUrl}`);
   }
   await browserApi.tabs.update(tab.id, { muted: true, active: false });
+  if (retain) {
+    const retainedContext: ManagedPageContextTab = {
+      platform: retain.platform,
+      tabId: tab.id,
+      originUrl,
+      origin,
+      ownedByExtension: true,
+    };
+    retainedPageContextTabs.set(retain.platform, retainedContext);
+    return { tabId: tab.id, createdByExtension: true, retainedContext };
+  }
   return { tabId: tab.id, createdByExtension: true };
 }
+
+export function registerManagedPageContextTabs(contexts: SchedulerManagedPageContexts): void {
+  retainedPageContextTabs.clear();
+  for (const context of Object.values(contexts)) {
+    if (context) retainedPageContextTabs.set(context.platform, context);
+  }
+}
+
+export function currentManagedPageContextTabs(): SchedulerManagedPageContexts {
+  return Object.fromEntries(retainedPageContextTabs) as SchedulerManagedPageContexts;
+}
+
+export async function stopManagedPageContextTabs(
+  contexts: SchedulerManagedPageContexts,
+  options: { platforms?: Platform[] } = {},
+): Promise<SchedulerManagedPageContexts> {
+  const platforms = options.platforms ?? ["twitch", "kick"];
+  const next = { ...contexts };
+  for (const platform of platforms) {
+    const context = next[platform];
+    if (!context) continue;
+    delete next[platform];
+    retainedPageContextTabs.delete(platform);
+    try {
+      await (browser as Partial<BrowserTabApi>).tabs?.remove?.(context.tabId);
+    } catch {
+      // The retained page context may have been closed manually.
+    }
+  }
+  return next;
+}
+
+type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageContextTab>>;
 
 async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
   const parsedInit = initJson ? JSON.parse(initJson) : undefined;

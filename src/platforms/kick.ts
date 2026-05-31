@@ -30,7 +30,9 @@ export class KickAdapter implements PlatformAdapter {
 
   constructor(
     private readonly fetcher: PageFetcher = {
-      fetchJson: (url, init) => fetchJsonInPage("https://kick.com", url, init),
+      fetchJson: (url, init) => fetchJsonInPage("https://kick.com", url, init, {
+        retainPageContext: { platform: "kick" },
+      }),
     },
   ) {}
 

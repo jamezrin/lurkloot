@@ -929,6 +929,15 @@ describe("scheduler tick", () => {
           twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
+        managedPageContextTabs: {
+          twitch: {
+            platform: "twitch",
+            tabId: 9,
+            originUrl: "https://www.twitch.tv/drops/inventory",
+            origin: "https://www.twitch.tv",
+            ownedByExtension: true,
+          },
+        },
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
@@ -939,6 +948,7 @@ describe("scheduler tick", () => {
     expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7, tabManagedByExtension: true }), { closeManagedTabs: true });
     expect(result.state.sessions.twitch.tabId).toBeUndefined();
     expect(result.state.sessions.twitch.channel).toBeUndefined();
+    expect(result.state.managedPageContextTabs?.twitch).toBeUndefined();
   });
 
   it("stops the previous watch tab when no eligible campaigns or fallback remain", async () => {
