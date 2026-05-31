@@ -140,6 +140,21 @@ describe("tab manager", () => {
     expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
   });
 
+  it("does not foreground-prime new tabs when page video control is disabled", async () => {
+    const browser = browserMock();
+
+    await openPinnedMutedTabWithBrowser(browser, channel, undefined, { keepVideosUnmuted: false });
+
+    expect(browser.tabs.create).toHaveBeenCalledWith({
+      url: channel.url,
+      pinned: true,
+      active: false,
+    });
+    expect(browser.tabs.update).toHaveBeenCalledTimes(1);
+    expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
+    expect(browser.tabs.query).not.toHaveBeenCalled();
+  });
+
   it("updates a registered managed tab when switching channels", async () => {
     const browser = browserMock();
     const nextChannel = { ...channel, username: "next", url: "https://www.twitch.tv/next" };

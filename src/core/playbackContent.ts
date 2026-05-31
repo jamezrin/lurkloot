@@ -39,7 +39,7 @@ async function controlPlaybackAndReport(platform: Platform): Promise<void> {
   const control = await browser.runtime.sendMessage({
     type: "getPlaybackControl",
     platform,
-  }).catch((): PlaybackControl => ({ managed: false })) as PlaybackControl | undefined;
+  }).catch((): PlaybackControl => ({ managed: false, keepVideosUnmuted: false })) as PlaybackControl | undefined;
 
   if (!control?.managed) return;
 
@@ -47,11 +47,13 @@ async function controlPlaybackAndReport(platform: Platform): Promise<void> {
   let blockedPlaybackCount = 0;
 
   for (const video of videos) {
-    controlVideo(video, platform);
-    try {
-      await video.play();
-    } catch {
-      blockedPlaybackCount += 1;
+    if (control.keepVideosUnmuted) {
+      controlVideo(video, platform);
+      try {
+        await video.play();
+      } catch {
+        blockedPlaybackCount += 1;
+      }
     }
   }
 

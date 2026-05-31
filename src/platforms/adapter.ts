@@ -17,6 +17,7 @@ export interface PreparedWatchTab {
 export interface WatchTabOptions {
   muted: boolean;
   closeManagedTabs: boolean;
+  keepVideosUnmuted: boolean;
   managedTab?: ManagedWatchTab;
 }
 

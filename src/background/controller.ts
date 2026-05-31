@@ -96,12 +96,13 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     message: Extract<RuntimeMessage, { type: "getPlaybackControl" }>,
     senderTabId?: number,
   ): Promise<PlaybackControl> {
-    const state = await deps.loadState();
+    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
     const session = state.sessions[message.platform];
     return {
       managed: senderTabId != null
         && session.status === "watching"
         && session.tabId === senderTabId,
+      keepVideosUnmuted: settings.keepFarmingVideosUnmuted !== false,
     };
   }
 

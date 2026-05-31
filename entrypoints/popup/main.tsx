@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import type { RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
 import type { DropCampaign, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
+import { mergeSettings } from "../../src/core/settings";
 import "./style.css";
 
 type PopupTab = "drops" | "watchQueue";
@@ -134,7 +135,7 @@ function Popup(): React.ReactElement {
     ]).then(([nextSnapshot, stored]) => {
       const savedPlatform = stored[SELECTED_PLATFORM_KEY];
       if (isPlatform(savedPlatform)) setPlatform(savedPlatform);
-      setSnapshot(nextSnapshot);
+      setSnapshot({ ...nextSnapshot, settings: mergeSettings(nextSnapshot.settings) });
     });
   }, []);
 
@@ -145,14 +146,15 @@ function Popup(): React.ReactElement {
 
   async function updateSettings(patch: Partial<ExtensionSettings>, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
     if (!snapshot) return;
-    const nextSettings = { ...snapshot.settings, ...patch };
+    const nextSettings = mergeSettings({ ...snapshot.settings, ...patch });
     setSnapshot({ ...snapshot, settings: nextSettings });
-    setSnapshot(await send<RuntimeSnapshot>({
+    const nextSnapshot = await send<RuntimeSnapshot>({
       type: "saveSettings",
       settings: nextSettings,
       tickAfterSave: options?.tickAfterSave,
       tickAfterSavePlatforms: options?.tickAfterSavePlatforms,
-    }));
+    });
+    setSnapshot({ ...nextSnapshot, settings: mergeSettings(nextSnapshot.settings) });
   }
 
   async function setAutomation(enabled: boolean): Promise<void> {
@@ -189,7 +191,7 @@ function Popup(): React.ReactElement {
     );
   }
 
-  const settings = snapshot.settings;
+  const settings = mergeSettings(snapshot.settings);
   const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform], settings);
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
@@ -673,6 +675,9 @@ function SettingsView({ games, settings, onSettingsChange }: {
       <SettingsSection title="Platform settings" description="Controls that only affect one provider." icon={Radio}>
         <PlatformSettingsCard platform="twitch" games={games.twitch} settings={settings} onEnabledChange={setPlatformEnabled("twitch")} onGamePriorityChange={setPlatformGamePriority("twitch")} />
         <PlatformSettingsCard platform="kick" games={games.kick} settings={settings} onEnabledChange={setPlatformEnabled("kick")} onGamePriorityChange={setPlatformGamePriority("kick")} />
+      </SettingsSection>
+      <SettingsSection title="Advanced" description="Playback compatibility controls." icon={Info}>
+        <SettingRow title="Keep farming videos unmuted" description="Keeps page video players unmuted while the browser tab is muted. Only change this if you know what you are doing." checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} />
       </SettingsSection>
     </div>
   );

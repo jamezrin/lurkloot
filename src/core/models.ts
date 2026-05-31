@@ -120,6 +120,7 @@ export interface ExtensionSettings {
   autoClaim: boolean;
   autoClaimChannelPoints: boolean;
   muteFarmingTabs: boolean;
+  keepFarmingVideosUnmuted: boolean;
   pauseOnManualWatch: boolean;
   autoCloseFinishedDrops: boolean;
   notifyRewardEarned: boolean;

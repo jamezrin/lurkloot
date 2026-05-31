@@ -333,6 +333,7 @@ export async function runSchedulerTick(
         const watchTabOptions = {
           muted: settings.muteFarmingTabs,
           closeManagedTabs: settings.autoCloseFinishedDrops,
+          keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
           ...(nextState.managedWatchTabs?.[platform] ? { managedTab: nextState.managedWatchTabs[platform] } : {}),
         };
         const prepared = await adapter.prepareWatchTab(decision.channel, previous, watchTabOptions);

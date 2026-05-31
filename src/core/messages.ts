@@ -22,4 +22,5 @@ export interface RuntimeSnapshot {
 
 export interface PlaybackControl {
   managed: boolean;
+  keepVideosUnmuted: boolean;
 }

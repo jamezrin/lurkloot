@@ -324,12 +324,43 @@ describe("background controller", () => {
     await expect(env.controller.handleMessage(
       { type: "getPlaybackControl", platform: "twitch" },
       { tab: { id: 10 } },
-    )).resolves.toEqual({ managed: true });
+    )).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
 
     await expect(env.controller.handleMessage(
       { type: "getPlaybackControl", platform: "twitch" },
       { tab: { id: 999 } },
-    )).resolves.toEqual({ managed: false });
+    )).resolves.toEqual({ managed: false, keepVideosUnmuted: true });
+  });
+
+  it("passes the playback control setting to managed watch tabs", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, keepFarmingVideosUnmuted: false });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+
+    await expect(env.controller.handleMessage(
+      { type: "getPlaybackControl", platform: "twitch" },
+      { tab: { id: 10 } },
+    )).resolves.toEqual({ managed: true, keepVideosUnmuted: false });
+  });
+
+  it("defaults playback control on when stored settings are missing the advanced flag", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    env.deps.loadSettings.mockResolvedValueOnce({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      keepFarmingVideosUnmuted: undefined,
+    } as unknown as typeof DEFAULT_SETTINGS);
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      tabId: 10,
+    };
+
+    await expect(env.controller.handleMessage(
+      { type: "getPlaybackControl", platform: "twitch" },
+      { tab: { id: 10 } },
+    )).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
   });
 
   it("runs an immediate tick when the active managed Twitch tab is closed", async () => {

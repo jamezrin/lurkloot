@@ -38,6 +38,7 @@ const pageContextTabs = new Map<string, PageContextEntry>();
 const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   muted: true,
   closeManagedTabs: true,
+  keepVideosUnmuted: true,
 };
 const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
 
@@ -62,7 +63,7 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        if (shouldPrimePlayback(tab, channel.url, session)) {
+        if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
           await primeTabPlayback(browserApi, tab.id);
         }
         return {
@@ -82,7 +83,7 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        if (shouldPrimePlayback(tab, channel.url, session)) {
+        if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
           await primeTabPlayback(browserApi, tab.id);
         }
         return { tabId: tab.id, managedByExtension: false };
@@ -113,7 +114,9 @@ export async function openPinnedMutedTabWithBrowser(
     throw new Error(`Could not create ${channel.platform} watch tab`);
   }
   await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
-  await primeTabPlayback(browserApi, tab.id);
+  if (tabOptions.keepVideosUnmuted) {
+    await primeTabPlayback(browserApi, tab.id);
+  }
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
 }
 
