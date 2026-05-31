@@ -1,0 +1,40 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Stream Farmer">
+  <defs>
+    <linearGradient id="store-bg" x1="18" y1="8" x2="116" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="0.45" stop-color="#5b21b6"/>
+      <stop offset="1" stop-color="#22c55e"/>
+    </linearGradient>
+    <linearGradient id="store-ring" x1="64" y1="26" x2="64" y2="98" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef7ff"/>
+    </linearGradient>
+    <linearGradient id="store-leaf" x1="87" y1="74" x2="104" y2="98" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b7ff6a"/>
+      <stop offset="1" stop-color="#37d65f"/>
+    </linearGradient>
+    <filter id="store-shadow" x="-24" y="-22" width="176" height="176" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#18092f" flood-opacity="0.34"/>
+    </filter>
+    <filter id="store-leaf-shadow" x="68" y="56" width="56" height="58" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#064d1f" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+
+  <rect x="5" y="5" width="118" height="118" rx="28" fill="url(#store-bg)"/>
+  <path d="M5 35C5 18.4 18.4 5 35 5H93C109.6 5 123 18.4 123 35V42C84.5 17.5 45.1 19.1 5 45V35Z" fill="#ffffff" opacity="0.15"/>
+  <path d="M18 112C42 96.5 67 94.3 112 106.7C106.8 116.4 96.7 123 85 123H35C28.1 123 21.8 120.7 16.8 116.9C16.6 115.2 17 113.5 18 112Z" fill="#062d1c" opacity="0.16"/>
+
+  <g filter="url(#store-shadow)">
+    <circle cx="62" cy="64" r="35" fill="#ffffff" opacity="0.16"/>
+    <circle cx="62" cy="64" r="31" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="9"/>
+    <path d="M62 33A31 31 0 1 1 36.6 81.8" stroke="url(#store-ring)" stroke-width="9" stroke-linecap="round"/>
+    <path fill="url(#store-ring)" d="M53 51.3C53 47.9 56.8 45.9 59.6 47.8L80.1 61.5C82.7 63.2 82.7 66.8 80.1 68.5L59.6 82.2C56.8 84.1 53 82.1 53 78.7V51.3Z"/>
+  </g>
+
+  <g filter="url(#store-leaf-shadow)">
+    <path d="M87.2 99.2C85.4 85.9 90.8 74 106.3 67.6C110.1 82.9 103.3 95.3 87.2 99.2Z" fill="url(#store-leaf)"/>
+    <path d="M90.6 94.8C94.7 86.7 99 80.3 106.1 72.7" stroke="#ffffff" stroke-opacity="0.7" stroke-width="2.8" stroke-linecap="round"/>
+    <path d="M80.6 104.5C85.1 99.8 88.9 96.3 92.7 93.5" stroke="#f0fff4" stroke-width="4.8" stroke-linecap="round"/>
+  </g>
+</svg>
