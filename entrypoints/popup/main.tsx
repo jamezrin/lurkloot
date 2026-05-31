@@ -46,7 +46,7 @@ import type { RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
 import type { DropCampaign, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
 import "./style.css";
 
-type PopupTab = "drops" | "permawatch";
+type PopupTab = "drops" | "watchQueue";
 type GameItem = { id: string; name: string; short: string; accent: string };
 type StreamerItem = { id: string; name: string; live: boolean; subtitle?: string; viewers?: number };
 type FarmingChannelView = { name: string; category?: string; viewers?: number };
@@ -124,6 +124,7 @@ function Popup(): React.ReactElement {
   const [tab, setTab] = useState<PopupTab>("drops");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [pendingAutomation, setPendingAutomation] = useState<Partial<Record<Platform, boolean>>>({});
 
   useEffect(() => {
     void Promise.all([
@@ -154,8 +155,19 @@ function Popup(): React.ReactElement {
   }
 
   async function setAutomation(enabled: boolean): Promise<void> {
-    if (!snapshot) return;
-    setSnapshot(await send<RuntimeSnapshot>({ type: "setAutomation", platform, enabled }));
+    if (!snapshot || pendingAutomation[platform] != null) return;
+    const pendingPlatform = platform;
+    setPendingAutomation((current) => ({ ...current, [pendingPlatform]: enabled }));
+    try {
+      setSnapshot(await send<RuntimeSnapshot>({ type: "setAutomation", platform: pendingPlatform, enabled }));
+    } catch (error) {
+      console.error("Failed to update automation", error);
+    } finally {
+      setPendingAutomation((current) => {
+        const { [pendingPlatform]: _completed, ...rest } = current;
+        return rest;
+      });
+    }
   }
 
   async function refreshNow(): Promise<void> {
@@ -183,9 +195,14 @@ function Popup(): React.ReactElement {
   const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(campaign, index, session));
   const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform], settings);
   const gameMap = Object.fromEntries(games.map((game) => [game.id, game]));
-  const fallbackStreamers = settings.platform[platform].fallbackStreamers;
-  const permawatch = fallbackStreamers.map((username) => streamerItemFromFallback(username, session));
-  const enabled = settings.running && settings.platform[platform].enabled;
+  const watchQueueChannels = settings.platform[platform].watchQueueChannels;
+  const watchQueue = watchQueueChannels.map((username) => streamerItemFromFallback(username, session));
+  const automation = {
+    twitch: pendingAutomation.twitch ?? (settings.running && settings.platform.twitch.enabled),
+    kick: pendingAutomation.kick ?? (settings.running && settings.platform.kick.enabled),
+  };
+  const enabled = automation[platform];
+  const automationPending = pendingAutomation[platform] != null;
   const topTitle = campaigns[0]?.title ?? sessionChannel?.name ?? "the highest priority target";
   const farmingChannel = campaigns[0]?.farmingChannel ?? sessionChannel;
 
@@ -198,9 +215,9 @@ function Popup(): React.ReactElement {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[var(--accent)] to-transparent" />
         <header className="mb-3 flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-2.5">
-            <img src="/logo-ring.svg" alt="Streamaxxer" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
+            <img src="/logo-ring.svg" alt="StreamMaxxing" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
             <div className="min-w-0 leading-tight">
-              <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">Streamaxxer</div>
+              <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">StreamMaxxing</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: enabled ? "var(--accent)" : "#a1a1aa" }} />
                 {enabled ? "Active" : "Paused"} · {PLATFORMS[platform].label}
@@ -218,10 +235,7 @@ function Popup(): React.ReactElement {
         </header>
         <PlatformSwitcher
           active={platform}
-          automation={{
-            twitch: settings.running && settings.platform.twitch.enabled,
-            kick: settings.running && settings.platform.kick.enabled,
-          }}
+          automation={automation}
           onChange={selectPlatform}
         />
       </div>
@@ -235,17 +249,17 @@ function Popup(): React.ReactElement {
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
-                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} farmingTitle={topTitle} farmingChannel={farmingChannel} onChange={setAutomation} />
+                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={topTitle} farmingChannel={farmingChannel} onChange={setAutomation} />
                 <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
                   <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
                   <p className="leading-snug text-zinc-600 dark:text-zinc-300">
-                    Drops always take priority over Permawatch. Drag campaigns by the <GripVertical size={11} className="inline align-text-bottom text-zinc-400" /> grip to set farming order.
+                    Drops always take priority over the Watch Queue. Drag campaigns by the <GripVertical size={11} className="inline align-text-bottom text-zinc-400" /> grip to set farming order.
                   </p>
                 </div>
                 <SubTabs
                   tabs={[
                     { id: "drops", label: "Drops", icon: Gift, count: campaigns.length },
-                    { id: "permawatch", label: "Permawatch", icon: Play, count: `${permawatch.length}/20` },
+                    { id: "watchQueue", label: "Watch Queue", icon: Play, count: `${watchQueue.length}/20` },
                   ]}
                   active={tab}
                   onChange={setTab}
@@ -259,16 +273,16 @@ function Popup(): React.ReactElement {
                         onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) })}
                       />
                     ) : (
-                      <PermawatchPanel
+                      <WatchQueuePanel
                         platform={platform}
-                        streamers={permawatch}
+                        streamers={watchQueue}
                         onChange={(ordered) => updateSettings(
                           {
                             platform: {
                               ...settings.platform,
                               [platform]: {
                                 ...settings.platform[platform],
-                                fallbackStreamers: ordered.map((streamer) => streamer.id),
+                                watchQueueChannels: ordered.map((streamer) => streamer.id),
                               },
                             },
                           },
@@ -310,7 +324,9 @@ function PlatformSwitcher({ active, automation, onChange }: { active: Platform; 
   );
 }
 
-function AutomationHero({ platformLabel, enabled, onChange, farmingTitle, farmingChannel }: { platformLabel: string; enabled: boolean; onChange(value: boolean): Promise<void>; farmingTitle: string; farmingChannel?: FarmingChannelView }) {
+function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitle, farmingChannel }: { platformLabel: string; enabled: boolean; pending: boolean; onChange(value: boolean): Promise<void>; farmingTitle: string; farmingChannel?: FarmingChannelView }) {
+  const status = pending ? (enabled ? "Starting" : "Stopping") : enabled ? "Running" : "Paused";
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-3.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900" style={{ boxShadow: enabled ? "0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px var(--accent-ring)" : undefined }}>
       {enabled && <div aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full blur-2xl" style={{ backgroundColor: "var(--accent-glow)", opacity: 0.5 }} />}
@@ -321,10 +337,12 @@ function AutomationHero({ platformLabel, enabled, onChange, farmingTitle, farmin
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{platformLabel} automation</span>
-            <Pill tone={enabled ? "accent" : "muted"}>{enabled ? "Running" : "Paused"}</Pill>
+            <Pill tone={enabled ? "accent" : "muted"}>{status}</Pill>
           </div>
           <div className="mt-0.5 flex h-[34px] flex-col justify-center text-xs text-zinc-500 dark:text-zinc-400">
-            {enabled ? (
+            {pending ? (
+              <p className="line-clamp-2 leading-snug">{enabled ? "Starting automation..." : "Pausing automation..."}</p>
+            ) : enabled ? (
               <>
                 <p className="truncate">Farming <span className="font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span></p>
                 {farmingChannel ? (
@@ -343,7 +361,7 @@ function AutomationHero({ platformLabel, enabled, onChange, farmingTitle, farmin
             )}
           </div>
         </div>
-        <Toggle checked={enabled} onChange={onChange} label={`${platformLabel} automation`} />
+        <Toggle checked={enabled} onChange={onChange} label={`${platformLabel} automation`} disabled={pending} />
       </div>
     </div>
   );
@@ -488,7 +506,7 @@ function RewardTile({ reward }: { reward: RewardView }) {
   );
 }
 
-function PermawatchPanel({ streamers, onChange }: { platform: Platform; streamers: StreamerItem[]; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
+function WatchQueuePanel({ streamers, onChange }: { platform: Platform; streamers: StreamerItem[]; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -526,15 +544,15 @@ function PermawatchPanel({ streamers, onChange }: { platform: Platform; streamer
         <Layers3 size={14} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
         <p className="leading-relaxed">A fallback queue, independent from drops. Channels here are watched in order when no prioritized drop is available.</p>
       </div>
-      {streamers.length === 0 ? <EmptyPanel>No fallback streamers configured.</EmptyPanel> : (
+      {streamers.length === 0 ? <EmptyPanel>No watch queue channels configured.</EmptyPanel> : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
           <SortableContext items={streamers.map((streamer) => streamer.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
-              {streamers.map((streamer, index) => <SortablePermawatch key={streamer.id} streamer={streamer} index={index} onRemove={() => removeChannel(streamer.id)} />)}
+              {streamers.map((streamer, index) => <SortableWatchQueue key={streamer.id} streamer={streamer} index={index} onRemove={() => removeChannel(streamer.id)} />)}
             </div>
           </SortableContext>
           <DragOverlay dropAnimation={null}>
-            {active ? <CompactRow isOverlay index={activeIndex} avatar={active.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={active.name} subtitle={active.subtitle} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<PermawatchStatus streamer={active} />} /> : null}
+            {active ? <CompactRow isOverlay index={activeIndex} avatar={active.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={active.name} subtitle={active.subtitle} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<WatchQueueStatus streamer={active} />} /> : null}
           </DragOverlay>
         </DndContext>
       )}
@@ -552,9 +570,9 @@ function PermawatchPanel({ streamers, onChange }: { platform: Platform; streamer
   );
 }
 
-function SortablePermawatch({ streamer, index, onRemove }: { streamer: StreamerItem; index: number; onRemove(): void }) {
+function SortableWatchQueue({ streamer, index, onRemove }: { streamer: StreamerItem; index: number; onRemove(): void }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: streamer.id });
-  const status = <PermawatchStatus streamer={streamer} />;
+  const status = <WatchQueueStatus streamer={streamer} />;
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
       <CompactRow index={index} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${streamer.name}`} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={`Remove ${streamer.name}`} onClick={onRemove} /></span>} />
@@ -568,21 +586,21 @@ function SettingsView({ games, settings, onSettingsChange }: { games: GameItem[]
   return (
     <div className="space-y-2.5">
       <SettingsSection title="General" description="Tab audio and cleanup behavior." icon={SettingsIcon}>
-        <SettingRow title="Mute farming tabs" description="Keep drop and Permawatch tabs muted while farming." checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} />
+        <SettingRow title="Mute farming tabs" description="Keep drop and Watch Queue tabs muted while farming." checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} />
         <SettingRow title="Pause when watching manually" description="Stop farming while you have a stream open and are watching yourself." checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
         <SettingRow title="Auto-close farming tabs" description="Automatically close when the extension is idle (no drops to farm or no streamers to watch)." checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
         <SettingRow title="Auto-start on launch" description="Begin farming as soon as the extension loads." checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
         <NumberSettingRow title="Scheduler interval" description="How often campaign and streamer status refreshes." value={pollIntervalSeconds} min={30} max={3600} suffix="sec" onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
       </SettingsSection>
-      <SettingsSection title="Notifications" description="When Streamaxxer should ping you." icon={Bell}>
+      <SettingsSection title="Notifications" description="When StreamMaxxing should ping you." icon={Bell}>
         <SettingRow title="Reward earned" description="Notify when a drop reward is claimable." checked={settings.notifyRewardEarned} onChange={set("notifyRewardEarned")} />
         <SettingRow title="No drops left" description="Notify when all active campaigns are exhausted." checked={settings.notifyNoDropsLeft} onChange={set("notifyNoDropsLeft")} />
       </SettingsSection>
       <SettingsSection title="Drops" description="Farming priority is set by dragging campaigns in the Drops tab." icon={Gift}>
         <GamePriority games={games} onChange={(ordered) => onSettingsChange({ gamePriority: ordered.map((game) => game.id) })} />
       </SettingsSection>
-      <SettingsSection title="Permawatch" description="Fallback queue behavior." icon={Play}>
-        <SettingRow title="Only when no drops are active" description="Preserves drop priority automatically." checked={settings.permawatchFallbackOnly} onChange={set("permawatchFallbackOnly")} />
+      <SettingsSection title="Watch Queue" description="Fallback queue behavior." icon={Play}>
+        <SettingRow title="Only when no drops are active" description="Preserves drop priority automatically." checked={settings.watchQueueFallbackOnly} onChange={set("watchQueueFallbackOnly")} />
       </SettingsSection>
     </div>
   );
@@ -717,9 +735,9 @@ function NumberSettingRow({ title, description, value, min, max, suffix, onChang
   );
 }
 
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange(value: boolean): void | Promise<void>; label: string }) {
+function Toggle({ checked, onChange, label, disabled = false }: { checked: boolean; onChange(value: boolean): void | Promise<void>; label: string; disabled?: boolean }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={() => void onChange(!checked)} className={cn("relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", checked ? "" : "bg-zinc-200 dark:bg-zinc-700")} style={checked ? { backgroundColor: "var(--accent)" } : undefined}>
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => void onChange(!checked)} className={cn("relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", checked ? "" : "bg-zinc-200 dark:bg-zinc-700", disabled && "cursor-wait opacity-70")} style={checked ? { backgroundColor: "var(--accent)" } : undefined}>
       <motion.span layout transition={{ type: "spring", stiffness: 550, damping: 32 }} className="h-[18px] w-[18px] rounded-full bg-white shadow-sm" style={{ marginLeft: checked ? 16 : 0 }} />
     </button>
   );
@@ -935,7 +953,7 @@ function streamerItemFromFallback(username: string, session: WatchSession): Stre
   };
 }
 
-function PermawatchStatus({ streamer }: { streamer: StreamerItem }): React.ReactElement {
+function WatchQueueStatus({ streamer }: { streamer: StreamerItem }): React.ReactElement {
   if (streamer.live) {
     return <Pill tone="live"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{streamer.viewers != null ? formatViewers(streamer.viewers) : "live"}</Pill>;
   }
@@ -944,7 +962,7 @@ function PermawatchStatus({ streamer }: { streamer: StreamerItem }): React.React
 
 function initials(value: string): string {
   const result = value.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
-  return result || "SF";
+  return result || "SM";
 }
 
 function formatCountdown(value: string): string {

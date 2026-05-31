@@ -104,7 +104,7 @@ export async function chooseCampaignDecision(
     }
   }
 
-  const fallbackCandidates = settings.platform[platform].fallbackStreamers
+  const fallbackCandidates = settings.platform[platform].watchQueueChannels
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean)
     .map((username) => fallbackChannel(platform, username));
@@ -115,11 +115,11 @@ export async function chooseCampaignDecision(
       platform,
       action: "fallback",
       channel: fallback,
-      reason: `${noCampaignReason}; fallback streamer selected`,
+      reason: `${noCampaignReason}; watch queue channel selected`,
     };
   }
 
-  return { platform, action: "idle", reason: `${noCampaignReason} and no fallback streamers` };
+  return { platform, action: "idle", reason: `${noCampaignReason} and no watch queue channels` };
 }
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: ExtensionSettings): string {
@@ -284,10 +284,10 @@ export async function runSchedulerTick(
         const discovered = await adapter.discoverCampaigns();
         campaigns = await adapter.readProgress(discovered, previous);
       } catch (error) {
-        if (!hasFallbackStreamers(settings, platform)) throw error;
+        if (!hasWatchQueueChannels(settings, platform)) throw error;
         campaigns = [];
         const message = error instanceof Error ? error.message : "Drop discovery failed";
-        nextState = addTickEvent(nextState, platform, "warn", `${message}; checking Permawatch fallback`);
+        nextState = addTickEvent(nextState, platform, "warn", `${message}; checking Watch Queue fallback`);
       }
       nextState.campaigns[platform] = campaigns;
       nextState = addTickEvent(nextState, platform, "info", `Discovered ${campaigns.length} campaigns`);
@@ -390,8 +390,8 @@ export async function runSchedulerTick(
   return { state: nextState, decisions };
 }
 
-function hasFallbackStreamers(settings: ExtensionSettings, platform: Platform): boolean {
-  return settings.platform[platform].fallbackStreamers.some((username) => username.trim());
+function hasWatchQueueChannels(settings: ExtensionSettings, platform: Platform): boolean {
+  return settings.platform[platform].watchQueueChannels.some((username) => username.trim());
 }
 
 function withoutManagedWatchTab(
@@ -490,7 +490,7 @@ async function shouldKeepWatching(
   if (previous.campaignId && nextDecision.action !== "watch") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "current campaign is no longer eligible" };
   }
-  if (!settings.permawatchFallbackOnly && !previous.campaignId && nextDecision.action === "watch") {
+  if (!settings.watchQueueFallbackOnly && !previous.campaignId && nextDecision.action === "watch") {
     const fallbackCheck = await adapter.checkChannel(previous.channel);
     const fallbackOfflineChecks = fallbackCheck.live ? 0 : previous.offlineChecks + 1;
     if (fallbackCheck.live && fallbackCheck.categoryMatches) {
@@ -501,7 +501,7 @@ async function shouldKeepWatching(
           offlineChecks: fallbackOfflineChecks,
           playbackChecks: fallbackPlaybackChecks,
           channel: channelFromCheck(previous.channel, fallbackCheck),
-          reason: "keeping current Permawatch tab",
+          reason: "keeping current Watch Queue tab",
         };
       }
     }
@@ -515,14 +515,14 @@ async function shouldKeepWatching(
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "higher priority eligible campaign available" };
   }
 
-  // When watching a Permawatch fallback, a different selection means a
-  // higher-priority fallback streamer is now live (e.g. after reordering the
+  // When watching a Watch Queue fallback, a different selection means a
+  // higher-priority watch queue channel is now live (e.g. after reordering the
   // queue or one coming online), so switch to it instead of staying put.
   const differentFallbackAvailable = changedTarget
     && nextDecision.action === "fallback"
     && !previous.campaignId;
   if (differentFallbackAvailable) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "higher priority fallback streamer available" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "higher priority watch queue channel available" };
   }
 
   const check = await adapter.checkChannel(previous.channel);

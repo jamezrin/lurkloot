@@ -1,5 +1,5 @@
 {
-  "name": "stream-farmer",
+  "name": "stream-maxxing",
   "version": "0.1.0",
   "description": "Cross-browser Twitch and Kick drops farming WebExtension using visible muted tabs.",
   "type": "module",

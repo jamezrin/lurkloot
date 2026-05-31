@@ -10,16 +10,16 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   notifyRewardEarned: true,
   notifyNoDropsLeft: true,
   autoStartDropFarming: true,
-  permawatchFallbackOnly: true,
+  watchQueueFallbackOnly: true,
   priorityMode: "ending_soonest",
   platform: {
     twitch: {
       enabled: true,
-      fallbackStreamers: [],
+      watchQueueChannels: [],
     },
     kick: {
       enabled: true,
-      fallbackStreamers: [],
+      watchQueueChannels: [],
     },
   },
   campaignPriorities: {},
@@ -42,18 +42,18 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     notifyRewardEarned: booleanOr(value?.notifyRewardEarned, DEFAULT_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_SETTINGS.notifyNoDropsLeft),
     autoStartDropFarming: booleanOr(value?.autoStartDropFarming, DEFAULT_SETTINGS.autoStartDropFarming),
-    permawatchFallbackOnly: booleanOr(value?.permawatchFallbackOnly, DEFAULT_SETTINGS.permawatchFallbackOnly),
+    watchQueueFallbackOnly: booleanOr(value?.watchQueueFallbackOnly, DEFAULT_SETTINGS.watchQueueFallbackOnly),
     priorityMode: value?.priorityMode === "lowest_availability" || value?.priorityMode === "ending_soonest"
       ? value.priorityMode
       : DEFAULT_SETTINGS.priorityMode,
     platform: {
       twitch: {
         enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_SETTINGS.platform.twitch.enabled),
-        fallbackStreamers: normalizeStringList(platform?.twitch?.fallbackStreamers),
+        watchQueueChannels: normalizeStringList(platform?.twitch?.watchQueueChannels),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_SETTINGS.platform.kick.enabled),
-        fallbackStreamers: normalizeStringList(platform?.kick?.fallbackStreamers),
+        watchQueueChannels: normalizeStringList(platform?.kick?.watchQueueChannels),
       },
     },
     campaignPriorities: normalizePriorities(value?.campaignPriorities),

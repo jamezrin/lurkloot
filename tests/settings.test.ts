@@ -10,7 +10,7 @@ describe("settings", () => {
       notifyRewardEarned: true,
       notifyNoDropsLeft: true,
       autoStartDropFarming: true,
-      permawatchFallbackOnly: true,
+      watchQueueFallbackOnly: true,
       pollIntervalMinutes: 1,
       gamePriority: [],
     });
@@ -31,8 +31,8 @@ describe("settings", () => {
       pauseOnManualWatch: "no",
       priorityMode: "bad",
       platform: {
-        twitch: { enabled: "true", fallbackStreamers: [" Creator ", "", "creator"] },
-        kick: { enabled: false, fallbackStreamers: ["KickOne"] },
+        twitch: { enabled: "true", watchQueueChannels: [" Creator ", "", "creator"] },
+        kick: { enabled: false, watchQueueChannels: ["KickOne"] },
       },
       campaignPriorities: {
         " campaign ": 2.6,
@@ -47,23 +47,23 @@ describe("settings", () => {
     expect(settings.pauseOnManualWatch).toBe(DEFAULT_SETTINGS.pauseOnManualWatch);
     expect(settings.priorityMode).toBe(DEFAULT_SETTINGS.priorityMode);
     expect(settings.platform.twitch.enabled).toBe(DEFAULT_SETTINGS.platform.twitch.enabled);
-    expect(settings.platform.twitch.fallbackStreamers).toEqual(["creator"]);
+    expect(settings.platform.twitch.watchQueueChannels).toEqual(["creator"]);
     expect(settings.platform.kick.enabled).toBe(false);
-    expect(settings.platform.kick.fallbackStreamers).toEqual(["kickone"]);
+    expect(settings.platform.kick.watchQueueChannels).toEqual(["kickone"]);
     expect(settings.campaignPriorities).toEqual({ campaign: 3 });
     expect(settings.gamePriority).toEqual(["game a", "category"]);
     expect(settings.excludedCampaignIds).toEqual(["a"]);
     expect(settings.excludedChannels).toEqual(["channel"]);
   });
 
-  it("preserves fallback streamer priority order while removing duplicates", () => {
+  it("preserves watch queue channel priority order while removing duplicates", () => {
     const settings = mergeSettings({
       platform: {
-        twitch: { enabled: true, fallbackStreamers: ["third", "first", "second", "first"] },
-        kick: { enabled: true, fallbackStreamers: [] },
+        twitch: { enabled: true, watchQueueChannels: ["third", "first", "second", "first"] },
+        kick: { enabled: true, watchQueueChannels: [] },
       },
     });
 
-    expect(settings.platform.twitch.fallbackStreamers).toEqual(["third", "first", "second"]);
+    expect(settings.platform.twitch.watchQueueChannels).toEqual(["third", "first", "second"]);
   });
 });

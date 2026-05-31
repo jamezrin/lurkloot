@@ -1,6 +1,6 @@
 # Architecture
 
-Stream Farmer is a WXT browser extension that farms Twitch and Kick drops by opening normal, visible, pinned, muted watch tabs. It does not store credentials, export cookies, or emulate watching without a page.
+StreamMaxxing is a WXT browser extension that farms Twitch and Kick drops by opening normal, visible, pinned, muted watch tabs. It does not store credentials, export cookies, or emulate watching without a page.
 
 ## Runtime Components
 
@@ -21,7 +21,7 @@ Each alarm tick runs both platforms independently:
 2. Discover campaigns through the platform adapter.
 3. Read current reward progress and merge it into campaign state.
 4. Auto-claim claimable rewards when `autoClaim` is enabled.
-5. Choose the best campaign/channel, or a Permawatch fallback streamer if no eligible campaign is available.
+5. Choose the best campaign/channel, or a Watch Queue channel if no eligible campaign is available.
 6. Reuse the current watch tab when it is still live, category-compatible, and playback telemetry is healthy.
 7. Open or update a pinned muted tab for the selected channel.
 8. Record events, update session state, and apply exponential backoff after platform errors.

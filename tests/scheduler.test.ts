@@ -139,7 +139,7 @@ describe("scheduler campaign selection", () => {
 
     expect(decision).toMatchObject({
       action: "idle",
-      reason: "only upcoming campaigns are available and no fallback streamers",
+      reason: "only upcoming campaigns are available and no watch queue channels",
     });
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
@@ -186,11 +186,11 @@ describe("scheduler campaign selection", () => {
     expect(checkChannel).toHaveBeenCalledTimes(3);
   });
 
-  it("starts fallback streamer mode when campaigns are empty", async () => {
+  it("starts watch queue channel mode when campaigns are empty", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [],
-      settings({ platform: { kick: { enabled: true, fallbackStreamers: ["fallback"] } } as ExtensionSettings["platform"] }),
+      settings({ platform: { kick: { enabled: true, watchQueueChannels: ["fallback"] } } as ExtensionSettings["platform"] }),
       {
         listCandidateChannels: vi.fn(),
         checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
@@ -201,11 +201,11 @@ describe("scheduler campaign selection", () => {
     expect(decision.channel?.url).toBe("https://kick.com/fallback");
   });
 
-  it("keeps live-check metadata on fallback streamer decisions", async () => {
+  it("keeps live-check metadata on watch queue channel decisions", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [],
-      settings({ platform: { kick: { enabled: true, fallbackStreamers: ["fallback"] } } as ExtensionSettings["platform"] }),
+      settings({ platform: { kick: { enabled: true, watchQueueChannels: ["fallback"] } } as ExtensionSettings["platform"] }),
       {
         listCandidateChannels: vi.fn(),
         checkChannel: vi.fn(async (candidate) => ({
@@ -232,11 +232,11 @@ describe("scheduler campaign selection", () => {
     });
   });
 
-  it("tries later fallback streamers when earlier fallback channels are offline", async () => {
+  it("tries later watch queue channels when earlier fallback channels are offline", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [],
-      settings({ platform: { kick: { enabled: true, fallbackStreamers: ["offline", "live"] } } as ExtensionSettings["platform"] }),
+      settings({ platform: { kick: { enabled: true, watchQueueChannels: ["offline", "live"] } } as ExtensionSettings["platform"] }),
       {
         listCandidateChannels: vi.fn(),
         checkChannel: vi.fn(async (candidate) => ({
@@ -273,7 +273,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ offlineRetryLimit: 3, platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ offlineRetryLimit: 3, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -306,14 +306,14 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
     expect(result.state.sessions.twitch.channel?.username).toBe("new");
   });
 
-  it("switches to a higher-priority fallback streamer after the queue is reordered", async () => {
+  it("switches to a higher-priority watch queue channel after the queue is reordered", async () => {
     const toonyx = channel("toonyx", { url: "https://www.twitch.tv/toonyx" });
     const twitch = adapter("twitch", [], []);
     // No campaigns -> fallback mode. Both fallbacks are live; "xqc" is now first.
@@ -328,7 +328,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: ["xqc", "toonyx"] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["xqc", "toonyx"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -358,7 +358,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -402,7 +402,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -450,7 +450,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -496,7 +496,7 @@ describe("scheduler tick", () => {
       },
       settings({
         offlineRetryLimit: 3,
-        platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } },
+        platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
       }),
       { twitch, kick: adapter("kick", [], []) },
     );
@@ -535,7 +535,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: ["fallback"] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["fallback"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -561,7 +561,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -582,7 +582,7 @@ describe("scheduler tick", () => {
       },
       settings({
         muteFarmingTabs: false,
-        platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } },
+        platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
       }),
       { twitch, kick: adapter("kick", [], []) },
     );
@@ -607,7 +607,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -629,7 +629,7 @@ describe("scheduler tick", () => {
       },
       settings({
         autoClaim: false,
-        platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } },
+        platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
       }),
       { twitch, kick: adapter("kick", [], []) },
     );
@@ -650,7 +650,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -673,7 +673,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: true, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
     );
 
@@ -697,7 +697,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: true, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
     );
 
@@ -727,7 +727,7 @@ describe("scheduler tick", () => {
         },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: true, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
       { platforms: ["kick"] },
     );
@@ -750,7 +750,7 @@ describe("scheduler tick", () => {
       campaigns: { twitch: [], kick: [] },
       events: [],
     };
-    const tickSettings = settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } });
+    const tickSettings = settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } });
 
     const first = await runSchedulerTick(initialState, tickSettings, { twitch, kick: adapter("kick", [], []) });
     await runSchedulerTick(first.state, tickSettings, { twitch, kick: adapter("kick", [], []) });
@@ -798,7 +798,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -820,7 +820,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -854,7 +854,7 @@ describe("scheduler tick", () => {
     expect(result.state.events.some((event) => event.platform === "twitch" && event.level === "error")).toBe(true);
   });
 
-  it("uses Permawatch fallback when drop discovery fails and fallback streamers exist", async () => {
+  it("uses Watch Queue fallback when drop discovery fails and watch queue channels exist", async () => {
     const twitch = adapter("twitch", [], []);
     vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
     vi.mocked(twitch.checkChannel).mockResolvedValue({
@@ -872,7 +872,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: ["fallback"] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["fallback"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -888,7 +888,7 @@ describe("scheduler tick", () => {
       errorChecks: 0,
       retryAfter: undefined,
     });
-    expect(result.state.events.some((event) => event.level === "warn" && event.message.includes("checking Permawatch fallback"))).toBe(true);
+    expect(result.state.events.some((event) => event.level === "warn" && event.message.includes("checking Watch Queue fallback"))).toBe(true);
   });
 
   it("backs off failed platforms until their retry time", async () => {
@@ -911,7 +911,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -938,7 +938,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -963,7 +963,7 @@ describe("scheduler tick", () => {
         campaigns: { twitch: [], kick: [] },
         events: [],
       },
-      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: false, fallbackStreamers: [] } } }),
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 

@@ -148,8 +148,8 @@ describe("background controller", () => {
       running: false,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        twitch: { enabled: false, fallbackStreamers: [] },
-        kick: { enabled: false, fallbackStreamers: [] },
+        twitch: { enabled: false, watchQueueChannels: [] },
+        kick: { enabled: false, watchQueueChannels: [] },
       },
     });
 
@@ -200,7 +200,7 @@ describe("background controller", () => {
       ...env.settings,
       platform: {
         ...env.settings.platform,
-        twitch: { ...env.settings.platform.twitch, fallbackStreamers: ["fallback"] },
+        twitch: { ...env.settings.platform.twitch, watchQueueChannels: ["fallback"] },
       },
     };
 
@@ -211,7 +211,7 @@ describe("background controller", () => {
     }));
 
     expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
-    expect(snapshot.settings.platform.twitch.fallbackStreamers).toEqual(["fallback"]);
+    expect(snapshot.settings.platform.twitch.watchQueueChannels).toEqual(["fallback"]);
   });
 
   it("only ticks requested platforms after saving settings with targeted platforms", async () => {
@@ -220,7 +220,7 @@ describe("background controller", () => {
       ...env.settings,
       platform: {
         ...env.settings.platform,
-        kick: { ...env.settings.platform.kick, fallbackStreamers: ["fallback"] },
+        kick: { ...env.settings.platform.kick, watchQueueChannels: ["fallback"] },
       },
     };
 
@@ -234,16 +234,16 @@ describe("background controller", () => {
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(env.kick.discoverCampaigns).toHaveBeenCalled();
-    expect(snapshot.settings.platform.kick.fallbackStreamers).toEqual(["fallback"]);
+    expect(snapshot.settings.platform.kick.watchQueueChannels).toEqual(["fallback"]);
   });
 
-  it("does not start automation after saving Permawatch settings while paused", async () => {
+  it("does not start automation after saving Watch Queue settings while paused", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false });
     const nextSettings = {
       ...env.settings,
       platform: {
         ...env.settings.platform,
-        twitch: { ...env.settings.platform.twitch, fallbackStreamers: ["fallback"] },
+        twitch: { ...env.settings.platform.twitch, watchQueueChannels: ["fallback"] },
       },
     };
 
@@ -255,7 +255,7 @@ describe("background controller", () => {
 
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(snapshot.settings.running).toBe(false);
-    expect(snapshot.settings.platform.twitch.fallbackStreamers).toEqual(["fallback"]);
+    expect(snapshot.settings.platform.twitch.watchQueueChannels).toEqual(["fallback"]);
   });
 
   it("runs an immediate scheduler tick when requested from the popup", async () => {
@@ -320,7 +320,7 @@ describe("background controller", () => {
       running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        kick: { enabled: false, fallbackStreamers: [] },
+        kick: { enabled: false, watchQueueChannels: [] },
       },
     });
     env.state.sessions.twitch = {
@@ -361,7 +361,7 @@ describe("background controller", () => {
       running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        twitch: { enabled: false, fallbackStreamers: [] },
+        twitch: { enabled: false, watchQueueChannels: [] },
       },
     });
     env.state.sessions.twitch = {

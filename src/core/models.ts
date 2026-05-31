@@ -110,7 +110,7 @@ export interface PlaybackTelemetry {
 
 export interface PlatformSettings {
   enabled: boolean;
-  fallbackStreamers: string[];
+  watchQueueChannels: string[];
 }
 
 export interface ExtensionSettings {
@@ -123,7 +123,7 @@ export interface ExtensionSettings {
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;
   autoStartDropFarming: boolean;
-  permawatchFallbackOnly: boolean;
+  watchQueueFallbackOnly: boolean;
   priorityMode: PriorityMode;
   platform: Record<Platform, PlatformSettings>;
   campaignPriorities: Record<string, number>;

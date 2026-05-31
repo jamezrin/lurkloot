@@ -10,7 +10,7 @@ export default defineConfig({
     plugins: [tailwindcss()],
   }),
   manifest: {
-    name: "Streamaxxer",
+    name: "StreamMaxxing",
     description:
       "Farm Twitch and Kick drops through normal logged-in browser sessions and visible muted tabs.",
     permissions: ["alarms", "storage", "tabs", "scripting", "notifications"],
@@ -27,7 +27,7 @@ export default defineConfig({
       "128": "icon/128.png"
     },
     action: {
-      default_title: "Streamaxxer",
+      default_title: "StreamMaxxing",
       default_icon: {
         "16": "icon/16.png",
         "32": "icon/32.png"
@@ -35,7 +35,7 @@ export default defineConfig({
     },
     browser_specific_settings: {
       gecko: {
-        id: "stream-farmer@example.com",
+        id: "stream-maxxing@example.com",
         strict_min_version: "140.0",
         data_collection_permissions: {
           required: ["none"]

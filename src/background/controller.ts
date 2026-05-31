@@ -5,7 +5,7 @@ import { mergeSettings } from "../core/settings";
 import { runSchedulerTick } from "../core/scheduler";
 import type { PlatformAdapter } from "../platforms/adapter";
 
-export const ALARM_NAME = "stream-farmer.tick";
+export const ALARM_NAME = "stream-maxxing.tick";
 
 export interface BackgroundControllerDeps {
   loadSettings(): Promise<ExtensionSettings>;
