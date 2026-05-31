@@ -4,7 +4,7 @@ import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 
 interface BrowserTabApi {
   tabs: {
-    get(tabId: number): Promise<{ id?: number } | undefined>;
+    get(tabId: number): Promise<BrowserTab | undefined>;
     update(tabId: number, properties: Record<string, unknown>): Promise<unknown>;
     remove?(tabId: number): Promise<void>;
     query(queryInfo: Record<string, unknown>): Promise<Array<{ id?: number }>>;
@@ -14,6 +14,14 @@ interface BrowserTabApi {
   scripting?: {
     executeScript?: (details: unknown) => Promise<Array<{ result?: unknown }>>;
   };
+}
+
+interface BrowserTab {
+  id?: number;
+  url?: string;
+  pinned?: boolean;
+  active?: boolean;
+  mutedInfo?: { muted?: boolean };
 }
 
 interface PageContextTab {
@@ -49,12 +57,10 @@ export async function openPinnedMutedTabWithBrowser(
     try {
       const tab = await browserApi.tabs.get(registered.tabId);
       if (tab?.id) {
-        await browserApi.tabs.update(tab.id, {
-          url: channel.url,
-          pinned: true,
-          muted: tabOptions.muted,
-          active: false,
-        });
+        const updateProperties = watchTabUpdateProperties(tab, channel.url, tabOptions.muted);
+        if (Object.keys(updateProperties).length > 0) {
+          await browserApi.tabs.update(tab.id, updateProperties);
+        }
         return {
           tabId: tab.id,
           managedByExtension: true,
@@ -68,12 +74,10 @@ export async function openPinnedMutedTabWithBrowser(
     try {
       const tab = await browserApi.tabs.get(session.tabId);
       if (tab?.id) {
-        await browserApi.tabs.update(tab.id, {
-          url: channel.url,
-          pinned: true,
-          muted: tabOptions.muted,
-          active: false,
-        });
+        const updateProperties = watchTabUpdateProperties(tab, channel.url, tabOptions.muted);
+        if (Object.keys(updateProperties).length > 0) {
+          await browserApi.tabs.update(tab.id, updateProperties);
+        }
         return { tabId: tab.id, managedByExtension: false };
       }
     } catch {
@@ -103,6 +107,15 @@ export async function openPinnedMutedTabWithBrowser(
   }
   await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
+}
+
+function watchTabUpdateProperties(tab: BrowserTab, url: string, muted: boolean): Record<string, unknown> {
+  const updateProperties: Record<string, unknown> = {};
+  if (tab.url !== url) updateProperties.url = url;
+  if (tab.pinned !== true) updateProperties.pinned = true;
+  if (tab.mutedInfo?.muted !== muted) updateProperties.muted = muted;
+  if (tab.active !== false) updateProperties.active = false;
+  return updateProperties;
 }
 
 function managedTabFromSession(session: WatchSession | undefined, channelUrl: string): ManagedWatchTab | undefined {

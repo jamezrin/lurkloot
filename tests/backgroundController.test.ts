@@ -214,6 +214,29 @@ describe("background controller", () => {
     expect(snapshot.settings.platform.twitch.fallbackStreamers).toEqual(["fallback"]);
   });
 
+  it("only ticks requested platforms after saving settings with targeted platforms", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const nextSettings = {
+      ...env.settings,
+      platform: {
+        ...env.settings.platform,
+        kick: { ...env.settings.platform.kick, fallbackStreamers: ["fallback"] },
+      },
+    };
+
+    const snapshot = asSnapshot(await env.controller.handleMessage({
+      type: "saveSettings",
+      settings: nextSettings,
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["kick"],
+    }));
+
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.kick.discoverCampaigns).toHaveBeenCalled();
+    expect(snapshot.settings.platform.kick.fallbackStreamers).toEqual(["fallback"]);
+  });
+
   it("does not start automation after saving Permawatch settings while paused", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false });
     const nextSettings = {

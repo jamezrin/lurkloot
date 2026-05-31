@@ -31,12 +31,12 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     };
   }
 
-  async function tick(): Promise<void> {
+  async function tick(platforms?: Platform[]): Promise<void> {
     const settings = await deps.loadSettings();
     const state = await deps.loadState();
 
     try {
-      const result = await runSchedulerTick(state, settings, deps.createAdapters());
+      const result = await runSchedulerTick(state, settings, deps.createAdapters(), platforms ? { platforms } : undefined);
       await emitNotifications(settings, state, result.state);
       await deps.saveState(appendEvent(result.state, {
         level: "info",
@@ -223,7 +223,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
       await deps.saveSettings(settings);
       await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
       if (message.tickAfterSave && settings.running && hasEnabledPlatform(settings)) {
-        await tick();
+        await tick(message.tickAfterSavePlatforms);
       }
       return snapshot();
     }

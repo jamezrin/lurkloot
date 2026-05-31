@@ -221,10 +221,15 @@ export interface SchedulerTickResult {
   decisions: WatchDecision[];
 }
 
+export interface SchedulerTickOptions {
+  platforms?: Platform[];
+}
+
 export async function runSchedulerTick(
   state: SchedulerState,
   settings: ExtensionSettings,
   adapters: Record<Platform, PlatformAdapter>,
+  options: SchedulerTickOptions = {},
 ): Promise<SchedulerTickResult> {
   let nextState: SchedulerState = {
     ...state,
@@ -235,7 +240,8 @@ export async function runSchedulerTick(
   };
   const decisions: WatchDecision[] = [];
 
-  for (const platform of PLATFORMS) {
+  const platforms = options.platforms ?? PLATFORMS;
+  for (const platform of platforms) {
     const previous = nextState.sessions[platform];
     const platformSettings = settings.platform[platform];
     const adapter = adapters[platform];

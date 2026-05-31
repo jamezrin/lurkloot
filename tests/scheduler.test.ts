@@ -709,6 +709,37 @@ describe("scheduler tick", () => {
     });
   });
 
+  it("only evaluates requested platforms during a targeted tick", async () => {
+    const twitch = adapter("twitch", [campaign("twitch-drops")], [channel("twitch-allowed")]);
+    const kickCandidate = { ...channel("kick-allowed"), platform: "kick" as const, url: "https://kick.com/kick-allowed" };
+    const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [kickCandidate]);
+    vi.mocked(kick.prepareWatchTab).mockResolvedValue({ tabId: 84, managedByExtension: true });
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "watching", channel: channel("current"), offlineChecks: 0, tabId: 42, tabManagedByExtension: true },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [campaign("existing")], kick: [] },
+        managedWatchTabs: {
+          twitch: { platform: "twitch", tabId: 42, channelUrl: "https://www.twitch.tv/current", ownedByExtension: true },
+        },
+        events: [],
+      },
+      settings({ platform: { twitch: { enabled: true, fallbackStreamers: [] }, kick: { enabled: true, fallbackStreamers: [] } } }),
+      { twitch, kick },
+      { platforms: ["kick"] },
+    );
+
+    expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).toBe("watching");
+    expect(result.state.campaigns.twitch).toEqual([campaign("existing")]);
+    expect(kick.prepareWatchTab).toHaveBeenCalledTimes(1);
+    expect(result.state.sessions.kick.status).toBe("watching");
+  });
+
   it("passes the existing managed tab into repeated ticks instead of creating an untracked tab", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("allowed")]);
     const initialState = {

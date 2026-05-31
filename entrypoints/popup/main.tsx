@@ -141,7 +141,7 @@ function Popup(): React.ReactElement {
     void browser.storage.local.set({ [SELECTED_PLATFORM_KEY]: nextPlatform });
   }
 
-  async function updateSettings(patch: Partial<ExtensionSettings>, options?: { tickAfterSave?: boolean }): Promise<void> {
+  async function updateSettings(patch: Partial<ExtensionSettings>, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
     if (!snapshot) return;
     const nextSettings = { ...snapshot.settings, ...patch };
     setSnapshot({ ...snapshot, settings: nextSettings });
@@ -149,6 +149,7 @@ function Popup(): React.ReactElement {
       type: "saveSettings",
       settings: nextSettings,
       tickAfterSave: options?.tickAfterSave,
+      tickAfterSavePlatforms: options?.tickAfterSavePlatforms,
     }));
   }
 
@@ -271,7 +272,7 @@ function Popup(): React.ReactElement {
                               },
                             },
                           },
-                          { tickAfterSave: true },
+                          { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
                         )}
                       />
                     )}

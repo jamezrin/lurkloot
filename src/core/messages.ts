@@ -5,7 +5,7 @@ export type RuntimeMessage =
   | { type: "setRunning"; running: boolean }
   | { type: "setPlatformEnabled"; platform: Platform; enabled: boolean }
   | { type: "setAutomation"; platform: Platform; enabled: boolean }
-  | { type: "saveSettings"; settings: ExtensionSettings; tickAfterSave?: boolean }
+  | { type: "saveSettings"; settings: ExtensionSettings; tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }
   | { type: "claimReward"; platform: Platform; campaignId: string; rewardId: string }
   | { type: "tickNow" }
   | {
