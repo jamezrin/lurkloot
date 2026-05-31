@@ -27,6 +27,7 @@ import {
   ChevronDown,
   Clock3,
   Gift,
+  Github,
   GripVertical,
   Info,
   Link2,
@@ -89,6 +90,7 @@ const REWARD_TINTS = [
   "from-blue-400 via-blue-600 to-zinc-100",
   "from-zinc-100 via-emerald-200 to-slate-500",
 ];
+const EXTENSION_VERSION = browser.runtime.getManifest().version;
 
 function send<T>(message: RuntimeMessage): Promise<T> {
   return browser.runtime.sendMessage(message) as Promise<T>;
@@ -300,9 +302,40 @@ function Popup(): React.ReactElement {
               </motion.div>
             )}
           </AnimatePresence>
+          <AttributionFooter version={EXTENSION_VERSION} />
         </div>
       </div>
     </main>
+  );
+}
+
+function AttributionFooter({ version }: { version: string }): React.ReactElement {
+  return (
+    <footer className="flex items-center justify-between gap-2 px-1 pb-0.5 pt-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
+      <span className="shrink-0 tabular">v{version}</span>
+      <nav aria-label="Attribution links" className="flex min-w-0 items-center gap-1.5">
+        <a
+          href="https://github.com/jamezrin"
+          target="_blank"
+          rel="noreferrer"
+          title="jamezrin on GitHub"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        >
+          <Github size={12} />
+          GitHub
+        </a>
+        <a
+          href="https://x.com/jamezrin"
+          target="_blank"
+          rel="noreferrer"
+          title="jamezrin on X"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        >
+          <span aria-hidden className="text-[11px] font-black leading-none">X</span>
+          @jamezrin
+        </a>
+      </nav>
+    </footer>
   );
 }
 
