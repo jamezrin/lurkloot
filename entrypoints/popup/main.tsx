@@ -90,6 +90,8 @@ const REWARD_TINTS = [
   "from-blue-400 via-blue-600 to-zinc-100",
   "from-zinc-100 via-emerald-200 to-slate-500",
 ];
+const EXTENSION_VERSION = browser.runtime.getManifest().version;
+
 function send<T>(message: RuntimeMessage): Promise<T> {
   return browser.runtime.sendMessage(message) as Promise<T>;
 }
@@ -302,14 +304,15 @@ function Popup(): React.ReactElement {
           </AnimatePresence>
         </div>
       </div>
-      <AttributionFooter />
+      {settingsOpen ? <AttributionFooter version={EXTENSION_VERSION} /> : null}
     </main>
   );
 }
 
-function AttributionFooter(): React.ReactElement {
+function AttributionFooter({ version }: { version: string }): React.ReactElement {
   return (
-    <footer className="flex h-9 shrink-0 items-center justify-center border-t border-zinc-200/70 bg-white/85 px-3 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-500">
+    <footer className="flex h-9 shrink-0 items-center justify-between border-t border-zinc-200/70 bg-white/85 px-3 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-500">
+      <span className="text-[10px] font-medium tabular">v{version}</span>
       <nav aria-label="Attribution links" className="flex items-center gap-1.5">
         <a
           href="https://github.com/jamezrin"
