@@ -41,6 +41,10 @@ async function controlPlaybackAndReport(platform: Platform): Promise<void> {
     platform,
   }).catch((): PlaybackControl => ({ managed: false, keepVideosUnmuted: false })) as PlaybackControl | undefined;
 
+  // Signal the MAIN-world keep-alive script (see keepAliveContent.ts) whether
+  // this is the managed watch tab, so it only spoofs visibility while farming.
+  setKeepAlive(Boolean(control?.managed));
+
   if (!control?.managed) return;
 
   const videos = [...document.querySelectorAll("video")];
@@ -73,6 +77,16 @@ async function controlPlaybackAndReport(platform: Platform): Promise<void> {
       duration: primary && Number.isFinite(primary.duration) ? Math.floor(primary.duration) : undefined,
     },
   }).catch(() => undefined);
+}
+
+function setKeepAlive(active: boolean): void {
+  const root = document.documentElement;
+  if (!root) return;
+  if (active) {
+    root.dataset.smKeepalive = "1";
+  } else {
+    delete root.dataset.smKeepalive;
+  }
 }
 
 function controlVideo(video: HTMLVideoElement, platform: Platform): void {
