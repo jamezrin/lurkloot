@@ -9,6 +9,7 @@
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
+    "privacy:gist": "scripts/update-privacy-gist.sh",
     "screenshot:store": "pnpm build && node scripts/capture-store-screenshot.mjs",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
