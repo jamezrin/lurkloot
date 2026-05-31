@@ -90,8 +90,6 @@ const REWARD_TINTS = [
   "from-blue-400 via-blue-600 to-zinc-100",
   "from-zinc-100 via-emerald-200 to-slate-500",
 ];
-const EXTENSION_VERSION = browser.runtime.getManifest().version;
-
 function send<T>(message: RuntimeMessage): Promise<T> {
   return browser.runtime.sendMessage(message) as Promise<T>;
 }
@@ -302,40 +300,47 @@ function Popup(): React.ReactElement {
               </motion.div>
             )}
           </AnimatePresence>
-          <AttributionFooter version={EXTENSION_VERSION} />
         </div>
       </div>
+      <AttributionFooter />
     </main>
   );
 }
 
-function AttributionFooter({ version }: { version: string }): React.ReactElement {
+function AttributionFooter(): React.ReactElement {
   return (
-    <footer className="flex items-center justify-between gap-2 px-1 pb-0.5 pt-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
-      <span className="shrink-0 tabular">v{version}</span>
-      <nav aria-label="Attribution links" className="flex min-w-0 items-center gap-1.5">
+    <footer className="flex h-9 shrink-0 items-center justify-center border-t border-zinc-200/70 bg-white/85 px-3 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-500">
+      <nav aria-label="Attribution links" className="flex items-center gap-1.5">
         <a
           href="https://github.com/jamezrin"
           target="_blank"
           rel="noreferrer"
           title="jamezrin on GitHub"
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          aria-label="jamezrin on GitHub"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
         >
-          <Github size={12} />
-          GitHub
+          <Github size={15} />
         </a>
         <a
           href="https://x.com/jamezrin"
           target="_blank"
           rel="noreferrer"
           title="jamezrin on X"
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          aria-label="jamezrin on X"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
         >
-          <span aria-hidden className="text-[11px] font-black leading-none">X</span>
-          @jamezrin
+          <XLogoIcon />
         </a>
       </nav>
     </footer>
+  );
+}
+
+function XLogoIcon(): React.ReactElement {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+      <path d="M17.53 3h3.06l-6.68 7.64L21.77 21h-6.16l-4.82-6.3L5.27 21H2.21l7.15-8.17L1.83 3h6.32l4.36 5.76L17.53 3Zm-1.07 16.18h1.7L7.23 4.72H5.41l11.05 14.46Z" />
+    </svg>
   );
 }
 
