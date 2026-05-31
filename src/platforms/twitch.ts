@@ -36,6 +36,48 @@ const STREAM_INFO_QUERY = `query StreamInfo($channel: String!) {
   }
 }`;
 
+// The persisted Inventory hash's selection set is outside our control and does
+// not reliably return self.dropInstanceID, which DropsPage_ClaimDropRewards
+// requires. Send this inline query so the drop-instance id is always selected;
+// without it claimable drops can never be auto-claimed. fetchInventory falls back
+// to the persisted hash if this ever fails to validate.
+const INVENTORY_QUERY = `query Inventory {
+  currentUser {
+    id
+    inventory {
+      dropCampaignsInProgress {
+        id
+        name
+        status
+        startAt
+        endAt
+        imageURL
+        accountLinkURL
+        self { isAccountConnected }
+        game { id slug name displayName }
+        allow { channels { id name } }
+        timeBasedDrops {
+          id
+          name
+          startAt
+          endAt
+          requiredMinutesWatched
+          preconditionDrops { id }
+          benefitEdges {
+            benefit { id name imageAssetURL distributionType }
+          }
+          self {
+            currentMinutesWatched
+            isClaimed
+            dropInstanceID
+          }
+        }
+      }
+      gameEventDrops { id lastAwardedAt }
+    }
+  }
+}`;
+
 interface TwitchGqlResponse<T> {
   data?: T;
   errors?: Array<{ message?: string }>;
@@ -271,11 +313,23 @@ export class TwitchAdapter implements PlatformAdapter {
   }
 
   private async fetchInventory(variables: Record<string, unknown> = TWITCH_QUERIES.inventory.variables): Promise<unknown> {
-    return this.gql<unknown>(
-      TWITCH_QUERIES.inventory.operationName,
-      TWITCH_QUERIES.inventory.sha256Hash,
-      variables,
-    );
+    try {
+      // Prefer the inline query so self.dropInstanceID is always in the selection
+      // set (the claim mutation needs it). Fall back to the persisted hash if the
+      // inline query ever fails to validate against Twitch's schema.
+      return await this.gql<unknown>(
+        TWITCH_QUERIES.inventory.operationName,
+        TWITCH_QUERIES.inventory.sha256Hash,
+        {},
+        INVENTORY_QUERY,
+      );
+    } catch {
+      return this.gql<unknown>(
+        TWITCH_QUERIES.inventory.operationName,
+        TWITCH_QUERIES.inventory.sha256Hash,
+        variables,
+      );
+    }
   }
 
   private async optionalGql<T>(

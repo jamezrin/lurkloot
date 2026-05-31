@@ -491,13 +491,12 @@ describe("TwitchAdapter", () => {
       .rejects.toThrow("PersistedQueryNotFound");
   });
 
-  it("uses the TwitchDropsMiner-proven persisted hash for the Inventory query", async () => {
-    let inventoryHash: string | undefined;
+  it("fetches inventory with an inline query that selects the drop-instance id", async () => {
+    let inventoryQuery: string | undefined;
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "Inventory") {
-        inventoryHash = (requestBody(init).extensions as { persistedQuery?: { sha256Hash?: string } })
-          ?.persistedQuery?.sha256Hash;
+        inventoryQuery = requestBody(init).query as string | undefined;
         return { data: { currentUser: { id: "user-id", inventory: { dropCampaignsInProgress: [] } } } };
       }
       if (op === "ViewerDropsDashboard") return { data: { currentUser: { dropCampaigns: [] } } };
@@ -506,7 +505,27 @@ describe("TwitchAdapter", () => {
 
     await new TwitchAdapter(fetcher).discoverCampaigns();
 
-    expect(inventoryHash).toBe("d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b");
+    expect(inventoryQuery).toContain("dropInstanceID");
+  });
+
+  it("falls back to the persisted Inventory hash when the inline query fails", async () => {
+    let persistedHash: string | undefined;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        const body = requestBody(init);
+        // Inline query (first attempt) is rejected; the persisted-hash retry succeeds.
+        if (body.query) return { errors: [{ message: "inline query rejected" }] };
+        persistedHash = (body.extensions as { persistedQuery?: { sha256Hash?: string } })?.persistedQuery?.sha256Hash;
+        return { data: { currentUser: { id: "user-id", inventory: { dropCampaignsInProgress: [] } } } };
+      }
+      if (op === "ViewerDropsDashboard") return { data: { currentUser: { dropCampaigns: [] } } };
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await new TwitchAdapter(fetcher).discoverCampaigns();
+
+    expect(persistedHash).toBe("d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b");
   });
 
   it("surfaces Twitch's top-level {error,message} auth failures", async () => {
