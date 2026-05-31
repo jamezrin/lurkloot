@@ -197,6 +197,35 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].rewards[0].claimId).toBe("instance");
   });
 
+  it("normalizes reward campaigns nested directly under Twitch inventory", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            dropCampaigns: [{
+              id: "campaign",
+              name: "Inventory Reward Campaign",
+              status: "ACTIVE",
+              game: { id: "game", slug: "fortnite", displayName: "Fortnite" },
+              timeBasedDrops: [{
+                id: "drop",
+                requiredMinutesWatched: 30,
+                benefitEdges: [{ benefit: { id: "benefit", name: "Back Bling" } }],
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0]).toMatchObject({
+      id: "campaign",
+      name: "Inventory Reward Campaign",
+      gameName: "Fortnite",
+      eligibility: "eligible",
+    });
+  });
+
   it("merges Twitch inventory progress into campaign details", () => {
     const details = parseTwitchInventory([{
       id: "campaign",

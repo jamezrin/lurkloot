@@ -21,6 +21,7 @@ interface BrowserTab {
   url?: string;
   pinned?: boolean;
   active?: boolean;
+  status?: string;
   mutedInfo?: { muted?: boolean };
 }
 
@@ -213,6 +214,86 @@ export interface PageFetchOptions {
   };
 }
 
+interface CookieApi {
+  cookies?: { get(details: { url: string; name: string }): Promise<{ value?: string } | null | undefined> };
+}
+
+// Twitch's GQL endpoint cannot be reached from the twitch.tv page's MAIN world:
+// the cross-origin request is blocked by CORS / anti-tampering (observed as a
+// status=0 "Failed to fetch", for both fetch and XHR). The extension background,
+// however, has host permissions for gql.twitch.tv, so its fetch is not subject
+// to page CORS — mirroring TwitchDropsMiner's plain HTTP client, which works
+// with just Client-Id + Authorization + Client-Session-Id + X-Device-Id (no
+// integrity token). We read auth-token / unique_id via chrome.cookies (these can
+// be httpOnly) and attach them, exactly as the web client does.
+let twitchClientSessionId: string | undefined;
+
+function twitchClientSessionIdValue(): string {
+  if (twitchClientSessionId) return twitchClientSessionId;
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  twitchClientSessionId = Array.from(bytes).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return twitchClientSessionId;
+}
+
+function twitchGqlErrorEnvelope(summary: string, status: number, body: string, headers: Headers): { __twitchGqlError: string } {
+  return { __twitchGqlError: [
+    `Twitch GQL ${summary}`,
+    `status=${status}`,
+    `authHeader=${headers.has("authorization") ? "yes" : "no"}`,
+    `body=${body.slice(0, 300)}`,
+  ].join("; ") };
+}
+
+function isUsableTwitchGql(value: unknown): boolean {
+  const entry = Array.isArray(value) ? (value.length === 1 ? value[0] : undefined) : value;
+  return entry != null && typeof entry === "object" && !Array.isArray(entry);
+}
+
+export async function fetchTwitchInBackground<T>(url: string, init?: RequestInit): Promise<T> {
+  return fetchTwitchInBackgroundWith(browser as CookieApi, url, init);
+}
+
+export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers ?? {});
+  const isGql = url.includes("gql.twitch.tv");
+  // Public queries pass credentials: "omit" so Twitch treats them as anonymous.
+  const anonymous = init?.credentials === "omit";
+  if (isGql && !anonymous) {
+    const cookie = async (name: string) => (await api.cookies?.get({ url: "https://www.twitch.tv", name }))?.value;
+    const authToken = await cookie("auth-token");
+    const deviceId = await cookie("unique_id");
+    if (authToken && !headers.has("authorization")) headers.set("authorization", `OAuth ${authToken}`);
+    if (deviceId && !headers.has("x-device-id")) headers.set("x-device-id", deviceId);
+    if (!headers.has("client-session-id")) headers.set("client-session-id", twitchClientSessionIdValue());
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, { ...init, headers, credentials: anonymous ? "omit" : "include" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "network error";
+    if (isGql) return twitchGqlErrorEnvelope(`request failed (${message})`, 0, "", headers) as T;
+    throw error instanceof Error ? error : new Error(message);
+  }
+
+  const text = await response.text();
+  if (!isGql) {
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return ((response.headers.get("content-type") ?? "").includes("application/json")
+      ? JSON.parse(text)
+      : { html: text }) as T;
+  }
+  if (!response.ok) return twitchGqlErrorEnvelope(`HTTP ${response.status} ${response.statusText}`, response.status, text, headers) as T;
+  let json: unknown;
+  try {
+    json = JSON.parse(text) as unknown;
+  } catch {
+    return twitchGqlErrorEnvelope("returned invalid JSON", response.status, text, headers) as T;
+  }
+  return (isUsableTwitchGql(json) ? json : twitchGqlErrorEnvelope("returned an unusable response", response.status, text, headers)) as T;
+}
+
 export async function fetchJsonInPage<T>(
   originUrl: string,
   url: string,
@@ -241,9 +322,9 @@ export async function fetchJsonInPageWithBrowser<T>(
         // args must be JSON-serializable; `undefined` is rejected ("unserializable"),
         // so pass `null` when there is no init (e.g. Kick GET requests).
         args: [url, init ? JSON.stringify(init) : null],
-        // Run in the page's MAIN world: Cloudflare-protected APIs (Kick) reject
-        // fetches from the isolated content-script world, where the page's
-        // clearance context isn't available.
+        // Kick needs the page MAIN world for Cloudflare/session context.
+        // Twitch GQL also runs in MAIN, but uses XHR below to avoid Twitch's
+        // page fetch wrappers.
         world: "MAIN",
         func: pageFetchJson,
       });
@@ -355,6 +436,7 @@ async function findOrCreatePageContextTab(
     throw new Error(`Could not open page context for ${originUrl}`);
   }
   await browserApi.tabs.update(tab.id, { muted: true, active: false });
+  await waitForPageContextReady(browserApi, tab.id, origin);
   if (retain) {
     const retainedContext: ManagedPageContextTab = {
       platform: retain.platform,
@@ -367,6 +449,21 @@ async function findOrCreatePageContextTab(
     return { tabId: tab.id, createdByExtension: true, retainedContext };
   }
   return { tabId: tab.id, createdByExtension: true };
+}
+
+async function waitForPageContextReady(browserApi: BrowserTabApi, tabId: number, origin: string): Promise<void> {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") return;
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    try {
+      const tab = await browserApi.tabs.get(tabId);
+      const url = tab?.url;
+      if (tab && url?.startsWith(origin) && (tab.status == null || tab.status === "complete")) return;
+    } catch {
+      // Keep polling until the page either becomes ready or times out.
+    }
+    await wait(100);
+  }
 }
 
 export function registerManagedPageContextTabs(contexts: SchedulerManagedPageContexts): void {
@@ -402,6 +499,12 @@ export async function stopManagedPageContextTabs(
 
 type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageContextTab>>;
 
+// Injected into a page's MAIN world via executeScript to fetch with the page's
+// cookies/session — used for Kick, which needs Cloudflare/session context. All
+// Twitch requests go through fetchTwitchInBackground instead, because Twitch GQL
+// cannot be reached from the twitch.tv page (CORS / anti-tampering). Must be
+// self-contained: executeScript only serializes this function's own source, so
+// module-scope helpers are unavailable in the page.
 async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
   const parsedInit = initJson ? JSON.parse(initJson) : undefined;
   const headers = new Headers(parsedInit?.headers ?? {});
@@ -416,8 +519,6 @@ async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unkn
   const response = await fetch(targetUrl, {
     ...parsedInit,
     headers,
-    // Public queries pass credentials: "omit" so Twitch treats them as anonymous;
-    // logged-in GQL requests without an integrity token are rejected.
     credentials: parsedInit?.credentials ?? "include",
   });
   if (!response.ok) {
@@ -425,7 +526,7 @@ async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unkn
   }
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
-    return response.json();
+    return await response.json();
   }
   return { html: await response.text() };
 }

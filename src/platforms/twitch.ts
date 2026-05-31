@@ -1,5 +1,5 @@
 import type { ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
-import { fetchJsonInPage, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
+import { fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
 import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "./adapter";
 import { mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign } from "./twitchParser";
 
@@ -9,15 +9,15 @@ const TWITCH_QUERIES = {
   inventory: {
     operationName: "Inventory",
     sha256Hash: "d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b",
-    variables: { fetchRewardCampaigns: true },
+    variables: { fetchRewardCampaigns: false },
   },
   dashboard: {
     operationName: "ViewerDropsDashboard",
     sha256Hash: "5a4da2ab3d5b47c9f9ce864e727b2cb346af1e3ea8b897fe8f704a97ff017619",
-    variables: { fetchRewardCampaigns: true },
+    variables: { fetchRewardCampaigns: false },
   },
   campaignDetailsHash: "039277bf98f3130929262cc7c6efd9c141ca3749cb6dca442fc8ead9a53f77c1",
-  gameDirectoryHash: "c7c9d5aad09155c4161d2382092dc44610367f3536aac39019ec2582ae5065f9",
+  gameDirectoryHash: "cb5dc816e139dcb8a118f14b4b677d59abc224a4b016c4bc2bb00a47fe0ddec4",
   streamInfoHash: "198492e0857f6aedead9665c81c5a06d67b25b58034649687124083ff288597d",
   currentDropHash: "4d06b702d25d652afb9ef835d2a550031f1cf762b193523a92166f40ea3d142b",
   channelPointsHash: "374314de591e69925fce3ddc2bcf085796f56ebb8cad67a0daa3165c03adc345",
@@ -39,12 +39,20 @@ const STREAM_INFO_QUERY = `query StreamInfo($channel: String!) {
 interface TwitchGqlResponse<T> {
   data?: T;
   errors?: Array<{ message?: string }>;
+  // Twitch reports auth/integrity failures as a top-level `{ error, message }`
+  // pair rather than the standard `errors[]` envelope (see TwitchDropsMiner
+  // twitch.py:1352). Surface it instead of treating the response as usable.
+  error?: string;
+  message?: string;
 }
 
 interface TwitchDashboardData {
   currentUser?: {
     id?: string;
     login?: string;
+    inventory?: {
+      dropCampaigns?: Array<{ id?: string; status?: string; self?: { isAccountConnected?: boolean } }>;
+    };
     dropCampaigns?: Array<{ id?: string; status?: string; self?: { isAccountConnected?: boolean } }>;
   };
 }
@@ -111,25 +119,44 @@ export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
 
   constructor(
+    // Twitch GQL is unreachable from the twitch.tv page context (CORS / anti-
+    // tampering blocks it). The background fetch has host permissions for
+    // gql.twitch.tv and attaches the OAuth token from cookies, like the web client.
     private readonly fetcher: PageFetcher = {
-      fetchJson: (url, init) => fetchJsonInPage("https://www.twitch.tv/drops/inventory", url, init, {
-        retainPageContext: { platform: "twitch" },
-      }),
+      fetchJson: (url, init) => fetchTwitchInBackground(url, init),
     },
   ) {}
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
-    const [inventory, dashboard] = await Promise.all([
-      this.gql<unknown>(TWITCH_QUERIES.inventory.operationName, TWITCH_QUERIES.inventory.sha256Hash, TWITCH_QUERIES.inventory.variables),
-      this.gql<TwitchDashboardData>(TWITCH_QUERIES.dashboard.operationName, TWITCH_QUERIES.dashboard.sha256Hash, TWITCH_QUERIES.dashboard.variables),
-    ]);
-    const userLogin = dashboard.data?.currentUser?.login ?? dashboard.data?.currentUser?.id ?? "";
-    const inventoryCampaigns = parseTwitchInventory(inventory as Parameters<typeof parseTwitchInventory>[0]);
-    const discoverableCampaignIds = (dashboard.data?.currentUser?.dropCampaigns ?? [])
+    let inventory = await this.fetchInventory();
+    let dashboard = await this.optionalGql<TwitchDashboardData>(
+      TWITCH_QUERIES.dashboard.operationName,
+      TWITCH_QUERIES.dashboard.sha256Hash,
+      TWITCH_QUERIES.dashboard.variables,
+    );
+    let inventoryCampaigns = parseTwitchInventory(inventory as Parameters<typeof parseTwitchInventory>[0]);
+    let dashboardCampaigns = twitchDashboardCampaigns(dashboard);
+
+    if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
+      inventory = await this.fetchInventory({ fetchRewardCampaigns: true });
+      dashboard = await this.optionalGql<TwitchDashboardData>(
+        TWITCH_QUERIES.dashboard.operationName,
+        TWITCH_QUERIES.dashboard.sha256Hash,
+        { fetchRewardCampaigns: true },
+      );
+      inventoryCampaigns = parseTwitchInventory(inventory as Parameters<typeof parseTwitchInventory>[0]);
+      dashboardCampaigns = twitchDashboardCampaigns(dashboard);
+    }
+
+    if (!twitchHasCurrentUser(inventory) && !dashboard.data?.currentUser) {
+      throw new Error("Twitch did not return a logged-in current user; open twitch.tv and confirm you are signed in");
+    }
+
+    const userLogin = twitchCurrentUserId(inventory) ?? dashboard.data?.currentUser?.id ?? dashboard.data?.currentUser?.login ?? "";
+    const discoverableCampaignIds = dashboardCampaigns
       .filter((campaign) =>
         campaign.id
         && (campaign.status === "ACTIVE" || campaign.status === "UPCOMING")
-        && campaign.self?.isAccountConnected !== false
       )
       .map((campaign) => campaign.id as string);
 
@@ -161,11 +188,7 @@ export class TwitchAdapter implements PlatformAdapter {
   }
 
   async readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]> {
-    const inventory = await this.gql<unknown>(
-      TWITCH_QUERIES.inventory.operationName,
-      TWITCH_QUERIES.inventory.sha256Hash,
-      TWITCH_QUERIES.inventory.variables,
-    );
+    const inventory = await this.fetchInventory();
     const inventoryProgress = mergeTwitchCampaignProgress(campaigns, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
     if (!session?.channel || session.status !== "watching") return inventoryProgress;
     return this.mergeCurrentSessionProgress(inventoryProgress, session.channel);
@@ -176,13 +199,18 @@ export class TwitchAdapter implements PlatformAdapter {
     if (aclCandidates.length > 0) return aclCandidates;
     if (!campaign.slug && !campaign.categoryId) return [];
 
-    const response = await this.gql<TwitchDirectoryData>("GameDirectory", TWITCH_QUERIES.gameDirectoryHash, {
-      name: campaign.slug ?? campaign.gameName,
+    const response = await this.gql<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
+      slug: campaign.slug ?? campaign.gameName,
+      imageWidth: 50,
+      includeCostreaming: false,
       options: {
         sort: "VIEWER_COUNT",
+        broadcasterLanguages: [],
+        includeRestricted: ["SUB_ONLY_LIVE"],
         recommendationsContext: { platform: "web" },
         requestID: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`,
-        freeformTags: ["DropsEnabled"],
+        freeformTags: null,
+        systemFilters: ["DROPS_ENABLED"],
         tags: [],
       },
       sortTypeIsRecency: false,
@@ -239,6 +267,26 @@ export class TwitchAdapter implements PlatformAdapter {
       };
     } catch (error) {
       return this.checkChannelFromPage(channel, campaign, error);
+    }
+  }
+
+  private async fetchInventory(variables: Record<string, unknown> = TWITCH_QUERIES.inventory.variables): Promise<unknown> {
+    return this.gql<unknown>(
+      TWITCH_QUERIES.inventory.operationName,
+      TWITCH_QUERIES.inventory.sha256Hash,
+      variables,
+    );
+  }
+
+  private async optionalGql<T>(
+    operationName: string,
+    sha256Hash: string,
+    variables: Record<string, unknown>,
+  ): Promise<TwitchGqlResponse<T>> {
+    try {
+      return await this.gql(operationName, sha256Hash, variables);
+    } catch {
+      return {};
     }
   }
 
@@ -331,8 +379,10 @@ export class TwitchAdapter implements PlatformAdapter {
     const request = {
       method: "POST",
       headers: {
-        "content-type": "application/json",
-        "client-id": TWITCH_CLIENT_ID,
+        "Accept": "*/*",
+        "Accept-Language": "en-US",
+        "Content-Type": "text/plain; charset=UTF-8",
+        "Client-ID": TWITCH_CLIENT_ID,
       },
       ...(credentials ? { credentials } : {}),
       body: JSON.stringify(
@@ -350,9 +400,26 @@ export class TwitchAdapter implements PlatformAdapter {
             },
       ),
     } satisfies RequestInit;
-    let response = await this.fetcher.fetchJson<TwitchGqlResponse<T>>("https://gql.twitch.tv/gql", request);
+    const fetchOnce = async (): Promise<TwitchGqlResponse<T> | null> => {
+      const raw = await this.fetcher.fetchJson<unknown>("https://gql.twitch.tv/gql", request);
+      // The page fetcher reports failures as a serializable envelope (a rejection
+      // would be swallowed at the executeScript boundary). Surface its diagnostic.
+      const pageError = twitchPageFetchError(raw);
+      if (pageError) throw new Error(`${operationName}: ${pageError}`);
+      return normalizeTwitchGqlResponse<T>(raw);
+    };
+    let response = await fetchOnce();
+    if (!isTwitchGqlResponse<T>(response)) {
+      throw new Error(`${operationName} ${query ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
+    }
     if (response.errors?.some((error) => isTransientGqlError(error.message))) {
-      response = await this.fetcher.fetchJson<TwitchGqlResponse<T>>("https://gql.twitch.tv/gql", request);
+      response = await fetchOnce();
+      if (!isTwitchGqlResponse<T>(response)) {
+        throw new Error(`${operationName} ${query ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
+      }
+    }
+    if (response.error || (response.message && response.data === undefined)) {
+      throw new Error([response.error, response.message].filter(Boolean).join(": ") || `${operationName} failed`);
     }
     if (response.errors?.length) {
       throw new Error(response.errors.map((error) => error.message).filter(Boolean).join("; ") || `${operationName} failed`);
@@ -389,6 +456,45 @@ export class TwitchAdapter implements PlatformAdapter {
       };
     }
   }
+}
+
+function twitchDashboardCampaigns(dashboard: TwitchGqlResponse<TwitchDashboardData>) {
+  return dashboard.data?.currentUser?.dropCampaigns
+    ?? dashboard.data?.currentUser?.inventory?.dropCampaigns
+    ?? [];
+}
+
+function twitchCurrentUserId(value: unknown): string | undefined {
+  return (value as { data?: { currentUser?: { id?: string } } }).data?.currentUser?.id;
+}
+
+function twitchHasCurrentUser(value: unknown): boolean {
+  return Boolean((value as { data?: { currentUser?: unknown } }).data?.currentUser);
+}
+
+function isTwitchGqlResponse<T>(value: TwitchGqlResponse<T> | null): value is TwitchGqlResponse<T> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+// Twitch's GQL endpoint answers with a JSON array (one entry per batched
+// operation) even though we POST a single operation. Unwrap the lone entry so
+// the caller sees the same `{ data, errors }` shape it would for an unbatched
+// response; both PersistedQueryNotFound and integrity rejections arrive this way.
+// The in-page fetcher resolves `{ __twitchGqlError }` instead of rejecting,
+// because executeScript discards rejection messages. Pull the diagnostic out.
+function twitchPageFetchError(value: unknown): string | undefined {
+  if (value != null && typeof value === "object" && !Array.isArray(value)) {
+    const error = (value as { __twitchGqlError?: unknown }).__twitchGqlError;
+    if (typeof error === "string") return error;
+  }
+  return undefined;
+}
+
+function normalizeTwitchGqlResponse<T>(value: unknown): TwitchGqlResponse<T> | null {
+  if (Array.isArray(value)) {
+    return value.length === 1 ? (value[0] as TwitchGqlResponse<T> | null) : null;
+  }
+  return value as TwitchGqlResponse<T> | null;
 }
 
 function isTransientGqlError(message: string | undefined): boolean {

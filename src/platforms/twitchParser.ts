@@ -6,6 +6,7 @@ interface TwitchInventory {
       id?: string;
       inventory?: {
         dropCampaignsInProgress?: TwitchCampaign[];
+        dropCampaigns?: TwitchCampaign[];
         gameEventDrops?: TwitchGameEventDrop[];
       };
       dropCampaigns?: TwitchCampaign[];
@@ -61,6 +62,7 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
   const campaigns = Array.isArray(input)
     ? input
     : input.data?.currentUser?.inventory?.dropCampaignsInProgress
+      ?? input.data?.currentUser?.inventory?.dropCampaigns
       ?? input.data?.currentUser?.dropCampaigns
       ?? [];
   const gameEventDrops = Array.isArray(input) ? [] : input.data?.currentUser?.inventory?.gameEventDrops ?? [];

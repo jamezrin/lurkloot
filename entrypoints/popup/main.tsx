@@ -502,7 +502,7 @@ function Popup(): React.ReactElement {
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
-                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onChange={setAutomation} />
+                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} statusMessage={session.message} onChange={setAutomation} />
                 <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
                   <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
                   <p className="leading-snug text-zinc-600 dark:text-zinc-300">
@@ -649,7 +649,7 @@ function PlatformSwitcher({ active, automation, onChange }: { active: Platform; 
   );
 }
 
-function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitle, farmingChannel }: { platformLabel: string; enabled: boolean; pending: boolean; onChange(value: boolean): Promise<void>; farmingTitle?: string; farmingChannel?: FarmingChannelView }) {
+function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitle, farmingChannel, statusMessage }: { platformLabel: string; enabled: boolean; pending: boolean; onChange(value: boolean): Promise<void>; farmingTitle?: string; farmingChannel?: FarmingChannelView; statusMessage?: string }) {
   const status = pending ? (enabled ? "Starting" : "Stopping") : enabled ? "Running" : "Paused";
 
   return (
@@ -677,7 +677,7 @@ function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitl
                     {farmingChannel.viewers != null && <span className="shrink-0 text-zinc-400 dark:text-zinc-500">· {formatViewers(farmingChannel.viewers)}</span>}
                   </p>
                 ) : (
-                  <p className="truncate">Waiting for an eligible stream</p>
+                  <p className="line-clamp-2 leading-snug" title={statusMessage}>{statusMessage ?? "Waiting for an eligible stream"}</p>
                 )}
                 {farmingTitle && <p className="truncate">Farming <span className="font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span></p>}
               </>

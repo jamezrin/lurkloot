@@ -3,6 +3,7 @@ import type { ChannelCandidate } from "../src/core/models";
 import {
   currentManagedPageContextTabs,
   fetchJsonInPageWithBrowser,
+  fetchTwitchInBackgroundWith,
   openPinnedMutedTabWithBrowser,
   registerManagedPageContextTabs,
   stopWatchTabWithBrowser,
@@ -446,5 +447,87 @@ describe("tab manager", () => {
     }));
     expect(browser.tabs.remove).toHaveBeenCalledTimes(1);
     expect(browser.tabs.remove).toHaveBeenCalledWith(14);
+  });
+});
+
+describe("fetchTwitchInBackgroundWith", () => {
+  const cookieApi = {
+    cookies: {
+      get: vi.fn(async ({ name }: { name: string }) =>
+        name === "auth-token" ? { value: "tok123" } : name === "unique_id" ? { value: "dev456" } : null),
+    },
+  };
+
+  beforeEach(() => {
+    cookieApi.cookies.get.mockClear();
+  });
+
+  it("attaches the OAuth token, device id and a session id for authenticated GQL", async () => {
+    let captured: { url: string; init: RequestInit } | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+      captured = { url, init };
+      return new Response(JSON.stringify({ data: { currentUser: { id: "u" } } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }));
+
+    const result = await fetchTwitchInBackgroundWith(cookieApi, "https://gql.twitch.tv/gql", {
+      method: "POST",
+      headers: { "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko" },
+      body: "{}",
+    });
+
+    const headers = new Headers(captured?.init.headers);
+    expect(headers.get("authorization")).toBe("OAuth tok123");
+    expect(headers.get("x-device-id")).toBe("dev456");
+    expect(headers.get("client-session-id")).toMatch(/^[0-9a-f]{16}$/);
+    expect(captured?.init.credentials).toBe("include");
+    expect(result).toMatchObject({ data: { currentUser: { id: "u" } } });
+    vi.unstubAllGlobals();
+  });
+
+  it("omits credentials and auth for anonymous public queries", async () => {
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify({ data: { user: null } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }));
+
+    await fetchTwitchInBackgroundWith(cookieApi, "https://gql.twitch.tv/gql", { credentials: "omit", body: "{}" });
+
+    expect(cookieApi.cookies.get).not.toHaveBeenCalled();
+    expect(new Headers(captured?.headers).has("authorization")).toBe(false);
+    expect(captured?.credentials).toBe("omit");
+    vi.unstubAllGlobals();
+  });
+
+  it("returns a serializable diagnostic envelope when the GQL fetch is blocked", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+
+    const result = await fetchTwitchInBackgroundWith<{ __twitchGqlError?: string }>(
+      cookieApi,
+      "https://gql.twitch.tv/gql",
+      { body: "{}" },
+    );
+
+    expect(result.__twitchGqlError).toContain("request failed (Failed to fetch)");
+    expect(result.__twitchGqlError).toContain("authHeader=yes");
+    vi.unstubAllGlobals();
+  });
+
+  it("returns channel page HTML for non-GQL Twitch URLs", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>live</html>", {
+      status: 200,
+      headers: { "content-type": "text/html" },
+    })));
+
+    const result = await fetchTwitchInBackgroundWith<{ html: string }>(cookieApi, "https://www.twitch.tv/creator");
+
+    expect(result.html).toBe("<html>live</html>");
+    vi.unstubAllGlobals();
   });
 });

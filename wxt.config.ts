@@ -13,7 +13,7 @@ export default defineConfig({
     name: "StreamMaxxer",
     description:
       "Farm Twitch and Kick drops through normal logged-in browser sessions and visible muted tabs.",
-    permissions: ["alarms", "storage", "tabs", "scripting", "notifications"],
+    permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies"],
     host_permissions: [
       "https://www.twitch.tv/*",
       "https://gql.twitch.tv/*",
