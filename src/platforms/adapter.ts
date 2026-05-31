@@ -28,6 +28,10 @@ export interface PlatformAdapter {
   listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]>;
   checkChannel(channel: ChannelCandidate, campaign?: DropCampaign): Promise<ChannelCheck>;
   claimReward(campaign: DropCampaign, reward: DropReward): Promise<boolean>;
+  // Whether a "claimable" reward can actually be claimed right now. Twitch only
+  // exposes the real drop-instance id once it releases the claim, so auto-claim
+  // must defer until then instead of POSTing a value Twitch will reject.
+  isClaimReady?(reward: DropReward): boolean;
   claimChannelPoints?(channel: ChannelCandidate): Promise<boolean>;
   prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab>;
   stopWatchTab?(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;

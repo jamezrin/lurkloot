@@ -66,7 +66,6 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
       ?? input.data?.currentUser?.dropCampaigns
       ?? [];
   const gameEventDrops = Array.isArray(input) ? [] : input.data?.currentUser?.inventory?.gameEventDrops ?? [];
-  const userId = Array.isArray(input) ? undefined : input.data?.currentUser?.id;
   const now = Date.now();
 
   return campaigns.map((campaign) => {
@@ -92,7 +91,7 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
           ? "expired"
           : "active";
     const parsedRewards = (campaign.timeBasedDrops ?? []).map((drop) =>
-      parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops),
+      parseTwitchReward(drop, endsAt, gameEventDrops),
     );
     const rewards = parsedRewards.map((reward) => ({
       ...reward,
@@ -132,8 +131,6 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
 
 function parseTwitchReward(
   reward: TwitchReward,
-  campaignId: string,
-  userId?: string,
   campaignEndsAt?: string,
   gameEventDrops: TwitchGameEventDrop[] = [],
 ): DropReward {
@@ -146,7 +143,10 @@ function parseTwitchReward(
     gameEventDrops.some((drop) => drop.id === reward.self?.dropInstanceID || drop.benefit?.id === benefit.id),
   );
   const isClaimed = reward.self?.isClaimed || eventClaimed;
-  const claimId = reward.self?.dropInstanceID ?? (userId ? `${userId}#${campaignId}#${reward.id}` : undefined);
+  // Only the real drop-instance id Twitch returns once the claim is released is
+  // accepted by DropsPage_ClaimDropRewards; never synthesize one, or auto-claim
+  // POSTs a value Twitch rejects.
+  const claimId = reward.self?.dropInstanceID;
   const preconditionRewardIds = reward.preconditionDrops?.map((drop) => drop.id) ?? [];
 
   return {

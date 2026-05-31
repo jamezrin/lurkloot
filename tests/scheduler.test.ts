@@ -697,6 +697,53 @@ describe("scheduler tick", () => {
     expect(twitch.claimReward).toHaveBeenCalledWith(ready, ready.rewards[0]);
   });
 
+  it("defers claiming a ready reward until the adapter reports it is claim-ready", async () => {
+    const ready = campaign("drops", { rewards: [reward("claimable")] });
+    const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady: vi.fn(() => false) };
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        events: [],
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.claimReward).not.toHaveBeenCalled();
+    expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimable");
+    const claimEvents = result.state.events.filter((event) => event.message.includes("waiting for"));
+    expect(claimEvents).toHaveLength(1);
+    expect(claimEvents[0].level).toBe("info");
+    // No "Could not claim" warning or claim error is emitted while deferring.
+    expect(result.state.events.some((event) => /claim/i.test(event.message) && event.level !== "info")).toBe(false);
+  });
+
+  it("claims a ready reward once the adapter reports it is claim-ready", async () => {
+    const ready = campaign("drops", { rewards: [reward("claimable")] });
+    const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady: vi.fn(() => true) };
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        events: [],
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.claimReward).toHaveBeenCalledWith(ready, ready.rewards[0]);
+    expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
+  });
+
   it("passes mute-tab setting to prepared watch tabs", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("allowed")]);
 

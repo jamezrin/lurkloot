@@ -197,6 +197,32 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].rewards[0].claimId).toBe("instance");
   });
 
+  it("leaves the claim id undefined until Twitch returns a real drop-instance id", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          id: "user-id",
+          inventory: {
+            dropCampaignsInProgress: [{
+              id: "abc",
+              name: "Twitch Drops",
+              game: { id: "game", name: "Game" },
+              timeBasedDrops: [{
+                id: "drop",
+                name: "Cape",
+                requiredMinutesWatched: 60,
+                self: { currentMinutesWatched: 60, isClaimed: false },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards[0].status).toBe("claimable");
+    expect(campaigns[0].rewards[0].claimId).toBeUndefined();
+  });
+
   it("normalizes reward campaigns nested directly under Twitch inventory", () => {
     const campaigns = parseTwitchInventory({
       data: {

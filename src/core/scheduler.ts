@@ -436,6 +436,17 @@ async function claimReadyRewards(
     const rewards: DropReward[] = [];
     for (const reward of campaign.rewards) {
       if (reward.status === "claimable" && canClaimReward(reward)) {
+        if (adapter.isClaimReady && !adapter.isClaimReady(reward)) {
+          // Watched to completion, but the platform hasn't released the claim
+          // yet (e.g. Twitch hasn't returned the drop-instance id). Defer; the
+          // next tick re-checks once progress data catches up.
+          rewards.push(reward);
+          events.push({
+            level: "info",
+            message: `${reward.name} watched-complete; waiting for ${campaign.name} claim to be released`,
+          });
+          continue;
+        }
         try {
           const claimed = await adapter.claimReward(campaign, reward);
           rewards.push(claimed ? { ...reward, status: "claimed", watchedMinutes: reward.requiredMinutes } : reward);

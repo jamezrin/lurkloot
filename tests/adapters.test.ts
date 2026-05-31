@@ -706,4 +706,93 @@ describe("TwitchAdapter", () => {
       isCurrentReward: true,
     });
   });
+
+  it("claims a Twitch reward with the real drop-instance id", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      if (operation(init) === "DropsPage_ClaimDropRewards") {
+        expect(requestBody(init).variables).toMatchObject({ input: { dropInstanceID: "instance-id" } });
+        return { data: { claimDropRewards: { status: "ELIGIBLE_FOR_ALL" } } };
+      }
+      throw new Error(`Unexpected op ${operation(init)}`);
+    });
+    const adapter = new TwitchAdapter(fetcher);
+    const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
+
+    await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
+  });
+
+  it("does not call Twitch and reports not claim-ready when the drop-instance id is missing", async () => {
+    const fetcher = jsonFetcher(() => {
+      throw new Error("should not fetch without a claim id");
+    });
+    const adapter = new TwitchAdapter(fetcher);
+    const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" } as DropReward;
+
+    expect(adapter.isClaimReady(reward)).toBe(false);
+    expect(adapter.isClaimReady({ ...reward, claimId: "instance-id" })).toBe(true);
+    await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(false);
+  });
+
+  it("surfaces an unexpected Twitch claim status as an error", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      if (operation(init) === "DropsPage_ClaimDropRewards") {
+        return { data: { claimDropRewards: { status: "INELIGIBLE" } } };
+      }
+      throw new Error(`Unexpected op ${operation(init)}`);
+    });
+    const adapter = new TwitchAdapter(fetcher);
+    const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
+
+    await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).rejects.toThrow(/status=INELIGIBLE/);
+  });
+
+  it("promotes the active drop to claimable without a claim id until inventory releases it", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        return {
+          data: {
+            currentUser: {
+              inventory: {
+                dropCampaignsInProgress: [{
+                  id: "campaign",
+                  timeBasedDrops: [{
+                    id: "drop",
+                    requiredMinutesWatched: 60,
+                    self: { currentMinutesWatched: 30, isClaimed: false },
+                  }],
+                }],
+              },
+            },
+          },
+        };
+      }
+      if (op === "VideoPlayerStreamInfoOverlayChannel") {
+        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+      }
+      if (op === "DropCurrentSessionContext") {
+        return { data: { currentUser: { dropCurrentSession: { dropID: "drop", currentMinutesWatched: 60 } } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+    const adapter = new TwitchAdapter(fetcher);
+    const campaigns: DropCampaign[] = [{
+      id: "campaign",
+      platform: "twitch",
+      name: "Campaign",
+      status: "active",
+      rewards: [{ id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 0, status: "locked" }],
+    }];
+
+    const progress = await adapter.readProgress(campaigns, {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      channel: { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+    });
+
+    expect(progress[0].rewards[0]).toMatchObject({ status: "claimable", isCurrentReward: true });
+    expect(progress[0].rewards[0].claimId).toBeUndefined();
+    expect(adapter.isClaimReady(progress[0].rewards[0])).toBe(false);
+  });
 });

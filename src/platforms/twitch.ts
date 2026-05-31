@@ -290,6 +290,12 @@ export class TwitchAdapter implements PlatformAdapter {
     }
   }
 
+  // A "claimable" reward can only be claimed once Twitch has released its real
+  // drop-instance id (see parseTwitchReward). Until then, defer.
+  isClaimReady(reward: DropReward): boolean {
+    return Boolean(reward.claimId);
+  }
+
   async claimReward(_campaign: DropCampaign, reward: DropReward): Promise<boolean> {
     if (!reward.claimId) return false;
     const result = await this.gql<{ claimDropRewards?: { status?: string } }>(
@@ -298,7 +304,10 @@ export class TwitchAdapter implements PlatformAdapter {
       { input: { dropInstanceID: reward.claimId } },
     );
     const status = result.data?.claimDropRewards?.status;
-    return status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED";
+    if (status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED") return true;
+    // Surface the rejection instead of a silent false so the cause is visible in
+    // the event log (e.g. an unexpected status, integrity, or a stale id).
+    throw new Error(`Twitch refused claim for ${reward.name}: status=${status ?? "unknown"}`);
   }
 
   async claimChannelPoints(channel: ChannelCandidate): Promise<boolean> {
