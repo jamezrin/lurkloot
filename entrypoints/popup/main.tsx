@@ -44,7 +44,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
-import type { DropCampaign, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
+import type { DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
 import { DEFAULT_SETTINGS, mergeSettings } from "../../src/core/settings";
 import "./style.css";
 
@@ -384,6 +384,18 @@ function Popup(): React.ReactElement {
     });
   }, []);
 
+  // Keep the snapshot (and its Activity log) live while the popup is open, so
+  // background scheduler ticks are reflected without needing a manual refresh.
+  useEffect(() => {
+    if (SCREENSHOT_MODE) return;
+    const interval = setInterval(() => {
+      void send<RuntimeSnapshot>({ type: "getSnapshot" }).then((nextSnapshot) => {
+        setSnapshot((current) => current ? { ...nextSnapshot, settings: current.settings } : { ...nextSnapshot, settings: mergeSettings(nextSnapshot.settings) });
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   function selectPlatform(nextPlatform: Platform): void {
     setPlatform(nextPlatform);
     if (!SCREENSHOT_MODE) void browser.storage.local.set({ [SELECTED_PLATFORM_KEY]: nextPlatform });
@@ -546,6 +558,7 @@ function Popup(): React.ReactElement {
                     )}
                   </motion.div>
                 </AnimatePresence>
+                <ActivityLog events={snapshot.state.events} platform={platform} lastTickAt={snapshot.state.lastTickAt} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -553,6 +566,76 @@ function Popup(): React.ReactElement {
       </div>
       {settingsOpen ? <AttributionFooter version={EXTENSION_VERSION} /> : null}
     </main>
+  );
+}
+
+function formatEventTime(at: string): string {
+  const time = Date.parse(at);
+  if (Number.isNaN(time)) return "";
+  return new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+const EVENT_LEVEL_COLOR: Record<EventLogEntry["level"], string> = {
+  info: "#a1a1aa",
+  warn: "#f59e0b",
+  error: "#ef4444",
+};
+
+function ActivityLog({
+  events,
+  platform,
+  lastTickAt,
+}: {
+  events: EventLogEntry[];
+  platform: Platform;
+  lastTickAt?: string;
+}): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  const visible = useMemo(
+    () => events.filter((event) => !event.platform || event.platform === platform).slice(-40).reverse(),
+    [events, platform],
+  );
+  const errorCount = visible.filter((event) => event.level === "error").length;
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between px-2.5 py-2 text-[11px] font-semibold text-zinc-600 dark:text-zinc-300"
+      >
+        <span className="flex items-center gap-1.5">
+          <Clock3 size={13} className="text-zinc-400" />
+          Activity
+          {errorCount > 0 ? (
+            <span className="rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white" style={{ backgroundColor: EVENT_LEVEL_COLOR.error }}>
+              {errorCount}
+            </span>
+          ) : null}
+        </span>
+        <span className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-400">
+          {lastTickAt ? `last check ${formatEventTime(lastTickAt)}` : "no checks yet"}
+          <ChevronDown size={14} className={cn("transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open ? (
+        <div className="nice-scroll max-h-48 overflow-y-auto border-t border-zinc-200/70 px-2.5 py-1.5 dark:border-zinc-800">
+          {visible.length === 0 ? (
+            <p className="py-2 text-center text-[11px] text-zinc-400">No activity recorded yet.</p>
+          ) : (
+            <ul className="space-y-1">
+              {visible.map((event) => (
+                <li key={event.id} className="flex items-start gap-1.5 text-[11px] leading-snug">
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }} />
+                  <span className="shrink-0 font-mono text-[10px] text-zinc-400">{formatEventTime(event.at)}</span>
+                  <span className="min-w-0 text-zinc-600 dark:text-zinc-300">{event.message}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
