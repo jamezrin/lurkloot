@@ -46,7 +46,7 @@ describe("tab manager", () => {
     expect(browser.tabs.create).not.toHaveBeenCalled();
   });
 
-  it("does not update the managed tab when it already matches the target channel and options", async () => {
+  it("primes a matching managed tab when playback telemetry is not healthy yet", async () => {
     const browser = browserMock();
     browser.tabs.get.mockResolvedValue({
       id: 4,
@@ -57,6 +57,37 @@ describe("tab manager", () => {
     });
 
     await openPinnedMutedTabWithBrowser(browser, channel, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 4, tabManagedByExtension: true });
+
+    expect(browser.tabs.update).toHaveBeenCalledWith(4, { active: true });
+  });
+
+  it("does not update the managed tab when it already matches the target channel, options, and healthy playback", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({
+      id: 4,
+      url: channel.url,
+      pinned: true,
+      mutedInfo: { muted: true },
+      active: false,
+    });
+
+    await openPinnedMutedTabWithBrowser(browser, channel, {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+      playback: {
+        platform: "twitch",
+        checkedAt: new Date().toISOString(),
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    });
 
     expect(browser.tabs.update).not.toHaveBeenCalled();
   });
@@ -78,10 +109,12 @@ describe("tab manager", () => {
         ownedByExtension: true,
       },
     });
-    expect(browser.tabs.query).not.toHaveBeenCalled();
+    expect(browser.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
     expect(browser.tabs.remove).toHaveBeenCalledWith(4);
     expect(browser.tabs.create).toHaveBeenCalledTimes(1);
     expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
+    expect(browser.tabs.update).toHaveBeenCalledWith(9, { active: true });
+    expect(browser.tabs.update).toHaveBeenCalledWith(7, { active: true });
   });
 
   it("creates pinned tabs and then mutes them", async () => {
@@ -146,7 +179,7 @@ describe("tab manager", () => {
 
     await openPinnedMutedTabWithBrowser(browser, channel);
 
-    expect(browser.tabs.query).not.toHaveBeenCalled();
+    expect(browser.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
     expect(browser.tabs.remove).not.toHaveBeenCalled();
     expect(browser.tabs.create).toHaveBeenCalledWith({
       url: channel.url,

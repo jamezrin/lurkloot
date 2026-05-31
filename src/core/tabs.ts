@@ -39,6 +39,7 @@ const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   muted: true,
   closeManagedTabs: true,
 };
+const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
 
 export async function openPinnedMutedTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab> {
   return openPinnedMutedTabWithBrowser(browser as BrowserTabApi, channel, session, options);
@@ -61,6 +62,9 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
+        if (shouldPrimePlayback(tab, channel.url, session)) {
+          await primeTabPlayback(browserApi, tab.id);
+        }
         return {
           tabId: tab.id,
           managedByExtension: true,
@@ -77,6 +81,9 @@ export async function openPinnedMutedTabWithBrowser(
         const updateProperties = watchTabUpdateProperties(tab, channel.url, tabOptions.muted);
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
+        }
+        if (shouldPrimePlayback(tab, channel.url, session)) {
+          await primeTabPlayback(browserApi, tab.id);
         }
         return { tabId: tab.id, managedByExtension: false };
       }
@@ -106,6 +113,7 @@ export async function openPinnedMutedTabWithBrowser(
     throw new Error(`Could not create ${channel.platform} watch tab`);
   }
   await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
+  await primeTabPlayback(browserApi, tab.id);
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
 }
 
@@ -116,6 +124,40 @@ function watchTabUpdateProperties(tab: BrowserTab, url: string, muted: boolean):
   if (tab.mutedInfo?.muted !== muted) updateProperties.muted = muted;
   if (tab.active !== false) updateProperties.active = false;
   return updateProperties;
+}
+
+function shouldPrimePlayback(tab: BrowserTab, url: string, session?: WatchSession): boolean {
+  if (tab.url !== url) return true;
+  const playback = session?.playback;
+  if (!playback) return true;
+  const checkedAt = Date.parse(playback.checkedAt);
+  if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return true;
+  return playback.videoCount === 0
+    || playback.unmutedVideoCount === 0
+    || playback.playingVideoCount === 0;
+}
+
+async function primeTabPlayback(browserApi: BrowserTabApi, tabId: number): Promise<void> {
+  const [previousActive] = await browserApi.tabs.query({ active: true, currentWindow: true });
+  const previousActiveId = previousActive?.id;
+
+  await browserApi.tabs.update(tabId, { active: true });
+  await wait(playbackPrimeRestoreDelayMs());
+
+  if (previousActiveId != null && previousActiveId !== tabId) {
+    await browserApi.tabs.update(previousActiveId, { active: true });
+  }
+}
+
+function playbackPrimeRestoreDelayMs(): number {
+  return typeof process !== "undefined" && process.env.NODE_ENV === "test"
+    ? 0
+    : PLAYBACK_PRIME_RESTORE_DELAY_MS;
+}
+
+function wait(milliseconds: number): Promise<void> {
+  if (milliseconds <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function managedTabFromSession(session: WatchSession | undefined, channelUrl: string): ManagedWatchTab | undefined {

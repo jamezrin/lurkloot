@@ -1,4 +1,4 @@
-import type { RuntimeMessage, RuntimeSnapshot } from "../core/messages";
+import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../core/messages";
 import type { DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "../core/models";
 import { appendEvent } from "../core/storage";
 import { mergeSettings } from "../core/settings";
@@ -92,6 +92,19 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     });
   }
 
+  async function getPlaybackControl(
+    message: Extract<RuntimeMessage, { type: "getPlaybackControl" }>,
+    senderTabId?: number,
+  ): Promise<PlaybackControl> {
+    const state = await deps.loadState();
+    const session = state.sessions[message.platform];
+    return {
+      managed: senderTabId != null
+        && session.status === "watching"
+        && session.tabId === senderTabId,
+    };
+  }
+
   async function claimRewardNow(
     message: Extract<RuntimeMessage, { type: "claimReward" }>,
   ): Promise<RuntimeSnapshot> {
@@ -163,7 +176,11 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   async function handleMessage(
     message: RuntimeMessage,
     sender?: { tab?: { id?: number } },
-  ): Promise<RuntimeSnapshot | void> {
+  ): Promise<RuntimeSnapshot | PlaybackControl | void> {
+    if (message.type === "getPlaybackControl") {
+      return getPlaybackControl(message, sender?.tab?.id);
+    }
+
     if (message.type === "playbackTelemetry") {
       await recordPlaybackTelemetry(message, sender?.tab?.id);
       return undefined;

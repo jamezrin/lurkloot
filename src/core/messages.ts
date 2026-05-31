@@ -2,6 +2,7 @@ import type { ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState } f
 
 export type RuntimeMessage =
   | { type: "getSnapshot" }
+  | { type: "getPlaybackControl"; platform: Platform }
   | { type: "setRunning"; running: boolean }
   | { type: "setPlatformEnabled"; platform: Platform; enabled: boolean }
   | { type: "setAutomation"; platform: Platform; enabled: boolean }
@@ -17,4 +18,8 @@ export type RuntimeMessage =
 export interface RuntimeSnapshot {
   settings: ExtensionSettings;
   state: SchedulerState;
+}
+
+export interface PlaybackControl {
+  managed: boolean;
 }

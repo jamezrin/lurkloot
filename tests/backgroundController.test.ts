@@ -282,7 +282,8 @@ describe("background controller", () => {
       platform: "twitch",
       telemetry: {
         videoCount: 1,
-        mutedVideoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
         playingVideoCount: 1,
         blockedPlaybackCount: 0,
         documentHidden: true,
@@ -295,7 +296,8 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.playback).toMatchObject({
       platform: "twitch",
       videoCount: 1,
-      mutedVideoCount: 1,
+      mutedVideoCount: 0,
+      unmutedVideoCount: 1,
       playingVideoCount: 1,
     });
 
@@ -305,6 +307,7 @@ describe("background controller", () => {
       telemetry: {
         videoCount: 0,
         mutedVideoCount: 0,
+        unmutedVideoCount: 0,
         playingVideoCount: 0,
         blockedPlaybackCount: 0,
         documentHidden: true,
@@ -312,6 +315,21 @@ describe("background controller", () => {
     }, { tab: { id: 999 } });
 
     expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
+  });
+
+  it("allows playback control only for the current watch tab", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+
+    await expect(env.controller.handleMessage(
+      { type: "getPlaybackControl", platform: "twitch" },
+      { tab: { id: 10 } },
+    )).resolves.toEqual({ managed: true });
+
+    await expect(env.controller.handleMessage(
+      { type: "getPlaybackControl", platform: "twitch" },
+      { tab: { id: 999 } },
+    )).resolves.toEqual({ managed: false });
   });
 
   it("runs an immediate tick when the active managed Twitch tab is closed", async () => {

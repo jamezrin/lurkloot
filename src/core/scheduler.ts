@@ -561,7 +561,7 @@ function isPlaybackHealthy(session: WatchSession): boolean {
   const checkedAt = Date.parse(playback.checkedAt);
   if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return false;
   return playback.videoCount > 0
-    && playback.mutedVideoCount > 0
+    && playback.unmutedVideoCount > 0
     && playback.playingVideoCount > 0;
 }
 

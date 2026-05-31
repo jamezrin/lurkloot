@@ -100,6 +100,7 @@ export interface PlaybackTelemetry {
   checkedAt: string;
   videoCount: number;
   mutedVideoCount: number;
+  unmutedVideoCount: number;
   playingVideoCount: number;
   blockedPlaybackCount: number;
   documentHidden: boolean;
