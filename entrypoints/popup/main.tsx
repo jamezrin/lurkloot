@@ -29,7 +29,6 @@ import {
   Gift,
   GripVertical,
   Info,
-  Layers3,
   Link2,
   Play,
   Plus,
@@ -203,8 +202,8 @@ function Popup(): React.ReactElement {
   };
   const enabled = automation[platform];
   const automationPending = pendingAutomation[platform] != null;
-  const topTitle = campaigns[0]?.title ?? sessionChannel?.name ?? "the highest priority target";
-  const farmingChannel = campaigns[0]?.farmingChannel ?? sessionChannel;
+  const activeCampaign = campaigns.find((campaign) => campaign.farmingChannel);
+  const farmingChannel = activeCampaign?.farmingChannel ?? sessionChannel;
 
   return (
     <main
@@ -249,7 +248,7 @@ function Popup(): React.ReactElement {
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
-                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={topTitle} farmingChannel={farmingChannel} onChange={setAutomation} />
+                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onChange={setAutomation} />
                 <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
                   <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
                   <p className="leading-snug text-zinc-600 dark:text-zinc-300">
@@ -324,7 +323,7 @@ function PlatformSwitcher({ active, automation, onChange }: { active: Platform; 
   );
 }
 
-function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitle, farmingChannel }: { platformLabel: string; enabled: boolean; pending: boolean; onChange(value: boolean): Promise<void>; farmingTitle: string; farmingChannel?: FarmingChannelView }) {
+function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitle, farmingChannel }: { platformLabel: string; enabled: boolean; pending: boolean; onChange(value: boolean): Promise<void>; farmingTitle?: string; farmingChannel?: FarmingChannelView }) {
   const status = pending ? (enabled ? "Starting" : "Stopping") : enabled ? "Running" : "Paused";
 
   return (
@@ -344,7 +343,6 @@ function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitl
               <p className="line-clamp-2 leading-snug">{enabled ? "Starting automation..." : "Pausing automation..."}</p>
             ) : enabled ? (
               <>
-                <p className="truncate">Farming <span className="font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span></p>
                 {farmingChannel ? (
                   <p className="flex items-center gap-1 truncate">
                     <Radio size={11} className="shrink-0" style={{ color: "var(--accent-text)" }} />
@@ -355,6 +353,7 @@ function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitl
                 ) : (
                   <p className="truncate">Waiting for an eligible stream</p>
                 )}
+                {farmingTitle && <p className="truncate">Farming <span className="font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span></p>}
               </>
             ) : (
               <p className="line-clamp-2 leading-snug">Watching paused. Toggle to resume drop farming.</p>
@@ -540,10 +539,6 @@ function WatchQueuePanel({ streamers, onChange }: { platform: Platform; streamer
 
   return (
     <div className="space-y-2.5">
-      <div className="flex items-start gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/60 p-2.5 text-[11px] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
-        <Layers3 size={14} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
-        <p className="leading-relaxed">A fallback queue, independent from drops. Channels here are watched in order when no prioritized drop is available.</p>
-      </div>
       {streamers.length === 0 ? <EmptyPanel>No watch queue channels configured.</EmptyPanel> : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
           <SortableContext items={streamers.map((streamer) => streamer.id)} strategy={verticalListSortingStrategy}>
@@ -597,6 +592,7 @@ function SettingsView({ games, settings, onSettingsChange }: { games: GameItem[]
         <SettingRow title="No drops left" description="Notify when all active campaigns are exhausted." checked={settings.notifyNoDropsLeft} onChange={set("notifyNoDropsLeft")} />
       </SettingsSection>
       <SettingsSection title="Drops" description="Farming priority is set by dragging campaigns in the Drops tab." icon={Gift}>
+        <SettingRow title="Auto-claim drops" description="Claim earned drop rewards automatically when they become available." checked={settings.autoClaim} onChange={set("autoClaim")} />
         <GamePriority games={games} onChange={(ordered) => onSettingsChange({ gamePriority: ordered.map((game) => game.id) })} />
       </SettingsSection>
       <SettingsSection title="Watch Queue" description="Fallback queue behavior." icon={Play}>
