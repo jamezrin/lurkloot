@@ -85,8 +85,9 @@ export async function chooseCampaignDecision(
     const reward = activeReward(campaign);
     if (!reward) continue;
 
+    const excludedChannels = settings.platform[platform].excludedChannels ?? [];
     const candidates = (await adapter.listCandidateChannels(campaign))
-      .filter((candidate) => !settings.excludedChannels.includes(candidate.username.toLowerCase()))
+      .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
       .sort((left, right) => {
         if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
         return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
@@ -491,6 +492,9 @@ async function shouldKeepWatching(
   }
   if (previous.campaignId && nextDecision.action !== "watch") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "current campaign is no longer eligible" };
+  }
+  if (previous.campaignId && settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) {
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "current channel is excluded from drops" };
   }
   if (!settings.watchQueueFallbackOnly && !previous.campaignId && nextDecision.action === "watch") {
     const fallbackCheck = await adapter.checkChannel(previous.channel);

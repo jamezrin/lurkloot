@@ -17,17 +17,18 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
     twitch: {
       enabled: true,
       watchQueueChannels: [],
+      excludedChannels: [],
       gamePriority: [],
     },
     kick: {
       enabled: true,
       watchQueueChannels: [],
+      excludedChannels: [],
       gamePriority: [],
     },
   },
   campaignPriorities: {},
   excludedCampaignIds: [],
-  excludedChannels: [],
   offlineRetryLimit: 3,
   pollIntervalMinutes: 1,
 };
@@ -52,18 +53,19 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     platform: {
       twitch: {
         enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_SETTINGS.platform.twitch.enabled),
-        watchQueueChannels: normalizeStringList(platform?.twitch?.watchQueueChannels),
+        watchQueueChannels: normalizeChannelList(platform?.twitch?.watchQueueChannels),
+        excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
         gamePriority: normalizeStringList(platform?.twitch?.gamePriority),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_SETTINGS.platform.kick.enabled),
-        watchQueueChannels: normalizeStringList(platform?.kick?.watchQueueChannels),
+        watchQueueChannels: normalizeChannelList(platform?.kick?.watchQueueChannels),
+        excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         gamePriority: normalizeStringList(platform?.kick?.gamePriority),
       },
     },
     campaignPriorities: normalizePriorities(value?.campaignPriorities),
     excludedCampaignIds: normalizeStringList(value?.excludedCampaignIds),
-    excludedChannels: normalizeStringList(value?.excludedChannels),
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_SETTINGS.offlineRetryLimit),
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 0.5, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
   };
@@ -88,6 +90,14 @@ function normalizeStringList(value: string[] | undefined): string[] {
   return [...new Set(value
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim().toLowerCase())
+    .filter(Boolean))];
+}
+
+function normalizeChannelList(value: string[] | undefined): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim().replace(/^@+/, "").toLowerCase())
     .filter(Boolean))];
 }
 

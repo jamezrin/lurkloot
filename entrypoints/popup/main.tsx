@@ -22,6 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Ban,
   Bell,
   Check,
   ChevronDown,
@@ -652,6 +653,18 @@ function SettingsView({ games, settings, onSettingsChange }: {
       },
     },
   });
+  const setPlatformExcludedChannels = (platform: Platform) => (excludedChannels: string[]) => onSettingsChange(
+    {
+      platform: {
+        ...settings.platform,
+        [platform]: {
+          ...settings.platform[platform],
+          excludedChannels,
+        },
+      },
+    },
+    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+  );
 
   return (
     <div className="space-y-2.5">
@@ -673,8 +686,8 @@ function SettingsView({ games, settings, onSettingsChange }: {
         <SettingRow title="Only when no drops are active" description="Preserves drop priority automatically." checked={settings.watchQueueFallbackOnly} onChange={set("watchQueueFallbackOnly")} />
       </SettingsSection>
       <SettingsSection title="Platform settings" description="Controls that only affect one provider." icon={Radio}>
-        <PlatformSettingsCard platform="twitch" games={games.twitch} settings={settings} onEnabledChange={setPlatformEnabled("twitch")} onGamePriorityChange={setPlatformGamePriority("twitch")} />
-        <PlatformSettingsCard platform="kick" games={games.kick} settings={settings} onEnabledChange={setPlatformEnabled("kick")} onGamePriorityChange={setPlatformGamePriority("kick")} />
+        <PlatformSettingsCard platform="twitch" games={games.twitch} settings={settings} onEnabledChange={setPlatformEnabled("twitch")} onGamePriorityChange={setPlatformGamePriority("twitch")} onExcludedChannelsChange={setPlatformExcludedChannels("twitch")} />
+        <PlatformSettingsCard platform="kick" games={games.kick} settings={settings} onEnabledChange={setPlatformEnabled("kick")} onGamePriorityChange={setPlatformGamePriority("kick")} onExcludedChannelsChange={setPlatformExcludedChannels("kick")} />
       </SettingsSection>
       <SettingsSection title="Advanced" description="Playback compatibility controls." icon={Info}>
         <SettingRow title="Keep farming videos unmuted" description="Keeps page video players unmuted while the browser tab is muted. Only change this if you know what you are doing." checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} />
@@ -683,16 +696,18 @@ function SettingsView({ games, settings, onSettingsChange }: {
   );
 }
 
-function PlatformSettingsCard({ platform, games, settings, onEnabledChange, onGamePriorityChange }: {
+function PlatformSettingsCard({ platform, games, settings, onEnabledChange, onGamePriorityChange, onExcludedChannelsChange }: {
   platform: Platform;
   games: GameItem[];
   settings: ExtensionSettings;
   onEnabledChange(enabled: boolean): void | Promise<void>;
   onGamePriorityChange(games: GameItem[]): void | Promise<void>;
+  onExcludedChannelsChange(channels: string[]): void | Promise<void>;
 }) {
   const details = PLATFORMS[platform];
   const platformSettings = settings.platform[platform];
   const queueCount = platformSettings.watchQueueChannels.length;
+  const excludedChannels = platformSettings.excludedChannels ?? [];
 
   return (
     <div className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
@@ -726,8 +741,77 @@ function PlatformSettingsCard({ platform, games, settings, onEnabledChange, onGa
         <Pill tone="outline">{queueCount}/20</Pill>
       </div>
       <div className="mt-2">
+        <ChannelListEditor
+          title="Excluded drop channels"
+          description="Campaign farming will skip these streamers."
+          empty="No excluded drop channels."
+          channels={excludedChannels}
+          onChange={onExcludedChannelsChange}
+        />
+      </div>
+      <div className="mt-2">
         <GamePriority games={games} label={`${details.label} game order`} onChange={onGamePriorityChange} />
       </div>
+    </div>
+  );
+}
+
+function ChannelListEditor({ title, description, empty, channels, onChange }: {
+  title: string;
+  description: string;
+  empty: string;
+  channels: string[];
+  onChange(channels: string[]): void | Promise<void>;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [value, setValue] = useState("");
+
+  function addChannel(): void {
+    const username = value.trim().replace(/^@+/, "").toLowerCase();
+    if (!username || channels.includes(username)) {
+      setValue("");
+      setAdding(false);
+      return;
+    }
+    void onChange([...channels, username]);
+    setValue("");
+    setAdding(false);
+  }
+
+  function removeChannel(username: string): void {
+    void onChange(channels.filter((channel) => channel !== username));
+  }
+
+  return (
+    <div className="space-y-2 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-400"><Ban size={12} /></span>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
+          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</p>
+        </div>
+        <Pill tone="outline">{channels.length}</Pill>
+      </div>
+      {channels.length === 0 ? <div className="text-[11px] text-zinc-400">{empty}</div> : (
+        <div className="flex flex-wrap gap-1.5">
+          {channels.map((channel) => (
+            <span key={channel} className="inline-flex max-w-full items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+              <span className="truncate">{channel}</span>
+              <RemoveRowButton label={`Remove ${channel}`} onClick={() => removeChannel(channel)} />
+            </span>
+          ))}
+        </div>
+      )}
+      {adding ? (
+        <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); addChannel(); }}>
+          <input autoFocus value={value} onChange={(event) => setValue(event.target.value)} placeholder="channel" className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
+          <button type="submit" className="rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-[var(--accent-contrast)]">Add</button>
+        </form>
+      ) : (
+        <button type="button" onClick={() => setAdding(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-300 py-2 text-xs font-medium text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200">
+          <Plus size={14} /> Add channel
+        </button>
+      )}
     </div>
   );
 }

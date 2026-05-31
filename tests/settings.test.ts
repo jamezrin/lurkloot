@@ -14,8 +14,8 @@ describe("settings", () => {
       watchQueueFallbackOnly: true,
       pollIntervalMinutes: 1,
       platform: {
-        twitch: { gamePriority: [] },
-        kick: { gamePriority: [] },
+        twitch: { excludedChannels: [], gamePriority: [] },
+        kick: { excludedChannels: [], gamePriority: [] },
       },
     });
   });
@@ -36,15 +36,19 @@ describe("settings", () => {
       pauseOnManualWatch: "no",
       priorityMode: "bad",
       platform: {
-        twitch: { enabled: "true", watchQueueChannels: [" Creator ", "", "creator"], gamePriority: [" Game A ", "game a"] },
-        kick: { enabled: false, watchQueueChannels: ["KickOne"], gamePriority: ["Category"] },
+        twitch: {
+          enabled: "true",
+          watchQueueChannels: [" Creator ", "", "creator"],
+          excludedChannels: [" @SkipMe ", "skipme"],
+          gamePriority: [" Game A ", "game a"],
+        },
+        kick: { enabled: false, watchQueueChannels: ["KickOne"], excludedChannels: ["KickSkip"], gamePriority: ["Category"] },
       },
       campaignPriorities: {
         " campaign ": 2.6,
         broken: Number.NaN,
       },
       excludedCampaignIds: [" A ", "a"],
-      excludedChannels: [" Channel "],
     } as unknown as Parameters<typeof mergeSettings>[0]);
 
     expect(settings.running).toBe(DEFAULT_SETTINGS.running);
@@ -53,13 +57,14 @@ describe("settings", () => {
     expect(settings.priorityMode).toBe(DEFAULT_SETTINGS.priorityMode);
     expect(settings.platform.twitch.enabled).toBe(DEFAULT_SETTINGS.platform.twitch.enabled);
     expect(settings.platform.twitch.watchQueueChannels).toEqual(["creator"]);
+    expect(settings.platform.twitch.excludedChannels).toEqual(["skipme"]);
     expect(settings.platform.twitch.gamePriority).toEqual(["game a"]);
     expect(settings.platform.kick.enabled).toBe(false);
     expect(settings.platform.kick.watchQueueChannels).toEqual(["kickone"]);
+    expect(settings.platform.kick.excludedChannels).toEqual(["kickskip"]);
     expect(settings.platform.kick.gamePriority).toEqual(["category"]);
     expect(settings.campaignPriorities).toEqual({ campaign: 3 });
     expect(settings.excludedCampaignIds).toEqual(["a"]);
-    expect(settings.excludedChannels).toEqual(["channel"]);
   });
 
   it("preserves watch queue channel priority order while removing duplicates", () => {

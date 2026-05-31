@@ -189,6 +189,67 @@ describe("scheduler campaign selection", () => {
     expect(checkChannel).toHaveBeenCalledTimes(3);
   });
 
+  it("skips excluded campaign candidates for the selected platform only", async () => {
+    const twitchDecision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("twitch-drops")],
+      settings({
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, excludedChannels: ["blocked"] },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, excludedChannels: ["other"] },
+        },
+      }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("blocked"), channel("allowed")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    const kickDecision = await chooseCampaignDecision(
+      "kick",
+      [campaign("kick-drops", { platform: "kick" })],
+      settings({
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, excludedChannels: ["blocked"] },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, excludedChannels: ["other"] },
+        },
+      }),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("blocked", { platform: "kick", url: "https://kick.com/blocked" }),
+        ]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(twitchDecision.channel?.username).toBe("allowed");
+    expect(kickDecision.channel?.username).toBe("blocked");
+  });
+
+  it("tries another campaign when all candidates for one campaign are excluded", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("first", { priority: 2 }), campaign("second", { priority: 1 })],
+      settings({
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, excludedChannels: ["blocked"] },
+        },
+      }),
+      {
+        listCandidateChannels: vi.fn(async (dropCampaign) => (
+          dropCampaign.id === "first" ? [channel("blocked")] : [channel("allowed")]
+        )),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.campaign?.id).toBe("second");
+    expect(decision.channel?.username).toBe("allowed");
+  });
+
   it("starts watch queue channel mode when campaigns are empty", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
@@ -202,6 +263,26 @@ describe("scheduler campaign selection", () => {
 
     expect(decision.action).toBe("fallback");
     expect(decision.channel?.url).toBe("https://kick.com/fallback");
+  });
+
+  it("does not apply excluded drop channels to watch queue fallback", async () => {
+    const decision = await chooseCampaignDecision(
+      "kick",
+      [],
+      settings({
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          kick: { ...DEFAULT_SETTINGS.platform.kick, watchQueueChannels: ["fallback"], excludedChannels: ["fallback"] },
+        },
+      }),
+      {
+        listCandidateChannels: vi.fn(),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("fallback");
+    expect(decision.channel?.username).toBe("fallback");
   });
 
   it("keeps live-check metadata on watch queue channel decisions", async () => {
@@ -285,7 +366,7 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "new", live: true }),
       expect.objectContaining({ tabId: 7 }),
-      { muted: true, closeManagedTabs: true },
+      { muted: true, closeManagedTabs: true, keepVideosUnmuted: true },
     );
     expect(twitch.readProgress).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ channel: first }));
   });
@@ -368,6 +449,48 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.channel?.username).toBe("old");
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "old" }),
+      expect.objectContaining({ tabId: 7 }),
+      { muted: true, closeManagedTabs: true, keepVideosUnmuted: true },
+    );
+  });
+
+  it("switches away from the current campaign channel when it becomes excluded", async () => {
+    const old = channel("old");
+    const next = channel("new");
+    const twitch = adapter("twitch", [campaign("drops")], [next]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: old,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            tabId: 7,
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        events: [],
+      },
+      settings({
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true, watchQueueChannels: [], excludedChannels: ["old"] },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.channel?.username).toBe("new");
+    expect(result.state.sessions.twitch.message).toBe("current channel is excluded from drops");
+    expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ username: "new" }),
       expect.objectContaining({ tabId: 7 }),
       { muted: true, closeManagedTabs: true, keepVideosUnmuted: true },
     );
