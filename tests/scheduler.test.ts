@@ -72,7 +72,10 @@ describe("scheduler campaign selection", () => {
     const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
 
     const sorted = sortCampaigns([first, second], settings({
-      gamePriority: ["second game"],
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, gamePriority: ["second game"] },
+      },
     }));
 
     expect(sorted.map((item) => item.id)).toEqual(["second", "first"]);

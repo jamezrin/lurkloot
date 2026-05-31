@@ -67,7 +67,8 @@ function gamePriorityScore(campaign: DropCampaign, settings: ExtensionSettings):
   const candidates = [campaign.categoryId, campaign.gameName]
     .filter((value): value is string => Boolean(value))
     .map((value) => value.toLowerCase());
-  const index = settings.gamePriority.findIndex((value) => candidates.includes(value.toLowerCase()));
+  const priority = settings.platform[campaign.platform].gamePriority ?? [];
+  const index = priority.findIndex((value) => candidates.includes(value.toLowerCase()));
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 

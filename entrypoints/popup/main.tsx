@@ -192,7 +192,11 @@ function Popup(): React.ReactElement {
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
   const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(campaign, index, session));
-  const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform], settings);
+  const games = gameItemsFromCampaigns(platform, snapshot.state.campaigns[platform], settings);
+  const settingsGames: Record<Platform, GameItem[]> = {
+    twitch: gameItemsFromCampaigns("twitch", snapshot.state.campaigns.twitch, settings),
+    kick: gameItemsFromCampaigns("kick", snapshot.state.campaigns.kick, settings),
+  };
   const gameMap = Object.fromEntries(games.map((game) => [game.id, game]));
   const watchQueueChannels = settings.platform[platform].watchQueueChannels;
   const watchQueue = watchQueueChannels.map((username) => streamerItemFromFallback(username, session));
@@ -219,7 +223,7 @@ function Popup(): React.ReactElement {
               <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">StreamMaxxing</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: enabled ? "var(--accent)" : "#a1a1aa" }} />
-                {enabled ? "Active" : "Paused"} · {PLATFORMS[platform].label}
+                {settingsOpen ? "Settings" : `${enabled ? "Active" : "Paused"} · ${PLATFORMS[platform].label}`}
               </div>
             </div>
           </div>
@@ -232,11 +236,13 @@ function Popup(): React.ReactElement {
             </IconButton>
           </div>
         </header>
-        <PlatformSwitcher
-          active={platform}
-          automation={automation}
-          onChange={selectPlatform}
-        />
+        {!settingsOpen ? (
+          <PlatformSwitcher
+            active={platform}
+            automation={automation}
+            onChange={selectPlatform}
+          />
+        ) : null}
       </div>
 
       <div className="nice-scroll min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
@@ -244,7 +250,7 @@ function Popup(): React.ReactElement {
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView games={games} settings={settings} onSettingsChange={updateSettings} />
+                <SettingsView games={settingsGames} settings={settings} onSettingsChange={updateSettings} />
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
@@ -575,34 +581,112 @@ function SortableWatchQueue({ streamer, index, onRemove }: { streamer: StreamerI
   );
 }
 
-function SettingsView({ games, settings, onSettingsChange }: { games: GameItem[]; settings: ExtensionSettings; onSettingsChange(patch: Partial<ExtensionSettings>): Promise<void> }) {
+function SettingsView({ games, settings, onSettingsChange }: {
+  games: Record<Platform, GameItem[]>;
+  settings: ExtensionSettings;
+  onSettingsChange(patch: Partial<ExtensionSettings>, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void>;
+}) {
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as Partial<ExtensionSettings>);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
+  const setPlatformEnabled = (platform: Platform) => (enabled: boolean) => onSettingsChange(
+    {
+      platform: {
+        ...settings.platform,
+        [platform]: {
+          ...settings.platform[platform],
+          enabled,
+        },
+      },
+    },
+    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+  );
+  const setPlatformGamePriority = (platform: Platform) => (ordered: GameItem[]) => onSettingsChange({
+    platform: {
+      ...settings.platform,
+      [platform]: {
+        ...settings.platform[platform],
+        gamePriority: ordered.map((game) => game.id),
+      },
+    },
+  });
+
   return (
     <div className="space-y-2.5">
-      <SettingsSection title="General" description="Tab audio and cleanup behavior." icon={SettingsIcon}>
+      <SettingsSection title="General settings" description="Applies to Twitch and Kick." icon={SettingsIcon}>
         <SettingRow title="Mute farming tabs" description="Keep drop and Watch Queue tabs muted while farming." checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} />
         <SettingRow title="Pause when watching manually" description="Stop farming while you have a stream open and are watching yourself." checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
         <SettingRow title="Auto-close farming tabs" description="Automatically close when the extension is idle (no drops to farm or no streamers to watch)." checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
         <SettingRow title="Auto-start on launch" description="Begin farming as soon as the extension loads." checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
         <NumberSettingRow title="Scheduler interval" description="How often campaign and streamer status refreshes." value={pollIntervalSeconds} min={30} max={3600} suffix="sec" onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
       </SettingsSection>
-      <SettingsSection title="Notifications" description="When StreamMaxxing should ping you." icon={Bell}>
+      <SettingsSection title="Notifications" description="Applies to all enabled platforms." icon={Bell}>
         <SettingRow title="Reward earned" description="Notify when a drop reward is claimable." checked={settings.notifyRewardEarned} onChange={set("notifyRewardEarned")} />
         <SettingRow title="No drops left" description="Notify when all active campaigns are exhausted." checked={settings.notifyNoDropsLeft} onChange={set("notifyNoDropsLeft")} />
       </SettingsSection>
-      <SettingsSection title="Drops" description="Farming priority is set by dragging campaigns in the Drops tab." icon={Gift}>
+      <SettingsSection title="Drops" description="Shared campaign farming behavior." icon={Gift}>
         <SettingRow title="Auto-claim drops" description="Claim earned drop rewards automatically when they become available." checked={settings.autoClaim} onChange={set("autoClaim")} />
-        <GamePriority games={games} onChange={(ordered) => onSettingsChange({ gamePriority: ordered.map((game) => game.id) })} />
       </SettingsSection>
-      <SettingsSection title="Watch Queue" description="Fallback queue behavior." icon={Play}>
+      <SettingsSection title="Watch Queue" description="Shared fallback queue behavior." icon={Play}>
         <SettingRow title="Only when no drops are active" description="Preserves drop priority automatically." checked={settings.watchQueueFallbackOnly} onChange={set("watchQueueFallbackOnly")} />
+      </SettingsSection>
+      <SettingsSection title="Platform settings" description="Controls that only affect one provider." icon={Radio}>
+        <PlatformSettingsCard platform="twitch" games={games.twitch} settings={settings} onEnabledChange={setPlatformEnabled("twitch")} onGamePriorityChange={setPlatformGamePriority("twitch")} />
+        <PlatformSettingsCard platform="kick" games={games.kick} settings={settings} onEnabledChange={setPlatformEnabled("kick")} onGamePriorityChange={setPlatformGamePriority("kick")} />
       </SettingsSection>
     </div>
   );
 }
 
-function GamePriority({ games, onChange }: { games: GameItem[]; onChange(games: GameItem[]): void | Promise<void> }) {
+function PlatformSettingsCard({ platform, games, settings, onEnabledChange, onGamePriorityChange }: {
+  platform: Platform;
+  games: GameItem[];
+  settings: ExtensionSettings;
+  onEnabledChange(enabled: boolean): void | Promise<void>;
+  onGamePriorityChange(games: GameItem[]): void | Promise<void>;
+}) {
+  const details = PLATFORMS[platform];
+  const platformSettings = settings.platform[platform];
+  const queueCount = platformSettings.watchQueueChannels.length;
+
+  return (
+    <div className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+      <div className="mb-2 flex items-start gap-2">
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[12px] font-black shadow-sm"
+          style={{
+            backgroundColor: details.color,
+            color: platform === "kick" ? "#07140a" : "#fff",
+            boxShadow: `0 0 14px -5px ${details.color}`,
+          }}
+        >
+          {details.mark}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">{details.label}</h4>
+            <Pill tone={platformSettings.enabled ? "live" : "muted"}>{platformSettings.enabled ? "Enabled" : "Paused"}</Pill>
+          </div>
+          <p className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            Uses its own automation toggle and Watch Queue channels.
+          </p>
+        </div>
+        <Toggle checked={platformSettings.enabled} onChange={onEnabledChange} label={`${details.label} platform automation`} />
+      </div>
+      <div className="flex items-center justify-between rounded-lg border border-zinc-100 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium text-zinc-800 dark:text-zinc-100">{details.label} Watch Queue</div>
+          <div className="truncate text-[10px] text-zinc-500 dark:text-zinc-400">Edit it from the Watch Queue tab after selecting {details.label}.</div>
+        </div>
+        <Pill tone="outline">{queueCount}/20</Pill>
+      </div>
+      <div className="mt-2">
+        <GamePriority games={games} label={`${details.label} game order`} onChange={onGamePriorityChange} />
+      </div>
+    </div>
+  );
+}
+
+function GamePriority({ games, label = "Fallback game order", onChange }: { games: GameItem[]; label?: string; onChange(games: GameItem[]): void | Promise<void> }) {
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const active = games.find((game) => game.id === activeId);
@@ -619,7 +703,7 @@ function GamePriority({ games, onChange }: { games: GameItem[]; onChange(games: 
   return (
     <div className="space-y-2 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
       <div className="flex items-center justify-between">
-        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">Fallback game order</div>
+        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{label}</div>
         <Pill tone="accent">drag to sort</Pill>
       </div>
       <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Used when campaign order is reset to defaults.</p>
@@ -838,7 +922,7 @@ function prioritiesFromOrder(campaigns: Array<{ id: string }>): Record<string, n
   return Object.fromEntries(campaigns.map((campaign, index) => [campaign.id, campaigns.length - index]));
 }
 
-function gameItemsFromCampaigns(campaigns: DropCampaign[], settings: ExtensionSettings): GameItem[] {
+function gameItemsFromCampaigns(platform: Platform, campaigns: DropCampaign[], settings: ExtensionSettings): GameItem[] {
   const discovered = new Map<string, GameItem>();
   campaigns.forEach((campaign, index) => {
     const id = gameId(campaign);
@@ -853,8 +937,9 @@ function gameItemsFromCampaigns(campaigns: DropCampaign[], settings: ExtensionSe
   });
   const items = [...discovered.values()];
   return items.sort((left, right) => {
-    const leftIndex = settings.gamePriority.indexOf(left.id);
-    const rightIndex = settings.gamePriority.indexOf(right.id);
+    const gamePriority = settings.platform[platform].gamePriority ?? [];
+    const leftIndex = gamePriority.indexOf(left.id);
+    const rightIndex = gamePriority.indexOf(right.id);
     if (leftIndex !== -1 && rightIndex !== -1) return leftIndex - rightIndex;
     if (leftIndex !== -1) return -1;
     if (rightIndex !== -1) return 1;
@@ -864,7 +949,7 @@ function gameItemsFromCampaigns(campaigns: DropCampaign[], settings: ExtensionSe
 
 function gamePriorityScore(campaign: DropCampaign, settings: ExtensionSettings): number {
   const id = gameId(campaign);
-  const index = settings.gamePriority.indexOf(id);
+  const index = (settings.platform[campaign.platform].gamePriority ?? []).indexOf(id);
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 

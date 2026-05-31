@@ -12,7 +12,10 @@ describe("settings", () => {
       autoStartDropFarming: true,
       watchQueueFallbackOnly: true,
       pollIntervalMinutes: 1,
-      gamePriority: [],
+      platform: {
+        twitch: { gamePriority: [] },
+        kick: { gamePriority: [] },
+      },
     });
   });
 
@@ -31,14 +34,13 @@ describe("settings", () => {
       pauseOnManualWatch: "no",
       priorityMode: "bad",
       platform: {
-        twitch: { enabled: "true", watchQueueChannels: [" Creator ", "", "creator"] },
-        kick: { enabled: false, watchQueueChannels: ["KickOne"] },
+        twitch: { enabled: "true", watchQueueChannels: [" Creator ", "", "creator"], gamePriority: [" Game A ", "game a"] },
+        kick: { enabled: false, watchQueueChannels: ["KickOne"], gamePriority: ["Category"] },
       },
       campaignPriorities: {
         " campaign ": 2.6,
         broken: Number.NaN,
       },
-      gamePriority: [" Game A ", "game a", "Category"],
       excludedCampaignIds: [" A ", "a"],
       excludedChannels: [" Channel "],
     } as unknown as Parameters<typeof mergeSettings>[0]);
@@ -48,10 +50,11 @@ describe("settings", () => {
     expect(settings.priorityMode).toBe(DEFAULT_SETTINGS.priorityMode);
     expect(settings.platform.twitch.enabled).toBe(DEFAULT_SETTINGS.platform.twitch.enabled);
     expect(settings.platform.twitch.watchQueueChannels).toEqual(["creator"]);
+    expect(settings.platform.twitch.gamePriority).toEqual(["game a"]);
     expect(settings.platform.kick.enabled).toBe(false);
     expect(settings.platform.kick.watchQueueChannels).toEqual(["kickone"]);
+    expect(settings.platform.kick.gamePriority).toEqual(["category"]);
     expect(settings.campaignPriorities).toEqual({ campaign: 3 });
-    expect(settings.gamePriority).toEqual(["game a", "category"]);
     expect(settings.excludedCampaignIds).toEqual(["a"]);
     expect(settings.excludedChannels).toEqual(["channel"]);
   });

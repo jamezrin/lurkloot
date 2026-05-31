@@ -111,6 +111,7 @@ export interface PlaybackTelemetry {
 export interface PlatformSettings {
   enabled: boolean;
   watchQueueChannels: string[];
+  gamePriority?: string[];
 }
 
 export interface ExtensionSettings {
@@ -127,7 +128,6 @@ export interface ExtensionSettings {
   priorityMode: PriorityMode;
   platform: Record<Platform, PlatformSettings>;
   campaignPriorities: Record<string, number>;
-  gamePriority: string[];
   excludedCampaignIds: string[];
   excludedChannels: string[];
   offlineRetryLimit: number;

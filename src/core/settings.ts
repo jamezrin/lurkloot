@@ -16,14 +16,15 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
     twitch: {
       enabled: true,
       watchQueueChannels: [],
+      gamePriority: [],
     },
     kick: {
       enabled: true,
       watchQueueChannels: [],
+      gamePriority: [],
     },
   },
   campaignPriorities: {},
-  gamePriority: [],
   excludedCampaignIds: [],
   excludedChannels: [],
   offlineRetryLimit: 3,
@@ -50,14 +51,15 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
       twitch: {
         enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_SETTINGS.platform.twitch.enabled),
         watchQueueChannels: normalizeStringList(platform?.twitch?.watchQueueChannels),
+        gamePriority: normalizeStringList(platform?.twitch?.gamePriority),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_SETTINGS.platform.kick.enabled),
         watchQueueChannels: normalizeStringList(platform?.kick?.watchQueueChannels),
+        gamePriority: normalizeStringList(platform?.kick?.gamePriority),
       },
     },
     campaignPriorities: normalizePriorities(value?.campaignPriorities),
-    gamePriority: normalizeStringList(value?.gamePriority),
     excludedCampaignIds: normalizeStringList(value?.excludedCampaignIds),
     excludedChannels: normalizeStringList(value?.excludedChannels),
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_SETTINGS.offlineRetryLimit),
