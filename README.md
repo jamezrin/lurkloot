@@ -1,4 +1,4 @@
-# StreamMaxxing
+# StreamMaxxer
 
 A cross-browser TypeScript WebExtension for farming Twitch and Kick drops through real, visible, pinned, muted tabs. It reuses the user's normal browser sessions, including Kick's same-origin session cookie for Kick API calls, without storing or exporting credentials, importing cookies, simulating streamless watching, or bypassing detection.
 

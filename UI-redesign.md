@@ -1,4 +1,4 @@
-# StreamMaxxing
+# StreamMaxxer
 
 The goal is to create a comprehensive and intuitive browser extension that can work with streaming platforms (as of now, Kick and Twitch).
 
@@ -8,7 +8,7 @@ The extension uses browser tabs to perform these options and is transparent (but
 
 We should use shadcn or other component libraries that might be useful. To fulfill these requirements, UI-wise there must be:
 
-- There should be a minimal logo/name of the extension (the name is StreamMaxxing).
+- There should be a minimal logo/name of the extension (the name is StreamMaxxer).
 - A clear button to activate/disable the functionality, this should be scoped/work per streaming platform. Implemented in the popup settings.
 - Some tabs or buttons for streaming platforms, featuring Twitch and Kick. These buttons should be like "tabs" and should have a clear indicator for when they are active or not, but a minimal one.
   - When switched to the tab of a platform, the background color and general accent of buttons and other UI elements should look like the general theme of the platform. Main colors: Twitch: `#6441A5`, Kick: `#53FC18`

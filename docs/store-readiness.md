@@ -1,6 +1,6 @@
 # Store Readiness
 
-StreamMaxxing is designed as a visible-session WebExtension:
+StreamMaxxer is designed as a visible-session WebExtension:
 
 - It opens or reuses normal browser watch tabs, pins them, and mutes them. Same-origin API helper tabs, when no suitable existing tab is available, are inactive and muted but not pinned watch tabs.
 - It does not import, export, ask the user for, log, or store credentials or cookies.

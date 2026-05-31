@@ -67,6 +67,7 @@ function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: t
     }),
     createAlarm: vi.fn(async () => undefined),
     createNotification: vi.fn(async () => undefined),
+    closeManagedTabsByUrl: vi.fn(async () => undefined),
     createAdapters: vi.fn(() => ({ twitch, kick })),
   };
 
@@ -101,6 +102,162 @@ describe("background controller", () => {
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
   });
 
+  it("clears stale restart tabs and auto-resumes with fresh tabs when auto-start is enabled", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: true });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      campaignId: "old-campaign",
+      rewardId: "old-reward",
+      offlineChecks: 2,
+      playbackChecks: 1,
+      errorChecks: 1,
+      retryAfter: new Date(Date.now() + 60_000).toISOString(),
+      tabId: 44,
+      tabManagedByExtension: true,
+      playback: {
+        platform: "twitch",
+        checkedAt: new Date().toISOString(),
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    };
+    env.state.managedWatchTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 44,
+        channelUrl: "https://www.twitch.tv/twitch-creator",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.handleStartup();
+
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/twitch-creator"]);
+    expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.state.sessions.twitch.status).toBe("watching");
+    expect(env.state.sessions.twitch.tabId).toBe(10);
+    expect(env.state.events.some((entry) => entry.message === "Browser restart detected; cleared stale farming tabs before resuming")).toBe(true);
+  });
+
+  it("pauses stale restart sessions and disables running when auto-start is disabled", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: false });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      tabId: 44,
+      tabManagedByExtension: true,
+    };
+    env.state.managedWatchTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 44,
+        channelUrl: "https://www.twitch.tv/twitch-creator",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.handleStartup();
+
+    expect(env.settings.running).toBe(false);
+    expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: false }));
+    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/twitch-creator"]);
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.state.managedWatchTabs).toEqual({});
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "paused",
+      tabId: undefined,
+      tabManagedByExtension: undefined,
+      message: "browser restarted; farming paused",
+    });
+    expect(env.state.events[0]).toMatchObject({
+      level: "info",
+      message: "Browser restart detected; paused farming and cleared stale farming tabs",
+    });
+  });
+
+  it("cleans stale restart state without starting farming when automation is already stopped", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, autoStartDropFarming: true });
+    env.state.sessions.kick = {
+      platform: "kick",
+      status: "paused",
+      channel: channel("kick"),
+      offlineChecks: 0,
+      tabId: 55,
+      tabManagedByExtension: true,
+    };
+    env.state.managedWatchTabs = {
+      kick: {
+        platform: "kick",
+        tabId: 55,
+        channelUrl: "https://kick.com/kick-creator",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.handleStartup();
+
+    expect(env.settings.running).toBe(false);
+    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://kick.com/kick-creator"]);
+    expect(env.kick.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.state.sessions.kick.status).toBe("paused");
+    expect(env.state.sessions.kick.tabId).toBeUndefined();
+  });
+
+  it("clears stale retained page-context tabs on startup", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, autoStartDropFarming: true });
+    env.state.managedPageContextTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 66,
+        originUrl: "https://www.twitch.tv/drops/inventory",
+        origin: "https://www.twitch.tv",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.handleStartup();
+
+    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/drops/inventory"]);
+    expect(env.state.managedPageContextTabs).toEqual({});
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "paused",
+      tabId: undefined,
+      message: "browser restarted; farming paused",
+    });
+  });
+
+  it("does not log startup cleanup when there is no stale farming state", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, autoStartDropFarming: true });
+
+    await env.controller.handleStartup();
+
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.closeManagedTabsByUrl).not.toHaveBeenCalled();
+    expect(env.deps.saveState).not.toHaveBeenCalled();
+    expect(env.state.events).toEqual([]);
+  });
+
+  it("disables running on startup when auto-start is disabled even without stale tabs", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: false });
+
+    await env.controller.handleStartup();
+
+    expect(env.settings.running).toBe(false);
+    expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: false }));
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.deps.saveState).not.toHaveBeenCalled();
+  });
+
   it("starts automation, persists settings, creates alarm, and runs an immediate tick", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false });
 
@@ -116,6 +273,15 @@ describe("background controller", () => {
   it("stops automation immediately and applies auto-close behavior to active watch tabs", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true, autoCloseFinishedDrops: false });
     await env.controller.tick();
+    env.state.managedPageContextTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 66,
+        originUrl: "https://www.twitch.tv/drops/inventory",
+        origin: "https://www.twitch.tv",
+        ownedByExtension: true,
+      },
+    };
 
     const snapshot = asSnapshot(await env.controller.handleMessage({ type: "setRunning", running: false }));
 
@@ -124,6 +290,7 @@ describe("background controller", () => {
     expect(env.kick.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 20 }), { closeManagedTabs: false });
     expect(snapshot.state.sessions.twitch.status).toBe("paused");
     expect(snapshot.state.sessions.kick.status).toBe("paused");
+    expect(snapshot.state.managedPageContextTabs?.twitch).toBeUndefined();
   });
 
   it("toggles one platform and immediately applies the scheduler when running", async () => {

@@ -1,8 +1,8 @@
-# Stream Farmer — Code Review & Fix Plan
+# StreamMaxxer - Code Review & Fix Plan
 
 ## Context
 
-Stream Farmer is a WXT/TypeScript WebExtension that farms Twitch/Kick drops via real
+StreamMaxxer is a WXT/TypeScript WebExtension that farms Twitch/Kick drops via real
 pinned, muted tabs. The architecture is solid: dependency-injected background controller,
 clean platform-adapter pattern, pure parsers, and 35 passing tests (typecheck clean).
 

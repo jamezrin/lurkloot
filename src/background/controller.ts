@@ -1,5 +1,5 @@
 import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../core/messages";
-import type { DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "../core/models";
+import type { DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState, WatchSession } from "../core/models";
 import { appendEvent } from "../core/storage";
 import { mergeSettings } from "../core/settings";
 import { runSchedulerTick } from "../core/scheduler";
@@ -15,6 +15,7 @@ export interface BackgroundControllerDeps {
   createAlarm(name: string, options: { periodInMinutes: number }): Promise<void>;
   createAdapters(): Record<Platform, PlatformAdapter>;
   createNotification?(notification: { title: string; message: string }): Promise<void>;
+  closeManagedTabsByUrl?(urls: string[]): Promise<void>;
 }
 
 export function createBackgroundController(deps: BackgroundControllerDeps) {
@@ -22,6 +23,41 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     const settings = await deps.loadSettings();
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
     if (settings.autoStartDropFarming && settings.running) await tick();
+  }
+
+  async function handleStartup(): Promise<void> {
+    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+
+    const cleanup = staleStartupCleanup(state);
+    if (!cleanup.hasStaleSession) {
+      if (settings.autoStartDropFarming && settings.running) await tick();
+      if (settings.running && !settings.autoStartDropFarming) {
+        await deps.saveSettings(mergeSettings({ ...settings, running: false }));
+      }
+      return;
+    }
+
+    if (deps.closeManagedTabsByUrl) {
+      await deps.closeManagedTabsByUrl(cleanup.managedUrls);
+    }
+
+    let nextSettings = settings;
+    if (settings.running && !settings.autoStartDropFarming) {
+      nextSettings = mergeSettings({ ...settings, running: false });
+      await deps.saveSettings(nextSettings);
+    }
+
+    await deps.saveState(appendEvent(cleanup.state, {
+      level: "info",
+      message: settings.running && settings.autoStartDropFarming
+        ? "Browser restart detected; cleared stale farming tabs before resuming"
+        : "Browser restart detected; paused farming and cleared stale farming tabs",
+    }));
+
+    if (nextSettings.running && nextSettings.autoStartDropFarming) {
+      await tick();
+    }
   }
 
   async function snapshot(): Promise<RuntimeSnapshot> {
@@ -294,6 +330,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
 
   return {
     ensureAlarm,
+    handleStartup,
     handleTabRemoved,
     handleMessage,
     tick,
@@ -302,6 +339,58 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   function settingsWithDefaults(settings: ExtensionSettings): ExtensionSettings {
     return mergeSettings(settings);
   }
+}
+
+function staleStartupCleanup(state: SchedulerState): {
+  hasStaleSession: boolean;
+  managedUrls: string[];
+  state: SchedulerState;
+} {
+  let hasStaleSession = false;
+  const managedUrls = new Set<string>();
+  const sessions = { ...state.sessions };
+
+  for (const platform of ["twitch", "kick"] as Platform[]) {
+    const session = state.sessions[platform];
+    const managedTab = state.managedWatchTabs?.[platform];
+    const managedPageContextTab = state.managedPageContextTabs?.[platform];
+    if (managedTab?.channelUrl) managedUrls.add(managedTab.channelUrl);
+    if (managedPageContextTab?.originUrl) managedUrls.add(managedPageContextTab.originUrl);
+    if (session.tabManagedByExtension && session.channel?.url) managedUrls.add(session.channel.url);
+
+    if (session.status === "watching" || session.tabId != null || managedTab || managedPageContextTab) {
+      hasStaleSession = true;
+      sessions[platform] = pausedStartupSession(session);
+    }
+  }
+
+  return {
+    hasStaleSession,
+    managedUrls: [...managedUrls],
+    state: {
+      ...state,
+      sessions,
+      managedWatchTabs: {},
+      managedPageContextTabs: {},
+    },
+  };
+}
+
+function pausedStartupSession(session: WatchSession): WatchSession {
+  return {
+    ...session,
+    status: "paused",
+    channel: undefined,
+    campaignId: undefined,
+    rewardId: undefined,
+    tabId: undefined,
+    tabManagedByExtension: undefined,
+    playback: undefined,
+    playbackChecks: 0,
+    errorChecks: 0,
+    retryAfter: undefined,
+    message: "browser restarted; farming paused",
+  };
 }
 
 function hasEnabledPlatform(settings: ExtensionSettings): boolean {

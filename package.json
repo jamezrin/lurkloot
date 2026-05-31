@@ -1,5 +1,5 @@
 {
-  "name": "stream-maxxing",
+  "name": "streammaxxer",
   "version": "0.1.0",
   "description": "Cross-browser Twitch and Kick drops farming WebExtension using visible muted tabs.",
   "type": "module",
@@ -9,6 +9,7 @@
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
+    "screenshot:store": "pnpm build && node scripts/capture-store-screenshot.mjs",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "verify": "pnpm test && pnpm typecheck && pnpm build && pnpm build:firefox",
@@ -33,6 +34,7 @@
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
+    "playwright": "^1.60.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

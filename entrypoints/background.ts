@@ -11,6 +11,14 @@ const controller = createBackgroundController({
   loadState,
   saveState,
   createAlarm: (name, options) => browser.alarms.create(name, options),
+  closeManagedTabsByUrl: async (urls) => {
+    for (const url of urls) {
+      const tabs = await browser.tabs.query({ url });
+      await Promise.all(tabs.map(async (tab) => {
+        if (tab.id != null) await browser.tabs.remove(tab.id);
+      }));
+    }
+  },
   createNotification: async ({ title, message }) => {
     await browser.notifications.create({
       type: "basic",
@@ -28,6 +36,10 @@ const controller = createBackgroundController({
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async () => {
     await controller.ensureAlarm();
+  });
+
+  browser.runtime.onStartup.addListener(async () => {
+    await controller.handleStartup();
   });
 
   browser.alarms.onAlarm.addListener((alarm) => {

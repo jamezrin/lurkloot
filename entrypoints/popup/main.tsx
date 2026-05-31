@@ -43,9 +43,9 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import type { RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
+import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
 import type { DropCampaign, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
-import { mergeSettings } from "../../src/core/settings";
+import { DEFAULT_SETTINGS, mergeSettings } from "../../src/core/settings";
 import "./style.css";
 
 type PopupTab = "drops" | "watchQueue";
@@ -92,10 +92,251 @@ const REWARD_TINTS = [
   "from-blue-400 via-blue-600 to-zinc-100",
   "from-zinc-100 via-emerald-200 to-slate-500",
 ];
-const EXTENSION_VERSION = browser.runtime.getManifest().version;
+const SCREENSHOT_MODE = new URLSearchParams(window.location.search).get("screenshot") === "store";
+const EXTENSION_VERSION = SCREENSHOT_MODE ? "0.1.0" : browser.runtime.getManifest().version;
 
 function send<T>(message: RuntimeMessage): Promise<T> {
+  if (SCREENSHOT_MODE) return Promise.resolve(handleScreenshotMessage(message) as T);
   return browser.runtime.sendMessage(message) as Promise<T>;
+}
+
+function handleScreenshotMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackControl {
+  switch (message.type) {
+    case "getSnapshot":
+    case "tickNow":
+      return screenshotSnapshot();
+    case "saveSettings":
+      return { ...screenshotSnapshot(), settings: mergeSettings(message.settings) };
+    case "setAutomation":
+      return {
+        ...screenshotSnapshot(),
+        settings: mergeSettings({
+          ...screenshotSnapshot().settings,
+          running: message.enabled,
+          platform: {
+            ...screenshotSnapshot().settings.platform,
+            [message.platform]: {
+              ...screenshotSnapshot().settings.platform[message.platform],
+              enabled: message.enabled,
+            },
+          },
+        }),
+      };
+    case "setRunning":
+      return { ...screenshotSnapshot(), settings: mergeSettings({ ...screenshotSnapshot().settings, running: message.running }) };
+    case "setPlatformEnabled":
+      return {
+        ...screenshotSnapshot(),
+        settings: mergeSettings({
+          ...screenshotSnapshot().settings,
+          platform: {
+            ...screenshotSnapshot().settings.platform,
+            [message.platform]: {
+              ...screenshotSnapshot().settings.platform[message.platform],
+              enabled: message.enabled,
+            },
+          },
+        }),
+      };
+    case "claimReward":
+      return screenshotSnapshot();
+    case "getPlaybackControl":
+      return { managed: true, keepVideosUnmuted: true };
+    case "playbackTelemetry":
+      return screenshotSnapshot();
+  }
+}
+
+function screenshotSnapshot(): RuntimeSnapshot {
+  const now = Date.now();
+  const inHours = (hours: number) => new Date(now + hours * 3_600_000).toISOString();
+  const settings = mergeSettings({
+    ...DEFAULT_SETTINGS,
+    running: true,
+    platform: {
+      twitch: {
+        enabled: true,
+        watchQueueChannels: ["rivalspilot", "lootforge", "nightrunlive"],
+        excludedChannels: ["spoilerboss"],
+        gamePriority: ["marathon legends", "starfall arena", "spellforge"],
+      },
+      kick: {
+        enabled: true,
+        watchQueueChannels: ["greenroomgg", "pixelboost"],
+        excludedChannels: [],
+        gamePriority: ["arena clash"],
+      },
+    },
+    campaignPriorities: {
+      "tw-marathon": 3,
+      "tw-starfall": 2,
+      "tw-spellforge": 1,
+    },
+  });
+
+  const twitchCampaigns: DropCampaign[] = [
+    {
+      id: "tw-marathon",
+      platform: "twitch",
+      name: "Marathon Legends Launch Drops",
+      gameName: "Marathon Legends",
+      categoryId: "marathon legends",
+      startsAt: inHours(-18),
+      endsAt: inHours(31),
+      status: "active",
+      accountLinked: true,
+      eligibility: "eligible",
+      priority: 3,
+      allowedChannels: ["RivalsPilot", "DropHunter", "LootForge", "NightRunLive", "ArenaDesk"],
+      rewards: [
+        { id: "tw-marathon-badge", name: "Founder Badge", requiredMinutes: 30, watchedMinutes: 30, status: "claimed" },
+        { id: "tw-marathon-boost", name: "Signal Booster", requiredMinutes: 60, watchedMinutes: 44, status: "in_progress", isCurrentReward: true },
+        { id: "tw-marathon-skin", name: "Chrome Runner Skin", requiredMinutes: 120, watchedMinutes: 0, status: "locked" },
+      ],
+    },
+    {
+      id: "tw-starfall",
+      platform: "twitch",
+      name: "Starfall Arena Weekend",
+      gameName: "Starfall Arena",
+      categoryId: "starfall arena",
+      startsAt: inHours(-6),
+      endsAt: inHours(54),
+      status: "active",
+      accountLinked: true,
+      eligibility: "eligible",
+      priority: 2,
+      isGeneralDrop: true,
+      rewards: [
+        { id: "tw-starfall-crate", name: "Meteor Crate", requiredMinutes: 45, watchedMinutes: 18, status: "in_progress" },
+        { id: "tw-starfall-emote", name: "Victory Emote", requiredMinutes: 90, watchedMinutes: 0, status: "locked" },
+      ],
+    },
+    {
+      id: "tw-spellforge",
+      platform: "twitch",
+      name: "Spellforge Creator Drops",
+      gameName: "Spellforge",
+      categoryId: "spellforge",
+      startsAt: inHours(-3),
+      endsAt: inHours(78),
+      status: "active",
+      accountLinked: false,
+      eligibility: "account_not_linked",
+      priority: 1,
+      allowedChannels: ["ManaCraft", "ArcaneHQ"],
+      rewards: [
+        { id: "tw-spellforge-card", name: "Arcane Card Back", requiredMinutes: 60, watchedMinutes: 0, status: "locked" },
+      ],
+    },
+  ];
+
+  const kickCampaigns: DropCampaign[] = [
+    {
+      id: "kick-arena",
+      platform: "kick",
+      name: "Arena Clash Creator Rewards",
+      gameName: "Arena Clash",
+      categoryId: "arena clash",
+      startsAt: inHours(-11),
+      endsAt: inHours(39),
+      status: "active",
+      accountLinked: true,
+      eligibility: "eligible",
+      priority: 2,
+      allowedChannels: ["GreenRoomGG", "PixelBoost", "ClutchDesk"],
+      rewards: [
+        { id: "kick-arena-spray", name: "Neon Spray", requiredMinutes: 30, watchedMinutes: 30, status: "claimed" },
+        { id: "kick-arena-token", name: "Drop Token", requiredMinutes: 90, watchedMinutes: 22, status: "in_progress" },
+      ],
+    },
+  ];
+
+  return {
+    settings,
+    state: {
+      sessions: {
+        twitch: {
+          platform: "twitch",
+          tabId: 42,
+          tabManagedByExtension: true,
+          campaignId: "tw-marathon",
+          rewardId: "tw-marathon-boost",
+          startedAt: inHours(-1.4),
+          lastCheckedAt: inHours(-0.05),
+          offlineChecks: 0,
+          playbackChecks: 8,
+          errorChecks: 0,
+          status: "watching",
+          message: "Farming eligible Twitch drop",
+          channel: {
+            platform: "twitch",
+            username: "rivalspilot",
+            displayName: "RivalsPilot",
+            url: "https://www.twitch.tv/rivalspilot",
+            campaignId: "tw-marathon",
+            categoryId: "marathon legends",
+            categoryName: "Marathon Legends",
+            isAclMatch: true,
+            viewerCount: 18420,
+            live: true,
+          },
+        },
+        kick: {
+          platform: "kick",
+          tabId: 43,
+          tabManagedByExtension: true,
+          campaignId: "kick-arena",
+          rewardId: "kick-arena-token",
+          startedAt: inHours(-0.8),
+          lastCheckedAt: inHours(-0.04),
+          offlineChecks: 0,
+          playbackChecks: 5,
+          errorChecks: 0,
+          status: "watching",
+          message: "Farming eligible Kick drop",
+          channel: {
+            platform: "kick",
+            username: "greenroomgg",
+            displayName: "GreenRoomGG",
+            url: "https://kick.com/greenroomgg",
+            campaignId: "kick-arena",
+            categoryId: "arena clash",
+            categoryName: "Arena Clash",
+            isAclMatch: true,
+            viewerCount: 9340,
+            live: true,
+          },
+        },
+      },
+      campaigns: {
+        twitch: twitchCampaigns,
+        kick: kickCampaigns,
+      },
+      diagnostics: {
+        twitch: {
+          platform: "twitch",
+          checkedAt: new Date(now - 45_000).toISOString(),
+          ok: true,
+          campaignCount: twitchCampaigns.length,
+          eligibleCampaignCount: 2,
+          candidateCount: 8,
+          message: "Mock screenshot data",
+        },
+        kick: {
+          platform: "kick",
+          checkedAt: new Date(now - 50_000).toISOString(),
+          ok: true,
+          campaignCount: kickCampaigns.length,
+          eligibleCampaignCount: 1,
+          candidateCount: 3,
+          message: "Mock screenshot data",
+        },
+      },
+      events: [],
+      lastTickAt: new Date(now - 45_000).toISOString(),
+    },
+  };
 }
 
 function cn(...classes: Array<string | false | null | undefined>): string {
@@ -132,7 +373,9 @@ function Popup(): React.ReactElement {
   useEffect(() => {
     void Promise.all([
       send<RuntimeSnapshot>({ type: "getSnapshot" }),
-      browser.storage.local.get(SELECTED_PLATFORM_KEY),
+      SCREENSHOT_MODE
+        ? Promise.resolve({ [SELECTED_PLATFORM_KEY]: "twitch" })
+        : browser.storage.local.get(SELECTED_PLATFORM_KEY),
     ]).then(([nextSnapshot, stored]) => {
       const savedPlatform = stored[SELECTED_PLATFORM_KEY];
       if (isPlatform(savedPlatform)) setPlatform(savedPlatform);
@@ -142,7 +385,7 @@ function Popup(): React.ReactElement {
 
   function selectPlatform(nextPlatform: Platform): void {
     setPlatform(nextPlatform);
-    void browser.storage.local.set({ [SELECTED_PLATFORM_KEY]: nextPlatform });
+    if (!SCREENSHOT_MODE) void browser.storage.local.set({ [SELECTED_PLATFORM_KEY]: nextPlatform });
   }
 
   async function updateSettings(patch: Partial<ExtensionSettings>, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
@@ -223,9 +466,9 @@ function Popup(): React.ReactElement {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[var(--accent)] to-transparent" />
         <header className="mb-3 flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-2.5">
-            <img src="/logo-ring.svg" alt="StreamMaxxing" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
+            <img src="/logo-ring.svg" alt="StreamMaxxer" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
             <div className="min-w-0 leading-tight">
-              <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">StreamMaxxing</div>
+              <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">StreamMaxxer</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: enabled ? "var(--accent)" : "#a1a1aa" }} />
                 {settingsOpen ? "Settings" : `${enabled ? "Active" : "Paused"} · ${PLATFORMS[platform].label}`}
@@ -309,6 +552,39 @@ function Popup(): React.ReactElement {
       </div>
       {settingsOpen ? <AttributionFooter version={EXTENSION_VERSION} /> : null}
     </main>
+  );
+}
+
+function StoreScreenshot({ children }: { children: React.ReactNode }): React.ReactElement {
+  return (
+    <div
+      data-platform="twitch"
+      className="grid h-[800px] w-[1280px] grid-cols-[1fr_460px] overflow-hidden bg-zinc-950 text-white"
+    >
+      <section className="relative flex min-w-0 flex-col justify-center px-20">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_24%,rgba(145,71,255,0.34),transparent_32%),radial-gradient(circle_at_78%_78%,rgba(83,252,24,0.18),transparent_28%)]" />
+        <div className="relative max-w-[590px]">
+          <img src="/logo-ring.svg" alt="" width={76} height={76} className="mb-8 h-[76px] w-[76px]" />
+          <h1 className="font-display text-[62px] font-bold leading-[0.96] tracking-normal text-white">
+            Twitch and Kick drops, managed from one popup.
+          </h1>
+          <p className="mt-6 max-w-[520px] text-[22px] leading-snug text-zinc-300">
+            StreamMaxxer farms eligible campaigns through your normal browser session with visible muted tabs.
+          </p>
+          <div className="mt-9 flex gap-3">
+            <span className="rounded-lg bg-white px-4 py-2 text-[15px] font-bold text-zinc-950">Twitch</span>
+            <span className="rounded-lg bg-[#53fc18] px-4 py-2 text-[15px] font-bold text-[#07140a]">Kick</span>
+            <span className="rounded-lg border border-white/18 bg-white/8 px-4 py-2 text-[15px] font-semibold text-zinc-200">Auto-claim ready</span>
+          </div>
+        </div>
+      </section>
+      <section className="relative flex items-center justify-start">
+        <div className="absolute inset-y-0 left-0 w-px bg-white/10" />
+        <div className="rounded-[28px] bg-white/10 p-5 shadow-2xl shadow-black/50 ring-1 ring-white/12">
+          {children}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1206,4 +1482,12 @@ function formatViewers(count: number): string {
   return String(count);
 }
 
-createRoot(document.getElementById("root")!).render(<Popup />);
+createRoot(document.getElementById("root")!).render(
+  SCREENSHOT_MODE ? (
+    <StoreScreenshot>
+      <Popup />
+    </StoreScreenshot>
+  ) : (
+    <Popup />
+  ),
+);

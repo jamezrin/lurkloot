@@ -19,6 +19,7 @@ stats-*.json
 references/
 
 # Build / dist output
+artifacts/
 dist/
 build/
 *.tsbuildinfo

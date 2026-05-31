@@ -1,6 +1,6 @@
 # Architecture
 
-StreamMaxxing is a WXT browser extension that farms Twitch and Kick drops through normal logged-in browser sessions. It opens real watch pages in visible browser tabs, uses browser-tab muting for silence, and avoids storing credentials, exporting cookies, or bypassing platform page detection.
+StreamMaxxer is a WXT browser extension that farms Twitch and Kick drops through normal logged-in browser sessions. It opens real watch pages in visible browser tabs, uses browser-tab muting for silence, and avoids storing credentials, exporting cookies, or bypassing platform page detection.
 
 ## Runtime Components
 
