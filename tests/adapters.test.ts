@@ -491,12 +491,13 @@ describe("TwitchAdapter", () => {
       .rejects.toThrow("PersistedQueryNotFound");
   });
 
-  it("fetches inventory with an inline query that selects the drop-instance id", async () => {
-    let inventoryQuery: string | undefined;
+  it("uses the TwitchDropsMiner-proven persisted hash for the Inventory query", async () => {
+    let inventoryHash: string | undefined;
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "Inventory") {
-        inventoryQuery = requestBody(init).query as string | undefined;
+        inventoryHash = (requestBody(init).extensions as { persistedQuery?: { sha256Hash?: string } })
+          ?.persistedQuery?.sha256Hash;
         return { data: { currentUser: { id: "user-id", inventory: { dropCampaignsInProgress: [] } } } };
       }
       if (op === "ViewerDropsDashboard") return { data: { currentUser: { dropCampaigns: [] } } };
@@ -505,27 +506,7 @@ describe("TwitchAdapter", () => {
 
     await new TwitchAdapter(fetcher).discoverCampaigns();
 
-    expect(inventoryQuery).toContain("dropInstanceID");
-  });
-
-  it("falls back to the persisted Inventory hash when the inline query fails", async () => {
-    let persistedHash: string | undefined;
-    const fetcher = jsonFetcher((_url, init) => {
-      const op = operation(init);
-      if (op === "Inventory") {
-        const body = requestBody(init);
-        // Inline query (first attempt) is rejected; the persisted-hash retry succeeds.
-        if (body.query) return { errors: [{ message: "inline query rejected" }] };
-        persistedHash = (body.extensions as { persistedQuery?: { sha256Hash?: string } })?.persistedQuery?.sha256Hash;
-        return { data: { currentUser: { id: "user-id", inventory: { dropCampaignsInProgress: [] } } } };
-      }
-      if (op === "ViewerDropsDashboard") return { data: { currentUser: { dropCampaigns: [] } } };
-      throw new Error(`Unexpected op ${op}`);
-    });
-
-    await new TwitchAdapter(fetcher).discoverCampaigns();
-
-    expect(persistedHash).toBe("d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b");
+    expect(inventoryHash).toBe("d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b");
   });
 
   it("surfaces Twitch's top-level {error,message} auth failures", async () => {
@@ -765,13 +746,14 @@ describe("TwitchAdapter", () => {
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).rejects.toThrow(/status=INELIGIBLE/);
   });
 
-  it("promotes the active drop to claimable without a claim id until inventory releases it", async () => {
+  it("reconstructs the drop-instance id for a watched-complete drop with no self edge", async () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "Inventory") {
         return {
           data: {
             currentUser: {
+              id: "user-id",
               inventory: {
                 dropCampaignsInProgress: [{
                   id: "campaign",
@@ -810,8 +792,9 @@ describe("TwitchAdapter", () => {
       channel: { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
     });
 
-    expect(progress[0].rewards[0]).toMatchObject({ status: "claimable", isCurrentReward: true });
-    expect(progress[0].rewards[0].claimId).toBeUndefined();
-    expect(adapter.isClaimReady(progress[0].rewards[0])).toBe(false);
+    // Reconstructed deterministically as userID#campaignID#dropID so the drop is
+    // still claimable even though Twitch hasn't returned the self edge yet.
+    expect(progress[0].rewards[0]).toMatchObject({ status: "claimable", isCurrentReward: true, claimId: "user-id#campaign#drop" });
+    expect(adapter.isClaimReady(progress[0].rewards[0])).toBe(true);
   });
 });
