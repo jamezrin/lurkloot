@@ -67,9 +67,9 @@ async function controlPlaybackAndReport(platform: Platform): Promise<void> {
       } catch {
         blocked = true;
       }
-      // Firefox refuses to unmute media without a prior user gesture and pauses
-      // the element instead of throwing. Detect that and resume playing muted so
-      // farming keeps progressing (watch time is credited even while muted).
+      // Safety net: if an unmute attempt still gets blocked (the browser pauses
+      // the element instead of throwing), re-mute and resume so farming keeps
+      // progressing — watch time is credited even while muted.
       if (blocked || video.paused) {
         blockedPlaybackCount += 1;
         video.muted = true;
@@ -153,6 +153,18 @@ function controlVideo(video: HTMLVideoElement, platform: Platform): void {
 
   video.defaultMuted = false;
   video.removeAttribute("muted");
-  video.muted = false;
+  // Only unmute once the document has sticky user activation. Browsers (notably
+  // Firefox) refuse to unmute media in a tab that has had no user gesture, log a
+  // warning, and pause the element — so attempting it in a background watch tab
+  // is pure noise. Leave it muted but playing until the user interacts.
+  if (canUnmuteVideos()) {
+    video.muted = false;
+  }
   if (video.volume === 0) video.volume = DEFAULT_VIDEO_VOLUME;
+}
+
+function canUnmuteVideos(): boolean {
+  // Browsers without the userActivation API fall back to attempting the unmute,
+  // preserving the prior behavior.
+  return navigator.userActivation?.hasBeenActive ?? true;
 }
