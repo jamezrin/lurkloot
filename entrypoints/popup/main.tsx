@@ -368,6 +368,7 @@ function Popup(): React.ReactElement {
   const [platform, setPlatform] = useState<Platform>("twitch");
   const [tab, setTab] = useState<PopupTab>("drops");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingAutomation, setPendingAutomation] = useState<Partial<Record<Platform, boolean>>>({});
 
@@ -484,7 +485,7 @@ function Popup(): React.ReactElement {
               <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">StreamMaxxer</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: enabled ? "var(--accent)" : "#a1a1aa" }} />
-                {settingsOpen ? "Settings" : `${enabled ? "Active" : "Paused"} · ${PLATFORMS[platform].label}`}
+                {settingsOpen ? "Settings" : activityOpen ? "Activity" : `${enabled ? "Active" : "Paused"} · ${PLATFORMS[platform].label}`}
               </div>
             </div>
           </div>
@@ -492,12 +493,23 @@ function Popup(): React.ReactElement {
             <IconButton label="Refresh schedule" onClick={() => void refreshNow()} disabled={refreshing}>
               <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
             </IconButton>
-            <IconButton label={settingsOpen ? "Close settings" : "Open settings"} active={settingsOpen} onClick={() => setSettingsOpen((value) => !value)}>
+            <IconButton
+              label={activityOpen ? "Close activity" : "Open activity"}
+              active={activityOpen}
+              onClick={() => { setActivityOpen((value) => !value); setSettingsOpen(false); }}
+            >
+              {activityOpen ? <X size={16} /> : <Clock3 size={16} />}
+            </IconButton>
+            <IconButton
+              label={settingsOpen ? "Close settings" : "Open settings"}
+              active={settingsOpen}
+              onClick={() => { setSettingsOpen((value) => !value); setActivityOpen(false); }}
+            >
               {settingsOpen ? <X size={16} /> : <SettingsIcon size={16} />}
             </IconButton>
           </div>
         </header>
-        {!settingsOpen ? (
+        {!settingsOpen && !activityOpen ? (
           <PlatformSwitcher
             active={platform}
             automation={automation}
@@ -512,6 +524,10 @@ function Popup(): React.ReactElement {
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
                 <SettingsView games={settingsGames} settings={settings} onSettingsChange={updateSettings} />
+              </motion.div>
+            ) : activityOpen ? (
+              <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
+                <ActivityLog events={snapshot.state.events} platform={platform} lastTickAt={snapshot.state.lastTickAt} />
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
@@ -558,7 +574,6 @@ function Popup(): React.ReactElement {
                     )}
                   </motion.div>
                 </AnimatePresence>
-                <ActivityLog events={snapshot.state.events} platform={platform} lastTickAt={snapshot.state.lastTickAt} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -590,51 +605,43 @@ function ActivityLog({
   platform: Platform;
   lastTickAt?: string;
 }): React.ReactElement {
-  const [open, setOpen] = useState(false);
   const visible = useMemo(
-    () => events.filter((event) => !event.platform || event.platform === platform).slice(-40).reverse(),
+    () => events.filter((event) => !event.platform || event.platform === platform).slice(-80).reverse(),
     [events, platform],
   );
   const errorCount = visible.filter((event) => event.level === "error").length;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center justify-between px-2.5 py-2 text-[11px] font-semibold text-zinc-600 dark:text-zinc-300"
-      >
-        <span className="flex items-center gap-1.5">
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between px-0.5">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
           <Clock3 size={13} className="text-zinc-400" />
-          Activity
+          {PLATFORMS[platform].label} activity
           {errorCount > 0 ? (
             <span className="rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white" style={{ backgroundColor: EVENT_LEVEL_COLOR.error }}>
               {errorCount}
             </span>
           ) : null}
         </span>
-        <span className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-400">
+        <span className="text-[10px] font-medium text-zinc-400">
           {lastTickAt ? `last check ${formatEventTime(lastTickAt)}` : "no checks yet"}
-          <ChevronDown size={14} className={cn("transition-transform", open && "rotate-180")} />
         </span>
-      </button>
-      {open ? (
-        <div className="nice-scroll max-h-48 overflow-y-auto border-t border-zinc-200/70 px-2.5 py-1.5 dark:border-zinc-800">
-          {visible.length === 0 ? (
-            <p className="py-2 text-center text-[11px] text-zinc-400">No activity recorded yet.</p>
-          ) : (
-            <ul className="space-y-1">
-              {visible.map((event) => (
-                <li key={event.id} className="flex items-start gap-1.5 text-[11px] leading-snug">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }} />
-                  <span className="shrink-0 font-mono text-[10px] text-zinc-400">{formatEventTime(event.at)}</span>
-                  <span className="min-w-0 text-zinc-600 dark:text-zinc-300">{event.message}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
+      </div>
+      <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
+        {visible.length === 0 ? (
+          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">No activity recorded yet. Press refresh to run a check.</p>
+        ) : (
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+            {visible.map((event) => (
+              <li key={event.id} className="flex items-start gap-2 px-2.5 py-1.5 text-[11px] leading-snug">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }} />
+                <span className="shrink-0 font-mono text-[10px] text-zinc-400">{formatEventTime(event.at)}</span>
+                <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">{event.message}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
