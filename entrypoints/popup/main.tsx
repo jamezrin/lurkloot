@@ -1070,8 +1070,8 @@ function SettingsView({ games, settings, onSettingsChange }: {
         <PlatformSettingsCard platform="twitch" games={games.twitch} settings={settings} onEnabledChange={setPlatformEnabled("twitch")} onGamePriorityChange={setPlatformGamePriority("twitch")} onExcludedChannelsChange={setPlatformExcludedChannels("twitch")} />
         <PlatformSettingsCard platform="kick" games={games.kick} settings={settings} onEnabledChange={setPlatformEnabled("kick")} onGamePriorityChange={setPlatformGamePriority("kick")} onExcludedChannelsChange={setPlatformExcludedChannels("kick")} />
       </SettingsSection>
-      <SettingsSection title="Advanced" description="Playback compatibility controls." icon={Info}>
-        <SettingRow title="Keep farming videos unmuted" description="Keeps page video players unmuted while the browser tab is muted. Only change this if you know what you are doing." checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} />
+      <SettingsSection title="Advanced" description="Only change these if you know what you are doing — they control complex low-level playback behavior." icon={Info}>
+        <SettingRow title="Keep farming videos unmuted" description="Keeps page video players unmuted while the browser tab is muted." checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} />
         <SelectSettingRow
           title="Focus tab during ads"
           description="Ad countdowns freeze in background tabs. Briefly focus the farming tab while an ad plays so it counts down, then restore your previous tab."
