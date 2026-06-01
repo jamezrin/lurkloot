@@ -511,9 +511,16 @@ function newlyEarnedRewards(
 
 function hasEarnableReward(campaign: DropCampaign): boolean {
   return campaign.status === "active"
+    && !hasCampaignEnded(campaign)
     && campaign.accountLinked !== false
     && (!campaign.eligibility || campaign.eligibility === "eligible")
     && campaign.rewards.some((reward) => reward.status !== "claimed" && reward.status !== "claimable" && reward.preconditionsMet !== false);
+}
+
+function hasCampaignEnded(campaign: DropCampaign): boolean {
+  if (!campaign.endsAt) return false;
+  const endsAt = Date.parse(campaign.endsAt);
+  return !Number.isNaN(endsAt) && endsAt < Date.now();
 }
 
 function canClaimReward(reward: DropReward): boolean {

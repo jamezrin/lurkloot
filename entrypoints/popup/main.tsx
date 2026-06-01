@@ -451,7 +451,7 @@ function Popup(): React.ReactElement {
   }
 
   const settings = mergeSettings(snapshot.settings);
-  const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform], settings);
+  const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter(isFarmableForDisplay), settings);
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
   const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(campaign, index, session));
@@ -1498,6 +1498,18 @@ function MetaStat({ icon: Icon, label, value }: { icon: LucideIcon; label: strin
 
 function EmptyPanel({ children }: { children: React.ReactNode }) {
   return <div className="grid min-h-24 place-items-center rounded-2xl border border-dashed border-zinc-300 bg-white p-4 text-center text-sm font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900">{children}</div>;
+}
+
+// Hide campaigns that have ended and have nothing left to do. A campaign with a
+// claimable reward stays visible so the user can still see and claim it.
+function isFarmableForDisplay(campaign: DropCampaign): boolean {
+  if (campaign.rewards.some((reward) => reward.status === "claimable")) return true;
+  if (campaign.status === "expired") return false;
+  if (campaign.endsAt) {
+    const endsAt = Date.parse(campaign.endsAt);
+    if (!Number.isNaN(endsAt) && endsAt < Date.now()) return false;
+  }
+  return true;
 }
 
 function sortCampaignsForPopup(campaigns: DropCampaign[], settings: ExtensionSettings): DropCampaign[] {

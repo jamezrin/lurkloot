@@ -1,7 +1,7 @@
 import type { ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
 import { fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
 import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "./adapter";
-import { mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign } from "./twitchParser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./twitchParser";
 
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 
@@ -181,10 +181,24 @@ export class TwitchAdapter implements PlatformAdapter {
     const parsedDetails = parseTwitchInventory(detailedCampaigns as Parameters<typeof parseTwitchInventory>[0]);
     const mergedDetails = mergeTwitchCampaignProgress(parsedDetails, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
     const detailedIds = new Set(mergedDetails.map((campaign) => campaign.id));
-    return [
-      ...mergedDetails,
-      ...inventoryCampaigns.filter((campaign) => !detailedIds.has(campaign.id)),
-    ];
+    // The Inventory payload omits campaign/reward end dates, so an ended
+    // campaign that still has in-progress drops parses as "active". The
+    // dashboard is the authoritative signal for what is still running: if it
+    // responded and no longer lists this campaign as ACTIVE/UPCOMING, treat the
+    // inventory-only campaign as expired (unless it still has a claimable reward
+    // we should keep surfacing so the user can claim it).
+    const activeDashboardIds = new Set(discoverableCampaignIds);
+    const dashboardResponded = dashboardCampaigns.length > 0;
+    const inventoryOnly = inventoryCampaigns
+      .filter((campaign) => !detailedIds.has(campaign.id))
+      .map((campaign) =>
+        dashboardResponded
+        && !activeDashboardIds.has(campaign.id)
+        && !campaignHasClaimableReward(campaign)
+          ? withCampaignStatus(campaign, "expired")
+          : campaign,
+      );
+    return [...mergedDetails, ...inventoryOnly];
   }
 
   async readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]> {

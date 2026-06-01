@@ -240,3 +240,20 @@ function eligibilityReason(status: DropCampaign["status"], accountLinked: boolea
   if (rewardCount === 0) return "Campaign has no time-based rewards";
   return "Eligible";
 }
+
+// Returns a copy of the campaign with a new status and consistent eligibility
+// fields. Used when discovery has out-of-band knowledge (e.g. the dashboard no
+// longer lists the campaign as active) that the inventory payload can't convey.
+export function withCampaignStatus(campaign: DropCampaign, status: DropCampaign["status"]): DropCampaign {
+  const accountLinked = campaign.accountLinked !== false;
+  return {
+    ...campaign,
+    status,
+    eligibility: eligibility(status, accountLinked, campaign.rewards.length),
+    eligibilityReason: eligibilityReason(status, accountLinked, campaign.rewards.length),
+  };
+}
+
+export function campaignHasClaimableReward(campaign: DropCampaign): boolean {
+  return campaign.rewards.some((reward) => reward.status === "claimable");
+}

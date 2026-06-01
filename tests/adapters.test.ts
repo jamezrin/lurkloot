@@ -271,6 +271,121 @@ describe("TwitchAdapter", () => {
     expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Inventory Campaign", eligibility: "eligible" });
   });
 
+  it("marks in-progress inventory campaigns the dashboard no longer lists active as expired", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        return {
+          data: {
+            currentUser: {
+              id: "user-id",
+              inventory: {
+                dropCampaignsInProgress: [
+                  {
+                    id: "active",
+                    name: "Active Campaign",
+                    timeBasedDrops: [{ id: "active-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 20 } }],
+                  },
+                  {
+                    id: "ended",
+                    name: "Ended Campaign",
+                    timeBasedDrops: [{ id: "ended-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 20 } }],
+                  },
+                ],
+              },
+            },
+          },
+        };
+      }
+      if (op === "ViewerDropsDashboard") {
+        return {
+          data: {
+            currentUser: {
+              id: "user-id",
+              login: "viewer",
+              dropCampaigns: [{ id: "active", status: "ACTIVE", self: { isAccountConnected: true } }],
+            },
+          },
+        };
+      }
+      if (op === "DropCampaignDetails") {
+        return {
+          data: {
+            dropCampaign: {
+              id: "active",
+              name: "Active Campaign",
+              timeBasedDrops: [{ id: "active-drop", requiredMinutesWatched: 60, benefitEdges: [{ benefit: { id: "b", name: "Reward" } }] }],
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    const campaigns = await new TwitchAdapter(fetcher).discoverCampaigns();
+
+    expect(campaigns.find((campaign) => campaign.id === "active")).toMatchObject({ status: "active", eligibility: "eligible" });
+    expect(campaigns.find((campaign) => campaign.id === "ended")).toMatchObject({ status: "expired", eligibility: "expired" });
+  });
+
+  it("keeps an ended inventory campaign visible while it still has a claimable reward", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        return {
+          data: {
+            currentUser: {
+              id: "user-id",
+              inventory: {
+                dropCampaignsInProgress: [
+                  {
+                    id: "active",
+                    name: "Active Campaign",
+                    timeBasedDrops: [{ id: "active-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 20 } }],
+                  },
+                  {
+                    id: "ended",
+                    name: "Ended Campaign",
+                    timeBasedDrops: [{ id: "ended-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 60, dropInstanceID: "claim" } }],
+                  },
+                ],
+              },
+            },
+          },
+        };
+      }
+      if (op === "ViewerDropsDashboard") {
+        return {
+          data: {
+            currentUser: {
+              id: "user-id",
+              login: "viewer",
+              dropCampaigns: [{ id: "active", status: "ACTIVE", self: { isAccountConnected: true } }],
+            },
+          },
+        };
+      }
+      if (op === "DropCampaignDetails") {
+        return {
+          data: {
+            dropCampaign: {
+              id: "active",
+              name: "Active Campaign",
+              timeBasedDrops: [{ id: "active-drop", requiredMinutesWatched: 60, benefitEdges: [{ benefit: { id: "b", name: "Reward" } }] }],
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    const campaigns = await new TwitchAdapter(fetcher).discoverCampaigns();
+
+    const ended = campaigns.find((campaign) => campaign.id === "ended");
+    expect(ended).toMatchObject({ status: "active", eligibility: "eligible" });
+    expect(ended?.rewards[0]).toMatchObject({ status: "claimable" });
+  });
+
   it("uses the inventory user id for Twitch details and keeps unlinked campaigns visible", async () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);

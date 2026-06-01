@@ -23,10 +23,17 @@ function activeReward(campaign: DropCampaign): DropReward | undefined {
 
 function isEligible(campaign: DropCampaign, settings: ExtensionSettings): boolean {
   if (campaign.status !== "active") return false;
+  if (hasCampaignEnded(campaign)) return false;
   if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
   if (settings.excludedCampaignIds.includes(campaign.id)) return false;
   if (campaign.accountLinked === false) return false;
   return campaign.rewards.some((reward) => reward.status !== "claimed" && reward.preconditionsMet !== false && isRewardRelevantNow(reward));
+}
+
+function hasCampaignEnded(campaign: DropCampaign): boolean {
+  if (!campaign.endsAt) return false;
+  const endsAt = Date.parse(campaign.endsAt);
+  return !Number.isNaN(endsAt) && endsAt < Date.now();
 }
 
 function availabilityScore(campaign: DropCampaign): number {

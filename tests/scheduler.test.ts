@@ -18,7 +18,7 @@ const campaign = (id: string, patch: Partial<DropCampaign> = {}): DropCampaign =
   name: id,
   status: "active",
   rewards: [reward()],
-  endsAt: "2026-06-01T00:00:00.000Z",
+  endsAt: "2099-01-01T00:00:00.000Z",
   ...patch,
 });
 
@@ -99,6 +99,23 @@ describe("scheduler campaign selection", () => {
     );
 
     expect(decision.action).toBe("idle");
+  });
+
+  it("does not select an active campaign whose end date has already passed", async () => {
+    const listCandidateChannels = vi.fn(async () => [channel("creator")]);
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("ended", { status: "active", endsAt: "2020-01-01T00:00:00.000Z" })],
+      settings(),
+      {
+        listCandidateChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("idle");
+    expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
   it("does not watch campaigns whose only unclaimed rewards are already claimable", async () => {

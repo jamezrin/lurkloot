@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mergeKickProgress, parseKickCampaigns } from "../src/platforms/kickParser";
-import { mergeTwitchCampaignProgress, parseTwitchInventory } from "../src/platforms/twitchParser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, withCampaignStatus } from "../src/platforms/twitchParser";
 
 describe("Kick parsers", () => {
   it("normalizes campaigns and merges progress", () => {
@@ -371,5 +371,38 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].eligibility).toBe("upcoming");
     expect(campaigns[1].status).toBe("active");
     expect(campaigns[1].eligibility).toBe("no_rewards");
+  });
+
+  it("downgrades a campaign status and re-derives eligibility with withCampaignStatus", () => {
+    const [campaign] = parseTwitchInventory([{
+      id: "campaign",
+      name: "Campaign",
+      timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 20 } }],
+    }]);
+    expect(campaign.status).toBe("active");
+    expect(campaign.eligibility).toBe("eligible");
+
+    const expired = withCampaignStatus(campaign, "expired");
+    expect(expired.status).toBe("expired");
+    expect(expired.eligibility).toBe("expired");
+    expect(expired.eligibilityReason).toBe("Campaign has ended");
+    // original is untouched
+    expect(campaign.status).toBe("active");
+  });
+
+  it("detects claimable rewards with campaignHasClaimableReward", () => {
+    const [inProgress] = parseTwitchInventory([{
+      id: "in-progress",
+      name: "In progress",
+      timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 20 } }],
+    }]);
+    const [claimable] = parseTwitchInventory([{
+      id: "claimable",
+      name: "Claimable",
+      timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 60 } }],
+    }]);
+
+    expect(campaignHasClaimableReward(inProgress)).toBe(false);
+    expect(campaignHasClaimableReward(claimable)).toBe(true);
   });
 });
