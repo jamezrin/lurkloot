@@ -112,10 +112,16 @@ export interface PlaybackTelemetry {
   playingVideoCount: number;
   blockedPlaybackCount: number;
   documentHidden: boolean;
+  adActive?: boolean;
   readyState?: number;
   currentTime?: number;
   duration?: number;
 }
+
+// How aggressively the managed watch tab is brought to focus while an ad is
+// rolling, so the ad countdown (driven by requestAnimationFrame, which the
+// browser throttles in background tabs/windows) keeps progressing.
+export type AdFocusMode = "none" | "tab" | "window";
 
 export interface PlatformSettings {
   enabled: boolean;
@@ -131,6 +137,7 @@ export interface ExtensionSettings {
   muteFarmingTabs: boolean;
   keepFarmingVideosUnmuted: boolean;
   pauseOnManualWatch: boolean;
+  adFocusMode: AdFocusMode;
   autoCloseFinishedDrops: boolean;
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;

@@ -72,11 +72,36 @@ async function controlPlaybackAndReport(platform: Platform): Promise<void> {
       playingVideoCount: videos.filter((video) => !video.paused && !video.ended && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA).length,
       blockedPlaybackCount,
       documentHidden: document.hidden,
+      adActive: detectAd(platform),
       readyState: primary?.readyState,
       currentTime: primary ? Math.floor(primary.currentTime) : undefined,
       duration: primary && Number.isFinite(primary.duration) ? Math.floor(primary.duration) : undefined,
     },
   }).catch(() => undefined);
+}
+
+// Markers the platform leaves in the DOM while an ad is rolling. Twitch's are
+// stable data-attributes used by its own player; Kick's are best-effort
+// (video.js overlay classes / generic ad containers) and may need tuning. We
+// only read the DOM here — the platform is not otherwise modified.
+const AD_SELECTORS: Record<Platform, string[]> = {
+  twitch: [
+    '[data-a-target="video-ad-label"]',
+    '[data-a-target="video-ad-countdown"]',
+    ".video-player__ad-info-container",
+    '[data-a-target="player-ad-notice"]',
+    '[data-test-selector="ad-banner-default-text-area"]',
+  ],
+  kick: [
+    ".vjs-ad-playing",
+    ".vjs-ad-loading",
+    '[class*="ad-overlay"]',
+    '[data-testid*="ad"]',
+  ],
+};
+
+function detectAd(platform: Platform): boolean {
+  return AD_SELECTORS[platform].some((selector) => document.querySelector(selector) != null);
 }
 
 function setKeepAlive(active: boolean): void {

@@ -1,4 +1,6 @@
-import type { ExtensionSettings } from "./models";
+import type { AdFocusMode, ExtensionSettings } from "./models";
+
+const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   running: false,
@@ -7,6 +9,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   muteFarmingTabs: true,
   keepFarmingVideosUnmuted: true,
   pauseOnManualWatch: true,
+  adFocusMode: "window",
   autoCloseFinishedDrops: true,
   notifyRewardEarned: true,
   notifyNoDropsLeft: true,
@@ -42,6 +45,9 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_SETTINGS.muteFarmingTabs),
     keepFarmingVideosUnmuted: booleanOr(value?.keepFarmingVideosUnmuted, DEFAULT_SETTINGS.keepFarmingVideosUnmuted),
     pauseOnManualWatch: booleanOr(value?.pauseOnManualWatch, DEFAULT_SETTINGS.pauseOnManualWatch),
+    adFocusMode: AD_FOCUS_MODES.includes(value?.adFocusMode as AdFocusMode)
+      ? (value!.adFocusMode as AdFocusMode)
+      : DEFAULT_SETTINGS.adFocusMode,
     autoCloseFinishedDrops: booleanOr(value?.autoCloseFinishedDrops, DEFAULT_SETTINGS.autoCloseFinishedDrops),
     notifyRewardEarned: booleanOr(value?.notifyRewardEarned, DEFAULT_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_SETTINGS.notifyNoDropsLeft),

@@ -1,6 +1,7 @@
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, saveSettings, saveState } from "../src/core/storage";
 import type { RuntimeMessage } from "../src/core/messages";
+import { applyAdFocus } from "../src/core/tabs";
 import { ALARM_NAME, createBackgroundController } from "../src/background/controller";
 import { KickAdapter } from "../src/platforms/kick";
 import { TwitchAdapter } from "../src/platforms/twitch";
@@ -27,6 +28,7 @@ const controller = createBackgroundController({
       message,
     });
   },
+  applyAdFocus: (platform, tabId, adActive, mode) => applyAdFocus(platform, tabId, adActive, mode),
   createAdapters: () => ({
     twitch: new TwitchAdapter(),
     kick: new KickAdapter(),

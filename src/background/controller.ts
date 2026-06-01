@@ -1,5 +1,5 @@
 import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../core/messages";
-import type { DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState, WatchSession } from "../core/models";
+import type { AdFocusMode, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState, WatchSession } from "../core/models";
 import { appendEvent } from "../core/storage";
 import { mergeSettings } from "../core/settings";
 import { runSchedulerTick } from "../core/scheduler";
@@ -16,6 +16,7 @@ export interface BackgroundControllerDeps {
   createAdapters(): Record<Platform, PlatformAdapter>;
   createNotification?(notification: { title: string; message: string }): Promise<void>;
   closeManagedTabsByUrl?(urls: string[]): Promise<void>;
+  applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode): Promise<void>;
 }
 
 export function createBackgroundController(deps: BackgroundControllerDeps) {
@@ -74,6 +75,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     try {
       const result = await runSchedulerTick(state, settings, deps.createAdapters(), platforms ? { platforms } : undefined);
       await emitNotifications(settings, state, result.state);
+      await applyAdFocusForState(settings, result.state);
       await deps.saveState(appendEvent(result.state, {
         level: "info",
         message: "Scheduler tick completed",
@@ -108,7 +110,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     message: Extract<RuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId?: number,
   ): Promise<void> {
-    const state = await deps.loadState();
+    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
     const session = state.sessions[message.platform];
     if (senderTabId != null && session.tabId != null && senderTabId !== session.tabId) return;
 
@@ -126,6 +128,19 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
         },
       },
     });
+
+    if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
+      await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), settings.adFocusMode);
+    }
+  }
+
+  async function applyAdFocusForState(settings: ExtensionSettings, state: SchedulerState): Promise<void> {
+    if (!deps.applyAdFocus) return;
+    for (const platform of ["twitch", "kick"] as Platform[]) {
+      const session = state.sessions[platform];
+      const watching = session.status === "watching" && session.tabId != null;
+      await deps.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive), settings.adFocusMode);
+    }
   }
 
   async function getPlaybackControl(

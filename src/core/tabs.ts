@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import type { ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "./models";
+import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "./models";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 
 interface BrowserTabApi {
@@ -7,12 +7,15 @@ interface BrowserTabApi {
     get(tabId: number): Promise<BrowserTab | undefined>;
     update(tabId: number, properties: Record<string, unknown>): Promise<unknown>;
     remove?(tabId: number): Promise<void>;
-    query(queryInfo: Record<string, unknown>): Promise<Array<{ id?: number; url?: string }>>;
+    query(queryInfo: Record<string, unknown>): Promise<BrowserTab[]>;
     create(createProperties: Record<string, unknown>): Promise<{ id?: number } | void>;
     executeScript?: (tabId: number, details: { code: string }) => Promise<unknown[] | undefined>;
   };
   scripting?: {
     executeScript?: (details: unknown) => Promise<Array<{ result?: unknown }>>;
+  };
+  windows?: {
+    update(windowId: number, properties: Record<string, unknown>): Promise<unknown>;
   };
 }
 
@@ -22,6 +25,7 @@ interface BrowserTab {
   pinned?: boolean;
   active?: boolean;
   status?: string;
+  windowId?: number;
   mutedInfo?: { muted?: boolean };
 }
 
@@ -204,6 +208,66 @@ export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session
     });
   } catch {
     // The user may have closed the tab already.
+  }
+}
+
+// While an ad is rolling, the managed watch tab must be the active tab in a
+// focused window or the browser throttles the ad countdown's requestAnimationFrame
+// loop (the visibility keep-alive only fools page JS, not the rAF engine). We
+// bring the tab to focus for the duration of the ad and restore the user's
+// previous tab/window once every platform's ad has finished. Holds are tracked
+// per platform so two simultaneous ads don't restore focus prematurely.
+const adFocusHolds = new Set<Platform>();
+let previousFocus: { tabId?: number; windowId?: number } | undefined;
+
+export async function applyAdFocus(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode): Promise<void> {
+  return applyAdFocusWithBrowser(browser as BrowserTabApi, platform, tabId, adActive, mode);
+}
+
+export async function applyAdFocusWithBrowser(
+  browserApi: BrowserTabApi,
+  platform: Platform,
+  tabId: number | undefined,
+  adActive: boolean,
+  mode: AdFocusMode,
+): Promise<void> {
+  if (mode === "none" || !adActive || tabId == null) {
+    await releaseAdFocus(browserApi, platform, tabId);
+    return;
+  }
+
+  if (adFocusHolds.size === 0) {
+    const [active] = await browserApi.tabs.query({ active: true, currentWindow: true });
+    if (active?.id !== tabId) {
+      previousFocus = { tabId: active?.id, windowId: active?.windowId };
+    }
+  }
+  adFocusHolds.add(platform);
+
+  const tab = await browserApi.tabs.get(tabId).catch(() => undefined);
+  await browserApi.tabs.update(tabId, { active: true });
+  if (mode === "window" && tab?.windowId != null) {
+    await browserApi.windows?.update(tab.windowId, { focused: true });
+  }
+}
+
+async function releaseAdFocus(browserApi: BrowserTabApi, platform: Platform, watchTabId: number | undefined): Promise<void> {
+  if (!adFocusHolds.delete(platform) || adFocusHolds.size > 0) return;
+
+  const restore = previousFocus;
+  previousFocus = undefined;
+  if (!restore?.tabId) return;
+
+  // Only restore if the watch tab is still the active tab; otherwise the user
+  // has already moved on and we should not yank focus back.
+  if (watchTabId != null) {
+    const [active] = await browserApi.tabs.query({ active: true, currentWindow: true });
+    if (active?.id !== watchTabId) return;
+  }
+
+  await browserApi.tabs.update(restore.tabId, { active: true }).catch(() => undefined);
+  if (restore.windowId != null) {
+    await browserApi.windows?.update(restore.windowId, { focused: true }).catch(() => undefined);
   }
 }
 

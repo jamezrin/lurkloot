@@ -67,6 +67,15 @@ describe("settings", () => {
     expect(settings.excludedCampaignIds).toEqual(["a"]);
   });
 
+  it("validates the ad focus mode", () => {
+    expect(DEFAULT_SETTINGS.adFocusMode).toBe("window");
+    expect(mergeSettings(undefined).adFocusMode).toBe("window");
+    expect(mergeSettings({ adFocusMode: "tab" }).adFocusMode).toBe("tab");
+    expect(mergeSettings({ adFocusMode: "none" }).adFocusMode).toBe("none");
+    expect(mergeSettings({ adFocusMode: "sideways" } as unknown as Parameters<typeof mergeSettings>[0]).adFocusMode)
+      .toBe("window");
+  });
+
   it("preserves watch queue channel priority order while removing duplicates", () => {
     const settings = mergeSettings({
       platform: {

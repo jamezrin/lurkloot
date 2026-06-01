@@ -44,7 +44,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
-import type { DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
+import type { AdFocusMode, DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
 import { DEFAULT_SETTINGS, mergeSettings } from "../../src/core/settings";
 import "./style.css";
 
@@ -478,7 +478,7 @@ function Popup(): React.ReactElement {
     >
       <div className="relative shrink-0 border-b border-zinc-200/70 bg-white/85 px-3 pb-3 pt-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[var(--accent)] to-transparent" />
-        <header className="mb-3 flex items-center justify-between">
+        <header className="flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-2.5">
             <img src="/logo-ring.svg" alt="StreamMaxxer" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
             <div className="min-w-0 leading-tight">
@@ -719,7 +719,7 @@ function XLogoIcon(): React.ReactElement {
 
 function PlatformSwitcher({ active, automation, onChange }: { active: Platform; automation: Record<Platform, boolean>; onChange(platform: Platform): void }) {
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
+    <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
       {Object.entries(PLATFORMS).map(([id, platform]) => {
         const selected = active === id;
         const running = automation[id as Platform];
@@ -1072,6 +1072,17 @@ function SettingsView({ games, settings, onSettingsChange }: {
       </SettingsSection>
       <SettingsSection title="Advanced" description="Playback compatibility controls." icon={Info}>
         <SettingRow title="Keep farming videos unmuted" description="Keeps page video players unmuted while the browser tab is muted. Only change this if you know what you are doing." checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} />
+        <SelectSettingRow
+          title="Focus tab during ads"
+          description="Ad countdowns freeze in background tabs. Briefly focus the farming tab while an ad plays so it counts down, then restore your previous tab."
+          value={settings.adFocusMode ?? "window"}
+          options={[
+            { value: "none", label: "Off" },
+            { value: "tab", label: "Tab only" },
+            { value: "window", label: "Tab + window" },
+          ]}
+          onChange={(value) => onSettingsChange({ adFocusMode: value })}
+        />
       </SettingsSection>
     </div>
   );
@@ -1277,6 +1288,35 @@ function SettingRow({ title, description, checked, onChange }: { title: string; 
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
       <Toggle checked={checked} onChange={onChange} label={title} />
+    </div>
+  );
+}
+
+function SelectSettingRow({ title, description, value, options, onChange }: {
+  title: string;
+  description: string;
+  value: AdFocusMode;
+  options: Array<{ value: AdFocusMode; label: string }>;
+  onChange(value: AdFocusMode): void | Promise<void>;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
+        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+      </div>
+      <label className="flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+        <select
+          aria-label={title}
+          value={value}
+          onChange={(event) => void onChange(event.target.value as AdFocusMode)}
+          className="bg-transparent pr-1 outline-none"
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate } from "../src/core/models";
 import {
+  applyAdFocusWithBrowser,
   currentManagedPageContextTabs,
   fetchJsonInPageWithBrowser,
   fetchTwitchInBackgroundWith,
@@ -529,5 +530,92 @@ describe("fetchTwitchInBackgroundWith", () => {
 
     expect(result.html).toBe("<html>live</html>");
     vi.unstubAllGlobals();
+  });
+});
+
+function adFocusBrowserMock(activeTab: { id?: number; windowId?: number } = { id: 100, windowId: 1 }) {
+  return {
+    tabs: {
+      get: vi.fn(async (tabId: number) => ({ id: tabId, windowId: 2 })),
+      update: vi.fn(async () => undefined),
+      remove: vi.fn(async () => undefined),
+      query: vi.fn(async () => [activeTab]),
+      create: vi.fn(async () => ({ id: 9 })),
+    },
+    windows: {
+      update: vi.fn(async () => undefined),
+    },
+  };
+}
+
+describe("ad focus manager", () => {
+  beforeEach(async () => {
+    // Drain any focus holds left over from a previous test so module state is clean.
+    const reset = adFocusBrowserMock();
+    await applyAdFocusWithBrowser(reset, "twitch", undefined, false, "window");
+    await applyAdFocusWithBrowser(reset, "kick", undefined, false, "window");
+  });
+
+  it("activates the watch tab without raising the window in tab mode", async () => {
+    const browser = adFocusBrowserMock();
+
+    await applyAdFocusWithBrowser(browser, "twitch", 42, true, "tab");
+
+    expect(browser.tabs.update).toHaveBeenCalledWith(42, { active: true });
+    expect(browser.windows.update).not.toHaveBeenCalled();
+  });
+
+  it("raises the window in window mode", async () => {
+    const browser = adFocusBrowserMock();
+
+    await applyAdFocusWithBrowser(browser, "twitch", 42, true, "window");
+
+    expect(browser.tabs.update).toHaveBeenCalledWith(42, { active: true });
+    expect(browser.windows.update).toHaveBeenCalledWith(2, { focused: true });
+  });
+
+  it("does nothing in none mode", async () => {
+    const browser = adFocusBrowserMock();
+
+    await applyAdFocusWithBrowser(browser, "twitch", 42, true, "none");
+
+    expect(browser.tabs.update).not.toHaveBeenCalled();
+    expect(browser.windows.update).not.toHaveBeenCalled();
+  });
+
+  it("restores the previously focused tab and window when the ad ends", async () => {
+    const browser = adFocusBrowserMock({ id: 100, windowId: 1 });
+    await applyAdFocusWithBrowser(browser, "twitch", 42, true, "window");
+
+    // The watch tab is now the active tab while the ad runs.
+    browser.tabs.query.mockResolvedValue([{ id: 42, windowId: 2 }]);
+    await applyAdFocusWithBrowser(browser, "twitch", 42, false, "window");
+
+    expect(browser.tabs.update).toHaveBeenCalledWith(100, { active: true });
+    expect(browser.windows.update).toHaveBeenCalledWith(1, { focused: true });
+  });
+
+  it("does not restore focus when the user already moved to another tab", async () => {
+    const browser = adFocusBrowserMock({ id: 100, windowId: 1 });
+    await applyAdFocusWithBrowser(browser, "twitch", 42, true, "tab");
+
+    // The user manually switched away from the watch tab during the ad.
+    browser.tabs.query.mockResolvedValue([{ id: 777, windowId: 1 }]);
+    await applyAdFocusWithBrowser(browser, "twitch", 42, false, "tab");
+
+    expect(browser.tabs.update).not.toHaveBeenCalledWith(100, { active: true });
+  });
+
+  it("keeps focus until both platforms' ads finish", async () => {
+    const browser = adFocusBrowserMock({ id: 100, windowId: 1 });
+    await applyAdFocusWithBrowser(browser, "twitch", 42, true, "tab");
+    await applyAdFocusWithBrowser(browser, "kick", 55, true, "tab");
+
+    browser.tabs.query.mockResolvedValue([{ id: 55, windowId: 2 }]);
+    await applyAdFocusWithBrowser(browser, "twitch", 42, false, "tab");
+    expect(browser.tabs.update).not.toHaveBeenCalledWith(100, { active: true });
+
+    await applyAdFocusWithBrowser(browser, "kick", 55, false, "tab");
+    expect(browser.tabs.update).toHaveBeenCalledWith(100, { active: true });
   });
 });

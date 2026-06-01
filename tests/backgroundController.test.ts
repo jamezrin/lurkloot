@@ -68,6 +68,7 @@ function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: t
     createAlarm: vi.fn(async () => undefined),
     createNotification: vi.fn(async () => undefined),
     closeManagedTabsByUrl: vi.fn(async () => undefined),
+    applyAdFocus: vi.fn(async () => undefined),
     createAdapters: vi.fn(() => ({ twitch, kick })),
   };
 
@@ -482,6 +483,81 @@ describe("background controller", () => {
     }, { tab: { id: 999 } });
 
     expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
+  });
+
+  it("focuses the watch tab when an ad is reported on the managed tab", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, adFocusMode: "window" });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+    env.deps.applyAdFocus.mockClear();
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: true,
+        adActive: true,
+      },
+    }, { tab: { id: 10 } });
+
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, true, "window");
+  });
+
+  it("releases ad focus when telemetry reports no ad", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, adFocusMode: "tab" });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+    env.deps.applyAdFocus.mockClear();
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: true,
+        adActive: false,
+      },
+    }, { tab: { id: 10 } });
+
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false, "tab");
+  });
+
+  it("does not focus for telemetry from a tab that is not the watch tab", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+    env.deps.applyAdFocus.mockClear();
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: true,
+        adActive: true,
+      },
+    }, { tab: { id: 999 } });
+
+    expect(env.deps.applyAdFocus).not.toHaveBeenCalled();
+  });
+
+  it("re-applies ad focus from playback state on each scheduler tick", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+
+    await env.controller.handleMessage({ type: "tickNow" });
+
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false, "window");
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("kick", 20, false, "window");
   });
 
   it("allows playback control only for the current watch tab", async () => {
