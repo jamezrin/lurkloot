@@ -1,3 +1,5 @@
+import type { LogLevel } from "./logging";
+
 export type Platform = "twitch" | "kick";
 
 export type CampaignStatus = "active" | "upcoming" | "expired" | "completed";
@@ -149,13 +151,14 @@ export interface ExtensionSettings {
   excludedCampaignIds: string[];
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
+  verboseLogging: boolean;
 }
 
 export interface EventLogEntry {
   id: string;
   at: string;
   platform?: Platform;
-  level: "info" | "warn" | "error";
+  level: LogLevel;
   message: string;
 }
 

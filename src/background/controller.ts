@@ -1,8 +1,9 @@
 import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../core/messages";
-import type { AdFocusMode, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState, WatchSession } from "../core/models";
-import { appendEvent } from "../core/storage";
+import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "../core/models";
+import { appendLog } from "../core/logging";
 import { mergeSettings } from "../core/settings";
 import { runSchedulerTick } from "../core/scheduler";
+import { setActivityLogger } from "../core/tabs";
 import type { PlatformAdapter } from "../platforms/adapter";
 
 export const ALARM_NAME = "stream-maxxing.tick";
@@ -20,6 +21,63 @@ export interface BackgroundControllerDeps {
 }
 
 export function createBackgroundController(deps: BackgroundControllerDeps) {
+  // tabs.ts is a pure module with no access to scheduler state, so it reports
+  // lifecycle/ad-focus events through this sink. They are buffered and merged
+  // into the very state object being saved (see persist) to avoid a load/save
+  // race with an in-flight tick clobbering them.
+  const pendingTabEvents: Array<Omit<EventLogEntry, "id" | "at">> = [];
+  setActivityLogger((level, message, platform) => {
+    pendingTabEvents.push({ level, message, platform });
+  });
+
+  async function persist(state: SchedulerState): Promise<void> {
+    if (pendingTabEvents.length === 0) {
+      await deps.saveState(state);
+      return;
+    }
+    const verbose = (await deps.loadSettings()).verboseLogging;
+    let next = state;
+    for (const entry of pendingTabEvents.splice(0)) {
+      next = withEvent(next, entry, verbose);
+    }
+    await deps.saveState(next);
+  }
+
+  // Appends an event unless it is debug while verbose logging is off.
+  function withEvent(state: SchedulerState, entry: Omit<EventLogEntry, "id" | "at">, verbose: boolean): SchedulerState {
+    if (entry.level === "debug" && !verbose) return state;
+    return appendLog(state, entry);
+  }
+
+  function appendPlaybackEvents(
+    state: SchedulerState,
+    platform: Platform,
+    previous: PlaybackTelemetry | undefined,
+    telemetry: Omit<PlaybackTelemetry, "platform" | "checkedAt">,
+    verbose: boolean,
+  ): SchedulerState {
+    let next = state;
+    const log = (level: EventLogEntry["level"], message: string) => {
+      next = withEvent(next, { platform, level, message }, verbose);
+    };
+
+    if (telemetry.adActive && !previous?.adActive) {
+      log("info", "Ad started; keeping the watch tab counting down");
+    } else if (!telemetry.adActive && previous?.adActive) {
+      log("debug", "Ad finished");
+    }
+    if (telemetry.blockedPlaybackCount > 0 && (previous?.blockedPlaybackCount ?? 0) === 0) {
+      log("warn", `Playback was blocked for ${telemetry.blockedPlaybackCount} video(s); re-muted to keep farming`);
+    }
+    if (telemetry.videoCount === 0 && (previous?.videoCount ?? -1) !== 0) {
+      log("warn", "No video element found in the watch tab");
+    }
+    if (telemetry.playingVideoCount !== (previous?.playingVideoCount ?? -1) || telemetry.videoCount !== (previous?.videoCount ?? -1)) {
+      log("debug", `Playback telemetry: ${telemetry.playingVideoCount}/${telemetry.videoCount} videos playing${telemetry.documentHidden ? " (tab hidden)" : ""}`);
+    }
+    return next;
+  }
+
   async function ensureAlarm(): Promise<void> {
     const settings = await deps.loadSettings();
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
@@ -49,7 +107,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
       await deps.saveSettings(nextSettings);
     }
 
-    await deps.saveState(appendEvent(cleanup.state, {
+    await persist(appendLog(cleanup.state, {
       level: "info",
       message: settings.running && settings.autoStartDropFarming
         ? "Browser restart detected; cleared stale farming tabs before resuming"
@@ -71,20 +129,20 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   async function tick(platforms?: Platform[]): Promise<void> {
     const settings = await deps.loadSettings();
     const state = await deps.loadState();
+    const verbose = settings.verboseLogging;
 
     try {
       const result = await runSchedulerTick(state, settings, deps.createAdapters(), platforms ? { platforms } : undefined);
       await emitNotifications(settings, state, result.state);
       await applyAdFocusForState(settings, result.state);
-      await deps.saveState(appendEvent(result.state, {
-        level: "info",
-        message: "Scheduler tick completed",
-      }));
+      // The per-tick heartbeat is debug noise next to the richer per-platform
+      // entries the scheduler already records; the popup shows "last check" too.
+      await persist(withEvent(result.state, { level: "debug", message: "Scheduler tick completed" }, verbose));
     } catch (error) {
-      await deps.saveState(appendEvent(state, {
+      await persist(withEvent(state, {
         level: "error",
         message: error instanceof Error ? error.message : "Scheduler tick failed",
-      }));
+      }, verbose));
     }
   }
 
@@ -100,6 +158,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
         && session.tabManagedByExtension
         && session.tabId === tabId
       ) {
+        pendingTabEvents.push({ platform, level: "info", message: "Managed watch tab was closed; re-running scheduler" });
         await tick();
         return;
       }
@@ -114,20 +173,31 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     const session = state.sessions[message.platform];
     if (senderTabId != null && session.tabId != null && senderTabId !== session.tabId) return;
 
-    await deps.saveState({
+    const previous = session.playback;
+    const telemetry = message.telemetry;
+    const verbose = settings.verboseLogging;
+    let nextState: SchedulerState = {
       ...state,
       sessions: {
         ...state.sessions,
         [message.platform]: {
           ...session,
           playback: {
-            ...message.telemetry,
+            ...telemetry,
             platform: message.platform,
             checkedAt: new Date().toISOString(),
           },
         },
       },
-    });
+    };
+
+    // Only log transitions — telemetry arrives every few seconds, so logging the
+    // raw stream would bury everything else.
+    if (session.status === "watching") {
+      nextState = appendPlaybackEvents(nextState, message.platform, previous, telemetry, verbose);
+    }
+
+    await persist(nextState);
 
     if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
       await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), settings.adFocusMode);
@@ -166,7 +236,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     const reward = campaign?.rewards.find((item) => item.id === message.rewardId);
 
     if (!campaign || !reward) {
-      await deps.saveState(appendEvent(state, {
+      await persist(appendLog(state, {
         platform: message.platform,
         level: "warn",
         message: "Reward claim skipped because the campaign or reward is no longer available",
@@ -175,7 +245,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     }
 
     if (!canClaimReward(reward)) {
-      await deps.saveState(appendEvent(state, {
+      await persist(appendLog(state, {
         platform: message.platform,
         level: "warn",
         message: `${reward.name} is not ready to claim`,
@@ -196,7 +266,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
           status: rewards.every((candidate) => candidate.status === "claimed") ? "completed" as const : item.status,
         };
       });
-      const nextState = appendEvent({
+      const nextState = appendLog({
         ...state,
         campaigns: {
           ...state.campaigns,
@@ -213,10 +283,10 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
       if (claimed && settings.notifyRewardEarned) {
         await safeNotify(settings, "Reward claimed", `${reward.name} from ${campaign.name}`);
       }
-      await deps.saveState(nextState);
+      await persist(nextState);
       return snapshot();
     } catch (error) {
-      await deps.saveState(appendEvent(state, {
+      await persist(appendLog(state, {
         platform: message.platform,
         level: "error",
         message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,

@@ -1,6 +1,23 @@
 import { browser } from "wxt/browser";
 import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "./models";
+import type { LogLevel } from "./logging";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
+
+// tabs.ts is a pure module with no access to the scheduler state, so it reports
+// tab-lifecycle and ad-focus events through this optional sink. The background
+// registers an implementation that buffers them into the saved state (see
+// createBackgroundController). Defaults to a no-op so tests and the page context
+// stay unaffected when no sink is registered.
+type ActivityLogger = (level: LogLevel, message: string, platform?: Platform) => void;
+let activityLogger: ActivityLogger | undefined;
+
+export function setActivityLogger(logger: ActivityLogger | undefined): void {
+  activityLogger = logger;
+}
+
+function logTab(level: LogLevel, message: string, platform?: Platform): void {
+  activityLogger?.(level, message, platform);
+}
 
 interface BrowserTabApi {
   tabs: {
@@ -71,8 +88,9 @@ export async function openPinnedMutedTabWithBrowser(
           await browserApi.tabs.update(tab.id, updateProperties);
         }
         if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
-          await primeTabPlayback(browserApi, tab.id);
+          await primeTabPlayback(browserApi, tab.id, channel.platform);
         }
+        logTab("debug", `Reusing managed watch tab ${tab.id} for ${channel.username}`, channel.platform);
         return {
           tabId: tab.id,
           managedByExtension: true,
@@ -81,6 +99,7 @@ export async function openPinnedMutedTabWithBrowser(
       }
     } catch {
       // The registered managed tab can go stale after browser restarts or manual tab closure.
+      logTab("debug", `Managed watch tab ${registered.tabId} is gone; opening a new one`, channel.platform);
     }
   } else if (session?.tabId && session.tabManagedByExtension === false) {
     try {
@@ -91,12 +110,14 @@ export async function openPinnedMutedTabWithBrowser(
           await browserApi.tabs.update(tab.id, updateProperties);
         }
         if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
-          await primeTabPlayback(browserApi, tab.id);
+          await primeTabPlayback(browserApi, tab.id, channel.platform);
         }
+        logTab("debug", `Reusing your tab ${tab.id} for ${channel.username}`, channel.platform);
         return { tabId: tab.id, managedByExtension: false };
       }
     } catch {
       // Reused user tabs are best-effort only; if missing, create a managed tab.
+      logTab("debug", `Reused tab ${session.tabId} is gone; opening a managed one`, channel.platform);
     }
   }
 
@@ -107,6 +128,7 @@ export async function openPinnedMutedTabWithBrowser(
     if (!browserApi.tabs.remove) continue;
     try {
       await browserApi.tabs.remove(tabId);
+      logTab("debug", `Removed stale watch tab ${tabId}`, channel.platform);
     } catch {
       // Stale managed tab ids should not block creating the replacement.
     }
@@ -118,12 +140,14 @@ export async function openPinnedMutedTabWithBrowser(
     active: false,
   }) as { id?: number };
   if (tab.id == null) {
+    logTab("error", `Could not create ${channel.platform} watch tab for ${channel.username}`, channel.platform);
     throw new Error(`Could not create ${channel.platform} watch tab`);
   }
   await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
   if (tabOptions.keepVideosUnmuted) {
-    await primeTabPlayback(browserApi, tab.id);
+    await primeTabPlayback(browserApi, tab.id, channel.platform);
   }
+  logTab("info", `Opened watch tab ${tab.id} for ${channel.username}`, channel.platform);
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
 }
 
@@ -149,10 +173,11 @@ function shouldPrimePlayback(tab: BrowserTab, url: string, session?: WatchSessio
     || playback.playingVideoCount === 0;
 }
 
-async function primeTabPlayback(browserApi: BrowserTabApi, tabId: number): Promise<void> {
+async function primeTabPlayback(browserApi: BrowserTabApi, tabId: number, platform?: Platform): Promise<void> {
   const [previousActive] = await browserApi.tabs.query({ active: true, currentWindow: true });
   const previousActiveId = previousActive?.id;
 
+  logTab("debug", `Priming playback on watch tab ${tabId}`, platform);
   await browserApi.tabs.update(tabId, { active: true });
   await wait(playbackPrimeRestoreDelayMs());
 
@@ -201,6 +226,7 @@ export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session
   try {
     if (session.tabManagedByExtension && tabOptions.closeManagedTabs && browserApi.tabs.remove) {
       await browserApi.tabs.remove(session.tabId);
+      logTab("debug", `Closed managed watch tab ${session.tabId}`, session.platform);
       return;
     }
     await browserApi.tabs.update(session.tabId, {
@@ -208,8 +234,10 @@ export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session
       pinned: false,
       active: false,
     });
+    logTab("debug", `Released your tab ${session.tabId} (unmuted, unpinned)`, session.platform);
   } catch {
     // The user may have closed the tab already.
+    logTab("debug", `Watch tab ${session.tabId} was already closed`, session.platform);
   }
 }
 
@@ -244,12 +272,16 @@ export async function applyAdFocusWithBrowser(
       previousFocus = { tabId: active?.id, windowId: active?.windowId };
     }
   }
+  const alreadyHeld = adFocusHolds.has(platform);
   adFocusHolds.add(platform);
 
   const tab = await browserApi.tabs.get(tabId).catch(() => undefined);
   await browserApi.tabs.update(tabId, { active: true });
   if (mode === "window" && tab?.windowId != null) {
     await browserApi.windows?.update(tab.windowId, { focused: true });
+  }
+  if (!alreadyHeld) {
+    logTab("debug", `Focusing watch tab ${tabId} for an ad`, platform);
   }
 }
 
@@ -267,6 +299,7 @@ async function releaseAdFocus(browserApi: BrowserTabApi, platform: Platform, wat
     if (active?.id !== watchTabId) return;
   }
 
+  logTab("debug", `Restoring previous tab ${restore.tabId} after the ad`, platform);
   await browserApi.tabs.update(restore.tabId, { active: true }).catch(() => undefined);
   if (restore.windowId != null) {
     await browserApi.windows?.update(restore.windowId, { focused: true }).catch(() => undefined);

@@ -13,6 +13,7 @@ describe("settings", () => {
       autoStartDropFarming: true,
       watchQueueFallbackOnly: true,
       pollIntervalMinutes: 1,
+      verboseLogging: false,
       platform: {
         twitch: { excludedChannels: [], gamePriority: [] },
         kick: { excludedChannels: [], gamePriority: [] },
@@ -27,6 +28,12 @@ describe("settings", () => {
     expect(mergeSettings({ pollIntervalMinutes: Number.NaN, offlineRetryLimit: Number.NaN }).pollIntervalMinutes)
       .toBe(DEFAULT_SETTINGS.pollIntervalMinutes);
     expect(mergeSettings({ offlineRetryLimit: Number.NaN }).offlineRetryLimit).toBe(DEFAULT_SETTINGS.offlineRetryLimit);
+  });
+
+  it("round-trips the verbose logging flag", () => {
+    expect(mergeSettings({ verboseLogging: true }).verboseLogging).toBe(true);
+    expect(mergeSettings({ verboseLogging: undefined }).verboseLogging).toBe(false);
+    expect(mergeSettings(undefined).verboseLogging).toBe(false);
   });
 
   it("normalizes imported list, priority, mode, and boolean settings", () => {

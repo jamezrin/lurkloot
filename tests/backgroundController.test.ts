@@ -435,10 +435,22 @@ describe("background controller", () => {
     expect(env.kick.discoverCampaigns).toHaveBeenCalledTimes(1);
     expect(snapshot.state.sessions.twitch.status).toBe("watching");
     expect(snapshot.state.sessions.kick.status).toBe("watching");
+    // The tick ran and recorded the per-platform decision; the debug-only
+    // "Scheduler tick completed" heartbeat is suppressed while verbose is off.
+    expect(snapshot.state.events.some((event) => event.message === "eligible campaign selected")).toBe(true);
+    expect(snapshot.state.events.some((event) => event.level === "debug")).toBe(false);
+  });
+
+  it("records debug entries only when verbose logging is enabled", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, verboseLogging: true });
+
+    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "tickNow" }));
+
     expect(snapshot.state.events[0]).toMatchObject({
-      level: "info",
+      level: "debug",
       message: "Scheduler tick completed",
     });
+    expect(snapshot.state.events.some((event) => event.level === "debug" && event.message.startsWith("Tick start"))).toBe(true);
   });
 
   it("records playback telemetry only for the managed watch tab", async () => {
@@ -483,6 +495,29 @@ describe("background controller", () => {
     }, { tab: { id: 999 } });
 
     expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
+  });
+
+  it("logs playback transitions such as ad starts and blocked playback", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+
+    // Baseline healthy telemetry — no ad, nothing blocked.
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: { videoCount: 1, mutedVideoCount: 0, unmutedVideoCount: 1, playingVideoCount: 1, blockedPlaybackCount: 0, documentHidden: false, adActive: false },
+    }, { tab: { id: 10 } });
+
+    // Ad starts and the browser blocks playback (re-muted).
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: { videoCount: 1, mutedVideoCount: 1, unmutedVideoCount: 0, playingVideoCount: 1, blockedPlaybackCount: 1, documentHidden: false, adActive: true },
+    }, { tab: { id: 10 } });
+
+    const messages = env.state.events.map((event) => event.message);
+    expect(messages).toContain("Ad started; keeping the watch tab counting down");
+    expect(env.state.events.some((event) => event.level === "warn" && event.message.startsWith("Playback was blocked"))).toBe(true);
   });
 
   it("focuses the watch tab when an ad is reported on the managed tab", async () => {

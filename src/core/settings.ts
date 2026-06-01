@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   excludedCampaignIds: [],
   offlineRetryLimit: 3,
   pollIntervalMinutes: 1,
+  verboseLogging: false,
 };
 
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
@@ -74,6 +75,7 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     excludedCampaignIds: normalizeStringList(value?.excludedCampaignIds),
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_SETTINGS.offlineRetryLimit),
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 0.5, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
+    verboseLogging: booleanOr(value?.verboseLogging, DEFAULT_SETTINGS.verboseLogging),
   };
 }
 

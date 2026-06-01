@@ -7,8 +7,10 @@ import {
   fetchTwitchInBackgroundWith,
   openPinnedMutedTabWithBrowser,
   registerManagedPageContextTabs,
+  setActivityLogger,
   stopWatchTabWithBrowser,
 } from "../src/core/tabs";
+import type { LogLevel } from "../src/core/logging";
 
 const channel: ChannelCandidate = {
   platform: "twitch",
@@ -31,6 +33,24 @@ function browserMock() {
 describe("tab manager", () => {
   beforeEach(() => {
     registerManagedPageContextTabs({});
+    setActivityLogger(undefined);
+  });
+
+  it("reports tab lifecycle events to a registered activity logger", async () => {
+    const events: Array<{ level: LogLevel; message: string; platform?: string }> = [];
+    setActivityLogger((level, message, platform) => events.push({ level, message, platform }));
+
+    const browser = browserMock();
+    await openPinnedMutedTabWithBrowser(browser, channel);
+
+    expect(events.some((event) => event.level === "info" && event.message.includes("Opened watch tab 9"))).toBe(true);
+    expect(events.every((event) => event.platform === "twitch")).toBe(true);
+
+    events.length = 0;
+    await stopWatchTabWithBrowser(browser, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true });
+    expect(events.some((event) => event.level === "debug" && event.message.includes("Closed managed watch tab 9"))).toBe(true);
+
+    setActivityLogger(undefined);
   });
 
   it("reuses and repins an existing stored tab", async () => {

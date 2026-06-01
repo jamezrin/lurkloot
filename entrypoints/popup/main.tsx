@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
 import type { AdFocusMode, DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
+import { LOG_LEVELS, type LogLevel } from "../../src/core/logging";
 import { DEFAULT_SETTINGS, mergeSettings } from "../../src/core/settings";
 import "./style.css";
 
@@ -590,11 +591,23 @@ function formatEventTime(at: string): string {
   return new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-const EVENT_LEVEL_COLOR: Record<EventLogEntry["level"], string> = {
+const EVENT_LEVEL_COLOR: Record<LogLevel, string> = {
+  debug: "#6366f1",
   info: "#a1a1aa",
   warn: "#f59e0b",
   error: "#ef4444",
 };
+
+const EVENT_LEVEL_LABEL: Record<LogLevel, string> = {
+  debug: "Debug",
+  info: "Info",
+  warn: "Warn",
+  error: "Error",
+};
+
+// Debug is hidden by default — it only appears when verbose logging is on, and
+// even then most users want to scan info/warn/error first.
+const DEFAULT_VISIBLE_LEVELS: LogLevel[] = ["info", "warn", "error"];
 
 function ActivityLog({
   events,
@@ -605,11 +618,23 @@ function ActivityLog({
   platform: Platform;
   lastTickAt?: string;
 }): React.ReactElement {
-  const visible = useMemo(
-    () => events.filter((event) => !event.platform || event.platform === platform).slice(-80).reverse(),
+  const [activeLevels, setActiveLevels] = useState<Set<LogLevel>>(() => new Set(DEFAULT_VISIBLE_LEVELS));
+  const forPlatform = useMemo(
+    () => events.filter((event) => !event.platform || event.platform === platform),
     [events, platform],
   );
-  const errorCount = visible.filter((event) => event.level === "error").length;
+  const visible = useMemo(
+    () => forPlatform.filter((event) => activeLevels.has(event.level)).slice(-80).reverse(),
+    [forPlatform, activeLevels],
+  );
+  const errorCount = forPlatform.filter((event) => event.level === "error").length;
+  const toggleLevel = (level: LogLevel) =>
+    setActiveLevels((current) => {
+      const next = new Set(current);
+      if (next.has(level)) next.delete(level);
+      else next.add(level);
+      return next;
+    });
 
   return (
     <div className="space-y-2.5">
@@ -626,6 +651,26 @@ function ActivityLog({
         <span className="text-[10px] font-medium text-zinc-400">
           {lastTickAt ? `last check ${formatEventTime(lastTickAt)}` : "no checks yet"}
         </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1 px-0.5">
+        {LOG_LEVELS.map((level) => {
+          const active = activeLevels.has(level);
+          return (
+            <button
+              key={level}
+              type="button"
+              onClick={() => toggleLevel(level)}
+              className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold transition ${active
+                ? "border-transparent text-white"
+                : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
+              style={active ? { backgroundColor: EVENT_LEVEL_COLOR[level] } : undefined}
+              aria-pressed={active}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "#ffffff" : EVENT_LEVEL_COLOR[level] }} />
+              {EVENT_LEVEL_LABEL[level]}
+            </button>
+          );
+        })}
       </div>
       <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
         {visible.length === 0 ? (
@@ -1083,6 +1128,7 @@ function SettingsView({ games, settings, onSettingsChange }: {
           ]}
           onChange={(value) => onSettingsChange({ adFocusMode: value })}
         />
+        <SettingRow title="Verbose logging" description="Record detailed DEBUG entries in the Activity log to help troubleshoot farming issues." checked={settings.verboseLogging} onChange={set("verboseLogging")} />
       </SettingsSection>
     </div>
   );

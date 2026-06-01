@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import type { EventLogEntry, ExtensionSettings, SchedulerState } from "./models";
+import type { ExtensionSettings, SchedulerState } from "./models";
 import { DEFAULT_SETTINGS, mergeSettings } from "./settings";
 
 const SETTINGS_KEY = "settings";
@@ -62,21 +62,6 @@ export async function loadState(): Promise<SchedulerState> {
 
 export async function saveState(state: SchedulerState): Promise<void> {
   await browser.storage.local.set({ [STATE_KEY]: state });
-}
-
-export function appendEvent(
-  state: SchedulerState,
-  entry: Omit<EventLogEntry, "id" | "at">,
-): SchedulerState {
-  const fullEntry: EventLogEntry = {
-    ...entry,
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    at: new Date().toISOString(),
-  };
-  return {
-    ...state,
-    events: [fullEntry, ...state.events].slice(0, 100),
-  };
 }
 
 export async function resetStorage(): Promise<void> {

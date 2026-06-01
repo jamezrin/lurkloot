@@ -371,6 +371,26 @@ describe("scheduler tick", () => {
     expect(twitch.readProgress).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ channel: first }));
   });
 
+  it("records debug events only when verbose logging is enabled", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const baseState = {
+      sessions: {
+        twitch: { platform: "twitch" as const, status: "idle" as const, offlineChecks: 0 },
+        kick: { platform: "kick" as const, status: "idle" as const, offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+      events: [],
+    };
+    const adapters = () => ({ twitch, kick: adapter("kick", [], []) });
+
+    const quiet = await runSchedulerTick(baseState, settings({ verboseLogging: false }), adapters());
+    expect(quiet.state.events.some((event) => event.level === "debug")).toBe(false);
+    expect(quiet.state.events.some((event) => event.message.startsWith("Discovered"))).toBe(true);
+
+    const verbose = await runSchedulerTick(baseState, settings({ verboseLogging: true }), adapters());
+    expect(verbose.state.events.some((event) => event.level === "debug")).toBe(true);
+  });
+
   it("switches on category mismatch", async () => {
     const old = channel("old");
     const next = channel("new");
