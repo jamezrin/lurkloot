@@ -104,6 +104,38 @@ describe("tab manager", () => {
     expect(browser.tabs.update).not.toHaveBeenCalled();
   });
 
+  it("does not re-prime a matching managed tab that is playing but muted", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({
+      id: 4,
+      url: channel.url,
+      pinned: true,
+      mutedInfo: { muted: true },
+      active: false,
+    });
+
+    await openPinnedMutedTabWithBrowser(browser, channel, {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+      playback: {
+        platform: "twitch",
+        checkedAt: new Date().toISOString(),
+        videoCount: 1,
+        mutedVideoCount: 1,
+        unmutedVideoCount: 0,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 1,
+        documentHidden: false,
+      },
+    });
+
+    expect(browser.tabs.update).not.toHaveBeenCalled();
+    expect(browser.tabs.query).not.toHaveBeenCalled();
+  });
+
   it("creates one new managed tab when the registered tab is stale", async () => {
     const browser = browserMock();
     browser.tabs.get.mockRejectedValue(new Error("missing"));

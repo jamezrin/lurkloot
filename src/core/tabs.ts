@@ -142,8 +142,10 @@ function shouldPrimePlayback(tab: BrowserTab, url: string, session?: WatchSessio
   if (!playback) return true;
   const checkedAt = Date.parse(playback.checkedAt);
   if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return true;
+  // Priming foreground-activates the tab to coax a deferred player into loading
+  // and playing — not to unmute. A muted-but-playing video is fine, so do not
+  // re-prime just because the browser kept it muted.
   return playback.videoCount === 0
-    || playback.unmutedVideoCount === 0
     || playback.playingVideoCount === 0;
 }
 

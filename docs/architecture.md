@@ -109,10 +109,11 @@ Content scripts run on all Twitch/Kick pages, but only the current watch tab is 
 Every five seconds, and after visibility/focus/player mutations, the content script asks the background for `PlaybackControl`:
 
 - If `managed` is false, it does nothing.
-- If `managed` is true and `keepVideosUnmuted` is true, it removes page-level video muting, sets nonzero video volume, attempts `video.play()`, and listens for later `volumechange`/`pause` events so platform player state changes can be corrected.
+- If `managed` is true and `keepVideosUnmuted` is true, it removes page-level video muting, sets nonzero video volume, attempts `video.play()`, and listens for later `volumechange`/`pause` events so platform player state changes can be corrected. The content script suppresses the `volumechange`/`pause` events its own mutations trigger to avoid a self-feeding control loop.
+- Some browsers (notably Firefox) refuse to unmute media in a tab that has had no user gesture and pause the element instead. When the unmute is blocked, the content script re-mutes the video and replays it so playback keeps progressing (counted in blocked playback count); watch time is credited even while muted.
 - It reports telemetry including video count, muted/unmuted video count, playing video count, blocked playback count, document visibility, ready state, current time, and duration.
 
-The scheduler treats playback as healthy only when recent telemetry shows at least one video, at least one unmuted/nonzero-volume video, and at least one playing video. The browser tab can still be muted; the platform-visible page video state is intentionally separate from browser tab audio output.
+The scheduler treats playback as healthy when recent telemetry shows at least one video and at least one playing video — muted or not, since the browser may keep a background video muted. The browser tab can still be muted; the platform-visible page video state is intentionally separate from browser tab audio output.
 
 Repeated offline, category mismatch, or unhealthy playback checks cause the scheduler to switch channels or stop according to `offlineRetryLimit`.
 

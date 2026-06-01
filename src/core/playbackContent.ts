@@ -4,8 +4,13 @@ import type { Platform } from "./models";
 
 const REPORT_INTERVAL_MS = 5000;
 const DEFAULT_VIDEO_VOLUME = 1;
+// Window during which we ignore volumechange/pause events that our own
+// mute/unmute/replay mutations trigger, so recovering a blocked unmute does not
+// re-queue control and spin a tight loop.
+const CONTROL_SUPPRESS_MS = 300;
 const controlledVideos = new WeakSet<HTMLVideoElement>();
 let queuedPlaybackControl = false;
+let suppressControlUntil = 0;
 
 export function startPlaybackTelemetry(platform: Platform): void {
   void controlPlaybackAndReport(platform);
@@ -50,15 +55,32 @@ async function controlPlaybackAndReport(platform: Platform): Promise<void> {
   const videos = [...document.querySelectorAll("video")];
   let blockedPlaybackCount = 0;
 
-  for (const video of videos) {
-    if (control.keepVideosUnmuted) {
+  if (control.keepVideosUnmuted) {
+    // Our mute/unmute/replay mutations below fire volumechange/pause events; keep
+    // them from re-queuing control while we are actively driving the elements.
+    for (const video of videos) {
+      suppressControlUntil = Date.now() + CONTROL_SUPPRESS_MS;
       controlVideo(video, platform);
+      let blocked = false;
       try {
         await video.play();
       } catch {
+        blocked = true;
+      }
+      // Firefox refuses to unmute media without a prior user gesture and pauses
+      // the element instead of throwing. Detect that and resume playing muted so
+      // farming keeps progressing (watch time is credited even while muted).
+      if (blocked || video.paused) {
         blockedPlaybackCount += 1;
+        video.muted = true;
+        try {
+          await video.play();
+        } catch {
+          // Nothing more we can do; telemetry will surface the stalled video.
+        }
       }
     }
+    suppressControlUntil = Date.now() + CONTROL_SUPPRESS_MS;
   }
 
   const primary = videos[0];
@@ -118,11 +140,13 @@ function controlVideo(video: HTMLVideoElement, platform: Platform): void {
   if (!controlledVideos.has(video)) {
     controlledVideos.add(video);
     video.addEventListener("volumechange", () => {
+      if (Date.now() < suppressControlUntil) return;
       if (video.muted || video.volume === 0) {
         queuePlaybackControl(platform);
       }
     });
     video.addEventListener("pause", () => {
+      if (Date.now() < suppressControlUntil) return;
       queuePlaybackControl(platform);
     });
   }

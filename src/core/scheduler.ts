@@ -584,8 +584,10 @@ function isPlaybackHealthy(session: WatchSession): boolean {
   if (!playback) return false;
   const checkedAt = Date.parse(playback.checkedAt);
   if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return false;
+  // Playing — muted or not — is what indicates farming is working. The browser
+  // can block element-level unmuting in a background tab, so the content script
+  // may keep the video muted; that is still healthy as long as it plays.
   return playback.videoCount > 0
-    && playback.unmutedVideoCount > 0
     && playback.playingVideoCount > 0;
 }
 

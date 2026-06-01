@@ -537,6 +537,47 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.playback?.playingVideoCount).toBe(1);
   });
 
+  it("treats a muted but playing watch tab as healthy", async () => {
+    const old = channel("old");
+    const twitch = adapter("twitch", [campaign("drops")], [channel("new")]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: old,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 2,
+            tabId: 7,
+            playback: {
+              platform: "twitch",
+              checkedAt: new Date().toISOString(),
+              videoCount: 1,
+              mutedVideoCount: 1,
+              unmutedVideoCount: 0,
+              playingVideoCount: 1,
+              blockedPlaybackCount: 1,
+              documentHidden: true,
+            },
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        events: [],
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.playbackChecks).toBe(0);
+    expect(result.state.sessions.twitch.playback?.playingVideoCount).toBe(1);
+  });
+
   it("refreshes viewer metadata while keeping the current watch tab", async () => {
     const old = channel("old", { viewerCount: 10, title: "Old title" });
     const twitch = adapter("twitch", [campaign("drops")], [channel("new")]);
