@@ -835,6 +835,7 @@ function DropsPanel({ campaigns, gameMap, onReorder }: { campaigns: CampaignView
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(firstId ? { [firstId]: true } : {});
   const activeCampaign = campaigns.find((campaign) => campaign.id === activeId);
   const activeIndex = campaigns.findIndex((campaign) => campaign.id === activeId);
+  const anyFarming = campaigns.some((campaign) => Boolean(campaign.farmingChannel));
 
   if (campaigns.length === 0) return <EmptyPanel>No campaigns discovered yet.</EmptyPanel>;
 
@@ -851,18 +852,18 @@ function DropsPanel({ campaigns, gameMap, onReorder }: { campaigns: CampaignView
       <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-2">
           {campaigns.map((campaign, index) => (
-            <SortableCampaign key={campaign.id} campaign={campaign} index={index} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index)} expanded={Boolean(expandedIds[campaign.id])} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} />
+            <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index)} expanded={Boolean(expandedIds[campaign.id])} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} />
           ))}
         </div>
       </SortableContext>
       <DragOverlay dropAnimation={null}>
-        {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex)} expanded={false} onToggle={() => undefined} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
+        {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex)} expanded={false} onToggle={() => undefined} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
       </DragOverlay>
     </DndContext>
   );
 }
 
-function SortableCampaign(props: { campaign: CampaignView; index: number; game: GameItem; expanded: boolean; onToggle(): void }) {
+function SortableCampaign(props: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; onToggle(): void }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.campaign.id });
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
@@ -877,13 +878,14 @@ function ImageWithFallback({ src, alt, className, fit = "cover", fallback }: { s
   return <img src={src} alt={alt} loading="lazy" className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-contain", className)} onError={() => setFailed(true)} />;
 }
 
-function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; game: GameItem; expanded: boolean; onToggle(): void; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
+function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; onToggle(): void; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
   const stats = campaignStats(campaign);
-  const isTop = index === 0;
+  const isFarming = Boolean(campaign.farmingChannel);
+  const emphasized = isFarming || (!anyFarming && index === 0);
   const channelLabel = campaign.allowedChannels[0] === "All" ? "All channels" : `${campaign.allowedChannels.length + campaign.moreChannels} channels`;
 
   return (
-    <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", isTop ? "border-transparent" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={isTop ? { boxShadow: isOverlay ? "0 20px 50px -12px rgba(0,0,0,0.5)" : "0 0 0 1.5px var(--accent-ring), 0 10px 30px -18px var(--accent-glow)" } : undefined}>
+    <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-transparent" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized ? { boxShadow: isOverlay ? "0 20px 50px -12px rgba(0,0,0,0.5)" : "0 0 0 1.5px var(--accent-ring), 0 10px 30px -18px var(--accent-glow)" } : undefined}>
       <div className="flex items-stretch">
         <div className="flex w-8 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">{dragHandle ?? <GripVertical size={16} className="text-zinc-300 dark:text-zinc-600" />}</div>
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-start gap-2.5 p-2.5 text-left outline-none">
@@ -907,7 +909,7 @@ function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, i
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1">
               <Pill tone="accent">#{index + 1}</Pill>
-              {isTop && <Pill tone="accent"><Radio size={9} /> Farming now</Pill>}
+              {isFarming && <Pill tone="accent"><Radio size={9} /> Farming now</Pill>}
               <Pill tone={campaign.linked ? "live" : "danger"}><Link2 size={9} /> {campaign.linked ? "Linked" : "Not linked"}</Pill>
             </div>
           </div>
@@ -918,14 +920,16 @@ function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, i
           <div className="mb-1.5 flex items-end justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> Ends in {formatCountdown(campaign.ends)}</div>
-              <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">Next: <span className="font-medium text-zinc-800 dark:text-zinc-100">{stats.nextReward?.name}</span></div>
+              {stats.complete
+                ? <div className="mt-0.5 truncate text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>Complete</div>
+                : <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">Next: <span className="font-medium text-zinc-800 dark:text-zinc-100">{stats.nextReward?.name}</span></div>}
             </div>
             <div className="shrink-0 text-right">
               <div className="text-sm font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>{stats.progress.toFixed(0)}%</div>
-              <div className="mt-0.5 text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.remaining)} left</div>
+              {!stats.complete && <div className="mt-0.5 text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.remaining)} left</div>}
             </div>
           </div>
-          <ProgressBar value={stats.progress} glow={isTop} />
+          <ProgressBar value={stats.progress} glow={emphasized} />
         </div>
         <AnimatePresence initial={false}>
           {expanded && (
@@ -933,7 +937,7 @@ function CampaignCard({ campaign, index, game, expanded, onToggle, dragHandle, i
               <div className="space-y-2.5 pt-2.5">
                 <div className="grid grid-cols-3 gap-1.5">
                   <MetaStat icon={Clock3} label="Farmed" value={formatHours(stats.totalFarmed)} />
-                  <MetaStat icon={RotateCcw} label="Left" value={formatMinutes(stats.remaining)} />
+                  <MetaStat icon={RotateCcw} label="Left" value={stats.complete ? "Done" : formatMinutes(stats.remaining)} />
                   <MetaStat icon={Trophy} label="Rewards" value={`${stats.completed}/${stats.totalRewards}`} />
                 </div>
                 <div>
@@ -1580,7 +1584,8 @@ function campaignStats(campaign: CampaignView) {
   const progress = totalRequired ? Math.min(100, (totalFarmed / totalRequired) * 100) : 0;
   const completed = campaign.rewards.filter((reward) => reward.obtained || reward.progress >= 100).length;
   const nextReward = campaign.rewards.find((reward) => !reward.obtained && reward.progress < 100) ?? campaign.rewards.at(-1);
-  return { totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward };
+  const complete = campaign.rewards.length > 0 && progress >= 100;
+  return { totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, complete };
 }
 
 function campaignViewFromCampaign(campaign: DropCampaign, index: number, session: WatchSession): CampaignView {
