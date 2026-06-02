@@ -628,6 +628,63 @@ describe("background controller", () => {
     expect(env.deps.applyAdFocus).not.toHaveBeenCalled();
   });
 
+  it("ignores playback telemetry without a sender tab", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+    env.deps.applyAdFocus.mockClear();
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+        adActive: true,
+      },
+    });
+
+    expect(env.state.sessions.twitch.playback).toBeUndefined();
+    expect(env.state.manualWatch?.twitch).toBeUndefined();
+    expect(env.deps.applyAdFocus).not.toHaveBeenCalled();
+    expect(env.state.events.some((event) => event.message.startsWith("Ad started"))).toBe(false);
+  });
+
+  it("does not treat tabless sessions as managed playback telemetry targets", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      watchMode: "tabless",
+    };
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+        adActive: true,
+      },
+    }, { tab: { id: 10 } });
+
+    expect(env.state.sessions.twitch.playback).toBeUndefined();
+    expect(env.state.manualWatch?.twitch).toMatchObject({
+      tabId: 10,
+      active: true,
+    });
+    expect(env.deps.applyAdFocus).not.toHaveBeenCalled();
+  });
+
   it("re-applies ad focus from playback state on each scheduler tick", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
 
