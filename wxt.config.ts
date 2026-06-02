@@ -12,7 +12,7 @@ export default defineConfig({
   manifest: {
     name: "StreamMaxxer",
     description:
-      "Farm Twitch and Kick drops through normal logged-in browser sessions and visible muted tabs.",
+      "Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode.",
     permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest"],
     host_permissions: [
       "https://www.twitch.tv/*",
