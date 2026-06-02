@@ -3,8 +3,10 @@ import type { ChannelCandidate } from "../src/core/models";
 import {
   applyAdFocusWithBrowser,
   currentManagedPageContextTabs,
+  ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
   fetchTwitchInBackgroundWith,
+  hasValidTwitchIntegrity,
   openPinnedMutedTabWithBrowser,
   registerManagedPageContextTabs,
   setActivityLogger,
@@ -515,6 +517,120 @@ describe("tab manager", () => {
     }));
     expect(browser.tabs.remove).toHaveBeenCalledTimes(1);
     expect(browser.tabs.remove).toHaveBeenCalledWith(14);
+  });
+});
+
+describe("twitch integrity refresh", () => {
+  beforeEach(() => {
+    registerManagedPageContextTabs({});
+    setActivityLogger(undefined);
+    setTwitchIntegrity(undefined);
+  });
+
+  const fresh = () => ({
+    integrity: "fresh-token",
+    clientSessionId: "page-session",
+    deviceId: "page-device",
+    expiresAt: Date.now() + 60_000,
+  });
+
+  describe("setTwitchIntegrity capture logging", () => {
+    it("logs an info entry only when the token is new", () => {
+      const events: Array<{ level: LogLevel; message: string }> = [];
+      setActivityLogger((level, message) => events.push({ level, message }));
+
+      setTwitchIntegrity(fresh(), { isNew: true });
+      setTwitchIntegrity(fresh(), { isNew: false });
+      setTwitchIntegrity(fresh());
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        level: "info",
+        message: expect.stringContaining("Captured a fresh Twitch integrity token"),
+      });
+    });
+  });
+
+  describe("hasValidTwitchIntegrity", () => {
+    it("is false when no token is set", () => {
+      expect(hasValidTwitchIntegrity()).toBe(false);
+    });
+
+    it("is false for an expired token", () => {
+      setTwitchIntegrity({ integrity: "t", expiresAt: Date.now() - 1 });
+      expect(hasValidTwitchIntegrity()).toBe(false);
+    });
+
+    it("is false for a token expiring within the staleness skew", () => {
+      // Inside the 30s skew window — treated as already stale to avoid a mid-flight expiry.
+      setTwitchIntegrity({ integrity: "t", expiresAt: Date.now() + 10_000 });
+      expect(hasValidTwitchIntegrity()).toBe(false);
+    });
+
+    it("is true for a token comfortably beyond the skew", () => {
+      setTwitchIntegrity(fresh());
+      expect(hasValidTwitchIntegrity()).toBe(true);
+    });
+  });
+
+  describe("ensureTwitchIntegrityWithBrowser", () => {
+    it("fast-returns without touching tabs when a valid token already exists", async () => {
+      const browser = browserMock();
+      setTwitchIntegrity(fresh());
+
+      const ok = await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory");
+
+      expect(ok).toBe(true);
+      expect(browser.tabs.query).not.toHaveBeenCalled();
+      expect(browser.tabs.create).not.toHaveBeenCalled();
+    });
+
+    it("reuses an existing twitch.tv tab and resolves once a token is captured", async () => {
+      const browser = browserMock();
+      browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+
+      // The webRequest listener captures a token shortly after the page loads.
+      setTimeout(() => setTwitchIntegrity(fresh(), { isNew: true }), 20);
+      const ok = await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 5_000);
+
+      expect(ok).toBe(true);
+      expect(browser.tabs.create).not.toHaveBeenCalled();
+      // A reused tab we did not open must never be closed.
+      expect(browser.tabs.remove).not.toHaveBeenCalled();
+    });
+
+    it("creates a tab when none exists and retains it for reuse", async () => {
+      const browser = browserMock();
+      browser.tabs.create.mockResolvedValue({ id: 14 });
+
+      setTimeout(() => setTwitchIntegrity(fresh(), { isNew: true }), 20);
+      const ok = await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 5_000);
+
+      expect(ok).toBe(true);
+      expect(browser.tabs.create).toHaveBeenCalledWith({
+        url: "https://www.twitch.tv/drops/inventory",
+        pinned: false,
+        active: false,
+      });
+      // Retained for the next claim instead of being torn down each time.
+      expect(browser.tabs.remove).not.toHaveBeenCalled();
+      expect(currentManagedPageContextTabs()).toMatchObject({ twitch: { tabId: 14 } });
+    });
+
+    it("resolves false and warns when no token is captured before the timeout", async () => {
+      const browser = browserMock();
+      browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+      const events: Array<{ level: LogLevel; message: string }> = [];
+      setActivityLogger((level, message) => events.push({ level, message }));
+
+      const ok = await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 50);
+
+      expect(ok).toBe(false);
+      expect(events).toContainEqual(expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining("Timed out waiting for a Twitch integrity token"),
+      }));
+    });
   });
 });
 

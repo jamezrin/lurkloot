@@ -335,8 +335,92 @@ let twitchClientSessionId: string | undefined;
 // queries keep working anonymously / without integrity until one is captured.
 let twitchIntegrity: TwitchIntegrity | undefined;
 
-export function setTwitchIntegrity(value: TwitchIntegrity | undefined): void {
+// Treat a token expiring within this window as already stale, so a claim never
+// ships with one that expires mid-flight (the captured token is replayed and
+// the round-trip plus Twitch-side clock skew can otherwise straddle expiry).
+const INTEGRITY_EXPIRY_SKEW_MS = 30_000;
+
+// Page context to open when no token has been captured: a logged-in twitch.tv
+// SPA route that immediately issues authenticated GQL carrying Client-Integrity,
+// which the background webRequest listener captures (see entrypoints/background.ts).
+const TWITCH_PAGE_CONTEXT_URL = "https://www.twitch.tv/drops/inventory";
+
+// How long to wait for the live page to mint and send a token after we open it.
+const INTEGRITY_REFRESH_TIMEOUT_MS = 12_000;
+
+// Resolvers waiting for the next captured token (see waitForIntegrityCapture).
+let integrityWaiters: Array<() => void> = [];
+
+export function hasValidTwitchIntegrity(now: number = Date.now()): boolean {
+  return twitchIntegrity != null && twitchIntegrity.expiresAt > now + INTEGRITY_EXPIRY_SKEW_MS;
+}
+
+export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?: { isNew?: boolean }): void {
   twitchIntegrity = value;
+  if (value && options?.isNew) {
+    logTab("info", `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()})`, "twitch");
+  }
+  if (value != null && integrityWaiters.length > 0) {
+    const waiters = integrityWaiters;
+    integrityWaiters = [];
+    for (const resolve of waiters) resolve();
+  }
+}
+
+// Resolves true once a valid token is present, or after timeoutMs (re-checking
+// validity at the deadline). A captured token can be near-expiry — captureTwitch-
+// Integrity does not gate on expiry — so resolvers re-check hasValidTwitchIntegrity.
+function waitForIntegrityCapture(timeoutMs: number): Promise<boolean> {
+  if (hasValidTwitchIntegrity()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(hasValidTwitchIntegrity());
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    integrityWaiters.push(finish);
+  });
+}
+
+// Ensures a valid Client-Integrity token exists before an authenticated mutation
+// (drop claims). When none is captured — e.g. tabless farming with no twitch.tv
+// tab open — opens or reuses a logged-in twitch.tv page-context tab so the SPA
+// mints one the webRequest listener captures, waits for it, then releases the tab.
+export async function ensureTwitchIntegrity(): Promise<boolean> {
+  return ensureTwitchIntegrityWithBrowser(browser as BrowserTabApi, TWITCH_PAGE_CONTEXT_URL);
+}
+
+export async function ensureTwitchIntegrityWithBrowser(
+  browserApi: BrowserTabApi,
+  originUrl: string,
+  timeoutMs: number = INTEGRITY_REFRESH_TIMEOUT_MS,
+): Promise<boolean> {
+  if (hasValidTwitchIntegrity()) return true;
+
+  logTab("info", "No valid Twitch integrity token; opening a twitch.tv tab to capture one", "twitch");
+  const origin = new URL(originUrl).origin;
+  let pageContext: PageContextTab | undefined;
+  try {
+    pageContext = await acquirePageContextTab(browserApi, originUrl, origin, {
+      retainPageContext: { platform: "twitch" },
+    });
+    // On success the capture itself is logged once by setTwitchIntegrity (info);
+    // here we only surface the failure case so the log isn't doubled up.
+    const captured = await waitForIntegrityCapture(timeoutMs);
+    if (!captured) {
+      logTab("warn", "Timed out waiting for a Twitch integrity token (is twitch.tv logged in?)", "twitch");
+    }
+    return captured;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logTab("warn", `Could not open a twitch.tv tab to capture an integrity token: ${message}`, "twitch");
+    return false;
+  } finally {
+    if (pageContext) await releasePageContextTab(browserApi, origin, pageContext);
+  }
 }
 
 function twitchClientSessionIdValue(): string {
@@ -379,7 +463,7 @@ export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string
     // was minted with, so when one is present (and unexpired) replay the whole
     // trio together; otherwise fall back to the cookie device id plus a
     // self-generated session id, which is enough for queries but not mutations.
-    const integrity = twitchIntegrity && twitchIntegrity.expiresAt > Date.now() ? twitchIntegrity : undefined;
+    const integrity = hasValidTwitchIntegrity() ? twitchIntegrity : undefined;
     if (integrity && !headers.has("client-integrity")) headers.set("client-integrity", integrity.integrity);
     const effectiveDeviceId = integrity?.deviceId ?? deviceId;
     if (effectiveDeviceId && !headers.has("x-device-id")) headers.set("x-device-id", effectiveDeviceId);

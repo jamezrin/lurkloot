@@ -88,8 +88,9 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined): Promise<void> {
     const integrity = integrityFromHeaders(headers);
     if (!integrity) return;
-    setTwitchIntegrity(integrity);
-    if (integrity.integrity === lastIntegrityToken) return;
+    const isNew = integrity.integrity !== lastIntegrityToken;
+    setTwitchIntegrity(integrity, { isNew });
+    if (!isNew) return;
     lastIntegrityToken = integrity.integrity;
     await deps.saveTwitchIntegrity?.(integrity);
   }

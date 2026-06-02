@@ -1074,35 +1074,79 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected op ${operation(init)}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const ensureIntegrity = vi.fn(async () => true);
+    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
 
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
+    // A valid integrity token is ensured before the claim is sent.
+    expect(ensureIntegrity).toHaveBeenCalledTimes(1);
   });
 
-  it("does not call Twitch and reports not claim-ready when the drop-instance id is missing", async () => {
+  it("does not call Twitch or ensure integrity, and reports not claim-ready, when the drop-instance id is missing", async () => {
     const fetcher = jsonFetcher(() => {
       throw new Error("should not fetch without a claim id");
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const ensureIntegrity = vi.fn(async () => true);
+    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" } as DropReward;
 
     expect(adapter.isClaimReady(reward)).toBe(false);
     expect(adapter.isClaimReady({ ...reward, claimId: "instance-id" })).toBe(true);
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(false);
+    expect(ensureIntegrity).not.toHaveBeenCalled();
   });
 
-  it("surfaces an unexpected Twitch claim status as an error", async () => {
+  it("surfaces an unexpected Twitch claim status as an error without retrying", async () => {
     const fetcher = jsonFetcher((_url, init) => {
       if (operation(init) === "DropsPage_ClaimDropRewards") {
         return { data: { claimDropRewards: { status: "INELIGIBLE" } } };
       }
       throw new Error(`Unexpected op ${operation(init)}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const ensureIntegrity = vi.fn(async () => true);
+    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
 
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).rejects.toThrow(/status=INELIGIBLE/);
+    // A non-integrity failure must not trigger a refresh + retry.
+    expect(ensureIntegrity).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes the integrity token and retries once when the first claim fails an integrity check", async () => {
+    let claimAttempts = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      if (operation(init) === "DropsPage_ClaimDropRewards") {
+        claimAttempts += 1;
+        if (claimAttempts === 1) return { error: "failed integrity check" };
+        return { data: { claimDropRewards: { status: "ELIGIBLE_FOR_ALL" } } };
+      }
+      throw new Error(`Unexpected op ${operation(init)}`);
+    });
+    const ensureIntegrity = vi.fn(async () => true);
+    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
+
+    await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
+    expect(claimAttempts).toBe(2);
+    // Once before the first attempt, once to force a fresh token before the retry.
+    expect(ensureIntegrity).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports a clear error when an integrity token cannot be refreshed", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      if (operation(init) === "DropsPage_ClaimDropRewards") {
+        return { error: "failed integrity check" };
+      }
+      throw new Error(`Unexpected op ${operation(init)}`);
+    });
+    // No token can be captured (e.g. logged out / no tab can be opened).
+    const ensureIntegrity = vi.fn(async () => false);
+    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
+
+    await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward))
+      .rejects.toThrow(/Keep a logged-in twitch\.tv tab open/);
   });
 
   it("reconstructs the drop-instance id for a watched-complete drop with no self edge", async () => {

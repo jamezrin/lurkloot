@@ -1,6 +1,6 @@
 import type { ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
 import type { HeartbeatResult, TablessWatchController, WatchContext } from "../core/tablessWatch";
-import { fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
+import { ensureTwitchIntegrity, fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
 import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "./adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./twitchParser";
 import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./twitchWatch";
@@ -216,6 +216,9 @@ export class TwitchAdapter implements PlatformAdapter {
     private readonly fetcher: PageFetcher = {
       fetchJson: (url, init) => fetchTwitchInBackground(url, init),
     },
+    // Drop claims require a valid Client-Integrity token; this opens/reuses a live
+    // twitch.tv tab to capture one when none is present (see src/core/tabs.ts).
+    private readonly ensureIntegrity: () => Promise<boolean> = ensureTwitchIntegrity,
   ) {}
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
@@ -405,24 +408,34 @@ export class TwitchAdapter implements PlatformAdapter {
 
   async claimReward(_campaign: DropCampaign, reward: DropReward): Promise<boolean> {
     if (!reward.claimId) return false;
-    let result: TwitchGqlResponse<{ claimDropRewards?: { status?: string } }>;
+
+    // Claiming requires a valid Client-Integrity token, which we replay from the
+    // live twitch.tv page (see src/core/twitchIntegrity.ts). Proactively ensure one
+    // exists first so a tabless / no-tab session can still claim. This is a no-op
+    // fast path when a token is already captured.
+    await this.ensureIntegrity();
+
     try {
-      result = await this.gql<{ claimDropRewards?: { status?: string } }>(
-        "DropsPage_ClaimDropRewards",
-        TWITCH_QUERIES.claimHash,
-        { input: { dropInstanceID: reward.claimId } },
-      );
+      return await this.runClaim(reward);
     } catch (error) {
-      // Claiming requires a valid Client-Integrity token, which we replay from
-      // the live twitch.tv page (see src/core/twitchIntegrity.ts). When none has
-      // been captured Twitch answers with a "failed integrity check"; guide the
-      // user to keep a logged-in Twitch tab open so a token can be captured.
       const message = error instanceof Error ? error.message : String(error);
-      if (/integrity/i.test(message)) {
-        throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
-      }
-      throw error;
+      // Only integrity rejections are worth a refresh + retry; everything else
+      // (e.g. an unexpected status or a stale id) propagates unchanged.
+      if (!/integrity/i.test(message)) throw error;
+      // The captured token may have just expired or been anonymous; force one
+      // refresh and retry exactly once. A second failure propagates.
+      const refreshed = await this.ensureIntegrity();
+      if (refreshed) return await this.runClaim(reward);
+      throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
     }
+  }
+
+  private async runClaim(reward: DropReward): Promise<boolean> {
+    const result = await this.gql<{ claimDropRewards?: { status?: string } }>(
+      "DropsPage_ClaimDropRewards",
+      TWITCH_QUERIES.claimHash,
+      { input: { dropInstanceID: reward.claimId } },
+    );
     const status = result.data?.claimDropRewards?.status;
     if (status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED") return true;
     // Surface the rejection instead of a silent false so the cause is visible in
