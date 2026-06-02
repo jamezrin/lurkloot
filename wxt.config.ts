@@ -18,7 +18,8 @@ export default defineConfig({
       "https://www.twitch.tv/*",
       "https://gql.twitch.tv/*",
       "https://kick.com/*",
-      "https://web.kick.com/*"
+      "https://web.kick.com/*",
+      "https://websockets.kick.com/*"
     ],
     icons: {
       "16": "icon/16.png",

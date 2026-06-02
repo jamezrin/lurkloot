@@ -1,7 +1,9 @@
 import type { ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
+import type { TablessWatchController } from "../core/tablessWatch";
 import { fetchJsonInPage, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
 import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "./adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./kickParser";
+import { KickWatcher } from "./kickWatch";
 
 interface KickLivestreamsResponse {
   data?: Array<KickLivestream> | { livestreams?: KickLivestream[] };
@@ -16,7 +18,9 @@ interface KickLivestream {
 }
 
 interface KickChannelResponse {
+  id?: string | number;
   livestream?: {
+    id?: string | number;
     is_live?: boolean;
     category?: { id?: string | number; name?: string };
     categories?: Array<{ id?: string | number; name?: string }>;
@@ -100,6 +104,8 @@ export class KickAdapter implements PlatformAdapter {
           categoryName: category?.name ?? channel.categoryName,
           viewerCount: livestream?.viewer_count ?? channel.viewerCount,
           title: livestream?.session_title ?? channel.title,
+          channelId: data.id == null ? channel.channelId : String(data.id),
+          broadcastId: livestream?.id == null ? channel.broadcastId : String(livestream.id),
         },
       };
     } catch (error) {
@@ -130,6 +136,14 @@ export class KickAdapter implements PlatformAdapter {
 
   stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
     return stopWatchTab(session, options);
+  }
+
+  // Tabless farming via Kick's viewer WebSocket (see KickWatcher). Reuses this
+  // adapter's in-page fetcher for the token exchange and channel lookups.
+  supportsTabless = true;
+
+  createTablessWatcher(): TablessWatchController {
+    return new KickWatcher({ fetcher: this.fetcher });
   }
 
   private async checkChannelFromPage(

@@ -5,8 +5,14 @@ import { mergeSettings } from "../core/settings";
 import { runSchedulerTick } from "../core/scheduler";
 import { setActivityLogger } from "../core/tabs";
 import type { PlatformAdapter } from "../platforms/adapter";
+import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 
 export const ALARM_NAME = "stream-maxxing.tick";
+// A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
+// of the (heavier, configurable) discovery tick. chrome.alarms clamps to a
+// 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
+export const WATCH_ALARM_NAME = "stream-maxxing.watch";
+const PLATFORMS: Platform[] = ["twitch", "kick"];
 
 export interface BackgroundControllerDeps {
   loadSettings(): Promise<ExtensionSettings>;
@@ -29,6 +35,11 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   setActivityLogger((level, message, platform) => {
     pendingTabEvents.push({ level, message, platform });
   });
+
+  // Persistent tabless watchers, one per platform, kept alive across discovery
+  // ticks (the WebSocket-based Kick watcher in particular must not be recreated
+  // each tick). Reconciled against the scheduler's per-platform session state.
+  const tablessWatchers = new Map<Platform, TablessWatchController>();
 
   async function persist(state: SchedulerState): Promise<void> {
     if (pendingTabEvents.length === 0) {
@@ -81,12 +92,16 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   async function ensureAlarm(): Promise<void> {
     const settings = await deps.loadSettings();
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+    await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
     if (settings.autoStartDropFarming && settings.running) await tick();
   }
 
   async function handleStartup(): Promise<void> {
     const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+    await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    // A restart kills any in-memory watchers; start clean and let tick() rebuild.
+    tablessWatchers.clear();
 
     const cleanup = staleStartupCleanup(state);
     if (!cleanup.hasStaleSession) {
@@ -132,9 +147,11 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     const verbose = settings.verboseLogging;
 
     try {
-      const result = await runSchedulerTick(state, settings, deps.createAdapters(), platforms ? { platforms } : undefined);
+      const adapters = deps.createAdapters();
+      const result = await runSchedulerTick(state, settings, adapters, platforms ? { platforms } : undefined);
       await emitNotifications(settings, state, result.state);
       await applyAdFocusForState(settings, result.state);
+      await reconcileTablessWatchers(result.state, settings, adapters, platforms);
       // The per-tick heartbeat is debug noise next to the richer per-platform
       // entries the scheduler already records; the popup shows "last check" too.
       await persist(withEvent(result.state, { level: "debug", message: "Scheduler tick completed" }, verbose));
@@ -162,6 +179,112 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
         await tick();
         return;
       }
+    }
+  }
+
+  function tablessWatchContext(): WatchContext {
+    // The Twitch watcher resolves the viewer id itself; nothing extra needed yet.
+    return {};
+  }
+
+  // Aligns the live tabless watchers with the scheduler's session state: starts
+  // or switches a watcher for each platform farming tablessly, and stops the
+  // rest (idle, paused, fell back to a tab, or watching with a real tab).
+  async function reconcileTablessWatchers(
+    state: SchedulerState,
+    settings: ExtensionSettings,
+    adapters: Record<Platform, PlatformAdapter>,
+    platforms?: Platform[],
+  ): Promise<void> {
+    const targets = platforms ?? PLATFORMS;
+    for (const platform of targets) {
+      const session = state.sessions[platform];
+      const adapter = adapters[platform];
+      const wantsTabless = settings.running
+        && settings.platform[platform].enabled
+        && session.status === "watching"
+        && session.watchMode === "tabless"
+        && Boolean(session.channel);
+      const existing = tablessWatchers.get(platform);
+
+      if (wantsTabless && session.channel && adapter.createTablessWatcher) {
+        const watcher = existing ?? adapter.createTablessWatcher();
+        if (!existing) tablessWatchers.set(platform, watcher);
+        if (watcher.channelUrl !== session.channel.url) {
+          try {
+            await watcher.start(session.channel, tablessWatchContext());
+          } catch (error) {
+            pendingTabEvents.push({
+              platform,
+              level: "warn",
+              message: error instanceof Error ? error.message : "Could not start the tabless watcher",
+            });
+          }
+        }
+      } else if (existing) {
+        await existing.stop();
+        tablessWatchers.delete(platform);
+      }
+    }
+  }
+
+  // Fired by the 1-minute watch alarm. Runs one heartbeat per active tabless
+  // watcher and records its health on the session, falling back to a real tab
+  // (by re-running the scheduler) when a heartbeat keeps failing.
+  async function runWatchHeartbeat(): Promise<void> {
+    if (tablessWatchers.size === 0) return;
+    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    if (!settings.running) return;
+    const verbose = settings.verboseLogging;
+    let nextState = state;
+    let changed = false;
+    const fallbackPlatforms: Platform[] = [];
+
+    for (const [platform, watcher] of [...tablessWatchers]) {
+      const session = nextState.sessions[platform];
+      if (session.status !== "watching" || session.watchMode !== "tabless") continue;
+
+      let ok = false;
+      let message: string | undefined;
+      try {
+        const result = await watcher.tick(tablessWatchContext());
+        ok = result.ok;
+        message = result.message;
+      } catch (error) {
+        message = error instanceof Error ? error.message : "Tabless heartbeat failed";
+      }
+
+      const previousChecks = session.heartbeatChecks ?? 0;
+      const heartbeatChecks = ok ? 0 : previousChecks + 1;
+      nextState = {
+        ...nextState,
+        sessions: {
+          ...nextState.sessions,
+          [platform]: {
+            ...session,
+            lastHeartbeatAt: new Date().toISOString(),
+            lastHeartbeatOk: ok,
+            heartbeatChecks,
+          },
+        },
+      };
+      changed = true;
+
+      if (ok && previousChecks > 0) {
+        nextState = withEvent(nextState, { platform, level: "info", message: "Tabless watch heartbeat recovered" }, verbose);
+      } else if (!ok && previousChecks === 0) {
+        nextState = withEvent(nextState, { platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" }, verbose);
+      }
+      if (!ok && heartbeatChecks >= settings.offlineRetryLimit && !fallbackPlatforms.includes(platform)) {
+        fallbackPlatforms.push(platform);
+        nextState = withEvent(nextState, { platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" }, verbose);
+      }
+    }
+
+    if (changed) await persist(nextState);
+    // chooseTablessWatch now sees heartbeatChecks past the limit and opens a tab.
+    for (const platform of fallbackPlatforms) {
+      await tick([platform]);
     }
   }
 
@@ -419,6 +542,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     handleTabRemoved,
     handleMessage,
     tick,
+    runWatchHeartbeat,
   };
 
   function settingsWithDefaults(settings: ExtensionSettings): ExtensionSettings {

@@ -5,6 +5,7 @@ import type { RuntimeSnapshot } from "../src/core/messages";
 import { DEFAULT_SETTINGS } from "../src/core/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PlatformAdapter } from "../src/platforms/adapter";
+import type { TablessWatchController } from "../src/core/tablessWatch";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: "reward",
@@ -803,5 +804,75 @@ describe("background controller", () => {
 
     expect(env.state.events[0].level).toBe("error");
     expect(env.state.events[0].message).toBe("adapter factory failed");
+  });
+
+  function fakeTablessWatcher(tick: () => Promise<{ ok: boolean; live?: boolean; message?: string }>) {
+    const watcher = {
+      platform: "twitch" as const,
+      channelUrl: undefined as string | undefined,
+      start: vi.fn(async (ch: { url: string }) => {
+        watcher.channelUrl = ch.url;
+      }),
+      tick: vi.fn(tick),
+      stop: vi.fn(async () => {
+        watcher.channelUrl = undefined;
+      }),
+    };
+    return watcher;
+  }
+
+  function tablessEnv(overrides: Partial<ExtensionSettings> = {}) {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      tablessMode: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { enabled: false, watchQueueChannels: [] },
+      },
+      ...overrides,
+    });
+    env.twitch.supportsTabless = true;
+    return env;
+  }
+
+  it("farms tablessly without opening a tab and records heartbeat health", async () => {
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+
+    await env.controller.tick();
+
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.state.sessions.twitch.watchMode).toBe("tabless");
+    expect(watcher.start).toHaveBeenCalledWith(
+      expect.objectContaining({ url: "https://www.twitch.tv/twitch-creator" }),
+      expect.any(Object),
+    );
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(watcher.tick).toHaveBeenCalled();
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
+  });
+
+  it("falls back to a watch tab once the tabless heartbeat keeps failing", async () => {
+    const watcher = fakeTablessWatcher(async () => ({ ok: false, live: true }));
+    const env = tablessEnv({ offlineRetryLimit: 2 });
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+
+    await env.controller.tick();
+    expect(env.state.sessions.twitch.watchMode).toBe("tabless");
+
+    await env.controller.runWatchHeartbeat(); // heartbeatChecks -> 1
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+
+    await env.controller.runWatchHeartbeat(); // heartbeatChecks -> 2, triggers fallback
+
+    expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.state.sessions.twitch.watchMode).toBe("tab");
+    expect(env.state.sessions.twitch.tablessFallback).toBe(true);
+    expect(watcher.stop).toHaveBeenCalled();
   });
 });

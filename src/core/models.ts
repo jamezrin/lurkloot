@@ -61,6 +61,11 @@ export interface ChannelCandidate {
   title?: string;
   live?: boolean;
   profileImageUrl?: string;
+  // Identifiers the tabless watcher needs to send watch heartbeats without a
+  // tab. Populated by checkChannel when available: broadcastId is the Twitch
+  // stream id (or Kick livestream id), channelId is the channel's user id.
+  broadcastId?: string;
+  channelId?: string;
 }
 
 export interface ChannelCheck {
@@ -86,6 +91,19 @@ export interface WatchSession {
   status: "idle" | "watching" | "paused" | "error";
   message?: string;
   playback?: PlaybackTelemetry;
+  // How the current channel is being watched. "tabless" sends API watch
+  // heartbeats with no tab (low-resource mode); "tab" is the classic visible
+  // muted tab. Absent means tab-based, preserving prior behavior.
+  watchMode?: "tab" | "tabless";
+  // True when tabless mode was wanted but we opened a tab anyway (because the
+  // heartbeat kept failing). Keeps the channel on its tab until it switches.
+  tablessFallback?: boolean;
+  // Health of the tabless heartbeat. lastHeartbeatOk is whether the last watch
+  // signal was accepted; heartbeatChecks counts consecutive unhealthy checks so
+  // the scheduler can fall back to a real tab after offlineRetryLimit.
+  lastHeartbeatAt?: string;
+  lastHeartbeatOk?: boolean;
+  heartbeatChecks?: number;
 }
 
 export interface ManagedWatchTab {
@@ -136,6 +154,10 @@ export interface ExtensionSettings {
   running: boolean;
   autoClaim: boolean;
   autoClaimChannelPoints: boolean;
+  // Opt-in low-resource mode: farm by sending API watch heartbeats instead of
+  // opening a video tab. Twitch is fully tabless; Kick uses a viewer WebSocket.
+  // Falls back to a tab automatically if heartbeats stop earning.
+  tablessMode: boolean;
   muteFarmingTabs: boolean;
   keepFarmingVideosUnmuted: boolean;
   pauseOnManualWatch: boolean;

@@ -1261,3 +1261,117 @@ describe("scheduler tick", () => {
     expect(result.state.events.some((event) => event.message.includes("Claimed channel points"))).toBe(true);
   });
 });
+
+describe("scheduler tabless mode", () => {
+  function tablessAdapter(campaigns: DropCampaign[], candidates: ChannelCandidate[]): PlatformAdapter {
+    return { ...adapter("twitch", campaigns, candidates), supportsTabless: true };
+  }
+
+  it("does not open a watch tab and marks the session tabless when tabless mode is on", async () => {
+    const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        events: [],
+      },
+      settings({ tablessMode: true, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).toBe("watching");
+    expect(result.state.sessions.twitch.watchMode).toBe("tabless");
+    expect(result.state.sessions.twitch.tabId).toBeUndefined();
+    expect(result.state.managedWatchTabs?.twitch).toBeUndefined();
+  });
+
+  it("falls back to a watch tab after the tabless heartbeat keeps failing", async () => {
+    const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: channel("creator") });
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            watchMode: "tabless",
+            heartbeatChecks: 3,
+            lastHeartbeatOk: false,
+            lastHeartbeatAt: new Date().toISOString(),
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [campaign("drops")], kick: [] },
+        events: [],
+      },
+      settings({ offlineRetryLimit: 3, tablessMode: true, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.prepareWatchTab).toHaveBeenCalledTimes(1);
+    expect(result.state.sessions.twitch.watchMode).toBe("tab");
+    expect(result.state.sessions.twitch.tablessFallback).toBe(true);
+  });
+
+  it("stays tabless while heartbeats remain healthy on the same channel", async () => {
+    const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: channel("creator") });
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            watchMode: "tabless",
+            heartbeatChecks: 0,
+            lastHeartbeatOk: true,
+            lastHeartbeatAt: new Date().toISOString(),
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [campaign("drops")], kick: [] },
+        events: [],
+      },
+      settings({ tablessMode: true, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch.watchMode).toBe("tabless");
+  });
+
+  it("uses a watch tab when tabless mode is off (default behavior)", async () => {
+    const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        events: [],
+      },
+      settings({ tablessMode: false, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.prepareWatchTab).toHaveBeenCalledTimes(1);
+    expect(result.state.sessions.twitch.watchMode).toBe("tab");
+  });
+});

@@ -2,7 +2,7 @@ import { browser } from "wxt/browser";
 import { loadSettings, loadState, saveSettings, saveState } from "../src/core/storage";
 import type { RuntimeMessage } from "../src/core/messages";
 import { applyAdFocus } from "../src/core/tabs";
-import { ALARM_NAME, createBackgroundController } from "../src/background/controller";
+import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "../src/background/controller";
 import { KickAdapter } from "../src/platforms/kick";
 import { TwitchAdapter } from "../src/platforms/twitch";
 
@@ -47,6 +47,8 @@ export default defineBackground(() => {
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === ALARM_NAME) {
       void controller.tick();
+    } else if (alarm.name === WATCH_ALARM_NAME) {
+      void controller.runWatchHeartbeat();
     }
   });
 

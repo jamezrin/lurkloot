@@ -413,7 +413,7 @@ function Popup(): React.ReactElement {
       tickAfterSave: options?.tickAfterSave,
       tickAfterSavePlatforms: options?.tickAfterSavePlatforms,
     });
-    setSnapshot({ ...nextSnapshot, settings: mergeSettings(nextSnapshot.settings) });
+    setSnapshot({ ...nextSnapshot, settings: mergeSettings({ ...nextSnapshot.settings, ...nextSettings }) });
   }
 
   async function setAutomation(enabled: boolean): Promise<void> {
@@ -528,7 +528,7 @@ function Popup(): React.ReactElement {
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
-                <ActivityLog events={snapshot.state.events} platform={platform} lastTickAt={snapshot.state.lastTickAt} />
+                <ActivityLog events={snapshot.state.events} platform={platform} lastTickAt={snapshot.state.lastTickAt} verboseLogging={settings.verboseLogging} />
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
@@ -613,12 +613,22 @@ function ActivityLog({
   events,
   platform,
   lastTickAt,
+  verboseLogging,
 }: {
   events: EventLogEntry[];
   platform: Platform;
   lastTickAt?: string;
+  verboseLogging: boolean;
 }): React.ReactElement {
   const [activeLevels, setActiveLevels] = useState<Set<LogLevel>>(() => new Set(DEFAULT_VISIBLE_LEVELS));
+  useEffect(() => {
+    setActiveLevels((current) => {
+      const next = new Set(current);
+      if (verboseLogging) next.add("debug");
+      else next.delete("debug");
+      return next;
+    });
+  }, [verboseLogging]);
   const forPlatform = useMemo(
     () => events.filter((event) => !event.platform || event.platform === platform),
     [events, platform],
@@ -1099,6 +1109,7 @@ function SettingsView({ games, settings, onSettingsChange }: {
   return (
     <div className="space-y-2.5">
       <SettingsSection title="General settings" description="Applies to Twitch and Kick." icon={SettingsIcon}>
+        <SettingRow title="Tabless low-resource mode" description="Farm via lightweight watch heartbeats instead of a video tab. Twitch runs fully tabless; Kick uses a viewer connection. Falls back to a tab automatically if it stops earning." checked={settings.tablessMode} onChange={(value) => onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />
         <SettingRow title="Mute farming tabs" description="Keep drop and Watch Queue tabs muted while farming." checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} />
         <SettingRow title="Pause when watching manually" description="Stop farming while you have a stream open and are watching yourself." checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
         <SettingRow title="Auto-close farming tabs" description="Automatically close when the extension is idle (no drops to farm or no streamers to watch)." checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />

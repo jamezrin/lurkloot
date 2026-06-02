@@ -1,7 +1,12 @@
 import type { ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
+import type { HeartbeatResult, TablessWatchController, WatchContext } from "../core/tablessWatch";
 import { fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
 import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "./adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./twitchParser";
+import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./twitchWatch";
+
+// Inline query: the viewer's own user id, needed for the minute-watched event.
+const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 
@@ -86,6 +91,7 @@ interface TwitchStreamInfoData {
     id?: string;
     displayName?: string;
     stream?: {
+      id?: string;
       type?: string;
       viewersCount?: number;
       game?: { id?: string; name?: string };
@@ -277,6 +283,8 @@ export class TwitchAdapter implements PlatformAdapter {
           categoryId: actualCategoryId ?? channel.categoryId,
           categoryName: stream?.game?.name ?? channel.categoryName,
           viewerCount: stream?.viewersCount ?? channel.viewerCount,
+          channelId: response.data?.user?.id ?? channel.channelId,
+          broadcastId: stream?.id ?? channel.broadcastId,
         },
       };
     } catch (error) {
@@ -348,6 +356,16 @@ export class TwitchAdapter implements PlatformAdapter {
 
   stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
     return stopWatchTab(session, options);
+  }
+
+  // Tabless farming: send Twitch's minute-watched telemetry instead of opening a
+  // video tab. The watcher reuses this adapter's authenticated GQL transport, so
+  // it keeps working even though the controller recreates adapters each tick.
+  supportsTabless = true;
+
+  createTablessWatcher(): TablessWatchController {
+    return new TwitchWatcher((operationName, sha256Hash, variables, query, credentials) =>
+      this.gql(operationName, sha256Hash, variables, query, credentials));
   }
 
   private async mergeCurrentSessionProgress(
@@ -478,6 +496,92 @@ export class TwitchAdapter implements PlatformAdapter {
         candidate: channel,
       };
     }
+  }
+}
+
+type TwitchGql = <T>(
+  operationName: string,
+  sha256Hash: string,
+  variables: Record<string, unknown>,
+  query?: string,
+  credentials?: RequestCredentials,
+) => Promise<TwitchGqlResponse<T>>;
+
+// Sends one minute-watched spade event per tick (~once a minute), the tabless
+// equivalent of keeping a muted video tab playing. Stateless across ticks except
+// for the cached viewer id, so the controller can keep a single instance alive.
+class TwitchWatcher implements TablessWatchController {
+  readonly platform = "twitch" as const;
+  private channel?: ChannelCandidate;
+  private viewerUserId?: string;
+
+  constructor(private readonly gql: TwitchGql) {}
+
+  get channelUrl(): string | undefined {
+    return this.channel?.url;
+  }
+
+  async start(channel: ChannelCandidate, context: WatchContext): Promise<void> {
+    this.channel = channel;
+    if (context.userId) this.viewerUserId = context.userId;
+  }
+
+  async stop(): Promise<void> {
+    this.channel = undefined;
+  }
+
+  async tick(context: WatchContext): Promise<HeartbeatResult> {
+    const channel = this.channel;
+    if (!channel) return { ok: false, message: "Twitch tabless watcher has no channel" };
+    if (context.userId) this.viewerUserId = context.userId;
+
+    // Public stream info (anonymous, like checkChannel) for a fresh broadcast id
+    // and liveness; logged-in GQL without an integrity token would be rejected.
+    const info = await this.gql<TwitchStreamInfoData>(
+      "StreamInfo",
+      TWITCH_QUERIES.streamInfoHash,
+      { channel: channel.username },
+      STREAM_INFO_QUERY,
+      "omit",
+    );
+    const stream = info.data?.user?.stream;
+    const channelId = info.data?.user?.id ?? channel.channelId;
+    const broadcastId = stream?.id ?? channel.broadcastId;
+    if (!stream || !channelId || !broadcastId) {
+      return { ok: false, live: false, message: "Twitch channel is offline or missing a broadcast id" };
+    }
+
+    const userId = await this.resolveUserId();
+    if (!userId) return { ok: false, live: true, message: "Twitch did not return a logged-in user id" };
+
+    const input = await buildSpadeInput({
+      broadcastId,
+      channelId,
+      channelLogin: channel.username,
+      userId,
+      gameId: stream.game?.id,
+      gameName: stream.game?.name,
+    });
+    const result = await this.gql<{ sendSpadeEvents?: { statusCode?: number } }>(
+      "SendEvents",
+      "",
+      { input },
+      SEND_SPADE_EVENTS_MUTATION,
+    );
+    const status = result.data?.sendSpadeEvents?.statusCode;
+    const ok = status === 204;
+    return { ok, live: true, message: ok ? undefined : `Twitch watch event returned status ${status ?? "unknown"}` };
+  }
+
+  private async resolveUserId(): Promise<string | undefined> {
+    if (this.viewerUserId) return this.viewerUserId;
+    try {
+      const response = await this.gql<{ currentUser?: { id?: string } }>("CurrentUser", "", {}, CURRENT_USER_QUERY);
+      this.viewerUserId = response.data?.currentUser?.id;
+    } catch {
+      // Leave unresolved; tick() reports the missing-user case to the scheduler.
+    }
+    return this.viewerUserId;
   }
 }
 

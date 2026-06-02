@@ -7,6 +7,7 @@ import type {
   Platform,
   WatchSession,
 } from "../core/models";
+import type { TablessWatchController } from "../core/tablessWatch";
 
 export interface PreparedWatchTab {
   tabId: number;
@@ -35,6 +36,11 @@ export interface PlatformAdapter {
   claimChannelPoints?(channel: ChannelCandidate): Promise<boolean>;
   prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab>;
   stopWatchTab?(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;
+  // Tabless (low-resource) farming. When supported, the controller drives a
+  // TablessWatchController instead of opening a watch tab; the tab path stays as
+  // the automatic fallback when heartbeats stop earning.
+  supportsTabless?: boolean;
+  createTablessWatcher?(): TablessWatchController;
 }
 
 export interface PageFetcher {

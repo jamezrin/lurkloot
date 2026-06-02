@@ -21,6 +21,22 @@ function activeReward(campaign: DropCampaign): DropReward | undefined {
     ?? earnable.find((reward) => reward.status === "locked");
 }
 
+// Decides whether to farm this channel without a tab. Off unless tabless mode is
+// enabled and the platform supports it; falls back to a tab (returns false) when
+// we deliberately switched to a tab for this same channel, or when tabless
+// heartbeats have been failing past the retry limit.
+function chooseTablessWatch(
+  previous: WatchSession,
+  settings: ExtensionSettings,
+  adapter: Pick<PlatformAdapter, "supportsTabless">,
+  sameChannel: boolean,
+): boolean {
+  if (!settings.tablessMode || !adapter.supportsTabless) return false;
+  if (sameChannel && previous.watchMode === "tab" && previous.tablessFallback) return false;
+  if (sameChannel && previous.watchMode === "tabless" && (previous.heartbeatChecks ?? 0) >= settings.offlineRetryLimit) return false;
+  return true;
+}
+
 function isEligible(campaign: DropCampaign, settings: ExtensionSettings): boolean {
   if (campaign.status !== "active") return false;
   if (hasCampaignEnded(campaign)) return false;
@@ -209,6 +225,11 @@ function sessionForDecision(
       message: decision.reason,
       playback: undefined,
       playbackChecks: 0,
+      watchMode: undefined,
+      tablessFallback: undefined,
+      heartbeatChecks: 0,
+      lastHeartbeatAt: undefined,
+      lastHeartbeatOk: undefined,
     };
   }
 
@@ -277,6 +298,11 @@ export async function runSchedulerTick(
           errorChecks: 0,
           retryAfter: undefined,
           message: "automation disabled",
+          watchMode: undefined,
+          tablessFallback: undefined,
+          heartbeatChecks: 0,
+          lastHeartbeatAt: undefined,
+          lastHeartbeatOk: undefined,
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
@@ -332,7 +358,7 @@ export async function runSchedulerTick(
         nextState,
         platform,
         "debug",
-        `Keep-watching check: ${shouldKeep.keep ? "keep" : "switch"} (${shouldKeep.reason}); playback ${isPlaybackHealthy(previous) ? "healthy" : "unhealthy"}`,
+        `Keep-watching check: ${shouldKeep.keep ? "keep" : "switch"} (${shouldKeep.reason}); ${previous.watchMode === "tabless" ? "heartbeat" : "playback"} ${isSessionHealthy(previous) ? "healthy" : "unhealthy"}`,
         verbose,
       );
       if (shouldKeep.keep && previous.channel) {
@@ -361,38 +387,67 @@ export async function runSchedulerTick(
       }
       const session = sessionForDecision(decision, previous, shouldKeep);
       if (decision.channel && decision.action !== "idle") {
-        const watchTabOptions = {
-          muted: settings.muteFarmingTabs,
-          closeManagedTabs: settings.autoCloseFinishedDrops,
-          keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
-          ...(nextState.managedWatchTabs?.[platform] ? { managedTab: nextState.managedWatchTabs[platform] } : {}),
-        };
-        const prepared = await adapter.prepareWatchTab(decision.channel, previous, watchTabOptions);
-        session.tabId = prepared.tabId;
-        session.tabManagedByExtension = prepared.managedByExtension;
-        nextState = addTickEvent(
-          nextState,
-          platform,
-          "debug",
-          `Watch tab ready (tab ${prepared.tabId}, ${prepared.managedByExtension ? "extension-managed" : "user tab"}) for ${decision.channel.displayName ?? decision.channel.username}`,
-          verbose,
-        );
-        if (prepared.managedByExtension) {
-          nextState.managedWatchTabs = {
-            ...nextState.managedWatchTabs,
-            [platform]: prepared.managedTab ?? {
-              platform,
-              tabId: prepared.tabId,
-              channelUrl: decision.channel.url,
-              ownedByExtension: true as const,
-            },
-          };
-        } else {
+        const sameChannel = previous.channel?.url === decision.channel.url;
+        const useTabless = chooseTablessWatch(previous, settings, adapter, sameChannel);
+        session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
+        session.playbackChecks = useTabless ? 0 : shouldKeep.playbackChecks;
+
+        if (useTabless) {
+          // Tabless: no video tab. Close any tab we previously opened for this
+          // platform; the controller starts/keeps the heartbeat watcher.
+          await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
           nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+          session.watchMode = "tabless";
+          session.tablessFallback = false;
+          session.tabId = undefined;
+          session.tabManagedByExtension = undefined;
+          // Carry heartbeat health across the same channel; reset on a switch.
+          session.heartbeatChecks = sameChannel ? previous.heartbeatChecks ?? 0 : 0;
+          session.lastHeartbeatAt = sameChannel ? previous.lastHeartbeatAt : undefined;
+          session.lastHeartbeatOk = sameChannel ? previous.lastHeartbeatOk : undefined;
+          nextState = addTickEvent(
+            nextState,
+            platform,
+            "debug",
+            `Tabless watch armed for ${decision.channel.displayName ?? decision.channel.username}`,
+            verbose,
+          );
+        } else {
+          const watchTabOptions = {
+            muted: settings.muteFarmingTabs,
+            closeManagedTabs: settings.autoCloseFinishedDrops,
+            keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
+            ...(nextState.managedWatchTabs?.[platform] ? { managedTab: nextState.managedWatchTabs[platform] } : {}),
+          };
+          const prepared = await adapter.prepareWatchTab(decision.channel, previous, watchTabOptions);
+          session.tabId = prepared.tabId;
+          session.tabManagedByExtension = prepared.managedByExtension;
+          // Mark a deliberate fallback so the next tick stays on the tab for this
+          // channel instead of flipping back to a failing tabless heartbeat.
+          session.watchMode = "tab";
+          session.tablessFallback = Boolean(settings.tablessMode && adapter.supportsTabless);
+          nextState = addTickEvent(
+            nextState,
+            platform,
+            "debug",
+            `Watch tab ready (tab ${prepared.tabId}, ${prepared.managedByExtension ? "extension-managed" : "user tab"}) for ${decision.channel.displayName ?? decision.channel.username}`,
+            verbose,
+          );
+          if (prepared.managedByExtension) {
+            nextState.managedWatchTabs = {
+              ...nextState.managedWatchTabs,
+              [platform]: prepared.managedTab ?? {
+                platform,
+                tabId: prepared.tabId,
+                channelUrl: decision.channel.url,
+                ownedByExtension: true as const,
+              },
+            };
+          } else {
+            nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+          }
         }
         nextState.managedPageContextTabs = await stopManagedPageContextTabs(currentManagedPageContextTabs(), { platforms: [platform] });
-        session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
-        session.playbackChecks = shouldKeep.playbackChecks;
         if (settings.autoClaimChannelPoints && adapter.claimChannelPoints) {
           try {
             const claimed = await adapter.claimChannelPoints(decision.channel);
@@ -549,11 +604,15 @@ async function shouldKeepWatching(
   if (previous.campaignId && settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "current channel is excluded from drops" };
   }
+  // Tabless sessions have no playback telemetry; their health is the heartbeat,
+  // which the controller tracks and falls back to a tab on. Here we only keep or
+  // switch the channel based on liveness/category, so skip playback retries.
+  const isTabless = previous.watchMode === "tabless";
   if (!settings.watchQueueFallbackOnly && !previous.campaignId && nextDecision.action === "watch") {
     const fallbackCheck = await adapter.checkChannel(previous.channel);
     const fallbackOfflineChecks = fallbackCheck.live ? 0 : previous.offlineChecks + 1;
     if (fallbackCheck.live && fallbackCheck.categoryMatches) {
-      const fallbackPlaybackChecks = isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
+      const fallbackPlaybackChecks = isTabless || isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
       if (fallbackPlaybackChecks < settings.offlineRetryLimit) {
         return {
           keep: true,
@@ -594,7 +653,7 @@ async function shouldKeepWatching(
     return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "channel category no longer matches" };
   }
 
-  const playbackChecks = isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
+  const playbackChecks = isTabless || isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
   if (playbackChecks >= settings.offlineRetryLimit) {
     return {
       keep: false,
@@ -623,6 +682,20 @@ function isPlaybackHealthy(session: WatchSession): boolean {
   // may keep the video muted; that is still healthy as long as it plays.
   return playback.videoCount > 0
     && playback.playingVideoCount > 0;
+}
+
+// Health of the current watch, regardless of mode: a tabless session is healthy
+// when its last heartbeat was accepted recently; a tab session relies on
+// playback telemetry.
+function isSessionHealthy(session: WatchSession): boolean {
+  return session.watchMode === "tabless" ? isHeartbeatHealthy(session) : isPlaybackHealthy(session);
+}
+
+function isHeartbeatHealthy(session: WatchSession): boolean {
+  if (!session.lastHeartbeatOk || !session.lastHeartbeatAt) return false;
+  const at = Date.parse(session.lastHeartbeatAt);
+  if (Number.isNaN(at)) return false;
+  return Date.now() - at < 3 * 60 * 1000;
 }
 
 // Records a tick event unless it is a debug entry while verbose logging is off —

@@ -607,7 +607,7 @@ type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageContextT
 async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
   const parsedInit = initJson ? JSON.parse(initJson) : undefined;
   const headers = new Headers(parsedInit?.headers ?? {});
-  if (targetUrl.includes("web.kick.com") && !headers.has("authorization")) {
+  if ((targetUrl.includes("web.kick.com") || targetUrl.includes("websockets.kick.com")) && !headers.has("authorization")) {
     const sessionToken = document.cookie
       .split(";")
       .map((part) => part.trim())
