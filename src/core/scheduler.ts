@@ -127,7 +127,7 @@ export async function chooseCampaignDecision(
         campaign,
         reward,
         channel,
-        reason: "eligible campaign selected",
+        reason: "Eligible campaign selected",
       };
     }
   }
@@ -143,33 +143,33 @@ export async function chooseCampaignDecision(
       platform,
       action: "fallback",
       channel: fallback,
-      reason: `${noCampaignReason}; watch queue channel selected`,
+      reason: `${noCampaignReason}; Watch Queue channel selected`,
     };
   }
 
-  return { platform, action: "idle", reason: `${noCampaignReason} and no watch queue channels` };
+  return { platform, action: "idle", reason: `${noCampaignReason} and no Watch Queue channels` };
 }
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: ExtensionSettings): string {
-  if (campaigns.length === 0) return "no campaigns discovered";
+  if (campaigns.length === 0) return "No campaigns discovered";
   const notExcluded = campaigns.filter((campaign) => !settings.excludedCampaignIds.includes(campaign.id));
-  if (notExcluded.length === 0) return "all campaigns are excluded";
+  if (notExcluded.length === 0) return "All campaigns are excluded";
   if (notExcluded.every((campaign) => campaign.status === "upcoming" || campaign.eligibility === "upcoming")) {
-    return "only upcoming campaigns are available";
+    return "Only upcoming campaigns are available";
   }
   if (notExcluded.every((campaign) => campaign.status === "expired" || campaign.eligibility === "expired")) {
-    return "only expired campaigns are available";
+    return "Only expired campaigns are available";
   }
   if (notExcluded.every((campaign) => campaign.status === "completed" || campaign.eligibility === "completed")) {
-    return "all campaigns are completed";
+    return "All campaigns are completed";
   }
   if (notExcluded.every((campaign) => campaign.eligibility === "no_rewards" || campaign.rewards.length === 0)) {
-    return "campaigns have no time-based rewards";
+    return "Campaigns have no time-based rewards";
   }
   if (notExcluded.every((campaign) => campaign.accountLinked === false || campaign.eligibility === "account_not_linked")) {
-    return "campaign accounts are not linked";
+    return "Campaign accounts are not linked";
   }
-  return "no eligible campaigns";
+  return "No eligible campaigns";
 }
 
 async function firstValidCandidate(
@@ -298,7 +298,7 @@ export async function runSchedulerTick(
           playbackChecks: 0,
           errorChecks: 0,
           retryAfter: undefined,
-          message: "manual watch detected",
+          message: "Manual watch detected",
           watchMode: undefined,
           tablessFallback: undefined,
           heartbeatChecks: 0,
@@ -324,7 +324,7 @@ export async function runSchedulerTick(
           playbackChecks: 0,
           errorChecks: 0,
           retryAfter: undefined,
-          message: "automation disabled",
+          message: "Automation disabled",
           watchMode: undefined,
           tablessFallback: undefined,
           heartbeatChecks: 0,
@@ -342,7 +342,7 @@ export async function runSchedulerTick(
           ...previous,
           status: "error",
           lastCheckedAt: new Date().toISOString(),
-          message: `waiting until ${previous.retryAfter} before retrying after platform errors`,
+          message: `Waiting until ${previous.retryAfter} before retrying after platform errors`,
         };
         nextState = addTickEvent(nextState, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred", verbose);
         continue;
@@ -399,7 +399,7 @@ export async function runSchedulerTick(
           channel: shouldKeep.channel ?? previous.channel,
           reason: shouldKeep.reason,
         };
-      } else if (previous.status === "watching" && previous.channel && shouldKeep.reason !== "no existing watch session") {
+      } else if (previous.status === "watching" && previous.channel && shouldKeep.reason !== "No existing watch session") {
         decision = {
           ...decision,
           reason: shouldKeep.reason,
@@ -627,16 +627,16 @@ async function shouldKeepWatching(
   adapter: Pick<PlatformAdapter, "checkChannel">,
 ): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string; channel?: ChannelCandidate }> {
   if (!previous.channel || previous.status !== "watching") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "no existing watch session" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session" };
   }
   if (nextDecision.action === "idle") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason };
   }
   if (previous.campaignId && nextDecision.action !== "watch") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "current campaign is no longer eligible" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current campaign is no longer eligible" };
   }
   if (previous.campaignId && settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "current channel is excluded from drops" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current channel is excluded from drops" };
   }
   // Tabless sessions have no playback telemetry; their health is the heartbeat,
   // which the controller tracks and falls back to a tab on. Here we only keep or
@@ -653,7 +653,7 @@ async function shouldKeepWatching(
           offlineChecks: fallbackOfflineChecks,
           playbackChecks: fallbackPlaybackChecks,
           channel: channelFromCheck(previous.channel, fallbackCheck),
-          reason: "keeping current Watch Queue tab",
+          reason: "Keeping current Watch Queue tab",
         };
       }
     }
@@ -664,7 +664,7 @@ async function shouldKeepWatching(
     && nextDecision.action === "watch"
     && nextDecision.campaign?.id !== previous.campaignId;
   if (differentCampaignAvailable) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "higher priority eligible campaign available" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority eligible campaign available" };
   }
 
   // When watching a Watch Queue fallback, a different selection means a
@@ -674,17 +674,17 @@ async function shouldKeepWatching(
     && nextDecision.action === "fallback"
     && !previous.campaignId;
   if (differentFallbackAvailable) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "higher priority watch queue channel available" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Watch Queue channel available" };
   }
 
   const check = await adapter.checkChannel(previous.channel);
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
   if (offlineChecks >= settings.offlineRetryLimit) {
-    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "channel offline retry limit reached" };
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached" };
   }
 
   if (!check.categoryMatches) {
-    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "channel category no longer matches" };
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel category no longer matches" };
   }
 
   const playbackChecks = isTabless || isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
@@ -693,7 +693,7 @@ async function shouldKeepWatching(
       keep: false,
       offlineChecks,
       playbackChecks,
-      reason: "watch tab playback did not become active",
+      reason: "Watch tab playback did not become active",
     };
   }
 
@@ -702,7 +702,7 @@ async function shouldKeepWatching(
     offlineChecks,
     playbackChecks,
     channel: channelFromCheck(previous.channel, check),
-    reason: "keeping current watch tab",
+    reason: "Keeping current watch tab",
   };
 }
 

@@ -159,7 +159,7 @@ describe("scheduler campaign selection", () => {
 
     expect(decision).toMatchObject({
       action: "idle",
-      reason: "only upcoming campaigns are available and no watch queue channels",
+      reason: "Only upcoming campaigns are available and no Watch Queue channels",
     });
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
@@ -437,7 +437,7 @@ describe("scheduler tick", () => {
 
     expect(result.state.sessions.twitch).toMatchObject({
       status: "paused",
-      message: "manual watch detected",
+      message: "Manual watch detected",
       tabId: undefined,
     });
     expect(twitch.stopWatchTab).toHaveBeenCalled();
@@ -606,7 +606,7 @@ describe("scheduler tick", () => {
     );
 
     expect(result.state.sessions.twitch.channel?.username).toBe("new");
-    expect(result.state.sessions.twitch.message).toBe("current channel is excluded from drops");
+    expect(result.state.sessions.twitch.message).toBe("Current channel is excluded from drops");
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "new" }),
       expect.objectContaining({ tabId: 7 }),
@@ -789,7 +789,7 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(result.state.sessions.twitch.message).toBe("watch tab playback did not become active");
+    expect(result.state.sessions.twitch.message).toBe("Watch tab playback did not become active");
     expect(result.state.sessions.twitch.playback).toBeUndefined();
     expect(result.state.sessions.twitch.playbackChecks).toBe(3);
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
@@ -797,7 +797,7 @@ describe("scheduler tick", () => {
       expect.objectContaining({ tabId: 7 }),
       { muted: true, closeManagedTabs: true, keepVideosUnmuted: true },
     );
-    expect(result.state.events.some((event) => event.message === "watch tab playback did not become active")).toBe(true);
+    expect(result.state.events.some((event) => event.message === "Watch tab playback did not become active")).toBe(true);
   });
 
   it("switches from a campaign watch tab to fallback when the campaign becomes ineligible", async () => {
@@ -1288,7 +1288,7 @@ describe("scheduler tick", () => {
 
     expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.retryAfter).toBe(retryAfter);
-    expect(result.state.events.some((event) => event.message.includes("waiting until"))).toBe(true);
+    expect(result.state.events.some((event) => event.message.includes("Waiting until"))).toBe(true);
   });
 
   it("clears platform backoff after a successful retry", async () => {

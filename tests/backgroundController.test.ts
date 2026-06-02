@@ -179,7 +179,7 @@ describe("background controller", () => {
       status: "paused",
       tabId: undefined,
       tabManagedByExtension: undefined,
-      message: "browser restarted; farming paused",
+      message: "Browser restarted; farming paused",
     });
     expect(env.state.events[0]).toMatchObject({
       level: "info",
@@ -234,7 +234,7 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch).toMatchObject({
       status: "paused",
       tabId: undefined,
-      message: "browser restarted; farming paused",
+      message: "Browser restarted; farming paused",
     });
   });
 
@@ -438,7 +438,7 @@ describe("background controller", () => {
     expect(snapshot.state.sessions.kick.status).toBe("watching");
     // The tick ran and recorded the per-platform decision; the debug-only
     // "Scheduler tick completed" heartbeat is suppressed while verbose is off.
-    expect(snapshot.state.events.some((event) => event.message === "eligible campaign selected")).toBe(true);
+    expect(snapshot.state.events.some((event) => event.message === "Eligible campaign selected")).toBe(true);
     expect(snapshot.state.events.some((event) => event.level === "debug")).toBe(false);
   });
 

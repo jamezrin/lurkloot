@@ -723,7 +723,7 @@ function pausedStartupSession(session: WatchSession): WatchSession {
     playbackChecks: 0,
     errorChecks: 0,
     retryAfter: undefined,
-    message: "browser restarted; farming paused",
+    message: "Browser restarted; farming paused",
   };
 }
 
