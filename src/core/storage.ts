@@ -56,6 +56,9 @@ export async function loadState(): Promise<SchedulerState> {
       ...DEFAULT_STATE.managedPageContextTabs,
       ...(data[STATE_KEY] as Partial<SchedulerState> | undefined)?.managedPageContextTabs,
     },
+    manualWatch: {
+      ...(data[STATE_KEY] as Partial<SchedulerState> | undefined)?.manualWatch,
+    },
     campaigns: {
       ...DEFAULT_STATE.campaigns,
       ...(data[STATE_KEY] as Partial<SchedulerState> | undefined)?.campaigns,

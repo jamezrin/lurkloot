@@ -50,12 +50,10 @@ async function controlPlaybackAndReport(platform: Platform): Promise<void> {
   // this is the managed watch tab, so it only spoofs visibility while farming.
   setKeepAlive(Boolean(control?.managed));
 
-  if (!control?.managed) return;
-
   const videos = [...document.querySelectorAll("video")];
   let blockedPlaybackCount = 0;
 
-  if (control.keepVideosUnmuted) {
+  if (control?.managed && control.keepVideosUnmuted) {
     // Our mute/unmute/replay mutations below fire volumechange/pause events; keep
     // them from re-queuing control while we are actively driving the elements.
     for (const video of videos) {

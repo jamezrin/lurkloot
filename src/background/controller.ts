@@ -2,7 +2,7 @@ import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../core/m
 import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "../core/models";
 import { appendLog } from "../core/logging";
 import { mergeSettings } from "../core/settings";
-import { runSchedulerTick } from "../core/scheduler";
+import { MANUAL_WATCH_TTL_MS, runSchedulerTick } from "../core/scheduler";
 import { setActivityLogger, setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
@@ -220,6 +220,15 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
 
   async function handleTabRemoved(tabId: number): Promise<void> {
     const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    const manualPlatforms = (["twitch", "kick"] as Platform[]).filter((platform) => state.manualWatch?.[platform]?.tabId === tabId);
+    if (manualPlatforms.length > 0) {
+      const manualWatch = { ...state.manualWatch };
+      for (const platform of manualPlatforms) delete manualWatch[platform];
+      await persist({
+        ...state,
+        manualWatch,
+      });
+    }
     if (!settings.running) return;
 
     for (const platform of ["twitch", "kick"] as Platform[]) {
@@ -367,7 +376,17 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     await withStateLock(async () => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const session = state.sessions[message.platform];
-      if (senderTabId != null && session.tabId != null && senderTabId !== session.tabId) return;
+      const isManagedWatchTab = senderTabId != null
+        && session.status === "watching"
+        && session.watchMode !== "tabless"
+        && session.tabId === senderTabId;
+
+      if (!isManagedWatchTab) {
+        if (senderTabId != null) {
+          await persist(recordManualWatchTelemetry(state, settings, message, senderTabId));
+        }
+        return;
+      }
 
       const previous = session.playback;
       const telemetry = message.telemetry;
@@ -399,6 +418,32 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
         await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), settings.adFocusMode);
       }
     });
+  }
+
+  function recordManualWatchTelemetry(
+    state: SchedulerState,
+    settings: ExtensionSettings,
+    message: Extract<RuntimeMessage, { type: "playbackTelemetry" }>,
+    senderTabId: number,
+  ): SchedulerState {
+    const manualWatch = { ...state.manualWatch };
+    if (!settings.pauseOnManualWatch) {
+      delete manualWatch[message.platform];
+      return { ...state, manualWatch };
+    }
+
+    const active = message.telemetry.playingVideoCount > 0 && !message.telemetry.documentHidden;
+    const previous = manualWatch[message.platform];
+    const recentPrevious = previous?.active && Date.now() - Date.parse(previous.checkedAt) <= MANUAL_WATCH_TTL_MS;
+    if (!active && previous?.tabId !== senderTabId && recentPrevious) return state;
+
+    manualWatch[message.platform] = {
+      platform: message.platform,
+      tabId: senderTabId,
+      checkedAt: new Date().toISOString(),
+      active,
+    };
+    return { ...state, manualWatch };
   }
 
   async function applyAdFocusForState(settings: ExtensionSettings, state: SchedulerState): Promise<void> {

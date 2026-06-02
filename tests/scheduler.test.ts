@@ -388,6 +388,62 @@ describe("scheduler tick", () => {
     expect(twitch.readProgress).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ channel: first }));
   });
 
+  it("pauses only the platform with recent manual watch activity", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [
+      channel("kick-creator", { platform: "kick", url: "https://kick.com/kick-creator" }),
+    ]);
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        manualWatch: {
+          twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date().toISOString() },
+        },
+        campaigns: { twitch: [], kick: [] },
+        events: [],
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
+      { twitch, kick },
+    );
+
+    expect(result.state.sessions.twitch).toMatchObject({
+      status: "paused",
+      message: "manual watch detected",
+      tabId: undefined,
+    });
+    expect(twitch.stopWatchTab).toHaveBeenCalled();
+    expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(result.state.sessions.kick.status).toBe("watching");
+    expect(kick.prepareWatchTab).toHaveBeenCalled();
+  });
+
+  it("ignores stale manual watch activity", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        manualWatch: {
+          twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date(Date.now() - 60_000).toISOString() },
+        },
+        campaigns: { twitch: [], kick: [] },
+        events: [],
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.status).toBe("watching");
+    expect(twitch.prepareWatchTab).toHaveBeenCalled();
+  });
+
   it("records debug events only when verbose logging is enabled", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
     const baseState = {

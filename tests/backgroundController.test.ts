@@ -498,6 +498,47 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
   });
 
+  it("records visible playback in a non-managed tab as manual watch activity", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, pauseOnManualWatch: true });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    }, { tab: { id: 999 } });
+
+    expect(env.state.manualWatch?.twitch).toMatchObject({
+      platform: "twitch",
+      tabId: 999,
+      active: true,
+    });
+    expect(env.state.sessions.twitch.playback).toBeUndefined();
+  });
+
+  it("clears manual watch activity when the source tab is closed", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, pauseOnManualWatch: true });
+    env.state.manualWatch = {
+      twitch: {
+        platform: "twitch",
+        tabId: 999,
+        active: true,
+        checkedAt: new Date().toISOString(),
+      },
+    };
+
+    await env.controller.handleTabRemoved(999);
+
+    expect(env.state.manualWatch?.twitch).toBeUndefined();
+  });
+
   it("logs playback transitions such as ad starts and blocked playback", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false });
     await env.controller.handleMessage({ type: "setRunning", running: true });

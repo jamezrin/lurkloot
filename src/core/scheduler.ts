@@ -14,6 +14,7 @@ import { appendLog, type LogLevel } from "./logging";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
+export const MANUAL_WATCH_TTL_MS = 20_000;
 
 function activeReward(campaign: DropCampaign): DropReward | undefined {
   const earnable = campaign.rewards.filter((reward) => reward.preconditionsMet !== false && isRewardAvailableToEarn(reward));
@@ -283,6 +284,32 @@ export async function runSchedulerTick(
 
     try {
       nextState = addTickEvent(nextState, platform, "debug", `Tick start (previous status: ${previous.status})`, verbose);
+      if (settings.pauseOnManualWatch && hasRecentManualWatch(nextState, platform)) {
+        await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
+        nextState.sessions[platform] = {
+          ...previous,
+          status: "paused",
+          channel: undefined,
+          campaignId: undefined,
+          rewardId: undefined,
+          tabId: undefined,
+          tabManagedByExtension: undefined,
+          playback: undefined,
+          playbackChecks: 0,
+          errorChecks: 0,
+          retryAfter: undefined,
+          message: "manual watch detected",
+          watchMode: undefined,
+          tablessFallback: undefined,
+          heartbeatChecks: 0,
+          lastHeartbeatAt: undefined,
+          lastHeartbeatOk: undefined,
+        };
+        nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+        nextState.managedPageContextTabs = await stopManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
+        nextState = addTickEvent(nextState, platform, "info", "Manual watch detected; pausing farming for this platform", verbose);
+        continue;
+      }
       if (!settings.running || !platformSettings.enabled) {
         await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
         nextState.sessions[platform] = {
@@ -488,6 +515,13 @@ export async function runSchedulerTick(
 
   nextState.managedPageContextTabs = currentManagedPageContextTabs();
   return { state: nextState, decisions };
+}
+
+function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolean {
+  const manualWatch = state.manualWatch?.[platform];
+  if (!manualWatch?.active) return false;
+  const checkedAt = Date.parse(manualWatch.checkedAt);
+  return !Number.isNaN(checkedAt) && Date.now() - checkedAt <= MANUAL_WATCH_TTL_MS;
 }
 
 function hasWatchQueueChannels(settings: ExtensionSettings, platform: Platform): boolean {
