@@ -720,16 +720,90 @@ describe("TwitchAdapter", () => {
     expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Array Campaign", eligibility: "eligible" });
   });
 
-  it("surfaces PersistedQueryNotFound from an array-wrapped Twitch GQL response", async () => {
+  it("retries PersistedQueryNotFound from an array-wrapped Twitch GQL response with an inline query", async () => {
+    let inventoryAttempts = 0;
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
-      if (op === "Inventory") return [{ errors: [{ message: "PersistedQueryNotFound" }] }];
+      if (op === "Inventory") {
+        inventoryAttempts += 1;
+        if (inventoryAttempts === 1) {
+          expect(requestBody(init).query).toBeUndefined();
+          return [{ errors: [{ message: "PersistedQueryNotFound" }] }];
+        }
+        expect(String(requestBody(init).query)).toContain("dropCampaignsInProgress");
+        return {
+          data: {
+            currentUser: {
+              id: "user-id",
+              inventory: {
+                dropCampaignsInProgress: [{
+                  id: "campaign",
+                  name: "Inline Campaign",
+                  game: { id: "game", slug: "fortnite", displayName: "Fortnite" },
+                  timeBasedDrops: [{
+                    id: "drop",
+                    requiredMinutesWatched: 30,
+                    benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
+                  }],
+                }],
+              },
+            },
+          },
+        };
+      }
       if (op === "ViewerDropsDashboard") return [null];
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await expect(new TwitchAdapter(fetcher).discoverCampaigns())
-      .rejects.toThrow("PersistedQueryNotFound");
+    const campaigns = await new TwitchAdapter(fetcher).discoverCampaigns();
+
+    expect(inventoryAttempts).toBe(2);
+    expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Inline Campaign", eligibility: "eligible" });
+  });
+
+  it("does not use inline fallback for non-persisted-query Twitch errors", async () => {
+    let inventoryAttempts = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        inventoryAttempts += 1;
+        return [{ errors: [{ message: "permission denied" }] }];
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await expect(new TwitchAdapter(fetcher).discoverCampaigns()).rejects.toThrow("permission denied");
+    expect(inventoryAttempts).toBe(1);
+  });
+
+  it("retries channel points context with an inline query when the persisted hash is stale", async () => {
+    let contextAttempts = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "ChannelPointsContext") {
+        contextAttempts += 1;
+        if (contextAttempts === 1) return { errors: [{ message: "PersistedQueryNotFound" }] };
+        expect(String(requestBody(init).query)).toContain("availableClaim");
+        return {
+          data: {
+            community: {
+              channel: {
+                id: "channel-id",
+                self: { communityPoints: { availableClaim: { id: "claim-id" } } },
+              },
+            },
+          },
+        };
+      }
+      if (op === "ClaimCommunityPoints") {
+        return { data: { claimCommunityPoints: { status: "CLAIMED" } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await expect(new TwitchAdapter(fetcher).claimChannelPoints({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }))
+      .resolves.toBe(true);
+    expect(contextAttempts).toBe(2);
   });
 
   it("uses the TwitchDropsMiner-proven persisted hash for the Inventory query", async () => {

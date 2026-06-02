@@ -41,6 +41,91 @@ const STREAM_INFO_QUERY = `query StreamInfo($channel: String!) {
   }
 }`;
 
+const TWITCH_CAMPAIGN_FIELDS = `{
+  id
+  name
+  imageURL
+  startAt
+  endAt
+  status
+  accountLinkURL
+  self { isAccountConnected }
+  game { id name displayName slug boxArtURL }
+  allow { channels { name login } }
+  timeBasedDrops {
+    id
+    name
+    startAt
+    endAt
+    requiredMinutesWatched
+    requiredSubs
+    preconditionDrops { id }
+    benefitEdges { benefit { id name imageAssetURL distributionType } }
+    self { currentMinutesWatched isClaimed dropInstanceID }
+  }
+}`;
+
+const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
+  Inventory: `query Inventory($fetchRewardCampaigns: Boolean!) {
+    currentUser {
+      id
+      inventory {
+        gameEventDrops { id benefit { id } lastAwardedAt }
+        dropCampaignsInProgress ${TWITCH_CAMPAIGN_FIELDS}
+        dropCampaigns @include(if: $fetchRewardCampaigns) ${TWITCH_CAMPAIGN_FIELDS}
+      }
+    }
+  }`,
+  ViewerDropsDashboard: `query ViewerDropsDashboard($fetchRewardCampaigns: Boolean!) {
+    currentUser {
+      id
+      login
+      inventory {
+        dropCampaigns @include(if: $fetchRewardCampaigns) { id status self { isAccountConnected } }
+      }
+      dropCampaigns { id status self { isAccountConnected } }
+    }
+  }`,
+  DropCampaignDetails: `query DropCampaignDetails($channelLogin: String!, $dropID: ID!) {
+    currentUser { id login }
+    user(login: $channelLogin) {
+      dropCampaign(id: $dropID) ${TWITCH_CAMPAIGN_FIELDS}
+    }
+  }`,
+  DirectoryPage_Game: `query DirectoryPage_Game($slug: String!, $options: StreamSearchOptions, $sortTypeIsRecency: Boolean, $limit: Int) {
+    game(name: $slug) {
+      streams(options: $options, first: $limit, sortTypeIsRecency: $sortTypeIsRecency) {
+        edges {
+          node {
+            title
+            viewersCount
+            broadcaster { login displayName profileImageURL }
+          }
+        }
+      }
+    }
+  }`,
+  DropCurrentSessionContext: `query DropCurrentSessionContext($channelID: ID!, $channelLogin: String!) {
+    currentUser {
+      dropCurrentSession(channelID: $channelID, channelLogin: $channelLogin) {
+        dropID
+        currentMinutesWatched
+      }
+    }
+  }`,
+  ChannelPointsContext: `query ChannelPointsContext($channelLogin: String!) {
+    community {
+      channel(login: $channelLogin) {
+        id
+        self { communityPoints { availableClaim { id } } }
+      }
+    }
+  }`,
+  ClaimCommunityPoints: `mutation ClaimCommunityPoints($input: ClaimCommunityPointsInput!) {
+    claimCommunityPoints(input: $input) { status }
+  }`,
+};
+
 interface TwitchGqlResponse<T> {
   data?: T;
   errors?: Array<{ message?: string }>;
@@ -430,7 +515,7 @@ export class TwitchAdapter implements PlatformAdapter {
     query?: string,
     credentials?: RequestCredentials,
   ): Promise<TwitchGqlResponse<T>> {
-    const request = {
+    const buildRequest = (queryText?: string) => ({
       method: "POST",
       headers: {
         "Accept": "*/*",
@@ -440,8 +525,8 @@ export class TwitchAdapter implements PlatformAdapter {
       },
       ...(credentials ? { credentials } : {}),
       body: JSON.stringify(
-        query
-          ? { operationName, variables, query }
+        queryText
+          ? { operationName, variables, query: queryText }
           : {
               operationName,
               variables,
@@ -453,8 +538,9 @@ export class TwitchAdapter implements PlatformAdapter {
               },
             },
       ),
-    } satisfies RequestInit;
-    const fetchOnce = async (): Promise<TwitchGqlResponse<T> | null> => {
+    } satisfies RequestInit);
+    const fetchOnce = async (queryText?: string): Promise<TwitchGqlResponse<T> | null> => {
+      const request = buildRequest(queryText);
       const raw = await this.fetcher.fetchJson<unknown>("https://gql.twitch.tv/gql", request);
       // The page fetcher reports failures as a serializable envelope (a rejection
       // would be swallowed at the executeScript boundary). Surface its diagnostic.
@@ -462,14 +548,23 @@ export class TwitchAdapter implements PlatformAdapter {
       if (pageError) throw new Error(`${operationName}: ${pageError}`);
       return normalizeTwitchGqlResponse<T>(raw);
     };
-    let response = await fetchOnce();
+    let activeQuery = query;
+    let response = await fetchOnce(activeQuery);
     if (!isTwitchGqlResponse<T>(response)) {
       throw new Error(`${operationName} ${query ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
     }
-    if (response.errors?.some((error) => isTransientGqlError(error.message))) {
-      response = await fetchOnce();
+    const fallbackQuery = !query ? TWITCH_INLINE_QUERIES[operationName] : undefined;
+    if (fallbackQuery && hasPersistedQueryNotFound(response)) {
+      activeQuery = fallbackQuery;
+      response = await fetchOnce(activeQuery);
       if (!isTwitchGqlResponse<T>(response)) {
-        throw new Error(`${operationName} ${query ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
+        throw new Error(`${operationName} inline query fallback returned an empty Twitch GQL response`);
+      }
+    }
+    if (response.errors?.some((error) => isTransientGqlError(error.message))) {
+      response = await fetchOnce(activeQuery);
+      if (!isTwitchGqlResponse<T>(response)) {
+        throw new Error(`${operationName} ${activeQuery ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
       }
     }
     if (response.error || (response.message && response.data === undefined)) {
@@ -642,6 +737,10 @@ function isTransientGqlError(message: string | undefined): boolean {
     || message === "service timeout"
     || message === "service unavailable"
     || message === "context deadline exceeded";
+}
+
+function hasPersistedQueryNotFound<T>(response: TwitchGqlResponse<T>): boolean {
+  return response.errors?.some((error) => error.message === "PersistedQueryNotFound") ?? false;
 }
 
 function parseLiveState(html: string): boolean {
