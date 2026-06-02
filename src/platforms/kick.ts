@@ -73,12 +73,11 @@ export class KickAdapter implements PlatformAdapter {
   async listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]> {
     const aclCandidates = kickCandidatesFromCampaign(campaign);
     if (aclCandidates.length > 0) return aclCandidates;
-    if (!campaign.categoryId) return [];
 
     const url = new URL("https://web.kick.com/api/v1/livestreams");
     url.searchParams.set("limit", "25");
     url.searchParams.set("sort", "viewer_count");
-    url.searchParams.set("category_id", campaign.categoryId);
+    if (campaign.categoryId) url.searchParams.set("category_id", campaign.categoryId);
 
     const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString());
     const streams = Array.isArray(response.data) ? response.data : response.data?.livestreams ?? [];
@@ -109,7 +108,7 @@ export class KickAdapter implements PlatformAdapter {
       // Kick now returns a `categories` array; keep `category` as a fallback.
       const category = livestream?.categories?.[0] ?? livestream?.category;
       const actualCategoryId = category?.id == null ? undefined : String(category.id);
-      const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
+      const expectedCategoryId = campaign ? campaign.categoryId : channel.categoryId;
       return {
         live: Boolean(livestream?.is_live ?? livestream),
         categoryMatches: !expectedCategoryId || actualCategoryId === expectedCategoryId,
@@ -172,7 +171,7 @@ export class KickAdapter implements PlatformAdapter {
       const html = page.html ?? "";
       const live = parseBooleanField(html, ["is_live", "isLive", "live"]) ?? html.includes("livestream");
       const actualCategoryId = parseCategoryId(html);
-      const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
+      const expectedCategoryId = campaign ? campaign.categoryId : channel.categoryId;
       return {
         live,
         categoryMatches: !expectedCategoryId || actualCategoryId == null || actualCategoryId === expectedCategoryId,

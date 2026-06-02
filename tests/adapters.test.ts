@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher } from "../src/platforms/adapter";
 import { KickAdapter } from "../src/platforms/kick";
 import { TwitchAdapter } from "../src/platforms/twitch";
-import type { DropCampaign, DropReward } from "../src/core/models";
+import type { DropCampaign, DropReward, ExtensionSettings } from "../src/core/models";
+import { chooseCampaignDecision } from "../src/core/scheduler";
+import { DEFAULT_SETTINGS } from "../src/core/settings";
 
 function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
   const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
@@ -64,6 +66,112 @@ describe("KickAdapter", () => {
     expect(campaigns[0].rewards[0].watchedMinutes).toBe(30);
     expect(campaigns[0].rewards[0].status).toBe("in_progress");
     expect(candidates[0]).toMatchObject({ username: "creator", viewerCount: 123, title: "Drops" });
+  });
+
+  it("lists general live streams for site-wide Kick campaigns", async () => {
+    let requestedUrl = "";
+    const fetcher = jsonFetcher((url) => {
+      if (url.startsWith("https://web.kick.com/api/v1/livestreams")) {
+        requestedUrl = url;
+        return {
+          data: {
+            livestreams: [{
+              channel: { slug: "anyone-live" },
+              category: { id: 77, name: "Any Game" },
+              viewer_count: 321,
+              session_title: "Site-wide drops",
+            }],
+          },
+        };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const adapter = new KickAdapter(fetcher);
+
+    const candidates = await adapter.listCandidateChannels({
+      id: "site-wide",
+      platform: "kick",
+      name: "Site-wide Drop",
+      status: "active",
+      rewards: [],
+      isGeneralDrop: true,
+    });
+
+    expect(new URL(requestedUrl).searchParams.has("category_id")).toBe(false);
+    expect(candidates[0]).toMatchObject({
+      username: "anyone-live",
+      categoryId: "77",
+      categoryName: "Any Game",
+      viewerCount: 321,
+    });
+  });
+
+  it("can select a site-wide Kick campaign candidate without enforcing a category", async () => {
+    const fetcher = jsonFetcher((url) => {
+      if (url.startsWith("https://web.kick.com/api/v1/livestreams")) {
+        return { data: { livestreams: [{ channel: { slug: "creator" }, category: { id: 7, name: "Game" } }] } };
+      }
+      if (url === "https://kick.com/api/v2/channels/creator") {
+        return { id: 10, livestream: { id: 20, is_live: true, categories: [{ id: 8, name: "Different Game" }] } };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const adapter = new KickAdapter(fetcher);
+    const settings: ExtensionSettings = {
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
+      },
+    };
+
+    const decision = await chooseCampaignDecision(
+      "kick",
+      [{
+        id: "site-wide",
+        platform: "kick",
+        name: "Site-wide Drop",
+        status: "active",
+        rewards: [{ id: "reward", name: "Reward", requiredMinutes: 30, watchedMinutes: 0, status: "locked" }],
+        isGeneralDrop: true,
+      }],
+      settings,
+      adapter,
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.channel).toMatchObject({ username: "creator", categoryId: "8", categoryName: "Different Game" });
+  });
+
+  it("still enforces category matching for category-specific Kick campaigns", async () => {
+    const fetcher = jsonFetcher((url) => {
+      if (url.startsWith("https://web.kick.com/api/v1/livestreams")) {
+        return { data: { livestreams: [{ channel: { slug: "creator" }, category: { id: 99, name: "Expected Game" } }] } };
+      }
+      if (url === "https://kick.com/api/v2/channels/creator") {
+        return { id: 10, livestream: { id: 20, is_live: true, categories: [{ id: 100, name: "Wrong Game" }] } };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const adapter = new KickAdapter(fetcher);
+
+    const decision = await chooseCampaignDecision(
+      "kick",
+      [{
+        id: "category-drop",
+        platform: "kick",
+        name: "Category Drop",
+        status: "active",
+        categoryId: "99",
+        rewards: [{ id: "reward", name: "Reward", requiredMinutes: 30, watchedMinutes: 0, status: "locked" }],
+        isGeneralDrop: true,
+      }],
+      { ...DEFAULT_SETTINGS, running: true },
+      adapter,
+    );
+
+    expect(decision.action).toBe("idle");
   });
 
   it("checks channel category and claims rewards through the page-context API", async () => {
