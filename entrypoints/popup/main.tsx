@@ -38,6 +38,7 @@ import {
   Radio,
   RotateCcw,
   Settings as SettingsIcon,
+  SlidersHorizontal,
   Trophy,
   Users,
   X,
@@ -1113,12 +1114,10 @@ function SettingsView({ games, settings, onSettingsChange }: {
   return (
     <div className="space-y-2.5">
       <SettingsSection title="General settings" description="Applies to Twitch and Kick." icon={SettingsIcon}>
-        <SettingRow title="Tabless low-resource mode" description="Farm via lightweight watch heartbeats instead of a video tab. Twitch runs fully tabless; Kick uses a viewer connection. Falls back to a tab automatically if it stops earning." checked={settings.tablessMode} onChange={(value) => onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />
         <SettingRow title="Mute farming tabs" description="Keep drop and Watch Queue tabs muted while farming." checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} />
         <SettingRow title="Pause when watching manually" description="Stop farming while you have a stream open and are watching yourself." checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
         <SettingRow title="Auto-close farming tabs" description="Automatically close when the extension is idle (no drops to farm or no streamers to watch)." checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
         <SettingRow title="Auto-start on launch" description="Begin farming as soon as the extension loads." checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
-        <NumberSettingRow title="Scheduler interval" description="How often campaign and streamer status refreshes." value={pollIntervalSeconds} min={30} max={3600} suffix="sec" onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
       </SettingsSection>
       <SettingsSection title="Notifications" description="Applies to all enabled platforms." icon={Bell}>
         <SettingRow title="Reward earned" description="Notify when a drop reward is claimable." checked={settings.notifyRewardEarned} onChange={set("notifyRewardEarned")} />
@@ -1134,8 +1133,10 @@ function SettingsView({ games, settings, onSettingsChange }: {
         <PlatformSettingsCard platform="twitch" games={games.twitch} settings={settings} onEnabledChange={setPlatformEnabled("twitch")} onGamePriorityChange={setPlatformGamePriority("twitch")} onExcludedChannelsChange={setPlatformExcludedChannels("twitch")} />
         <PlatformSettingsCard platform="kick" games={games.kick} settings={settings} onEnabledChange={setPlatformEnabled("kick")} onGamePriorityChange={setPlatformGamePriority("kick")} onExcludedChannelsChange={setPlatformExcludedChannels("kick")} />
       </SettingsSection>
-      <SettingsSection title="Advanced" description="Only change these if you know what you are doing — they control complex low-level playback behavior." icon={Info}>
+      <SettingsSection title="Advanced" description="Only change these if you know what you are doing — they control complex low-level playback behavior." icon={SlidersHorizontal}>
+        <SettingRow title="(EXPERIMENTAL) Tabless low-resource mode" description="Farm via lightweight watch heartbeats instead of a video tab. Twitch runs fully tabless; Kick uses a viewer connection. Falls back to a tab automatically if it stops earning." checked={settings.tablessMode} onChange={(value) => onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />
         <SettingRow title="Keep farming videos unmuted" description="Keeps page video players unmuted while the browser tab is muted." checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} />
+        <NumberSettingRow title="Scheduler interval" description="How often campaign and streamer status refreshes." value={pollIntervalSeconds} min={30} max={3600} suffix="sec" onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
         <SelectSettingRow
           title="Focus tab during ads"
           description="Ad countdowns freeze in background tabs. Briefly focus the farming tab while an ad plays so it counts down, then restore your previous tab."
