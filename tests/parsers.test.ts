@@ -248,6 +248,68 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].rewards[0].claimId).toBeUndefined();
   });
 
+  it("does not infer a Twitch reward is claimed from reused benefits awarded outside the drop window", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{
+              benefit: { id: "shared-benefit" },
+              lastAwardedAt: "2026-05-15T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [{
+              id: "abc",
+              name: "Twitch Drops",
+              startAt: "2026-06-01T00:00:00.000Z",
+              endAt: "2026-07-01T00:00:00.000Z",
+              timeBasedDrops: [{
+                id: "drop",
+                name: "Cape",
+                startAt: "2026-06-01T00:00:00.000Z",
+                endAt: "2026-07-01T00:00:00.000Z",
+                requiredMinutesWatched: 60,
+                benefitEdges: [{ benefit: { id: "shared-benefit", name: "Cape" } }],
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards[0].status).toBe("locked");
+    expect(campaigns[0].status).toBe("active");
+  });
+
+  it("infers a Twitch reward is claimed from a matching benefit awarded during the drop window", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{
+              benefit: { id: "benefit" },
+              lastAwardedAt: "2026-06-15T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [{
+              id: "abc",
+              name: "Twitch Drops",
+              startAt: "2026-06-01T00:00:00.000Z",
+              endAt: "2026-07-01T00:00:00.000Z",
+              timeBasedDrops: [{
+                id: "drop",
+                name: "Cape",
+                requiredMinutesWatched: 60,
+                benefitEdges: [{ benefit: { id: "benefit", name: "Cape" } }],
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards[0].status).toBe("claimed");
+    expect(campaigns[0].status).toBe("completed");
+  });
+
   it("normalizes reward campaigns nested directly under Twitch inventory", () => {
     const campaigns = parseTwitchInventory({
       data: {

@@ -92,7 +92,7 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
           ? "expired"
           : "active";
     const parsedRewards = (campaign.timeBasedDrops ?? []).map((drop) =>
-      parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops),
+      parseTwitchReward(drop, campaign.id, userId, startsAt, endsAt, gameEventDrops),
     );
     const rewards = parsedRewards.map((reward) => ({
       ...reward,
@@ -134,6 +134,7 @@ function parseTwitchReward(
   reward: TwitchReward,
   campaignId: string,
   userId?: string,
+  campaignStartsAt?: string,
   campaignEndsAt?: string,
   gameEventDrops: TwitchGameEventDrop[] = [],
 ): DropReward {
@@ -142,10 +143,13 @@ function parseTwitchReward(
   const benefits = (reward.benefitEdges ?? [])
     .map((edge) => edge.benefit)
     .filter((benefit): benefit is NonNullable<typeof benefit> => Boolean(benefit));
-  const eventClaimed = benefits.some((benefit) =>
-    gameEventDrops.some((drop) => drop.id === reward.self?.dropInstanceID || drop.benefit?.id === benefit.id),
+  const eventClaimed = reward.self == null && benefits.some((benefit) =>
+    gameEventDrops.some((drop) =>
+      drop.benefit?.id === benefit.id
+      && awardedDuringDropWindow(drop.lastAwardedAt, reward.startAt ?? campaignStartsAt, reward.endAt ?? campaignEndsAt)
+    ),
   );
-  const isClaimed = reward.self?.isClaimed || eventClaimed;
+  const isClaimed = reward.self?.isClaimed ?? eventClaimed;
   // Twitch's real dropInstanceID has the form `userID#campaignID#dropID` (see
   // TwitchDropsMiner inventory.py generate_claim and its inventory dump, which
   // strips user ids out of these). Prefer the value Twitch returns on the self
@@ -217,6 +221,15 @@ function addHours(value: string, hours: number): string | undefined {
   const time = Date.parse(value);
   if (Number.isNaN(time)) return undefined;
   return new Date(time + hours * 60 * 60 * 1000).toISOString();
+}
+
+function awardedDuringDropWindow(awardedAt: string | undefined, startsAt: string | undefined, endsAt: string | undefined): boolean {
+  if (!awardedAt || !startsAt || !endsAt) return false;
+  const awarded = Date.parse(awardedAt);
+  const starts = Date.parse(startsAt);
+  const ends = Date.parse(endsAt);
+  if (Number.isNaN(awarded) || Number.isNaN(starts) || Number.isNaN(ends)) return false;
+  return starts <= awarded && awarded < ends;
 }
 
 function eligibility(
