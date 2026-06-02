@@ -392,6 +392,10 @@ function Popup(): React.ReactElement {
     if (SCREENSHOT_MODE) return;
     const interval = setInterval(() => {
       void send<RuntimeSnapshot>({ type: "getSnapshot" }).then((nextSnapshot) => {
+        // Keep the locally-held settings rather than the refreshed ones so an
+        // in-flight edit is never clobbered mid-typing. The tradeoff: a setting
+        // changed by the background (e.g. startup auto-pausing `running`) is not
+        // reflected until the popup is reopened.
         setSnapshot((current) => current ? { ...nextSnapshot, settings: current.settings } : { ...nextSnapshot, settings: mergeSettings(nextSnapshot.settings) });
       });
     }, 5000);
