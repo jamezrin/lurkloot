@@ -320,11 +320,24 @@ export class TwitchAdapter implements PlatformAdapter {
 
   async claimReward(_campaign: DropCampaign, reward: DropReward): Promise<boolean> {
     if (!reward.claimId) return false;
-    const result = await this.gql<{ claimDropRewards?: { status?: string } }>(
-      "DropsPage_ClaimDropRewards",
-      TWITCH_QUERIES.claimHash,
-      { input: { dropInstanceID: reward.claimId } },
-    );
+    let result: TwitchGqlResponse<{ claimDropRewards?: { status?: string } }>;
+    try {
+      result = await this.gql<{ claimDropRewards?: { status?: string } }>(
+        "DropsPage_ClaimDropRewards",
+        TWITCH_QUERIES.claimHash,
+        { input: { dropInstanceID: reward.claimId } },
+      );
+    } catch (error) {
+      // Claiming requires a valid Client-Integrity token, which we replay from
+      // the live twitch.tv page (see src/core/twitchIntegrity.ts). When none has
+      // been captured Twitch answers with a "failed integrity check"; guide the
+      // user to keep a logged-in Twitch tab open so a token can be captured.
+      const message = error instanceof Error ? error.message : String(error);
+      if (/integrity/i.test(message)) {
+        throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
+      }
+      throw error;
+    }
     const status = result.data?.claimDropRewards?.status;
     if (status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED") return true;
     // Surface the rejection instead of a silent false so the cause is visible in

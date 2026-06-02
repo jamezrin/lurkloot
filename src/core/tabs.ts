@@ -1,6 +1,7 @@
 import { browser } from "wxt/browser";
 import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "./models";
 import type { LogLevel } from "./logging";
+import type { TwitchIntegrity } from "./twitchIntegrity";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 
 // tabs.ts is a pure module with no access to the scheduler state, so it reports
@@ -327,6 +328,17 @@ interface CookieApi {
 // be httpOnly) and attach them, exactly as the web client does.
 let twitchClientSessionId: string | undefined;
 
+// The most recently captured Client-Integrity bundle from the live twitch.tv
+// page (see src/core/twitchIntegrity.ts). The background registers a webRequest
+// listener that feeds this via setTwitchIntegrity so authenticated GQL mutations
+// (e.g. drop claims) carry a valid integrity token. Defaults to undefined so
+// queries keep working anonymously / without integrity until one is captured.
+let twitchIntegrity: TwitchIntegrity | undefined;
+
+export function setTwitchIntegrity(value: TwitchIntegrity | undefined): void {
+  twitchIntegrity = value;
+}
+
 function twitchClientSessionIdValue(): string {
   if (twitchClientSessionId) return twitchClientSessionId;
   const bytes = new Uint8Array(8);
@@ -363,8 +375,17 @@ export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string
     const authToken = await cookie("auth-token");
     const deviceId = await cookie("unique_id");
     if (authToken && !headers.has("authorization")) headers.set("authorization", `OAuth ${authToken}`);
-    if (deviceId && !headers.has("x-device-id")) headers.set("x-device-id", deviceId);
-    if (!headers.has("client-session-id")) headers.set("client-session-id", twitchClientSessionIdValue());
+    // A captured Client-Integrity token is bound to the device id / session id it
+    // was minted with, so when one is present (and unexpired) replay the whole
+    // trio together; otherwise fall back to the cookie device id plus a
+    // self-generated session id, which is enough for queries but not mutations.
+    const integrity = twitchIntegrity && twitchIntegrity.expiresAt > Date.now() ? twitchIntegrity : undefined;
+    if (integrity && !headers.has("client-integrity")) headers.set("client-integrity", integrity.integrity);
+    const effectiveDeviceId = integrity?.deviceId ?? deviceId;
+    if (effectiveDeviceId && !headers.has("x-device-id")) headers.set("x-device-id", effectiveDeviceId);
+    if (!headers.has("client-session-id")) {
+      headers.set("client-session-id", integrity?.clientSessionId ?? twitchClientSessionIdValue());
+    }
   }
 
   let response: Response;

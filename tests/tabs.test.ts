@@ -8,6 +8,7 @@ import {
   openPinnedMutedTabWithBrowser,
   registerManagedPageContextTabs,
   setActivityLogger,
+  setTwitchIntegrity,
   stopWatchTabWithBrowser,
 } from "../src/core/tabs";
 import type { LogLevel } from "../src/core/logging";
@@ -513,6 +514,7 @@ describe("fetchTwitchInBackgroundWith", () => {
 
   beforeEach(() => {
     cookieApi.cookies.get.mockClear();
+    setTwitchIntegrity(undefined);
   });
 
   it("attaches the OAuth token, device id and a session id for authenticated GQL", async () => {
@@ -537,6 +539,61 @@ describe("fetchTwitchInBackgroundWith", () => {
     expect(headers.get("client-session-id")).toMatch(/^[0-9a-f]{16}$/);
     expect(captured?.init.credentials).toBe("include");
     expect(result).toMatchObject({ data: { currentUser: { id: "u" } } });
+    vi.unstubAllGlobals();
+  });
+
+  it("replays a captured integrity token with its matching device and session id", async () => {
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify({ data: { claimDropRewards: { status: "ELIGIBLE_FOR_ALL" } } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }));
+
+    setTwitchIntegrity({
+      integrity: "integrity-token",
+      clientSessionId: "page-session",
+      deviceId: "page-device",
+      expiresAt: Date.now() + 60_000,
+    });
+
+    await fetchTwitchInBackgroundWith(cookieApi, "https://gql.twitch.tv/gql", { method: "POST", body: "{}" });
+
+    const headers = new Headers(captured?.headers);
+    expect(headers.get("client-integrity")).toBe("integrity-token");
+    // The token is bound to the session/device it was minted with, so those win
+    // over the self-generated session id and the cookie device id.
+    expect(headers.get("client-session-id")).toBe("page-session");
+    expect(headers.get("x-device-id")).toBe("page-device");
+    expect(headers.get("authorization")).toBe("OAuth tok123");
+    vi.unstubAllGlobals();
+  });
+
+  it("ignores an expired integrity token and falls back to the default headers", async () => {
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify({ data: {} }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }));
+
+    setTwitchIntegrity({
+      integrity: "stale-token",
+      clientSessionId: "page-session",
+      deviceId: "page-device",
+      expiresAt: Date.now() - 1,
+    });
+
+    await fetchTwitchInBackgroundWith(cookieApi, "https://gql.twitch.tv/gql", { method: "POST", body: "{}" });
+
+    const headers = new Headers(captured?.headers);
+    expect(headers.has("client-integrity")).toBe(false);
+    expect(headers.get("x-device-id")).toBe("dev456");
+    expect(headers.get("client-session-id")).toMatch(/^[0-9a-f]{16}$/);
     vi.unstubAllGlobals();
   });
 

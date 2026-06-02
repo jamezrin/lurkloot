@@ -3,7 +3,9 @@ import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSet
 import { appendLog } from "../core/logging";
 import { mergeSettings } from "../core/settings";
 import { runSchedulerTick } from "../core/scheduler";
-import { setActivityLogger } from "../core/tabs";
+import { setActivityLogger, setTwitchIntegrity } from "../core/tabs";
+import { integrityFromHeaders } from "../core/twitchIntegrity";
+import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 
@@ -24,6 +26,8 @@ export interface BackgroundControllerDeps {
   createNotification?(notification: { title: string; message: string }): Promise<void>;
   closeManagedTabsByUrl?(urls: string[]): Promise<void>;
   applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode): Promise<void>;
+  loadTwitchIntegrity?(): Promise<TwitchIntegrity | undefined>;
+  saveTwitchIntegrity?(value: TwitchIntegrity): Promise<void>;
 }
 
 export function createBackgroundController(deps: BackgroundControllerDeps) {
@@ -40,6 +44,41 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   // ticks (the WebSocket-based Kick watcher in particular must not be recreated
   // each tick). Reconciled against the scheduler's per-platform session state.
   const tablessWatchers = new Map<Platform, TablessWatchController>();
+
+  // The last token handed to setTwitchIntegrity; used to skip re-persisting on
+  // every page GQL call (the page sends integrity on most requests).
+  let lastIntegrityToken: string | undefined;
+
+  // Prime the in-memory integrity token from storage whenever the background
+  // script (re)evaluates, so a claim right after a service-worker wake can use
+  // the last captured token before any fresh page traffic is observed.
+  void loadStoredTwitchIntegrity();
+
+  async function loadStoredTwitchIntegrity(): Promise<void> {
+    try {
+      const integrity = await deps.loadTwitchIntegrity?.();
+      if (integrity && integrity.expiresAt > Date.now()) {
+        lastIntegrityToken = integrity.integrity;
+        setTwitchIntegrity(integrity);
+      }
+    } catch {
+      // A missing/corrupt stored token is non-fatal: fresh page traffic will
+      // re-capture one, and claims simply stay best-effort until then.
+    }
+  }
+
+  // Fed by the background's webRequest listener with the outgoing headers of
+  // gql.twitch.tv requests. Only genuine page-minted requests carry a
+  // Client-Integrity header, so integrityFromHeaders returns undefined (and we
+  // ignore) our own background fetch and anonymous queries.
+  async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined): Promise<void> {
+    const integrity = integrityFromHeaders(headers);
+    if (!integrity) return;
+    setTwitchIntegrity(integrity);
+    if (integrity.integrity === lastIntegrityToken) return;
+    lastIntegrityToken = integrity.integrity;
+    await deps.saveTwitchIntegrity?.(integrity);
+  }
 
   async function persist(state: SchedulerState): Promise<void> {
     if (pendingTabEvents.length === 0) {
@@ -541,6 +580,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     handleStartup,
     handleTabRemoved,
     handleMessage,
+    captureTwitchIntegrity,
     tick,
     runWatchHeartbeat,
   };

@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import { loadSettings, loadState, saveSettings, saveState } from "../src/core/storage";
+import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
 import type { RuntimeMessage } from "../src/core/messages";
 import { applyAdFocus } from "../src/core/tabs";
 import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "../src/background/controller";
@@ -29,6 +29,8 @@ const controller = createBackgroundController({
     });
   },
   applyAdFocus: (platform, tabId, adActive, mode) => applyAdFocus(platform, tabId, adActive, mode),
+  loadTwitchIntegrity,
+  saveTwitchIntegrity,
   createAdapters: () => ({
     twitch: new TwitchAdapter(),
     kick: new KickAdapter(),
@@ -55,6 +57,20 @@ export default defineBackground(() => {
   browser.tabs.onRemoved.addListener((tabId) => {
     void controller.handleTabRemoved(tabId);
   });
+
+  // Capture the Client-Integrity token the live twitch.tv page sends on its own
+  // GQL requests so the background can replay it on authenticated mutations
+  // (drop claims). Registered at top level so it re-binds on each SW wake.
+  // requestHeaders exposes the custom Client-Integrity header; if a future
+  // Chrome build hides it, add "extraHeaders" to this spec.
+  browser.webRequest.onBeforeSendHeaders.addListener(
+    (details) => {
+      void controller.captureTwitchIntegrity(details.requestHeaders);
+      return undefined;
+    },
+    { urls: ["https://gql.twitch.tv/*"] },
+    ["requestHeaders"],
+  );
 
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
     void controller.handleMessage(message, sender).then(sendResponse);
