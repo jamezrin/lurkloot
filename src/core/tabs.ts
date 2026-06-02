@@ -605,6 +605,14 @@ export async function stopManagedPageContextTabs(
   contexts: SchedulerManagedPageContexts,
   options: { platforms?: Platform[] } = {},
 ): Promise<SchedulerManagedPageContexts> {
+  return stopManagedPageContextTabsWithBrowser(browser as BrowserTabApi, contexts, options);
+}
+
+export async function stopManagedPageContextTabsWithBrowser(
+  browserApi: BrowserTabApi,
+  contexts: SchedulerManagedPageContexts,
+  options: { platforms?: Platform[] } = {},
+): Promise<SchedulerManagedPageContexts> {
   const platforms = options.platforms ?? ["twitch", "kick"];
   const next = { ...contexts };
   for (const platform of platforms) {
@@ -613,7 +621,7 @@ export async function stopManagedPageContextTabs(
     delete next[platform];
     retainedPageContextTabs.delete(platform);
     try {
-      await (browser as Partial<BrowserTabApi>).tabs?.remove?.(context.tabId);
+      await browserApi.tabs.remove?.(context.tabId);
     } catch {
       // The retained page context may have been closed manually.
     }
