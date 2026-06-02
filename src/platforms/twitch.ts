@@ -598,8 +598,8 @@ export class TwitchAdapter implements PlatformAdapter {
       };
     } catch {
       return {
-        live: true,
-        categoryMatches: true,
+        live: false,
+        categoryMatches: false,
         reason: originalError instanceof Error ? originalError.message : "Twitch channel check failed",
         candidate: channel,
       };

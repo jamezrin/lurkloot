@@ -252,6 +252,28 @@ describe("KickAdapter", () => {
       candidate: { categoryId: "99" },
     });
   });
+
+  it("treats Kick channel validation as invalid when API and page fallback both fail", async () => {
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://kick.com/api/v2/channels/creator") {
+        throw new Error("Kick API unavailable");
+      }
+      if (url === "https://kick.com/creator") {
+        throw new Error("Kick page unavailable");
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const adapter = new KickAdapter(fetcher);
+
+    await expect(adapter.checkChannel(
+      { platform: "kick", username: "creator", url: "https://kick.com/creator" },
+      { categoryId: "99" } as DropCampaign,
+    )).resolves.toMatchObject({
+      live: false,
+      categoryMatches: false,
+      reason: "Kick API unavailable",
+    });
+  });
 });
 
 describe("TwitchAdapter", () => {
@@ -967,6 +989,28 @@ describe("TwitchAdapter", () => {
       categoryMatches: true,
       reason: "Twitch GQL check failed; used channel page fallback",
       candidate: { categoryId: "game" },
+    });
+  });
+
+  it("treats Twitch channel validation as invalid when GQL and page fallback both fail", async () => {
+    const fetcher = jsonFetcher((url, init) => {
+      if (url === "https://gql.twitch.tv/gql" && operation(init) === "StreamInfo") {
+        return { errors: [{ message: "PersistedQueryNotFound" }] };
+      }
+      if (url === "https://www.twitch.tv/creator") {
+        throw new Error("Twitch page unavailable");
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const adapter = new TwitchAdapter(fetcher);
+
+    await expect(adapter.checkChannel(
+      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+      { categoryId: "game" } as DropCampaign,
+    )).resolves.toMatchObject({
+      live: false,
+      categoryMatches: false,
+      reason: "PersistedQueryNotFound",
     });
   });
 

@@ -183,8 +183,8 @@ export class KickAdapter implements PlatformAdapter {
       };
     } catch {
       return {
-        live: true,
-        categoryMatches: true,
+        live: false,
+        categoryMatches: false,
         reason: originalError instanceof Error ? originalError.message : "Kick channel check failed",
         candidate: channel,
       };
