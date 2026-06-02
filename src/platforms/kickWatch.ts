@@ -11,6 +11,7 @@ export const KICK_CLIENT_TOKEN = "e1393935a959b4020a4491574f6490129f678acdaa9276
 
 const HANDSHAKE_INTERVAL_MS = 13_000;
 const WATCH_EVENT_INTERVAL_MS = 60_000;
+const STREAM_TARGET_REFRESH_MS = 60_000;
 // A heartbeat counts as healthy if a watch event was accepted recently; gives a
 // little slack over the 60s send cadence before the scheduler reacts.
 const HEALTH_WINDOW_MS = 2 * 60_000 + 30_000;
@@ -20,6 +21,7 @@ interface KickChannelTargets {
   channelId: string;
   liveStreamId?: string;
   isLive: boolean;
+  categoryId?: string;
 }
 
 // Minimal surface of the WebSocket we use, so a fake can be injected in tests
@@ -57,6 +59,7 @@ export class KickWatcher implements TablessWatchController {
   private failureMessage?: string;
   private counter = 0;
   private lastWatchSentAt = 0;
+  private lastTargetRefreshAt = 0;
   private handshakeTimer?: ReturnType<typeof setInterval>;
 
   private readonly fetcher: PageFetcher;
@@ -95,6 +98,17 @@ export class KickWatcher implements TablessWatchController {
     if (!this.targets?.isLive) {
       return { ok: false, live: false, message: "Kick channel is offline" };
     }
+    await this.refreshTargetsIfDue();
+    if (!this.targets?.isLive) {
+      return { ok: false, live: false, message: "Kick channel is offline" };
+    }
+    const expectedCategoryId = this.channel.categoryId;
+    if (expectedCategoryId && this.targets.categoryId && this.targets.categoryId !== expectedCategoryId) {
+      return { ok: false, live: true, message: "Kick channel category no longer matches" };
+    }
+    if (!this.targets.liveStreamId) {
+      return { ok: false, live: true, message: "Kick channel is missing a livestream id" };
+    }
     const healthy = this.connected && this.now() - this.lastWatchSentAt < HEALTH_WINDOW_MS;
     return { ok: healthy, live: true, message: healthy ? undefined : "Kick viewer connection idle" };
   }
@@ -115,6 +129,7 @@ export class KickWatcher implements TablessWatchController {
     this.connected = false;
     this.counter = 0;
     this.lastWatchSentAt = 0;
+    this.lastTargetRefreshAt = 0;
     this.targets = undefined;
   }
 
@@ -123,6 +138,7 @@ export class KickWatcher implements TablessWatchController {
     if (!channel) return;
     try {
       this.targets = await this.fetchTargets(channel);
+      this.lastTargetRefreshAt = this.now();
       if (!this.targets.isLive) {
         // Offline: let the scheduler re-evaluate via live:false; not a failure.
         this.connected = false;
@@ -192,6 +208,22 @@ export class KickWatcher implements TablessWatchController {
     this.lastWatchSentAt = this.now();
   }
 
+  private async refreshTargetsIfDue(): Promise<void> {
+    const channel = this.channel;
+    if (!channel || this.now() - this.lastTargetRefreshAt < STREAM_TARGET_REFRESH_MS) return;
+    const previousLiveStreamId = this.targets?.liveStreamId;
+    this.targets = await this.fetchTargets(channel, { force: true });
+    this.lastTargetRefreshAt = this.now();
+    if (
+      this.targets.isLive
+      && this.targets.liveStreamId
+      && this.targets.liveStreamId !== previousLiveStreamId
+      && this.connected
+    ) {
+      this.sendWatchEvent();
+    }
+  }
+
   private safeSend(payload: unknown): void {
     if (!this.ws || this.ws.readyState !== WEBSOCKET_OPEN) return;
     try {
@@ -211,19 +243,31 @@ export class KickWatcher implements TablessWatchController {
     return token;
   }
 
-  private async fetchTargets(channel: ChannelCandidate): Promise<KickChannelTargets> {
-    if (channel.channelId && channel.broadcastId) {
-      return { channelId: channel.channelId, liveStreamId: channel.broadcastId, isLive: true };
+  private async fetchTargets(channel: ChannelCandidate, options: { force?: boolean } = {}): Promise<KickChannelTargets> {
+    if (!options.force && channel.channelId && channel.broadcastId) {
+      return {
+        channelId: channel.channelId,
+        liveStreamId: channel.broadcastId,
+        isLive: true,
+        categoryId: channel.categoryId,
+      };
     }
     const data = await this.fetcher.fetchJson<{
       id?: string | number;
-      livestream?: { id?: string | number; is_live?: boolean } | null;
+      livestream?: {
+        id?: string | number;
+        is_live?: boolean;
+        category?: { id?: string | number };
+        categories?: Array<{ id?: string | number }>;
+      } | null;
     }>(`https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`);
     const channelId = data.id == null ? channel.channelId : String(data.id);
     if (!channelId) throw new Error(`Could not resolve the Kick channel id for ${channel.username}`);
+    const category = data.livestream?.categories?.[0] ?? data.livestream?.category;
     return {
       channelId,
       liveStreamId: data.livestream?.id == null ? channel.broadcastId : String(data.livestream.id),
+      categoryId: category?.id == null ? channel.categoryId : String(category.id),
       isLive: Boolean(data.livestream?.is_live ?? data.livestream),
     };
   }
