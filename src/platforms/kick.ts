@@ -76,7 +76,7 @@ export class KickAdapter implements PlatformAdapter {
 
     const url = new URL("https://web.kick.com/api/v1/livestreams");
     url.searchParams.set("limit", "25");
-    url.searchParams.set("sort", "viewer_count");
+    url.searchParams.set("sort", "viewer_count_desc");
     if (campaign.categoryId) url.searchParams.set("category_id", campaign.categoryId);
 
     const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString());

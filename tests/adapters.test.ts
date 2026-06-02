@@ -45,6 +45,9 @@ describe("KickAdapter", () => {
         };
       }
       if (url.startsWith("https://web.kick.com/api/v1/livestreams")) {
+        const params = new URL(url).searchParams;
+        expect(params.get("sort")).toBe("viewer_count_desc");
+        expect(params.get("category_id")).toBe("99");
         return {
           data: {
             livestreams: [{
