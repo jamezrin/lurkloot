@@ -289,19 +289,22 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   async function runWatchHeartbeat(): Promise<void> {
     const settings = await deps.loadSettings();
     if (!settings.running) return;
-    // After a service-worker restart the in-memory watcher map is empty, so
-    // rebuild it from persisted tabless sessions before the size check below.
-    // Otherwise the 1-minute watch alarm would do nothing until the next
-    // (possibly distant) discovery tick re-armed the watchers, stalling Twitch
-    // tabless farming. reconcileTablessWatchers is idempotent for an already
-    // running watcher and only mutates the in-memory map (no storage write), so
-    // it is safe to run outside the state lock.
-    await reconcileTablessWatchers(await deps.loadState(), settings, deps.createAdapters());
-    if (tablessWatchers.size === 0) return;
     const verbose = settings.verboseLogging;
 
     const fallbackPlatforms = await withStateLock<Platform[]>(async () => {
       let nextState = await deps.loadState();
+      // After a service-worker restart the in-memory watcher map is empty, so
+      // rebuild it from persisted tabless sessions before the size check below.
+      // Otherwise the 1-minute watch alarm would do nothing until the next
+      // (possibly distant) discovery tick re-armed the watchers, stalling Twitch
+      // tabless farming. Done inside the state lock so it cannot race tick()'s
+      // own reconcile over the shared watcher map (the discovery and watch alarms
+      // both fire on a ~1-minute cadence). reconcileTablessWatchers only calls
+      // watcher.start() on a fresh start/channel switch and never re-acquires the
+      // lock, so holding it here is safe (no reentrancy).
+      await reconcileTablessWatchers(nextState, settings, deps.createAdapters());
+      if (tablessWatchers.size === 0) return [];
+
       let changed = false;
       const fallbacks: Platform[] = [];
 
