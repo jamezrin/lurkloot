@@ -76,7 +76,8 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     campaignPriorities: normalizePriorities(value?.campaignPriorities),
     excludedCampaignIds: normalizeStringList(value?.excludedCampaignIds),
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_SETTINGS.offlineRetryLimit),
-    pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 0.5, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
+    // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
+    pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
     verboseLogging: booleanOr(value?.verboseLogging, DEFAULT_SETTINGS.verboseLogging),
   };
 }
