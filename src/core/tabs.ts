@@ -448,6 +448,10 @@ export async function fetchJsonInPageWithBrowser<T>(
         world: "MAIN",
         func: pageFetchJson,
       });
+      // executeScript resolves one entry per injected frame; an empty array
+      // means the context tab was closed or navigated away before injection.
+      // Surface that clearly instead of dereferencing undefined.
+      if (!result) throw new Error(`Page context for ${origin} returned no script result`);
       return result.result as T;
     }
 

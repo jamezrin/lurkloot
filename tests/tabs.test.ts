@@ -324,6 +324,20 @@ describe("tab manager", () => {
     expect(browser.tabs.remove).not.toHaveBeenCalled();
   });
 
+  it("throws a clear error when page-context execution returns no result", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => []),
+      },
+    };
+    browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+
+    await expect(
+      fetchJsonInPageWithBrowser(browser, "https://kick.com", "https://web.kick.com/api/v1/drops/progress"),
+    ).rejects.toThrow(/returned no script result/);
+  });
+
   it("closes an extension-created page-context tab after a fetch", async () => {
     const browser = {
       ...browserMock(),
