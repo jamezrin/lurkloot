@@ -875,4 +875,87 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.tablessFallback).toBe(true);
     expect(watcher.stop).toHaveBeenCalled();
   });
+
+  it("rebuilds tabless watchers from persisted sessions after a service-worker restart", async () => {
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    // Simulate a fresh service worker: a tabless watch session is persisted, but
+    // no tick() has run this lifetime to populate the in-memory watcher map.
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("twitch"),
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+    };
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(watcher.start).toHaveBeenCalled();
+    expect(watcher.tick).toHaveBeenCalled();
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
+  });
+
+  it("serializes concurrent state writers so neither update is lost", async () => {
+    const env = harness();
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: true,
+      channel: channel("twitch"),
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+    };
+
+    // Model storage snapshot semantics: each load returns an isolated copy, so
+    // an unserialized handler building on a stale snapshot would clobber a newer
+    // save. Trace load/save ordering to prove the lock serializes them.
+    const trace: string[] = [];
+    const originalSave = env.deps.saveState.getMockImplementation()!;
+    env.deps.loadState.mockImplementation(async () => {
+      trace.push("load");
+      return structuredClone(env.state);
+    });
+    env.deps.saveState.mockImplementation(async (next: SchedulerState) => {
+      trace.push("save");
+      await Promise.resolve();
+      await originalSave(next);
+    });
+
+    await Promise.all([
+      env.controller.handleMessage(
+        {
+          type: "playbackTelemetry",
+          platform: "twitch",
+          telemetry: {
+            videoCount: 1,
+            mutedVideoCount: 0,
+            unmutedVideoCount: 1,
+            playingVideoCount: 1,
+            blockedPlaybackCount: 0,
+            documentHidden: false,
+          },
+        },
+        { tab: { id: 10 } },
+      ),
+      env.controller.tick(),
+    ]);
+
+    // Serialized: every load is immediately followed by that operation's save
+    // before the next operation's load (never load, load, save, save).
+    expect(trace.length).toBeGreaterThanOrEqual(4);
+    for (let i = 0; i + 1 < trace.length; i += 2) {
+      expect(trace[i]).toBe("load");
+      expect(trace[i + 1]).toBe("save");
+    }
+    // Both writers' changes survive in the final persisted state.
+    expect(env.state.sessions.twitch.playback).toBeDefined();
+    expect(env.state.lastTickAt).toBeDefined();
+  });
 });

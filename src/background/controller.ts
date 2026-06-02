@@ -16,6 +16,20 @@ export const ALARM_NAME = "stream-maxxing.tick";
 export const WATCH_ALARM_NAME = "stream-maxxing.watch";
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 
+// One in-flight state mutation at a time. Each handler's load→modify→persist
+// runs inside this lock so a save built on a stale snapshot can't clobber
+// another handler's concurrent write (telemetry arrives every ~5s while ticks
+// and heartbeats fire on alarms). NOT reentrant: a locked section must never
+// call another locked section (see runWatchHeartbeat, which calls tick() only
+// after its locked closure returns).
+let stateMutation: Promise<unknown> = Promise.resolve();
+function withStateLock<T>(operation: () => Promise<T>): Promise<T> {
+  const run = stateMutation.then(operation, operation);
+  // Keep the chain alive regardless of outcome without leaking rejections.
+  stateMutation = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 export interface BackgroundControllerDeps {
   loadSettings(): Promise<ExtensionSettings>;
   saveSettings(settings: ExtensionSettings): Promise<void>;
@@ -181,25 +195,27 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   }
 
   async function tick(platforms?: Platform[]): Promise<void> {
-    const settings = await deps.loadSettings();
-    const state = await deps.loadState();
-    const verbose = settings.verboseLogging;
+    await withStateLock(async () => {
+      const settings = await deps.loadSettings();
+      const state = await deps.loadState();
+      const verbose = settings.verboseLogging;
 
-    try {
-      const adapters = deps.createAdapters();
-      const result = await runSchedulerTick(state, settings, adapters, platforms ? { platforms } : undefined);
-      await emitNotifications(settings, state, result.state);
-      await applyAdFocusForState(settings, result.state);
-      await reconcileTablessWatchers(result.state, settings, adapters, platforms);
-      // The per-tick heartbeat is debug noise next to the richer per-platform
-      // entries the scheduler already records; the popup shows "last check" too.
-      await persist(withEvent(result.state, { level: "debug", message: "Scheduler tick completed" }, verbose));
-    } catch (error) {
-      await persist(withEvent(state, {
-        level: "error",
-        message: error instanceof Error ? error.message : "Scheduler tick failed",
-      }, verbose));
-    }
+      try {
+        const adapters = deps.createAdapters();
+        const result = await runSchedulerTick(state, settings, adapters, platforms ? { platforms } : undefined);
+        await emitNotifications(settings, state, result.state);
+        await applyAdFocusForState(settings, result.state);
+        await reconcileTablessWatchers(result.state, settings, adapters, platforms);
+        // The per-tick heartbeat is debug noise next to the richer per-platform
+        // entries the scheduler already records; the popup shows "last check" too.
+        await persist(withEvent(result.state, { level: "debug", message: "Scheduler tick completed" }, verbose));
+      } catch (error) {
+        await persist(withEvent(state, {
+          level: "error",
+          message: error instanceof Error ? error.message : "Scheduler tick failed",
+        }, verbose));
+      }
+    });
   }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
@@ -271,57 +287,71 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   // watcher and records its health on the session, falling back to a real tab
   // (by re-running the scheduler) when a heartbeat keeps failing.
   async function runWatchHeartbeat(): Promise<void> {
-    if (tablessWatchers.size === 0) return;
-    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    const settings = await deps.loadSettings();
     if (!settings.running) return;
+    // After a service-worker restart the in-memory watcher map is empty, so
+    // rebuild it from persisted tabless sessions before the size check below.
+    // Otherwise the 1-minute watch alarm would do nothing until the next
+    // (possibly distant) discovery tick re-armed the watchers, stalling Twitch
+    // tabless farming. reconcileTablessWatchers is idempotent for an already
+    // running watcher and only mutates the in-memory map (no storage write), so
+    // it is safe to run outside the state lock.
+    await reconcileTablessWatchers(await deps.loadState(), settings, deps.createAdapters());
+    if (tablessWatchers.size === 0) return;
     const verbose = settings.verboseLogging;
-    let nextState = state;
-    let changed = false;
-    const fallbackPlatforms: Platform[] = [];
 
-    for (const [platform, watcher] of [...tablessWatchers]) {
-      const session = nextState.sessions[platform];
-      if (session.status !== "watching" || session.watchMode !== "tabless") continue;
+    const fallbackPlatforms = await withStateLock<Platform[]>(async () => {
+      let nextState = await deps.loadState();
+      let changed = false;
+      const fallbacks: Platform[] = [];
 
-      let ok = false;
-      let message: string | undefined;
-      try {
-        const result = await watcher.tick(tablessWatchContext());
-        ok = result.ok;
-        message = result.message;
-      } catch (error) {
-        message = error instanceof Error ? error.message : "Tabless heartbeat failed";
-      }
+      for (const [platform, watcher] of [...tablessWatchers]) {
+        const session = nextState.sessions[platform];
+        if (session.status !== "watching" || session.watchMode !== "tabless") continue;
 
-      const previousChecks = session.heartbeatChecks ?? 0;
-      const heartbeatChecks = ok ? 0 : previousChecks + 1;
-      nextState = {
-        ...nextState,
-        sessions: {
-          ...nextState.sessions,
-          [platform]: {
-            ...session,
-            lastHeartbeatAt: new Date().toISOString(),
-            lastHeartbeatOk: ok,
-            heartbeatChecks,
+        let ok = false;
+        let message: string | undefined;
+        try {
+          const result = await watcher.tick(tablessWatchContext());
+          ok = result.ok;
+          message = result.message;
+        } catch (error) {
+          message = error instanceof Error ? error.message : "Tabless heartbeat failed";
+        }
+
+        const previousChecks = session.heartbeatChecks ?? 0;
+        const heartbeatChecks = ok ? 0 : previousChecks + 1;
+        nextState = {
+          ...nextState,
+          sessions: {
+            ...nextState.sessions,
+            [platform]: {
+              ...session,
+              lastHeartbeatAt: new Date().toISOString(),
+              lastHeartbeatOk: ok,
+              heartbeatChecks,
+            },
           },
-        },
-      };
-      changed = true;
+        };
+        changed = true;
 
-      if (ok && previousChecks > 0) {
-        nextState = withEvent(nextState, { platform, level: "info", message: "Tabless watch heartbeat recovered" }, verbose);
-      } else if (!ok && previousChecks === 0) {
-        nextState = withEvent(nextState, { platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" }, verbose);
+        if (ok && previousChecks > 0) {
+          nextState = withEvent(nextState, { platform, level: "info", message: "Tabless watch heartbeat recovered" }, verbose);
+        } else if (!ok && previousChecks === 0) {
+          nextState = withEvent(nextState, { platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" }, verbose);
+        }
+        if (!ok && heartbeatChecks >= settings.offlineRetryLimit && !fallbacks.includes(platform)) {
+          fallbacks.push(platform);
+          nextState = withEvent(nextState, { platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" }, verbose);
+        }
       }
-      if (!ok && heartbeatChecks >= settings.offlineRetryLimit && !fallbackPlatforms.includes(platform)) {
-        fallbackPlatforms.push(platform);
-        nextState = withEvent(nextState, { platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" }, verbose);
-      }
-    }
 
-    if (changed) await persist(nextState);
+      if (changed) await persist(nextState);
+      return fallbacks;
+    });
+
     // chooseTablessWatch now sees heartbeatChecks past the limit and opens a tab.
+    // Run outside the lock: tick() acquires the lock itself.
     for (const platform of fallbackPlatforms) {
       await tick([platform]);
     }
@@ -331,39 +361,41 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     message: Extract<RuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId?: number,
   ): Promise<void> {
-    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
-    const session = state.sessions[message.platform];
-    if (senderTabId != null && session.tabId != null && senderTabId !== session.tabId) return;
+    await withStateLock(async () => {
+      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+      const session = state.sessions[message.platform];
+      if (senderTabId != null && session.tabId != null && senderTabId !== session.tabId) return;
 
-    const previous = session.playback;
-    const telemetry = message.telemetry;
-    const verbose = settings.verboseLogging;
-    let nextState: SchedulerState = {
-      ...state,
-      sessions: {
-        ...state.sessions,
-        [message.platform]: {
-          ...session,
-          playback: {
-            ...telemetry,
-            platform: message.platform,
-            checkedAt: new Date().toISOString(),
+      const previous = session.playback;
+      const telemetry = message.telemetry;
+      const verbose = settings.verboseLogging;
+      let nextState: SchedulerState = {
+        ...state,
+        sessions: {
+          ...state.sessions,
+          [message.platform]: {
+            ...session,
+            playback: {
+              ...telemetry,
+              platform: message.platform,
+              checkedAt: new Date().toISOString(),
+            },
           },
         },
-      },
-    };
+      };
 
-    // Only log transitions — telemetry arrives every few seconds, so logging the
-    // raw stream would bury everything else.
-    if (session.status === "watching") {
-      nextState = appendPlaybackEvents(nextState, message.platform, previous, telemetry, verbose);
-    }
+      // Only log transitions — telemetry arrives every few seconds, so logging the
+      // raw stream would bury everything else.
+      if (session.status === "watching") {
+        nextState = appendPlaybackEvents(nextState, message.platform, previous, telemetry, verbose);
+      }
 
-    await persist(nextState);
+      await persist(nextState);
 
-    if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
-      await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), settings.adFocusMode);
-    }
+      if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
+        await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), settings.adFocusMode);
+      }
+    });
   }
 
   async function applyAdFocusForState(settings: ExtensionSettings, state: SchedulerState): Promise<void> {
@@ -392,69 +424,73 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   async function claimRewardNow(
     message: Extract<RuntimeMessage, { type: "claimReward" }>,
   ): Promise<RuntimeSnapshot> {
-    const state = await deps.loadState();
-    const campaigns = state.campaigns[message.platform];
-    const campaign = campaigns.find((item) => item.id === message.campaignId);
-    const reward = campaign?.rewards.find((item) => item.id === message.rewardId);
+    // Hold the state lock across the whole load→persist so a concurrent tick or
+    // telemetry write can't clobber the claimed-reward update. snapshot() runs
+    // after the lock so it reflects the committed state.
+    await withStateLock(async () => {
+      const state = await deps.loadState();
+      const campaigns = state.campaigns[message.platform];
+      const campaign = campaigns.find((item) => item.id === message.campaignId);
+      const reward = campaign?.rewards.find((item) => item.id === message.rewardId);
 
-    if (!campaign || !reward) {
-      await persist(appendLog(state, {
-        platform: message.platform,
-        level: "warn",
-        message: "Reward claim skipped because the campaign or reward is no longer available",
-      }));
-      return snapshot();
-    }
-
-    if (!canClaimReward(reward)) {
-      await persist(appendLog(state, {
-        platform: message.platform,
-        level: "warn",
-        message: `${reward.name} is not ready to claim`,
-      }));
-      return snapshot();
-    }
-
-    try {
-      const claimed = await deps.createAdapters()[message.platform].claimReward(campaign, reward);
-      const nextCampaigns = campaigns.map((item) => {
-        if (item.id !== campaign.id) return item;
-        const rewards = item.rewards.map((candidate) => candidate.id === reward.id && claimed
-          ? { ...candidate, status: "claimed" as const, watchedMinutes: candidate.requiredMinutes }
-          : candidate);
-        return {
-          ...item,
-          rewards,
-          status: rewards.every((candidate) => candidate.status === "claimed") ? "completed" as const : item.status,
-        };
-      });
-      const nextState = appendLog({
-        ...state,
-        campaigns: {
-          ...state.campaigns,
-          [message.platform]: nextCampaigns,
-        },
-      }, {
-        platform: message.platform,
-        level: claimed ? "info" : "warn",
-        message: claimed
-          ? `Claimed ${reward.name} from ${campaign.name}`
-          : `Could not claim ${reward.name} from ${campaign.name}`,
-      });
-      const settings = settingsWithDefaults(await deps.loadSettings());
-      if (claimed && settings.notifyRewardEarned) {
-        await safeNotify(settings, "Reward claimed", `${reward.name} from ${campaign.name}`);
+      if (!campaign || !reward) {
+        await persist(appendLog(state, {
+          platform: message.platform,
+          level: "warn",
+          message: "Reward claim skipped because the campaign or reward is no longer available",
+        }));
+        return;
       }
-      await persist(nextState);
-      return snapshot();
-    } catch (error) {
-      await persist(appendLog(state, {
-        platform: message.platform,
-        level: "error",
-        message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,
-      }));
-      return snapshot();
-    }
+
+      if (!canClaimReward(reward)) {
+        await persist(appendLog(state, {
+          platform: message.platform,
+          level: "warn",
+          message: `${reward.name} is not ready to claim`,
+        }));
+        return;
+      }
+
+      try {
+        const claimed = await deps.createAdapters()[message.platform].claimReward(campaign, reward);
+        const nextCampaigns = campaigns.map((item) => {
+          if (item.id !== campaign.id) return item;
+          const rewards = item.rewards.map((candidate) => candidate.id === reward.id && claimed
+            ? { ...candidate, status: "claimed" as const, watchedMinutes: candidate.requiredMinutes }
+            : candidate);
+          return {
+            ...item,
+            rewards,
+            status: rewards.every((candidate) => candidate.status === "claimed") ? "completed" as const : item.status,
+          };
+        });
+        const nextState = appendLog({
+          ...state,
+          campaigns: {
+            ...state.campaigns,
+            [message.platform]: nextCampaigns,
+          },
+        }, {
+          platform: message.platform,
+          level: claimed ? "info" : "warn",
+          message: claimed
+            ? `Claimed ${reward.name} from ${campaign.name}`
+            : `Could not claim ${reward.name} from ${campaign.name}`,
+        });
+        const settings = settingsWithDefaults(await deps.loadSettings());
+        if (claimed && settings.notifyRewardEarned) {
+          await safeNotify(settings, "Reward claimed", `${reward.name} from ${campaign.name}`);
+        }
+        await persist(nextState);
+      } catch (error) {
+        await persist(appendLog(state, {
+          platform: message.platform,
+          level: "error",
+          message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,
+        }));
+      }
+    });
+    return snapshot();
   }
 
   async function handleMessage(
