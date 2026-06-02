@@ -539,6 +539,36 @@ describe("background controller", () => {
     expect(env.state.manualWatch?.twitch).toBeUndefined();
   });
 
+  it("marks manual watch inactive when the same tab stops visible playback", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, pauseOnManualWatch: true });
+    env.state.manualWatch = {
+      twitch: {
+        platform: "twitch",
+        tabId: 999,
+        active: true,
+        checkedAt: new Date().toISOString(),
+      },
+    };
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 0,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    }, { tab: { id: 999 } });
+
+    expect(env.state.manualWatch?.twitch).toMatchObject({
+      tabId: 999,
+      active: false,
+    });
+  });
+
   it("logs playback transitions such as ad starts and blocked playback", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false });
     await env.controller.handleMessage({ type: "setRunning", running: true });
