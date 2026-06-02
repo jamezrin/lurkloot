@@ -29,6 +29,22 @@ interface KickChannelResponse {
   } | null;
 }
 
+// Kick's /drops/claim returns `{ message: "Success", data: { id } }` on success
+// (see references/kickautodrops/core/kick.py); there is no top-level `success`
+// flag. Some failures still come back as HTTP 200 with a non-success body, so a
+// positive signal is required rather than treating any 200 as a claim.
+interface KickClaimResponse {
+  success?: boolean;
+  message?: string;
+  data?: { id?: string | number } | null;
+}
+
+function isKickClaimSuccess(response: KickClaimResponse): boolean {
+  if (response.success === true) return true;
+  if (typeof response.message === "string" && /success/i.test(response.message)) return true;
+  return response.data?.id != null;
+}
+
 export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
 
@@ -115,7 +131,7 @@ export class KickAdapter implements PlatformAdapter {
 
   async claimReward(campaign: DropCampaign, reward: DropReward): Promise<boolean> {
     if (!reward.claimId && reward.status !== "claimable") return false;
-    const response = await this.fetcher.fetchJson<{ success?: boolean }>(
+    const response = await this.fetcher.fetchJson<KickClaimResponse>(
       "https://web.kick.com/api/v1/drops/claim",
       {
         method: "POST",
@@ -127,7 +143,7 @@ export class KickAdapter implements PlatformAdapter {
         }),
       },
     );
-    return response.success !== false;
+    return isKickClaimSuccess(response);
   }
 
   prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>) {

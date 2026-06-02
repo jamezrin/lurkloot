@@ -91,6 +91,21 @@ describe("KickAdapter", () => {
     await expect(adapter.claimReward(campaign, reward)).resolves.toBe(true);
   });
 
+  it("treats a Kick claim as successful only on a positive response signal", async () => {
+    const campaign = { id: "campaign" } as DropCampaign;
+    const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+    const claimWith = (body: unknown) => new KickAdapter(jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") return body;
+      throw new Error(`Unexpected URL ${url}`);
+    })).claimReward(campaign, reward);
+
+    await expect(claimWith({ message: "Success", data: { id: 1 } })).resolves.toBe(true);
+    await expect(claimWith({ success: true })).resolves.toBe(true);
+    // HTTP 200 with a non-success body must not be reported as a claim.
+    await expect(claimWith({ message: "Reward not available", data: null })).resolves.toBe(false);
+    await expect(claimWith({})).resolves.toBe(false);
+  });
+
   it("reads category and viewer count from the new `categories` array shape", async () => {
     const fetcher = jsonFetcher((url) => {
       if (url === "https://kick.com/api/v2/channels/creator") {
