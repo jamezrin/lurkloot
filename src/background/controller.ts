@@ -3,7 +3,8 @@ import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSet
 import { appendLog } from "../core/logging";
 import { mergeSettings } from "../core/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick } from "../core/scheduler";
-import { setActivityLogger, setTwitchIntegrity } from "../core/tabs";
+import { setActivityLogger } from "../core/activityLog";
+import { setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
@@ -75,9 +76,14 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
         lastIntegrityToken = integrity.integrity;
         setTwitchIntegrity(integrity);
       }
-    } catch {
+    } catch (error) {
       // A missing/corrupt stored token is non-fatal: fresh page traffic will
       // re-capture one, and claims simply stay best-effort until then.
+      pendingTabEvents.push({
+        level: "debug",
+        platform: "twitch",
+        message: `No stored Twitch integrity token to prime (${error instanceof Error ? error.message : String(error)})`,
+      });
     }
   }
 

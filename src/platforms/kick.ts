@@ -1,5 +1,6 @@
 import type { ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
 import type { TablessWatchController } from "../core/tablessWatch";
+import { logActivity } from "../core/activityLog";
 import { fetchJsonInPage, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
 import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "./adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./kickParser";
@@ -65,7 +66,9 @@ export class KickAdapter implements PlatformAdapter {
     try {
       const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/progress");
       return mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logActivity("warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
       return campaigns;
     }
   }
@@ -158,7 +161,10 @@ export class KickAdapter implements PlatformAdapter {
   supportsTabless = true;
 
   createTablessWatcher(): TablessWatchController {
-    return new KickWatcher({ fetcher: this.fetcher });
+    return new KickWatcher({
+      fetcher: this.fetcher,
+      log: (level, message) => logActivity(level, message, "kick"),
+    });
   }
 
   private async checkChannelFromPage(
@@ -166,6 +172,8 @@ export class KickAdapter implements PlatformAdapter {
     campaign: DropCampaign | undefined,
     originalError: unknown,
   ): Promise<ChannelCheck> {
+    const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
+    logActivity("debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "kick");
     try {
       const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url);
       const html = page.html ?? "";

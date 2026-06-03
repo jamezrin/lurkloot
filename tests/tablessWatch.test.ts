@@ -142,6 +142,30 @@ describe("kick viewer watcher", () => {
     await watcher.stop();
   });
 
+  it("logs a warning when the viewer WebSocket errors", async () => {
+    const socket = new FakeSocket();
+    const logs: Array<{ level: string; message: string }> = [];
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 1, livestream: { id: 2, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      log: (level, message) => logs.push({ level, message }),
+    });
+
+    await watcher.start(kickChannel, {});
+    socket.emit("open");
+    socket.emit("error");
+
+    expect(logs.some((entry) => entry.level === "warn" && /WebSocket error/.test(entry.message))).toBe(true);
+    await expect(watcher.tick({})).resolves.toMatchObject({ ok: false });
+    await watcher.stop();
+  });
+
   it("treats an offline channel as not earning without opening a socket", async () => {
     const createWebSocket = vi.fn(() => new FakeSocket());
     const fetchJson = vi.fn(async (url: string) => {

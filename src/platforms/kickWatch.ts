@@ -136,12 +136,14 @@ export class KickWatcher implements TablessWatchController {
   private async connect(): Promise<void> {
     const channel = this.channel;
     if (!channel) return;
+    this.log("debug", `Opening Kick viewer connection for ${channel.username}`);
     try {
       this.targets = await this.fetchTargets(channel);
       this.lastTargetRefreshAt = this.now();
       if (!this.targets.isLive) {
         // Offline: let the scheduler re-evaluate via live:false; not a failure.
         this.connected = false;
+        this.log("debug", `Kick channel ${channel.username} is offline; skipping the viewer connection`);
         return;
       }
       const token = await this.fetchViewerToken();
@@ -157,11 +159,13 @@ export class KickWatcher implements TablessWatchController {
       });
       ws.addEventListener("close", () => {
         this.connected = false;
+        this.log("debug", `Kick viewer connection closed for ${channel.username}`);
       });
       ws.addEventListener("error", () => {
         this.connected = false;
         this.failed = true;
         this.failureMessage = "Kick viewer WebSocket error; falling back to a watch tab";
+        this.log("warn", `${this.failureMessage} (${channel.username})`);
       });
     } catch (error) {
       this.failed = true;
@@ -206,6 +210,7 @@ export class KickWatcher implements TablessWatchController {
       },
     });
     this.lastWatchSentAt = this.now();
+    this.log("debug", `Sent Kick watch event for ${this.channel?.username ?? "channel"} (livestream ${this.targets.liveStreamId})`);
   }
 
   private async refreshTargetsIfDue(): Promise<void> {
@@ -214,6 +219,7 @@ export class KickWatcher implements TablessWatchController {
     const previousLiveStreamId = this.targets?.liveStreamId;
     this.targets = await this.fetchTargets(channel, { force: true });
     this.lastTargetRefreshAt = this.now();
+    this.log("debug", `Refreshed Kick targets for ${channel.username} (live: ${this.targets.isLive}, category: ${this.targets.categoryId ?? "unknown"})`);
     if (
       this.targets.isLive
       && this.targets.liveStreamId
@@ -228,12 +234,14 @@ export class KickWatcher implements TablessWatchController {
     if (!this.ws || this.ws.readyState !== WEBSOCKET_OPEN) return;
     try {
       this.ws.send(JSON.stringify(payload));
-    } catch {
+    } catch (error) {
       this.connected = false;
+      this.log("debug", `Kick viewer send failed; will reconnect: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   private async fetchViewerToken(): Promise<string> {
+    this.log("debug", `Requesting a Kick viewer token for ${this.channel?.username ?? "channel"}`);
     const response = await this.fetcher.fetchJson<{ data?: { token?: string } }>(
       "https://websockets.kick.com/viewer/v1/token",
       { headers: { "X-Client-Token": KICK_CLIENT_TOKEN } },

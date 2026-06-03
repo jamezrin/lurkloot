@@ -357,6 +357,7 @@ export async function runSchedulerTick(
         campaigns = [];
         const message = error instanceof Error ? error.message : "Drop discovery failed";
         nextState = addTickEvent(nextState, platform, "warn", `${message}; checking Watch Queue fallback`, verbose);
+        nextState = addTickEvent(nextState, platform, "debug", `Drop discovery error (Watch Queue fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`, verbose);
       }
       nextState.campaigns[platform] = campaigns;
       nextState = addTickEvent(nextState, platform, "info", `Discovered ${campaigns.length} campaigns`, verbose);
@@ -510,6 +511,7 @@ export async function runSchedulerTick(
       };
       nextState.managedPageContextTabs = currentManagedPageContextTabs();
       nextState = addTickEvent(nextState, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`, verbose);
+      nextState = addTickEvent(nextState, platform, "debug", `Tick failed from status "${previous.status}" (error #${errorChecks}); ${error instanceof Error && error.stack ? error.stack : message}`, verbose);
     }
   }
 

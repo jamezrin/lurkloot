@@ -1,24 +1,14 @@
 import { browser } from "wxt/browser";
 import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "./models";
 import type { LogLevel } from "./logging";
+import { logActivity as logTab, setActivityLogger } from "./activityLog";
 import type { TwitchIntegrity } from "./twitchIntegrity";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 
 // tabs.ts is a pure module with no access to the scheduler state, so it reports
-// tab-lifecycle and ad-focus events through this optional sink. The background
-// registers an implementation that buffers them into the saved state (see
-// createBackgroundController). Defaults to a no-op so tests and the page context
-// stay unaffected when no sink is registered.
-type ActivityLogger = (level: LogLevel, message: string, platform?: Platform) => void;
-let activityLogger: ActivityLogger | undefined;
-
-export function setActivityLogger(logger: ActivityLogger | undefined): void {
-  activityLogger = logger;
-}
-
-function logTab(level: LogLevel, message: string, platform?: Platform): void {
-  activityLogger?.(level, message, platform);
-}
+// tab-lifecycle and ad-focus events through the shared activity-log sink (see
+// src/core/activityLog.ts). Re-exported here so existing importers keep working.
+export { setActivityLogger };
 
 interface BrowserTabApi {
   tabs: {
@@ -358,7 +348,8 @@ export function hasValidTwitchIntegrity(now: number = Date.now()): boolean {
 export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?: { isNew?: boolean }): void {
   twitchIntegrity = value;
   if (value && options?.isNew) {
-    logTab("info", `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()})`, "twitch");
+    const ttlSeconds = Math.max(0, Math.round((value.expiresAt - Date.now()) / 1000));
+    logTab("info", `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()}, in ${ttlSeconds}s)`, "twitch");
   }
   if (value != null && integrityWaiters.length > 0) {
     const waiters = integrityWaiters;
@@ -411,7 +402,7 @@ export async function ensureTwitchIntegrityWithBrowser(
     // here we only surface the failure case so the log isn't doubled up.
     const captured = await waitForIntegrityCapture(timeoutMs);
     if (!captured) {
-      logTab("warn", "Timed out waiting for a Twitch integrity token (is twitch.tv logged in?)", "twitch");
+      logTab("warn", `Timed out waiting for a Twitch integrity token after ${timeoutMs}ms (is twitch.tv logged in?)`, "twitch");
     }
     return captured;
   } catch (error) {
