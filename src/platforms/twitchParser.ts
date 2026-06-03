@@ -54,6 +54,7 @@ interface TwitchReward {
 
 interface TwitchGameEventDrop {
   id?: string;
+  name?: string;
   benefit?: { id?: string };
   lastAwardedAt?: string;
 }
@@ -92,7 +93,7 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
           ? "expired"
           : "active";
     const parsedRewards = (campaign.timeBasedDrops ?? []).map((drop) =>
-      parseTwitchReward(drop, campaign.id, userId, startsAt, endsAt, gameEventDrops),
+      parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops),
     );
     const rewards = parsedRewards.map((reward) => ({
       ...reward,
@@ -134,7 +135,6 @@ function parseTwitchReward(
   reward: TwitchReward,
   campaignId: string,
   userId?: string,
-  campaignStartsAt?: string,
   campaignEndsAt?: string,
   gameEventDrops: TwitchGameEventDrop[] = [],
 ): DropReward {
@@ -143,13 +143,11 @@ function parseTwitchReward(
   const benefits = (reward.benefitEdges ?? [])
     .map((edge) => edge.benefit)
     .filter((benefit): benefit is NonNullable<typeof benefit> => Boolean(benefit));
-  const eventClaimed = reward.self == null && benefits.some((benefit) =>
-    gameEventDrops.some((drop) =>
-      drop.benefit?.id === benefit.id
-      && awardedDuringDropWindow(drop.lastAwardedAt, reward.startAt ?? campaignStartsAt, reward.endAt ?? campaignEndsAt)
-    ),
-  );
-  const isClaimed = reward.self?.isClaimed ?? eventClaimed;
+  // A benefit already present in gameEventDrops means the user owns this reward,
+  // so the drop is effectively claimed even if Twitch still reports a self edge
+  // with isClaimed=false (e.g. a campaign re-running a reward you already earned).
+  const ownsBenefit = ownsRewardBenefit(benefits.map((benefit) => benefit.id), gameEventDrops);
+  const isClaimed = reward.self?.isClaimed === true || ownsBenefit;
   // Twitch's real dropInstanceID has the form `userID#campaignID#dropID` (see
   // TwitchDropsMiner inventory.py generate_claim and its inventory dump, which
   // strips user ids out of these). Prefer the value Twitch returns on the self
@@ -203,17 +201,23 @@ export function mergeTwitchCampaignProgress(
   inventory: TwitchInventory | TwitchCampaign[],
 ): DropCampaign[] {
   const progressCampaigns = parseTwitchInventory(inventory);
+  const gameEventDrops = Array.isArray(inventory) ? [] : inventory.data?.currentUser?.inventory?.gameEventDrops ?? [];
   return campaigns.map((campaign) => {
     const progress = progressCampaigns.find((item) => item.id === campaign.id);
-    if (!progress) return campaign;
-    return {
-      ...campaign,
-      status: progress.status,
-      rewards: campaign.rewards.map((reward) => {
-        const progressReward = progress.rewards.find((item) => item.id === reward.id);
-        return progressReward ? { ...reward, ...progressReward } : reward;
-      }),
-    };
+    const rewards = campaign.rewards.map((reward) => {
+      const progressReward = progress?.rewards.find((item) => item.id === reward.id);
+      const merged = progressReward ? { ...reward, ...progressReward } : reward;
+      // A claimed campaign falls out of dropCampaignsInProgress, so the merge
+      // above can't update it. gameEventDrops is always returned, so cross-check
+      // ownership to detect rewards the user already has.
+      if (merged.status !== "claimed" && ownsRewardBenefit(merged.benefitIds ?? [], gameEventDrops)) {
+        return { ...merged, status: "claimed" as const, watchedMinutes: merged.requiredMinutes };
+      }
+      return merged;
+    });
+    const allClaimed = rewards.length > 0 && rewards.every((reward) => reward.status === "claimed");
+    const next = { ...campaign, status: progress?.status ?? campaign.status, rewards };
+    return allClaimed ? withCampaignStatus(next, "completed") : next;
   });
 }
 
@@ -223,13 +227,19 @@ function addHours(value: string, hours: number): string | undefined {
   return new Date(time + hours * 60 * 60 * 1000).toISOString();
 }
 
-function awardedDuringDropWindow(awardedAt: string | undefined, startsAt: string | undefined, endsAt: string | undefined): boolean {
-  if (!awardedAt || !startsAt || !endsAt) return false;
-  const awarded = Date.parse(awardedAt);
-  const starts = Date.parse(startsAt);
-  const ends = Date.parse(endsAt);
-  if (Number.isNaN(awarded) || Number.isNaN(starts) || Number.isNaN(ends)) return false;
-  return starts <= awarded && awarded < ends;
+// True when the user already owns any of these benefits (it appears in the
+// inventory's gameEventDrops). Used to treat a drop as claimed regardless of
+// when it was awarded or what the per-drop self edge reports.
+//
+// Twitch's canonical Inventory response returns each owned reward as a
+// UserDropReward whose benefit id is the `id` field directly (e.g.
+// `<gameId>_CUSTOM_ID_BackpackCharmCannedTomatoes`); there is no `benefit`
+// sub-object. We match on `id` and keep `benefit.id` only as a defensive
+// fallback for the inline query shape.
+function ownsRewardBenefit(benefitIds: (string | undefined)[], gameEventDrops: TwitchGameEventDrop[]): boolean {
+  return benefitIds.some((id) =>
+    id != null && gameEventDrops.some((drop) => drop.id === id || drop.benefit?.id === id),
+  );
 }
 
 function eligibility(

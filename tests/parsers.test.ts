@@ -248,7 +248,7 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].rewards[0].claimId).toBeUndefined();
   });
 
-  it("does not infer a Twitch reward is claimed from reused benefits awarded outside the drop window", () => {
+  it("treats a Twitch reward as claimed when its benefit is already owned, regardless of award time", () => {
     const campaigns = parseTwitchInventory({
       data: {
         currentUser: {
@@ -276,8 +276,39 @@ describe("Twitch parsers", () => {
       },
     });
 
-    expect(campaigns[0].rewards[0].status).toBe("locked");
-    expect(campaigns[0].status).toBe("active");
+    expect(campaigns[0].rewards[0].status).toBe("claimed");
+    expect(campaigns[0].status).toBe("completed");
+  });
+
+  it("treats a Twitch reward as claimed via owned benefit even when self reports isClaimed false", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{
+              id: "owned-benefit",
+              name: "Canned Tomatoes",
+              lastAwardedAt: "2026-06-15T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [{
+              id: "arc",
+              name: "Update 1.29.0",
+              timeBasedDrops: [{
+                id: "drop",
+                name: "Canned Tomatoes",
+                requiredMinutesWatched: 120,
+                benefitEdges: [{ benefit: { id: "owned-benefit", name: "Canned Tomatoes" } }],
+                self: { currentMinutesWatched: 0, isClaimed: false },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards[0].status).toBe("claimed");
+    expect(campaigns[0].status).toBe("completed");
+    expect(campaigns[0].eligibility).toBe("completed");
   });
 
   it("infers a Twitch reward is claimed from a matching benefit awarded during the drop window", () => {
@@ -373,6 +404,35 @@ describe("Twitch parsers", () => {
     expect(merged[0].connectionUrls?.[0]).toContain("/directory/category/game-slug");
     expect(merged[0].rewards[0].watchedMinutes).toBe(45);
     expect(merged[0].rewards[0].status).toBe("in_progress");
+  });
+
+  it("marks a tracked campaign completed when its benefit is owned but it dropped out of in-progress", () => {
+    const details = parseTwitchInventory([{
+      id: "campaign",
+      name: "Update 1.29.0",
+      timeBasedDrops: [{
+        id: "drop",
+        name: "Canned Tomatoes",
+        requiredMinutesWatched: 120,
+        benefitEdges: [{ benefit: { id: "owned-benefit", name: "Canned Tomatoes" } }],
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{ id: "owned-benefit", name: "Canned Tomatoes", lastAwardedAt: "2026-06-15T12:00:00.000Z" }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0].status).toBe("claimed");
+    expect(merged[0].rewards[0].watchedMinutes).toBe(120);
+    expect(merged[0].status).toBe("completed");
+    expect(merged[0].eligibility).toBe("completed");
   });
 
   it("evaluates Twitch reward preconditions from claimed prior drops", () => {
