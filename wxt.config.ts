@@ -5,7 +5,7 @@ export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   vite: () => ({
     build: {
-      sourcemap: true,
+      sourcemap: false,
     },
     plugins: [tailwindcss()],
   }),
