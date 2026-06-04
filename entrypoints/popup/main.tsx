@@ -903,8 +903,8 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, d
     <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-transparent" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized ? { boxShadow: isOverlay ? "0 20px 50px -12px rgba(0,0,0,0.5)" : "0 0 0 1.5px var(--accent-ring), 0 10px 30px -18px var(--accent-glow)" } : undefined}>
       <div className="flex items-stretch">
         <div className="flex w-8 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">{dragHandle ?? <GripVertical size={16} className="text-zinc-300 dark:text-zinc-600" />}</div>
-        <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-start gap-2.5 p-2.5 text-left outline-none">
-          <div className="relative flex h-12 w-12 shrink-0 items-end overflow-hidden rounded-xl shadow-inner">
+        <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-2.5 p-2.5 text-left outline-none">
+          <div className="relative flex h-10 w-10 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
             <ImageWithFallback src={campaign.imageUrl} alt={campaign.title} fit="cover" fallback={
               <div className={cn("flex h-full w-full items-end bg-gradient-to-br p-1.5", campaign.tint)}>
                 <span className="text-[11px] font-black leading-none tracking-normal text-white drop-shadow">{campaign.thumbnail}</span>
@@ -912,44 +912,40 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, d
             } />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="line-clamp-1 text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</div>
-                <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: game.accent }} />
-                  <span className="truncate">{game.name}</span>
-                </div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="line-clamp-1 text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="text-[13px] font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>{stats.progress.toFixed(0)}%</span>
+                <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-zinc-400 dark:text-zinc-500"><ChevronDown size={16} /></motion.div>
               </div>
-              <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="mt-0.5 shrink-0 text-zinc-400 dark:text-zinc-500"><ChevronDown size={16} /></motion.div>
             </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: game.accent }} />
+              <span className="truncate">{game.name}</span>
+              <span className="shrink-0 text-zinc-300 dark:text-zinc-600">·</span>
               <Pill tone="accent">#{index + 1}</Pill>
-              {isFarming && <Pill tone="accent"><Radio size={9} /> Farming now</Pill>}
-              <Pill tone={campaign.linked ? "live" : "danger"}><Link2 size={9} /> {campaign.linked ? "Linked" : "Not linked"}</Pill>
+              {isFarming && <Pill tone="accent"><Radio size={9} /> Farming</Pill>}
+              {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> Not linked</Pill>}
             </div>
+            <div className="mt-2"><ProgressBar value={stats.progress} glow={emphasized} /></div>
           </div>
         </button>
       </div>
-      <div className="p-2.5">
-        <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
-          <div className="mb-1.5 flex items-end justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> Ends in {formatCountdown(campaign.ends)}</div>
-              {stats.complete
-                ? <div className="mt-0.5 truncate text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>Complete</div>
-                : <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">Next: <span className="font-medium text-zinc-800 dark:text-zinc-100">{stats.nextReward?.name}</span></div>}
-            </div>
-            <div className="shrink-0 text-right">
-              <div className="text-sm font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>{stats.progress.toFixed(0)}%</div>
-              {!stats.complete && <div className="mt-0.5 text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.remaining)} left</div>}
-            </div>
-          </div>
-          <ProgressBar value={stats.progress} glow={emphasized} />
-        </div>
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
-              <div className="space-y-2.5 pt-2.5">
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
+            <div className="space-y-2.5 p-2.5 pt-0">
+                <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+                  <div className="flex items-end justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> Ends in {formatCountdown(campaign.ends)}</div>
+                      {stats.complete
+                        ? <div className="mt-0.5 truncate text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>Complete</div>
+                        : <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">Next: <span className="font-medium text-zinc-800 dark:text-zinc-100">{stats.nextReward?.name}</span></div>}
+                    </div>
+                    {!stats.complete && <div className="shrink-0 text-right text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.remaining)} left</div>}
+                  </div>
+                </div>
                 <div className="grid grid-cols-3 gap-1.5">
                   <MetaStat icon={Clock3} label="Farmed" value={formatHours(stats.totalFarmed)} />
                   <MetaStat icon={RotateCcw} label="Left" value={stats.complete ? "Done" : formatMinutes(stats.remaining)} />
@@ -969,11 +965,10 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, d
                   <span className="truncate">{channelLabel}</span>
                   {campaign.allowedChannels[0] !== "All" ? <span className="truncate text-zinc-400 dark:text-zinc-500">· {campaign.allowedChannels.join(", ")}</span> : null}
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </article>
   );
 }
