@@ -10,11 +10,11 @@ import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 
-export const ALARM_NAME = "stream-maxxing.tick";
+export const ALARM_NAME = "stream-autopilot.tick";
 // A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
 // of the (heavier, configurable) discovery tick. chrome.alarms clamps to a
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
-export const WATCH_ALARM_NAME = "stream-maxxing.watch";
+export const WATCH_ALARM_NAME = "stream-autopilot.watch";
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 
 // One in-flight state mutation at a time. Each handler's load→modify→persist

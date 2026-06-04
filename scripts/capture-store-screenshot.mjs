@@ -5,7 +5,7 @@ import { extname, join, resolve } from "node:path";
 import { chromium } from "playwright";
 
 const root = resolve(".output/chrome-mv3");
-const outputPath = resolve("artifacts/store-screenshots/streammaxxer-popup-1280x800.png");
+const outputPath = resolve("artifacts/store-screenshots/stream-autopilot-popup-1280x800.png");
 const candidates = ["popup.html", "popup/index.html"];
 
 const contentTypes = {

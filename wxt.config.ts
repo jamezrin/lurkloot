@@ -10,7 +10,7 @@ export default defineConfig({
     plugins: [tailwindcss()],
   }),
   manifest: {
-    name: "StreamMaxxer",
+    name: "Stream Autopilot",
     description:
       "Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode.",
     permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest"],
@@ -28,7 +28,7 @@ export default defineConfig({
       "128": "icon/128.png"
     },
     action: {
-      default_title: "StreamMaxxer",
+      default_title: "Stream Autopilot",
       default_icon: {
         "16": "icon/16.png",
         "32": "icon/32.png"
@@ -36,7 +36,7 @@ export default defineConfig({
     },
     browser_specific_settings: {
       gecko: {
-        id: "stream-maxxing@example.com",
+        id: "stream-autopilot@jamezrin.name",
         strict_min_version: "140.0",
         data_collection_permissions: {
           required: ["none"]

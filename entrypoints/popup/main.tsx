@@ -486,9 +486,9 @@ function Popup(): React.ReactElement {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[var(--accent)] to-transparent" />
         <header className="flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-2.5">
-            <img src="/logo-ring.svg" alt="StreamMaxxer" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
+            <img src="/logo-ring.svg" alt="Stream Autopilot" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
             <div className="min-w-0 leading-tight">
-              <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">StreamMaxxer</div>
+              <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">Stream Autopilot</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: enabled ? "var(--accent)" : "#a1a1aa" }} />
                 {settingsOpen ? "Settings" : activityOpen ? "Activity" : `${enabled ? "Active" : "Paused"} · ${PLATFORMS[platform].label}`}
@@ -720,7 +720,7 @@ function StoreScreenshot({ children }: { children: React.ReactNode }): React.Rea
             Twitch and Kick drops, managed from one popup.
           </h1>
           <p className="mt-6 max-w-[520px] text-[22px] leading-snug text-zinc-300">
-            StreamMaxxer farms eligible campaigns through your normal browser session with visible muted tabs.
+            Stream Autopilot farms eligible campaigns through your normal browser session with visible muted tabs.
           </p>
           <div className="mt-9 flex gap-3">
             <span className="rounded-lg bg-white px-4 py-2 text-[15px] font-bold text-zinc-950">Twitch</span>
