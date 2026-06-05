@@ -48,7 +48,16 @@ function isEligible(campaign: DropCampaign, settings: ExtensionSettings): boolea
   // link is only required to claim), so we keep farming unlinked Kick campaigns
   // and surface the claim-time "link your account" guidance instead.
   if (campaign.platform !== "kick" && campaign.accountLinked === false) return false;
+  // "Priority list only" farms exclusively what the user curated: a campaign
+  // they explicitly reordered (campaignPriorities) or whose game is on the
+  // platform's game-priority list. Everything else is skipped.
+  if (settings.priorityMode === "priority_list_only" && !isInPriorityList(campaign, settings)) return false;
   return campaign.rewards.some((reward) => reward.status !== "claimed" && reward.preconditionsMet !== false && isRewardRelevantNow(reward));
+}
+
+function isInPriorityList(campaign: DropCampaign, settings: ExtensionSettings): boolean {
+  if (settings.campaignPriorities[campaign.id] != null) return true;
+  return gamePriorityScore(campaign, settings) !== Number.MAX_SAFE_INTEGER;
 }
 
 function hasCampaignEnded(campaign: DropCampaign): boolean {
@@ -172,6 +181,9 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: Extension
   }
   if (notExcluded.every((campaign) => campaign.accountLinked === false || campaign.eligibility === "account_not_linked")) {
     return "Campaign accounts are not linked";
+  }
+  if (settings.priorityMode === "priority_list_only" && !notExcluded.some((campaign) => isInPriorityList(campaign, settings))) {
+    return "No prioritized campaigns are eligible";
   }
   return "No eligible campaigns";
 }

@@ -128,7 +128,7 @@ export interface ManualWatchState {
   active: boolean;
 }
 
-export type PriorityMode = "ending_soonest" | "lowest_availability";
+export type PriorityMode = "ending_soonest" | "lowest_availability" | "priority_list_only";
 
 export interface PlaybackTelemetry {
   platform: Platform;

@@ -95,6 +95,15 @@ describe("settings", () => {
       .toBe("window");
   });
 
+  it("validates the priority mode", () => {
+    expect(DEFAULT_SETTINGS.priorityMode).toBe("ending_soonest");
+    expect(mergeSettings(undefined).priorityMode).toBe("ending_soonest");
+    expect(mergeSettings({ priorityMode: "lowest_availability" }).priorityMode).toBe("lowest_availability");
+    expect(mergeSettings({ priorityMode: "priority_list_only" }).priorityMode).toBe("priority_list_only");
+    expect(mergeSettings({ priorityMode: "nonsense" } as unknown as Parameters<typeof mergeSettings>[0]).priorityMode)
+      .toBe("ending_soonest");
+  });
+
   it("preserves watch queue channel priority order while removing duplicates", () => {
     const settings = mergeSettings({
       platform: {

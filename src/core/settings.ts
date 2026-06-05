@@ -1,7 +1,8 @@
-import type { AdFocusMode, ExtensionSettings } from "./models";
+import type { AdFocusMode, ExtensionSettings, PriorityMode } from "./models";
 import { LOG_LEVELS, type LogLevel } from "./logging";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
+const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   running: false,
@@ -57,8 +58,8 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_SETTINGS.notifyNoDropsLeft),
     autoStartDropFarming: booleanOr(value?.autoStartDropFarming, DEFAULT_SETTINGS.autoStartDropFarming),
     watchQueueFallbackOnly: booleanOr(value?.watchQueueFallbackOnly, DEFAULT_SETTINGS.watchQueueFallbackOnly),
-    priorityMode: value?.priorityMode === "lowest_availability" || value?.priorityMode === "ending_soonest"
-      ? value.priorityMode
+    priorityMode: PRIORITY_MODES.includes(value?.priorityMode as PriorityMode)
+      ? (value!.priorityMode as PriorityMode)
       : DEFAULT_SETTINGS.priorityMode,
     platform: {
       twitch: {

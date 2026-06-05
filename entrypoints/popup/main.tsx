@@ -1174,6 +1174,17 @@ function SettingsView({ games, settings, onSettingsChange }: {
       </SettingsSection>
       <SettingsSection title="Drops" description="Shared campaign farming behavior." icon={Gift}>
         <SettingRow title="Auto-claim drops" description="Claim earned drop rewards automatically when they become available." checked={settings.autoClaim} onChange={set("autoClaim")} />
+        <SelectSettingRow
+          title="Campaign priority"
+          description="How campaigns are chosen to farm. Priority list only farms just your prioritized campaigns and games; the others pick among all campaigns."
+          value={settings.priorityMode}
+          options={[
+            { value: "priority_list_only", label: "Priority list only" },
+            { value: "ending_soonest", label: "Ending soonest" },
+            { value: "lowest_availability", label: "Low availability first" },
+          ]}
+          onChange={(value) => onSettingsChange({ priorityMode: value }, { tickAfterSave: true })}
+        />
       </SettingsSection>
       <SettingsSection title="Watch Queue" description="Shared fallback queue behavior." icon={Play}>
         <SettingRow title="Only when no drops are active" description="Preserves drop priority automatically." checked={settings.watchQueueFallbackOnly} onChange={set("watchQueueFallbackOnly")} />
@@ -1450,12 +1461,12 @@ function LogLevelSettingRow({ value, onChange }: { value: LogLevel[]; onChange(l
   );
 }
 
-function SelectSettingRow({ title, description, value, options, onChange }: {
+function SelectSettingRow<T extends string>({ title, description, value, options, onChange }: {
   title: string;
   description: string;
-  value: AdFocusMode;
-  options: Array<{ value: AdFocusMode; label: string }>;
-  onChange(value: AdFocusMode): void | Promise<void>;
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  onChange(value: T): void | Promise<void>;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
@@ -1467,7 +1478,7 @@ function SelectSettingRow({ title, description, value, options, onChange }: {
         <select
           aria-label={title}
           value={value}
-          onChange={(event) => void onChange(event.target.value as AdFocusMode)}
+          onChange={(event) => void onChange(event.target.value as T)}
           className="bg-transparent pr-1 outline-none"
         >
           {options.map((option) => (

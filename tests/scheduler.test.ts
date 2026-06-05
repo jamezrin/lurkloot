@@ -81,6 +81,63 @@ describe("scheduler campaign selection", () => {
     expect(sorted.map((item) => item.id)).toEqual(["second", "first"]);
   });
 
+  it("priority list only skips campaigns absent from both priority lists", async () => {
+    const listCandidateChannels = vi.fn(async () => [channel("creator")]);
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("unlisted", { gameName: "Unlisted Game" })],
+      settings({ priorityMode: "priority_list_only" }),
+      {
+        listCandidateChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("idle");
+    expect(decision.reason).toContain("No prioritized campaigns are eligible");
+    expect(listCandidateChannels).not.toHaveBeenCalled();
+  });
+
+  it("priority list only farms a campaign whose game is on the priority list", async () => {
+    const listed = campaign("listed", { gameName: "Listed Game" });
+    const unlisted = campaign("unlisted", { gameName: "Unlisted Game" });
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [unlisted, listed],
+      settings({
+        priorityMode: "priority_list_only",
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, gamePriority: ["listed game"] },
+        },
+      }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("listed");
+  });
+
+  it("priority list only farms a campaign present in campaignPriorities", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("pinned"), campaign("unlisted")],
+      settings({ priorityMode: "priority_list_only", campaignPriorities: { pinned: 5 } }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("pinned");
+  });
+
   it("does not select campaigns whose only unclaimed reward is outside its earn and claim windows", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
