@@ -76,6 +76,7 @@ const PLATFORMS: Record<Platform, { label: string; mark: string; color: string }
   kick: { label: "Kick", mark: "K", color: "#53fc18" },
 };
 const SELECTED_PLATFORM_KEY = "popup:selectedPlatform";
+const COLLAPSED_SETTINGS_SECTIONS_KEY = "popup:collapsedSettingsSections";
 
 const GAME_ACCENTS = ["#2563eb", "#0891b2", "#ef4444", "#16a34a", "#9333ea", "#f59e0b"];
 const CAMPAIGN_TINTS = [
@@ -1161,6 +1162,8 @@ function SettingsView({ games, settings, onSettingsChange, initialPlatform = "tw
   const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as Partial<ExtensionSettings>);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
+  const tabPlaybackDisabled = settings.tablessMode;
+  const tabPlaybackDisabledReason = "Disabled while tabless low-resource mode is enabled.";
   const setPlatformEnabled = (platform: Platform) => (enabled: boolean) => onSettingsChange(
     {
       platform: {
@@ -1198,9 +1201,7 @@ function SettingsView({ games, settings, onSettingsChange, initialPlatform = "tw
   return (
     <div className="space-y-6">
       <SettingsSection title="General settings" description="Applies to Twitch and Kick." icon={SettingsIcon}>
-        <SettingRow title="Mute farming tabs" description="Keep drop and Watch Queue tabs muted while farming." checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} />
         <SettingRow title="Pause when watching manually" description="Stop farming while you have a stream open and are watching yourself." checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
-        <SettingRow title="Auto-close farming tabs" description="Automatically close when the extension is idle (no drops to farm or no streamers to watch)." checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
         <SettingRow title="Auto-start on launch" description="Begin farming as soon as the extension loads." checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
       </SettingsSection>
       <SettingsSection title="Notifications" description="Applies to all enabled platforms." icon={Bell}>
@@ -1233,10 +1234,11 @@ function SettingsView({ games, settings, onSettingsChange, initialPlatform = "tw
           </motion.div>
         </AnimatePresence>
       </SettingsSection>
-      <SettingsSection title="Advanced" description="Only change these if you know what you are doing — they control complex low-level playback behavior." icon={SlidersHorizontal}>
+      <SettingsSection title="Farming tabs" description="Controls for video-tab farming. Tab-specific controls are disabled while tabless low-resource mode is enabled." icon={Play}>
         <SettingRow title="Tabless low-resource mode" description="Farm via lightweight watch signals instead of a video tab. Twitch uses watch heartbeats; Kick uses a viewer connection. Falls back to a tab automatically if it stops earning." checked={settings.tablessMode} onChange={(value) => onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />
-        <SettingRow title="Keep farming videos unmuted" description="Keeps page video players unmuted while the browser tab is muted." checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} />
-        <NumberSettingRow title="Scheduler interval" description="How often campaign and streamer status refreshes." value={pollIntervalSeconds} min={30} max={3600} suffix="sec" onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
+        <SettingRow title="Auto-close farming tabs" description="Automatically close when the extension is idle (no drops to farm or no streamers to watch)." checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
+        <SettingRow title="Mute farming tabs" description="Keep drop and Watch Queue tabs muted while farming." checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} disabled={tabPlaybackDisabled} disabledReason={tabPlaybackDisabledReason} />
+        <SettingRow title="Keep farming videos unmuted" description="Keeps page video players unmuted while the browser tab is muted." checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} disabled={tabPlaybackDisabled} disabledReason={tabPlaybackDisabledReason} />
         <SelectSettingRow
           title="Focus tab during ads"
           description="Ad countdowns freeze in background tabs. Briefly focus the farming tab while an ad plays so it counts down, then restore your previous tab."
@@ -1247,7 +1249,12 @@ function SettingsView({ games, settings, onSettingsChange, initialPlatform = "tw
             { value: "window", label: "Tab + window" },
           ]}
           onChange={(value) => onSettingsChange({ adFocusMode: value })}
+          disabled={tabPlaybackDisabled}
+          disabledReason={tabPlaybackDisabledReason}
         />
+      </SettingsSection>
+      <SettingsSection title="Advanced" description="Only change these if you know what you are doing — they control low-level scheduler and logging behavior." icon={SlidersHorizontal}>
+        <NumberSettingRow title="Scheduler interval" description="How often campaign and streamer status refreshes." value={pollIntervalSeconds} min={30} max={3600} suffix="sec" onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
         <LogLevelSettingRow value={settings.enabledLogLevels} onChange={(levels) => onSettingsChange({ enabledLogLevels: levels })} />
       </SettingsSection>
     </div>
@@ -1442,28 +1449,73 @@ function CompactRow({ avatar, avatarStyle, index, title, subtitle, trailing, dra
 }
 
 function SettingsSection({ title, description, icon: Icon, iconNode, divided = true, children }: { title: string; description?: string; icon?: LucideIcon; iconNode?: React.ReactNode; divided?: boolean; children: React.ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (SCREENSHOT_MODE) return;
+    let mounted = true;
+    void browser.storage.local.get(COLLAPSED_SETTINGS_SECTIONS_KEY).then((stored) => {
+      if (!mounted) return;
+      const collapsed = stored[COLLAPSED_SETTINGS_SECTIONS_KEY] as Record<string, boolean | undefined> | undefined;
+      setExpanded(collapsed?.[title] === false);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [title]);
+
+  function toggleExpanded(): void {
+    const nextExpanded = !expanded;
+    setExpanded(nextExpanded);
+    if (SCREENSHOT_MODE) return;
+    void browser.storage.local.get(COLLAPSED_SETTINGS_SECTIONS_KEY).then((stored) => {
+      const collapsed = {
+        ...((stored[COLLAPSED_SETTINGS_SECTIONS_KEY] as Record<string, boolean> | undefined) ?? {}),
+        [title]: !nextExpanded,
+      };
+      void browser.storage.local.set({ [COLLAPSED_SETTINGS_SECTIONS_KEY]: collapsed });
+    });
+  }
+
   return (
     <section>
       <header className="mb-1.5 px-0.5">
-        <div className="flex items-center gap-1.5">
-          {iconNode ?? (Icon ? <Icon size={13} className="text-zinc-400 dark:text-zinc-500" /> : null)}
-          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</h3>
-        </div>
-        {description ? <p className="mt-1 text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">{description}</p> : null}
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={toggleExpanded}
+          className="flex w-full items-start justify-between gap-3 rounded-lg px-1 py-1 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-900/70"
+        >
+          <span className="min-w-0">
+            <span className="flex items-center gap-1.5">
+              {iconNode ?? (Icon ? <Icon size={13} className="text-zinc-400 dark:text-zinc-500" /> : null)}
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</span>
+            </span>
+            {description ? <span className="mt-1 block text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">{description}</span> : null}
+          </span>
+          <ChevronDown size={14} className={cn("mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded && "rotate-180")} />
+        </button>
       </header>
-      <div className={divided ? "divide-y divide-zinc-100 px-0.5 dark:divide-zinc-800/70" : "space-y-3 px-0.5"}>{children}</div>
+      {expanded ? <div className={divided ? "divide-y divide-zinc-100 px-0.5 dark:divide-zinc-800/70" : "space-y-3 px-0.5"}>{children}</div> : null}
     </section>
   );
 }
 
-function SettingRow({ title, description, checked, onChange }: { title: string; description: string; checked: boolean; onChange(value: boolean): void | Promise<void> }) {
+function SettingRow({ title, description, checked, onChange, disabled = false, disabledReason }: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange(value: boolean): void | Promise<void>;
+  disabled?: boolean;
+  disabledReason?: string;
+}) {
   return (
-    <div className="flex items-center gap-3 py-2.5">
+    <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
       <div className="min-w-0 flex-1">
         <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
-      <Toggle checked={checked} onChange={onChange} label={title} />
+      <Toggle checked={checked} onChange={onChange} label={title} disabled={disabled} />
     </div>
   );
 }
@@ -1545,25 +1597,28 @@ function CampaignFilterSettingRow({ value, onChange }: { value: Record<CampaignF
   );
 }
 
-function SelectSettingRow<T extends string>({ title, description, value, options, onChange }: {
+function SelectSettingRow<T extends string>({ title, description, value, options, onChange, disabled = false, disabledReason }: {
   title: string;
   description: string;
   value: T;
   options: Array<{ value: T; label: string }>;
   onChange(value: T): void | Promise<void>;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 py-2.5">
+    <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
       <div className="min-w-0 flex-1">
         <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
-      <label className="flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+      <label className={cn("flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>
         <select
           aria-label={title}
+          disabled={disabled}
           value={value}
           onChange={(event) => void onChange(event.target.value as T)}
-          className="bg-transparent pr-1 outline-none"
+          className={cn("bg-transparent pr-1 outline-none", disabled && "cursor-not-allowed")}
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
@@ -1621,7 +1676,7 @@ function NumberSettingRow({ title, description, value, min, max, suffix, onChang
 
 function Toggle({ checked, onChange, label, disabled = false }: { checked: boolean; onChange(value: boolean): void | Promise<void>; label: string; disabled?: boolean }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => void onChange(!checked)} className={cn("relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", checked ? "" : "bg-zinc-200 dark:bg-zinc-700", disabled && "cursor-wait opacity-70")} style={checked ? { backgroundColor: "var(--accent)" } : undefined}>
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => void onChange(!checked)} className={cn("relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", checked ? "" : "bg-zinc-200 dark:bg-zinc-700", disabled && "cursor-not-allowed opacity-70")} style={checked ? { backgroundColor: "var(--accent)" } : undefined}>
       <motion.span layout transition={{ type: "spring", stiffness: 550, damping: 32 }} className="h-[18px] w-[18px] rounded-full bg-white shadow-sm" style={{ marginLeft: checked ? 16 : 0 }} />
     </button>
   );
