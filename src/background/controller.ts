@@ -1,6 +1,6 @@
 import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../core/messages";
 import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "../core/models";
-import { appendLog } from "../core/logging";
+import { appendLog, shouldRecord, type LogLevel } from "../core/logging";
 import { mergeSettings } from "../core/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick } from "../core/scheduler";
 import { setActivityLogger } from "../core/activityLog";
@@ -106,17 +106,17 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
       await deps.saveState(state);
       return;
     }
-    const verbose = (await deps.loadSettings()).verboseLogging;
+    const enabledLevels = (await deps.loadSettings()).enabledLogLevels;
     let next = state;
     for (const entry of pendingTabEvents.splice(0)) {
-      next = withEvent(next, entry, verbose);
+      next = withEvent(next, entry, enabledLevels);
     }
     await deps.saveState(next);
   }
 
-  // Appends an event unless it is debug while verbose logging is off.
-  function withEvent(state: SchedulerState, entry: Omit<EventLogEntry, "id" | "at">, verbose: boolean): SchedulerState {
-    if (entry.level === "debug" && !verbose) return state;
+  // Appends an event only if its level is enabled in settings.
+  function withEvent(state: SchedulerState, entry: Omit<EventLogEntry, "id" | "at">, enabledLevels: readonly LogLevel[]): SchedulerState {
+    if (!shouldRecord(entry.level, enabledLevels)) return state;
     return appendLog(state, entry);
   }
 
@@ -125,11 +125,11 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     platform: Platform,
     previous: PlaybackTelemetry | undefined,
     telemetry: Omit<PlaybackTelemetry, "platform" | "checkedAt">,
-    verbose: boolean,
+    enabledLevels: readonly LogLevel[],
   ): SchedulerState {
     let next = state;
     const log = (level: EventLogEntry["level"], message: string) => {
-      next = withEvent(next, { platform, level, message }, verbose);
+      next = withEvent(next, { platform, level, message }, enabledLevels);
     };
 
     if (telemetry.adActive && !previous?.adActive) {
@@ -205,7 +205,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     await withStateLock(async () => {
       const settings = await deps.loadSettings();
       const state = await deps.loadState();
-      const verbose = settings.verboseLogging;
+      const enabledLevels = settings.enabledLogLevels;
 
       try {
         const adapters = deps.createAdapters();
@@ -215,12 +215,12 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
         await reconcileTablessWatchers(result.state, settings, adapters, platforms);
         // The per-tick heartbeat is debug noise next to the richer per-platform
         // entries the scheduler already records; the popup shows "last check" too.
-        await persist(withEvent(result.state, { level: "debug", message: "Scheduler tick completed" }, verbose));
+        await persist(withEvent(result.state, { level: "debug", message: "Scheduler tick completed" }, enabledLevels));
       } catch (error) {
         await persist(withEvent(state, {
           level: "error",
           message: error instanceof Error ? error.message : "Scheduler tick failed",
-        }, verbose));
+        }, enabledLevels));
       }
     });
   }
@@ -305,7 +305,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   async function runWatchHeartbeat(): Promise<void> {
     const settings = await deps.loadSettings();
     if (!settings.running) return;
-    const verbose = settings.verboseLogging;
+    const enabledLevels = settings.enabledLogLevels;
 
     const fallbackPlatforms = await withStateLock<Platform[]>(async () => {
       let nextState = await deps.loadState();
@@ -355,13 +355,13 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
         changed = true;
 
         if (ok && previousChecks > 0) {
-          nextState = withEvent(nextState, { platform, level: "info", message: "Tabless watch heartbeat recovered" }, verbose);
+          nextState = withEvent(nextState, { platform, level: "info", message: "Tabless watch heartbeat recovered" }, enabledLevels);
         } else if (!ok && previousChecks === 0) {
-          nextState = withEvent(nextState, { platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" }, verbose);
+          nextState = withEvent(nextState, { platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" }, enabledLevels);
         }
         if (!ok && heartbeatChecks >= settings.offlineRetryLimit && !fallbacks.includes(platform)) {
           fallbacks.push(platform);
-          nextState = withEvent(nextState, { platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" }, verbose);
+          nextState = withEvent(nextState, { platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" }, enabledLevels);
         }
       }
 
@@ -397,7 +397,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
 
       const previous = session.playback;
       const telemetry = message.telemetry;
-      const verbose = settings.verboseLogging;
+      const enabledLevels = settings.enabledLogLevels;
       let nextState: SchedulerState = {
         ...state,
         sessions: {
@@ -416,7 +416,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
       // Only log transitions — telemetry arrives every few seconds, so logging the
       // raw stream would bury everything else.
       if (session.status === "watching") {
-        nextState = appendPlaybackEvents(nextState, message.platform, previous, telemetry, verbose);
+        nextState = appendPlaybackEvents(nextState, message.platform, previous, telemetry, enabledLevels);
       }
 
       await persist(nextState);

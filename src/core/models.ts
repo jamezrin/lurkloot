@@ -180,7 +180,7 @@ export interface ExtensionSettings {
   excludedCampaignIds: string[];
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
-  verboseLogging: boolean;
+  enabledLogLevels: LogLevel[];
 }
 
 export interface EventLogEntry {

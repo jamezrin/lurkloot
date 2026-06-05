@@ -506,11 +506,11 @@ describe("scheduler tick", () => {
     };
     const adapters = () => ({ twitch, kick: adapter("kick", [], []) });
 
-    const quiet = await runSchedulerTick(baseState, settings({ verboseLogging: false }), adapters());
+    const quiet = await runSchedulerTick(baseState, settings({ enabledLogLevels: ["info", "warn", "error"] }), adapters());
     expect(quiet.state.events.some((event) => event.level === "debug")).toBe(false);
     expect(quiet.state.events.some((event) => event.message.startsWith("Discovered"))).toBe(true);
 
-    const verbose = await runSchedulerTick(baseState, settings({ verboseLogging: true }), adapters());
+    const verbose = await runSchedulerTick(baseState, settings({ enabledLogLevels: ["debug", "info", "warn", "error"] }), adapters());
     expect(verbose.state.events.some((event) => event.level === "debug")).toBe(true);
   });
 

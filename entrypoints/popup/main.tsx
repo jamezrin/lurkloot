@@ -595,7 +595,7 @@ function Popup(): React.ReactElement {
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
-                <ActivityLog events={snapshot.state.events} platform={platform} lastTickAt={snapshot.state.lastTickAt} verboseLogging={settings.verboseLogging} />
+                <ActivityLog events={snapshot.state.events} platform={platform} lastTickAt={snapshot.state.lastTickAt} enabledLogLevels={settings.enabledLogLevels} />
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
@@ -672,30 +672,23 @@ const EVENT_LEVEL_LABEL: Record<LogLevel, string> = {
   error: "Error",
 };
 
-// Debug is hidden by default — it only appears when verbose logging is on, and
-// even then most users want to scan info/warn/error first.
-const DEFAULT_VISIBLE_LEVELS: LogLevel[] = ["info", "warn", "error"];
-
 function ActivityLog({
   events,
   platform,
   lastTickAt,
-  verboseLogging,
+  enabledLogLevels,
 }: {
   events: EventLogEntry[];
   platform: Platform;
   lastTickAt?: string;
-  verboseLogging: boolean;
+  enabledLogLevels: LogLevel[];
 }): React.ReactElement {
-  const [activeLevels, setActiveLevels] = useState<Set<LogLevel>>(() => new Set(DEFAULT_VISIBLE_LEVELS));
+  // The display filter defaults to the levels that are actually recorded —
+  // disabled levels have no entries anyway — but stays user-toggleable below.
+  const [activeLevels, setActiveLevels] = useState<Set<LogLevel>>(() => new Set(enabledLogLevels));
   useEffect(() => {
-    setActiveLevels((current) => {
-      const next = new Set(current);
-      if (verboseLogging) next.add("debug");
-      else next.delete("debug");
-      return next;
-    });
-  }, [verboseLogging]);
+    setActiveLevels(new Set(enabledLogLevels));
+  }, [enabledLogLevels.join(",")]);
   const forPlatform = useMemo(
     () => events.filter((event) => !event.platform || event.platform === platform),
     [events, platform],
@@ -1204,7 +1197,7 @@ function SettingsView({ games, settings, onSettingsChange }: {
           ]}
           onChange={(value) => onSettingsChange({ adFocusMode: value })}
         />
-        <SettingRow title="Verbose logging" description="Record detailed DEBUG entries in the Activity log to help troubleshoot farming issues." checked={settings.verboseLogging} onChange={set("verboseLogging")} />
+        <LogLevelSettingRow value={settings.enabledLogLevels} onChange={(levels) => onSettingsChange({ enabledLogLevels: levels })} />
       </SettingsSection>
     </div>
   );
@@ -1410,6 +1403,49 @@ function SettingRow({ title, description, checked, onChange }: { title: string; 
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
       <Toggle checked={checked} onChange={onChange} label={title} />
+    </div>
+  );
+}
+
+// Per-level control over what gets recorded in the Activity log. Errors are
+// always kept so failures are never silently dropped, so that pill is locked on.
+function LogLevelSettingRow({ value, onChange }: { value: LogLevel[]; onChange(levels: LogLevel[]): void | Promise<void> }) {
+  const enabled = new Set(value);
+  const toggle = (level: LogLevel) => {
+    const next = new Set(enabled);
+    if (next.has(level)) next.delete(level);
+    else next.add(level);
+    next.add("error");
+    onChange(LOG_LEVELS.filter((l) => next.has(l)));
+  };
+  return (
+    <div className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+      <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">Activity log levels</div>
+      <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+        Choose which levels are recorded in the Activity log. Errors are always kept.
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        {LOG_LEVELS.map((level) => {
+          const active = enabled.has(level) || level === "error";
+          const locked = level === "error";
+          return (
+            <button
+              key={level}
+              type="button"
+              disabled={locked}
+              onClick={locked ? undefined : () => toggle(level)}
+              className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold transition ${active
+                ? "border-transparent text-white"
+                : "border-zinc-200 text-zinc-400 dark:border-zinc-700"} ${locked ? "cursor-default opacity-90" : ""}`}
+              style={active ? { backgroundColor: EVENT_LEVEL_COLOR[level] } : undefined}
+              aria-pressed={active}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "#ffffff" : EVENT_LEVEL_COLOR[level] }} />
+              {EVENT_LEVEL_LABEL[level]}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

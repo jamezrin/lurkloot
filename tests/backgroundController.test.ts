@@ -442,8 +442,8 @@ describe("background controller", () => {
     expect(snapshot.state.events.some((event) => event.level === "debug")).toBe(false);
   });
 
-  it("records debug entries only when verbose logging is enabled", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, verboseLogging: true });
+  it("records debug entries only when the debug level is enabled", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, enabledLogLevels: ["debug", "info", "warn", "error"] });
 
     const snapshot = asSnapshot(await env.controller.handleMessage({ type: "tickNow" }));
 

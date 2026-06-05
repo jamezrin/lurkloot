@@ -13,7 +13,7 @@ describe("settings", () => {
       autoStartDropFarming: true,
       watchQueueFallbackOnly: true,
       pollIntervalMinutes: 1,
-      verboseLogging: false,
+      enabledLogLevels: ["info", "warn", "error"],
       platform: {
         twitch: { excludedChannels: [], gamePriority: [] },
         kick: { excludedChannels: [], gamePriority: [] },
@@ -30,10 +30,22 @@ describe("settings", () => {
     expect(mergeSettings({ offlineRetryLimit: Number.NaN }).offlineRetryLimit).toBe(DEFAULT_SETTINGS.offlineRetryLimit);
   });
 
-  it("round-trips the verbose logging flag", () => {
-    expect(mergeSettings({ verboseLogging: true }).verboseLogging).toBe(true);
-    expect(mergeSettings({ verboseLogging: undefined }).verboseLogging).toBe(false);
-    expect(mergeSettings(undefined).verboseLogging).toBe(false);
+  it("normalizes enabled log levels and always keeps error", () => {
+    // Defaults when nothing is stored.
+    expect(mergeSettings(undefined).enabledLogLevels).toEqual(["info", "warn", "error"]);
+    expect(mergeSettings({ enabledLogLevels: undefined }).enabledLogLevels).toEqual(["info", "warn", "error"]);
+    // Invalid/duplicate/out-of-order entries are filtered to canonical order.
+    expect(mergeSettings({ enabledLogLevels: ["warn", "debug", "warn", "bogus"] as never }).enabledLogLevels)
+      .toEqual(["debug", "warn", "error"]);
+    // Error is forced on even if omitted.
+    expect(mergeSettings({ enabledLogLevels: ["info"] }).enabledLogLevels).toEqual(["info", "error"]);
+    // An explicit empty array still records errors.
+    expect(mergeSettings({ enabledLogLevels: [] }).enabledLogLevels).toEqual(["error"]);
+  });
+
+  it("migrates the legacy verboseLogging flag", () => {
+    expect(mergeSettings({ verboseLogging: true } as never).enabledLogLevels).toEqual(["debug", "info", "warn", "error"]);
+    expect(mergeSettings({ verboseLogging: false } as never).enabledLogLevels).toEqual(["info", "warn", "error"]);
   });
 
   it("normalizes imported list, priority, mode, and boolean settings", () => {

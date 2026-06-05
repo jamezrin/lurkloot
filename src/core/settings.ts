@@ -1,4 +1,5 @@
 import type { AdFocusMode, ExtensionSettings } from "./models";
+import { LOG_LEVELS, type LogLevel } from "./logging";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 
@@ -35,7 +36,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   excludedCampaignIds: [],
   offlineRetryLimit: 3,
   pollIntervalMinutes: 1,
-  verboseLogging: false,
+  enabledLogLevels: ["info", "warn", "error"],
 };
 
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
@@ -78,8 +79,23 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_SETTINGS.offlineRetryLimit),
     // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
-    verboseLogging: booleanOr(value?.verboseLogging, DEFAULT_SETTINGS.verboseLogging),
+    enabledLogLevels: normalizeLogLevels(value),
   };
+}
+
+function normalizeLogLevels(value: Partial<ExtensionSettings> & { verboseLogging?: boolean } | undefined): LogLevel[] {
+  // No stored array -> migrate the legacy verboseLogging toggle (verbose meant
+  // debug entries were recorded on top of the info/warn/error baseline).
+  if (!Array.isArray(value?.enabledLogLevels)) {
+    return value?.verboseLogging
+      ? ["debug", ...DEFAULT_SETTINGS.enabledLogLevels]
+      : [...DEFAULT_SETTINGS.enabledLogLevels];
+  }
+  // Filter through LOG_LEVELS for canonical order + dedupe; error is always
+  // recorded so failures are never silently dropped.
+  const stored = value.enabledLogLevels;
+  const valid = LOG_LEVELS.filter((level) => stored.includes(level));
+  return valid.includes("error") ? valid : [...valid, "error"];
 }
 
 function booleanOr(value: boolean | undefined, fallback: boolean): boolean {

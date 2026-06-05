@@ -10,7 +10,7 @@ import type {
   WatchSession,
 } from "./models";
 import { currentManagedPageContextTabs, registerManagedPageContextTabs, stopManagedPageContextTabs } from "./tabs";
-import { appendLog, type LogLevel } from "./logging";
+import { appendLog, shouldRecord, type LogLevel } from "./logging";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -278,7 +278,7 @@ export async function runSchedulerTick(
     lastTickAt: new Date().toISOString(),
   };
   const decisions: WatchDecision[] = [];
-  const verbose = settings.verboseLogging;
+  const enabledLevels = settings.enabledLogLevels;
 
   const platforms = options.platforms ?? PLATFORMS;
   for (const platform of platforms) {
@@ -287,7 +287,7 @@ export async function runSchedulerTick(
     const adapter = adapters[platform];
 
     try {
-      nextState = addTickEvent(nextState, platform, "debug", `Tick start (previous status: ${previous.status})`, verbose);
+      nextState = addTickEvent(nextState, platform, "debug", `Tick start (previous status: ${previous.status})`, enabledLevels);
       if (settings.pauseOnManualWatch && hasRecentManualWatch(nextState, platform)) {
         await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
         nextState.sessions[platform] = {
@@ -311,7 +311,7 @@ export async function runSchedulerTick(
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
-        nextState = addTickEvent(nextState, platform, "info", "Manual watch detected; pausing farming for this platform", verbose);
+        nextState = addTickEvent(nextState, platform, "info", "Manual watch detected; pausing farming for this platform", enabledLevels);
         continue;
       }
       if (!settings.running || !platformSettings.enabled) {
@@ -337,7 +337,7 @@ export async function runSchedulerTick(
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
-        nextState = addTickEvent(nextState, platform, "info", "Automation disabled", verbose);
+        nextState = addTickEvent(nextState, platform, "info", "Automation disabled", enabledLevels);
         continue;
       }
 
@@ -348,7 +348,7 @@ export async function runSchedulerTick(
           lastCheckedAt: new Date().toISOString(),
           message: `Waiting until ${previous.retryAfter} before retrying after platform errors`,
         };
-        nextState = addTickEvent(nextState, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred", verbose);
+        nextState = addTickEvent(nextState, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred", enabledLevels);
         continue;
       }
 
@@ -360,20 +360,20 @@ export async function runSchedulerTick(
         if (!hasWatchQueueChannels(settings, platform)) throw error;
         campaigns = [];
         const message = error instanceof Error ? error.message : "Drop discovery failed";
-        nextState = addTickEvent(nextState, platform, "warn", `${message}; checking Watch Queue fallback`, verbose);
-        nextState = addTickEvent(nextState, platform, "debug", `Drop discovery error (Watch Queue fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`, verbose);
+        nextState = addTickEvent(nextState, platform, "warn", `${message}; checking Watch Queue fallback`, enabledLevels);
+        nextState = addTickEvent(nextState, platform, "debug", `Drop discovery error (Watch Queue fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`, enabledLevels);
       }
       nextState.campaigns[platform] = campaigns;
-      nextState = addTickEvent(nextState, platform, "info", `Discovered ${campaigns.length} campaigns`, verbose);
+      nextState = addTickEvent(nextState, platform, "info", `Discovered ${campaigns.length} campaigns`, enabledLevels);
       const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
-      nextState = addTickEvent(nextState, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`, verbose);
+      nextState = addTickEvent(nextState, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`, enabledLevels);
 
       if (settings.autoClaim) {
         const claimResult = await claimReadyRewards(adapter, campaigns);
         campaigns = claimResult.campaigns;
         nextState.campaigns[platform] = campaigns;
         for (const event of claimResult.events) {
-          nextState = addTickEvent(nextState, platform, event.level, event.message, verbose);
+          nextState = addTickEvent(nextState, platform, event.level, event.message, enabledLevels);
         }
       }
 
@@ -383,7 +383,7 @@ export async function runSchedulerTick(
         platform,
         "debug",
         `Campaign decision: ${decision.action}${decision.channel ? ` → ${decision.channel.displayName ?? decision.channel.username}` : ""} (${decision.reason})`,
-        verbose,
+        enabledLevels,
       );
       const shouldKeep = await shouldKeepWatching(previous, decision, settings, adapter);
       nextState = addTickEvent(
@@ -391,7 +391,7 @@ export async function runSchedulerTick(
         platform,
         "debug",
         `Keep-watching check: ${shouldKeep.keep ? "keep" : "switch"} (${shouldKeep.reason}); ${previous.watchMode === "tabless" ? "heartbeat" : "playback"} ${isSessionHealthy(previous) ? "healthy" : "unhealthy"}`,
-        verbose,
+        enabledLevels,
       );
       if (shouldKeep.keep && previous.channel) {
         decision = {
@@ -412,7 +412,7 @@ export async function runSchedulerTick(
       }
 
       decisions.push(decision);
-      nextState = addTickEvent(nextState, platform, decision.action === "idle" ? "warn" : "info", decision.reason, verbose);
+      nextState = addTickEvent(nextState, platform, decision.action === "idle" ? "warn" : "info", decision.reason, enabledLevels);
       if (decision.action === "idle") {
         await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
@@ -442,7 +442,7 @@ export async function runSchedulerTick(
             platform,
             "debug",
             `Tabless watch armed for ${decision.channel.displayName ?? decision.channel.username}`,
-            verbose,
+            enabledLevels,
           );
         } else {
           const watchTabOptions = {
@@ -463,7 +463,7 @@ export async function runSchedulerTick(
             platform,
             "debug",
             `Watch tab ready (tab ${prepared.tabId}, ${prepared.managedByExtension ? "extension-managed" : "user tab"}) for ${decision.channel.displayName ?? decision.channel.username}`,
-            verbose,
+            enabledLevels,
           );
           if (prepared.managedByExtension) {
             nextState.managedWatchTabs = {
@@ -484,7 +484,7 @@ export async function runSchedulerTick(
           try {
             const claimed = await adapter.claimChannelPoints(decision.channel);
             if (claimed) {
-              nextState = addTickEvent(nextState, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`, verbose);
+              nextState = addTickEvent(nextState, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`, enabledLevels);
             }
           } catch (error) {
             nextState = addTickEvent(
@@ -492,7 +492,7 @@ export async function runSchedulerTick(
               platform,
               "warn",
               error instanceof Error ? error.message : "Channel points claim failed",
-              verbose,
+              enabledLevels,
             );
           }
         }
@@ -514,8 +514,8 @@ export async function runSchedulerTick(
         message,
       };
       nextState.managedPageContextTabs = currentManagedPageContextTabs();
-      nextState = addTickEvent(nextState, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`, verbose);
-      nextState = addTickEvent(nextState, platform, "debug", `Tick failed from status "${previous.status}" (error #${errorChecks}); ${error instanceof Error && error.stack ? error.stack : message}`, verbose);
+      nextState = addTickEvent(nextState, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`, enabledLevels);
+      nextState = addTickEvent(nextState, platform, "debug", `Tick failed from status "${previous.status}" (error #${errorChecks}); ${error instanceof Error && error.stack ? error.stack : message}`, enabledLevels);
     }
   }
 
@@ -738,15 +738,15 @@ function isHeartbeatHealthy(session: WatchSession): boolean {
   return Date.now() - at < 3 * 60 * 1000;
 }
 
-// Records a tick event unless it is a debug entry while verbose logging is off —
-// debug detail is opt-in so the rolling log stays readable by default.
+// Records a tick event only if its level is enabled in settings — debug detail
+// is opt-in so the rolling log stays readable by default.
 function addTickEvent(
   state: SchedulerState,
   platform: Platform,
   level: LogLevel,
   message: string,
-  verbose: boolean,
+  enabledLevels: readonly LogLevel[],
 ): SchedulerState {
-  if (level === "debug" && !verbose) return state;
+  if (!shouldRecord(level, enabledLevels)) return state;
   return appendLog(state, { platform, level, message });
 }
