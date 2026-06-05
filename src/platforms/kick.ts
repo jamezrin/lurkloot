@@ -1,7 +1,7 @@
 import type { ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
 import type { TablessWatchController } from "../core/tablessWatch";
 import { logActivity } from "../core/activityLog";
-import { fetchJsonInPage, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
+import { fetchJsonInPage, fetchKickInBackground, KickWafBlockedError, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
 import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "./adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./kickParser";
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./kickWatch";
@@ -49,15 +49,55 @@ function isKickClaimSuccess(response: KickClaimResponse): boolean {
   return response.data?.id != null;
 }
 
+// Default Kick fetcher. Spike: try the service worker first (fully tabless) and
+// fall back to a retained kick.com page-context tab if Kick's WAF rejects the
+// extension origin. The outcome is logged once per host (then debug) so a
+// real-Chrome run shows exactly which calls are tabless-capable. The fallback
+// makes this risk-free: farming behaves as before regardless of the result.
+export function createKickFetcher(deps: {
+  background?: (url: string, init?: RequestInit) => Promise<unknown>;
+  pageFetch?: (url: string, init?: RequestInit) => Promise<unknown>;
+} = {}): PageFetcher {
+  const background = deps.background ?? ((url: string, init?: RequestInit) => fetchKickInBackground<unknown>(url, init));
+  const pageFetch = deps.pageFetch ?? ((url: string, init?: RequestInit) =>
+    fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }));
+  const announced = new Map<string, "background" | "fallback">();
+  const report = (host: string, outcome: "background" | "fallback", detail: string): void => {
+    const repeat = announced.get(host) === outcome;
+    announced.set(host, outcome);
+    logActivity(repeat ? "debug" : "info", `Kick fetch ${host} ${detail}`, "kick");
+  };
+  return {
+    fetchJson: async <T,>(url: string, init?: RequestInit): Promise<T> => {
+      const host = safeHost(url);
+      try {
+        const result = await background(url, init);
+        report(host, "background", "→ service worker OK (tabless-capable)");
+        return result as T;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        report(host, "fallback", error instanceof KickWafBlockedError
+          ? `→ WAF-blocked from service worker, using page tab (${message})`
+          : `→ service worker error, using page tab (${message})`);
+        return await pageFetch(url, init) as T;
+      }
+    },
+  };
+}
+
+function safeHost(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
 export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
 
   constructor(
-    private readonly fetcher: PageFetcher = {
-      fetchJson: (url, init) => fetchJsonInPage("https://kick.com", url, init, {
-        retainPageContext: { platform: "kick" },
-      }),
-    },
+    private readonly fetcher: PageFetcher = createKickFetcher(),
   ) {}
 
   async discoverCampaigns(): Promise<DropCampaign[]> {

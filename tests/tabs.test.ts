@@ -5,8 +5,10 @@ import {
   currentManagedPageContextTabs,
   ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
+  fetchKickInBackgroundWith,
   fetchTwitchInBackgroundWith,
   hasValidTwitchIntegrity,
+  KickWafBlockedError,
   openPinnedMutedTabWithBrowser,
   registerManagedPageContextTabs,
   setActivityLogger,
@@ -768,6 +770,93 @@ describe("fetchTwitchInBackgroundWith", () => {
     const result = await fetchTwitchInBackgroundWith<{ html: string }>(cookieApi, "https://www.twitch.tv/creator");
 
     expect(result.html).toBe("<html>live</html>");
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("fetchKickInBackgroundWith", () => {
+  const cookieApi = {
+    cookies: {
+      get: vi.fn(async ({ name }: { name: string }) => (name === "session_token" ? { value: "sess%20789" } : null)),
+    },
+  };
+
+  beforeEach(() => {
+    cookieApi.cookies.get.mockClear();
+  });
+
+  it("replays the session_token cookie as a Bearer for web.kick.com", async () => {
+    let captured: { url: string; init: RequestInit } | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+      captured = { url, init };
+      return new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    const result = await fetchKickInBackgroundWith<{ data: unknown[] }>(
+      cookieApi,
+      "https://web.kick.com/api/v1/drops/campaigns",
+    );
+
+    // The cookie value is URL-decoded before being sent, mirroring pageFetchJson.
+    expect(new Headers(captured?.init.headers).get("authorization")).toBe("Bearer sess 789");
+    expect(captured?.init.credentials).toBe("include");
+    expect(result).toEqual({ data: [] });
+    vi.unstubAllGlobals();
+  });
+
+  it("does not attach a Bearer for the public kick.com channel API", async () => {
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify({ id: 1 }), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v2/channels/someone");
+
+    expect(cookieApi.cookies.get).not.toHaveBeenCalled();
+    expect(new Headers(captured?.headers).has("authorization")).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it("throws KickWafBlockedError on a 403 security-policy block", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      JSON.stringify({ error: "Request blocked by security policy." }),
+      { status: 403, headers: { "content-type": "application/json" } },
+    )));
+
+    await expect(fetchKickInBackgroundWith(cookieApi, "https://web.kick.com/api/v1/drops/progress"))
+      .rejects.toBeInstanceOf(KickWafBlockedError);
+    vi.unstubAllGlobals();
+  });
+
+  it("treats a network/CORS rejection as a WAF block", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+
+    await expect(fetchKickInBackgroundWith(cookieApi, "https://websockets.kick.com/viewer/v1/token"))
+      .rejects.toBeInstanceOf(KickWafBlockedError);
+    vi.unstubAllGlobals();
+  });
+
+  it("treats a non-JSON 200 from an API endpoint as a challenge block", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>challenge</html>", {
+      status: 200,
+      headers: { "content-type": "text/html" },
+    })));
+
+    await expect(fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v2/channels/someone"))
+      .rejects.toBeInstanceOf(KickWafBlockedError);
+    vi.unstubAllGlobals();
+  });
+
+  it("returns HTML for a non-API kick.com page (channel page fallback)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>is_live</html>", {
+      status: 200,
+      headers: { "content-type": "text/html" },
+    })));
+
+    const result = await fetchKickInBackgroundWith<{ html: string }>(cookieApi, "https://kick.com/streamer");
+
+    expect(result.html).toBe("<html>is_live</html>");
     vi.unstubAllGlobals();
   });
 });

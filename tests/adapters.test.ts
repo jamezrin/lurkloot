@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher } from "../src/platforms/adapter";
-import { KickAdapter } from "../src/platforms/kick";
+import { createKickFetcher, KickAdapter } from "../src/platforms/kick";
+import { KickWafBlockedError } from "../src/core/tabs";
 import { TwitchAdapter } from "../src/platforms/twitch";
 import type { DropCampaign, DropReward, ExtensionSettings } from "../src/core/models";
 import { chooseCampaignDecision } from "../src/core/scheduler";
@@ -291,6 +292,42 @@ describe("KickAdapter", () => {
       categoryMatches: false,
       reason: "Kick API unavailable",
     });
+  });
+});
+
+describe("createKickFetcher (background-first, tab fallback)", () => {
+  it("uses the service-worker result and never touches the page tab when the background fetch succeeds", async () => {
+    const background = vi.fn(async () => ({ data: "from-sw" }));
+    const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
+    const fetcher = createKickFetcher({ background, pageFetch });
+
+    const result = await fetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns");
+
+    expect(result).toEqual({ data: "from-sw" });
+    expect(background).toHaveBeenCalledTimes(1);
+    expect(pageFetch).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the page tab when the background fetch is WAF-blocked", async () => {
+    const background = vi.fn(async () => { throw new KickWafBlockedError("HTTP 403 Forbidden"); });
+    const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
+    const fetcher = createKickFetcher({ background, pageFetch });
+
+    const result = await fetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns", { method: "GET" });
+
+    expect(result).toEqual({ data: "from-tab" });
+    expect(background).toHaveBeenCalledTimes(1);
+    // The same url + init are forwarded to the fallback unchanged.
+    expect(pageFetch).toHaveBeenCalledWith("https://web.kick.com/api/v1/drops/campaigns", { method: "GET" });
+  });
+
+  it("also falls back on a non-WAF background error", async () => {
+    const background = vi.fn(async () => { throw new Error("boom"); });
+    const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
+    const fetcher = createKickFetcher({ background, pageFetch });
+
+    await expect(fetcher.fetchJson("https://kick.com/api/v2/channels/x")).resolves.toEqual({ data: "from-tab" });
+    expect(pageFetch).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -489,6 +489,70 @@ export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string
   return (isUsableTwitchGql(json) ? json : twitchGqlErrorEnvelope("returned an unusable response", response.status, text, headers)) as T;
 }
 
+// Kick hosts whose endpoints replay the session_token cookie as a Bearer (mirrors
+// pageFetchJson). kick.com/api/v2/* is public and does not need it.
+const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com"];
+
+// Distinguishes "Kick's WAF / origin check rejected the service-worker request"
+// (fall back to the page-context tab) from a genuine error. Thrown by
+// fetchKickInBackground so the adapter wrapper can log and fall back cleanly.
+export class KickWafBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "KickWafBlockedError";
+  }
+}
+
+// Spike: attempt a Kick API call straight from the service worker (no tab),
+// mirroring pageFetchJson's auth/credentials so a success is equivalent. Kick's
+// Cloudflare WAF may reject the chrome-extension:// origin; that surfaces as a
+// KickWafBlockedError for the caller to fall back on. Only the real extension SW
+// can answer whether this works — the Playwright harness cannot (its request
+// stack is WAF-blocked for unrelated reasons).
+export async function fetchKickInBackground<T>(url: string, init?: RequestInit): Promise<T> {
+  return fetchKickInBackgroundWith(browser as CookieApi, url, init);
+}
+
+export async function fetchKickInBackgroundWith<T>(api: CookieApi, url: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers ?? {});
+  if (KICK_AUTH_HOSTS.some((host) => url.includes(host)) && !headers.has("authorization")) {
+    const sessionToken = (await api.cookies?.get({ url: "https://kick.com", name: "session_token" }))?.value;
+    if (sessionToken) headers.set("authorization", `Bearer ${decodeURIComponent(sessionToken)}`);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, { ...init, headers, credentials: init?.credentials ?? "include" });
+  } catch (error) {
+    // A network/CORS rejection from the extension origin is exactly the
+    // origin-level failure we want to fall back on, not a hard error.
+    throw new KickWafBlockedError(error instanceof Error ? error.message : "network error");
+  }
+
+  const text = await response.text();
+  if (!response.ok) {
+    const blocked = response.status === 403 || /security policy|blocked/i.test(text);
+    const message = `HTTP ${response.status} ${response.statusText}`;
+    throw blocked ? new KickWafBlockedError(message) : new Error(message);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new KickWafBlockedError("service worker got a non-JSON body (likely a challenge page)");
+    }
+  }
+  // Non-API kick.com pages (e.g. a channel page) legitimately return HTML; API
+  // endpoints returning non-JSON means a challenge interstitial slipped a 200, so
+  // treat that as blocked and let the caller use the page tab.
+  if (url.includes("/api/") || url.includes("websockets.kick.com")) {
+    throw new KickWafBlockedError("service worker got a non-JSON API response (likely a challenge page)");
+  }
+  return { html: text } as T;
+}
+
 export async function fetchJsonInPage<T>(
   originUrl: string,
   url: string,
