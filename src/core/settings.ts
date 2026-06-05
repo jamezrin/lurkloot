@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   running: false,
   autoClaim: true,
   autoClaimChannelPoints: true,
-  tablessMode: false,
+  tablessMode: true,
   muteFarmingTabs: true,
   keepFarmingVideosUnmuted: true,
   pauseOnManualWatch: true,

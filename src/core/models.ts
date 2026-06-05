@@ -165,9 +165,9 @@ export interface ExtensionSettings {
   running: boolean;
   autoClaim: boolean;
   autoClaimChannelPoints: boolean;
-  // Opt-in low-resource mode: farm by sending API watch heartbeats instead of
-  // opening a video tab. Twitch is fully tabless; Kick uses a viewer WebSocket.
-  // Falls back to a tab automatically if heartbeats stop earning.
+  // Low-resource mode: farm by sending watch signals instead of opening a
+  // video tab. Twitch uses API heartbeats; Kick uses a viewer WebSocket. Falls
+  // back to a tab automatically if heartbeats stop earning.
   tablessMode: boolean;
   muteFarmingTabs: boolean;
   keepFarmingVideosUnmuted: boolean;

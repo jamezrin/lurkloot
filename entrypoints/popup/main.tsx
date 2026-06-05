@@ -1234,7 +1234,7 @@ function SettingsView({ games, settings, onSettingsChange, initialPlatform = "tw
         </AnimatePresence>
       </SettingsSection>
       <SettingsSection title="Advanced" description="Only change these if you know what you are doing — they control complex low-level playback behavior." icon={SlidersHorizontal}>
-        <SettingRow title="(EXPERIMENTAL) Tabless low-resource mode" description="Farm via lightweight watch heartbeats instead of a video tab. Twitch runs fully tabless; Kick uses a viewer connection. Falls back to a tab automatically if it stops earning." checked={settings.tablessMode} onChange={(value) => onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />
+        <SettingRow title="Tabless low-resource mode" description="Farm via lightweight watch signals instead of a video tab. Twitch uses watch heartbeats; Kick uses a viewer connection. Falls back to a tab automatically if it stops earning." checked={settings.tablessMode} onChange={(value) => onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />
         <SettingRow title="Keep farming videos unmuted" description="Keeps page video players unmuted while the browser tab is muted." checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} />
         <NumberSettingRow title="Scheduler interval" description="How often campaign and streamer status refreshes." value={pollIntervalSeconds} min={30} max={3600} suffix="sec" onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
         <SelectSettingRow
