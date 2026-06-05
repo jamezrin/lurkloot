@@ -593,7 +593,7 @@ function Popup(): React.ReactElement {
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView games={settingsGames} settings={settings} onSettingsChange={updateSettings} />
+                <SettingsView games={settingsGames} settings={settings} onSettingsChange={updateSettings} initialPlatform={platform} />
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
@@ -1152,11 +1152,13 @@ function SortableWatchQueue({ streamer, index, onRemove }: { streamer: StreamerI
   );
 }
 
-function SettingsView({ games, settings, onSettingsChange }: {
+function SettingsView({ games, settings, onSettingsChange, initialPlatform = "twitch" }: {
   games: Record<Platform, GameItem[]>;
   settings: ExtensionSettings;
   onSettingsChange(patch: Partial<ExtensionSettings>, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void>;
+  initialPlatform?: Platform;
 }) {
+  const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as Partial<ExtensionSettings>);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
   const setPlatformEnabled = (platform: Platform) => (enabled: boolean) => onSettingsChange(
@@ -1194,7 +1196,7 @@ function SettingsView({ games, settings, onSettingsChange }: {
   );
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-6">
       <SettingsSection title="General settings" description="Applies to Twitch and Kick." icon={SettingsIcon}>
         <SettingRow title="Mute farming tabs" description="Keep drop and Watch Queue tabs muted while farming." checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} />
         <SettingRow title="Pause when watching manually" description="Stop farming while you have a stream open and are watching yourself." checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
@@ -1223,9 +1225,13 @@ function SettingsView({ games, settings, onSettingsChange }: {
       <SettingsSection title="Watch Queue" description="Shared fallback queue behavior." icon={Play}>
         <SettingRow title="Only when no drops are active" description="Preserves drop priority automatically." checked={settings.watchQueueFallbackOnly} onChange={set("watchQueueFallbackOnly")} />
       </SettingsSection>
-      <SettingsSection title="Platform settings" description="Controls that only affect one provider." icon={Radio}>
-        <PlatformSettingsCard platform="twitch" games={games.twitch} settings={settings} onEnabledChange={setPlatformEnabled("twitch")} onGamePriorityChange={setPlatformGamePriority("twitch")} onExcludedChannelsChange={setPlatformExcludedChannels("twitch")} />
-        <PlatformSettingsCard platform="kick" games={games.kick} settings={settings} onEnabledChange={setPlatformEnabled("kick")} onGamePriorityChange={setPlatformGamePriority("kick")} onExcludedChannelsChange={setPlatformExcludedChannels("kick")} />
+      <SettingsSection title="Platform settings" description="Automation and channels for one provider. Switch between Twitch and Kick." icon={Radio} divided={false}>
+        <SettingsPlatformSwitch active={platformTab} onChange={setPlatformTab} />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={platformTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="space-y-3">
+            <PlatformSettingsGroup platform={platformTab} games={games[platformTab]} settings={settings} onEnabledChange={setPlatformEnabled(platformTab)} onGamePriorityChange={setPlatformGamePriority(platformTab)} onExcludedChannelsChange={setPlatformExcludedChannels(platformTab)} />
+          </motion.div>
+        </AnimatePresence>
       </SettingsSection>
       <SettingsSection title="Advanced" description="Only change these if you know what you are doing — they control complex low-level playback behavior." icon={SlidersHorizontal}>
         <SettingRow title="(EXPERIMENTAL) Tabless low-resource mode" description="Farm via lightweight watch heartbeats instead of a video tab. Twitch runs fully tabless; Kick uses a viewer connection. Falls back to a tab automatically if it stops earning." checked={settings.tablessMode} onChange={(value) => onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />
@@ -1248,7 +1254,7 @@ function SettingsView({ games, settings, onSettingsChange }: {
   );
 }
 
-function PlatformSettingsCard({ platform, games, settings, onEnabledChange, onGamePriorityChange, onExcludedChannelsChange }: {
+function PlatformSettingsGroup({ platform, games, settings, onEnabledChange, onGamePriorityChange, onExcludedChannelsChange }: {
   platform: Platform;
   games: GameItem[];
   settings: ExtensionSettings;
@@ -1262,48 +1268,58 @@ function PlatformSettingsCard({ platform, games, settings, onEnabledChange, onGa
   const excludedChannels = platformSettings.excludedChannels ?? [];
 
   return (
-    <div className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
-      <div className="mb-2 flex items-start gap-2">
-        <span
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[12px] font-black shadow-sm"
-          style={{
-            backgroundColor: details.color,
-            color: platform === "kick" ? "#07140a" : "#fff",
-            boxShadow: `0 0 14px -5px ${details.color}`,
-          }}
-        >
-          {details.mark}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">{details.label}</h4>
-            <Pill tone={platformSettings.enabled ? "live" : "muted"}>{platformSettings.enabled ? "Enabled" : "Paused"}</Pill>
+    <>
+      <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+        <div className="flex items-center gap-3 py-2.5">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Enable automation</span>
+              <Pill tone={platformSettings.enabled ? "live" : "muted"}>{platformSettings.enabled ? "Enabled" : "Paused"}</Pill>
+            </div>
+            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Farm drops and watch the queue on {details.label}.</div>
           </div>
-          <p className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-            Uses its own automation toggle and Watch Queue channels.
-          </p>
+          <Toggle checked={platformSettings.enabled} onChange={onEnabledChange} label={`${details.label} platform automation`} />
         </div>
-        <Toggle checked={platformSettings.enabled} onChange={onEnabledChange} label={`${details.label} platform automation`} />
-      </div>
-      <div className="flex items-center justify-between rounded-lg border border-zinc-100 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="min-w-0">
-          <div className="text-[11px] font-medium text-zinc-800 dark:text-zinc-100">{details.label} Watch Queue</div>
-          <div className="truncate text-[10px] text-zinc-500 dark:text-zinc-400">Edit it from the Watch Queue tab after selecting {details.label}.</div>
+        <div className="flex items-center gap-3 py-2.5">
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Watch Queue</div>
+            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Edit it from the Watch Queue tab after selecting {details.label}.</div>
+          </div>
+          <Pill tone="outline">{queueCount}/20</Pill>
         </div>
-        <Pill tone="outline">{queueCount}/20</Pill>
       </div>
-      <div className="mt-2">
-        <ChannelListEditor
-          title="Excluded drop channels"
-          description="Campaign farming will skip these streamers."
-          empty="No excluded drop channels."
-          channels={excludedChannels}
-          onChange={onExcludedChannelsChange}
-        />
-      </div>
-      <div className="mt-2">
-        <GamePriority games={games} label={`${details.label} game order`} onChange={onGamePriorityChange} />
-      </div>
+      <ChannelListEditor
+        title="Excluded drop channels"
+        description="Campaign farming will skip these streamers."
+        empty="No excluded drop channels."
+        channels={excludedChannels}
+        onChange={onExcludedChannelsChange}
+      />
+      <GamePriority games={games} label={`${details.label} game order`} onChange={onGamePriorityChange} />
+    </>
+  );
+}
+
+function SettingsPlatformSwitch({ active, onChange }: { active: Platform; onChange(platform: Platform): void }) {
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
+      {Object.entries(PLATFORMS).map(([id, platform]) => {
+        const selected = active === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onChange(id as Platform)}
+            className={cn("relative flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors outline-none", selected ? "text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200")}
+          >
+            {selected && <motion.span layoutId="settings-platform-pill" transition={{ type: "spring", stiffness: 520, damping: 38 }} className="absolute inset-0 rounded-lg bg-white shadow-sm dark:bg-zinc-700" />}
+            <span className="relative z-10 flex h-4 w-4 items-center justify-center rounded text-[10px] font-black" style={{ backgroundColor: selected ? platform.color : "transparent", color: selected ? (id === "kick" ? "#07140a" : "#fff") : platform.color }}>
+              {platform.mark}
+            </span>
+            <span className="relative z-10">{platform.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -1335,7 +1351,7 @@ function ChannelListEditor({ title, description, empty, channels, onChange }: {
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+    <div className="space-y-2 rounded-xl border border-zinc-200/70 p-2.5 dark:border-zinc-800">
       <div className="flex items-start gap-2">
         <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-400"><Ban size={12} /></span>
         <div className="min-w-0 flex-1">
@@ -1383,7 +1399,7 @@ function GamePriority({ games, label = "Fallback game order", onChange }: { game
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+    <div className="space-y-2 rounded-xl border border-zinc-200/70 p-2.5 dark:border-zinc-800">
       <div className="flex items-center justify-between">
         <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{label}</div>
         <Pill tone="accent">drag to sort</Pill>
@@ -1425,26 +1441,26 @@ function CompactRow({ avatar, avatarStyle, index, title, subtitle, trailing, dra
   );
 }
 
-function SettingsSection({ title, description, icon: Icon, children }: { title: string; description: string; icon: LucideIcon; children: React.ReactNode }) {
+function SettingsSection({ title, description, icon: Icon, iconNode, divided = true, children }: { title: string; description?: string; icon?: LucideIcon; iconNode?: React.ReactNode; divided?: boolean; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="mb-2.5 flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }}><Icon size={14} /></span>
-        <div className="min-w-0">
-          <h3 className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
-          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</p>
+    <section>
+      <header className="mb-1.5 px-0.5">
+        <div className="flex items-center gap-1.5">
+          {iconNode ?? (Icon ? <Icon size={13} className="text-zinc-400 dark:text-zinc-500" /> : null)}
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</h3>
         </div>
-      </div>
-      <div className="space-y-2">{children}</div>
+        {description ? <p className="mt-1 text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">{description}</p> : null}
+      </header>
+      <div className={divided ? "divide-y divide-zinc-100 px-0.5 dark:divide-zinc-800/70" : "space-y-3 px-0.5"}>{children}</div>
     </section>
   );
 }
 
 function SettingRow({ title, description, checked, onChange }: { title: string; description: string; checked: boolean; onChange(value: boolean): void | Promise<void> }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+    <div className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
+        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
       <Toggle checked={checked} onChange={onChange} label={title} />
@@ -1464,8 +1480,8 @@ function LogLevelSettingRow({ value, onChange }: { value: LogLevel[]; onChange(l
     onChange(LOG_LEVELS.filter((l) => next.has(l)));
   };
   return (
-    <div className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
-      <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">Activity log levels</div>
+    <div className="py-2.5">
+      <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Activity log levels</div>
       <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
         Choose which levels are recorded in the Activity log. Errors are always kept.
       </div>
@@ -1500,8 +1516,8 @@ function LogLevelSettingRow({ value, onChange }: { value: LogLevel[]; onChange(l
 function CampaignFilterSettingRow({ value, onChange }: { value: Record<CampaignFilterKey, boolean>; onChange(value: Record<CampaignFilterKey, boolean>): void | Promise<void> }) {
   const toggle = (key: CampaignFilterKey) => onChange({ ...value, [key]: !value[key] });
   return (
-    <div className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
-      <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">Visible campaigns</div>
+    <div className="py-2.5">
+      <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Visible campaigns</div>
       <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
         Choose which campaign states show in the Drops list. A campaign with a claimable reward always stays visible.
       </div>
@@ -1537,9 +1553,9 @@ function SelectSettingRow<T extends string>({ title, description, value, options
   onChange(value: T): void | Promise<void>;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+    <div className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
+        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
       <label className="flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
@@ -1577,9 +1593,9 @@ function NumberSettingRow({ title, description, value, min, max, suffix, onChang
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+    <div className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
+        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
       <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
