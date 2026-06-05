@@ -60,6 +60,9 @@ export class KickWatcher implements TablessWatchController {
   private counter = 0;
   private lastWatchSentAt = 0;
   private lastTargetRefreshAt = 0;
+  // Whether we have surfaced the one-shot "tabless farming active" info line for
+  // the current connection. Reset on connect/stop so each session announces once.
+  private watchAnnounced = false;
   private handshakeTimer?: ReturnType<typeof setInterval>;
 
   private readonly fetcher: PageFetcher;
@@ -130,6 +133,7 @@ export class KickWatcher implements TablessWatchController {
     this.counter = 0;
     this.lastWatchSentAt = 0;
     this.lastTargetRefreshAt = 0;
+    this.watchAnnounced = false;
     this.targets = undefined;
   }
 
@@ -137,6 +141,7 @@ export class KickWatcher implements TablessWatchController {
     const channel = this.channel;
     if (!channel) return;
     this.log("debug", `Opening Kick viewer connection for ${channel.username}`);
+    this.watchAnnounced = false;
     try {
       this.targets = await this.fetchTargets(channel);
       this.lastTargetRefreshAt = this.now();
@@ -155,7 +160,7 @@ export class KickWatcher implements TablessWatchController {
         // Prime an immediate watch event so progress starts without a 60s wait.
         this.sendWatchEvent();
         this.startHandshakeTimer();
-        this.log("debug", `Kick viewer connection open for ${channel.username}`);
+        this.log("info", `Kick tabless viewer connected for ${channel.username}`);
       });
       ws.addEventListener("close", () => {
         this.connected = false;
@@ -210,7 +215,14 @@ export class KickWatcher implements TablessWatchController {
       },
     });
     this.lastWatchSentAt = this.now();
-    this.log("debug", `Sent Kick watch event for ${this.channel?.username ?? "channel"} (livestream ${this.targets.liveStreamId})`);
+    // Announce once per connection at info level so "tab-less farming is alive"
+    // is visible without the verbose/debug filter; later sends stay debug.
+    if (!this.watchAnnounced) {
+      this.watchAnnounced = true;
+      this.log("info", `Kick tabless farming active for ${this.channel?.username ?? "channel"} — sending watch events every 60s`);
+    } else {
+      this.log("debug", `Sent Kick watch event for ${this.channel?.username ?? "channel"} (livestream ${this.targets.liveStreamId})`);
+    }
   }
 
   private async refreshTargetsIfDue(): Promise<void> {

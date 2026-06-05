@@ -54,6 +54,58 @@ describe("Kick parsers", () => {
     expect(merged[0].rewards[0].status).toBe("in_progress");
   });
 
+  it("uses the campaign-level progress_units counter for tiered Kick rewards", () => {
+    // Mirrors the live /api/v1/drops/progress shape: one cumulative counter,
+    // tiered rewards sharing it, no per-reward minutes or claim_id.
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: "01CAMPAIGN",
+        status: "active",
+        category: { id: 13, name: "Rust", slug: "rust" },
+        channels: [],
+        rewards: [
+          { id: "r1", name: "Box", required_units: 120 },
+          { id: "r2", name: "Crossbow", required_units: 240 },
+        ],
+      }],
+    });
+
+    const merged = mergeKickProgress(campaigns, {
+      data: [{
+        id: "01CAMPAIGN",
+        status: "active",
+        user_app_connected: true,
+        progress_units: 150,
+        rewards: [
+          { id: "r1", claimed: true, progress: 1, required_units: 120 },
+          { id: "r2", claimed: false, progress: 0.625, required_units: 240 },
+        ],
+      }],
+    });
+
+    expect(merged[0].accountLinked).toBe(true);
+    // Cumulative 150 min: first tier (120) complete and claimed, second (240) partway.
+    expect(merged[0].rewards[0].watchedMinutes).toBe(120);
+    expect(merged[0].rewards[0].status).toBe("claimed");
+    expect(merged[0].rewards[1].watchedMinutes).toBe(150);
+    expect(merged[0].rewards[1].status).toBe("in_progress");
+  });
+
+  it("gates a Kick campaign when the account app is not connected and surfaces the link URL", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{ id: "c", status: "active", connect_url: "https://accounts.krafton.com/auth/kick/callback", rewards: [{ id: "r", required_units: 60 }] }],
+    });
+    // connect_url from the campaigns endpoint becomes the account-link URL.
+    expect(campaigns[0].accountLinkUrl).toBe("https://accounts.krafton.com/auth/kick/callback");
+
+    const merged = mergeKickProgress(campaigns, {
+      data: [{ id: "c", user_app_connected: false, connect_url: "https://kick.facepunch.com", progress_units: 0, rewards: [{ id: "r", required_units: 60 }] }],
+    });
+    expect(merged[0].accountLinked).toBe(false);
+    // The progress endpoint's connect_url wins when present (it is the live one).
+    expect(merged[0].accountLinkUrl).toBe("https://kick.facepunch.com");
+  });
+
   it("normalizes bucketed Kick campaign and progress responses", () => {
     const campaigns = parseKickCampaigns({
       data: {

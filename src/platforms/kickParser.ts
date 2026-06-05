@@ -35,6 +35,8 @@ interface KickCampaign {
   category_id?: string | number;
   game_id?: string | number;
   category?: { id?: string | number; name?: string; slug?: string; image_url?: string };
+  // Org/game account-link URL (e.g. https://accounts.krafton.com/auth/kick/...).
+  connect_url?: string;
   channels?: Array<{
     slug?: string;
     username?: string;
@@ -96,6 +98,8 @@ interface KickProgress {
   required_units?: number;
   rewards?: KickProgressReward[];
   progress_units?: number;
+  user_app_connected?: boolean;
+  connect_url?: string;
   category?: { id?: string | number; name?: string; slug?: string; image_url?: string };
 }
 
@@ -143,6 +147,7 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
       endsAt,
       status,
       accountLinked: true,
+      accountLinkUrl: campaign.connect_url,
       eligibility: status === "active" && rewards.length > 0 ? "eligible" : status === "completed" ? "completed" : rewards.length === 0 ? "no_rewards" : status === "active" ? "eligible" : status,
       eligibilityReason: status === "active" && rewards.length > 0 ? "Eligible" : status === "completed" ? "All rewards are claimed" : rewards.length === 0 ? "Campaign has no rewards" : `Campaign is ${status}`,
       allowedChannels,
@@ -170,6 +175,12 @@ export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgress
 
   return campaigns.map((campaign) => {
     const campaignProgress = progressItems.find((item) => String(item.id ?? item.campaign_id ?? item.drop_campaign_id) === campaign.id);
+    // Kick's live drops API returns a single cumulative watch counter per
+    // campaign (`progress_units`, in minutes); tiered rewards share it, so each
+    // reward's watched minutes is the cumulative capped at its requirement. This
+    // is the reliable signal — the per-reward `progress` is only a 0..1 fraction.
+    // (Confirmed against the live /api/v1/drops/progress response.)
+    const campaignUnits = typeof campaignProgress?.progress_units === "number" ? campaignProgress.progress_units : undefined;
     const rewards = campaign.rewards.map((reward) => {
       const flatProgress = progressItems.find((item) => {
         const campaignId = item.campaign_id ?? item.drop_campaign_id;
@@ -181,11 +192,13 @@ export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgress
         return String(rewardId) === reward.id;
       });
       const progress = nestedProgress ?? flatProgress;
-      if (!progress) return reward;
+      if (!progress && campaignUnits == null) return reward;
 
-      const watchedMinutes = progressMinutes(progress, reward);
-      const rawStatus = progress.status?.toLowerCase();
-      const status = progress.claimed || progress.is_claimed
+      const watchedMinutes = campaignUnits != null
+        ? Math.min(campaignUnits, reward.requiredMinutes)
+        : progressMinutes(progress!, reward);
+      const rawStatus = progress?.status?.toLowerCase();
+      const status = progress?.claimed || progress?.is_claimed
         ? "claimed"
         : rawStatus === "claimable" || watchedMinutes >= reward.requiredMinutes
           ? "claimable"
@@ -197,7 +210,7 @@ export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgress
         ...reward,
         watchedMinutes,
         status,
-        claimId: progress.claim_id ?? reward.claimId,
+        claimId: progress?.claim_id ?? reward.claimId,
       };
     });
     const status = rewards.every((reward) => reward.status === "claimed")
@@ -209,6 +222,10 @@ export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgress
     return {
       ...campaign,
       status,
+      // `user_app_connected` is Kick's account-link flag (the org connection).
+      // Only an explicit false gates the campaign; absent means leave as-is.
+      accountLinked: campaignProgress?.user_app_connected === false ? false : campaign.accountLinked,
+      accountLinkUrl: campaignProgress?.connect_url ?? campaign.accountLinkUrl,
       gameName: campaignProgress?.category?.name ?? campaign.gameName,
       gameImageUrl: campaignProgress?.category?.image_url ?? campaign.gameImageUrl,
       categoryId: campaignProgress?.category?.id == null ? campaign.categoryId : String(campaignProgress.category.id),

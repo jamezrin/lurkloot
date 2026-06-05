@@ -4,7 +4,7 @@ import { logActivity } from "../core/activityLog";
 import { fetchJsonInPage, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
 import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "./adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./kickParser";
-import { KickWatcher } from "./kickWatch";
+import { KICK_CLIENT_TOKEN, KickWatcher } from "./kickWatch";
 
 interface KickLivestreamsResponse {
   data?: Array<KickLivestream> | { livestreams?: KickLivestream[] };
@@ -15,6 +15,9 @@ interface KickLivestream {
     channel?: { slug?: string; username?: string };
     category?: { id?: string | number; name?: string };
     viewer_count?: number;
+    // The livestreams endpoint names the stream title `title`; channel-v2 uses
+    // `session_title`. Accept both so candidate titles populate either way.
+    title?: string;
     session_title?: string;
 }
 
@@ -59,12 +62,23 @@ export class KickAdapter implements PlatformAdapter {
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
     const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/campaigns");
+    // Debug-gated raw dump (only surfaces with verbose logging). On launch day
+    // this lets us confirm the live shape matched the parser — and patch
+    // kickParser.ts on the spot if a field drifted — instead of guessing.
+    logActivity("debug", `Kick /drops/campaigns raw: ${truncateJson(data)}`, "kick");
     return parseKickCampaigns(data as Parameters<typeof parseKickCampaigns>[0]);
   }
 
   async readProgress(campaigns: DropCampaign[]): Promise<DropCampaign[]> {
     try {
-      const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/progress");
+      // Kick's WAF rejects authed drops endpoints that omit X-Client-Token with
+      // "Request blocked by security policy." — the reference sends it on
+      // /drops/progress and /drops/claim (references/kickautodrops/core/kick.py:
+      // 131, 67). pageFetchJson adds the Bearer from session_token on top.
+      const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/progress", {
+        headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
+      });
+      logActivity("debug", `Kick /drops/progress raw: ${truncateJson(data)}`, "kick");
       return mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -96,7 +110,7 @@ export class KickAdapter implements PlatformAdapter {
         categoryName: stream.category?.name,
         isAclMatch: false,
         viewerCount: stream.viewer_count,
-        title: stream.session_title,
+        title: stream.title ?? stream.session_title,
         live: true,
       };
     }).filter((candidate) => Boolean(candidate.username));
@@ -133,19 +147,50 @@ export class KickAdapter implements PlatformAdapter {
 
   async claimReward(campaign: DropCampaign, reward: DropReward): Promise<boolean> {
     if (!reward.claimId && reward.status !== "claimable") return false;
-    const response = await this.fetcher.fetchJson<KickClaimResponse>(
-      "https://web.kick.com/api/v1/drops/claim",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          campaign_id: campaign.id,
-          reward_id: reward.id,
-          claim_id: reward.claimId,
-        }),
-      },
-    );
-    return isKickClaimSuccess(response);
+    // JSON.stringify drops `undefined`, so when no claim id was carried by
+    // /drops/progress this matches the reference's `{ campaign_id, reward_id }`
+    // payload exactly (references/kickautodrops/core/kick.py:48-52); `claim_id`
+    // is only sent when Kick itself returned one. The live claim cannot be
+    // exercised until campaigns launch — the raw response is logged below so we
+    // can confirm the shape on day one.
+    try {
+      const response = await this.fetcher.fetchJson<KickClaimResponse>(
+        "https://web.kick.com/api/v1/drops/claim",
+        {
+          method: "POST",
+          // Verified working end-to-end: once the Kick account is linked, this
+          // claims the reward. The session Bearer (added by pageFetchJson)
+          // authorizes it; the captured "Pedir" request confirmed the payload is
+          // just {campaign_id, reward_id} and that an unlinked account fails with
+          // a 400 INVALID_CLAIM (not an auth error). X-Client-Token is harmless.
+          headers: { "content-type": "application/json", "X-Client-Token": KICK_CLIENT_TOKEN },
+          body: JSON.stringify({
+            campaign_id: campaign.id,
+            reward_id: reward.id,
+            claim_id: reward.claimId,
+          }),
+        },
+      );
+      logActivity("debug", `Kick /drops/claim raw (${reward.name}): ${truncateJson(response)}`, "kick");
+      const claimed = isKickClaimSuccess(response);
+      if (!claimed && campaign.accountLinked === false) this.warnAccountNotLinked(campaign, reward);
+      return claimed;
+    } catch (error) {
+      // Kick accrues watch progress before the account is linked, but rejects
+      // the claim until you connect the org account. Turn that into actionable
+      // guidance instead of a raw error, and swallow it so the scheduler does
+      // not back the whole platform off over an unlinked campaign.
+      if (campaign.accountLinked === false) {
+        this.warnAccountNotLinked(campaign, reward);
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  private warnAccountNotLinked(campaign: DropCampaign, reward: DropReward): void {
+    const where = campaign.accountLinkUrl ? ` at ${campaign.accountLinkUrl}` : ` for ${campaign.name}`;
+    logActivity("warn", `Cannot claim "${reward.name}" yet — link your Kick account${where} to claim this campaign's drops.`, "kick");
   }
 
   prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>) {
@@ -198,6 +243,19 @@ export class KickAdapter implements PlatformAdapter {
       };
     }
   }
+}
+
+// Serializes a response for the debug log, capping length so a large payload
+// cannot bloat the rolling activity log. Falls back gracefully on cycles.
+function truncateJson(value: unknown, max = 1500): string {
+  let text: string;
+  try {
+    text = JSON.stringify(value);
+  } catch {
+    text = String(value);
+  }
+  if (text == null) return "undefined";
+  return text.length > max ? `${text.slice(0, max)}… (${text.length} chars)` : text;
 }
 
 function parseBooleanField(html: string, names: string[]): boolean | undefined {

@@ -125,6 +125,32 @@ describe("kick viewer watcher", () => {
     await watcher.stop();
   });
 
+  it("surfaces a one-shot info line when tabless farming becomes active", async () => {
+    const socket = new FakeSocket();
+    const logs: Array<{ level: string; message: string }> = [];
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      log: (level, message) => logs.push({ level, message }),
+      now: () => 1000,
+    });
+
+    await watcher.start(kickChannel, {});
+    socket.emit("open");
+
+    // Exactly one info-level "farming active" line so launch-day verification is
+    // legible without the verbose/debug filter.
+    const active = logs.filter((entry) => entry.level === "info" && /farming active/i.test(entry.message));
+    expect(active).toHaveLength(1);
+    await watcher.stop();
+  });
+
   it("reports unhealthy when the viewer token cannot be obtained", async () => {
     const fetchJson = vi.fn(async (url: string) => {
       if (url.includes("/api/v2/channels/")) return { id: 1, livestream: { id: 2, is_live: true } } as unknown;

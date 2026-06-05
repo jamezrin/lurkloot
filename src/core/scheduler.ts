@@ -43,7 +43,11 @@ function isEligible(campaign: DropCampaign, settings: ExtensionSettings): boolea
   if (hasCampaignEnded(campaign)) return false;
   if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
   if (settings.excludedCampaignIds.includes(campaign.id)) return false;
-  if (campaign.accountLinked === false) return false;
+  // Twitch cannot earn drops until the account is linked, so an unlinked Twitch
+  // campaign is skipped. Kick DOES accrue watch progress before linking (the
+  // link is only required to claim), so we keep farming unlinked Kick campaigns
+  // and surface the claim-time "link your account" guidance instead.
+  if (campaign.platform !== "kick" && campaign.accountLinked === false) return false;
   return campaign.rewards.some((reward) => reward.status !== "claimed" && reward.preconditionsMet !== false && isRewardRelevantNow(reward));
 }
 

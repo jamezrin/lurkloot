@@ -135,6 +135,31 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
+  it("skips an unlinked Twitch campaign but still farms an unlinked Kick campaign", async () => {
+    const checkChannel = vi.fn(async (candidate: ChannelCandidate) => ({ live: true, categoryMatches: true, candidate }));
+
+    // Twitch cannot earn without a linked account → not selected.
+    const twitch = await chooseCampaignDecision(
+      "twitch",
+      [campaign("tw", { accountLinked: false })],
+      settings(),
+      { listCandidateChannels: vi.fn(async () => [channel("creator")]), checkChannel },
+    );
+    expect(twitch.action).toBe("idle");
+
+    // Kick accrues progress before linking, so an unlinked campaign is still farmed.
+    const kick = await chooseCampaignDecision(
+      "kick",
+      [campaign("kk", { platform: "kick", accountLinked: false })],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator", { platform: "kick", url: "https://kick.com/creator" })]),
+        checkChannel,
+      },
+    );
+    expect(kick.action).toBe("watch");
+  });
+
   it("keeps upcoming campaigns visible but does not select them for farming", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 

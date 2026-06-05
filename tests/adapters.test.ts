@@ -217,6 +217,24 @@ describe("KickAdapter", () => {
     await expect(claimWith({})).resolves.toBe(false);
   });
 
+  it("guides the user to link instead of erroring when an unlinked Kick claim is rejected", async () => {
+    const reward = { id: "reward", name: "Spray", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+    const rejecting = () => new KickAdapter(jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") throw new Error("403 Forbidden");
+      throw new Error(`Unexpected URL ${url}`);
+    }));
+
+    // Unlinked campaign: the rejection is swallowed (no platform backoff) and reported as a non-claim.
+    await expect(
+      rejecting().claimReward({ id: "c", accountLinked: false, accountLinkUrl: "https://accounts.krafton.com/x" } as DropCampaign, reward),
+    ).resolves.toBe(false);
+
+    // Linked campaign: a genuine claim error still propagates for the scheduler to handle.
+    await expect(
+      rejecting().claimReward({ id: "c", accountLinked: true } as DropCampaign, reward),
+    ).rejects.toThrow("403");
+  });
+
   it("reads category and viewer count from the new `categories` array shape", async () => {
     const fetcher = jsonFetcher((url) => {
       if (url === "https://kick.com/api/v2/channels/creator") {
