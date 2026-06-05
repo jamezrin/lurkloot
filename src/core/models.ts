@@ -130,6 +130,10 @@ export interface ManualWatchState {
 
 export type PriorityMode = "ending_soonest" | "lowest_availability" | "priority_list_only";
 
+// Visibility categories for the Drops list. A campaign in one of these states is
+// only shown when its toggle is on; campaigns in none of them are always shown.
+export type CampaignFilterKey = "notLinked" | "upcoming" | "expired" | "excluded" | "finished";
+
 export interface PlaybackTelemetry {
   platform: Platform;
   checkedAt: string;
@@ -178,6 +182,8 @@ export interface ExtensionSettings {
   platform: Record<Platform, PlatformSettings>;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
+  // Which campaign states are shown in the Drops list. See CampaignFilterKey.
+  campaignVisibility: Record<CampaignFilterKey, boolean>;
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
   enabledLogLevels: LogLevel[];

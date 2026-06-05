@@ -67,7 +67,7 @@ describe("settings", () => {
         " campaign ": 2.6,
         broken: Number.NaN,
       },
-      excludedCampaignIds: [" A ", "a"],
+      excludedCampaignIds: [" Abc ", "abc", "Abc"],
     } as unknown as Parameters<typeof mergeSettings>[0]);
 
     expect(settings.running).toBe(DEFAULT_SETTINGS.running);
@@ -83,7 +83,9 @@ describe("settings", () => {
     expect(settings.platform.kick.excludedChannels).toEqual(["kickskip"]);
     expect(settings.platform.kick.gamePriority).toEqual(["category"]);
     expect(settings.campaignPriorities).toEqual({ campaign: 3 });
-    expect(settings.excludedCampaignIds).toEqual(["a"]);
+    // Campaign ids are trimmed and deduped but kept case-sensitive so they match
+    // campaign.id verbatim in the scheduler (unlike channel/game lists).
+    expect(settings.excludedCampaignIds).toEqual(["Abc", "abc"]);
   });
 
   it("validates the ad focus mode", () => {

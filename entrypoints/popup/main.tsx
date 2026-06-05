@@ -45,7 +45,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
-import type { AdFocusMode, DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
+import type { AdFocusMode, CampaignFilterKey, DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
 import { LOG_LEVELS, type LogLevel } from "../../src/core/logging";
 import { DEFAULT_SETTINGS, mergeSettings } from "../../src/core/settings";
 import "./style.css";
@@ -60,6 +60,7 @@ type CampaignView = {
   gameId: string;
   title: string;
   linked: boolean;
+  excluded: boolean;
   ends: string;
   allowedChannels: string[];
   moreChannels: number;
@@ -518,10 +519,11 @@ function Popup(): React.ReactElement {
   }
 
   const settings = mergeSettings(snapshot.settings);
-  const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter(isFarmableForDisplay), settings);
+  const excludedIds = new Set(settings.excludedCampaignIds);
+  const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter((campaign) => isCampaignVisible(campaign, settings, excludedIds)), settings);
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
-  const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(campaign, index, session));
+  const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(campaign, index, session, excludedIds.has(campaign.id)));
   const games = gameItemsFromCampaigns(platform, snapshot.state.campaigns[platform], settings);
   const settingsGames: Record<Platform, GameItem[]> = {
     twitch: gameItemsFromCampaigns("twitch", snapshot.state.campaigns.twitch, settings),
@@ -621,6 +623,12 @@ function Popup(): React.ReactElement {
                         campaigns={campaigns}
                         gameMap={gameMap}
                         onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) })}
+                        onToggleExclude={(id) => {
+                          const next = new Set(settings.excludedCampaignIds);
+                          if (next.has(id)) next.delete(id);
+                          else next.add(id);
+                          return updateSettings({ excludedCampaignIds: [...next] }, { tickAfterSave: true });
+                        }}
                       />
                     ) : (
                       <WatchQueuePanel
@@ -671,6 +679,15 @@ const EVENT_LEVEL_LABEL: Record<LogLevel, string> = {
   warn: "Warn",
   error: "Error",
 };
+
+// Visibility filters shown in the Drops settings section, in display order.
+const CAMPAIGN_FILTERS: Array<{ key: CampaignFilterKey; label: string }> = [
+  { key: "notLinked", label: "Not linked" },
+  { key: "upcoming", label: "Upcoming" },
+  { key: "expired", label: "Expired" },
+  { key: "excluded", label: "Excluded" },
+  { key: "finished", label: "Finished" },
+];
 
 function ActivityLog({
   events,
@@ -897,7 +914,7 @@ function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitl
   );
 }
 
-function DropsPanel({ campaigns, gameMap, onReorder }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; onReorder(campaigns: CampaignView[]): void | Promise<void> }) {
+function DropsPanel({ campaigns, gameMap, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const firstId = campaigns[0]?.id;
@@ -921,18 +938,19 @@ function DropsPanel({ campaigns, gameMap, onReorder }: { campaigns: CampaignView
       <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-2">
           {campaigns.map((campaign, index) => (
-            <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index)} expanded={Boolean(expandedIds[campaign.id])} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} />
+            <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index)} expanded={Boolean(expandedIds[campaign.id])} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onToggleExclude={onToggleExclude} />
           ))}
         </div>
       </SortableContext>
       <DragOverlay dropAnimation={null}>
         {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex)} expanded={false} onToggle={() => undefined} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
+
       </DragOverlay>
     </DndContext>
   );
 }
 
-function SortableCampaign(props: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; onToggle(): void }) {
+function SortableCampaign(props: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; onToggle(): void; onToggleExclude(id: string): void | Promise<void> }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.campaign.id });
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
@@ -947,7 +965,7 @@ function ImageWithFallback({ src, alt, className, fit = "cover", fallback }: { s
   return <img src={src} alt={alt} loading="lazy" className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-contain", className)} onError={() => setFailed(true)} />;
 }
 
-function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; onToggle(): void; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
+function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, onToggleExclude, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; onToggle(): void; onToggleExclude?(id: string): void | Promise<void>; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
   const stats = campaignStats(campaign);
   const isFarming = Boolean(campaign.farmingChannel);
   const emphasized = isFarming || (!anyFarming && index === 0);
@@ -980,6 +998,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, d
               <Pill tone="accent">#{index + 1}</Pill>
               {isFarming && <Pill tone="accent"><Radio size={9} /> Farming</Pill>}
               {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> Not linked</Pill>}
+              {campaign.excluded && <Pill tone="outline"><Ban size={9} /> Excluded</Pill>}
             </div>
             <div className="mt-2"><ProgressBar value={stats.progress} glow={emphasized} /></div>
           </div>
@@ -1019,6 +1038,20 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, d
                   <span className="truncate">{channelLabel}</span>
                   {campaign.allowedChannels[0] !== "All" ? <span className="truncate text-zinc-400 dark:text-zinc-500">· {campaign.allowedChannels.join(", ")}</span> : null}
                 </div>
+                {onToggleExclude && (
+                  <button
+                    type="button"
+                    onClick={() => void onToggleExclude(campaign.id)}
+                    className={cn(
+                      "flex w-full items-center justify-center gap-1.5 rounded-lg border py-1.5 text-[11px] font-medium transition-colors",
+                      campaign.excluded
+                        ? "border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100"
+                        : "border-red-500/30 text-red-600 hover:border-red-500/60 hover:bg-red-500/5 dark:text-red-400",
+                    )}
+                  >
+                    <Ban size={12} /> {campaign.excluded ? "Include in farming" : "Exclude from farming"}
+                  </button>
+                )}
             </div>
           </motion.div>
         )}
@@ -1185,6 +1218,7 @@ function SettingsView({ games, settings, onSettingsChange }: {
           ]}
           onChange={(value) => onSettingsChange({ priorityMode: value }, { tickAfterSave: true })}
         />
+        <CampaignFilterSettingRow value={settings.campaignVisibility} onChange={(campaignVisibility) => onSettingsChange({ campaignVisibility })} />
       </SettingsSection>
       <SettingsSection title="Watch Queue" description="Shared fallback queue behavior." icon={Play}>
         <SettingRow title="Only when no drops are active" description="Preserves drop priority automatically." checked={settings.watchQueueFallbackOnly} onChange={set("watchQueueFallbackOnly")} />
@@ -1461,6 +1495,40 @@ function LogLevelSettingRow({ value, onChange }: { value: LogLevel[]; onChange(l
   );
 }
 
+// Controls which campaign states appear in the Drops list. A state with its pill
+// turned off is hidden; campaigns in none of these states are always shown.
+function CampaignFilterSettingRow({ value, onChange }: { value: Record<CampaignFilterKey, boolean>; onChange(value: Record<CampaignFilterKey, boolean>): void | Promise<void> }) {
+  const toggle = (key: CampaignFilterKey) => onChange({ ...value, [key]: !value[key] });
+  return (
+    <div className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+      <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">Visible campaigns</div>
+      <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+        Choose which campaign states show in the Drops list. A campaign with a claimable reward always stays visible.
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        {CAMPAIGN_FILTERS.map(({ key, label }) => {
+          const active = value[key];
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggle(key)}
+              className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold transition ${active
+                ? "border-transparent text-white"
+                : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
+              style={active ? { backgroundColor: "var(--accent)" } : undefined}
+              aria-pressed={active}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "#ffffff" : "var(--accent)" }} />
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SelectSettingRow<T extends string>({ title, description, value, options, onChange }: {
   title: string;
   description: string;
@@ -1623,16 +1691,38 @@ function EmptyPanel({ children }: { children: React.ReactNode }) {
   return <div className="grid min-h-24 place-items-center rounded-2xl border border-dashed border-zinc-300 bg-white p-4 text-center text-sm font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900">{children}</div>;
 }
 
-// Hide campaigns that have ended and have nothing left to do. A campaign with a
-// claimable reward stays visible so the user can still see and claim it.
-function isFarmableForDisplay(campaign: DropCampaign): boolean {
-  if (campaign.rewards.some((reward) => reward.status === "claimable")) return true;
-  if (campaign.status === "expired") return false;
+function isCampaignExpired(campaign: DropCampaign): boolean {
+  if (campaign.status === "expired") return true;
   if (campaign.endsAt) {
     const endsAt = Date.parse(campaign.endsAt);
-    if (!Number.isNaN(endsAt) && endsAt < Date.now()) return false;
+    if (!Number.isNaN(endsAt) && endsAt < Date.now()) return true;
   }
-  return true;
+  return false;
+}
+
+function isCampaignFinished(campaign: DropCampaign): boolean {
+  if (campaign.status === "completed") return true;
+  return campaign.rewards.length > 0 && campaign.rewards.every((reward) => reward.status === "claimed");
+}
+
+// The special states a campaign falls into. The lifecycle state is single-valued
+// (finished wins over expired wins over upcoming); "notLinked" and "excluded" are
+// independent flags that can stack on top of it.
+function campaignFilterCategories(campaign: DropCampaign, excludedIds: Set<string>): CampaignFilterKey[] {
+  const categories: CampaignFilterKey[] = [];
+  if (excludedIds.has(campaign.id)) categories.push("excluded");
+  if (campaign.accountLinked === false) categories.push("notLinked");
+  if (isCampaignFinished(campaign)) categories.push("finished");
+  else if (isCampaignExpired(campaign)) categories.push("expired");
+  else if (campaign.status === "upcoming") categories.push("upcoming");
+  return categories;
+}
+
+// A campaign is shown unless it falls into a category the user has toggled off.
+// A claimable reward always keeps it visible so it can still be claimed.
+function isCampaignVisible(campaign: DropCampaign, settings: ExtensionSettings, excludedIds: Set<string>): boolean {
+  if (campaign.rewards.some((reward) => reward.status === "claimable")) return true;
+  return campaignFilterCategories(campaign, excludedIds).every((key) => settings.campaignVisibility[key]);
 }
 
 function sortCampaignsForPopup(campaigns: DropCampaign[], settings: ExtensionSettings): DropCampaign[] {
@@ -1707,13 +1797,14 @@ function campaignStats(campaign: CampaignView) {
   return { totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, complete };
 }
 
-function campaignViewFromCampaign(campaign: DropCampaign, index: number, session: WatchSession): CampaignView {
+function campaignViewFromCampaign(campaign: DropCampaign, index: number, session: WatchSession, excluded: boolean): CampaignView {
   const visibleChannels = channelsForView(campaign);
   return {
     id: campaign.id,
     gameId: gameId(campaign),
     title: campaign.name,
     linked: campaign.accountLinked !== false,
+    excluded,
     ends: campaign.endsAt ?? campaign.rewards.find((reward) => reward.availableUntil)?.availableUntil ?? "",
     allowedChannels: visibleChannels.channels,
     moreChannels: visibleChannels.more,

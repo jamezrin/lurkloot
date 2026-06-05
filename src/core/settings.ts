@@ -1,8 +1,9 @@
-import type { AdFocusMode, ExtensionSettings, PriorityMode } from "./models";
+import type { AdFocusMode, CampaignFilterKey, ExtensionSettings, PriorityMode } from "./models";
 import { LOG_LEVELS, type LogLevel } from "./logging";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
+const CAMPAIGN_FILTER_KEYS: CampaignFilterKey[] = ["notLinked", "upcoming", "expired", "excluded", "finished"];
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   running: false,
@@ -35,6 +36,15 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   },
   campaignPriorities: {},
   excludedCampaignIds: [],
+  // Preserve the previously hard-coded view: show not-linked, upcoming and
+  // finished campaigns; hide expired and excluded ones unless opted back in.
+  campaignVisibility: {
+    notLinked: true,
+    upcoming: true,
+    expired: false,
+    excluded: false,
+    finished: true,
+  },
   offlineRetryLimit: 3,
   pollIntervalMinutes: 1,
   enabledLogLevels: ["info", "warn", "error"],
@@ -76,7 +86,8 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
       },
     },
     campaignPriorities: normalizePriorities(value?.campaignPriorities),
-    excludedCampaignIds: normalizeStringList(value?.excludedCampaignIds),
+    excludedCampaignIds: normalizeIdList(value?.excludedCampaignIds),
+    campaignVisibility: normalizeCampaignVisibility(value?.campaignVisibility),
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_SETTINGS.offlineRetryLimit),
     // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
@@ -119,6 +130,22 @@ function normalizeStringList(value: string[] | undefined): string[] {
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean))];
+}
+
+// Campaign ids are case-sensitive and matched verbatim against campaign.id in
+// the scheduler, so unlike channel/game lists they must not be lowercased.
+function normalizeIdList(value: string[] | undefined): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean))];
+}
+
+function normalizeCampaignVisibility(value: Partial<Record<CampaignFilterKey, boolean>> | undefined): Record<CampaignFilterKey, boolean> {
+  return Object.fromEntries(
+    CAMPAIGN_FILTER_KEYS.map((key) => [key, booleanOr(value?.[key], DEFAULT_SETTINGS.campaignVisibility[key])]),
+  ) as Record<CampaignFilterKey, boolean>;
 }
 
 function normalizeChannelList(value: string[] | undefined): string[] {
