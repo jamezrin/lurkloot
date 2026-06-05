@@ -158,11 +158,24 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
   }).filter((campaign) => campaign.status !== "expired" && campaign.status !== "completed");
 }
 
+// Kick's drops API returns reward images as relative paths
+// (e.g. "drops/reward-image/<id>.png") served from ext.kick.com — see the org
+// `logo_url` full URL in the same response. Resolve them to absolute URLs so the
+// popup's <img> doesn't 404 against the extension origin and fall back to the
+// gradient+initials placeholder.
+const KICK_ASSET_BASE = "https://ext.kick.com";
+
+export function kickRewardImageUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${KICK_ASSET_BASE}/${value.replace(/^\/+/, "")}`;
+}
+
 function parseKickReward(reward: KickReward): DropReward {
   return {
     id: String(reward.id),
     name: reward.name ?? reward.title ?? `Reward ${reward.id}`,
-    imageUrl: reward.image_url ?? reward.image,
+    imageUrl: kickRewardImageUrl(reward.image_url ?? reward.image),
     requiredMinutes:
       reward.required_units ?? reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0,
     watchedMinutes: 0,

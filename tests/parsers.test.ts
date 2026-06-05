@@ -29,6 +29,26 @@ describe("Kick parsers", () => {
     expect(merged[0].rewards[0].claimId).toBe("claim-99");
   });
 
+  it("resolves relative reward image paths to absolute ext.kick.com URLs", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: 1,
+        rewards: [
+          { id: "rel", image_url: "drops/reward-image/abc.png", required_units: 60 },
+          { id: "slashed", image_url: "/drops/reward-image/def.png", required_units: 60 },
+          { id: "absolute", image_url: "https://files.kick.com/x.png", required_units: 60 },
+          { id: "none", required_units: 60 },
+        ],
+      }],
+    });
+
+    const [rel, slashed, absolute, none] = campaigns[0].rewards;
+    expect(rel.imageUrl).toBe("https://ext.kick.com/drops/reward-image/abc.png");
+    expect(slashed.imageUrl).toBe("https://ext.kick.com/drops/reward-image/def.png");
+    expect(absolute.imageUrl).toBe("https://files.kick.com/x.png");
+    expect(none.imageUrl).toBeUndefined();
+  });
+
   it("merges campaign-level Kick progress with nested rewards", () => {
     const campaigns = parseKickCampaigns({
       data: [{

@@ -48,6 +48,7 @@ import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../../src
 import type { AdFocusMode, CampaignFilterKey, DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
 import { LOG_LEVELS, type LogLevel } from "../../src/core/logging";
 import { DEFAULT_SETTINGS, mergeSettings } from "../../src/core/settings";
+import { kickRewardImageUrl } from "../../src/platforms/kickParser";
 import "./style.css";
 
 type PopupTab = "drops" | "watchQueue";
@@ -1895,7 +1896,11 @@ function campaignViewFromCampaign(campaign: DropCampaign, index: number, session
         obtained: reward.status === "claimed",
         art: initials(reward.name).slice(0, 8),
         tint: REWARD_TINTS[rewardIndex % REWARD_TINTS.length],
-        imageUrl: reward.imageUrl,
+        // Kick stores reward images as relative paths (drops/reward-image/…png).
+        // Resolve to an absolute ext.kick.com URL at render time so already-persisted
+        // state renders correctly without waiting for a fresh discovery tick.
+        // Idempotent for absolute URLs, so Twitch (already absolute) is unaffected.
+        imageUrl: campaign.platform === "kick" ? kickRewardImageUrl(reward.imageUrl) : reward.imageUrl,
       };
     }),
   };
