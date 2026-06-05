@@ -96,7 +96,62 @@ const REWARD_TINTS = [
   "from-zinc-100 via-emerald-200 to-slate-500",
 ];
 const SCREENSHOT_MODE = new URLSearchParams(window.location.search).get("screenshot") === "store";
-const EXTENSION_VERSION = SCREENSHOT_MODE ? "0.1.0" : browser.runtime.getManifest().version;
+const EXTENSION_VERSION = SCREENSHOT_MODE ? "1.0.0" : browser.runtime.getManifest().version;
+
+type ScreenshotView = "drops" | "watchQueue" | "settings" | "activity";
+type ScreenshotVariant = {
+  platform: Platform;
+  view: ScreenshotView;
+  accentGradient: string;
+  headline: string;
+  subcopy: string;
+};
+// Drives the marketing screenshots captured by scripts/capture-store-screenshot.mjs.
+// Each variant frames a different platform/view with tailored copy; the script
+// loops over these ids via ?screenshot=store&variant=<id>.
+const TWITCH_GRADIENT =
+  "radial-gradient(circle_at_22%_24%,rgba(145,71,255,0.34),transparent_32%),radial-gradient(circle_at_78%_78%,rgba(83,252,24,0.18),transparent_28%)";
+const KICK_GRADIENT =
+  "radial-gradient(circle_at_22%_24%,rgba(83,252,24,0.30),transparent_32%),radial-gradient(circle_at_78%_78%,rgba(145,71,255,0.20),transparent_28%)";
+const SCREENSHOT_VARIANTS: Record<string, ScreenshotVariant> = {
+  "twitch-drops": {
+    platform: "twitch",
+    view: "drops",
+    accentGradient: TWITCH_GRADIENT,
+    headline: "Twitch and Kick drops, managed from one popup.",
+    subcopy: "Stream Autopilot farms eligible campaigns through your normal browser session with visible muted tabs.",
+  },
+  "kick-drops": {
+    platform: "kick",
+    view: "drops",
+    accentGradient: KICK_GRADIENT,
+    headline: "Now farming Kick drops too.",
+    subcopy: "The same automation, eligibility checks, and auto-claim you rely on for Twitch — now covering Kick creator rewards.",
+  },
+  "watch-queue": {
+    platform: "twitch",
+    view: "watchQueue",
+    accentGradient: TWITCH_GRADIENT,
+    headline: "A fallback Watch Queue keeps you earning.",
+    subcopy: "When no drops are active, Stream Autopilot watches your favorite channels so your time online never goes to waste.",
+  },
+  "settings": {
+    platform: "twitch",
+    view: "settings",
+    accentGradient: TWITCH_GRADIENT,
+    headline: "Tune every detail to your setup.",
+    subcopy: "Per-platform automation, auto-claim, muted tabs, game priority, and an experimental low-resource tabless mode.",
+  },
+  "activity": {
+    platform: "twitch",
+    view: "activity",
+    accentGradient: TWITCH_GRADIENT,
+    headline: "See exactly what it's doing.",
+    subcopy: "A transparent activity log shows every check, switch, and claim — filterable by level so nothing happens behind your back.",
+  },
+};
+const SCREENSHOT_VARIANT_ID = new URLSearchParams(window.location.search).get("variant") ?? "twitch-drops";
+const SCREENSHOT_VARIANT = SCREENSHOT_VARIANTS[SCREENSHOT_VARIANT_ID] ?? SCREENSHOT_VARIANTS["twitch-drops"];
 
 function send<T>(message: RuntimeMessage): Promise<T> {
   if (SCREENSHOT_MODE) return Promise.resolve(handleScreenshotMessage(message) as T);
@@ -336,7 +391,14 @@ function screenshotSnapshot(): RuntimeSnapshot {
           message: "Mock screenshot data",
         },
       },
-      events: [],
+      events: [
+        { id: "ev-1", at: new Date(now - 18_000).toISOString(), platform: "twitch", level: "info", message: "Watching RivalsPilot · farming Marathon Legends Launch Drops" },
+        { id: "ev-2", at: new Date(now - 96_000).toISOString(), platform: "twitch", level: "info", message: "Claimed reward Founder Badge from Marathon Legends Launch Drops" },
+        { id: "ev-3", at: new Date(now - 142_000).toISOString(), platform: "twitch", level: "warn", message: "Spellforge Creator Drops skipped — account not linked" },
+        { id: "ev-4", at: new Date(now - 210_000).toISOString(), platform: "twitch", level: "info", message: "Switched channel to RivalsPilot (18.4K viewers) for higher priority drop" },
+        { id: "ev-5", at: new Date(now - 264_000).toISOString(), level: "info", message: "Scheduler tick complete · 2 eligible campaigns across Twitch and Kick" },
+        { id: "ev-6", at: new Date(now - 318_000).toISOString(), platform: "twitch", level: "info", message: "Refocused farming tab to advance an ad countdown" },
+      ],
       lastTickAt: new Date(now - 45_000).toISOString(),
     },
   };
@@ -367,10 +429,10 @@ function useDndSensors() {
 
 function Popup(): React.ReactElement {
   const [snapshot, setSnapshot] = useState<RuntimeSnapshot | null>(null);
-  const [platform, setPlatform] = useState<Platform>("twitch");
-  const [tab, setTab] = useState<PopupTab>("drops");
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activityOpen, setActivityOpen] = useState(false);
+  const [platform, setPlatform] = useState<Platform>(SCREENSHOT_MODE ? SCREENSHOT_VARIANT.platform : "twitch");
+  const [tab, setTab] = useState<PopupTab>(SCREENSHOT_MODE && SCREENSHOT_VARIANT.view === "watchQueue" ? "watchQueue" : "drops");
+  const [settingsOpen, setSettingsOpen] = useState(SCREENSHOT_MODE && SCREENSHOT_VARIANT.view === "settings");
+  const [activityOpen, setActivityOpen] = useState(SCREENSHOT_MODE && SCREENSHOT_VARIANT.view === "activity");
   const [refreshing, setRefreshing] = useState(false);
   const [pendingAutomation, setPendingAutomation] = useState<Partial<Record<Platform, boolean>>>({});
 
@@ -378,7 +440,7 @@ function Popup(): React.ReactElement {
     void Promise.all([
       send<RuntimeSnapshot>({ type: "getSnapshot" }),
       SCREENSHOT_MODE
-        ? Promise.resolve({ [SELECTED_PLATFORM_KEY]: "twitch" })
+        ? Promise.resolve({ [SELECTED_PLATFORM_KEY]: SCREENSHOT_VARIANT.platform })
         : browser.storage.local.get(SELECTED_PLATFORM_KEY),
     ]).then(([nextSnapshot, stored]) => {
       const savedPlatform = stored[SELECTED_PLATFORM_KEY];
@@ -706,21 +768,21 @@ function ActivityLog({
   );
 }
 
-function StoreScreenshot({ children }: { children: React.ReactNode }): React.ReactElement {
+function StoreScreenshot({ variant, children }: { variant: ScreenshotVariant; children: React.ReactNode }): React.ReactElement {
   return (
     <div
-      data-platform="twitch"
+      data-platform={variant.platform}
       className="grid h-[800px] w-[1280px] grid-cols-[1fr_460px] overflow-hidden bg-zinc-950 text-white"
     >
       <section className="relative flex min-w-0 flex-col justify-center px-20">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_24%,rgba(145,71,255,0.34),transparent_32%),radial-gradient(circle_at_78%_78%,rgba(83,252,24,0.18),transparent_28%)]" />
+        <div className="pointer-events-none absolute inset-0" style={{ background: variant.accentGradient.replace(/_/g, " ") }} />
         <div className="relative max-w-[590px]">
           <img src="/logo-ring.svg" alt="" width={76} height={76} className="mb-8 h-[76px] w-[76px]" />
           <h1 className="font-display text-[62px] font-bold leading-[0.96] tracking-normal text-white">
-            Twitch and Kick drops, managed from one popup.
+            {variant.headline}
           </h1>
           <p className="mt-6 max-w-[520px] text-[22px] leading-snug text-zinc-300">
-            Stream Autopilot farms eligible campaigns through your normal browser session with visible muted tabs.
+            {variant.subcopy}
           </p>
           <div className="mt-9 flex gap-3">
             <span className="rounded-lg bg-white px-4 py-2 text-[15px] font-bold text-zinc-950">Twitch</span>
@@ -730,7 +792,6 @@ function StoreScreenshot({ children }: { children: React.ReactNode }): React.Rea
         </div>
       </section>
       <section className="relative flex items-center justify-start">
-        <div className="absolute inset-y-0 left-0 w-px bg-white/10" />
         <div className="rounded-[28px] bg-white/10 p-5 shadow-2xl shadow-black/50 ring-1 ring-white/12">
           {children}
         </div>
@@ -1705,7 +1766,7 @@ function formatViewers(count: number): string {
 
 createRoot(document.getElementById("root")!).render(
   SCREENSHOT_MODE ? (
-    <StoreScreenshot>
+    <StoreScreenshot variant={SCREENSHOT_VARIANT}>
       <Popup />
     </StoreScreenshot>
   ) : (

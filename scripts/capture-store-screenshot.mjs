@@ -5,8 +5,19 @@ import { extname, join, resolve } from "node:path";
 import { chromium } from "playwright";
 
 const root = resolve(".output/chrome-mv3");
-const outputPath = resolve("artifacts/store-screenshots/stream-autopilot-popup-1280x800.png");
+const outputDir = resolve("artifacts/store-screenshots");
 const candidates = ["popup.html", "popup/index.html"];
+
+// Each variant is rendered via ?screenshot=store&variant=<id> (see
+// SCREENSHOT_VARIANTS in entrypoints/popup/main.tsx). Numeric file prefixes
+// preserve the upload order in the store listing.
+const variants = [
+  { id: "twitch-drops", file: "01-twitch-drops" },
+  { id: "kick-drops", file: "02-kick-drops" },
+  { id: "watch-queue", file: "03-watch-queue" },
+  { id: "settings", file: "04-settings" },
+  { id: "activity", file: "05-activity" },
+];
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -74,7 +85,7 @@ function startServer() {
 }
 
 const popupPath = await findPopupPath();
-await mkdir(resolve("artifacts/store-screenshots"), { recursive: true });
+await mkdir(outputDir, { recursive: true });
 const { server, origin } = await startServer();
 
 try {
@@ -83,11 +94,17 @@ try {
     viewport: { width: 1280, height: 800 },
     deviceScaleFactor: 1,
   });
-  await page.goto(`${origin}${popupPath}?screenshot=store`, { waitUntil: "networkidle" });
-  await page.waitForSelector('[data-platform="twitch"]');
-  await page.screenshot({ path: outputPath, clip: { x: 0, y: 0, width: 1280, height: 800 } });
+  for (const variant of variants) {
+    const outputPath = join(outputDir, `stream-autopilot-${variant.file}-1280x800.png`);
+    await page.goto(`${origin}${popupPath}?screenshot=store&variant=${variant.id}`, { waitUntil: "networkidle" });
+    // The header logo only renders after the snapshot loads (the loading
+    // placeholder shows just "Loading"), and is present in every view/platform —
+    // wait on it so Kick and non-Drops variants capture fully-rendered content.
+    await page.waitForSelector('header img[alt="Stream Autopilot"]');
+    await page.screenshot({ path: outputPath, clip: { x: 0, y: 0, width: 1280, height: 800 } });
+    console.log(`Wrote ${outputPath}`);
+  }
   await browser.close();
-  console.log(`Wrote ${outputPath}`);
 } finally {
   server.close();
 }
