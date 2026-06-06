@@ -1,10 +1,10 @@
-import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
-import type { TablessWatchController } from "../core/tablessWatch";
-import { logActivity } from "../core/activityLog";
-import { fetchJsonInPage, fetchKickInBackground, KickWafBlockedError, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
-import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "./adapter";
-import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./kickParser";
-import { KICK_CLIENT_TOKEN, KickWatcher } from "./kickWatch";
+import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../../core/models";
+import type { TablessWatchController } from "../../core/tablessWatch";
+import { logActivity } from "../../core/activityLog";
+import { fetchJsonInPage, fetchKickInBackground, KickWafBlockedError, openPinnedMutedTab, stopWatchTab } from "../../core/tabs";
+import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "../adapter";
+import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
+import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
 
 interface KickLivestreamsResponse {
   data?: Array<KickLivestream> | { livestreams?: KickLivestream[] };

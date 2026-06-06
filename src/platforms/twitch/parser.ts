@@ -1,4 +1,4 @@
-import type { ChannelCandidate, DropCampaign, DropReward } from "../core/models";
+import type { ChannelCandidate, DropCampaign, DropReward } from "../../core/models";
 
 interface TwitchInventory {
   data?: {

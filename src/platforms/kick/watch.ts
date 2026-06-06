@@ -1,6 +1,6 @@
-import type { ChannelCandidate } from "../core/models";
-import type { HeartbeatResult, TablessWatchController, WatchContext } from "../core/tablessWatch";
-import type { PageFetcher } from "./adapter";
+import type { ChannelCandidate } from "../../core/models";
+import type { HeartbeatResult, TablessWatchController, WatchContext } from "../../core/tablessWatch";
+import type { PageFetcher } from "../adapter";
 
 // Tabless Kick farming: a viewer WebSocket that advances drop timers with no
 // video. Mirrors kickautodrops (references/kickautodrops/core/kick.py:255-436):

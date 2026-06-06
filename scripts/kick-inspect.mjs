@@ -32,7 +32,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { chromium } from "playwright";
 
-// Mirrors KICK_CLIENT_TOKEN in src/platforms/kickWatch.ts:10 — confirm it still works.
+// Mirrors KICK_CLIENT_TOKEN in src/platforms/kick/watch.ts:10 — confirm it still works.
 const KICK_CLIENT_TOKEN = "e1393935a959b4020a4491574f6490129f678acdaa92760471263db43487f823";
 const PROFILE_DIR = resolve(".tmp/kick-profile");
 const SEEDED_DIR = resolve(".tmp/kick-profile-chrome");

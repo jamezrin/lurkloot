@@ -1,10 +1,10 @@
-import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
-import type { HeartbeatResult, TablessWatchController, WatchContext } from "../core/tablessWatch";
-import { logActivity } from "../core/activityLog";
-import { ensureTwitchIntegrity, fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
-import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "./adapter";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./twitchParser";
-import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./twitchWatch";
+import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../../core/models";
+import type { HeartbeatResult, TablessWatchController, WatchContext } from "../../core/tablessWatch";
+import { logActivity } from "../../core/activityLog";
+import { ensureTwitchIntegrity, fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../../core/tabs";
+import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "../adapter";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
+import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./watch";
 
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";

@@ -51,7 +51,7 @@ import type { AdFocusMode, CampaignFilterKey, CategorySelection, DropCampaign, E
 import { LOG_LEVELS, type LogLevel } from "../../src/core/logging";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, SUPPORTED_LOCALES, type SettingsPatch } from "../../src/core/settings";
 import { DEFAULT_LOCALE, effectiveLocale, isRtlLocale, loadLocaleCatalog, LOCALE_OPTIONS, translateFromCatalogs, type MessageCatalog } from "../../src/core/i18n";
-import { kickRewardImageUrl } from "../../src/platforms/kickParser";
+import { kickRewardImageUrl } from "../../src/platforms/kick/parser";
 import "./style.css";
 
 type PopupTab = "drops" | "watchQueue";

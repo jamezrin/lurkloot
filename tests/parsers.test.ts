@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mergeKickProgress, parseKickCampaigns } from "../src/platforms/kickParser";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, withCampaignStatus } from "../src/platforms/twitchParser";
+import { mergeKickProgress, parseKickCampaigns } from "../src/platforms/kick/parser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, withCampaignStatus } from "../src/platforms/twitch/parser";
 
 describe("Kick parsers", () => {
   it("normalizes campaigns and merges progress", () => {
