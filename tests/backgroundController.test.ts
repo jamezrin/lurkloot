@@ -342,7 +342,7 @@ describe("background controller", () => {
     const env = harness();
     const nextSettings = { ...DEFAULT_SETTINGS, running: true, pollIntervalMinutes: Number.NaN, offlineRetryLimit: 0 };
 
-    await env.controller.handleMessage({ type: "saveSettings", settings: nextSettings });
+    await env.controller.handleMessage({ type: "saveSettings", settingsPatch: nextSettings });
 
     expect(env.settings.pollIntervalMinutes).toBe(DEFAULT_SETTINGS.pollIntervalMinutes);
     expect(env.settings.offlineRetryLimit).toBe(1);
@@ -355,12 +355,48 @@ describe("background controller", () => {
 
     await env.controller.handleMessage({
       type: "saveSettings",
-      settings: { ...env.settings, pollIntervalMinutes: 17 },
+      settingsPatch: { pollIntervalMinutes: 17 },
     });
 
     expect(env.settings.pollIntervalMinutes).toBe(17);
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: 17 });
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("merges overlapping settings patches without clobbering previous saves", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      notifyRewardEarned: true,
+      notifyNoDropsLeft: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, excludedChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
+      },
+    });
+
+    await Promise.all([
+      env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: {
+          notifyRewardEarned: false,
+          platform: { twitch: { excludedChannels: ["skipme"] } },
+        },
+      }),
+      env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: {
+          notifyNoDropsLeft: false,
+          platform: { kick: { enabled: false } },
+        },
+      }),
+    ]);
+
+    expect(env.settings.notifyRewardEarned).toBe(false);
+    expect(env.settings.notifyNoDropsLeft).toBe(false);
+    expect(env.settings.platform.twitch.excludedChannels).toEqual(["skipme"]);
+    expect(env.settings.platform.kick.enabled).toBe(false);
   });
 
   it("runs a scheduler tick after saving settings when requested and automation is active", async () => {
@@ -375,7 +411,7 @@ describe("background controller", () => {
 
     const snapshot = asSnapshot(await env.controller.handleMessage({
       type: "saveSettings",
-      settings: nextSettings,
+      settingsPatch: nextSettings,
       tickAfterSave: true,
     }));
 
@@ -395,7 +431,7 @@ describe("background controller", () => {
 
     const snapshot = asSnapshot(await env.controller.handleMessage({
       type: "saveSettings",
-      settings: nextSettings,
+      settingsPatch: nextSettings,
       tickAfterSave: true,
       tickAfterSavePlatforms: ["kick"],
     }));
@@ -418,13 +454,56 @@ describe("background controller", () => {
 
     const snapshot = asSnapshot(await env.controller.handleMessage({
       type: "saveSettings",
-      settings: nextSettings,
+      settingsPatch: nextSettings,
       tickAfterSave: true,
     }));
 
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(snapshot.settings.running).toBe(false);
     expect(snapshot.settings.platform.twitch.watchQueueChannels).toEqual(["fallback"]);
+  });
+
+  it("temporarily pauses active sessions while a settings session is open without persisting running=false", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      tabId: 10,
+      tabManagedByExtension: true,
+      offlineChecks: 0,
+    };
+
+    await env.controller.beginSettingsSession();
+
+    expect(env.settings.running).toBe(true);
+    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ status: "watching" }), expect.anything());
+    expect(env.state.sessions.twitch.status).toBe("paused");
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+
+    await env.controller.endSettingsSession();
+
+    expect(env.settings.running).toBe(true);
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
+  });
+
+  it("does not run tickAfterSave automation while settings are temporarily paused", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+
+    await env.controller.beginSettingsSession();
+    vi.mocked(env.twitch.discoverCampaigns).mockClear();
+    vi.mocked(env.kick.discoverCampaigns).mockClear();
+
+    const snapshot = asSnapshot(await env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { priorityMode: "priority_list_only" },
+      tickAfterSave: true,
+    }));
+
+    expect(snapshot.settings.running).toBe(true);
+    expect(snapshot.settings.priorityMode).toBe("priority_list_only");
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
   });
 
   it("runs an immediate scheduler tick when requested from the popup", async () => {

@@ -1,9 +1,14 @@
-import type { AdFocusMode, CampaignFilterKey, CategorySelection, ExtensionSettings, PriorityMode } from "./models";
+import type { AdFocusMode, CampaignFilterKey, CategorySelection, ExtensionSettings, Platform, PlatformSettings, PriorityMode } from "./models";
 import { LOG_LEVELS, type LogLevel } from "./logging";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
 const CAMPAIGN_FILTER_KEYS: CampaignFilterKey[] = ["notLinked", "upcoming", "expired", "excluded", "finished"];
+
+export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "campaignVisibility">> & {
+  platform?: Partial<Record<Platform, Partial<PlatformSettings>>>;
+  campaignVisibility?: Partial<ExtensionSettings["campaignVisibility"]>;
+};
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   running: false,
@@ -97,6 +102,28 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
     enabledLogLevels: normalizeLogLevels(value),
   };
+}
+
+export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPatch): ExtensionSettings {
+  return mergeSettings({
+    ...current,
+    ...patch,
+    platform: {
+      ...current.platform,
+      twitch: {
+        ...current.platform.twitch,
+        ...patch.platform?.twitch,
+      },
+      kick: {
+        ...current.platform.kick,
+        ...patch.platform?.kick,
+      },
+    },
+    campaignVisibility: {
+      ...current.campaignVisibility,
+      ...patch.campaignVisibility,
+    },
+  });
 }
 
 function normalizeLogLevels(value: Partial<ExtensionSettings> & { verboseLogging?: boolean } | undefined): LogLevel[] {

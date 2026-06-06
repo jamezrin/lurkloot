@@ -46,10 +46,10 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
+import { SETTINGS_SESSION_PORT, type CategorySearchResult, type PlaybackControl, type RuntimeMessage, type RuntimeSnapshot } from "../../src/core/messages";
 import type { AdFocusMode, CampaignFilterKey, CategorySelection, DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
 import { LOG_LEVELS, type LogLevel } from "../../src/core/logging";
-import { DEFAULT_SETTINGS, mergeSettings } from "../../src/core/settings";
+import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "../../src/core/settings";
 import { kickRewardImageUrl } from "../../src/platforms/kickParser";
 import "./style.css";
 
@@ -177,7 +177,7 @@ function handleScreenshotMessage(message: RuntimeMessage): RuntimeSnapshot | Pla
         ].filter((category) => category.name.toLowerCase().includes(message.query.toLowerCase())),
       };
     case "saveSettings":
-      return { ...screenshotSnapshot(), settings: mergeSettings(message.settings) };
+      return { ...screenshotSnapshot(), settings: applySettingsPatch(screenshotSnapshot().settings, message.settingsPatch) };
     case "setAutomation":
       return {
         ...screenshotSnapshot(),
@@ -453,7 +453,33 @@ function Popup(): React.ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(SCREENSHOT_MODE && SCREENSHOT_VARIANT.view === "settings");
   const [activityOpen, setActivityOpen] = useState(SCREENSHOT_MODE && SCREENSHOT_VARIANT.view === "activity");
   const [refreshing, setRefreshing] = useState(false);
+  const [resumingAutomation, setResumingAutomation] = useState(false);
   const [pendingAutomation, setPendingAutomation] = useState<Partial<Record<Platform, boolean>>>({});
+  const settingsRef = useRef<ExtensionSettings | null>(null);
+  const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const wasSettingsOpen = useRef(settingsOpen);
+  const resumeRefreshRun = useRef(0);
+
+  function snapshotWithMergedSettings(nextSnapshot: RuntimeSnapshot): RuntimeSnapshot {
+    const settings = mergeSettings(nextSnapshot.settings);
+    settingsRef.current = settings;
+    return { ...nextSnapshot, settings };
+  }
+
+  function snapshotPreservingLocalSettings(nextSnapshot: RuntimeSnapshot): RuntimeSnapshot {
+    const settings = settingsRef.current ?? mergeSettings(nextSnapshot.settings);
+    settingsRef.current = settings;
+    return { ...nextSnapshot, settings };
+  }
+
+  function hasTemporaryDisabledSession(nextSnapshot: RuntimeSnapshot, currentSettings: ExtensionSettings): boolean {
+    return (["twitch", "kick"] as Platform[]).some((resumePlatform) => (
+      currentSettings.running
+      && currentSettings.platform[resumePlatform].enabled
+      && nextSnapshot.state.sessions[resumePlatform].status === "paused"
+      && nextSnapshot.state.sessions[resumePlatform].message === "Automation disabled"
+    ));
+  }
 
   useEffect(() => {
     void Promise.all([
@@ -464,8 +490,47 @@ function Popup(): React.ReactElement {
     ]).then(([nextSnapshot, stored]) => {
       const savedPlatform = stored[SELECTED_PLATFORM_KEY];
       if (isPlatform(savedPlatform)) setPlatform(savedPlatform);
-      setSnapshot({ ...nextSnapshot, settings: mergeSettings(nextSnapshot.settings) });
+      setSnapshot(snapshotWithMergedSettings(nextSnapshot));
     });
+  }, []);
+
+  useEffect(() => {
+    if (SCREENSHOT_MODE || !settingsOpen) return;
+    const port = browser.runtime.connect({ name: SETTINGS_SESSION_PORT });
+    return () => port.disconnect();
+  }, [settingsOpen]);
+
+  useEffect(() => {
+    if (!wasSettingsOpen.current || settingsOpen) {
+      wasSettingsOpen.current = settingsOpen;
+      return;
+    }
+
+    wasSettingsOpen.current = settingsOpen;
+    const currentSettings = settingsRef.current;
+    const shouldResume = Boolean(currentSettings?.running && Object.values(currentSettings.platform).some((platformSettings) => platformSettings.enabled));
+    if (!shouldResume) return;
+
+    const run = resumeRefreshRun.current + 1;
+    resumeRefreshRun.current = run;
+    setResumingAutomation(true);
+
+    void settingsSaveQueue.current.catch(() => undefined).then(async () => {
+      for (let attempt = 0; attempt < 12 && resumeRefreshRun.current === run; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const nextSnapshot = await send<RuntimeSnapshot>({ type: "getSnapshot" });
+        const nextSettings = settingsRef.current ?? mergeSettings(nextSnapshot.settings);
+        setSnapshot(snapshotPreservingLocalSettings(nextSnapshot));
+        if (!hasTemporaryDisabledSession(nextSnapshot, nextSettings)) break;
+      }
+      if (resumeRefreshRun.current === run) setResumingAutomation(false);
+    });
+  }, [settingsOpen]);
+
+  useEffect(() => {
+    return () => {
+      resumeRefreshRun.current += 1;
+    };
   }, []);
 
   // Keep the snapshot (and its Activity log) live while the popup is open, so
@@ -478,7 +543,13 @@ function Popup(): React.ReactElement {
         // in-flight edit is never clobbered mid-typing. The tradeoff: a setting
         // changed by the background (e.g. startup auto-pausing `running`) is not
         // reflected until the popup is reopened.
-        setSnapshot((current) => current ? { ...nextSnapshot, settings: current.settings } : { ...nextSnapshot, settings: mergeSettings(nextSnapshot.settings) });
+        setSnapshot((current) => {
+          if (current) {
+            settingsRef.current = current.settings;
+            return { ...nextSnapshot, settings: current.settings };
+          }
+          return snapshotPreservingLocalSettings(nextSnapshot);
+        });
       });
     }, 5000);
     return () => clearInterval(interval);
@@ -489,17 +560,23 @@ function Popup(): React.ReactElement {
     if (!SCREENSHOT_MODE) void browser.storage.local.set({ [SELECTED_PLATFORM_KEY]: nextPlatform });
   }
 
-  async function updateSettings(patch: Partial<ExtensionSettings>, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
+  async function updateSettings(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
     if (!snapshot) return;
-    const nextSettings = mergeSettings({ ...snapshot.settings, ...patch });
-    setSnapshot({ ...snapshot, settings: nextSettings });
-    const nextSnapshot = await send<RuntimeSnapshot>({
-      type: "saveSettings",
-      settings: nextSettings,
-      tickAfterSave: options?.tickAfterSave,
-      tickAfterSavePlatforms: options?.tickAfterSavePlatforms,
+    const settingsPatch = patch;
+    const nextSettings = applySettingsPatch(settingsRef.current ?? snapshot.settings, settingsPatch);
+    settingsRef.current = nextSettings;
+    setSnapshot((current) => current ? { ...current, settings: nextSettings } : current);
+    const save = settingsSaveQueue.current.catch(() => undefined).then(async () => {
+      const nextSnapshot = await send<RuntimeSnapshot>({
+        type: "saveSettings",
+        settingsPatch,
+        tickAfterSave: options?.tickAfterSave,
+        tickAfterSavePlatforms: options?.tickAfterSavePlatforms,
+      });
+      setSnapshot({ ...nextSnapshot, settings: settingsRef.current ?? mergeSettings(nextSnapshot.settings) });
     });
-    setSnapshot({ ...nextSnapshot, settings: mergeSettings({ ...nextSnapshot.settings, ...nextSettings }) });
+    settingsSaveQueue.current = save;
+    await save;
   }
 
   async function setAutomation(enabled: boolean): Promise<void> {
@@ -507,7 +584,7 @@ function Popup(): React.ReactElement {
     const pendingPlatform = platform;
     setPendingAutomation((current) => ({ ...current, [pendingPlatform]: enabled }));
     try {
-      setSnapshot(await send<RuntimeSnapshot>({ type: "setAutomation", platform: pendingPlatform, enabled }));
+      setSnapshot(snapshotWithMergedSettings(await send<RuntimeSnapshot>({ type: "setAutomation", platform: pendingPlatform, enabled })));
     } catch (error) {
       console.error("Failed to update automation", error);
     } finally {
@@ -522,7 +599,7 @@ function Popup(): React.ReactElement {
     if (!snapshot || refreshing) return;
     setRefreshing(true);
     try {
-      setSnapshot(await send<RuntimeSnapshot>({ type: "tickNow" }));
+      setSnapshot(snapshotWithMergedSettings(await send<RuntimeSnapshot>({ type: "tickNow" })));
     } finally {
       setRefreshing(false);
     }
@@ -580,7 +657,7 @@ function Popup(): React.ReactElement {
               <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">Stream Autopilot</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: enabled ? "var(--accent)" : "#a1a1aa" }} />
-                {settingsOpen ? "Settings" : activityOpen ? "Activity" : `${enabled ? "Active" : "Paused"} · ${PLATFORMS[platform].label}`}
+                {settingsOpen ? "Settings" : activityOpen ? "Activity" : resumingAutomation ? "Resuming automation..." : `${enabled ? "Active" : "Paused"} · ${PLATFORMS[platform].label}`}
               </div>
             </div>
           </div>
@@ -626,7 +703,7 @@ function Popup(): React.ReactElement {
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
-                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} statusMessage={session.message} onChange={setAutomation} />
+                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} statusMessage={resumingAutomation ? "Resuming automation..." : session.message} onChange={setAutomation} />
                 <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
                   <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
                   <p className="leading-snug text-zinc-600 dark:text-zinc-300">
@@ -662,9 +739,7 @@ function Popup(): React.ReactElement {
                         onChange={(ordered) => updateSettings(
                           {
                             platform: {
-                              ...settings.platform,
                               [platform]: {
-                                ...settings.platform[platform],
                                 watchQueueChannels: ordered.map((streamer) => streamer.id),
                               },
                             },
@@ -1181,32 +1256,18 @@ function SettingsView({ suggestions, onSearchCategories, settings, onSettingsCha
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
-  onSettingsChange(patch: Partial<ExtensionSettings>, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void>;
+  onSettingsChange(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void>;
   initialPlatform?: Platform;
 }) {
   const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
-  const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as Partial<ExtensionSettings>);
+  const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as SettingsPatch);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
   const tabPlaybackDisabled = settings.tablessMode;
   const tabPlaybackDisabledReason = "Disabled while tabless low-resource mode is enabled.";
-  const setPlatformEnabled = (platform: Platform) => (enabled: boolean) => onSettingsChange(
-    {
-      platform: {
-        ...settings.platform,
-        [platform]: {
-          ...settings.platform[platform],
-          enabled,
-        },
-      },
-    },
-    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
-  );
   const setPlatformFarmAllCategories = (platform: Platform) => (farmAllCategories: boolean) => onSettingsChange(
     {
       platform: {
-        ...settings.platform,
         [platform]: {
-          ...settings.platform[platform],
           farmAllCategories,
         },
       },
@@ -1216,9 +1277,7 @@ function SettingsView({ suggestions, onSearchCategories, settings, onSettingsCha
   const setPlatformCategories = (platform: Platform) => (categories: CategorySelection[]) => onSettingsChange(
     {
       platform: {
-        ...settings.platform,
         [platform]: {
-          ...settings.platform[platform],
           categories,
         },
       },
@@ -1228,9 +1287,7 @@ function SettingsView({ suggestions, onSearchCategories, settings, onSettingsCha
   const setPlatformExcludedChannels = (platform: Platform) => (excludedChannels: string[]) => onSettingsChange(
     {
       platform: {
-        ...settings.platform,
         [platform]: {
-          ...settings.platform[platform],
           excludedChannels,
         },
       },
@@ -1274,7 +1331,7 @@ function SettingsView({ suggestions, onSearchCategories, settings, onSettingsCha
         <SettingsPlatformSwitch active={platformTab} onChange={setPlatformTab} />
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={platformTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="space-y-3">
-            <PlatformSettingsGroup platform={platformTab} suggestions={suggestions[platformTab]} settings={settings} onEnabledChange={setPlatformEnabled(platformTab)} onFarmAllCategoriesChange={setPlatformFarmAllCategories(platformTab)} onCategoriesChange={setPlatformCategories(platformTab)} onSearchCategories={(query) => onSearchCategories(platformTab, query)} onExcludedChannelsChange={setPlatformExcludedChannels(platformTab)} />
+            <PlatformSettingsGroup platform={platformTab} suggestions={suggestions[platformTab]} settings={settings} onFarmAllCategoriesChange={setPlatformFarmAllCategories(platformTab)} onCategoriesChange={setPlatformCategories(platformTab)} onSearchCategories={(query) => onSearchCategories(platformTab, query)} onExcludedChannelsChange={setPlatformExcludedChannels(platformTab)} />
           </motion.div>
         </AnimatePresence>
       </SettingsSection>
@@ -1305,11 +1362,10 @@ function SettingsView({ suggestions, onSearchCategories, settings, onSettingsCha
   );
 }
 
-function PlatformSettingsGroup({ platform, suggestions, settings, onEnabledChange, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories, onExcludedChannelsChange }: {
+function PlatformSettingsGroup({ platform, suggestions, settings, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories, onExcludedChannelsChange }: {
   platform: Platform;
   suggestions: GameItem[];
   settings: ExtensionSettings;
-  onEnabledChange(enabled: boolean): void | Promise<void>;
   onFarmAllCategoriesChange(farmAll: boolean): void | Promise<void>;
   onCategoriesChange(categories: CategorySelection[]): void | Promise<void>;
   onSearchCategories(query: string): Promise<CategorySelection[]>;
@@ -1325,13 +1381,10 @@ function PlatformSettingsGroup({ platform, suggestions, settings, onEnabledChang
       <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
         <div className="flex items-center gap-3 py-2.5">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Enable automation</span>
-              <Pill tone={platformSettings.enabled ? "live" : "muted"}>{platformSettings.enabled ? "Enabled" : "Paused"}</Pill>
-            </div>
+            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Automation</div>
             <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Farm drops and watch the queue on {details.label}.</div>
           </div>
-          <Toggle checked={platformSettings.enabled} onChange={onEnabledChange} label={`${details.label} platform automation`} />
+          <Pill tone={platformSettings.enabled ? "live" : "muted"}>{platformSettings.enabled ? "Enabled" : "Paused"}</Pill>
         </div>
         <div className="flex items-center gap-3 py-2.5">
           <div className="min-w-0 flex-1">

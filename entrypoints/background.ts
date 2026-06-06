@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
-import type { RuntimeMessage } from "../src/core/messages";
+import { SETTINGS_SESSION_PORT, type RuntimeMessage } from "../src/core/messages";
 import { applyAdFocus } from "../src/core/tabs";
 import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "../src/background/controller";
 import { KickAdapter } from "../src/platforms/kick";
@@ -75,5 +75,13 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
     void controller.handleMessage(message, sender).then(sendResponse);
     return true;
+  });
+
+  browser.runtime.onConnect.addListener((port) => {
+    if (port.name !== SETTINGS_SESSION_PORT) return;
+    void controller.beginSettingsSession();
+    port.onDisconnect.addListener(() => {
+      void controller.endSettingsSession();
+    });
   });
 });

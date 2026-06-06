@@ -1,7 +1,7 @@
 import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../core/messages";
 import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "../core/models";
 import { appendLog, shouldRecord, type LogLevel } from "../core/logging";
-import { mergeSettings } from "../core/settings";
+import { applySettingsPatch, mergeSettings, type SettingsPatch } from "../core/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick } from "../core/scheduler";
 import { logActivity, setActivityLogger } from "../core/activityLog";
 import { setTwitchIntegrity } from "../core/tabs";
@@ -59,6 +59,8 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   // ticks (the WebSocket-based Kick watcher in particular must not be recreated
   // each tick). Reconciled against the scheduler's per-platform session state.
   const tablessWatchers = new Map<Platform, TablessWatchController>();
+  let settingsMutation: Promise<unknown> = Promise.resolve();
+  let settingsPauseCount = 0;
 
   // The last token handed to setTwitchIntegrity; used to skip re-persisting on
   // every page GQL call (the page sends integrity on most requests).
@@ -201,9 +203,28 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     };
   }
 
-  async function tick(platforms?: Platform[]): Promise<void> {
+  function withSettingsLock<T>(operation: () => Promise<T>): Promise<T> {
+    const run = settingsMutation.then(operation, operation);
+    settingsMutation = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
+  async function updateStoredSettings(patch: SettingsPatch): Promise<ExtensionSettings> {
+    return withSettingsLock(async () => {
+      const current = mergeSettings(await deps.loadSettings());
+      const settings = applySettingsPatch(current, patch);
+      await deps.saveSettings(settings);
+      await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+      return settings;
+    });
+  }
+
+  async function tick(platforms?: Platform[], options?: { forcePaused?: boolean }): Promise<void> {
     await withStateLock(async () => {
-      const settings = await deps.loadSettings();
+      const storedSettings = mergeSettings(await deps.loadSettings());
+      const settings = options?.forcePaused || settingsPauseCount > 0
+        ? mergeSettings({ ...storedSettings, running: false })
+        : storedSettings;
       const state = await deps.loadState();
       const enabledLevels = settings.enabledLogLevels;
 
@@ -303,6 +324,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   // watcher and records its health on the session, falling back to a real tab
   // (by re-running the scheduler) when a heartbeat keeps failing.
   async function runWatchHeartbeat(): Promise<void> {
+    if (settingsPauseCount > 0) return;
     const settings = await deps.loadSettings();
     if (!settings.running) return;
     const enabledLevels = settings.enabledLogLevels;
@@ -374,6 +396,18 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     for (const platform of fallbackPlatforms) {
       await tick([platform]);
     }
+  }
+
+  async function beginSettingsSession(): Promise<void> {
+    settingsPauseCount += 1;
+    if (settingsPauseCount === 1) await tick(undefined, { forcePaused: true });
+  }
+
+  async function endSettingsSession(): Promise<void> {
+    settingsPauseCount = Math.max(0, settingsPauseCount - 1);
+    if (settingsPauseCount > 0) return;
+    const settings = mergeSettings(await deps.loadSettings());
+    if (settings.running && hasEnabledPlatform(settings)) await tick();
   }
 
   async function recordPlaybackTelemetry(
@@ -566,55 +600,40 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     }
 
     if (message.type === "setRunning") {
-      const settings = mergeSettings({ ...(await deps.loadSettings()), running: message.running });
-      await deps.saveSettings(settings);
-      await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+      await updateStoredSettings({ running: message.running });
       await tick();
       return snapshot();
     }
 
     if (message.type === "setPlatformEnabled") {
-      const current = await deps.loadSettings();
-      const settings = mergeSettings({
-        ...current,
+      const settings = await updateStoredSettings({
         platform: {
-          ...current.platform,
           [message.platform]: {
-            ...current.platform[message.platform],
             enabled: message.enabled,
           },
         },
       });
-      await deps.saveSettings(settings);
-      await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
       if (settings.running) await tick();
       return snapshot();
     }
 
     if (message.type === "setAutomation") {
-      const current = await deps.loadSettings();
-      const settings = mergeSettings({
-        ...current,
-        running: message.enabled ? true : current.running,
+      const patch: SettingsPatch = {
         platform: {
-          ...current.platform,
           [message.platform]: {
-            ...current.platform[message.platform],
             enabled: message.enabled,
           },
         },
-      });
-      await deps.saveSettings(settings);
-      await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+      };
+      if (message.enabled) patch.running = true;
+      const settings = await updateStoredSettings(patch);
       if (settings.running) await tick();
       return snapshot();
     }
 
     if (message.type === "saveSettings") {
-      const settings = mergeSettings(message.settings);
-      await deps.saveSettings(settings);
-      await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
-      if (message.tickAfterSave && settings.running && hasEnabledPlatform(settings)) {
+      const settings = await updateStoredSettings(message.settingsPatch);
+      if (message.tickAfterSave && settingsPauseCount === 0 && settings.running && hasEnabledPlatform(settings)) {
         await tick(message.tickAfterSavePlatforms);
       }
       return snapshot();
@@ -686,6 +705,8 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     handleStartup,
     handleTabRemoved,
     handleMessage,
+    beginSettingsSession,
+    endSettingsSession,
     captureTwitchIntegrity,
     tick,
     runWatchHeartbeat,
