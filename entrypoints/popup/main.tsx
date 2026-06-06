@@ -1009,7 +1009,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
-            <div className="space-y-2.5 p-2.5 pt-0">
+            <div className="space-y-2.5 p-2.5">
                 <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
                   <div className="flex items-end justify-between gap-2">
                     <div className="min-w-0">
