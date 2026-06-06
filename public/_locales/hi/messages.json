@@ -161,6 +161,9 @@
   "nextReward": {
     "message": "अगला: $1"
   },
+  "startsIn": {
+    "message": "$1 में शुरू"
+  },
   "endsIn": {
     "message": "$1 में समाप्त"
   },

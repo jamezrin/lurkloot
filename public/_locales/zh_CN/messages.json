@@ -161,6 +161,9 @@
   "nextReward": {
     "message": "下一个：$1"
   },
+  "startsIn": {
+    "message": "$1 后开始"
+  },
   "endsIn": {
     "message": "$1 后结束"
   },

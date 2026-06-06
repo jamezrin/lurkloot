@@ -63,8 +63,10 @@ type CampaignView = {
   id: string;
   gameId: string;
   title: string;
+  status: DropCampaign["status"];
   linked: boolean;
   excluded: boolean;
+  starts: string;
   ends: string;
   allowedChannels: string[];
   moreChannels: number;
@@ -1126,6 +1128,9 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
   const isFarming = Boolean(campaign.farmingChannel);
   const emphasized = isFarming || (!anyFarming && index === 0);
   const channelLabel = campaign.allowedChannels[0] === "All" ? t("allChannels") : t("channelCount", String(campaign.allowedChannels.length + campaign.moreChannels));
+  const timingLabel = campaign.status === "upcoming"
+    ? t("startsIn", formatCountdown(campaign.starts, t))
+    : t("endsIn", formatCountdown(campaign.ends, t));
 
   return (
     <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-transparent" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized ? { boxShadow: isOverlay ? "0 20px 50px -12px rgba(0,0,0,0.5)" : "0 0 0 1.5px var(--accent-ring), 0 10px 30px -18px var(--accent-glow)" } : undefined}>
@@ -1153,6 +1158,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
               <span className="shrink-0 text-zinc-300 dark:text-zinc-600">·</span>
               <Pill tone="accent">#{index + 1}</Pill>
               {isFarming && <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill>}
+              {campaign.status === "upcoming" && <Pill tone="muted"><Clock3 size={9} /> {t("upcoming")}</Pill>}
               {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
               {campaign.excluded && <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill>}
             </div>
@@ -1167,7 +1173,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                 <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
                   <div className="flex items-end justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> {t("endsIn", formatCountdown(campaign.ends, t))}</div>
+                      <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> {timingLabel}</div>
                       {stats.complete
                         ? <div className="mt-0.5 truncate text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>{t("complete")}</div>
                         : <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">{t("nextReward", stats.nextReward?.name ?? "")}</div>}
@@ -2190,8 +2196,10 @@ function campaignViewFromCampaign(campaign: DropCampaign, index: number, session
     id: campaign.id,
     gameId: gameId(campaign),
     title: campaign.name,
+    status: campaign.status,
     linked: campaign.accountLinked !== false,
     excluded,
+    starts: campaign.startsAt ?? campaign.rewards.find((reward) => reward.availableFrom)?.availableFrom ?? "",
     ends: campaign.endsAt ?? campaign.rewards.find((reward) => reward.availableUntil)?.availableUntil ?? "",
     allowedChannels: visibleChannels.channels,
     moreChannels: visibleChannels.more,

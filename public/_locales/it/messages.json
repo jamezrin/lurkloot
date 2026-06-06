@@ -161,6 +161,9 @@
   "nextReward": {
     "message": "Successivo: $1"
   },
+  "startsIn": {
+    "message": "Inizia tra $1"
+  },
   "endsIn": {
     "message": "Termina tra $1"
   },

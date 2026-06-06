@@ -161,6 +161,9 @@
   "nextReward": {
     "message": "التالي: $1"
   },
+  "startsIn": {
+    "message": "يبدأ خلال $1"
+  },
   "endsIn": {
     "message": "ينتهي خلال $1"
   },

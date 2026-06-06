@@ -161,6 +161,9 @@
   "nextReward": {
     "message": "Nächste: $1"
   },
+  "startsIn": {
+    "message": "Startet in $1"
+  },
   "endsIn": {
     "message": "Endet in $1"
   },
