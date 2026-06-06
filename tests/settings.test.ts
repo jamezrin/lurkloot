@@ -15,8 +15,8 @@ describe("settings", () => {
       pollIntervalMinutes: 1,
       enabledLogLevels: ["info", "warn", "error"],
       platform: {
-        twitch: { excludedChannels: [], gamePriority: [] },
-        kick: { excludedChannels: [], gamePriority: [] },
+        twitch: { excludedChannels: [], farmAllCategories: true, categories: [] },
+        kick: { excludedChannels: [], farmAllCategories: true, categories: [] },
       },
     });
   });
@@ -59,9 +59,9 @@ describe("settings", () => {
           enabled: "true",
           watchQueueChannels: [" Creator ", "", "creator"],
           excludedChannels: [" @SkipMe ", "skipme"],
-          gamePriority: [" Game A ", "game a"],
+          categories: [{ id: " Game-A ", name: " Game A " }, { id: "game-a", name: "Dup" }, { id: "", name: "blank" }],
         },
-        kick: { enabled: false, watchQueueChannels: ["KickOne"], excludedChannels: ["KickSkip"], gamePriority: ["Category"] },
+        kick: { enabled: false, watchQueueChannels: ["KickOne"], excludedChannels: ["KickSkip"], categories: [{ id: "cat-1", name: "Category" }] },
       },
       campaignPriorities: {
         " campaign ": 2.6,
@@ -77,11 +77,12 @@ describe("settings", () => {
     expect(settings.platform.twitch.enabled).toBe(DEFAULT_SETTINGS.platform.twitch.enabled);
     expect(settings.platform.twitch.watchQueueChannels).toEqual(["creator"]);
     expect(settings.platform.twitch.excludedChannels).toEqual(["skipme"]);
-    expect(settings.platform.twitch.gamePriority).toEqual(["game a"]);
+    // Categories: trimmed, deduped by lowercased id (order preserved), blanks dropped.
+    expect(settings.platform.twitch.categories).toEqual([{ id: "Game-A", name: "Game A" }]);
     expect(settings.platform.kick.enabled).toBe(false);
     expect(settings.platform.kick.watchQueueChannels).toEqual(["kickone"]);
     expect(settings.platform.kick.excludedChannels).toEqual(["kickskip"]);
-    expect(settings.platform.kick.gamePriority).toEqual(["category"]);
+    expect(settings.platform.kick.categories).toEqual([{ id: "cat-1", name: "Category" }]);
     expect(settings.campaignPriorities).toEqual({ campaign: 3 });
     // Campaign ids are trimmed and deduped but kept case-sensitive so they match
     // campaign.id verbatim in the scheduler (unlike channel/game lists).
@@ -109,11 +110,27 @@ describe("settings", () => {
   it("preserves watch queue channel priority order while removing duplicates", () => {
     const settings = mergeSettings({
       platform: {
-        twitch: { enabled: true, watchQueueChannels: ["third", "first", "second", "first"] },
-        kick: { enabled: true, watchQueueChannels: [] },
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, watchQueueChannels: ["third", "first", "second", "first"] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, watchQueueChannels: [] },
       },
     });
 
     expect(settings.platform.twitch.watchQueueChannels).toEqual(["third", "first", "second"]);
+  });
+
+  it("defaults Farm all categories on and ignores the legacy gamePriority list", () => {
+    const settings = mergeSettings({
+      platform: {
+        twitch: { enabled: true, watchQueueChannels: [], gamePriority: ["13", "rust"] },
+        kick: { enabled: true, watchQueueChannels: [] },
+      },
+    } as unknown as Parameters<typeof mergeSettings>[0]);
+
+    expect(settings.platform.twitch.farmAllCategories).toBe(true);
+    expect(settings.platform.kick.farmAllCategories).toBe(true);
+    // The legacy ordering list is dropped (it had no display names), so no bare
+    // ids like "13" leak in as categories.
+    expect(settings.platform.twitch.categories).toEqual([]);
+    expect(settings.platform.kick.categories).toEqual([]);
   });
 });

@@ -46,6 +46,11 @@ const channelArg = [...args].find((a) => a.startsWith("--channel="))?.slice("--c
 // "Pedir"/Claim button fires (URL, method, headers, body, response) so the
 // extension's claimReward can be aligned to ground truth. Use with --from-chrome.
 const captureClaim = args.has("--capture-claim");
+// Category-search discovery mode: probe candidate endpoints for a category search
+// and passively record whatever request Kick's own search box fires, so the
+// extension's searchCategories can target the real endpoint + shape.
+const inspectCategories = args.has("--categories");
+const categoryQuery = [...args].find((a) => a.startsWith("--query="))?.slice("--query=".length) ?? "rust";
 // Reuse the real Chrome login instead of logging in fresh. Copies the cookie DB
 // + Local State of the named profile (default "Default") into a throwaway
 // user-data-dir and launches the REAL google-chrome-stable against it. Real
@@ -254,6 +259,44 @@ async function main() {
       }
     }
     note("Kick login", await hasSession(), (await hasSession()) ? "session_token present and decrypted" : "no usable session_token");
+
+    // Category-search discovery: probe candidate REST endpoints (in-page fetch),
+    // then passively capture the request Kick's own search box fires.
+    if (inspectCategories) {
+      const q = encodeURIComponent(categoryQuery);
+      const candidates = [
+        ["search-v1", `https://kick.com/api/v1/search?searched_word=${q}`],
+        ["search-legacy", `https://kick.com/api/search?searched_word=${q}`],
+        ["search-type-cat", `https://kick.com/api/v1/search?searched_word=${q}&type=categories`],
+        ["categories-search", `https://kick.com/api/v1/categories?searched_word=${q}`],
+        ["categories-query", `https://kick.com/api/v1/categories?query=${q}`],
+        ["subcategories-search", `https://kick.com/api/v1/subcategories?searched_word=${q}`],
+        ["web-categories", `https://web.kick.com/api/v1/categories?search=${q}`],
+        ["categories-page1", `https://kick.com/api/v1/categories?page=1`],
+      ];
+      for (const [name, url] of candidates) {
+        await captureViaPage(page, `cat-${name}`, url);
+      }
+
+      // Passive network capture: whatever the site itself calls when searching.
+      const seen = [];
+      context.on("request", (req) => {
+        if (/search|categor/i.test(req.url())) seen.push(`${req.method()} ${req.url()}`);
+      });
+      await page.goto("https://kick.com/browse", { waitUntil: "domcontentloaded" }).catch(() => undefined);
+      await page.waitForTimeout(2500);
+      try {
+        await page.goto("https://kick.com/", { waitUntil: "domcontentloaded" });
+        const box = page.locator('input[type="search"], input[placeholder*="Search" i], input[name*="search" i]').first();
+        await box.fill(categoryQuery, { timeout: 5000 });
+        await page.waitForTimeout(3500);
+      } catch (error) {
+        note("Search box typing", undefined, error instanceof Error ? error.message : String(error));
+      }
+      await save("category-search-requests.json", seen);
+      note("Site search/category requests observed", seen.length > 0, `${seen.length} → category-search-requests.json`);
+      return;
+    }
 
     // Capture-claim mode: record the real claim request the Drops "Pedir" button
     // fires, so we can align the extension's claimReward to it exactly.

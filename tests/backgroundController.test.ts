@@ -317,8 +317,8 @@ describe("background controller", () => {
       running: false,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        twitch: { enabled: false, watchQueueChannels: [] },
-        kick: { enabled: false, watchQueueChannels: [] },
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, watchQueueChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
       },
     });
 
@@ -776,7 +776,7 @@ describe("background controller", () => {
       running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        kick: { enabled: false, watchQueueChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
       },
     });
     env.state.sessions.twitch = {
@@ -817,7 +817,7 @@ describe("background controller", () => {
       running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        twitch: { enabled: false, watchQueueChannels: [] },
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, watchQueueChannels: [] },
       },
     });
     env.state.sessions.twitch = {
@@ -956,7 +956,7 @@ describe("background controller", () => {
       tablessMode: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        kick: { enabled: false, watchQueueChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
       },
       ...overrides,
     });

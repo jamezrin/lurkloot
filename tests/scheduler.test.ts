@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform } from "../src/core/models";
+import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformSettings } from "../src/core/models";
 import { DEFAULT_SETTINGS } from "../src/core/settings";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "../src/core/scheduler";
 import type { PlatformAdapter } from "../src/platforms/adapter";
@@ -30,7 +30,11 @@ const channel = (username: string, patch: Partial<ChannelCandidate> = {}): Chann
   ...patch,
 });
 
-function settings(patch: Partial<ExtensionSettings> = {}): ExtensionSettings {
+type SettingsPatch = Partial<Omit<ExtensionSettings, "platform">> & {
+  platform?: Partial<Record<Platform, Partial<PlatformSettings>>>;
+};
+
+function settings(patch: SettingsPatch = {}): ExtensionSettings {
   return {
     ...DEFAULT_SETTINGS,
     running: true,
@@ -67,21 +71,70 @@ describe("scheduler campaign selection", () => {
     expect(sorted.map((item) => item.id)).toEqual(["second", "first"]);
   });
 
-  it("uses game priority after explicit campaign priority", () => {
+  it("uses category-list order after explicit campaign priority", () => {
     const first = campaign("first", { gameName: "First Game", endsAt: "2026-06-01T00:00:00.000Z" });
     const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
 
     const sorted = sortCampaigns([first, second], settings({
       platform: {
-        ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, gamePriority: ["second game"] },
+        twitch: { farmAllCategories: false, categories: [{ id: "second game", name: "Second Game" }, { id: "first game", name: "First Game" }] },
       },
     }));
 
     expect(sorted.map((item) => item.id)).toEqual(["second", "first"]);
   });
 
-  it("priority list only skips campaigns absent from both priority lists", async () => {
+  it("does not use category-list order while Farm all categories is on", () => {
+    const first = campaign("first", { gameName: "First Game", endsAt: "2026-06-01T00:00:00.000Z" });
+    const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
+
+    // farmAllCategories stays on (default), so the list is inert: ends-soonest wins.
+    const sorted = sortCampaigns([second, first], settings({}));
+
+    expect(sorted.map((item) => item.id)).toEqual(["first", "second"]);
+  });
+
+  it("category filter farms only listed categories and skips the rest", async () => {
+    const listed = campaign("listed", { gameName: "Listed Game" });
+    const unlisted = campaign("unlisted", { gameName: "Unlisted Game" });
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [unlisted, listed],
+      settings({
+        platform: {
+          twitch: { farmAllCategories: false, categories: [{ id: "listed game", name: "Listed Game" }] },
+        },
+      }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("listed");
+  });
+
+  it("category filter with an empty list farms nothing", async () => {
+    const listCandidateChannels = vi.fn(async () => [channel("creator")]);
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any", { gameName: "Any Game" })],
+      settings({ platform: { twitch: { farmAllCategories: false, categories: [] } } }),
+      {
+        listCandidateChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("idle");
+    expect(decision.reason).toContain("No campaigns match the categories filter");
+    expect(listCandidateChannels).not.toHaveBeenCalled();
+  });
+
+  it("priority list only skips campaigns the user has not reordered", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
     const decision = await chooseCampaignDecision(
@@ -99,28 +152,28 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("priority list only farms a campaign whose game is on the priority list", async () => {
-    const listed = campaign("listed", { gameName: "Listed Game" });
-    const unlisted = campaign("unlisted", { gameName: "Unlisted Game" });
+  it("priority list only ignores the category list (decoupled)", async () => {
+    const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
+    // A campaign whose category is allowed but which was never manually reordered
+    // is NOT farmed under priority_list_only — the two are independent now.
     const decision = await chooseCampaignDecision(
       "twitch",
-      [unlisted, listed],
+      [campaign("listed", { gameName: "Listed Game" })],
       settings({
         priorityMode: "priority_list_only",
         platform: {
-          ...DEFAULT_SETTINGS.platform,
-          twitch: { ...DEFAULT_SETTINGS.platform.twitch, gamePriority: ["listed game"] },
+          twitch: { farmAllCategories: false, categories: [{ id: "listed game", name: "Listed Game" }] },
         },
       }),
       {
-        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        listCandidateChannels,
         checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
       },
     );
 
-    expect(decision.action).toBe("watch");
-    expect(decision.campaign?.id).toBe("listed");
+    expect(decision.action).toBe("idle");
+    expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
   it("priority list only farms a campaign present in campaignPriorities", async () => {

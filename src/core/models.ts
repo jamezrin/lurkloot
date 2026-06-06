@@ -154,11 +154,25 @@ export interface PlaybackTelemetry {
 // browser throttles in background tabs/windows) keeps progressing.
 export type AdFocusMode = "none" | "tab" | "window";
 
+// A category (Twitch/Kick call it a game/category) the user has picked to farm.
+// We store the name alongside the id because a picked category may not appear in
+// any current campaign, so the UI must render it without one. `id` matches the
+// platform's category/game id; `name` is matched too as a fallback.
+export interface CategorySelection {
+  id: string;
+  name: string;
+  imageUrl?: string;
+}
+
 export interface PlatformSettings {
   enabled: boolean;
   watchQueueChannels: string[];
   excludedChannels?: string[];
-  gamePriority?: string[];
+  // When true, every category is farmable. When false, only `categories` are
+  // farmed (an empty list then means nothing is farmed). The list is ordered:
+  // order sets farming priority (see categoryPriorityScore in the scheduler).
+  farmAllCategories: boolean;
+  categories: CategorySelection[];
 }
 
 export interface ExtensionSettings {

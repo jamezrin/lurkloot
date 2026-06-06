@@ -1,9 +1,9 @@
-import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../core/messages";
+import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../core/messages";
 import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "../core/models";
 import { appendLog, shouldRecord, type LogLevel } from "../core/logging";
 import { mergeSettings } from "../core/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick } from "../core/scheduler";
-import { setActivityLogger } from "../core/activityLog";
+import { logActivity, setActivityLogger } from "../core/activityLog";
 import { setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
@@ -551,7 +551,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   async function handleMessage(
     message: RuntimeMessage,
     sender?: { tab?: { id?: number } },
-  ): Promise<RuntimeSnapshot | PlaybackControl | void> {
+  ): Promise<RuntimeSnapshot | PlaybackControl | CategorySearchResult | void> {
     if (message.type === "getPlaybackControl") {
       return getPlaybackControl(message, sender?.tab?.id);
     }
@@ -622,6 +622,21 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
 
     if (message.type === "claimReward") {
       return claimRewardNow(message);
+    }
+
+    if (message.type === "searchCategories") {
+      // Read-only fetch from the platform adapter — no state lock needed. Always
+      // resolve (like every other handler): the Kick path can reject on a WAF
+      // block or network error, and a rejected handler would leave the message
+      // port hanging (no sendResponse). Log the failure so the activity log shows
+      // it (the popup just sees an empty result otherwise).
+      try {
+        const categories = await deps.createAdapters()[message.platform].searchCategories?.(message.query) ?? [];
+        return { categories };
+      } catch (error) {
+        logActivity("warn", `Category search failed: ${error instanceof Error ? error.message : String(error)}`, message.platform);
+        return { categories: [] };
+      }
     }
 
     if (message.type === "tickNow") {

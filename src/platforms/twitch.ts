@@ -1,4 +1,4 @@
-import type { ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
+import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
 import type { HeartbeatResult, TablessWatchController, WatchContext } from "../core/tablessWatch";
 import { logActivity } from "../core/activityLog";
 import { ensureTwitchIntegrity, fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
@@ -39,6 +39,15 @@ const STREAM_INFO_QUERY = `query StreamInfo($channel: String!) {
     id
     displayName
     stream { id type viewersCount game { id name } }
+  }
+}`;
+
+// Inline query for the category picker's live search. Sent inline (no persisted
+// hash) so it keeps working without a server-registered hash. Field/arg names
+// match the directory's category search; verify in twitch.tv DevTools if it drifts.
+const SEARCH_CATEGORIES_QUERY = `query SearchCategories($query: String!) {
+  searchCategories(query: $query, first: 15) {
+    edges { node { id displayName boxArtURL } }
   }
 }`;
 
@@ -152,6 +161,19 @@ interface TwitchCampaignDetailsData {
   currentUser?: { id?: string; login?: string };
   user?: { dropCampaign?: unknown };
   dropCampaign?: unknown;
+}
+
+interface TwitchSearchCategoriesData {
+  searchCategories?: {
+    edges?: Array<{ node?: { id?: string; displayName?: string; boxArtURL?: string } }>;
+  };
+}
+
+// Box art URLs come back with `{width}x{height}` placeholders; size them for the
+// small picker avatar.
+function twitchBoxArtUrl(boxArtURL: string | undefined): string | undefined {
+  if (!boxArtURL) return undefined;
+  return boxArtURL.replace("{width}", "144").replace("{height}", "192");
 }
 
 interface TwitchDirectoryData {
@@ -379,6 +401,27 @@ export class TwitchAdapter implements PlatformAdapter {
     } catch (error) {
       return this.checkChannelFromPage(channel, campaign, error);
     }
+  }
+
+  async searchCategories(query: string): Promise<CategorySelection[]> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+    // Anonymous: public data, and logged-in GQL without an integrity token is
+    // rejected. Passing the inline query skips the persisted-hash attempt.
+    const response = await this.gql<TwitchSearchCategoriesData>(
+      "SearchCategories",
+      "",
+      { query: trimmed },
+      SEARCH_CATEGORIES_QUERY,
+      "omit",
+    );
+    return (response.data?.searchCategories?.edges ?? [])
+      .map((edge): CategorySelection => ({
+        id: edge.node?.id ?? "",
+        name: edge.node?.displayName ?? "",
+        imageUrl: twitchBoxArtUrl(edge.node?.boxArtURL),
+      }))
+      .filter((category) => category.id && category.name);
   }
 
   private async fetchInventory(variables: Record<string, unknown> = TWITCH_QUERIES.inventory.variables): Promise<unknown> {

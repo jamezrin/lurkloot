@@ -1,4 +1,5 @@
 import type {
+  CategorySelection,
   ChannelCandidate,
   ChannelCheck,
   DropCampaign,
@@ -34,6 +35,9 @@ export interface PlatformAdapter {
   // must defer until then instead of POSTing a value Twitch will reject.
   isClaimReady?(reward: DropReward): boolean;
   claimChannelPoints?(channel: ChannelCandidate): Promise<boolean>;
+  // Live search of the platform's categories/games, powering the "Farm only these
+  // categories" picker in Settings. Returns id + name (+ box art) matches.
+  searchCategories?(query: string): Promise<CategorySelection[]>;
   prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab>;
   stopWatchTab?(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;
   // Tabless (low-resource) farming. When supported, the controller drives a

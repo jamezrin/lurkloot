@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { browser } from "wxt/browser";
 import { AnimatePresence, motion } from "framer-motion";
@@ -22,6 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  AlertTriangle,
   Ban,
   Bell,
   Check,
@@ -37,6 +38,7 @@ import {
   Power,
   Radio,
   RotateCcw,
+  Search,
   Settings as SettingsIcon,
   SlidersHorizontal,
   Trophy,
@@ -44,8 +46,8 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import type { PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
-import type { AdFocusMode, CampaignFilterKey, DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
+import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../../src/core/messages";
+import type { AdFocusMode, CampaignFilterKey, CategorySelection, DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
 import { LOG_LEVELS, type LogLevel } from "../../src/core/logging";
 import { DEFAULT_SETTINGS, mergeSettings } from "../../src/core/settings";
 import { kickRewardImageUrl } from "../../src/platforms/kickParser";
@@ -161,11 +163,19 @@ function send<T>(message: RuntimeMessage): Promise<T> {
   return browser.runtime.sendMessage(message) as Promise<T>;
 }
 
-function handleScreenshotMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackControl {
+function handleScreenshotMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackControl | CategorySearchResult {
   switch (message.type) {
     case "getSnapshot":
     case "tickNow":
       return screenshotSnapshot();
+    case "searchCategories":
+      return {
+        categories: [
+          { id: "marathon legends", name: "Marathon Legends" },
+          { id: "starfall arena", name: "Starfall Arena" },
+          { id: "spellforge", name: "Spellforge" },
+        ].filter((category) => category.name.toLowerCase().includes(message.query.toLowerCase())),
+      };
     case "saveSettings":
       return { ...screenshotSnapshot(), settings: mergeSettings(message.settings) };
     case "setAutomation":
@@ -219,13 +229,19 @@ function screenshotSnapshot(): RuntimeSnapshot {
         enabled: true,
         watchQueueChannels: ["rivalspilot", "lootforge", "nightrunlive"],
         excludedChannels: ["spoilerboss"],
-        gamePriority: ["marathon legends", "starfall arena", "spellforge"],
+        farmAllCategories: false,
+        categories: [
+          { id: "marathon legends", name: "Marathon Legends" },
+          { id: "starfall arena", name: "Starfall Arena" },
+          { id: "spellforge", name: "Spellforge" },
+        ],
       },
       kick: {
         enabled: true,
         watchQueueChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
-        gamePriority: ["arena clash"],
+        farmAllCategories: true,
+        categories: [],
       },
     },
     campaignPriorities: {
@@ -512,6 +528,11 @@ function Popup(): React.ReactElement {
     }
   }
 
+  async function searchCategories(searchPlatform: Platform, query: string): Promise<CategorySelection[]> {
+    const result = await send<CategorySearchResult>({ type: "searchCategories", platform: searchPlatform, query });
+    return result.categories;
+  }
+
   if (!snapshot) {
     return (
       <main className="grid h-[600px] w-[400px] place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
@@ -526,10 +547,12 @@ function Popup(): React.ReactElement {
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
   const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(campaign, index, session, excludedIds.has(campaign.id)));
-  const games = gameItemsFromCampaigns(platform, snapshot.state.campaigns[platform], settings);
-  const settingsGames: Record<Platform, GameItem[]> = {
-    twitch: gameItemsFromCampaigns("twitch", snapshot.state.campaigns.twitch, settings),
-    kick: gameItemsFromCampaigns("kick", snapshot.state.campaigns.kick, settings),
+  const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform]);
+  // Categories that currently have active drop campaigns, surfaced as one-tap
+  // "Has active drops" suggestions in the category filter editor (zero network).
+  const dropCategorySuggestions: Record<Platform, GameItem[]> = {
+    twitch: gameItemsFromCampaigns(snapshot.state.campaigns.twitch),
+    kick: gameItemsFromCampaigns(snapshot.state.campaigns.kick),
   };
   const gameMap = Object.fromEntries(games.map((game) => [game.id, game]));
   const watchQueueChannels = settings.platform[platform].watchQueueChannels;
@@ -595,7 +618,7 @@ function Popup(): React.ReactElement {
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView games={settingsGames} settings={settings} onSettingsChange={updateSettings} initialPlatform={platform} />
+                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} initialPlatform={platform} />
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
@@ -1154,8 +1177,9 @@ function SortableWatchQueue({ streamer, index, onRemove }: { streamer: StreamerI
   );
 }
 
-function SettingsView({ games, settings, onSettingsChange, initialPlatform = "twitch" }: {
-  games: Record<Platform, GameItem[]>;
+function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, initialPlatform = "twitch" }: {
+  suggestions: Record<Platform, GameItem[]>;
+  onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
   onSettingsChange(patch: Partial<ExtensionSettings>, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void>;
   initialPlatform?: Platform;
@@ -1177,15 +1201,30 @@ function SettingsView({ games, settings, onSettingsChange, initialPlatform = "tw
     },
     { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
   );
-  const setPlatformGamePriority = (platform: Platform) => (ordered: GameItem[]) => onSettingsChange({
-    platform: {
-      ...settings.platform,
-      [platform]: {
-        ...settings.platform[platform],
-        gamePriority: ordered.map((game) => game.id),
+  const setPlatformFarmAllCategories = (platform: Platform) => (farmAllCategories: boolean) => onSettingsChange(
+    {
+      platform: {
+        ...settings.platform,
+        [platform]: {
+          ...settings.platform[platform],
+          farmAllCategories,
+        },
       },
     },
-  });
+    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+  );
+  const setPlatformCategories = (platform: Platform) => (categories: CategorySelection[]) => onSettingsChange(
+    {
+      platform: {
+        ...settings.platform,
+        [platform]: {
+          ...settings.platform[platform],
+          categories,
+        },
+      },
+    },
+    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+  );
   const setPlatformExcludedChannels = (platform: Platform) => (excludedChannels: string[]) => onSettingsChange(
     {
       platform: {
@@ -1213,7 +1252,7 @@ function SettingsView({ games, settings, onSettingsChange, initialPlatform = "tw
         <SettingRow title="Auto-claim drops" description="Claim earned drop rewards automatically when they become available." checked={settings.autoClaim} onChange={set("autoClaim")} />
         <SelectSettingRow
           title="Campaign priority"
-          description="How campaigns are chosen to farm. Priority list only farms just your prioritized campaigns and games; the others pick among all campaigns."
+          description="How campaigns are chosen to farm. Priority list only farms just the campaigns you've manually reordered; the others pick among all campaigns. Limit which categories are farmed per platform under Platform settings."
           value={settings.priorityMode}
           options={[
             { value: "priority_list_only", label: "Priority list only" },
@@ -1235,7 +1274,7 @@ function SettingsView({ games, settings, onSettingsChange, initialPlatform = "tw
         <SettingsPlatformSwitch active={platformTab} onChange={setPlatformTab} />
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={platformTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="space-y-3">
-            <PlatformSettingsGroup platform={platformTab} games={games[platformTab]} settings={settings} onEnabledChange={setPlatformEnabled(platformTab)} onGamePriorityChange={setPlatformGamePriority(platformTab)} onExcludedChannelsChange={setPlatformExcludedChannels(platformTab)} />
+            <PlatformSettingsGroup platform={platformTab} suggestions={suggestions[platformTab]} settings={settings} onEnabledChange={setPlatformEnabled(platformTab)} onFarmAllCategoriesChange={setPlatformFarmAllCategories(platformTab)} onCategoriesChange={setPlatformCategories(platformTab)} onSearchCategories={(query) => onSearchCategories(platformTab, query)} onExcludedChannelsChange={setPlatformExcludedChannels(platformTab)} />
           </motion.div>
         </AnimatePresence>
       </SettingsSection>
@@ -1266,12 +1305,14 @@ function SettingsView({ games, settings, onSettingsChange, initialPlatform = "tw
   );
 }
 
-function PlatformSettingsGroup({ platform, games, settings, onEnabledChange, onGamePriorityChange, onExcludedChannelsChange }: {
+function PlatformSettingsGroup({ platform, suggestions, settings, onEnabledChange, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories, onExcludedChannelsChange }: {
   platform: Platform;
-  games: GameItem[];
+  suggestions: GameItem[];
   settings: ExtensionSettings;
   onEnabledChange(enabled: boolean): void | Promise<void>;
-  onGamePriorityChange(games: GameItem[]): void | Promise<void>;
+  onFarmAllCategoriesChange(farmAll: boolean): void | Promise<void>;
+  onCategoriesChange(categories: CategorySelection[]): void | Promise<void>;
+  onSearchCategories(query: string): Promise<CategorySelection[]>;
   onExcludedChannelsChange(channels: string[]): void | Promise<void>;
 }) {
   const details = PLATFORMS[platform];
@@ -1307,7 +1348,22 @@ function PlatformSettingsGroup({ platform, games, settings, onEnabledChange, onG
         channels={excludedChannels}
         onChange={onExcludedChannelsChange}
       />
-      <GamePriority games={games} label={`${details.label} game order`} onChange={onGamePriorityChange} />
+      <div className="flex items-center gap-3 py-1">
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Farm all categories</div>
+          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Farm drops in every {details.label} category. Turn off to farm only a chosen set.</div>
+        </div>
+        <Toggle checked={platformSettings.farmAllCategories} onChange={onFarmAllCategoriesChange} label={`Farm all ${details.label} categories`} />
+      </div>
+      {platformSettings.farmAllCategories ? null : (
+        <CategoryFilterEditor
+          platform={platform}
+          categories={platformSettings.categories}
+          suggestions={suggestions}
+          onChange={onCategoriesChange}
+          onSearch={onSearchCategories}
+        />
+      )}
     </>
   );
 }
@@ -1396,44 +1452,139 @@ function ChannelListEditor({ title, description, empty, channels, onChange }: {
   );
 }
 
-function GamePriority({ games, label = "Fallback game order", onChange }: { games: GameItem[]; label?: string; onChange(games: GameItem[]): void | Promise<void> }) {
+// The category allowlist editor shown when "Farm all categories" is off. The
+// list is reorderable (order = farming priority); categories are added via
+// drop-aware quick suggestions (no network) or a debounced live search.
+function CategoryFilterEditor({ platform, categories, suggestions, onChange, onSearch }: {
+  platform: Platform;
+  categories: CategorySelection[];
+  suggestions: GameItem[];
+  onChange(categories: CategorySelection[]): void | Promise<void>;
+  onSearch(query: string): Promise<CategorySelection[]>;
+}) {
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const active = games.find((game) => game.id === activeId);
-  const activeIndex = games.findIndex((game) => game.id === activeId);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<CategorySelection[]>([]);
+  const [searching, setSearching] = useState(false);
+  // onSearch is a fresh closure each render; ref it so the debounce effect can
+  // depend only on the query and not re-fire on every parent render.
+  const searchRef = useRef(onSearch);
+  searchRef.current = onSearch;
+
+  const selectedIds = useMemo(() => new Set(categories.map((category) => category.id.toLowerCase())), [categories]);
+  const active = categories.find((category) => category.id === activeId);
+  const activeIndex = categories.findIndex((category) => category.id === activeId);
+  const unaddedSuggestions = suggestions.filter((suggestion) => !selectedIds.has(suggestion.id.toLowerCase()));
+  const unaddedResults = results.filter((result) => !selectedIds.has(result.id.toLowerCase()));
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const handle = setTimeout(() => {
+      void searchRef.current(trimmed)
+        .then((found) => { if (!cancelled) setResults(found); })
+        .catch(() => { if (!cancelled) setResults([]); })
+        .finally(() => { if (!cancelled) setSearching(false); });
+    }, 350);
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [query]);
+
+  function addCategory(category: CategorySelection): void {
+    if (selectedIds.has(category.id.toLowerCase())) return;
+    void onChange([...categories, category]);
+  }
 
   function endDrag(event: DragEndEvent): void {
     setActiveId(null);
-    const active = String(event.active.id);
+    const from = String(event.active.id);
     const over = event.over?.id == null ? undefined : String(event.over.id);
-    if (!over || active === over) return;
-    void onChange(moveById(games, active, over));
+    if (!over || from === over) return;
+    void onChange(moveById(categories, from, over));
   }
 
+  const accentFor = (index: number): string => GAME_ACCENTS[index % GAME_ACCENTS.length];
+
   return (
-    <div className="space-y-2 rounded-xl border border-zinc-200/70 p-2.5 dark:border-zinc-800">
+    <div className="space-y-2.5 rounded-xl border border-zinc-200/70 p-2.5 dark:border-zinc-800">
       <div className="flex items-center justify-between">
-        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{label}</div>
-        <Pill tone="accent">drag to sort</Pill>
+        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">Categories to farm</div>
+        {categories.length > 0 ? <Pill tone="accent">drag to prioritize</Pill> : <Pill tone="outline">0</Pill>}
       </div>
-      <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Used when campaign order is reset to defaults.</p>
-      {games.length === 0 ? <div className="text-[11px] text-zinc-400">No games discovered yet.</div> : (
+      {categories.length === 0 ? (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+          <span>No categories selected — nothing will be farmed on {PLATFORMS[platform].label}. Add categories below.</span>
+        </div>
+      ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
-          <SortableContext items={games.map((game) => game.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-1.5">{games.map((game, index) => <SortableGameRow key={game.id} game={game} index={index} />)}</div>
+          <SortableContext items={categories.map((category) => category.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-1.5">{categories.map((category, index) => <SortableCategoryRow key={category.id} category={category} index={index} accent={accentFor(index)} onRemove={() => void onChange(categories.filter((entry) => entry.id !== category.id))} />)}</div>
           </SortableContext>
-          <DragOverlay dropAnimation={null}>{active ? <CompactRow isOverlay index={activeIndex} avatar={active.short} avatarStyle={{ backgroundColor: active.accent, color: "#fff" }} title={active.name} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<Pill tone="outline">game</Pill>} /> : null}</DragOverlay>
+          <DragOverlay dropAnimation={null}>{active ? <CompactRow isOverlay index={activeIndex} avatar={initials(active.name)} avatarStyle={{ backgroundColor: accentFor(activeIndex), color: "#fff" }} title={active.name} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<span className="w-4" />} /> : null}</DragOverlay>
         </DndContext>
       )}
+
+      {unaddedSuggestions.length > 0 ? (
+        <div className="space-y-1.5">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">Has active drops</div>
+          <div className="flex flex-wrap gap-1.5">
+            {unaddedSuggestions.map((suggestion) => (
+              <CategoryAddChip key={suggestion.id} name={suggestion.name} onClick={() => addCategory({ id: suggestion.id, name: suggestion.name })} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="space-y-1.5">
+        <div className="relative">
+          <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={`Search ${PLATFORMS[platform].label} categories`}
+            className="w-full rounded-xl border border-zinc-200 bg-white py-2 pl-8 pr-3 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+          />
+        </div>
+        {query.trim() ? (
+          searching ? (
+            <div className="text-[11px] text-zinc-400">Searching…</div>
+          ) : unaddedResults.length === 0 ? (
+            <div className="text-[11px] text-zinc-400">{results.length === 0 ? "No categories found." : "Already added."}</div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {unaddedResults.map((result) => (
+                <CategoryAddChip key={result.id} name={result.name} imageUrl={result.imageUrl} onClick={() => addCategory(result)} />
+              ))}
+            </div>
+          )
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function SortableGameRow({ game, index }: { game: GameItem; index: number }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: game.id });
+function CategoryAddChip({ name, imageUrl, onClick }: { name: string; imageUrl?: string; onClick(): void }) {
+  return (
+    <button type="button" onClick={onClick} className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-700 transition-colors hover:border-[var(--accent-ring)] hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:text-white">
+      {imageUrl ? <img src={imageUrl} alt="" className="h-4 w-4 shrink-0 rounded object-cover" /> : null}
+      <span className="truncate">{name}</span>
+      <Plus size={12} className="shrink-0 text-zinc-400" />
+    </button>
+  );
+}
+
+function SortableCategoryRow({ category, index, accent, onRemove }: { category: CategorySelection; index: number; accent: string; onRemove(): void }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
-      <CompactRow index={index} avatar={game.short} avatarStyle={{ backgroundColor: game.accent, color: "#fff" }} title={game.name} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${game.name}`} />} trailing={<Pill tone="outline">game</Pill>} />
+      <CompactRow index={index} avatar={initials(category.name)} avatarStyle={{ backgroundColor: accent, color: "#fff" }} title={category.name} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${category.name}`} />} trailing={<RemoveRowButton label={`Remove ${category.name}`} onClick={onRemove} />} />
     </div>
   );
 }
@@ -1837,8 +1988,8 @@ function sortCampaignsForPopup(campaigns: DropCampaign[], settings: ExtensionSet
     if (leftPriority != null && rightPriority != null && leftPriority !== rightPriority) return rightPriority - leftPriority;
     if (leftPriority != null && rightPriority == null) return -1;
     if (rightPriority != null && leftPriority == null) return 1;
-    const gameOrder = gamePriorityScore(left, settings) - gamePriorityScore(right, settings);
-    if (gameOrder !== 0) return gameOrder;
+    const categoryOrder = categoryPriorityScore(left, settings) - categoryPriorityScore(right, settings);
+    if (categoryOrder !== 0) return categoryOrder;
     const leftEnd = left.endsAt ? Date.parse(left.endsAt) : Number.MAX_SAFE_INTEGER;
     const rightEnd = right.endsAt ? Date.parse(right.endsAt) : Number.MAX_SAFE_INTEGER;
     return leftEnd - rightEnd;
@@ -1849,7 +2000,7 @@ function prioritiesFromOrder(campaigns: Array<{ id: string }>): Record<string, n
   return Object.fromEntries(campaigns.map((campaign, index) => [campaign.id, campaigns.length - index]));
 }
 
-function gameItemsFromCampaigns(platform: Platform, campaigns: DropCampaign[], settings: ExtensionSettings): GameItem[] {
+function gameItemsFromCampaigns(campaigns: DropCampaign[]): GameItem[] {
   const discovered = new Map<string, GameItem>();
   campaigns.forEach((campaign, index) => {
     const id = gameId(campaign);
@@ -1862,22 +2013,26 @@ function gameItemsFromCampaigns(platform: Platform, campaigns: DropCampaign[], s
       });
     }
   });
-  const items = [...discovered.values()];
-  return items.sort((left, right) => {
-    const gamePriority = settings.platform[platform].gamePriority ?? [];
-    const leftIndex = gamePriority.indexOf(left.id);
-    const rightIndex = gamePriority.indexOf(right.id);
-    if (leftIndex !== -1 && rightIndex !== -1) return leftIndex - rightIndex;
-    if (leftIndex !== -1) return -1;
-    if (rightIndex !== -1) return 1;
-    return left.name.localeCompare(right.name);
-  });
+  return [...discovered.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
-function gamePriorityScore(campaign: DropCampaign, settings: ExtensionSettings): number {
-  const id = gameId(campaign);
-  const index = (settings.platform[campaign.platform].gamePriority ?? []).indexOf(id);
+// Mirror of the scheduler's tiebreaker so the Drops preview order matches what is
+// actually farmed: category-list order is priority while the filter is active.
+function categoryPriorityScore(campaign: DropCampaign, settings: ExtensionSettings): number {
+  const platformSettings = settings.platform[campaign.platform];
+  if (platformSettings.farmAllCategories) return Number.MAX_SAFE_INTEGER;
+  const index = categoryListIndex(campaign, platformSettings.categories);
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+function categoryListIndex(campaign: DropCampaign, list: CategorySelection[]): number {
+  if (list.length === 0) return -1;
+  const candidates = [campaign.categoryId, campaign.gameName]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase());
+  if (candidates.length === 0) return -1;
+  return list.findIndex((category) =>
+    candidates.includes(category.id.toLowerCase()) || candidates.includes(category.name.toLowerCase()));
 }
 
 function gameId(campaign: DropCampaign): string {

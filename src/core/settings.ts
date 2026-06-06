@@ -1,4 +1,4 @@
-import type { AdFocusMode, CampaignFilterKey, ExtensionSettings, PriorityMode } from "./models";
+import type { AdFocusMode, CampaignFilterKey, CategorySelection, ExtensionSettings, PriorityMode } from "./models";
 import { LOG_LEVELS, type LogLevel } from "./logging";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
@@ -25,13 +25,15 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
       enabled: true,
       watchQueueChannels: [],
       excludedChannels: [],
-      gamePriority: [],
+      farmAllCategories: true,
+      categories: [],
     },
     kick: {
       enabled: true,
       watchQueueChannels: [],
       excludedChannels: [],
-      gamePriority: [],
+      farmAllCategories: true,
+      categories: [],
     },
   },
   campaignPriorities: {},
@@ -76,13 +78,15 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
         enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_SETTINGS.platform.twitch.enabled),
         watchQueueChannels: normalizeChannelList(platform?.twitch?.watchQueueChannels),
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
-        gamePriority: normalizeStringList(platform?.twitch?.gamePriority),
+        farmAllCategories: booleanOr(platform?.twitch?.farmAllCategories, DEFAULT_SETTINGS.platform.twitch.farmAllCategories),
+        categories: normalizeCategorySelections(platform?.twitch?.categories),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_SETTINGS.platform.kick.enabled),
         watchQueueChannels: normalizeChannelList(platform?.kick?.watchQueueChannels),
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
-        gamePriority: normalizeStringList(platform?.kick?.gamePriority),
+        farmAllCategories: booleanOr(platform?.kick?.farmAllCategories, DEFAULT_SETTINGS.platform.kick.farmAllCategories),
+        categories: normalizeCategorySelections(platform?.kick?.categories),
       },
     },
     campaignPriorities: normalizePriorities(value?.campaignPriorities),
@@ -124,12 +128,25 @@ function clampNumber(value: number | undefined, min: number, max: number, fallba
   return Math.min(max, Math.max(min, value));
 }
 
-function normalizeStringList(value: string[] | undefined): string[] {
+// Ordered list, deduped by lowercased id; entries need both a non-empty id and a
+// non-empty name. The legacy `gamePriority: string[]` is intentionally NOT
+// migrated: it stored ids without display names (and was an ordering hint, not an
+// allowlist), so carrying it over would surface bare numeric ids like "13".
+function normalizeCategorySelections(value: CategorySelection[] | undefined): CategorySelection[] {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean))];
+  const seen = new Set<string>();
+  const result: CategorySelection[] = [];
+  for (const entry of value) {
+    const id = typeof entry?.id === "string" ? entry.id.trim() : "";
+    const name = typeof entry?.name === "string" ? entry.name.trim() : "";
+    if (!id || !name) continue;
+    const key = id.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const imageUrl = typeof entry?.imageUrl === "string" && entry.imageUrl.trim() ? entry.imageUrl.trim() : undefined;
+    result.push(imageUrl ? { id, name, imageUrl } : { id, name });
+  }
+  return result;
 }
 
 // Campaign ids are case-sensitive and matched verbatim against campaign.id in

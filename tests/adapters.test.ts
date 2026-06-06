@@ -293,6 +293,31 @@ describe("KickAdapter", () => {
       reason: "Kick API unavailable",
     });
   });
+
+  it("searches categories and maps id/name/banner image", async () => {
+    const fetcher = jsonFetcher((url) => {
+      expect(url.startsWith("https://kick.com/api/search")).toBe(true);
+      expect(new URL(url).searchParams.get("searched_word")).toBe("rust");
+      // Shape confirmed live: { channels, categories, livestreams }.
+      return {
+        channels: [{ id: 1, slug: "rustimba" }],
+        categories: [
+          { id: 13, category_id: 1, name: "Rust", slug: "rust", banner: { src: "https://files.kick.com/rust.webp" } },
+          { id: 13, name: "Rust dup" },
+          { id: "", name: "blank" },
+        ],
+      };
+    });
+
+    await expect(new KickAdapter(fetcher).searchCategories("rust")).resolves.toEqual([
+      { id: "13", name: "Rust", imageUrl: "https://files.kick.com/rust.webp" },
+    ]);
+  });
+
+  it("returns no categories for a blank query without fetching", async () => {
+    const fetcher = jsonFetcher(() => { throw new Error("should not fetch"); });
+    await expect(new KickAdapter(fetcher).searchCategories("   ")).resolves.toEqual([]);
+  });
 });
 
 describe("createKickFetcher (background-first, tab fallback)", () => {
@@ -1254,5 +1279,30 @@ describe("TwitchAdapter", () => {
     // still claimable even though Twitch hasn't returned the self edge yet.
     expect(progress[0].rewards[0]).toMatchObject({ status: "claimable", isCurrentReward: true, claimId: "user-id#campaign#drop" });
     expect(adapter.isClaimReady(progress[0].rewards[0])).toBe(true);
+  });
+
+  it("searches categories via inline GQL and maps id/name/box art", async () => {
+    const fetcher = jsonFetcher((url, init) => {
+      expect(url).toBe("https://gql.twitch.tv/gql");
+      const body = requestBody(init);
+      expect(body.operationName).toBe("SearchCategories");
+      expect(body.variables).toMatchObject({ query: "fort" });
+      // Sent inline (no persisted hash) so it keeps working without registration.
+      expect(typeof body.query).toBe("string");
+      return {
+        data: {
+          searchCategories: {
+            edges: [
+              { node: { id: "33214", displayName: "Fortnite", boxArtURL: "https://art/fortnite-{width}x{height}.jpg" } },
+              { node: { id: "", displayName: "skip-me" } },
+            ],
+          },
+        },
+      };
+    });
+
+    await expect(new TwitchAdapter(fetcher).searchCategories("fort")).resolves.toEqual([
+      { id: "33214", name: "Fortnite", imageUrl: "https://art/fortnite-144x192.jpg" },
+    ]);
   });
 });

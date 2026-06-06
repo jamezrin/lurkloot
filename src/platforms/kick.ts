@@ -1,4 +1,4 @@
-import type { ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
+import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../core/models";
 import type { TablessWatchController } from "../core/tablessWatch";
 import { logActivity } from "../core/activityLog";
 import { fetchJsonInPage, fetchKickInBackground, KickWafBlockedError, openPinnedMutedTab, stopWatchTab } from "../core/tabs";
@@ -93,6 +93,33 @@ function safeHost(url: string): string {
   }
 }
 
+// Parses the `categories[]` array from Kick's `/api/search` response. Each entry
+// is a game/subcategory `{id, name, slug, banner:{src,srcset}}`; its `id` matches
+// the campaign categoryId used by the scheduler. Deduped by id; entries without
+// an id or name are skipped.
+function parseKickCategories(data: unknown): CategorySelection[] {
+  const root = (data ?? {}) as Record<string, unknown>;
+  const raw = (Array.isArray(root.categories) ? root.categories : []) as Array<Record<string, unknown>>;
+  const seen = new Set<string>();
+  const result: CategorySelection[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const id = String(entry.id ?? "").trim();
+    const name = typeof entry.name === "string" ? entry.name.trim() : "";
+    const key = id.toLowerCase();
+    if (!id || !name || seen.has(key)) continue;
+    seen.add(key);
+    const imageUrl = kickCategoryImage(entry.banner) ?? (typeof entry.image_url === "string" ? entry.image_url : undefined);
+    result.push(imageUrl ? { id, name, imageUrl } : { id, name });
+  }
+  return result;
+}
+
+function kickCategoryImage(banner: unknown): string | undefined {
+  const src = (banner as { src?: unknown } | undefined)?.src;
+  return typeof src === "string" && src ? src : undefined;
+}
+
 export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
 
@@ -125,6 +152,19 @@ export class KickAdapter implements PlatformAdapter {
       logActivity("warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
       return campaigns;
     }
+  }
+
+  async searchCategories(query: string): Promise<CategorySelection[]> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+    // Confirmed live (scripts/kick-inspect.mjs --categories): this is the endpoint
+    // Kick's own search box uses, and its `categories[]` ids match campaign
+    // categoryIds (e.g. Rust = 13). search.kick.com is the newer variant but needs
+    // a Typesense key; this one is plain and works from the SW/page fetcher.
+    const url = new URL("https://kick.com/api/search");
+    url.searchParams.set("searched_word", trimmed);
+    const data = await this.fetcher.fetchJson<unknown>(url.toString());
+    return parseKickCategories(data);
   }
 
   async listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]> {

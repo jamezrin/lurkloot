@@ -1,5 +1,6 @@
 import type { PlatformAdapter } from "../platforms/adapter";
 import type {
+  CategorySelection,
   ChannelCandidate,
   DropCampaign,
   DropReward,
@@ -43,21 +44,37 @@ function isEligible(campaign: DropCampaign, settings: ExtensionSettings): boolea
   if (hasCampaignEnded(campaign)) return false;
   if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
   if (settings.excludedCampaignIds.includes(campaign.id)) return false;
+  // Category filter: when "Farm all categories" is off for this platform, only
+  // campaigns whose category is on the list are farmable (an empty list then
+  // farms nothing).
+  const platformSettings = settings.platform[campaign.platform];
+  if (!platformSettings.farmAllCategories && categoryListIndex(campaign, platformSettings.categories) === -1) return false;
   // Twitch cannot earn drops until the account is linked, so an unlinked Twitch
   // campaign is skipped. Kick DOES accrue watch progress before linking (the
   // link is only required to claim), so we keep farming unlinked Kick campaigns
   // and surface the claim-time "link your account" guidance instead.
   if (campaign.platform !== "kick" && campaign.accountLinked === false) return false;
-  // "Priority list only" farms exclusively what the user curated: a campaign
-  // they explicitly reordered (campaignPriorities) or whose game is on the
-  // platform's game-priority list. Everything else is skipped.
+  // "Priority list only" farms exclusively the campaigns the user explicitly
+  // reordered (campaignPriorities). Category curation is owned by the separate
+  // per-platform "Farm all categories" filter above.
   if (settings.priorityMode === "priority_list_only" && !isInPriorityList(campaign, settings)) return false;
   return campaign.rewards.some((reward) => reward.status !== "claimed" && reward.preconditionsMet !== false && isRewardRelevantNow(reward));
 }
 
 function isInPriorityList(campaign: DropCampaign, settings: ExtensionSettings): boolean {
-  if (settings.campaignPriorities[campaign.id] != null) return true;
-  return gamePriorityScore(campaign, settings) !== Number.MAX_SAFE_INTEGER;
+  return settings.campaignPriorities[campaign.id] != null;
+}
+
+// Position of a campaign's category in a selection list, by id or name
+// (case-insensitive); -1 when absent. Campaigns sometimes carry only a gameName.
+function categoryListIndex(campaign: DropCampaign, list: CategorySelection[]): number {
+  if (list.length === 0) return -1;
+  const candidates = [campaign.categoryId, campaign.gameName]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase());
+  if (candidates.length === 0) return -1;
+  return list.findIndex((category) =>
+    candidates.includes(category.id.toLowerCase()) || candidates.includes(category.name.toLowerCase()));
 }
 
 function hasCampaignEnded(campaign: DropCampaign): boolean {
@@ -83,8 +100,8 @@ export function sortCampaigns(campaigns: DropCampaign[], settings: ExtensionSett
     if (leftPriority != null && rightPriority == null) return -1;
     if (rightPriority != null && leftPriority == null) return 1;
 
-    const gameOrder = gamePriorityScore(left, settings) - gamePriorityScore(right, settings);
-    if (gameOrder !== 0) return gameOrder;
+    const categoryOrder = categoryPriorityScore(left, settings) - categoryPriorityScore(right, settings);
+    if (categoryOrder !== 0) return categoryOrder;
 
     const normalizedLeftPriority = leftPriority ?? 0;
     const normalizedRightPriority = rightPriority ?? 0;
@@ -101,13 +118,13 @@ export function sortCampaigns(campaigns: DropCampaign[], settings: ExtensionSett
   });
 }
 
-function gamePriorityScore(campaign: DropCampaign, settings: ExtensionSettings): number {
-  if (!campaign.categoryId && !campaign.gameName) return Number.MAX_SAFE_INTEGER;
-  const candidates = [campaign.categoryId, campaign.gameName]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.toLowerCase());
-  const priority = settings.platform[campaign.platform].gamePriority ?? [];
-  const index = priority.findIndex((value) => candidates.includes(value.toLowerCase()));
+// Order within the per-platform categories list sets farming priority — but only
+// while the filter is active. When "Farm all categories" is on the (hidden) list
+// must never silently reorder, so every campaign scores equal.
+function categoryPriorityScore(campaign: DropCampaign, settings: ExtensionSettings): number {
+  const platformSettings = settings.platform[campaign.platform];
+  if (platformSettings.farmAllCategories) return Number.MAX_SAFE_INTEGER;
+  const index = categoryListIndex(campaign, platformSettings.categories);
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
@@ -181,6 +198,12 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: Extension
   }
   if (notExcluded.every((campaign) => campaign.accountLinked === false || campaign.eligibility === "account_not_linked")) {
     return "Campaign accounts are not linked";
+  }
+  if (notExcluded.every((campaign) => {
+    const platformSettings = settings.platform[campaign.platform];
+    return !platformSettings.farmAllCategories && categoryListIndex(campaign, platformSettings.categories) === -1;
+  })) {
+    return "No campaigns match the categories filter";
   }
   if (settings.priorityMode === "priority_list_only" && !notExcluded.some((campaign) => isInPriorityList(campaign, settings))) {
     return "No prioritized campaigns are eligible";
