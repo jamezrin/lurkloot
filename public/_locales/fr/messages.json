@@ -5,6 +5,9 @@
   "extensionDescription": {
     "message": "Farmez les drops Twitch et Kick avec des sessions normales du navigateur, des onglets visibles et muets, et un mode basse consommation optionnel."
   },
+  "promoTagline": {
+    "message": "Farmez les drops Twitch et Kick en pilote automatique."
+  },
   "languageBrowser": {
     "message": "Utiliser la langue du navigateur"
   },

@@ -12,6 +12,7 @@
     "privacy:gist": "scripts/update-privacy-gist.sh",
     "kick:inspect": "node scripts/kick-inspect.mjs",
     "screenshot:store": "pnpm build && node scripts/capture-store-screenshot.mjs",
+    "promo:store": "pnpm build && node scripts/capture-store-promo.mjs",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "verify": "pnpm test && pnpm typecheck && pnpm build && pnpm build:firefox",

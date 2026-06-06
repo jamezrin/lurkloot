@@ -5,6 +5,9 @@
   "extensionDescription": {
     "message": "Farme Twitch- und Kick-Drops über normale Browsersitzungen, sichtbare stummgeschaltete Tabs und optionalen Energiesparmodus."
   },
+  "promoTagline": {
+    "message": "Twitch- und Kick-Drops automatisch farmen."
+  },
   "languageBrowser": {
     "message": "Browsersprache verwenden"
   },

@@ -5,6 +5,9 @@
   "extensionDescription": {
     "message": "सामान्य ब्राउज़र सत्रों, दिखने वाले म्यूट टैब और वैकल्पिक लो-रिसोर्स मोड से Twitch और Kick drops फ़ार्म करें।"
   },
+  "promoTagline": {
+    "message": "Twitch और Kick drops ऑटोपायलट पर फ़ार्म करें।"
+  },
   "languageBrowser": {
     "message": "ब्राउज़र भाषा का उपयोग करें"
   },

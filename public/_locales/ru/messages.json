@@ -5,6 +5,9 @@
   "extensionDescription": {
     "message": "Фармите drops Twitch и Kick через обычные сессии браузера, видимые вкладки без звука и дополнительный режим низкого потребления."
   },
+  "promoTagline": {
+    "message": "Фармите drops Twitch и Kick на автопилоте."
+  },
   "languageBrowser": {
     "message": "Использовать язык браузера"
   },

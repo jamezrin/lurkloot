@@ -5,6 +5,9 @@
   "extensionDescription": {
     "message": "Farma drop di Twitch e Kick tramite normali sessioni del browser, schede visibili e silenziate e una modalità opzionale a basso consumo."
   },
+  "promoTagline": {
+    "message": "Farma i drop di Twitch e Kick in automatico."
+  },
   "languageBrowser": {
     "message": "Usa la lingua del browser"
   },

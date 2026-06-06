@@ -113,6 +113,18 @@ const SCREENSHOT_LOCALE: SupportedLocale | null = (() => {
   const value = new URLSearchParams(window.location.search).get("locale");
   return value && SUPPORTED_LOCALES.includes(value as SupportedLocale) ? (value as SupportedLocale) : null;
 })();
+// Promo mode renders the standalone Chrome Web Store marketing tiles (small +
+// marquee) captured by scripts/capture-store-promo.mjs via ?screenshot=promo.
+// Unlike screenshot mode it does not embed the live popup, so it needs no mock
+// snapshot — just the localized marketing copy, driven by the same ?locale=.
+const PROMO_MODE = new URLSearchParams(window.location.search).get("screenshot") === "promo";
+const PROMO_FORMAT: "small" | "marquee" =
+  new URLSearchParams(window.location.search).get("format") === "marquee" ? "marquee" : "small";
+const PROMO_LOCALE: SupportedLocale | null = (() => {
+  if (!PROMO_MODE) return null;
+  const value = new URLSearchParams(window.location.search).get("locale");
+  return value && SUPPORTED_LOCALES.includes(value as SupportedLocale) ? (value as SupportedLocale) : null;
+})();
 const EXTENSION_VERSION = SCREENSHOT_MODE ? "1.0.0" : browser.runtime.getManifest().version;
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
 const getUrl = (path: string) => browser.runtime.getURL(path as never);
@@ -977,6 +989,94 @@ function StoreScreenshot({ variant, children }: { variant: ScreenshotVariant; ch
         <div className="rounded-[28px] bg-white/10 p-5 shadow-2xl shadow-black/50 ring-1 ring-white/12">
           {children}
         </div>
+      </section>
+    </div>
+  );
+}
+
+// Combined Twitch (purple) + Kick (green) glow so a single tile reads as
+// "both platforms" without a per-platform variant.
+const PROMO_GRADIENT =
+  "radial-gradient(circle at 16% 18%, rgba(145,71,255,0.40), transparent 38%), radial-gradient(circle at 86% 82%, rgba(83,252,24,0.26), transparent 40%)";
+
+function PromoPills({ translate, scale = 1 }: { translate: (key: string) => string; scale?: number }): React.ReactElement {
+  const pad = `${0.5 * scale}rem ${1 * scale}rem`;
+  const fontSize = `${0.94 * scale}rem`;
+  return (
+    <div className="flex flex-wrap gap-2.5" style={{ fontSize }}>
+      <span className="rounded-lg bg-white font-bold text-zinc-950" style={{ padding: pad }}>Twitch</span>
+      <span className="rounded-lg bg-[#53fc18] font-bold text-[#07140a]" style={{ padding: pad }}>Kick</span>
+      <span className="rounded-lg border border-white/18 bg-white/8 font-semibold text-zinc-200" style={{ padding: pad }}>
+        {translate("autoClaimReady")}
+      </span>
+    </div>
+  );
+}
+
+function PromoTile({ format }: { format: "small" | "marquee" }): React.ReactElement {
+  // Mirrors StoreScreenshot's catalog loading so the tiles localize from the
+  // same ?locale= sweep the capture script drives, with English as fallback.
+  const [catalog, setCatalog] = useState<MessageCatalog | undefined>(undefined);
+  const [fallback, setFallback] = useState<MessageCatalog | undefined>(undefined);
+  useEffect(() => {
+    void loadLocaleCatalog(PROMO_LOCALE ?? DEFAULT_LOCALE, getUrl).then(setCatalog);
+    void loadLocaleCatalog(DEFAULT_LOCALE, getUrl).then(setFallback);
+  }, []);
+  const translate = (key: string) => translateFromCatalogs(key, undefined, catalog, fallback ?? catalog ?? {});
+  const dir = isRtlLocale(PROMO_LOCALE ?? DEFAULT_LOCALE) ? "rtl" : "ltr";
+
+  if (format === "small") {
+    return (
+      <div
+        dir={dir}
+        className="relative flex h-[280px] w-[440px] flex-col justify-center overflow-hidden bg-zinc-950 px-9 text-white"
+      >
+        <div className="pointer-events-none absolute inset-0" style={{ background: PROMO_GRADIENT }} />
+        <div className="relative">
+          <div className="mb-5 flex items-center gap-3">
+            <img src="/logo-ring.svg" alt="" width={52} height={52} className="h-[52px] w-[52px]" />
+            <span className="font-display text-[27px] font-bold leading-none tracking-tight text-white">
+              {translate("extensionName")}
+            </span>
+          </div>
+          <p className="mb-6 max-w-[360px] text-[18px] font-semibold leading-tight text-zinc-200">
+            {translate("promoTagline")}
+          </p>
+          <PromoPills translate={translate} scale={0.82} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      dir={dir}
+      className="relative grid h-[560px] w-[1400px] grid-cols-[1fr_520px] items-center overflow-hidden bg-zinc-950 text-white"
+    >
+      <div className="pointer-events-none absolute inset-0" style={{ background: PROMO_GRADIENT }} />
+      <section className="relative z-10 flex min-w-0 flex-col justify-center px-24">
+        <div className="mb-8 flex items-center gap-4">
+          <img src="/logo-ring.svg" alt="" width={68} height={68} className="h-[68px] w-[68px]" />
+          <span className="font-display text-[34px] font-bold leading-none tracking-tight text-white">
+            {translate("extensionName")}
+          </span>
+        </div>
+        <h1 className="font-display max-w-[660px] text-[56px] font-bold leading-[0.98] tracking-normal text-white">
+          {translate("screenshotTwitchHeadline")}
+        </h1>
+        <p className="mt-6 max-w-[560px] text-[21px] leading-snug text-zinc-300">
+          {translate("extensionDescription")}
+        </p>
+        <div className="mt-10">
+          <PromoPills translate={translate} />
+        </div>
+      </section>
+      <section className="relative flex h-full items-center justify-center">
+        <div
+          className="pointer-events-none absolute h-[520px] w-[520px] rounded-full opacity-70 blur-2xl"
+          style={{ background: "radial-gradient(circle, rgba(145,71,255,0.45), rgba(83,252,24,0.18) 55%, transparent 72%)" }}
+        />
+        <img src="/logo-ring.svg" alt="" width={300} height={300} className="relative h-[300px] w-[300px] drop-shadow-2xl" />
       </section>
     </div>
   );
@@ -2341,7 +2441,9 @@ function formatViewers(count: number): string {
 }
 
 createRoot(document.getElementById("root")!).render(
-  SCREENSHOT_MODE ? (
+  PROMO_MODE ? (
+    <PromoTile format={PROMO_FORMAT} />
+  ) : SCREENSHOT_MODE ? (
     <StoreScreenshot variant={SCREENSHOT_VARIANT}>
       <Popup />
     </StoreScreenshot>

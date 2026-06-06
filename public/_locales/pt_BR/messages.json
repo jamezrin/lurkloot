@@ -5,6 +5,9 @@
   "extensionDescription": {
     "message": "Farme drops da Twitch e da Kick com sessões normais do navegador, abas visíveis silenciadas e modo opcional de baixo consumo."
   },
+  "promoTagline": {
+    "message": "Farme drops da Twitch e Kick no piloto automático."
+  },
   "languageBrowser": {
     "message": "Usar idioma do navegador"
   },

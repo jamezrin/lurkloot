@@ -5,6 +5,9 @@
   "extensionDescription": {
     "message": "فارم Drops على Twitch وKick عبر جلسات المتصفح العادية، وعلامات تبويب مرئية مكتومة، ووضع اختياري منخفض الموارد."
   },
+  "promoTagline": {
+    "message": "فارم Drops على Twitch وKick تلقائيًا."
+  },
   "languageBrowser": {
     "message": "استخدام لغة المتصفح"
   },

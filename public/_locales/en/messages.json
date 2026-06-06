@@ -5,6 +5,9 @@
   "extensionDescription": {
     "message": "Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode."
   },
+  "promoTagline": {
+    "message": "Farm Twitch & Kick drops on autopilot."
+  },
   "languageBrowser": {
     "message": "Use browser language"
   },

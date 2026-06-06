@@ -5,6 +5,9 @@
   "extensionDescription": {
     "message": "通过正常浏览器会话、可见的静音标签页和可选低资源模式刷 Twitch 与 Kick 掉宝。"
   },
+  "promoTagline": {
+    "message": "自动刷 Twitch 与 Kick 掉宝。"
+  },
   "languageBrowser": {
     "message": "使用浏览器语言"
   },

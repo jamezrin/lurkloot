@@ -5,6 +5,9 @@
   "extensionDescription": {
     "message": "Farmea drops de Twitch y Kick con sesiones normales del navegador, pestañas silenciadas visibles y un modo opcional de bajo consumo."
   },
+  "promoTagline": {
+    "message": "Farmea drops de Twitch y Kick en piloto automático."
+  },
   "languageBrowser": {
     "message": "Usar idioma del navegador"
   },
