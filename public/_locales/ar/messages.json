@@ -3,7 +3,7 @@
     "message": "Stream Autopilot"
   },
   "extensionDescription": {
-    "message": "ازرع Drops على Twitch وKick عبر جلسات المتصفح العادية، وعلامات تبويب مرئية مكتومة، ووضع اختياري منخفض الموارد."
+    "message": "فارم Drops على Twitch وKick عبر جلسات المتصفح العادية، وعلامات تبويب مرئية مكتومة، ووضع اختياري منخفض الموارد."
   },
   "languageBrowser": {
     "message": "استخدام لغة المتصفح"
@@ -102,16 +102,16 @@
     "message": "يشاهد"
   },
   "farmingLabel": {
-    "message": "يزرع"
+    "message": "يفارم"
   },
   "waitingEligibleStream": {
     "message": "بانتظار بث مؤهل"
   },
   "watchingPausedHint": {
-    "message": "المشاهدة متوقفة مؤقتًا. فعّل المفتاح لاستئناف زراعة Drops."
+    "message": "المشاهدة متوقفة مؤقتًا. فعّل المفتاح لاستئناف فارم Drops."
   },
   "priorityHint": {
-    "message": "تأخذ Drops الأولوية دائمًا على قائمة المشاهدة. اسحب الحملات من المقبض لتحديد ترتيب الزراعة."
+    "message": "تأخذ Drops الأولوية دائمًا على قائمة المشاهدة. اسحب الحملات من المقبض لتحديد ترتيب الفارم."
   },
   "noCampaigns": {
     "message": "لم يتم اكتشاف أي حملات بعد."
@@ -174,7 +174,7 @@
     "message": "تم"
   },
   "farmed": {
-    "message": "تمت الزراعة"
+    "message": "تم الفارم"
   },
   "rewards": {
     "message": "المكافآت"
@@ -189,10 +189,10 @@
     "message": "$1 قنوات"
   },
   "includeInFarming": {
-    "message": "تضمين في الزراعة"
+    "message": "تضمين في الفارم"
   },
   "excludeFromFarming": {
-    "message": "استبعاد من الزراعة"
+    "message": "استبعاد من الفارم"
   },
   "noWatchQueue": {
     "message": "لا توجد قنوات مهيأة في قائمة المشاهدة."
@@ -222,13 +222,13 @@
     "message": "إيقاف مؤقت عند المشاهدة يدويًا"
   },
   "pauseManualDescription": {
-    "message": "أوقف الزراعة أثناء فتح بث ومشاهدته بنفسك."
+    "message": "أوقف الفارم أثناء فتح بث ومشاهدته بنفسك."
   },
   "autoStartTitle": {
     "message": "بدء تلقائي عند التشغيل"
   },
   "autoStartDescription": {
-    "message": "ابدأ الزراعة بمجرد تحميل الإضافة."
+    "message": "ابدأ الفارم بمجرد تحميل الإضافة."
   },
   "notificationsTitle": {
     "message": "الإشعارات"
@@ -252,7 +252,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "سلوك زراعة الحملات المشترك."
+    "message": "سلوك فارم الحملات المشترك."
   },
   "autoClaimTitle": {
     "message": "استلام Drops تلقائيًا"
@@ -264,7 +264,7 @@
     "message": "أولوية الحملة"
   },
   "campaignPriorityDescription": {
-    "message": "يحدد كيفية اختيار الحملات للزراعة. قائمة الأولوية تزرع فقط الحملات التي رتبتها يدويًا؛ الخيارات الأخرى تختار من كل الحملات. حدّد الفئات لكل منصة من إعدادات المنصة."
+    "message": "يحدد كيفية اختيار الحملات للفارم. قائمة الأولوية تفارم فقط الحملات التي رتبتها يدويًا؛ الخيارات الأخرى تختار من كل الحملات. حدّد الفئات لكل منصة من إعدادات المنصة."
   },
   "priorityListOnly": {
     "message": "قائمة الأولوية فقط"
@@ -294,31 +294,31 @@
     "message": "الأتمتة والقنوات لمزوّد واحد. بدّل بين Twitch وKick."
   },
   "farmingTabsTitle": {
-    "message": "علامات تبويب الزراعة"
+    "message": "علامات تبويب الفارم"
   },
   "farmingTabsDescription": {
-    "message": "عناصر التحكم لزراعة تبويبات الفيديو. تُعطّل عناصر التحكم الخاصة بالتبويب أثناء وضع منخفض الموارد بدون تبويب."
+    "message": "عناصر التحكم لفارم تبويبات الفيديو. تُعطّل عناصر التحكم الخاصة بالتبويب أثناء وضع منخفض الموارد بدون تبويب."
   },
   "tablessTitle": {
     "message": "وضع منخفض الموارد بدون تبويب"
   },
   "tablessDescription": {
-    "message": "ازرع عبر إشارات مشاهدة خفيفة بدل تبويب فيديو. يستخدم Twitch نبضات مشاهدة؛ ويستخدم Kick اتصال مشاهد. يعود تلقائيًا إلى تبويب إذا توقف عن الاحتساب."
+    "message": "فارم عبر إشارات مشاهدة خفيفة بدل تبويب فيديو. يستخدم Twitch نبضات مشاهدة؛ ويستخدم Kick اتصال مشاهد. يعود تلقائيًا إلى تبويب إذا توقف عن الاحتساب."
   },
   "autoCloseTabsTitle": {
-    "message": "إغلاق تبويبات الزراعة تلقائيًا"
+    "message": "إغلاق تبويبات الفارم تلقائيًا"
   },
   "autoCloseTabsDescription": {
-    "message": "يغلق تلقائيًا عندما تكون الإضافة خاملة، دون Drops للزراعة أو بثوث للمشاهدة."
+    "message": "يغلق تلقائيًا عندما تكون الإضافة خاملة، دون Drops للفارم أو بثوث للمشاهدة."
   },
   "muteTabsTitle": {
-    "message": "كتم تبويبات الزراعة"
+    "message": "كتم تبويبات الفارم"
   },
   "muteTabsDescription": {
-    "message": "يبقي تبويبات Drops وقائمة المشاهدة مكتومة أثناء الزراعة."
+    "message": "يبقي تبويبات Drops وقائمة المشاهدة مكتومة أثناء الفارم."
   },
   "keepVideosUnmutedTitle": {
-    "message": "إبقاء فيديوهات الزراعة غير مكتومة"
+    "message": "إبقاء فيديوهات الفارم غير مكتومة"
   },
   "keepVideosUnmutedDescription": {
     "message": "يبقي مشغلات الفيديو في الصفحة غير مكتومة بينما تبويب المتصفح مكتوم."
@@ -330,7 +330,7 @@
     "message": "تركيز التبويب أثناء الإعلانات"
   },
   "adFocusDescription": {
-    "message": "تتجمد مؤقتات الإعلانات في تبويبات الخلفية. يركز تبويب الزراعة مؤقتًا أثناء الإعلان ثم يعيد تبويبك السابق."
+    "message": "تتجمد مؤقتات الإعلانات في تبويبات الخلفية. يركز تبويب الفارم مؤقتًا أثناء الإعلان ثم يعيد تبويبك السابق."
   },
   "off": {
     "message": "إيقاف"
@@ -360,7 +360,7 @@
     "message": "الأتمتة"
   },
   "farmOnPlatform": {
-    "message": "ازرع Drops وشاهد القائمة على $1."
+    "message": "فارم Drops وشاهد القائمة على $1."
   },
   "enabled": {
     "message": "مفعل"
@@ -372,25 +372,25 @@
     "message": "قنوات Drops المستبعدة"
   },
   "excludedChannelsDescription": {
-    "message": "ستتخطى زراعة الحملات هؤلاء الباثين."
+    "message": "سيتخطى فارم الحملات هؤلاء الباثين."
   },
   "excludedChannelsEmpty": {
     "message": "لا توجد قنوات Drops مستبعدة."
   },
   "farmAllCategoriesTitle": {
-    "message": "زراعة كل الفئات"
+    "message": "فارم كل الفئات"
   },
   "farmAllCategoriesDescription": {
-    "message": "ازرع Drops في كل فئات $1. أوقفه لزراعة مجموعة مختارة فقط."
+    "message": "فارم Drops في كل فئات $1. أوقفه لفارم مجموعة مختارة فقط."
   },
   "categoriesToFarm": {
-    "message": "الفئات للزراعة"
+    "message": "الفئات للفارم"
   },
   "dragToPrioritize": {
     "message": "اسحب لتحديد الأولوية"
   },
   "noCategoriesSelected": {
-    "message": "لم يتم تحديد فئات: لن تتم زراعة أي شيء على $1. أضف فئات أدناه."
+    "message": "لم يتم تحديد فئات: لن يتم فارم أي شيء على $1. أضف فئات أدناه."
   },
   "hasActiveDrops": {
     "message": "لديه Drops نشطة"
@@ -423,7 +423,7 @@
     "message": "نسيان الحملات المستبعدة"
   },
   "forgetExcludedDescription": {
-    "message": "امسح كل الحملات التي استبعدتها من الزراعة."
+    "message": "امسح كل الحملات التي استبعدتها من الفارم."
   },
   "forget": {
     "message": "نسيان"
@@ -453,16 +453,16 @@
     "message": "$1 من $2"
   },
   "notificationNoDropsLeftMessage": {
-    "message": "لا توجد Drops مؤهلة للزراعة على $1."
+    "message": "لا توجد Drops مؤهلة للفارم على $1."
   },
   "screenshotTwitchHeadline": {
     "message": "إدارة Drops على Twitch وKick من نافذة واحدة."
   },
   "screenshotTwitchSubcopy": {
-    "message": "يزرع Stream Autopilot الحملات المؤهلة عبر جلسة متصفحك العادية مع تبويبات مرئية مكتومة."
+    "message": "يفارم Stream Autopilot الحملات المؤهلة عبر جلسة متصفحك العادية مع تبويبات مرئية مكتومة."
   },
   "screenshotKickHeadline": {
-    "message": "يزرع Drops على Kick الآن أيضًا."
+    "message": "يفارم Drops على Kick الآن أيضًا."
   },
   "screenshotKickSubcopy": {
     "message": "نفس الأتمتة وفحوصات الأهلية والاستلام التلقائي على Twitch، الآن لمكافآت منشئي Kick."

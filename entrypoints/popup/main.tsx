@@ -47,10 +47,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SETTINGS_SESSION_PORT, type CategorySearchResult, type PlaybackControl, type RuntimeMessage, type RuntimeSnapshot } from "../../src/core/messages";
-import type { AdFocusMode, CampaignFilterKey, CategorySelection, DropCampaign, EventLogEntry, ExtensionSettings, LanguageOverride, Platform, WatchSession } from "../../src/core/models";
+import type { AdFocusMode, CampaignFilterKey, CategorySelection, DropCampaign, EventLogEntry, ExtensionSettings, LanguageOverride, Platform, SupportedLocale, WatchSession } from "../../src/core/models";
 import { LOG_LEVELS, type LogLevel } from "../../src/core/logging";
-import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "../../src/core/settings";
-import { effectiveLocale, isRtlLocale, loadLocaleCatalog, LOCALE_OPTIONS, translateFromCatalogs, type MessageCatalog } from "../../src/core/i18n";
+import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, SUPPORTED_LOCALES, type SettingsPatch } from "../../src/core/settings";
+import { DEFAULT_LOCALE, effectiveLocale, isRtlLocale, loadLocaleCatalog, LOCALE_OPTIONS, translateFromCatalogs, type MessageCatalog } from "../../src/core/i18n";
 import { kickRewardImageUrl } from "../../src/platforms/kickParser";
 import "./style.css";
 
@@ -106,6 +106,13 @@ const REWARD_TINTS = [
   "from-zinc-100 via-emerald-200 to-slate-500",
 ];
 const SCREENSHOT_MODE = new URLSearchParams(window.location.search).get("screenshot") === "store";
+// In screenshot mode the capture script drives the rendered language via
+// ?locale=<code>, so the same mock views can be captured per store locale.
+const SCREENSHOT_LOCALE: SupportedLocale | null = (() => {
+  if (!SCREENSHOT_MODE) return null;
+  const value = new URLSearchParams(window.location.search).get("locale");
+  return value && SUPPORTED_LOCALES.includes(value as SupportedLocale) ? (value as SupportedLocale) : null;
+})();
 const EXTENSION_VERSION = SCREENSHOT_MODE ? "1.0.0" : browser.runtime.getManifest().version;
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
 const getUrl = (path: string) => browser.runtime.getURL(path as never);
@@ -478,7 +485,7 @@ function Popup(): React.ReactElement {
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const wasSettingsOpen = useRef(settingsOpen);
   const resumeRefreshRun = useRef(0);
-  const languageOverride = snapshot?.settings.languageOverride ?? DEFAULT_SETTINGS.languageOverride;
+  const languageOverride = SCREENSHOT_LOCALE ?? snapshot?.settings.languageOverride ?? DEFAULT_SETTINGS.languageOverride;
   const locale = effectiveLocale(languageOverride, browser.i18n.getUILanguage());
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
   const t: TFunction = (key, substitutions) => {
@@ -934,7 +941,16 @@ function ActivityLog({
 }
 
 function StoreScreenshot({ variant, children }: { variant: ScreenshotVariant; children: React.ReactNode }): React.ReactElement {
-  const translate = (key: string) => getMessage(key) || key;
+  // The overlay sits above the popup's I18nContext provider, so it resolves the
+  // marketing copy from its own catalog load — driven by the same ?locale= param
+  // (SCREENSHOT_LOCALE) the capture script sweeps, with English as the fallback.
+  const [catalog, setCatalog] = useState<MessageCatalog | undefined>(undefined);
+  const [fallback, setFallback] = useState<MessageCatalog | undefined>(undefined);
+  useEffect(() => {
+    void loadLocaleCatalog(SCREENSHOT_LOCALE ?? DEFAULT_LOCALE, getUrl).then(setCatalog);
+    void loadLocaleCatalog(DEFAULT_LOCALE, getUrl).then(setFallback);
+  }, []);
+  const translate = (key: string) => translateFromCatalogs(key, undefined, catalog, fallback ?? catalog ?? {});
   return (
     <div
       data-platform={variant.platform}

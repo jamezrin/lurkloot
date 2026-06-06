@@ -8,9 +8,9 @@ const root = resolve(".output/chrome-mv3");
 const outputDir = resolve("artifacts/store-screenshots");
 const candidates = ["popup.html", "popup/index.html"];
 
-// Each variant is rendered via ?screenshot=store&variant=<id> (see
-// SCREENSHOT_VARIANTS in entrypoints/popup/main.tsx). Numeric file prefixes
-// preserve the upload order in the store listing.
+// Each variant is rendered via ?screenshot=store&variant=<id>&locale=<code>
+// (see SCREENSHOT_VARIANTS / SCREENSHOT_LOCALE in entrypoints/popup/main.tsx).
+// Numeric file prefixes preserve the upload order in the store listing.
 const variants = [
   { id: "twitch-drops", file: "01-twitch-drops" },
   { id: "kick-drops", file: "02-kick-drops" },
@@ -18,6 +18,16 @@ const variants = [
   { id: "settings", file: "04-settings" },
   { id: "activity", file: "05-activity" },
 ];
+
+// One screenshot set per store locale. The ids match the _locales/<id> folders
+// bundled in the build. A subset can be captured by passing locale codes as CLI
+// args, e.g. `node scripts/capture-store-screenshot.mjs es pt_BR`.
+const ALL_LOCALES = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar"];
+const requested = process.argv.slice(2);
+const locales = requested.length > 0 ? requested.filter((code) => ALL_LOCALES.includes(code)) : ALL_LOCALES;
+if (locales.length === 0) {
+  throw new Error(`No known locales in: ${requested.join(", ")}. Known: ${ALL_LOCALES.join(", ")}`);
+}
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -85,7 +95,6 @@ function startServer() {
 }
 
 const popupPath = await findPopupPath();
-await mkdir(outputDir, { recursive: true });
 const { server, origin } = await startServer();
 
 try {
@@ -94,15 +103,39 @@ try {
     viewport: { width: 1280, height: 800 },
     deviceScaleFactor: 1,
   });
-  for (const variant of variants) {
-    const outputPath = join(outputDir, `stream-autopilot-${variant.file}-1280x800.png`);
-    await page.goto(`${origin}${popupPath}?screenshot=store&variant=${variant.id}`, { waitUntil: "networkidle" });
-    // The header logo only renders after the snapshot loads (the loading
-    // placeholder shows just "Loading"), and is present in every view/platform —
-    // wait on it so Kick and non-Drops variants capture fully-rendered content.
-    await page.waitForSelector('header img[alt="Stream Autopilot"]');
-    await page.screenshot({ path: outputPath, clip: { x: 0, y: 0, width: 1280, height: 800 } });
-    console.log(`Wrote ${outputPath}`);
+  // The popup is the real extension UI, so it expects the WebExtension `browser`
+  // global (resolved from `chrome`). Served over plain HTTP that global is
+  // absent, so provide the minimal surface the popup touches at load/render:
+  // i18n + runtime.getURL (used to fetch the localized message catalogs). The
+  // mock data and locale come from screenshot mode + the ?locale= param, so
+  // getMessage can return "" and let the catalog drive the copy.
+  await page.addInitScript(() => {
+    globalThis.chrome = {
+      i18n: { getMessage: () => "", getUILanguage: () => "en" },
+      runtime: { getURL: (path) => path, getManifest: () => ({ version: "1.0.0" }) },
+      storage: { local: { get: async () => ({}), set: async () => {} } },
+    };
+  });
+  for (const locale of locales) {
+    const localeDir = join(outputDir, locale);
+    await mkdir(localeDir, { recursive: true });
+    for (const variant of variants) {
+      const outputPath = join(localeDir, `stream-autopilot-${variant.file}-1280x800.png`);
+      await page.goto(`${origin}${popupPath}?screenshot=store&variant=${variant.id}&locale=${locale}`, { waitUntil: "networkidle" });
+      // The header logo only renders after the snapshot loads (the loading
+      // placeholder shows just "Loading"), and is present in every view/platform —
+      // wait on it so Kick and non-Drops variants capture fully-rendered content.
+      await page.waitForSelector('header img[alt="Stream Autopilot"]');
+      // The marketing headline starts as the raw i18n key until the locale
+      // catalog loads; wait until it has been replaced with real copy so the
+      // capture never freezes a half-translated overlay.
+      await page.waitForFunction(() => {
+        const heading = document.querySelector("h1");
+        return Boolean(heading?.textContent) && !heading.textContent.startsWith("screenshot");
+      });
+      await page.screenshot({ path: outputPath, clip: { x: 0, y: 0, width: 1280, height: 800 } });
+      console.log(`Wrote ${outputPath}`);
+    }
   }
   await browser.close();
 } finally {
