@@ -155,6 +155,15 @@
   "finished": {
     "message": "Finalizadas"
   },
+  "upcomingPill": {
+    "message": "Próxima"
+  },
+  "expiredPill": {
+    "message": "Expirada"
+  },
+  "finishedPill": {
+    "message": "Finalizada"
+  },
   "complete": {
     "message": "Concluído"
   },

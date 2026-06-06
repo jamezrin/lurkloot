@@ -1246,9 +1246,9 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
 }
 
 function campaignLifecyclePill(lifecycle: CampaignLifecycleState | undefined, t: TFunction): { icon: LucideIcon; label: string; tone: "muted" | "danger" | "outline" } | undefined {
-  if (lifecycle === "upcoming") return { icon: Clock3, label: t("upcoming"), tone: "muted" };
-  if (lifecycle === "expired") return { icon: AlertTriangle, label: t("expired"), tone: "danger" };
-  if (lifecycle === "finished") return { icon: Check, label: t("finished"), tone: "outline" };
+  if (lifecycle === "upcoming") return { icon: Clock3, label: t("upcomingPill"), tone: "muted" };
+  if (lifecycle === "expired") return { icon: AlertTriangle, label: t("expiredPill"), tone: "danger" };
+  if (lifecycle === "finished") return { icon: Check, label: t("finishedPill"), tone: "outline" };
   return undefined;
 }
 

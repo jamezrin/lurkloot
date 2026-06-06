@@ -155,6 +155,15 @@
   "finished": {
     "message": "पूर्ण"
   },
+  "upcomingPill": {
+    "message": "आगामी"
+  },
+  "expiredPill": {
+    "message": "समाप्त"
+  },
+  "finishedPill": {
+    "message": "पूर्ण"
+  },
   "complete": {
     "message": "पूर्ण"
   },
