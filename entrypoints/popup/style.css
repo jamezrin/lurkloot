@@ -123,6 +123,33 @@
   }
 }
 
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] .text-left {
+  text-align: right;
+}
+
+[dir="rtl"] .text-right {
+  text-align: left;
+}
+
+[dir="rtl"] .left-2\.5 {
+  left: auto;
+  right: 0.625rem;
+}
+
+[dir="rtl"] .pl-8 {
+  padding-left: 0.75rem;
+  padding-right: 2rem;
+}
+
+[dir="rtl"] select {
+  padding-left: 0.25rem;
+  padding-right: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

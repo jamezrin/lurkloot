@@ -1,9 +1,11 @@
-import type { AdFocusMode, CampaignFilterKey, CategorySelection, ExtensionSettings, Platform, PlatformSettings, PriorityMode } from "./models";
+import type { AdFocusMode, CampaignFilterKey, CategorySelection, ExtensionSettings, LanguageOverride, Platform, PlatformSettings, PriorityMode, SupportedLocale } from "./models";
 import { LOG_LEVELS, type LogLevel } from "./logging";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
 const CAMPAIGN_FILTER_KEYS: CampaignFilterKey[] = ["notLinked", "upcoming", "expired", "excluded", "finished"];
+export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar"];
+const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 
 export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "campaignVisibility">> & {
   platform?: Partial<Record<Platform, Partial<PlatformSettings>>>;
@@ -11,6 +13,7 @@ export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "campai
 };
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
+  languageOverride: "browser",
   running: false,
   autoClaim: true,
   autoClaimChannelPoints: true,
@@ -60,6 +63,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
   const platform = value?.platform;
   return {
+    languageOverride: normalizeLanguageOverride(value?.languageOverride),
     running: booleanOr(value?.running, DEFAULT_SETTINGS.running),
     autoClaim: booleanOr(value?.autoClaim, DEFAULT_SETTINGS.autoClaim),
     autoClaimChannelPoints: booleanOr(value?.autoClaimChannelPoints, DEFAULT_SETTINGS.autoClaimChannelPoints),
@@ -102,6 +106,10 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
     enabledLogLevels: normalizeLogLevels(value),
   };
+}
+
+function normalizeLanguageOverride(value: LanguageOverride | undefined): LanguageOverride {
+  return LANGUAGE_OVERRIDES.includes(value as LanguageOverride) ? (value as LanguageOverride) : DEFAULT_SETTINGS.languageOverride;
 }
 
 export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPatch): ExtensionSettings {

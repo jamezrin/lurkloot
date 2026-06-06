@@ -1,0 +1,503 @@
+{
+  "extensionName": {
+    "message": "Stream Autopilot"
+  },
+  "extensionDescription": {
+    "message": "सामान्य ब्राउज़र सत्रों, दिखने वाले म्यूट टैब और वैकल्पिक लो-रिसोर्स मोड से Twitch और Kick drops फ़ार्म करें।"
+  },
+  "languageBrowser": {
+    "message": "ब्राउज़र भाषा का उपयोग करें"
+  },
+  "languageEnglish": {
+    "message": "अंग्रेज़ी"
+  },
+  "languageSpanish": {
+    "message": "स्पेनिश"
+  },
+  "languageFrench": {
+    "message": "फ़्रेंच"
+  },
+  "languageItalian": {
+    "message": "इतालवी"
+  },
+  "languageRussian": {
+    "message": "रूसी"
+  },
+  "languageGerman": {
+    "message": "जर्मन"
+  },
+  "languageChinese": {
+    "message": "चीनी"
+  },
+  "languageHindi": {
+    "message": "हिन्दी"
+  },
+  "languagePortuguese": {
+    "message": "पुर्तगाली"
+  },
+  "languageArabic": {
+    "message": "अरबी"
+  },
+  "settingsLanguageTitle": {
+    "message": "भाषा"
+  },
+  "settingsLanguageDescription": {
+    "message": "पॉपअप और एक्सटेंशन सूचनाओं की भाषा चुनें।"
+  },
+  "settingsTitle": {
+    "message": "सेटिंग्स"
+  },
+  "activityTitle": {
+    "message": "गतिविधि"
+  },
+  "activeStatus": {
+    "message": "सक्रिय"
+  },
+  "pausedStatus": {
+    "message": "रुका हुआ"
+  },
+  "refreshSchedule": {
+    "message": "शेड्यूल रीफ़्रेश करें"
+  },
+  "openActivity": {
+    "message": "गतिविधि खोलें"
+  },
+  "closeActivity": {
+    "message": "गतिविधि बंद करें"
+  },
+  "openSettings": {
+    "message": "सेटिंग्स खोलें"
+  },
+  "closeSettings": {
+    "message": "सेटिंग्स बंद करें"
+  },
+  "loading": {
+    "message": "लोड हो रहा है"
+  },
+  "dropsTab": {
+    "message": "Drops"
+  },
+  "watchQueueTab": {
+    "message": "देखने की कतार"
+  },
+  "automationTitle": {
+    "message": "$1 ऑटोमेशन"
+  },
+  "automationRunning": {
+    "message": "चल रहा है"
+  },
+  "automationStarting": {
+    "message": "शुरू हो रहा है"
+  },
+  "automationStopping": {
+    "message": "रुक रहा है"
+  },
+  "startingAutomation": {
+    "message": "ऑटोमेशन शुरू हो रहा है..."
+  },
+  "pausingAutomation": {
+    "message": "ऑटोमेशन रोका जा रहा है..."
+  },
+  "watchingLabel": {
+    "message": "देख रहा है"
+  },
+  "farmingLabel": {
+    "message": "फ़ार्मिंग"
+  },
+  "waitingEligibleStream": {
+    "message": "योग्य स्ट्रीम की प्रतीक्षा"
+  },
+  "watchingPausedHint": {
+    "message": "देखना रुका है। Drops फ़ार्मिंग फिर शुरू करने के लिए टॉगल करें।"
+  },
+  "priorityHint": {
+    "message": "Drops को देखने की कतार से हमेशा प्राथमिकता मिलती है। फ़ार्मिंग क्रम सेट करने के लिए कैंपेन को ग्रिप से खींचें।"
+  },
+  "noCampaigns": {
+    "message": "अभी कोई अभियान नहीं मिला।"
+  },
+  "noActivity": {
+    "message": "अभी कोई गतिविधि रिकॉर्ड नहीं हुई। जाँच चलाने के लिए रीफ़्रेश दबाएँ।"
+  },
+  "platformActivity": {
+    "message": "$1 गतिविधि"
+  },
+  "lastCheck": {
+    "message": "अंतिम जाँच $1"
+  },
+  "noChecksYet": {
+    "message": "अभी कोई जाँच नहीं"
+  },
+  "debug": {
+    "message": "डीबग"
+  },
+  "info": {
+    "message": "जानकारी"
+  },
+  "warn": {
+    "message": "चेतावनी"
+  },
+  "error": {
+    "message": "त्रुटि"
+  },
+  "notLinked": {
+    "message": "लिंक नहीं"
+  },
+  "upcoming": {
+    "message": "आगामी"
+  },
+  "expired": {
+    "message": "समाप्त"
+  },
+  "excluded": {
+    "message": "हटाया गया"
+  },
+  "finished": {
+    "message": "पूर्ण"
+  },
+  "complete": {
+    "message": "पूर्ण"
+  },
+  "nextReward": {
+    "message": "अगला: $1"
+  },
+  "endsIn": {
+    "message": "$1 में समाप्त"
+  },
+  "left": {
+    "message": "बाकी"
+  },
+  "done": {
+    "message": "हो गया"
+  },
+  "farmed": {
+    "message": "फ़ार्म किया"
+  },
+  "rewards": {
+    "message": "इनाम"
+  },
+  "inCampaignOrder": {
+    "message": "कैंपेन क्रम में"
+  },
+  "allChannels": {
+    "message": "सभी चैनल"
+  },
+  "channelCount": {
+    "message": "$1 चैनल"
+  },
+  "includeInFarming": {
+    "message": "फ़ार्मिंग में शामिल करें"
+  },
+  "excludeFromFarming": {
+    "message": "फ़ार्मिंग से हटाएँ"
+  },
+  "noWatchQueue": {
+    "message": "देखने की कतार में कोई चैनल कॉन्फ़िगर नहीं है।"
+  },
+  "channelPlaceholder": {
+    "message": "चैनल"
+  },
+  "add": {
+    "message": "जोड़ें"
+  },
+  "addChannel": {
+    "message": "चैनल जोड़ें"
+  },
+  "queued": {
+    "message": "कतार में"
+  },
+  "live": {
+    "message": "लाइव"
+  },
+  "settingsGeneralTitle": {
+    "message": "सामान्य सेटिंग्स"
+  },
+  "settingsGeneralDescription": {
+    "message": "Twitch और Kick पर लागू।"
+  },
+  "pauseManualTitle": {
+    "message": "मैन्युअल देखने पर रोकें"
+  },
+  "pauseManualDescription": {
+    "message": "जब आपके पास स्ट्रीम खुली हो और आप खुद देख रहे हों तो फ़ार्मिंग रोकें।"
+  },
+  "autoStartTitle": {
+    "message": "लॉन्च पर ऑटो-स्टार्ट"
+  },
+  "autoStartDescription": {
+    "message": "एक्सटेंशन लोड होते ही फ़ार्मिंग शुरू करें।"
+  },
+  "notificationsTitle": {
+    "message": "सूचनाएँ"
+  },
+  "notificationsDescription": {
+    "message": "सभी सक्षम प्लेटफ़ॉर्म पर लागू।"
+  },
+  "rewardEarnedTitle": {
+    "message": "इनाम मिला"
+  },
+  "rewardEarnedDescription": {
+    "message": "जब drop इनाम क्लेम किया जा सके तो सूचित करें।"
+  },
+  "noDropsLeftTitle": {
+    "message": "कोई Drops बाकी नहीं"
+  },
+  "noDropsLeftDescription": {
+    "message": "सभी सक्रिय कैंपेन समाप्त होने पर सूचित करें।"
+  },
+  "dropsSettingsTitle": {
+    "message": "Drops"
+  },
+  "dropsSettingsDescription": {
+    "message": "साझा कैंपेन फ़ार्मिंग व्यवहार।"
+  },
+  "autoClaimTitle": {
+    "message": "Drops अपने आप क्लेम करें"
+  },
+  "autoClaimDescription": {
+    "message": "मिले हुए इनाम उपलब्ध होने पर अपने आप क्लेम करें।"
+  },
+  "campaignPriorityTitle": {
+    "message": "कैंपेन प्राथमिकता"
+  },
+  "campaignPriorityDescription": {
+    "message": "कैंपेन कैसे चुने जाते हैं। प्राथमिकता सूची केवल हाथ से क्रमबद्ध कैंपेन फ़ार्म करती है; बाकी विकल्प सभी कैंपेन में से चुनते हैं। प्लेटफ़ॉर्म सेटिंग्स में श्रेणियाँ सीमित करें।"
+  },
+  "priorityListOnly": {
+    "message": "केवल प्राथमिकता सूची"
+  },
+  "endingSoonest": {
+    "message": "सबसे पहले समाप्त"
+  },
+  "lowAvailabilityFirst": {
+    "message": "कम उपलब्धता पहले"
+  },
+  "watchQueueSettingsTitle": {
+    "message": "देखने की कतार"
+  },
+  "watchQueueSettingsDescription": {
+    "message": "साझा fallback queue व्यवहार।"
+  },
+  "watchQueueFallbackOnlyTitle": {
+    "message": "केवल जब कोई सक्रिय drops न हों"
+  },
+  "watchQueueFallbackOnlyDescription": {
+    "message": "Drops प्राथमिकता अपने आप सुरक्षित रखता है।"
+  },
+  "platformSettingsTitle": {
+    "message": "प्लेटफ़ॉर्म सेटिंग्स"
+  },
+  "platformSettingsDescription": {
+    "message": "एक प्रदाता के लिए ऑटोमेशन और चैनल। Twitch और Kick के बीच बदलें।"
+  },
+  "farmingTabsTitle": {
+    "message": "फ़ार्मिंग टैब"
+  },
+  "farmingTabsDescription": {
+    "message": "वीडियो-टैब फ़ार्मिंग के नियंत्रण। टैबलेस लो-रिसोर्स मोड में टैब-विशिष्ट नियंत्रण अक्षम रहते हैं।"
+  },
+  "tablessTitle": {
+    "message": "टैबलेस लो-रिसोर्स मोड"
+  },
+  "tablessDescription": {
+    "message": "वीडियो टैब के बजाय हल्के watch signals से फ़ार्म करें। Twitch watch heartbeats उपयोग करता है; Kick viewer connection उपयोग करता है। कमाई रुकने पर अपने आप टैब पर लौटता है।"
+  },
+  "autoCloseTabsTitle": {
+    "message": "फ़ार्मिंग टैब अपने आप बंद करें"
+  },
+  "autoCloseTabsDescription": {
+    "message": "एक्सटेंशन idle होने पर अपने आप बंद करें, जब कोई drops या streamers न हों।"
+  },
+  "muteTabsTitle": {
+    "message": "फ़ार्मिंग टैब म्यूट करें"
+  },
+  "muteTabsDescription": {
+    "message": "फ़ार्मिंग के दौरान Drops और देखने की कतार वाले टैब म्यूट रखें।"
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "फ़ार्मिंग वीडियो अनम्यूट रखें"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "ब्राउज़र टैब म्यूट होने पर भी पेज वीडियो प्लेयर अनम्यूट रखता है।"
+  },
+  "tablessDisabledReason": {
+    "message": "टैबलेस लो-रिसोर्स मोड सक्षम होने पर अक्षम।"
+  },
+  "adFocusTitle": {
+    "message": "विज्ञापनों के दौरान टैब फ़ोकस करें"
+  },
+  "adFocusDescription": {
+    "message": "बैकग्राउंड टैब में विज्ञापन countdown रुक जाते हैं। विज्ञापन के दौरान फ़ार्मिंग टैब को थोड़ी देर फ़ोकस कर फिर पिछला टैब लौटाता है।"
+  },
+  "off": {
+    "message": "बंद"
+  },
+  "tabOnly": {
+    "message": "केवल टैब"
+  },
+  "tabAndWindow": {
+    "message": "टैब + विंडो"
+  },
+  "advancedTitle": {
+    "message": "उन्नत"
+  },
+  "advancedDescription": {
+    "message": "इन्हें तभी बदलें जब आप जानते हों: ये low-level scheduler और logging नियंत्रित करते हैं।"
+  },
+  "schedulerIntervalTitle": {
+    "message": "शेड्यूलर अंतराल"
+  },
+  "schedulerIntervalDescription": {
+    "message": "कैंपेन और streamer स्थिति कितनी बार refresh होती है।"
+  },
+  "secondsSuffix": {
+    "message": "सेक"
+  },
+  "automationSectionTitle": {
+    "message": "ऑटोमेशन"
+  },
+  "farmOnPlatform": {
+    "message": "$1 पर drops फ़ार्म करें और queue देखें।"
+  },
+  "enabled": {
+    "message": "सक्षम"
+  },
+  "watchQueueEditHint": {
+    "message": "$1 चुनने के बाद देखने की कतार टैब से संपादित करें।"
+  },
+  "excludedChannelsTitle": {
+    "message": "हटाए गए drop चैनल"
+  },
+  "excludedChannelsDescription": {
+    "message": "कैंपेन फ़ार्मिंग इन streamers को छोड़ेगी।"
+  },
+  "excludedChannelsEmpty": {
+    "message": "कोई हटाया गया drop चैनल नहीं।"
+  },
+  "farmAllCategoriesTitle": {
+    "message": "सभी श्रेणियाँ फ़ार्म करें"
+  },
+  "farmAllCategoriesDescription": {
+    "message": "$1 की हर श्रेणी में drops फ़ार्म करें। केवल चुने हुए सेट के लिए बंद करें।"
+  },
+  "categoriesToFarm": {
+    "message": "फ़ार्म करने की श्रेणियाँ"
+  },
+  "dragToPrioritize": {
+    "message": "प्राथमिकता के लिए खींचें"
+  },
+  "noCategoriesSelected": {
+    "message": "कोई श्रेणी चयनित नहीं: $1 पर कुछ फ़ार्म नहीं होगा। नीचे श्रेणियाँ जोड़ें।"
+  },
+  "hasActiveDrops": {
+    "message": "सक्रिय drops हैं"
+  },
+  "searchCategories": {
+    "message": "$1 श्रेणियाँ खोजें"
+  },
+  "searching": {
+    "message": "खोज रहा है…"
+  },
+  "noCategoriesFound": {
+    "message": "कोई श्रेणी नहीं मिली।"
+  },
+  "alreadyAdded": {
+    "message": "पहले से जोड़ा गया।"
+  },
+  "activityLogLevelsTitle": {
+    "message": "गतिविधि लॉग स्तर"
+  },
+  "activityLogLevelsDescription": {
+    "message": "गतिविधि लॉग में कौन से स्तर रिकॉर्ड हों चुनें। त्रुटियाँ हमेशा रखी जाती हैं।"
+  },
+  "visibleCampaignsTitle": {
+    "message": "दिखने वाले कैंपेन"
+  },
+  "visibleCampaignsDescription": {
+    "message": "Drops सूची में कौन से कैंपेन state दिखें चुनें। क्लेम करने योग्य इनाम वाला कैंपेन हमेशा दिखता है।"
+  },
+  "forgetExcludedTitle": {
+    "message": "हटाए गए कैंपेन भूलें"
+  },
+  "forgetExcludedDescription": {
+    "message": "फ़ार्मिंग से हटाए गए सभी कैंपेन साफ़ करें।"
+  },
+  "forget": {
+    "message": "भूलें"
+  },
+  "unknownGame": {
+    "message": "अज्ञात गेम"
+  },
+  "dropsCampaign": {
+    "message": "Drops कैंपेन"
+  },
+  "later": {
+    "message": "बाद में"
+  },
+  "ended": {
+    "message": "समाप्त"
+  },
+  "notificationRewardClaimed": {
+    "message": "इनाम क्लेम किया गया"
+  },
+  "notificationRewardEarned": {
+    "message": "इनाम मिला"
+  },
+  "notificationNoDropsLeft": {
+    "message": "कोई ड्रॉप बाकी नहीं"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$2 से $1"
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "$1 पर फ़ार्म करने योग्य drops नहीं हैं。"
+  },
+  "screenshotTwitchHeadline": {
+    "message": "Twitch और Kick drops, एक popup से प्रबंधित।"
+  },
+  "screenshotTwitchSubcopy": {
+    "message": "Stream Autopilot सामान्य ब्राउज़र सत्र और दिखने वाले म्यूट टैब से योग्य कैंपेन फ़ार्म करता है।"
+  },
+  "screenshotKickHeadline": {
+    "message": "अब Kick drops भी फ़ार्म करता है।"
+  },
+  "screenshotKickSubcopy": {
+    "message": "Twitch वाली automation, eligibility checks और auto-claim अब Kick creator rewards के लिए भी।"
+  },
+  "screenshotQueueHeadline": {
+    "message": "बैकअप देखने की कतार आपको कमाई जारी रखने देती है।"
+  },
+  "screenshotQueueSubcopy": {
+    "message": "जब कोई active drops नहीं होते, Stream Autopilot आपके पसंदीदा चैनल देखता है ताकि ऑनलाइन समय बेकार न जाए।"
+  },
+  "screenshotSettingsHeadline": {
+    "message": "अपने setup के लिए हर विवरण सेट करें।"
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "प्रति-प्लेटफ़ॉर्म automation, auto-claim, म्यूट टैब, game priority और experimental tabless low-resource mode."
+  },
+  "screenshotActivityHeadline": {
+    "message": "ठीक-ठीक देखें यह क्या कर रहा है।"
+  },
+  "screenshotActivitySubcopy": {
+    "message": "पारदर्शी गतिविधि लॉग हर check, switch और claim दिखाता है, level से filter किया जा सकता है।"
+  },
+  "autoClaimReady": {
+    "message": "ऑटो-क्लेम तैयार"
+  },
+  "resumingAutomation": {
+    "message": "ऑटोमेशन फिर शुरू हो रहा है..."
+  },
+  "attributionLinks": {
+    "message": "श्रेय लिंक"
+  },
+  "githubAttribution": {
+    "message": "GitHub पर jamezrin"
+  },
+  "xAttribution": {
+    "message": "X पर jamezrin"
+  },
+  "removeItem": {
+    "message": "$1 हटाएँ"
+  }
+}

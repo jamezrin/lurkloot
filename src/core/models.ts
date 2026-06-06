@@ -154,6 +154,10 @@ export interface PlaybackTelemetry {
 // browser throttles in background tabs/windows) keeps progressing.
 export type AdFocusMode = "none" | "tab" | "window";
 
+export type SupportedLocale = "en" | "es" | "fr" | "it" | "ru" | "de" | "zh_CN" | "hi" | "pt_BR" | "ar";
+
+export type LanguageOverride = "browser" | SupportedLocale;
+
 // A category (Twitch/Kick call it a game/category) the user has picked to farm.
 // We store the name alongside the id because a picked category may not appear in
 // any current campaign, so the UI must render it without one. `id` matches the
@@ -176,6 +180,7 @@ export interface PlatformSettings {
 }
 
 export interface ExtensionSettings {
+  languageOverride: LanguageOverride;
   running: boolean;
   autoClaim: boolean;
   autoClaimChannelPoints: boolean;

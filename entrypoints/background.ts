@@ -3,8 +3,31 @@ import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, 
 import { SETTINGS_SESSION_PORT, type RuntimeMessage } from "../src/core/messages";
 import { applyAdFocus } from "../src/core/tabs";
 import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "../src/background/controller";
+import { effectiveLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "../src/core/i18n";
+import type { ExtensionSettings, SupportedLocale } from "../src/core/models";
 import { KickAdapter } from "../src/platforms/kick";
 import { TwitchAdapter } from "../src/platforms/twitch";
+
+const localeCatalogs = new Map<string, MessageCatalog | undefined>();
+const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
+const getUrl = (path: string) => browser.runtime.getURL(path as never);
+
+async function catalog(locale: string): Promise<MessageCatalog | undefined> {
+  if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
+  const loaded = await loadLocaleCatalog(locale as SupportedLocale, getUrl);
+  localeCatalogs.set(locale, loaded);
+  return loaded;
+}
+
+async function translate(settings: ExtensionSettings, key: string, substitutions?: string | string[]): Promise<string> {
+  if (settings.languageOverride === "browser") {
+    const message = getMessage(key, substitutions);
+    if (message) return message;
+  }
+  const locale = effectiveLocale(settings.languageOverride, browser.i18n.getUILanguage());
+  const [active, fallback] = await Promise.all([catalog(locale), catalog("en")]);
+  return translateFromCatalogs(key, substitutions, active, fallback ?? {});
+}
 
 const controller = createBackgroundController({
   loadSettings,
@@ -28,6 +51,7 @@ const controller = createBackgroundController({
       message,
     });
   },
+  translate,
   applyAdFocus: (platform, tabId, adActive, mode) => applyAdFocus(platform, tabId, adActive, mode),
   loadTwitchIntegrity,
   saveTwitchIntegrity,

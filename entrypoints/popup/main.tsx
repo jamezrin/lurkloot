@@ -47,9 +47,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SETTINGS_SESSION_PORT, type CategorySearchResult, type PlaybackControl, type RuntimeMessage, type RuntimeSnapshot } from "../../src/core/messages";
-import type { AdFocusMode, CampaignFilterKey, CategorySelection, DropCampaign, EventLogEntry, ExtensionSettings, Platform, WatchSession } from "../../src/core/models";
+import type { AdFocusMode, CampaignFilterKey, CategorySelection, DropCampaign, EventLogEntry, ExtensionSettings, LanguageOverride, Platform, WatchSession } from "../../src/core/models";
 import { LOG_LEVELS, type LogLevel } from "../../src/core/logging";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "../../src/core/settings";
+import { effectiveLocale, isRtlLocale, loadLocaleCatalog, LOCALE_OPTIONS, translateFromCatalogs, type MessageCatalog } from "../../src/core/i18n";
 import { kickRewardImageUrl } from "../../src/platforms/kickParser";
 import "./style.css";
 
@@ -102,14 +103,26 @@ const REWARD_TINTS = [
 ];
 const SCREENSHOT_MODE = new URLSearchParams(window.location.search).get("screenshot") === "store";
 const EXTENSION_VERSION = SCREENSHOT_MODE ? "1.0.0" : browser.runtime.getManifest().version;
+const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
+const getUrl = (path: string) => browser.runtime.getURL(path as never);
+type TFunction = (key: string, substitutions?: string | string[]) => string;
+const I18nContext = React.createContext<{ t: TFunction; dir: "ltr" | "rtl"; locale: string }>({
+  t: (key) => getMessage(key) || key,
+  dir: "ltr",
+  locale: "en",
+});
+
+function useT(): TFunction {
+  return React.useContext(I18nContext).t;
+}
 
 type ScreenshotView = "drops" | "watchQueue" | "settings" | "activity";
 type ScreenshotVariant = {
   platform: Platform;
   view: ScreenshotView;
   accentGradient: string;
-  headline: string;
-  subcopy: string;
+  headlineKey: string;
+  subcopyKey: string;
 };
 // Drives the marketing screenshots captured by scripts/capture-store-screenshot.mjs.
 // Each variant frames a different platform/view with tailored copy; the script
@@ -123,36 +136,36 @@ const SCREENSHOT_VARIANTS: Record<string, ScreenshotVariant> = {
     platform: "twitch",
     view: "drops",
     accentGradient: TWITCH_GRADIENT,
-    headline: "Twitch and Kick drops, managed from one popup.",
-    subcopy: "Stream Autopilot farms eligible campaigns through your normal browser session with visible muted tabs.",
+    headlineKey: "screenshotTwitchHeadline",
+    subcopyKey: "screenshotTwitchSubcopy",
   },
   "kick-drops": {
     platform: "kick",
     view: "drops",
     accentGradient: KICK_GRADIENT,
-    headline: "Now farming Kick drops too.",
-    subcopy: "The same automation, eligibility checks, and auto-claim you rely on for Twitch — now covering Kick creator rewards.",
+    headlineKey: "screenshotKickHeadline",
+    subcopyKey: "screenshotKickSubcopy",
   },
   "watch-queue": {
     platform: "twitch",
     view: "watchQueue",
     accentGradient: TWITCH_GRADIENT,
-    headline: "A fallback Watch Queue keeps you earning.",
-    subcopy: "When no drops are active, Stream Autopilot watches your favorite channels so your time online never goes to waste.",
+    headlineKey: "screenshotQueueHeadline",
+    subcopyKey: "screenshotQueueSubcopy",
   },
   "settings": {
     platform: "twitch",
     view: "settings",
     accentGradient: TWITCH_GRADIENT,
-    headline: "Tune every detail to your setup.",
-    subcopy: "Per-platform automation, auto-claim, muted tabs, game priority, and an experimental low-resource tabless mode.",
+    headlineKey: "screenshotSettingsHeadline",
+    subcopyKey: "screenshotSettingsSubcopy",
   },
   "activity": {
     platform: "twitch",
     view: "activity",
     accentGradient: TWITCH_GRADIENT,
-    headline: "See exactly what it's doing.",
-    subcopy: "A transparent activity log shows every check, switch, and claim — filterable by level so nothing happens behind your back.",
+    headlineKey: "screenshotActivityHeadline",
+    subcopyKey: "screenshotActivitySubcopy",
   },
 };
 const SCREENSHOT_VARIANT_ID = new URLSearchParams(window.location.search).get("variant") ?? "twitch-drops";
@@ -448,6 +461,8 @@ function useDndSensors() {
 
 function Popup(): React.ReactElement {
   const [snapshot, setSnapshot] = useState<RuntimeSnapshot | null>(null);
+  const [overrideCatalog, setOverrideCatalog] = useState<MessageCatalog | undefined>();
+  const [fallbackCatalog, setFallbackCatalog] = useState<MessageCatalog | undefined>();
   const [platform, setPlatform] = useState<Platform>(SCREENSHOT_MODE ? SCREENSHOT_VARIANT.platform : "twitch");
   const [tab, setTab] = useState<PopupTab>(SCREENSHOT_MODE && SCREENSHOT_VARIANT.view === "watchQueue" ? "watchQueue" : "drops");
   const [settingsOpen, setSettingsOpen] = useState(SCREENSHOT_MODE && SCREENSHOT_VARIANT.view === "settings");
@@ -459,6 +474,43 @@ function Popup(): React.ReactElement {
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const wasSettingsOpen = useRef(settingsOpen);
   const resumeRefreshRun = useRef(0);
+  const languageOverride = snapshot?.settings.languageOverride ?? DEFAULT_SETTINGS.languageOverride;
+  const locale = effectiveLocale(languageOverride, browser.i18n.getUILanguage());
+  const dir = isRtlLocale(locale) ? "rtl" : "ltr";
+  const t: TFunction = (key, substitutions) => {
+    if (languageOverride === "browser") {
+      const message = getMessage(key, substitutions);
+      if (message) return message;
+    }
+    const message = translateFromCatalogs(key, substitutions, overrideCatalog, fallbackCatalog ?? overrideCatalog ?? {});
+    return message === key ? getMessage(key, substitutions) || message : message;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadLocaleCatalog("en", getUrl).then((catalog) => {
+      if (!cancelled) setFallbackCatalog(catalog);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (languageOverride === "browser") {
+      setOverrideCatalog(undefined);
+      return () => {
+        cancelled = true;
+      };
+    }
+    void loadLocaleCatalog(languageOverride, getUrl).then((catalog) => {
+      if (!cancelled) setOverrideCatalog(catalog);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [languageOverride]);
 
   function snapshotWithMergedSettings(nextSnapshot: RuntimeSnapshot): RuntimeSnapshot {
     const settings = mergeSettings(nextSnapshot.settings);
@@ -612,9 +664,11 @@ function Popup(): React.ReactElement {
 
   if (!snapshot) {
     return (
-      <main className="grid h-[600px] w-[400px] place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
-        Loading
-      </main>
+      <I18nContext.Provider value={{ t, dir, locale }}>
+        <main dir={dir} className="grid h-[600px] w-[400px] place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
+          {t("loading")}
+        </main>
+      </I18nContext.Provider>
     );
   }
 
@@ -624,16 +678,16 @@ function Popup(): React.ReactElement {
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
   const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(campaign, index, session, excludedIds.has(campaign.id)));
-  const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform]);
+  const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform], t);
   // Categories that currently have active drop campaigns, surfaced as one-tap
   // "Has active drops" suggestions in the category filter editor (zero network).
   const dropCategorySuggestions: Record<Platform, GameItem[]> = {
-    twitch: gameItemsFromCampaigns(snapshot.state.campaigns.twitch),
-    kick: gameItemsFromCampaigns(snapshot.state.campaigns.kick),
+    twitch: gameItemsFromCampaigns(snapshot.state.campaigns.twitch, t),
+    kick: gameItemsFromCampaigns(snapshot.state.campaigns.kick, t),
   };
   const gameMap = Object.fromEntries(games.map((game) => [game.id, game]));
   const watchQueueChannels = settings.platform[platform].watchQueueChannels;
-  const watchQueue = watchQueueChannels.map((username) => streamerItemFromFallback(username, session));
+  const watchQueue = watchQueueChannels.map((username) => streamerItemFromFallback(username, session, t));
   const automation = {
     twitch: pendingAutomation.twitch ?? (settings.running && settings.platform.twitch.enabled),
     kick: pendingAutomation.kick ?? (settings.running && settings.platform.kick.enabled),
@@ -644,7 +698,9 @@ function Popup(): React.ReactElement {
   const farmingChannel = activeCampaign?.farmingChannel ?? sessionChannel;
 
   return (
+    <I18nContext.Provider value={{ t, dir, locale }}>
     <main
+      dir={dir}
       data-platform={platform}
       className="flex h-[600px] w-[400px] flex-col overflow-hidden border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
     >
@@ -657,23 +713,23 @@ function Popup(): React.ReactElement {
               <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">Stream Autopilot</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: enabled ? "var(--accent)" : "#a1a1aa" }} />
-                {settingsOpen ? "Settings" : activityOpen ? "Activity" : resumingAutomation ? "Resuming automation..." : `${enabled ? "Active" : "Paused"} · ${PLATFORMS[platform].label}`}
+                {settingsOpen ? t("settingsTitle") : activityOpen ? t("activityTitle") : resumingAutomation ? t("resumingAutomation") : `${enabled ? t("activeStatus") : t("pausedStatus")} · ${PLATFORMS[platform].label}`}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <IconButton label="Refresh schedule" onClick={() => void refreshNow()} disabled={refreshing}>
+            <IconButton label={t("refreshSchedule")} onClick={() => void refreshNow()} disabled={refreshing}>
               <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
             </IconButton>
             <IconButton
-              label={activityOpen ? "Close activity" : "Open activity"}
+              label={activityOpen ? t("closeActivity") : t("openActivity")}
               active={activityOpen}
               onClick={() => { setActivityOpen((value) => !value); setSettingsOpen(false); }}
             >
               {activityOpen ? <X size={16} /> : <Clock3 size={16} />}
             </IconButton>
             <IconButton
-              label={settingsOpen ? "Close settings" : "Open settings"}
+              label={settingsOpen ? t("closeSettings") : t("openSettings")}
               active={settingsOpen}
               onClick={() => { setSettingsOpen((value) => !value); setActivityOpen(false); }}
             >
@@ -703,17 +759,17 @@ function Popup(): React.ReactElement {
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
-                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} statusMessage={resumingAutomation ? "Resuming automation..." : session.message} onChange={setAutomation} />
+                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} statusMessage={resumingAutomation ? t("resumingAutomation") : session.message} onChange={setAutomation} />
                 <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
                   <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
                   <p className="leading-snug text-zinc-600 dark:text-zinc-300">
-                    Drops always take priority over the Watch Queue. Drag campaigns by the <GripVertical size={11} className="inline align-text-bottom text-zinc-400" /> grip to set farming order.
+                    {t("priorityHint")}
                   </p>
                 </div>
                 <SubTabs
                   tabs={[
-                    { id: "drops", label: "Drops", icon: Gift, count: campaigns.length },
-                    { id: "watchQueue", label: "Watch Queue", icon: Play, count: `${watchQueue.length}/20` },
+                    { id: "drops", label: t("dropsTab"), icon: Gift, count: campaigns.length },
+                    { id: "watchQueue", label: t("watchQueueTab"), icon: Play, count: `${watchQueue.length}/20` },
                   ]}
                   active={tab}
                   onChange={setTab}
@@ -757,6 +813,7 @@ function Popup(): React.ReactElement {
       </div>
       {settingsOpen ? <AttributionFooter version={EXTENSION_VERSION} /> : null}
     </main>
+    </I18nContext.Provider>
   );
 }
 
@@ -773,20 +830,13 @@ const EVENT_LEVEL_COLOR: Record<LogLevel, string> = {
   error: "#ef4444",
 };
 
-const EVENT_LEVEL_LABEL: Record<LogLevel, string> = {
-  debug: "Debug",
-  info: "Info",
-  warn: "Warn",
-  error: "Error",
-};
-
 // Visibility filters shown in the Drops settings section, in display order.
 const CAMPAIGN_FILTERS: Array<{ key: CampaignFilterKey; label: string }> = [
-  { key: "notLinked", label: "Not linked" },
-  { key: "upcoming", label: "Upcoming" },
-  { key: "expired", label: "Expired" },
-  { key: "excluded", label: "Excluded" },
-  { key: "finished", label: "Finished" },
+  { key: "notLinked", label: "notLinked" },
+  { key: "upcoming", label: "upcoming" },
+  { key: "expired", label: "expired" },
+  { key: "excluded", label: "excluded" },
+  { key: "finished", label: "finished" },
 ];
 
 function ActivityLog({
@@ -800,6 +850,7 @@ function ActivityLog({
   lastTickAt?: string;
   enabledLogLevels: LogLevel[];
 }): React.ReactElement {
+  const t = useT();
   // The display filter defaults to the levels that are actually recorded —
   // disabled levels have no entries anyway — but stays user-toggleable below.
   const [activeLevels, setActiveLevels] = useState<Set<LogLevel>>(() => new Set(enabledLogLevels));
@@ -828,7 +879,7 @@ function ActivityLog({
       <div className="flex items-center justify-between px-0.5">
         <span className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
           <Clock3 size={13} className="text-zinc-400" />
-          {PLATFORMS[platform].label} activity
+          {t("platformActivity", PLATFORMS[platform].label)}
           {errorCount > 0 ? (
             <span className="rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white" style={{ backgroundColor: EVENT_LEVEL_COLOR.error }}>
               {errorCount}
@@ -836,7 +887,7 @@ function ActivityLog({
           ) : null}
         </span>
         <span className="text-[10px] font-medium text-zinc-400">
-          {lastTickAt ? `last check ${formatEventTime(lastTickAt)}` : "no checks yet"}
+          {lastTickAt ? t("lastCheck", formatEventTime(lastTickAt)) : t("noChecksYet")}
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-1 px-0.5">
@@ -854,14 +905,14 @@ function ActivityLog({
               aria-pressed={active}
             >
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "#ffffff" : EVENT_LEVEL_COLOR[level] }} />
-              {EVENT_LEVEL_LABEL[level]}
+              {t(level)}
             </button>
           );
         })}
       </div>
       <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
         {visible.length === 0 ? (
-          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">No activity recorded yet. Press refresh to run a check.</p>
+          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{t("noActivity")}</p>
         ) : (
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
             {visible.map((event) => (
@@ -879,6 +930,7 @@ function ActivityLog({
 }
 
 function StoreScreenshot({ variant, children }: { variant: ScreenshotVariant; children: React.ReactNode }): React.ReactElement {
+  const translate = (key: string) => getMessage(key) || key;
   return (
     <div
       data-platform={variant.platform}
@@ -889,15 +941,15 @@ function StoreScreenshot({ variant, children }: { variant: ScreenshotVariant; ch
         <div className="relative max-w-[590px]">
           <img src="/logo-ring.svg" alt="" width={76} height={76} className="mb-8 h-[76px] w-[76px]" />
           <h1 className="font-display text-[62px] font-bold leading-[0.96] tracking-normal text-white">
-            {variant.headline}
+            {translate(variant.headlineKey)}
           </h1>
           <p className="mt-6 max-w-[520px] text-[22px] leading-snug text-zinc-300">
-            {variant.subcopy}
+            {translate(variant.subcopyKey)}
           </p>
           <div className="mt-9 flex gap-3">
             <span className="rounded-lg bg-white px-4 py-2 text-[15px] font-bold text-zinc-950">Twitch</span>
             <span className="rounded-lg bg-[#53fc18] px-4 py-2 text-[15px] font-bold text-[#07140a]">Kick</span>
-            <span className="rounded-lg border border-white/18 bg-white/8 px-4 py-2 text-[15px] font-semibold text-zinc-200">Auto-claim ready</span>
+            <span className="rounded-lg border border-white/18 bg-white/8 px-4 py-2 text-[15px] font-semibold text-zinc-200">{translate("autoClaimReady")}</span>
           </div>
         </div>
       </section>
@@ -911,16 +963,17 @@ function StoreScreenshot({ variant, children }: { variant: ScreenshotVariant; ch
 }
 
 function AttributionFooter({ version }: { version: string }): React.ReactElement {
+  const t = useT();
   return (
     <footer className="flex h-9 shrink-0 items-center justify-between border-t border-zinc-200/70 bg-white/85 px-3 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-500">
       <span className="text-[10px] font-medium tabular">v{version}</span>
-      <nav aria-label="Attribution links" className="flex items-center gap-1.5">
+      <nav aria-label={t("attributionLinks")} className="flex items-center gap-1.5">
         <a
           href="https://github.com/jamezrin"
           target="_blank"
           rel="noreferrer"
-          title="jamezrin on GitHub"
-          aria-label="jamezrin on GitHub"
+          title={t("githubAttribution")}
+          aria-label={t("githubAttribution")}
           className="inline-flex h-7 w-7 items-center justify-center rounded-md outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
         >
           <Github size={15} />
@@ -929,8 +982,8 @@ function AttributionFooter({ version }: { version: string }): React.ReactElement
           href="https://x.com/jamezrin"
           target="_blank"
           rel="noreferrer"
-          title="jamezrin on X"
-          aria-label="jamezrin on X"
+          title={t("xAttribution")}
+          aria-label={t("xAttribution")}
           className="inline-flex h-7 w-7 items-center justify-center rounded-md outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
         >
           <XLogoIcon />
@@ -972,7 +1025,8 @@ function PlatformSwitcher({ active, automation, onChange }: { active: Platform; 
 }
 
 function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitle, farmingChannel, statusMessage }: { platformLabel: string; enabled: boolean; pending: boolean; onChange(value: boolean): Promise<void>; farmingTitle?: string; farmingChannel?: FarmingChannelView; statusMessage?: string }) {
-  const status = pending ? (enabled ? "Starting" : "Stopping") : enabled ? "Running" : "Paused";
+  const t = useT();
+  const status = pending ? (enabled ? t("automationStarting") : t("automationStopping")) : enabled ? t("automationRunning") : t("pausedStatus");
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-3.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900" style={{ boxShadow: enabled ? "0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px var(--accent-ring)" : undefined }}>
@@ -983,38 +1037,39 @@ function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitl
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{platformLabel} automation</span>
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{t("automationTitle", platformLabel)}</span>
             <Pill tone={enabled ? "accent" : "muted"}>{status}</Pill>
           </div>
           <div className="mt-0.5 flex h-[34px] flex-col justify-center text-xs text-zinc-500 dark:text-zinc-400">
             {pending ? (
-              <p className="line-clamp-2 leading-snug">{enabled ? "Starting automation..." : "Pausing automation..."}</p>
+              <p className="line-clamp-2 leading-snug">{enabled ? t("startingAutomation") : t("pausingAutomation")}</p>
             ) : enabled ? (
               <>
                 {farmingChannel ? (
                   <p className="flex items-center gap-1 truncate">
                     <Radio size={11} className="shrink-0" style={{ color: "var(--accent-text)" }} />
-                    Watching
+                    {t("watchingLabel")}
                     <span className="truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingChannel.name}</span>
                     {farmingChannel.viewers != null && <span className="shrink-0 text-zinc-400 dark:text-zinc-500">· {formatViewers(farmingChannel.viewers)}</span>}
                   </p>
                 ) : (
-                  <p className="line-clamp-2 leading-snug" title={statusMessage}>{statusMessage ?? "Waiting for an eligible stream"}</p>
+                  <p className="line-clamp-2 leading-snug" title={statusMessage}>{statusMessage ?? t("waitingEligibleStream")}</p>
                 )}
-                {farmingTitle && <p className="truncate">Farming <span className="font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span></p>}
+                {farmingTitle && <p className="truncate">{t("farmingLabel")} <span className="font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span></p>}
               </>
             ) : (
-              <p className="line-clamp-2 leading-snug">Watching paused. Toggle to resume drop farming.</p>
+              <p className="line-clamp-2 leading-snug">{t("watchingPausedHint")}</p>
             )}
           </div>
         </div>
-        <Toggle checked={enabled} onChange={onChange} label={`${platformLabel} automation`} disabled={pending} />
+        <Toggle checked={enabled} onChange={onChange} label={t("automationTitle", platformLabel)} disabled={pending} />
       </div>
     </div>
   );
 }
 
 function DropsPanel({ campaigns, gameMap, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
+  const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const firstId = campaigns[0]?.id;
@@ -1023,7 +1078,7 @@ function DropsPanel({ campaigns, gameMap, onReorder, onToggleExclude }: { campai
   const activeIndex = campaigns.findIndex((campaign) => campaign.id === activeId);
   const anyFarming = campaigns.some((campaign) => Boolean(campaign.farmingChannel));
 
-  if (campaigns.length === 0) return <EmptyPanel>No campaigns discovered yet.</EmptyPanel>;
+  if (campaigns.length === 0) return <EmptyPanel>{t("noCampaigns")}</EmptyPanel>;
 
   function endDrag(event: DragEndEvent): void {
     setActiveId(null);
@@ -1038,12 +1093,12 @@ function DropsPanel({ campaigns, gameMap, onReorder, onToggleExclude }: { campai
       <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-2">
           {campaigns.map((campaign, index) => (
-            <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index)} expanded={Boolean(expandedIds[campaign.id])} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onToggleExclude={onToggleExclude} />
+            <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onToggleExclude={onToggleExclude} />
           ))}
         </div>
       </SortableContext>
       <DragOverlay dropAnimation={null}>
-        {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex)} expanded={false} onToggle={() => undefined} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
+        {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex, t)} expanded={false} onToggle={() => undefined} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
 
       </DragOverlay>
     </DndContext>
@@ -1066,10 +1121,11 @@ function ImageWithFallback({ src, alt, className, fit = "cover", fallback }: { s
 }
 
 function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, onToggleExclude, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; onToggle(): void; onToggleExclude?(id: string): void | Promise<void>; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
+  const t = useT();
   const stats = campaignStats(campaign);
   const isFarming = Boolean(campaign.farmingChannel);
   const emphasized = isFarming || (!anyFarming && index === 0);
-  const channelLabel = campaign.allowedChannels[0] === "All" ? "All channels" : `${campaign.allowedChannels.length + campaign.moreChannels} channels`;
+  const channelLabel = campaign.allowedChannels[0] === "All" ? t("allChannels") : t("channelCount", String(campaign.allowedChannels.length + campaign.moreChannels));
 
   return (
     <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-transparent" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized ? { boxShadow: isOverlay ? "0 20px 50px -12px rgba(0,0,0,0.5)" : "0 0 0 1.5px var(--accent-ring), 0 10px 30px -18px var(--accent-glow)" } : undefined}>
@@ -1096,9 +1152,9 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
               <span className="truncate">{game.name}</span>
               <span className="shrink-0 text-zinc-300 dark:text-zinc-600">·</span>
               <Pill tone="accent">#{index + 1}</Pill>
-              {isFarming && <Pill tone="accent"><Radio size={9} /> Farming</Pill>}
-              {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> Not linked</Pill>}
-              {campaign.excluded && <Pill tone="outline"><Ban size={9} /> Excluded</Pill>}
+              {isFarming && <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill>}
+              {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
+              {campaign.excluded && <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill>}
             </div>
             <div className="mt-2"><ProgressBar value={stats.progress} glow={emphasized} /></div>
           </div>
@@ -1111,23 +1167,23 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                 <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
                   <div className="flex items-end justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> Ends in {formatCountdown(campaign.ends)}</div>
+                      <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> {t("endsIn", formatCountdown(campaign.ends, t))}</div>
                       {stats.complete
-                        ? <div className="mt-0.5 truncate text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>Complete</div>
-                        : <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">Next: <span className="font-medium text-zinc-800 dark:text-zinc-100">{stats.nextReward?.name}</span></div>}
+                        ? <div className="mt-0.5 truncate text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>{t("complete")}</div>
+                        : <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">{t("nextReward", stats.nextReward?.name ?? "")}</div>}
                     </div>
-                    {!stats.complete && <div className="shrink-0 text-right text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.remaining)} left</div>}
+                    {!stats.complete && <div className="shrink-0 text-right text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.remaining)} {t("left").toLowerCase()}</div>}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
-                  <MetaStat icon={Clock3} label="Farmed" value={formatHours(stats.totalFarmed)} />
-                  <MetaStat icon={RotateCcw} label="Left" value={stats.complete ? "Done" : formatMinutes(stats.remaining)} />
-                  <MetaStat icon={Trophy} label="Rewards" value={`${stats.completed}/${stats.totalRewards}`} />
+                  <MetaStat icon={Clock3} label={t("farmed")} value={formatHours(stats.totalFarmed)} />
+                  <MetaStat icon={RotateCcw} label={t("left")} value={stats.complete ? t("done") : formatMinutes(stats.remaining)} />
+                  <MetaStat icon={Trophy} label={t("rewards")} value={`${stats.completed}/${stats.totalRewards}`} />
                 </div>
                 <div>
                   <div className="mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} style={{ color: "var(--accent-text)" }} /> Rewards</span>
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">in campaign order</span>
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} style={{ color: "var(--accent-text)" }} /> {t("rewards")}</span>
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{t("inCampaignOrder")}</span>
                   </div>
                   <div className="no-scrollbar -mx-0.5 flex gap-2 overflow-x-auto px-0.5 pb-1">
                     {campaign.rewards.map((reward) => <RewardTile key={reward.id} reward={reward} />)}
@@ -1149,7 +1205,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                         : "border-red-500/30 text-red-600 hover:border-red-500/60 hover:bg-red-500/5 dark:text-red-400",
                     )}
                   >
-                    <Ban size={12} /> {campaign.excluded ? "Include in farming" : "Exclude from farming"}
+                    <Ban size={12} /> {campaign.excluded ? t("includeInFarming") : t("excludeFromFarming")}
                   </button>
                 )}
             </div>
@@ -1183,6 +1239,7 @@ function RewardTile({ reward }: { reward: RewardView }) {
 }
 
 function WatchQueuePanel({ streamers, onChange }: { platform: Platform; streamers: StreamerItem[]; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
+  const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -1216,7 +1273,7 @@ function WatchQueuePanel({ streamers, onChange }: { platform: Platform; streamer
 
   return (
     <div className="space-y-2.5">
-      {streamers.length === 0 ? <EmptyPanel>No watch queue channels configured.</EmptyPanel> : (
+      {streamers.length === 0 ? <EmptyPanel>{t("noWatchQueue")}</EmptyPanel> : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
           <SortableContext items={streamers.map((streamer) => streamer.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
@@ -1230,12 +1287,12 @@ function WatchQueuePanel({ streamers, onChange }: { platform: Platform; streamer
       )}
       {adding ? (
         <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); addChannel(); }}>
-          <input autoFocus value={value} onChange={(event) => setValue(event.target.value)} placeholder="channel" className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
-          <button type="submit" className="rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-[var(--accent-contrast)]">Add</button>
+          <input autoFocus value={value} onChange={(event) => setValue(event.target.value)} placeholder={t("channelPlaceholder")} className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
+          <button type="submit" className="rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-[var(--accent-contrast)]">{t("add")}</button>
         </form>
       ) : (
         <button type="button" onClick={() => setAdding(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-300 py-2 text-xs font-medium text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200">
-          <Plus size={14} /> Add channel
+          <Plus size={14} /> {t("addChannel")}
         </button>
       )}
     </div>
@@ -1259,11 +1316,12 @@ function SettingsView({ suggestions, onSearchCategories, settings, onSettingsCha
   onSettingsChange(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void>;
   initialPlatform?: Platform;
 }) {
+  const t = useT();
   const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as SettingsPatch);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
   const tabPlaybackDisabled = settings.tablessMode;
-  const tabPlaybackDisabledReason = "Disabled while tabless low-resource mode is enabled.";
+  const tabPlaybackDisabledReason = t("tablessDisabledReason");
   const setPlatformFarmAllCategories = (platform: Platform) => (farmAllCategories: boolean) => onSettingsChange(
     {
       platform: {
@@ -1297,24 +1355,34 @@ function SettingsView({ suggestions, onSearchCategories, settings, onSettingsCha
 
   return (
     <div className="space-y-6">
-      <SettingsSection title="General settings" description="Applies to Twitch and Kick." icon={SettingsIcon}>
-        <SettingRow title="Pause when watching manually" description="Stop farming while you have a stream open and are watching yourself." checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
-        <SettingRow title="Auto-start on launch" description="Begin farming as soon as the extension loads." checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
+      <SettingsSection title={t("settingsGeneralTitle")} description={t("settingsGeneralDescription")} icon={SettingsIcon}>
+        <SelectSettingRow<LanguageOverride>
+          title={t("settingsLanguageTitle")}
+          description={t("settingsLanguageDescription")}
+          value={settings.languageOverride}
+          options={LOCALE_OPTIONS.map((option) => ({
+            value: option.value,
+            label: option.value === "browser" ? t(option.labelKey) : `${option.nativeName} (${t(option.labelKey)})`,
+          }))}
+          onChange={(value) => onSettingsChange({ languageOverride: value })}
+        />
+        <SettingRow title={t("pauseManualTitle")} description={t("pauseManualDescription")} checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
+        <SettingRow title={t("autoStartTitle")} description={t("autoStartDescription")} checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
       </SettingsSection>
-      <SettingsSection title="Notifications" description="Applies to all enabled platforms." icon={Bell}>
-        <SettingRow title="Reward earned" description="Notify when a drop reward is claimable." checked={settings.notifyRewardEarned} onChange={set("notifyRewardEarned")} />
-        <SettingRow title="No drops left" description="Notify when all active campaigns are exhausted." checked={settings.notifyNoDropsLeft} onChange={set("notifyNoDropsLeft")} />
+      <SettingsSection title={t("notificationsTitle")} description={t("notificationsDescription")} icon={Bell}>
+        <SettingRow title={t("rewardEarnedTitle")} description={t("rewardEarnedDescription")} checked={settings.notifyRewardEarned} onChange={set("notifyRewardEarned")} />
+        <SettingRow title={t("noDropsLeftTitle")} description={t("noDropsLeftDescription")} checked={settings.notifyNoDropsLeft} onChange={set("notifyNoDropsLeft")} />
       </SettingsSection>
-      <SettingsSection title="Drops" description="Shared campaign farming behavior." icon={Gift}>
-        <SettingRow title="Auto-claim drops" description="Claim earned drop rewards automatically when they become available." checked={settings.autoClaim} onChange={set("autoClaim")} />
+      <SettingsSection title={t("dropsSettingsTitle")} description={t("dropsSettingsDescription")} icon={Gift}>
+        <SettingRow title={t("autoClaimTitle")} description={t("autoClaimDescription")} checked={settings.autoClaim} onChange={set("autoClaim")} />
         <SelectSettingRow
-          title="Campaign priority"
-          description="How campaigns are chosen to farm. Priority list only farms just the campaigns you've manually reordered; the others pick among all campaigns. Limit which categories are farmed per platform under Platform settings."
+          title={t("campaignPriorityTitle")}
+          description={t("campaignPriorityDescription")}
           value={settings.priorityMode}
           options={[
-            { value: "priority_list_only", label: "Priority list only" },
-            { value: "ending_soonest", label: "Ending soonest" },
-            { value: "lowest_availability", label: "Low availability first" },
+            { value: "priority_list_only", label: t("priorityListOnly") },
+            { value: "ending_soonest", label: t("endingSoonest") },
+            { value: "lowest_availability", label: t("lowAvailabilityFirst") },
           ]}
           onChange={(value) => onSettingsChange({ priorityMode: value }, { tickAfterSave: true })}
         />
@@ -1324,10 +1392,10 @@ function SettingsView({ suggestions, onSearchCategories, settings, onSettingsCha
           onForget={() => onSettingsChange({ excludedCampaignIds: [] }, { tickAfterSave: true })}
         />
       </SettingsSection>
-      <SettingsSection title="Watch Queue" description="Shared fallback queue behavior." icon={Play}>
-        <SettingRow title="Only when no drops are active" description="Preserves drop priority automatically." checked={settings.watchQueueFallbackOnly} onChange={set("watchQueueFallbackOnly")} />
+      <SettingsSection title={t("watchQueueSettingsTitle")} description={t("watchQueueSettingsDescription")} icon={Play}>
+        <SettingRow title={t("watchQueueFallbackOnlyTitle")} description={t("watchQueueFallbackOnlyDescription")} checked={settings.watchQueueFallbackOnly} onChange={set("watchQueueFallbackOnly")} />
       </SettingsSection>
-      <SettingsSection title="Platform settings" description="Automation and channels for one provider. Switch between Twitch and Kick." icon={Radio} divided={false}>
+      <SettingsSection title={t("platformSettingsTitle")} description={t("platformSettingsDescription")} icon={Radio} divided={false}>
         <SettingsPlatformSwitch active={platformTab} onChange={setPlatformTab} />
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={platformTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="space-y-3">
@@ -1335,27 +1403,27 @@ function SettingsView({ suggestions, onSearchCategories, settings, onSettingsCha
           </motion.div>
         </AnimatePresence>
       </SettingsSection>
-      <SettingsSection title="Farming tabs" description="Controls for video-tab farming. Tab-specific controls are disabled while tabless low-resource mode is enabled." icon={Play}>
-        <SettingRow title="Tabless low-resource mode" description="Farm via lightweight watch signals instead of a video tab. Twitch uses watch heartbeats; Kick uses a viewer connection. Falls back to a tab automatically if it stops earning." checked={settings.tablessMode} onChange={(value) => onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />
-        <SettingRow title="Auto-close farming tabs" description="Automatically close when the extension is idle (no drops to farm or no streamers to watch)." checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
-        <SettingRow title="Mute farming tabs" description="Keep drop and Watch Queue tabs muted while farming." checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} disabled={tabPlaybackDisabled} disabledReason={tabPlaybackDisabledReason} />
-        <SettingRow title="Keep farming videos unmuted" description="Keeps page video players unmuted while the browser tab is muted." checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} disabled={tabPlaybackDisabled} disabledReason={tabPlaybackDisabledReason} />
+      <SettingsSection title={t("farmingTabsTitle")} description={t("farmingTabsDescription")} icon={Play}>
+        <SettingRow title={t("tablessTitle")} description={t("tablessDescription")} checked={settings.tablessMode} onChange={(value) => onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />
+        <SettingRow title={t("autoCloseTabsTitle")} description={t("autoCloseTabsDescription")} checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
+        <SettingRow title={t("muteTabsTitle")} description={t("muteTabsDescription")} checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} disabled={tabPlaybackDisabled} disabledReason={tabPlaybackDisabledReason} />
+        <SettingRow title={t("keepVideosUnmutedTitle")} description={t("keepVideosUnmutedDescription")} checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} disabled={tabPlaybackDisabled} disabledReason={tabPlaybackDisabledReason} />
         <SelectSettingRow
-          title="Focus tab during ads"
-          description="Ad countdowns freeze in background tabs. Briefly focus the farming tab while an ad plays so it counts down, then restore your previous tab."
+          title={t("adFocusTitle")}
+          description={t("adFocusDescription")}
           value={settings.adFocusMode ?? "window"}
           options={[
-            { value: "none", label: "Off" },
-            { value: "tab", label: "Tab only" },
-            { value: "window", label: "Tab + window" },
+            { value: "none", label: t("off") },
+            { value: "tab", label: t("tabOnly") },
+            { value: "window", label: t("tabAndWindow") },
           ]}
           onChange={(value) => onSettingsChange({ adFocusMode: value })}
           disabled={tabPlaybackDisabled}
           disabledReason={tabPlaybackDisabledReason}
         />
       </SettingsSection>
-      <SettingsSection title="Advanced" description="Only change these if you know what you are doing — they control low-level scheduler and logging behavior." icon={SlidersHorizontal}>
-        <NumberSettingRow title="Scheduler interval" description="How often campaign and streamer status refreshes." value={pollIntervalSeconds} min={30} max={3600} suffix="sec" onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
+      <SettingsSection title={t("advancedTitle")} description={t("advancedDescription")} icon={SlidersHorizontal}>
+        <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={pollIntervalSeconds} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
         <LogLevelSettingRow value={settings.enabledLogLevels} onChange={(levels) => onSettingsChange({ enabledLogLevels: levels })} />
       </SettingsSection>
     </div>
@@ -1371,6 +1439,7 @@ function PlatformSettingsGroup({ platform, suggestions, settings, onFarmAllCateg
   onSearchCategories(query: string): Promise<CategorySelection[]>;
   onExcludedChannelsChange(channels: string[]): void | Promise<void>;
 }) {
+  const t = useT();
   const details = PLATFORMS[platform];
   const platformSettings = settings.platform[platform];
   const queueCount = platformSettings.watchQueueChannels.length;
@@ -1381,30 +1450,30 @@ function PlatformSettingsGroup({ platform, suggestions, settings, onFarmAllCateg
       <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
         <div className="flex items-center gap-3 py-2.5">
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Automation</div>
-            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Farm drops and watch the queue on {details.label}.</div>
+            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("automationSectionTitle")}</div>
+            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("farmOnPlatform", details.label)}</div>
           </div>
-          <Pill tone={platformSettings.enabled ? "live" : "muted"}>{platformSettings.enabled ? "Enabled" : "Paused"}</Pill>
+          <Pill tone={platformSettings.enabled ? "live" : "muted"}>{platformSettings.enabled ? t("enabled") : t("pausedStatus")}</Pill>
         </div>
         <div className="flex items-center gap-3 py-2.5">
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Watch Queue</div>
-            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Edit it from the Watch Queue tab after selecting {details.label}.</div>
+            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("watchQueueTab")}</div>
+            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("watchQueueEditHint", details.label)}</div>
           </div>
           <Pill tone="outline">{queueCount}/20</Pill>
         </div>
       </div>
       <ChannelListEditor
-        title="Excluded drop channels"
-        description="Campaign farming will skip these streamers."
-        empty="No excluded drop channels."
+        title={t("excludedChannelsTitle")}
+        description={t("excludedChannelsDescription")}
+        empty={t("excludedChannelsEmpty")}
         channels={excludedChannels}
         onChange={onExcludedChannelsChange}
       />
       <div className="flex items-center gap-3 py-1">
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Farm all categories</div>
-          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Farm drops in every {details.label} category. Turn off to farm only a chosen set.</div>
+          <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("farmAllCategoriesTitle")}</div>
+          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("farmAllCategoriesDescription", details.label)}</div>
         </div>
         <Toggle checked={platformSettings.farmAllCategories} onChange={onFarmAllCategoriesChange} label={`Farm all ${details.label} categories`} />
       </div>
@@ -1452,6 +1521,7 @@ function ChannelListEditor({ title, description, empty, channels, onChange }: {
   channels: string[];
   onChange(channels: string[]): void | Promise<void>;
 }) {
+  const t = useT();
   const [adding, setAdding] = useState(false);
   const [value, setValue] = useState("");
 
@@ -1486,19 +1556,19 @@ function ChannelListEditor({ title, description, empty, channels, onChange }: {
           {channels.map((channel) => (
             <span key={channel} className="inline-flex max-w-full items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
               <span className="truncate">{channel}</span>
-              <RemoveRowButton label={`Remove ${channel}`} onClick={() => removeChannel(channel)} />
+              <RemoveRowButton label={t("removeItem", channel)} onClick={() => removeChannel(channel)} />
             </span>
           ))}
         </div>
       )}
       {adding ? (
         <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); addChannel(); }}>
-          <input autoFocus value={value} onChange={(event) => setValue(event.target.value)} placeholder="channel" className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
-          <button type="submit" className="rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-[var(--accent-contrast)]">Add</button>
+          <input autoFocus value={value} onChange={(event) => setValue(event.target.value)} placeholder={t("channelPlaceholder")} className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
+          <button type="submit" className="rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-[var(--accent-contrast)]">{t("add")}</button>
         </form>
       ) : (
         <button type="button" onClick={() => setAdding(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-300 py-2 text-xs font-medium text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200">
-          <Plus size={14} /> Add channel
+          <Plus size={14} /> {t("addChannel")}
         </button>
       )}
     </div>
@@ -1515,6 +1585,7 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
   onChange(categories: CategorySelection[]): void | Promise<void>;
   onSearch(query: string): Promise<CategorySelection[]>;
 }) {
+  const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -1567,13 +1638,13 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
   return (
     <div className="space-y-2.5 rounded-xl border border-zinc-200/70 p-2.5 dark:border-zinc-800">
       <div className="flex items-center justify-between">
-        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">Categories to farm</div>
-        {categories.length > 0 ? <Pill tone="accent">drag to prioritize</Pill> : <Pill tone="outline">0</Pill>}
+        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{t("categoriesToFarm")}</div>
+        {categories.length > 0 ? <Pill tone="accent">{t("dragToPrioritize")}</Pill> : <Pill tone="outline">0</Pill>}
       </div>
       {categories.length === 0 ? (
         <div className="flex items-start gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-          <span>No categories selected — nothing will be farmed on {PLATFORMS[platform].label}. Add categories below.</span>
+          <span>{t("noCategoriesSelected", PLATFORMS[platform].label)}</span>
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
@@ -1586,7 +1657,7 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
 
       {unaddedSuggestions.length > 0 ? (
         <div className="space-y-1.5">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">Has active drops</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("hasActiveDrops")}</div>
           <div className="flex flex-wrap gap-1.5">
             {unaddedSuggestions.map((suggestion) => (
               <CategoryAddChip key={suggestion.id} name={suggestion.name} onClick={() => addCategory({ id: suggestion.id, name: suggestion.name })} />
@@ -1601,15 +1672,15 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={`Search ${PLATFORMS[platform].label} categories`}
+            placeholder={t("searchCategories", PLATFORMS[platform].label)}
             className="w-full rounded-xl border border-zinc-200 bg-white py-2 pl-8 pr-3 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
           />
         </div>
         {query.trim() ? (
           searching ? (
-            <div className="text-[11px] text-zinc-400">Searching…</div>
+            <div className="text-[11px] text-zinc-400">{t("searching")}</div>
           ) : unaddedResults.length === 0 ? (
-            <div className="text-[11px] text-zinc-400">{results.length === 0 ? "No categories found." : "Already added."}</div>
+            <div className="text-[11px] text-zinc-400">{results.length === 0 ? t("noCategoriesFound") : t("alreadyAdded")}</div>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {unaddedResults.map((result) => (
@@ -1732,6 +1803,7 @@ function SettingRow({ title, description, checked, onChange, disabled = false, d
 // Per-level control over what gets recorded in the Activity log. Errors are
 // always kept so failures are never silently dropped, so that pill is locked on.
 function LogLevelSettingRow({ value, onChange }: { value: LogLevel[]; onChange(levels: LogLevel[]): void | Promise<void> }) {
+  const t = useT();
   const enabled = new Set(value);
   const toggle = (level: LogLevel) => {
     const next = new Set(enabled);
@@ -1742,9 +1814,9 @@ function LogLevelSettingRow({ value, onChange }: { value: LogLevel[]; onChange(l
   };
   return (
     <div className="py-2.5">
-      <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Activity log levels</div>
+      <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("activityLogLevelsTitle")}</div>
       <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-        Choose which levels are recorded in the Activity log. Errors are always kept.
+        {t("activityLogLevelsDescription")}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
         {LOG_LEVELS.map((level) => {
@@ -1763,7 +1835,7 @@ function LogLevelSettingRow({ value, onChange }: { value: LogLevel[]; onChange(l
               aria-pressed={active}
             >
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "#ffffff" : EVENT_LEVEL_COLOR[level] }} />
-              {EVENT_LEVEL_LABEL[level]}
+              {t(level)}
             </button>
           );
         })}
@@ -1775,12 +1847,13 @@ function LogLevelSettingRow({ value, onChange }: { value: LogLevel[]; onChange(l
 // Controls which campaign states appear in the Drops list. A state with its pill
 // turned off is hidden; campaigns in none of these states are always shown.
 function CampaignFilterSettingRow({ value, onChange }: { value: Record<CampaignFilterKey, boolean>; onChange(value: Record<CampaignFilterKey, boolean>): void | Promise<void> }) {
+  const t = useT();
   const toggle = (key: CampaignFilterKey) => onChange({ ...value, [key]: !value[key] });
   return (
     <div className="py-2.5">
-      <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Visible campaigns</div>
+      <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("visibleCampaignsTitle")}</div>
       <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-        Choose which campaign states show in the Drops list. A campaign with a claimable reward always stays visible.
+        {t("visibleCampaignsDescription")}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
         {CAMPAIGN_FILTERS.map(({ key, label }) => {
@@ -1797,7 +1870,7 @@ function CampaignFilterSettingRow({ value, onChange }: { value: Record<CampaignF
               aria-pressed={active}
             >
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "#ffffff" : "var(--accent)" }} />
-              {label}
+              {t(label)}
             </button>
           );
         })}
@@ -1807,13 +1880,14 @@ function CampaignFilterSettingRow({ value, onChange }: { value: Record<CampaignF
 }
 
 function ForgetExcludedCampaignsRow({ count, onForget }: { count: number; onForget(): void | Promise<void> }) {
+  const t = useT();
   const disabled = count === 0;
   return (
     <div className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">Forget excluded campaigns</div>
+        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("forgetExcludedTitle")}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-          Clear every campaign you excluded from farming.
+          {t("forgetExcludedDescription")}
         </div>
       </div>
       <button
@@ -1828,7 +1902,7 @@ function ForgetExcludedCampaignsRow({ count, onForget }: { count: number; onForg
         )}
       >
         <Ban size={12} />
-        Forget
+        {t("forget")}
         <span className="tabular">{count}</span>
       </button>
     </div>
@@ -2053,14 +2127,14 @@ function prioritiesFromOrder(campaigns: Array<{ id: string }>): Record<string, n
   return Object.fromEntries(campaigns.map((campaign, index) => [campaign.id, campaigns.length - index]));
 }
 
-function gameItemsFromCampaigns(campaigns: DropCampaign[]): GameItem[] {
+function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction): GameItem[] {
   const discovered = new Map<string, GameItem>();
   campaigns.forEach((campaign, index) => {
     const id = gameId(campaign);
     if (!discovered.has(id)) {
       discovered.set(id, {
         id,
-        name: campaign.gameName ?? "Unknown game",
+        name: campaign.gameName ?? t("unknownGame"),
         short: initials(campaign.gameName ?? campaign.name),
         accent: GAME_ACCENTS[index % GAME_ACCENTS.length],
       });
@@ -2092,9 +2166,9 @@ function gameId(campaign: DropCampaign): string {
   return (campaign.categoryId ?? campaign.gameName ?? campaign.name).trim().toLowerCase();
 }
 
-function fallbackGame(campaign: DropCampaign | CampaignView, index: number): GameItem {
+function fallbackGame(campaign: DropCampaign | CampaignView, index: number, t: TFunction): GameItem {
   const id = "gameId" in campaign ? campaign.gameId : gameId(campaign);
-  const name = "title" in campaign ? "Drops campaign" : campaign.gameName ?? "Drops campaign";
+  const name = "title" in campaign ? t("dropsCampaign") : campaign.gameName ?? t("dropsCampaign");
   const short = "thumbnail" in campaign ? campaign.thumbnail : initials(campaign.gameName ?? campaign.name);
   return { id, name, short, accent: GAME_ACCENTS[Math.max(0, index) % GAME_ACCENTS.length] };
 }
@@ -2164,10 +2238,10 @@ function channelViewFromSession(session: WatchSession): FarmingChannelView | und
   };
 }
 
-function streamerItemFromFallback(username: string, session: WatchSession): StreamerItem {
+function streamerItemFromFallback(username: string, session: WatchSession, t: TFunction): StreamerItem {
   const channel = session.channel;
   const live = channel != null && channel.username.toLowerCase() === username.toLowerCase() && session.status === "watching";
-  if (!live) return { id: username, name: username, live: false, subtitle: "Queued" };
+  if (!live) return { id: username, name: username, live: false, subtitle: t("queued") };
   return {
     id: username,
     name: channel.displayName ?? username,
@@ -2178,10 +2252,11 @@ function streamerItemFromFallback(username: string, session: WatchSession): Stre
 }
 
 function WatchQueueStatus({ streamer }: { streamer: StreamerItem }): React.ReactElement {
+  const t = useT();
   if (streamer.live) {
-    return <Pill tone="live"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{streamer.viewers != null ? formatViewers(streamer.viewers) : "live"}</Pill>;
+    return <Pill tone="live"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{streamer.viewers != null ? formatViewers(streamer.viewers) : t("live")}</Pill>;
   }
-  return <Pill tone="muted">queued</Pill>;
+  return <Pill tone="muted">{t("queued")}</Pill>;
 }
 
 function initials(value: string): string {
@@ -2189,11 +2264,11 @@ function initials(value: string): string {
   return result || "SM";
 }
 
-function formatCountdown(value: string): string {
+function formatCountdown(value: string, t: TFunction): string {
   const timestamp = Date.parse(value);
-  if (!value || Number.isNaN(timestamp)) return "later";
+  if (!value || Number.isNaN(timestamp)) return t("later");
   const diff = timestamp - Date.now();
-  if (diff <= 0) return "Ended";
+  if (diff <= 0) return t("ended");
   const days = Math.floor(diff / 86_400_000);
   const hours = Math.floor((diff % 86_400_000) / 3_600_000);
   const minutes = Math.floor((diff % 3_600_000) / 60_000);

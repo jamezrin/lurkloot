@@ -10,9 +10,9 @@ export default defineConfig({
     plugins: [tailwindcss()],
   }),
   manifest: {
-    name: "Stream Autopilot",
-    description:
-      "Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode.",
+    default_locale: "en",
+    name: "__MSG_extensionName__",
+    description: "__MSG_extensionDescription__",
     permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest"],
     host_permissions: [
       "https://www.twitch.tv/*",
@@ -28,7 +28,7 @@ export default defineConfig({
       "128": "icon/128.png"
     },
     action: {
-      default_title: "Stream Autopilot",
+      default_title: "__MSG_extensionName__",
       default_icon: {
         "16": "icon/16.png",
         "32": "icon/32.png"

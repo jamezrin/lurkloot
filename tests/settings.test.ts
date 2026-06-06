@@ -11,6 +11,7 @@ describe("settings", () => {
       notifyRewardEarned: true,
       notifyNoDropsLeft: true,
       autoStartDropFarming: true,
+      languageOverride: "browser",
       watchQueueFallbackOnly: true,
       pollIntervalMinutes: 1,
       enabledLogLevels: ["info", "warn", "error"],
@@ -105,6 +106,16 @@ describe("settings", () => {
     expect(mergeSettings({ priorityMode: "priority_list_only" }).priorityMode).toBe("priority_list_only");
     expect(mergeSettings({ priorityMode: "nonsense" } as unknown as Parameters<typeof mergeSettings>[0]).priorityMode)
       .toBe("ending_soonest");
+  });
+
+  it("validates the language override", () => {
+    expect(mergeSettings(undefined).languageOverride).toBe("browser");
+    expect(mergeSettings({ languageOverride: "es" }).languageOverride).toBe("es");
+    expect(mergeSettings({ languageOverride: "zh_CN" }).languageOverride).toBe("zh_CN");
+    expect(mergeSettings({ languageOverride: "pt_BR" }).languageOverride).toBe("pt_BR");
+    expect(mergeSettings({ languageOverride: "ar" }).languageOverride).toBe("ar");
+    expect(mergeSettings({ languageOverride: "pt" } as unknown as Parameters<typeof mergeSettings>[0]).languageOverride)
+      .toBe("browser");
   });
 
   it("preserves watch queue channel priority order while removing duplicates", () => {

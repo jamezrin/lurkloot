@@ -16,6 +16,13 @@ export const ALARM_NAME = "stream-autopilot.tick";
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
 export const WATCH_ALARM_NAME = "stream-autopilot.watch";
 const PLATFORMS: Platform[] = ["twitch", "kick"];
+const EN_RUNTIME_MESSAGES: Record<string, string> = {
+  notificationRewardClaimed: "Reward claimed",
+  notificationRewardEarned: "Reward earned",
+  notificationNoDropsLeft: "No drops left",
+  notificationRewardFromCampaign: "$1 from $2",
+  notificationNoDropsLeftMessage: "$1 has no eligible drops to farm.",
+};
 
 // One in-flight state mutation at a time. Each handler's load→modify→persist
 // runs inside this lock so a save built on a stale snapshot can't clobber
@@ -39,6 +46,7 @@ export interface BackgroundControllerDeps {
   createAlarm(name: string, options: { periodInMinutes: number }): Promise<void>;
   createAdapters(): Record<Platform, PlatformAdapter>;
   createNotification?(notification: { title: string; message: string }): Promise<void>;
+  translate?(settings: ExtensionSettings, key: string, substitutions?: string | string[]): string | Promise<string>;
   closeManagedTabsByUrl?(urls: string[]): Promise<void>;
   applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode): Promise<void>;
   loadTwitchIntegrity?(): Promise<TwitchIntegrity | undefined>;
@@ -568,7 +576,11 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
         });
         const settings = settingsWithDefaults(await deps.loadSettings());
         if (claimed && settings.notifyRewardEarned) {
-          await safeNotify(settings, "Reward claimed", `${reward.name} from ${campaign.name}`);
+          await safeNotify(
+            settings,
+            await tr(settings, "notificationRewardClaimed"),
+            await tr(settings, "notificationRewardFromCampaign", [reward.name, campaign.name]),
+          );
         }
         await persist(nextState);
       } catch (error) {
@@ -673,6 +685,18 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     }
   }
 
+  async function tr(settings: ExtensionSettings, key: string, substitutions?: string | string[]): Promise<string> {
+    const translated = await deps.translate?.(settings, key, substitutions);
+    if (translated) return translated;
+    const template = EN_RUNTIME_MESSAGES[key] ?? key;
+    const values = Array.isArray(substitutions)
+      ? substitutions
+      : substitutions == null
+        ? []
+        : [substitutions];
+    return values.reduce((text, value, index) => text.replaceAll(`$${index + 1}`, value), template);
+  }
+
   async function emitNotifications(
     settings: ExtensionSettings,
     previous: SchedulerState,
@@ -680,7 +704,11 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   ): Promise<void> {
     if (settings.notifyRewardEarned) {
       for (const reward of newlyEarnedRewards(previous, next)) {
-        await safeNotify(settings, "Reward earned", `${reward.reward.name} from ${reward.campaign.name}`);
+        await safeNotify(
+          settings,
+          await tr(settings, "notificationRewardEarned"),
+          await tr(settings, "notificationRewardFromCampaign", [reward.reward.name, reward.campaign.name]),
+        );
       }
     }
 
@@ -694,7 +722,11 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
           && next.campaigns[platform].length > 0
           && next.campaigns[platform].every((campaign) => !hasEarnableReward(campaign))
         ) {
-          await safeNotify(settings, "No drops left", `${platformLabel(platform)} has no eligible drops to farm.`);
+          await safeNotify(
+            settings,
+            await tr(settings, "notificationNoDropsLeft"),
+            await tr(settings, "notificationNoDropsLeftMessage", platformLabel(platform)),
+          );
         }
       }
     }
