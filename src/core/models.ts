@@ -216,24 +216,12 @@ export interface EventLogEntry {
   message: string;
 }
 
-export interface PlatformDiagnostics {
-  platform: Platform;
-  checkedAt: string;
-  ok: boolean;
-  campaignCount: number;
-  eligibleCampaignCount: number;
-  candidateCount: number;
-  checkedChannel?: ChannelCheck;
-  message: string;
-}
-
 export interface SchedulerState {
   sessions: Record<Platform, WatchSession>;
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
   campaigns: Record<Platform, DropCampaign[]>;
-  diagnostics?: Partial<Record<Platform, PlatformDiagnostics>>;
   events: EventLogEntry[];
   lastTickAt?: string;
 }

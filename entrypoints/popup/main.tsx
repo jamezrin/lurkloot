@@ -426,26 +426,6 @@ function screenshotSnapshot(): RuntimeSnapshot {
         twitch: twitchCampaigns,
         kick: kickCampaigns,
       },
-      diagnostics: {
-        twitch: {
-          platform: "twitch",
-          checkedAt: new Date(now - 45_000).toISOString(),
-          ok: true,
-          campaignCount: twitchCampaigns.length,
-          eligibleCampaignCount: 2,
-          candidateCount: 8,
-          message: "Mock screenshot data",
-        },
-        kick: {
-          platform: "kick",
-          checkedAt: new Date(now - 50_000).toISOString(),
-          ok: true,
-          campaignCount: kickCampaigns.length,
-          eligibleCampaignCount: 1,
-          candidateCount: 3,
-          message: "Mock screenshot data",
-        },
-      },
       events: [
         { id: "ev-1", at: new Date(now - 18_000).toISOString(), platform: "twitch", level: "info", message: "Watching RivalsPilot · farming Marathon Legends Launch Drops" },
         { id: "ev-2", at: new Date(now - 96_000).toISOString(), platform: "twitch", level: "info", message: "Claimed reward Founder Badge from Marathon Legends Launch Drops" },

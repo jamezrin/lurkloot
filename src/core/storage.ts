@@ -26,7 +26,6 @@ export const DEFAULT_STATE: SchedulerState = {
     twitch: [],
     kick: [],
   },
-  diagnostics: undefined,
   events: [],
 };
 
@@ -63,7 +62,6 @@ export async function loadState(): Promise<SchedulerState> {
       ...DEFAULT_STATE.campaigns,
       ...(data[STATE_KEY] as Partial<SchedulerState> | undefined)?.campaigns,
     },
-    diagnostics: (data[STATE_KEY] as Partial<SchedulerState> | undefined)?.diagnostics,
   };
 }
 

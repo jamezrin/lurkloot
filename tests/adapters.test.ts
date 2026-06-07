@@ -1094,6 +1094,27 @@ describe("TwitchAdapter", () => {
     });
   });
 
+  it("treats a Twitch channel as offline when the page fallback shows no live signal", async () => {
+    const fetcher = jsonFetcher((url, init) => {
+      if (url === "https://gql.twitch.tv/gql" && operation(init) === "StreamInfo") {
+        return { errors: [{ message: "PersistedQueryNotFound" }] };
+      }
+      if (url === "https://www.twitch.tv/creator") {
+        return { html: "<html><body>nothing recognizable</body></html>" };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const adapter = new TwitchAdapter(fetcher);
+
+    await expect(adapter.checkChannel(
+      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+      { categoryId: "game" } as DropCampaign,
+    )).resolves.toMatchObject({
+      live: false,
+      reason: "Twitch GQL check failed; used channel page fallback",
+    });
+  });
+
   it("merges current watched drop progress for the active Twitch session", async () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);

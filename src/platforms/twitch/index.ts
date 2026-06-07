@@ -651,6 +651,9 @@ export class TwitchAdapter implements PlatformAdapter {
       const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url);
       const html = page.html ?? "";
       const live = parseLiveState(html);
+      if (!live) {
+        logActivity("debug", `Channel page for ${channel.username} showed no live signal; treating as offline`, "twitch");
+      }
       const actualCategoryId = parseGameId(html);
       const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
       return {
@@ -818,7 +821,12 @@ function parseLiveState(html: string): boolean {
   if (/["']isLiveBroadcast["']\s*:\s*true/i.test(html)) return true;
   if (/["']stream["']\s*:\s*null/i.test(html)) return false;
   if (/isLiveBroadcast/i.test(html) || /DropsEnabled/i.test(html)) return true;
-  return true;
+  // No detectable live signal in the page. Treat as offline rather than
+  // assuming live: if Twitch's page markup drifts so no marker matches, a
+  // default of `true` would silently stall the scheduler on an offline channel
+  // (offlineChecks never increments). Reporting offline instead self-heals —
+  // the scheduler re-selects and re-checks via GQL, which usually recovers.
+  return false;
 }
 
 function parseGameId(html: string): string | undefined {
