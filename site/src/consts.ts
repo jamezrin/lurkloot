@@ -27,8 +27,6 @@ export const SITE = {
 export const LINKS = {
   chrome:
     "https://chromewebstore.google.com/detail/stream-autopilot/aobaackpofkghaejdnnmpmeaiaoibhdn",
-  firefox: "https://addons.mozilla.org/firefox/addon/stream-autopilot/",
-  github: "https://github.com/jamezrin/stream-autopilot",
   privacy:
     "https://github.com/jamezrin/stream-autopilot/blob/main/stream-autopilot-privacy-policy.md",
 } as const;

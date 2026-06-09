@@ -9,7 +9,7 @@ export interface FaqItem {
 export const faqItems: FaqItem[] = [
   {
     q: "Is Stream Autopilot free?",
-    a: "Yes. Stream Autopilot is completely free and open source. There are no accounts, no subscriptions, and no paywalled features — install it from the Chrome Web Store or Firefox Add-ons and it works immediately.",
+    a: "Yes. Stream Autopilot is completely free. There are no accounts, no subscriptions, and no paywalled features — install it from the Chrome Web Store and it works immediately.",
   },
   {
     q: "Does it need my Twitch or Kick password?",
@@ -22,10 +22,6 @@ export const faqItems: FaqItem[] = [
   {
     q: "Which games and drops does it support?",
     a: "It works with any Twitch or Kick drops campaign the platform offers — including popular titles like Rust and Valorant, plus everything else with active drops. It discovers live campaigns automatically, tracks the right channel for each drop, and switches channels as campaigns finish.",
-  },
-  {
-    q: "Does it work on both Chrome and Firefox?",
-    a: "Yes. Stream Autopilot is a cross-browser extension. There is a Chrome/Chromium build (Manifest V3) on the Chrome Web Store and a Firefox build (Manifest V2) on Firefox Add-ons, both built from the same codebase.",
   },
   {
     q: "Is it safe to use? Will I get banned?",
