@@ -1,0 +1,518 @@
+{
+  "extensionName": {
+    "message": "Stream Autopilot"
+  },
+  "extensionDescription": {
+    "message": "通过正常浏览器会话、可见的静音标签页和可选低资源模式刷 Twitch 与 Kick 掉宝。"
+  },
+  "promoTagline": {
+    "message": "自动刷 Twitch 与 Kick 掉宝。"
+  },
+  "languageBrowser": {
+    "message": "使用浏览器语言"
+  },
+  "languageEnglish": {
+    "message": "英语"
+  },
+  "languageSpanish": {
+    "message": "西班牙语"
+  },
+  "languageFrench": {
+    "message": "法语"
+  },
+  "languageItalian": {
+    "message": "意大利语"
+  },
+  "languageRussian": {
+    "message": "俄语"
+  },
+  "languageGerman": {
+    "message": "德语"
+  },
+  "languageChinese": {
+    "message": "中文"
+  },
+  "languageHindi": {
+    "message": "印地语"
+  },
+  "languagePortuguese": {
+    "message": "葡萄牙语"
+  },
+  "languageArabic": {
+    "message": "阿拉伯语"
+  },
+  "settingsLanguageTitle": {
+    "message": "语言"
+  },
+  "settingsLanguageDescription": {
+    "message": "选择弹窗和扩展通知使用的语言。"
+  },
+  "settingsTitle": {
+    "message": "设置"
+  },
+  "activityTitle": {
+    "message": "活动"
+  },
+  "activeStatus": {
+    "message": "活动中"
+  },
+  "pausedStatus": {
+    "message": "已暂停"
+  },
+  "refreshSchedule": {
+    "message": "刷新计划"
+  },
+  "openActivity": {
+    "message": "打开活动"
+  },
+  "closeActivity": {
+    "message": "关闭活动"
+  },
+  "openSettings": {
+    "message": "打开设置"
+  },
+  "closeSettings": {
+    "message": "关闭设置"
+  },
+  "loading": {
+    "message": "加载中"
+  },
+  "dropsTab": {
+    "message": "掉宝"
+  },
+  "watchQueueTab": {
+    "message": "观看队列"
+  },
+  "automationTitle": {
+    "message": "$1 自动化"
+  },
+  "automationRunning": {
+    "message": "运行中"
+  },
+  "automationStarting": {
+    "message": "正在启动"
+  },
+  "automationStopping": {
+    "message": "正在停止"
+  },
+  "startingAutomation": {
+    "message": "正在启动自动化..."
+  },
+  "pausingAutomation": {
+    "message": "正在暂停自动化..."
+  },
+  "watchingLabel": {
+    "message": "正在观看"
+  },
+  "farmingLabel": {
+    "message": "正在刷"
+  },
+  "waitingEligibleStream": {
+    "message": "等待符合条件的直播"
+  },
+  "watchingPausedHint": {
+    "message": "观看已暂停。切换开关以继续刷掉宝。"
+  },
+  "priorityHint": {
+    "message": "Drops 始终优先于观看队列。拖动活动把手来设置刷取顺序。"
+  },
+  "noCampaigns": {
+    "message": "尚未发现活动。"
+  },
+  "noActivity": {
+    "message": "尚未记录活动。按刷新运行检查。"
+  },
+  "platformActivity": {
+    "message": "$1 活动"
+  },
+  "lastCheck": {
+    "message": "上次检查 $1"
+  },
+  "noChecksYet": {
+    "message": "尚无检查"
+  },
+  "debug": {
+    "message": "调试"
+  },
+  "info": {
+    "message": "信息"
+  },
+  "warn": {
+    "message": "警告"
+  },
+  "error": {
+    "message": "错误"
+  },
+  "notLinked": {
+    "message": "未关联"
+  },
+  "upcoming": {
+    "message": "即将开始"
+  },
+  "expired": {
+    "message": "已过期"
+  },
+  "excluded": {
+    "message": "已排除"
+  },
+  "finished": {
+    "message": "已完成"
+  },
+  "upcomingPill": {
+    "message": "即将开始"
+  },
+  "expiredPill": {
+    "message": "已过期"
+  },
+  "finishedPill": {
+    "message": "已完成"
+  },
+  "complete": {
+    "message": "完成"
+  },
+  "nextReward": {
+    "message": "下一个：$1"
+  },
+  "startsIn": {
+    "message": "$1 后开始"
+  },
+  "endsIn": {
+    "message": "$1 后结束"
+  },
+  "left": {
+    "message": "剩余"
+  },
+  "done": {
+    "message": "完成"
+  },
+  "farmed": {
+    "message": "已刷"
+  },
+  "rewards": {
+    "message": "奖励"
+  },
+  "inCampaignOrder": {
+    "message": "按活动顺序"
+  },
+  "allChannels": {
+    "message": "所有频道"
+  },
+  "channelCount": {
+    "message": "$1 个频道"
+  },
+  "includeInFarming": {
+    "message": "加入刷取"
+  },
+  "excludeFromFarming": {
+    "message": "从刷取中排除"
+  },
+  "noWatchQueue": {
+    "message": "未配置观看队列频道。"
+  },
+  "channelPlaceholder": {
+    "message": "频道"
+  },
+  "add": {
+    "message": "添加"
+  },
+  "addChannel": {
+    "message": "添加频道"
+  },
+  "queued": {
+    "message": "已排队"
+  },
+  "live": {
+    "message": "直播"
+  },
+  "settingsGeneralTitle": {
+    "message": "常规设置"
+  },
+  "settingsGeneralDescription": {
+    "message": "适用于 Twitch 和 Kick。"
+  },
+  "pauseManualTitle": {
+    "message": "手动观看时暂停"
+  },
+  "pauseManualDescription": {
+    "message": "当你打开并自行观看直播时停止刷取。"
+  },
+  "autoStartTitle": {
+    "message": "启动时自动开始"
+  },
+  "autoStartDescription": {
+    "message": "扩展加载后立即开始刷取。"
+  },
+  "notificationsTitle": {
+    "message": "通知"
+  },
+  "notificationsDescription": {
+    "message": "适用于所有已启用的平台。"
+  },
+  "rewardEarnedTitle": {
+    "message": "已获得奖励"
+  },
+  "rewardEarnedDescription": {
+    "message": "当掉宝奖励可领取时通知。"
+  },
+  "noDropsLeftTitle": {
+    "message": "没有可刷的掉宝"
+  },
+  "noDropsLeftDescription": {
+    "message": "当所有活动活动都刷完时通知。"
+  },
+  "dropsSettingsTitle": {
+    "message": "掉宝"
+  },
+  "dropsSettingsDescription": {
+    "message": "共享的活动刷取行为。"
+  },
+  "autoClaimTitle": {
+    "message": "自动领取掉宝"
+  },
+  "autoClaimDescription": {
+    "message": "奖励可用后自动领取。"
+  },
+  "campaignPriorityTitle": {
+    "message": "活动优先级"
+  },
+  "campaignPriorityDescription": {
+    "message": "决定要刷取哪些活动。优先级列表只刷你手动排序的活动；其他选项会从所有活动中选择。可在平台设置中限制每个平台的分类。"
+  },
+  "priorityListOnly": {
+    "message": "仅优先级列表"
+  },
+  "endingSoonest": {
+    "message": "最早结束"
+  },
+  "lowAvailabilityFirst": {
+    "message": "低可用性优先"
+  },
+  "watchQueueSettingsTitle": {
+    "message": "观看队列"
+  },
+  "watchQueueSettingsDescription": {
+    "message": "共享的备用队列行为。"
+  },
+  "watchQueueFallbackOnlyTitle": {
+    "message": "仅在没有活动掉宝时"
+  },
+  "watchQueueFallbackOnlyDescription": {
+    "message": "自动保留掉宝优先级。"
+  },
+  "platformSettingsTitle": {
+    "message": "平台设置"
+  },
+  "platformSettingsDescription": {
+    "message": "某个平台的自动化与频道。可在 Twitch 和 Kick 间切换。"
+  },
+  "farmingTabsTitle": {
+    "message": "刷取标签页"
+  },
+  "farmingTabsDescription": {
+    "message": "视频标签页刷取控制。启用无标签低资源模式时，标签页相关控制会禁用。"
+  },
+  "tablessTitle": {
+    "message": "无标签低资源模式"
+  },
+  "tablessDescription": {
+    "message": "通过轻量观看信号而不是视频标签页刷取。Twitch 使用观看心跳；Kick 使用观众连接。如果停止计数，会自动退回标签页。"
+  },
+  "autoCloseTabsTitle": {
+    "message": "自动关闭刷取标签页"
+  },
+  "autoCloseTabsDescription": {
+    "message": "扩展空闲时自动关闭，也就是没有掉宝可刷或主播可看。"
+  },
+  "muteTabsTitle": {
+    "message": "静对刷取标签页音"
+  },
+  "muteTabsDescription": {
+    "message": "刷取时保持 Drops 和观看队列标签页静音。"
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "保持刷取视频不静音"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "浏览器标签页静音时，保持页面视频播放器不静音。"
+  },
+  "tablessDisabledReason": {
+    "message": "启用无标签低资源模式时不可用。"
+  },
+  "adFocusTitle": {
+    "message": "广告期间聚焦标签页"
+  },
+  "adFocusDescription": {
+    "message": "广告倒计时会在后台标签页冻结。广告播放时短暂聚焦刷取标签页，然后恢复之前的标签页。"
+  },
+  "off": {
+    "message": "关闭"
+  },
+  "tabOnly": {
+    "message": "仅标签页"
+  },
+  "tabAndWindow": {
+    "message": "标签页 + 窗口"
+  },
+  "advancedTitle": {
+    "message": "高级"
+  },
+  "advancedDescription": {
+    "message": "仅在了解后果时更改：这些控制底层调度和日志。"
+  },
+  "schedulerIntervalTitle": {
+    "message": "调度间隔"
+  },
+  "schedulerIntervalDescription": {
+    "message": "活动和主播状态刷新的频率。"
+  },
+  "secondsSuffix": {
+    "message": "秒"
+  },
+  "automationSectionTitle": {
+    "message": "自动化"
+  },
+  "farmOnPlatform": {
+    "message": "在 $1 上刷掉宝并观看队列。"
+  },
+  "enabled": {
+    "message": "已启用"
+  },
+  "watchQueueEditHint": {
+    "message": "选择 $1 后，在观看队列标签页编辑。"
+  },
+  "excludedChannelsTitle": {
+    "message": "排除的掉宝频道"
+  },
+  "excludedChannelsDescription": {
+    "message": "活动刷取会跳过这些主播。"
+  },
+  "excludedChannelsEmpty": {
+    "message": "没有排除的掉宝频道。"
+  },
+  "farmAllCategoriesTitle": {
+    "message": "刷所有分类"
+  },
+  "farmAllCategoriesDescription": {
+    "message": "刷取每个 $1 分类的掉宝。关闭后只刷所选分类。"
+  },
+  "categoriesToFarm": {
+    "message": "要刷的分类"
+  },
+  "dragToPrioritize": {
+    "message": "拖动以排序"
+  },
+  "noCategoriesSelected": {
+    "message": "未选择分类：$1 上不会刷取任何内容。请在下方添加分类。"
+  },
+  "hasActiveDrops": {
+    "message": "有活动掉宝"
+  },
+  "searchCategories": {
+    "message": "搜索 $1 分类"
+  },
+  "searching": {
+    "message": "正在搜索…"
+  },
+  "noCategoriesFound": {
+    "message": "未找到分类。"
+  },
+  "alreadyAdded": {
+    "message": "已添加。"
+  },
+  "activityLogLevelsTitle": {
+    "message": "活动日志级别"
+  },
+  "activityLogLevelsDescription": {
+    "message": "选择活动日志记录哪些级别。错误始终保留。"
+  },
+  "visibleCampaignsTitle": {
+    "message": "可见活动"
+  },
+  "visibleCampaignsDescription": {
+    "message": "选择 Drops 列表显示哪些活动状态。有可领取奖励的活动始终可见。"
+  },
+  "forgetExcludedTitle": {
+    "message": "忘记排除的活动"
+  },
+  "forgetExcludedDescription": {
+    "message": "清除你从刷取中排除的所有活动。"
+  },
+  "forget": {
+    "message": "忘记"
+  },
+  "unknownGame": {
+    "message": "未知游戏"
+  },
+  "dropsCampaign": {
+    "message": "掉宝活动"
+  },
+  "later": {
+    "message": "稍后"
+  },
+  "ended": {
+    "message": "已结束"
+  },
+  "notificationRewardClaimed": {
+    "message": "已领取奖励"
+  },
+  "notificationRewardEarned": {
+    "message": "已获得奖励"
+  },
+  "notificationNoDropsLeft": {
+    "message": "没有可刷的掉宝"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$1 来自 $2"
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "$1 没有可刷取的合格掉宝。"
+  },
+  "screenshotTwitchHeadline": {
+    "message": "在一个弹窗中管理 Twitch 与 Kick 掉宝。"
+  },
+  "screenshotTwitchSubcopy": {
+    "message": "Stream Autopilot 通过正常浏览器会话和可见静音标签页刷取符合条件的活动。"
+  },
+  "screenshotKickHeadline": {
+    "message": "现在也能刷 Kick 掉宝。"
+  },
+  "screenshotKickSubcopy": {
+    "message": "你在 Twitch 依赖的自动化、资格检查和自动领取，现在也覆盖 Kick 创作者奖励。"
+  },
+  "screenshotQueueHeadline": {
+    "message": "备用观看队列让你持续获得收益。"
+  },
+  "screenshotQueueSubcopy": {
+    "message": "没有活动掉宝时，Stream Autopilot 会观看你喜欢的频道，让在线时间不浪费。"
+  },
+  "screenshotSettingsHeadline": {
+    "message": "按你的环境调整每个细节。"
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "按平台自动化、自动领取、静音标签页、游戏优先级和实验性无标签低资源模式。"
+  },
+  "screenshotActivityHeadline": {
+    "message": "清楚查看它正在做什么。"
+  },
+  "screenshotActivitySubcopy": {
+    "message": "透明的活动日志显示每次检查、切换和领取，并可按级别过滤。"
+  },
+  "autoClaimReady": {
+    "message": "自动领取就绪"
+  },
+  "resumingAutomation": {
+    "message": "正在恢复自动化..."
+  },
+  "attributionLinks": {
+    "message": "署名链接"
+  },
+  "githubAttribution": {
+    "message": "GitHub 上的 jamezrin"
+  },
+  "xAttribution": {
+    "message": "X 上的 jamezrin"
+  },
+  "removeItem": {
+    "message": "移除 $1"
+  }
+}

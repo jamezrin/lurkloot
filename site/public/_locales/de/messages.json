@@ -1,0 +1,518 @@
+{
+  "extensionName": {
+    "message": "Stream Autopilot"
+  },
+  "extensionDescription": {
+    "message": "Farme Twitch- und Kick-Drops über normale Browsersitzungen, sichtbare stummgeschaltete Tabs und optionalen Energiesparmodus."
+  },
+  "promoTagline": {
+    "message": "Twitch- und Kick-Drops automatisch farmen."
+  },
+  "languageBrowser": {
+    "message": "Browsersprache verwenden"
+  },
+  "languageEnglish": {
+    "message": "Englisch"
+  },
+  "languageSpanish": {
+    "message": "Spanisch"
+  },
+  "languageFrench": {
+    "message": "Französisch"
+  },
+  "languageItalian": {
+    "message": "Italienisch"
+  },
+  "languageRussian": {
+    "message": "Russisch"
+  },
+  "languageGerman": {
+    "message": "Deutsch"
+  },
+  "languageChinese": {
+    "message": "Chinesisch"
+  },
+  "languageHindi": {
+    "message": "Hindi"
+  },
+  "languagePortuguese": {
+    "message": "Portugiesisch"
+  },
+  "languageArabic": {
+    "message": "Arabisch"
+  },
+  "settingsLanguageTitle": {
+    "message": "Sprache"
+  },
+  "settingsLanguageDescription": {
+    "message": "Wähle die Sprache für Popup und Erweiterungsbenachrichtigungen."
+  },
+  "settingsTitle": {
+    "message": "Einstellungen"
+  },
+  "activityTitle": {
+    "message": "Aktivität"
+  },
+  "activeStatus": {
+    "message": "Aktiv"
+  },
+  "pausedStatus": {
+    "message": "Pausiert"
+  },
+  "refreshSchedule": {
+    "message": "Zeitplan aktualisieren"
+  },
+  "openActivity": {
+    "message": "Aktivität öffnen"
+  },
+  "closeActivity": {
+    "message": "Aktivität schließen"
+  },
+  "openSettings": {
+    "message": "Einstellungen öffnen"
+  },
+  "closeSettings": {
+    "message": "Einstellungen schließen"
+  },
+  "loading": {
+    "message": "Lädt"
+  },
+  "dropsTab": {
+    "message": "Drops"
+  },
+  "watchQueueTab": {
+    "message": "Warteschlange"
+  },
+  "automationTitle": {
+    "message": "$1-Automatisierung"
+  },
+  "automationRunning": {
+    "message": "Läuft"
+  },
+  "automationStarting": {
+    "message": "Startet"
+  },
+  "automationStopping": {
+    "message": "Stoppt"
+  },
+  "startingAutomation": {
+    "message": "Automatisierung wird gestartet..."
+  },
+  "pausingAutomation": {
+    "message": "Automatisierung wird pausiert..."
+  },
+  "watchingLabel": {
+    "message": "Schaut"
+  },
+  "farmingLabel": {
+    "message": "Farmt"
+  },
+  "waitingEligibleStream": {
+    "message": "Wartet auf einen geeigneten Stream"
+  },
+  "watchingPausedHint": {
+    "message": "Schauen pausiert. Schalter aktivieren, um Drop-Farming fortzusetzen."
+  },
+  "priorityHint": {
+    "message": "Drops haben immer Vorrang vor der Warteschlange. Ziehe Kampagnen am Griff, um die Farming-Reihenfolge festzulegen."
+  },
+  "noCampaigns": {
+    "message": "Noch keine Kampagnen gefunden."
+  },
+  "noActivity": {
+    "message": "Noch keine Aktivität aufgezeichnet. Aktualisieren drücken, um eine Prüfung auszuführen."
+  },
+  "platformActivity": {
+    "message": "$1-Aktivität"
+  },
+  "lastCheck": {
+    "message": "letzte Prüfung $1"
+  },
+  "noChecksYet": {
+    "message": "noch keine Prüfungen"
+  },
+  "debug": {
+    "message": "Debug"
+  },
+  "info": {
+    "message": "Info"
+  },
+  "warn": {
+    "message": "Warnung"
+  },
+  "error": {
+    "message": "Fehler"
+  },
+  "notLinked": {
+    "message": "Nicht verknüpft"
+  },
+  "upcoming": {
+    "message": "Bevorstehend"
+  },
+  "expired": {
+    "message": "Abgelaufen"
+  },
+  "excluded": {
+    "message": "Ausgeschlossen"
+  },
+  "finished": {
+    "message": "Fertig"
+  },
+  "upcomingPill": {
+    "message": "Bevorstehend"
+  },
+  "expiredPill": {
+    "message": "Abgelaufen"
+  },
+  "finishedPill": {
+    "message": "Fertig"
+  },
+  "complete": {
+    "message": "Abgeschlossen"
+  },
+  "nextReward": {
+    "message": "Nächste: $1"
+  },
+  "startsIn": {
+    "message": "Startet in $1"
+  },
+  "endsIn": {
+    "message": "Endet in $1"
+  },
+  "left": {
+    "message": "Übrig"
+  },
+  "done": {
+    "message": "Fertig"
+  },
+  "farmed": {
+    "message": "Gefarmt"
+  },
+  "rewards": {
+    "message": "Belohnungen"
+  },
+  "inCampaignOrder": {
+    "message": "in Kampagnenreihenfolge"
+  },
+  "allChannels": {
+    "message": "Alle Kanäle"
+  },
+  "channelCount": {
+    "message": "$1 Kanäle"
+  },
+  "includeInFarming": {
+    "message": "In Farming aufnehmen"
+  },
+  "excludeFromFarming": {
+    "message": "Vom Farming ausschließen"
+  },
+  "noWatchQueue": {
+    "message": "Keine Kanäle in der Warteschlange konfiguriert."
+  },
+  "channelPlaceholder": {
+    "message": "Kanal"
+  },
+  "add": {
+    "message": "Hinzufügen"
+  },
+  "addChannel": {
+    "message": "Kanal hinzufügen"
+  },
+  "queued": {
+    "message": "in Warteschlange"
+  },
+  "live": {
+    "message": "live"
+  },
+  "settingsGeneralTitle": {
+    "message": "Allgemeine Einstellungen"
+  },
+  "settingsGeneralDescription": {
+    "message": "Gilt für Twitch und Kick."
+  },
+  "pauseManualTitle": {
+    "message": "Bei manuellem Schauen pausieren"
+  },
+  "pauseManualDescription": {
+    "message": "Stoppt Farming, während du selbst einen offenen Stream ansiehst."
+  },
+  "autoStartTitle": {
+    "message": "Automatisch beim Start beginnen"
+  },
+  "autoStartDescription": {
+    "message": "Beginnt mit Farming, sobald die Erweiterung geladen ist."
+  },
+  "notificationsTitle": {
+    "message": "Benachrichtigungen"
+  },
+  "notificationsDescription": {
+    "message": "Gilt für alle aktivierten Plattformen."
+  },
+  "rewardEarnedTitle": {
+    "message": "Belohnung verdient"
+  },
+  "rewardEarnedDescription": {
+    "message": "Benachrichtigen, wenn eine Drop-Belohnung beanspruchbar ist."
+  },
+  "noDropsLeftTitle": {
+    "message": "Keine Drops übrig"
+  },
+  "noDropsLeftDescription": {
+    "message": "Benachrichtigen, wenn alle aktiven Kampagnen erschöpft sind."
+  },
+  "dropsSettingsTitle": {
+    "message": "Drops"
+  },
+  "dropsSettingsDescription": {
+    "message": "Gemeinsames Verhalten für Kampagnen-Farming."
+  },
+  "autoClaimTitle": {
+    "message": "Drops automatisch beanspruchen"
+  },
+  "autoClaimDescription": {
+    "message": "Beansprucht verdiente Belohnungen automatisch, sobald sie verfügbar sind."
+  },
+  "campaignPriorityTitle": {
+    "message": "Kampagnenpriorität"
+  },
+  "campaignPriorityDescription": {
+    "message": "Legt fest, wie Kampagnen zum Farmen gewählt werden. Die Prioritätsliste farmt nur manuell sortierte Kampagnen; die anderen Optionen wählen aus allen Kampagnen. Kategorien pro Plattform in den Plattformeinstellungen begrenzen."
+  },
+  "priorityListOnly": {
+    "message": "Nur Prioritätsliste"
+  },
+  "endingSoonest": {
+    "message": "Endet am frühesten"
+  },
+  "lowAvailabilityFirst": {
+    "message": "Geringe Verfügbarkeit zuerst"
+  },
+  "watchQueueSettingsTitle": {
+    "message": "Warteschlange"
+  },
+  "watchQueueSettingsDescription": {
+    "message": "Gemeinsames Verhalten der Ersatz-Warteschlange."
+  },
+  "watchQueueFallbackOnlyTitle": {
+    "message": "Nur wenn keine Drops aktiv sind"
+  },
+  "watchQueueFallbackOnlyDescription": {
+    "message": "Bewahrt automatisch die Drop-Priorität."
+  },
+  "platformSettingsTitle": {
+    "message": "Plattformeinstellungen"
+  },
+  "platformSettingsDescription": {
+    "message": "Automatisierung und Kanäle eines Anbieters. Wechsle zwischen Twitch und Kick."
+  },
+  "farmingTabsTitle": {
+    "message": "Farming-Tabs"
+  },
+  "farmingTabsDescription": {
+    "message": "Steuerung für Video-Tab-Farming. Tab-spezifische Optionen sind im tablosen Energiesparmodus deaktiviert."
+  },
+  "tablessTitle": {
+    "message": "Tabloser Energiesparmodus"
+  },
+  "tablessDescription": {
+    "message": "Farmt über leichte Watch-Signale statt Video-Tab. Twitch nutzt Watch-Heartbeats; Kick nutzt eine Zuschauerverbindung. Fällt automatisch auf einen Tab zurück, wenn es nicht mehr zählt."
+  },
+  "autoCloseTabsTitle": {
+    "message": "Farming-Tabs automatisch schließen"
+  },
+  "autoCloseTabsDescription": {
+    "message": "Schließt automatisch, wenn die Erweiterung untätig ist: keine Drops und keine Streamer zum Schauen."
+  },
+  "muteTabsTitle": {
+    "message": "Farming-Tabs stummschalten"
+  },
+  "muteTabsDescription": {
+    "message": "Hält Drop- und Warteschlangen-Tabs beim Farming stumm."
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "Farming-Videos nicht stummschalten"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "Lässt Videoplayer unmuted, während der Browser-Tab stummgeschaltet ist."
+  },
+  "tablessDisabledReason": {
+    "message": "Deaktiviert, solange der tablose Energiesparmodus aktiv ist."
+  },
+  "adFocusTitle": {
+    "message": "Tab während Anzeigen fokussieren"
+  },
+  "adFocusDescription": {
+    "message": "Anzeigen-Countdowns frieren in Hintergrund-Tabs ein. Fokussiert den Farming-Tab während einer Anzeige kurz und stellt danach den vorherigen Tab wieder her."
+  },
+  "off": {
+    "message": "Aus"
+  },
+  "tabOnly": {
+    "message": "Nur Tab"
+  },
+  "tabAndWindow": {
+    "message": "Tab + Fenster"
+  },
+  "advancedTitle": {
+    "message": "Erweitert"
+  },
+  "advancedDescription": {
+    "message": "Nur ändern, wenn du weißt, was du tust: steuert Scheduler und Low-Level-Logging."
+  },
+  "schedulerIntervalTitle": {
+    "message": "Scheduler-Intervall"
+  },
+  "schedulerIntervalDescription": {
+    "message": "Wie oft Kampagnen- und Streamerstatus aktualisiert werden."
+  },
+  "secondsSuffix": {
+    "message": "Sek."
+  },
+  "automationSectionTitle": {
+    "message": "Automatisierung"
+  },
+  "farmOnPlatform": {
+    "message": "Farmt Drops und schaut die Warteschlange auf $1."
+  },
+  "enabled": {
+    "message": "Aktiviert"
+  },
+  "watchQueueEditHint": {
+    "message": "Nach Auswahl von $1 im Warteschlangen-Tab bearbeiten."
+  },
+  "excludedChannelsTitle": {
+    "message": "Ausgeschlossene Drop-Kanäle"
+  },
+  "excludedChannelsDescription": {
+    "message": "Kampagnen-Farming überspringt diese Streamer."
+  },
+  "excludedChannelsEmpty": {
+    "message": "Keine ausgeschlossenen Drop-Kanäle."
+  },
+  "farmAllCategoriesTitle": {
+    "message": "Alle Kategorien farmen"
+  },
+  "farmAllCategoriesDescription": {
+    "message": "Farmt Drops in jeder $1-Kategorie. Deaktivieren, um nur eine ausgewählte Gruppe zu farmen."
+  },
+  "categoriesToFarm": {
+    "message": "Kategorien zum Farmen"
+  },
+  "dragToPrioritize": {
+    "message": "zum Priorisieren ziehen"
+  },
+  "noCategoriesSelected": {
+    "message": "Keine Kategorien ausgewählt: Auf $1 wird nichts gefarmt. Kategorien unten hinzufügen."
+  },
+  "hasActiveDrops": {
+    "message": "Hat aktive Drops"
+  },
+  "searchCategories": {
+    "message": "$1-Kategorien suchen"
+  },
+  "searching": {
+    "message": "Suche…"
+  },
+  "noCategoriesFound": {
+    "message": "Keine Kategorien gefunden."
+  },
+  "alreadyAdded": {
+    "message": "Bereits hinzugefügt."
+  },
+  "activityLogLevelsTitle": {
+    "message": "Aktivitätsprotokoll-Stufen"
+  },
+  "activityLogLevelsDescription": {
+    "message": "Wähle, welche Stufen im Aktivitätsprotokoll aufgezeichnet werden. Fehler bleiben immer aktiv."
+  },
+  "visibleCampaignsTitle": {
+    "message": "Sichtbare Kampagnen"
+  },
+  "visibleCampaignsDescription": {
+    "message": "Wähle, welche Kampagnenzustände in der Drops-Liste erscheinen. Eine Kampagne mit beanspruchbarer Belohnung bleibt immer sichtbar."
+  },
+  "forgetExcludedTitle": {
+    "message": "Ausgeschlossene Kampagnen vergessen"
+  },
+  "forgetExcludedDescription": {
+    "message": "Löscht alle Kampagnen, die du vom Farming ausgeschlossen hast."
+  },
+  "forget": {
+    "message": "Vergessen"
+  },
+  "unknownGame": {
+    "message": "Unbekanntes Spiel"
+  },
+  "dropsCampaign": {
+    "message": "Drop-Kampagne"
+  },
+  "later": {
+    "message": "später"
+  },
+  "ended": {
+    "message": "Beendet"
+  },
+  "notificationRewardClaimed": {
+    "message": "Belohnung beansprucht"
+  },
+  "notificationRewardEarned": {
+    "message": "Belohnung verdient"
+  },
+  "notificationNoDropsLeft": {
+    "message": "Keine Drops übrig"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$1 aus $2"
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "$1 hat keine geeigneten Drops zum Farmen."
+  },
+  "screenshotTwitchHeadline": {
+    "message": "Twitch- und Kick-Drops aus einem Popup verwaltet."
+  },
+  "screenshotTwitchSubcopy": {
+    "message": "Stream Autopilot farmt geeignete Kampagnen über deine normale Browsersitzung mit sichtbaren stummen Tabs."
+  },
+  "screenshotKickHeadline": {
+    "message": "Farmt jetzt auch Kick-Drops."
+  },
+  "screenshotKickSubcopy": {
+    "message": "Dieselbe Automatisierung, Eligibility-Prüfung und Auto-Beanspruchung wie für Twitch, jetzt auch für Kick-Creator-Belohnungen."
+  },
+  "screenshotQueueHeadline": {
+    "message": "Eine Ersatz-Warteschlange hält dich am Verdienen."
+  },
+  "screenshotQueueSubcopy": {
+    "message": "Wenn keine Drops aktiv sind, schaut Stream Autopilot deine Lieblingskanäle, damit Online-Zeit nicht ungenutzt bleibt."
+  },
+  "screenshotSettingsHeadline": {
+    "message": "Passe jedes Detail an dein Setup an."
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "Automatisierung pro Plattform, Auto-Beanspruchung, stumme Tabs, Spielpriorität und experimenteller tabloser Energiesparmodus."
+  },
+  "screenshotActivityHeadline": {
+    "message": "Sieh genau, was es tut."
+  },
+  "screenshotActivitySubcopy": {
+    "message": "Ein transparentes Aktivitätsprotokoll zeigt jede Prüfung, jeden Wechsel und jede Beanspruchung, filterbar nach Stufe."
+  },
+  "autoClaimReady": {
+    "message": "Auto-Beanspruchen bereit"
+  },
+  "resumingAutomation": {
+    "message": "Automatisierung wird fortgesetzt..."
+  },
+  "attributionLinks": {
+    "message": "Attributionslinks"
+  },
+  "githubAttribution": {
+    "message": "jamezrin auf GitHub"
+  },
+  "xAttribution": {
+    "message": "jamezrin auf X"
+  },
+  "removeItem": {
+    "message": "$1 entfernen"
+  }
+}

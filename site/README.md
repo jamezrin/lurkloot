@@ -1,35 +1,43 @@
 # Stream Autopilot — landing page
 
 Marketing site for the [Stream Autopilot](../README.md) browser extension. Built
-with [Astro](https://astro.build) (static, zero-JS), deployed to **Cloudflare
-Pages** at **https://stream-autopilot.jamezrin.com**.
+with [Astro](https://astro.build) (static, mostly zero-JS), deployed to
+**Cloudflare Pages** at **https://stream-autopilot.jamezrin.com**.
 
 ## Develop
 
 ```bash
 cd site
 pnpm install
-pnpm dev        # http://localhost:4321/stream-autopilot
+pnpm dev        # http://localhost:4321
 pnpm build      # outputs to site/dist
 pnpm preview    # serve the production build
 ```
 
-## Regenerating assets
+## Interactive popup demo (shared with the extension)
 
-The product screenshots and the social card are checked into `src/assets/` and
-`public/` so the build is self-contained. Regenerate them only when the popup UI
-or branding changes:
+The "Try it yourself" section imports the **real** popup React components from
+`entrypoints/popup/app.tsx` and renders them as an Astro React island
+(`src/popup-ui/PopupDemo.tsx`) inside a **Shadow DOM** — running on mock data via
+the extension's built-in demo mode. Style isolation comes from the Shadow DOM +
+the extension's compiled CSS; `wxt/browser` is aliased to a mock
+(`src/popup-ui/browser-mock.ts`) that also flips on demo mode.
+
+Two build outputs are committed so `pnpm deploy` stays self-contained; regenerate
+them whenever the popup UI changes:
 
 ```bash
-# from the repo root — builds the extension, then captures the clean popup shots
+# from the repo root — build the extension, then sync its compiled CSS + locales
 pnpm build
-node site/scripts/capture-popup.mjs      # -> site/src/assets/screenshots/*.png
-
-# the Open Graph / Twitter card (1200x630)
-node site/scripts/make-og.mjs            # -> site/public/og.png
+node site/scripts/sync-popup-ui.mjs   # -> src/popup-ui/popup.generated.css,
+                                      #    public/_locales/*, public/logo-ring.svg
 ```
 
-Both scripts use the `playwright` install from the repo root.
+## Regenerating the social card
+
+```bash
+node site/scripts/make-og.mjs         # -> site/public/og.png  (uses repo-root playwright)
+```
 
 ## Deployment — Cloudflare Pages (Direct Upload)
 
