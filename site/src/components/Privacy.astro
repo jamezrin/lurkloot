@@ -7,15 +7,15 @@ const guarantees = [
 ];
 ---
 
-<section class="priv">
+<section id="privacy" class="priv act">
   <div class="wrap priv__inner">
-    <div class="priv__head reveal">
-      <p class="eyebrow">Private by design</p>
-      <h2>Your account stays yours.</h2>
-      <p>
-        Drop farmers ask you to hand over tokens or run on someone else's server.
-        Stream Autopilot does neither. It's a local-only extension that never sees a
-        password and never phones home.
+    <div class="priv__head">
+      <p class="eyebrow reveal">Private by design</p>
+      <h2 class="reveal-slow">Your account<br />stays yours.</h2>
+      <p class="reveal">
+        Other farmers ask you to hand over tokens or run on someone else's server.
+        This does neither — a local-only extension that never sees a password and never
+        phones home.
       </p>
     </div>
     <ul class="priv__list">
@@ -33,50 +33,54 @@ const guarantees = [
 </section>
 
 <style>
-  .priv {
-    padding: clamp(3rem, 6vw, 5.5rem) 0;
-  }
   .priv__inner {
     display: grid;
-    gap: clamp(2rem, 4vw, 3.5rem);
+    gap: clamp(2.5rem, 5vw, 4rem);
     align-items: start;
   }
   @media (min-width: 900px) {
-    .priv__inner {
-      grid-template-columns: 0.9fr 1.1fr;
-    }
+    .priv__inner { grid-template-columns: 0.9fr 1.1fr; }
+    .priv__head { position: sticky; top: 96px; }
   }
-  .priv__head .btn {
-    margin-top: 1.6rem;
+  .priv__head h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    margin: 0.6rem 0 1rem;
+  }
+  .priv__head p {
+    color: var(--muted);
+    font-size: 1.08rem;
+    max-width: 42ch;
   }
   .priv__list {
     list-style: none;
     padding: 0;
     margin: 0;
     display: grid;
-    gap: 0.9rem;
+    gap: 1rem;
   }
   @media (min-width: 560px) {
-    .priv__list {
-      grid-template-columns: 1fr 1fr;
-    }
+    .priv__list { grid-template-columns: 1fr 1fr; }
   }
   .priv__list li {
     display: flex;
     gap: 0.9rem;
-    padding: 1.3rem;
+    padding: 1.5rem;
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: 16px;
     background: linear-gradient(180deg, var(--ink-1), var(--ink-0));
   }
   .priv__mark {
     flex: 0 0 auto;
-    width: 26px;
-    height: 26px;
-    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
     display: grid;
     place-content: center;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: #0a0612;
     background: var(--signal);
@@ -84,7 +88,7 @@ const guarantees = [
   .priv__list strong {
     display: block;
     font-family: var(--font-display);
-    font-size: 1.08rem;
+    font-size: 1.1rem;
     margin-bottom: 0.3rem;
   }
   .priv__list p {

@@ -1,357 +1,290 @@
 ---
-// Editorial feature deep-dive. Deliberately varied block sizes/layouts — no
-// repeating card template. Each describes a real capability of the extension.
+// Main features as cinematic alternating beats (text + a stylized visual that
+// parallaxes). Followed by a compact "and more" row for breadth.
+const more = [
+  { t: "Watch Queue fallback", d: "Up to 20 backup channels keep you earning when no drops are live." },
+  { t: "Game & category filters", d: "Farm everything, or pin just the games you care about." },
+  { t: "Reward notifications", d: "Get pinged the moment a drop is claimable — or when you're all done." },
+  { t: "Ten languages", d: "Fully localized UI, from English to العربية." },
+];
 ---
 
-<section id="features" class="feat">
+<section id="features" class="feat act">
   <div class="wrap">
-    <div class="section-head reveal">
-      <p class="eyebrow">What's under the hood</p>
-      <h2>More than a tab that watches a stream.</h2>
-      <p>
-        Stream Autopilot makes real decisions: which campaign matters most, which
-        live channel actually drops it, and when to claim. Here's the instrumentation.
-      </p>
+    <div class="feat__head">
+      <p class="eyebrow reveal">Under the hood</p>
+      <h2 class="reveal-slow">More than a tab<br />that watches a stream.</h2>
     </div>
 
-    <div class="feat__grid">
-      <!-- Lead block: tabless mode, full width, with a diagram -->
-      <article class="feat__lead reveal">
-        <div class="feat__lead-copy">
-          <span class="feat__kicker">Default · low-resource</span>
-          <h3>Tabless mode that sips, not chugs.</h3>
-          <p>
-            Instead of pinning a video tab and burning bandwidth, it sends a lightweight
-            watch signal in the background on both Twitch and Kick. Your drops keep ticking
-            up while your computer stays quiet. If progress ever stalls, it quietly falls
-            back to a real pinned, muted tab so you never miss a reward.
-          </p>
-          <ul class="feat__checks">
-            <li>Barely any bandwidth or CPU</li>
-            <li>Falls back to a tab automatically</li>
-            <li>Pauses when you watch a stream yourself</li>
-          </ul>
-        </div>
-        <div class="feat__lead-viz" aria-hidden="true">
-          <div class="viz-row">
-            <span class="viz-label">Old way</span>
-            <div class="viz-bar viz-bar--heavy"><span style="width:88%"></span></div>
-            <span class="viz-val">heavy</span>
-          </div>
-          <div class="viz-row">
-            <span class="viz-label">Tabless</span>
-            <div class="viz-bar viz-bar--light"><span style="width:14%"></span></div>
-            <span class="viz-val">~14%</span>
-          </div>
-          <div class="viz-pulse">
-            <span></span><span></span><span></span><span></span><span></span>
-            <em>watch signal</em>
-          </div>
-        </div>
-      </article>
-
-      <!-- Smart scheduling -->
-      <article class="feat__card feat__card--wide reveal">
-        <span class="feat__kicker">Scheduler</span>
-        <h3>It farms the right campaign first.</h3>
+    <!-- Beat 1 — tabless -->
+    <div class="beat">
+      <div class="beat__copy reveal">
+        <span class="kicker">Default · low-resource</span>
+        <h3>Sips, doesn't chug.</h3>
         <p>
-          Drag campaigns to set an explicit order, or choose a strategy and let it
-          decide: <b>ending soonest</b>, <b>lowest availability first</b>, or
-          <b>priority-list only</b>. It tracks the right live channel for each drop and
-          re-routes the instant a campaign finishes.
+          Instead of pinning a video tab and burning bandwidth, it keeps your watch time
+          counting quietly in the background. Drops tick up while your machine stays cool —
+          and if progress ever stalls, it falls back to a muted tab so you never miss out.
         </p>
-        <div class="strat">
-          <span class="strat__chip strat__chip--on">Ending soonest</span>
-          <span class="strat__chip">Lowest availability</span>
-          <span class="strat__chip">Priority list</span>
-        </div>
-      </article>
-
-      <!-- Auto-claim -->
-      <article class="feat__card reveal">
-        <span class="feat__kicker">Rewards</span>
-        <h3>Auto-claim, the moment it unlocks.</h3>
-        <p>
-          Drops and — if you want — Twitch channel points are claimed for you. Optional
-          notifications ping you when a reward lands or when every campaign is done.
-        </p>
-        <div class="claim-chip">
-          <span class="dot"></span> Signal Booster claimed <em>✓</em>
-        </div>
-      </article>
-
-      <!-- Watch queue -->
-      <article class="feat__card reveal">
-        <span class="feat__kicker">Watch Queue</span>
-        <h3>Never idle between campaigns.</h3>
-        <p>
-          Add up to 20 fallback channels per platform. When no drops are active, it
-          keeps your watch time and channel points flowing — and yields the moment a
-          drop reappears.
-        </p>
-      </article>
-
-      <!-- Category filtering -->
-      <article class="feat__card reveal">
-        <span class="feat__kicker">Filters</span>
-        <h3>Only the games you care about.</h3>
-        <p>
-          Farm everything, or pin an ordered list of categories with live search.
-          Exclude specific campaigns and channels you'd rather skip.
-        </p>
-      </article>
-
-      <!-- Activity log -->
-      <article class="feat__card feat__card--wide reveal">
-        <span class="feat__kicker">Activity log</span>
-        <h3>See exactly what it's doing.</h3>
-        <p>
-          A real-time, filterable event log records every decision — channel switches,
-          claims, skips, retries — so it's never a black box.
-        </p>
-        <div class="logline"><span class="lg-time">14:02</span><span class="lg-lvl">INFO</span> Switched to RivalsPilot · Rust drops live</div>
-        <div class="logline"><span class="lg-time">14:18</span><span class="lg-lvl lg-ok">CLAIM</span> Reward unlocked &amp; claimed</div>
-      </article>
-
-      <!-- Built for Chrome + i18n -->
-      <article class="feat__card feat__card--accent reveal">
-        <span class="feat__kicker">Built to last</span>
-        <h3>Every Chromium browser. Ten languages.</h3>
-        <p>
-          One polished extension that runs on Chrome, Edge, Brave, Opera, Vivaldi, Arc
-          and any other Chromium browser — with a fully localized interface and
-          notifications in English, Spanish, French, Italian, Russian, German, Chinese,
-          Hindi, Portuguese, and Arabic.
-        </p>
-        <div class="locales">EN · ES · FR · IT · RU · DE · 中文 · हिंदी · PT · العربية</div>
-      </article>
+      </div>
+      <div class="beat__viz par" style="--depth:-0.4">
+        <div class="viz-row"><span>Old way</span><i class="bar bar--heavy"><b style="width:88%"></b></i><em>heavy</em></div>
+        <div class="viz-row"><span>Autopilot</span><i class="bar bar--light"><b style="width:14%"></b></i><em>~14%</em></div>
+        <div class="viz-pulse"><s></s><s></s><s></s><s></s><s></s><em>watching</em></div>
+      </div>
     </div>
+
+    <!-- Beat 2 — scheduling -->
+    <div class="beat">
+      <div class="beat__copy reveal">
+        <span class="kicker">Smart scheduler</span>
+        <h3>Farms the right thing first.</h3>
+        <p>
+          It tracks the exact channel dropping what you want and re-routes the instant a
+          campaign ends. Drag to set your own order, or pick a strategy and let it decide.
+        </p>
+      </div>
+      <div class="beat__viz beat__viz--chips par" style="--depth:-0.55">
+        <span class="chip chip--on">Ending soonest</span>
+        <span class="chip">Lowest availability</span>
+        <span class="chip">Priority list</span>
+        <span class="chip chip--drag">⠿ drag to reorder</span>
+      </div>
+    </div>
+
+    <!-- Beat 3 — auto-claim -->
+    <div class="beat">
+      <div class="beat__copy reveal">
+        <span class="kicker">Hands-off rewards</span>
+        <h3>Claimed the instant it unlocks.</h3>
+        <p>
+          Every drop — and, if you want, Twitch channel points — is claimed for you
+          automatically. You just open your inventory and find it already there.
+        </p>
+      </div>
+      <div class="beat__viz beat__viz--claims par" style="--depth:-0.4">
+        <div class="claim"><span class="dot"></span> Signal Booster <em>claimed ✓</em></div>
+        <div class="claim"><span class="dot"></span> Marathon Crate <em>claimed ✓</em></div>
+        <div class="claim claim--pending"><span></span> Arena Skin <em>2h 16m</em></div>
+      </div>
+    </div>
+
+    <!-- Beat 4 — activity -->
+    <div class="beat">
+      <div class="beat__copy reveal">
+        <span class="kicker">Total transparency</span>
+        <h3>Always know what it's doing.</h3>
+        <p>
+          A real-time, filterable log records every decision — channel switches, claims,
+          skips, retries. It's never a black box.
+        </p>
+      </div>
+      <div class="beat__viz beat__viz--log par" style="--depth:-0.5">
+        <div class="logline"><i>14:02</i><b>INFO</b> Switched to RivalsPilot · Rust drops live</div>
+        <div class="logline"><i>14:09</i><b class="ok">CLAIM</b> Reward unlocked &amp; claimed</div>
+        <div class="logline"><i>14:18</i><b>INFO</b> Campaign ended · re-routing</div>
+      </div>
+    </div>
+
+    <ul class="feat__more">
+      {more.map((m) => (
+        <li class="reveal">
+          <strong>{m.t}</strong>
+          <span>{m.d}</span>
+        </li>
+      ))}
+    </ul>
   </div>
 </section>
 
 <style>
-  .feat {
-    padding: clamp(3rem, 6vw, 5.5rem) 0;
+  .feat__head h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    font-size: clamp(2.4rem, 6vw, 4.5rem);
+    margin-top: 0.6rem;
   }
-  .feat__grid {
+
+  .beat {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 1.1rem;
-    margin-top: clamp(2.5rem, 5vw, 3.5rem);
+    gap: clamp(2rem, 5vw, 4.5rem);
+    align-items: center;
+    margin-top: clamp(4rem, 10vw, 8rem);
   }
-  article {
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: linear-gradient(180deg, var(--ink-1), var(--ink-0));
-    padding: clamp(1.4rem, 2.5vw, 2rem);
-    grid-column: span 6;
-    transition: border-color 0.3s var(--ease), transform 0.3s var(--ease);
+  @media (min-width: 860px) {
+    .beat {
+      grid-template-columns: 1fr 1fr;
+    }
+    .beat:nth-child(even) .beat__copy {
+      order: 2;
+    }
   }
-  article:hover {
-    border-color: var(--line-strong);
-    transform: translateY(-3px);
-  }
-  .feat__kicker {
+
+  .kicker {
     font-family: var(--font-mono);
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--purple-soft);
   }
-  article h3 {
-    font-size: clamp(1.3rem, 2.3vw, 1.7rem);
-    margin: 0.7rem 0 0.7rem;
+  .beat__copy h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1;
+    font-size: clamp(2rem, 4.6vw, 3.6rem);
+    margin: 0.8rem 0 1rem;
   }
-  article p {
+  .beat__copy p {
     color: var(--muted);
-    font-size: 0.98rem;
-  }
-  article p b {
-    color: var(--text);
-    font-weight: 600;
+    font-size: clamp(1.02rem, 1.6vw, 1.2rem);
+    max-width: 42ch;
   }
 
-  /* responsive spans */
-  @media (min-width: 760px) {
-    .feat__lead { grid-column: span 6; }
-    .feat__card { grid-column: span 3; }
-    .feat__card--wide { grid-column: span 6; }
-  }
-  @media (min-width: 1040px) {
-    .feat__lead { grid-column: span 6; }
-    .feat__card { grid-column: span 2; }
-    .feat__card--wide { grid-column: span 3; }
-  }
-
-  /* lead block */
-  .feat__lead {
-    display: grid;
-    gap: 2rem;
-    background:
-      radial-gradient(100% 120% at 100% 0%, rgba(83, 252, 24, 0.08), transparent 55%),
-      linear-gradient(180deg, var(--ink-2), var(--ink-0));
-  }
-  @media (min-width: 820px) {
-    .feat__lead {
-      grid-template-columns: 1.1fr 0.9fr;
-      align-items: center;
-    }
-  }
-  .feat__lead h3 {
-    font-size: clamp(1.7rem, 3vw, 2.3rem);
-  }
-  .feat__lead p {
-    font-size: 1.05rem;
-  }
-  .feat__checks {
-    list-style: none;
-    padding: 0;
-    margin: 1.2rem 0 0;
-    display: grid;
-    gap: 0.5rem;
-  }
-  .feat__checks li {
-    position: relative;
-    padding-left: 1.5rem;
-    font-size: 0.92rem;
-    color: var(--muted);
-  }
-  .feat__checks li::before {
-    content: "▸";
-    position: absolute;
-    left: 0;
-    color: var(--lime);
-  }
-
-  /* lead viz */
-  .feat__lead-viz {
+  /* visuals */
+  .beat__viz {
     border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 1.3rem;
-    background: var(--void);
+    border-radius: 22px;
+    padding: clamp(1.6rem, 3vw, 2.4rem);
+    background:
+      radial-gradient(120% 90% at 100% 0%, rgba(124, 58, 237, 0.16), transparent 55%),
+      linear-gradient(180deg, var(--ink-1), var(--ink-0));
+    box-shadow: 0 40px 80px -50px rgba(0, 0, 0, 0.9);
     display: grid;
     gap: 1rem;
   }
   .viz-row {
     display: grid;
-    grid-template-columns: 64px 1fr auto;
+    grid-template-columns: 78px 1fr auto;
     align-items: center;
-    gap: 0.8rem;
+    gap: 0.9rem;
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: 0.74rem;
+    color: var(--muted);
   }
-  .viz-label { color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; }
-  .viz-bar {
-    height: 10px;
+  .bar {
+    height: 11px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.06);
     overflow: hidden;
   }
-  .viz-bar span {
+  .bar b {
     display: block;
     height: 100%;
     border-radius: 999px;
   }
-  .viz-bar--heavy span { background: linear-gradient(90deg, #ff7849, #ff3b6b); }
-  .viz-bar--light span { background: var(--signal); }
-  .viz-val { color: var(--muted); }
+  .bar--heavy b { background: linear-gradient(90deg, #ff7849, #ff3b6b); }
+  .bar--light b { background: var(--signal); }
   .viz-pulse {
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding-top: 0.6rem;
+    gap: 6px;
+    padding-top: 0.8rem;
     border-top: 1px dashed var(--line);
   }
-  .viz-pulse span {
-    width: 6px;
-    height: 6px;
+  .viz-pulse s {
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: var(--lime);
     opacity: 0.3;
     animation: hb 1.6s infinite;
   }
-  .viz-pulse span:nth-child(2) { animation-delay: 0.2s; }
-  .viz-pulse span:nth-child(3) { animation-delay: 0.4s; }
-  .viz-pulse span:nth-child(4) { animation-delay: 0.6s; }
-  .viz-pulse span:nth-child(5) { animation-delay: 0.8s; }
+  .viz-pulse s:nth-child(2) { animation-delay: 0.2s; }
+  .viz-pulse s:nth-child(3) { animation-delay: 0.4s; }
+  .viz-pulse s:nth-child(4) { animation-delay: 0.6s; }
+  .viz-pulse s:nth-child(5) { animation-delay: 0.8s; }
   .viz-pulse em {
     margin-left: auto;
     font-family: var(--font-mono);
-    font-size: 0.66rem;
+    font-size: 0.68rem;
     color: var(--faint);
     font-style: normal;
-    letter-spacing: 0.08em;
   }
   @keyframes hb {
     0%, 100% { opacity: 0.25; transform: scale(1); }
     40% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 10px var(--glow-lime); }
   }
 
-  /* strategy chips */
-  .strat {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 1.1rem;
+  .beat__viz--chips {
+    grid-auto-flow: row;
+    align-content: center;
+    gap: 0.7rem;
   }
-  .strat__chip {
+  .chip {
+    justify-self: start;
     font-family: var(--font-mono);
-    font-size: 0.72rem;
-    padding: 0.45em 0.8em;
+    font-size: 0.8rem;
+    padding: 0.55em 0.9em;
     border-radius: 999px;
     border: 1px solid var(--line);
     color: var(--muted);
   }
-  .strat__chip--on {
+  .chip--on {
     border-color: transparent;
     background: var(--signal);
     color: #0a0612;
     font-weight: 600;
   }
+  .chip--drag { color: var(--faint); border-style: dashed; }
 
-  .claim-chip {
-    margin-top: 1.1rem;
-    display: inline-flex;
+  .claim {
+    display: flex;
     align-items: center;
-    gap: 0.6rem;
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    padding: 0.5em 0.9em;
-    border-radius: 999px;
+    gap: 0.7rem;
+    font-size: 0.95rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
     border: 1px solid var(--line);
-    color: var(--muted);
   }
-  .claim-chip em { color: var(--lime); font-style: normal; }
+  .claim em { margin-left: auto; font-style: normal; color: var(--lime); font-family: var(--font-mono); font-size: 0.78rem; }
+  .claim--pending { opacity: 0.6; }
+  .claim--pending span { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--faint); }
+  .claim--pending em { color: var(--faint); }
 
-  /* accent card */
-  .feat__card--accent {
-    background:
-      radial-gradient(120% 100% at 0% 0%, rgba(145, 71, 255, 0.16), transparent 55%),
-      linear-gradient(180deg, var(--ink-2), var(--ink-0));
-  }
-  .locales {
-    margin-top: 1.1rem;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--muted);
-    letter-spacing: 0.04em;
-  }
-
-  /* log lines */
   .logline {
     font-family: var(--font-mono);
-    font-size: 0.74rem;
+    font-size: 0.76rem;
     color: var(--muted);
-    margin-top: 0.6rem;
-    padding: 0.45rem 0.6rem;
-    border-radius: 8px;
+    padding: 0.55rem 0.7rem;
+    border-radius: 9px;
     background: var(--void);
     border: 1px solid var(--line);
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
-  .lg-time { color: var(--faint); margin-right: 0.6rem; }
-  .lg-lvl { color: var(--purple-soft); margin-right: 0.6rem; }
-  .lg-ok { color: var(--lime); }
+  .logline i { color: var(--faint); margin-right: 0.6rem; font-style: normal; }
+  .logline b { color: var(--purple-soft); margin-right: 0.6rem; font-weight: 600; }
+  .logline b.ok { color: var(--lime); }
+
+  /* "and more" row */
+  .feat__more {
+    list-style: none;
+    padding: 0;
+    margin: clamp(4rem, 9vw, 7rem) 0 0;
+    display: grid;
+    gap: 1.4rem 2.5rem;
+    border-top: 1px solid var(--line);
+    padding-top: clamp(2rem, 4vw, 3rem);
+  }
+  @media (min-width: 720px) {
+    .feat__more {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+  .feat__more strong {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin-bottom: 0.3rem;
+  }
+  .feat__more span {
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
 </style>

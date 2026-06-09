@@ -1,6 +1,6 @@
 ---
-// Emotional, benefit-led "why you'll love it" band — the taglines that sell the
-// feeling of the product rather than its mechanics. Kept punchy/near-verbatim.
+// "Why you'll love it" — benefit-led taglines that sell the feeling. Copy is
+// kept verbatim; presentation is cinematic, scroll-revealed, alternating.
 type Perk = { n: string; head: string; sub: string };
 
 const perks: Perk[] = [
@@ -27,91 +27,107 @@ const perks: Perk[] = [
 ];
 ---
 
-<section id="why" class="why">
+<section id="why" class="why act">
   <div class="wrap">
-    <div class="section-head reveal">
-      <p class="eyebrow">Why you'll love it</p>
-      <h2>Drops, on your terms.</h2>
-      <p>Stop arranging your life around drop campaigns. Let them arrange themselves around you.</p>
-    </div>
+    <p class="eyebrow reveal">Why you'll love it</p>
+    <h2 class="why__lede reveal-slow">Drops, on your terms.</h2>
+    <p class="why__deck reveal">Stop arranging your life around drop campaigns. Let them arrange themselves around you.</p>
 
-    <ul class="why__grid">
+    <ol class="why__list">
       {perks.map((p) => (
-        <li class="perk reveal">
-          <span class="perk__n">{p.n}</span>
-          <h3 set:html={p.head}></h3>
-          <p>{p.sub}</p>
+        <li class="why__item">
+          <span class="why__n par" style="--depth:-0.5">{p.n}</span>
+          <div class="why__body">
+            <h3 class="reveal-slow" set:html={p.head}></h3>
+            <p class="reveal">{p.sub}</p>
+          </div>
         </li>
       ))}
-    </ul>
+    </ol>
   </div>
 </section>
 
 <style>
-  .why {
-    padding: clamp(3rem, 6vw, 5rem) 0;
+  .why__lede {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-size: clamp(2.4rem, 6vw, 4.5rem);
+    margin: 0.6rem 0 1rem;
   }
-  .why__grid {
-    list-style: none;
-    padding: 0;
-    margin: clamp(2.5rem, 5vw, 3.5rem) 0 0;
-    display: grid;
-    gap: 1.1rem;
-  }
-  @media (min-width: 760px) {
-    .why__grid {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
-  .perk {
-    position: relative;
-    overflow: hidden;
-    padding: clamp(1.6rem, 3vw, 2.4rem);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: linear-gradient(180deg, var(--ink-1), var(--ink-0));
-    transition: border-color 0.35s var(--ease), transform 0.35s var(--ease);
-  }
-  /* soft signal glow that blooms on hover, clipped to the card */
-  .perk::before {
-    content: "";
-    position: absolute;
-    width: 320px;
-    height: 320px;
-    top: -160px;
-    right: -120px;
-    background: radial-gradient(closest-side, rgba(145, 71, 255, 0.22), transparent);
-    opacity: 0;
-    transition: opacity 0.45s var(--ease);
-    pointer-events: none;
-  }
-  .perk:hover {
-    transform: translateY(-4px);
-    border-color: var(--line-strong);
-  }
-  .perk:hover::before {
-    opacity: 1;
-  }
-
-  .perk__n {
-    position: relative;
-    font-family: var(--font-mono);
-    font-size: 0.74rem;
-    letter-spacing: 0.2em;
-    color: var(--faint);
-  }
-  .perk h3 {
-    position: relative;
-    font-size: clamp(1.6rem, 3.4vw, 2.4rem);
-    line-height: 1.05;
-    margin: 0.7rem 0 0.8rem;
-    max-width: 16ch;
-  }
-  .perk p {
-    position: relative;
+  .why__deck {
     color: var(--muted);
-    font-size: 1rem;
-    max-width: 42ch;
+    font-size: 1.15rem;
+    max-width: 48ch;
+  }
+
+  .why__list {
+    list-style: none;
+    margin: clamp(3.5rem, 9vw, 7rem) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3.5rem, 8vw, 6.5rem);
+  }
+  .why__item {
+    display: grid;
+    grid-template-columns: minmax(auto, 0.8fr) 1.4fr;
+    gap: clamp(1rem, 4vw, 3rem);
+    align-items: center;
+  }
+  /* alternate the big number to the opposite side for editorial rhythm */
+  .why__item:nth-child(even) {
+    grid-template-columns: 1.4fr minmax(auto, 0.8fr);
+  }
+  .why__item:nth-child(even) .why__n {
+    order: 2;
+    text-align: right;
+  }
+  .why__item:nth-child(even) .why__body {
+    order: 1;
+  }
+
+  .why__n {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(4rem, 14vw, 11rem);
+    line-height: 0.8;
+    letter-spacing: -0.05em;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--line-strong);
+    opacity: 0.9;
+    user-select: none;
+  }
+  .why__body h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+    font-size: clamp(1.9rem, 4.6vw, 3.4rem);
+    margin-bottom: 0.8rem;
+  }
+  .why__body p {
+    color: var(--muted);
+    font-size: clamp(1.02rem, 1.6vw, 1.2rem);
+    max-width: 44ch;
+  }
+
+  @media (max-width: 700px) {
+    .why__item,
+    .why__item:nth-child(even) {
+      grid-template-columns: 1fr;
+      gap: 0.4rem;
+    }
+    .why__item:nth-child(even) .why__n {
+      order: 0;
+      text-align: left;
+    }
+    .why__item:nth-child(even) .why__body {
+      order: 0;
+    }
+    .why__n {
+      font-size: clamp(3rem, 18vw, 5rem);
+    }
   }
 </style>

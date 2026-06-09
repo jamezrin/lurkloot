@@ -1,68 +1,75 @@
 ---
 import { LINKS } from "../consts";
+import BrowserPills from "./BrowserPills.astro";
 ---
 
-<section class="cta">
-  <div class="wrap cta__inner reveal">
+<section class="cta act">
+  <div class="wrap cta__inner reveal-slow">
     <div class="cta__glow" aria-hidden="true"></div>
-    <p class="eyebrow">Engage autopilot</p>
-    <h2>Stop watching. Start <span class="grad-text">collecting</span>.</h2>
+    <p class="eyebrow">Ready when you are</p>
+    <h2>Stop watching.<br />Start <span class="grad-text">collecting</span>.</h2>
     <p class="cta__lede">
-      Free, and running in under a minute. Install it once and let your
-      drops pile up while you do literally anything else.
+      Free, and running in under a minute. Install once and let your drops pile up while
+      you do literally anything else.
     </p>
     <div class="cta__btns">
-      <a class="btn btn--primary" href={LINKS.chrome} target="_blank" rel="noopener">Add to Chrome — it's free</a>
+      <a class="btn btn--primary btn--lg" href={LINKS.chrome} target="_blank" rel="noopener">
+        Add to your browser — free
+      </a>
     </div>
+    <div class="cta__pills"><BrowserPills /></div>
     <p class="cta__fine">No account · No password · No tracking</p>
   </div>
 </section>
 
 <style>
-  .cta {
-    padding: clamp(3rem, 6vw, 5rem) 0 clamp(4rem, 7vw, 6rem);
-  }
   .cta__inner {
     position: relative;
     text-align: center;
     border: 1px solid var(--line-strong);
-    border-radius: 28px;
-    padding: clamp(2.8rem, 6vw, 5rem) clamp(1.5rem, 4vw, 4rem);
+    border-radius: 32px;
+    padding: clamp(3rem, 8vw, 6rem) clamp(1.5rem, 5vw, 4rem);
     background: linear-gradient(180deg, var(--ink-2), var(--ink-0));
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
   .cta__glow {
     position: absolute;
-    inset: -40% 10% auto;
-    height: 60%;
-    background: radial-gradient(closest-side, rgba(145, 71, 255, 0.35), transparent);
-    filter: blur(30px);
+    inset: -50% 10% auto;
+    height: 70%;
+    background: radial-gradient(closest-side, rgba(145, 71, 255, 0.4), transparent);
+    filter: blur(40px);
     pointer-events: none;
   }
   .cta h2 {
     position: relative;
-    font-size: clamp(2.2rem, 5.5vw, 4rem);
-    margin: 0.8rem auto 0;
-    max-width: 16ch;
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.96;
+    font-size: clamp(2.6rem, 7vw, 5rem);
+    margin: 0.8rem 0 0;
   }
   .cta__lede {
     position: relative;
     color: var(--muted);
-    font-size: 1.1rem;
+    font-size: 1.12rem;
     max-width: 46ch;
-    margin: 1.2rem auto 0;
+    margin: 1.4rem auto 0;
   }
   .cta__btns {
     position: relative;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.85rem;
-    margin-top: 2rem;
+    margin-top: 2.2rem;
+  }
+  .cta__pills {
+    position: relative;
+    margin-top: 1.8rem;
   }
   .cta__fine {
     position: relative;
-    margin-top: 1.4rem;
+    margin-top: 1.6rem;
     font-family: var(--font-mono);
     font-size: 0.74rem;
     letter-spacing: 0.06em;

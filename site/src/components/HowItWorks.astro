@@ -3,12 +3,12 @@ const steps = [
   {
     n: "01",
     title: "Install & stay logged in",
-    body: "Add it to Chrome. It rides on the Twitch and Kick sessions you're already signed into — nothing to connect, no password to hand over.",
+    body: "Add it to your browser. It rides on the Twitch and Kick sessions you're already signed into — nothing to connect, no password to hand over.",
   },
   {
     n: "02",
     title: "Pick what to farm",
-    body: "Enable each platform, then let it auto-discover live campaigns. Prioritize the drops and games you care about, or just leave the defaults and walk away.",
+    body: "Enable each platform and let it auto-discover live campaigns. Prioritize the drops and games you care about, or just leave the defaults and walk away.",
   },
   {
     n: "03",
@@ -18,15 +18,11 @@ const steps = [
 ];
 ---
 
-<section id="how" class="how">
+<section id="how" class="how act">
   <div class="wrap">
-    <div class="section-head reveal">
-      <p class="eyebrow">Flight plan</p>
-      <h2>Three steps, then hands off the controls.</h2>
-      <p>
-        Setup takes under a minute. After that, Stream Autopilot runs the whole
-        loop — discover, watch, switch, claim — on its own.
-      </p>
+    <div class="how__head">
+      <p class="eyebrow reveal">How it works</p>
+      <h2 class="reveal-slow">Set it up once.<br /><span class="grad-text">Then forget it.</span></h2>
     </div>
 
     <ol class="how__steps">
@@ -42,54 +38,50 @@ const steps = [
 </section>
 
 <style>
-  .how {
-    padding: clamp(3.5rem, 7vw, 6rem) 0;
+  .how__head h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    font-size: clamp(2.4rem, 6vw, 4.5rem);
+    margin-top: 0.6rem;
   }
   .how__steps {
     list-style: none;
     padding: 0;
-    margin: clamp(2.5rem, 5vw, 4rem) 0 0;
+    margin: clamp(3rem, 7vw, 5.5rem) 0 0;
     display: grid;
-    gap: 1.1rem;
-    counter-reset: step;
+    gap: clamp(2rem, 4vw, 3rem);
   }
   @media (min-width: 820px) {
     .how__steps {
       grid-template-columns: repeat(3, 1fr);
+      gap: clamp(2rem, 4vw, 3.5rem);
     }
   }
   .how__step {
     position: relative;
-    padding: clamp(1.6rem, 2.5vw, 2.1rem);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: linear-gradient(180deg, var(--ink-1), var(--ink-0));
-    transition: border-color 0.3s var(--ease), transform 0.3s var(--ease);
-  }
-  .how__step:hover {
-    border-color: var(--line-strong);
-    transform: translateY(-3px);
+    padding-top: 2.2rem;
+    border-top: 1px solid var(--line-strong);
   }
   .how__n {
+    position: absolute;
+    top: 2rem;
+    right: 0;
     font-family: var(--font-mono);
-    font-size: 0.85rem;
-    letter-spacing: 0.2em;
-    color: transparent;
-    background: var(--signal-text);
-    -webkit-background-clip: text;
-    background-clip: text;
-    display: inline-block;
-    padding: 0.3em 0;
-    border-bottom: 2px solid var(--purple);
-    margin-bottom: 1.1rem;
+    font-size: 0.8rem;
+    color: var(--faint);
   }
   .how__step h3 {
-    font-size: 1.35rem;
-    margin-bottom: 0.6rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.7rem;
   }
   .how__step p {
     color: var(--muted);
-    font-size: 1rem;
-    max-width: 34ch;
+    font-size: 1.02rem;
+    max-width: 36ch;
   }
 </style>

@@ -5,19 +5,18 @@ import logo from "../assets/logo-ring.svg";
 
 <header class="nav">
   <div class="wrap nav__inner">
-    <a class="nav__brand" href="#top" aria-label="Stream Autopilot — home">
-      <img src={logo.src} width="30" height="30" alt="" />
+    <a class="nav__brand" href="#top" aria-label="Stream Autopilot — top">
+      <img src={logo.src} width="28" height="28" alt="" />
       <span>Stream Autopilot</span>
     </a>
     <nav class="nav__links" aria-label="Primary">
-      <a href="#how">How it works</a>
+      <a href="#why">Why</a>
+      <a href="#how">How</a>
       <a href="#features">Features</a>
-      <a href="#platforms">Platforms</a>
+      <a href="#demo">Demo</a>
       <a href="#faq">FAQ</a>
     </nav>
-    <a class="btn btn--primary nav__cta" href={LINKS.chrome} target="_blank" rel="noopener">
-      Add to browser
-    </a>
+    <a class="btn btn--primary nav__cta" href={LINKS.chrome} target="_blank" rel="noopener">Add to browser</a>
   </div>
 </header>
 
@@ -26,33 +25,45 @@ import logo from "../assets/logo-ring.svg";
     position: sticky;
     top: 0;
     z-index: 50;
-    backdrop-filter: blur(14px);
-    background: linear-gradient(180deg, rgba(6, 6, 9, 0.85), rgba(6, 6, 9, 0.55));
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid transparent;
+    background: rgba(6, 6, 9, 0.35);
+    backdrop-filter: blur(8px);
+  }
+  /* frost intensifies once you leave the hero */
+  @media (prefers-reduced-motion: no-preference) {
+    .nav {
+      animation: navSolid linear both;
+      animation-timeline: scroll(root);
+      animation-range: 60px 160px;
+    }
+    @keyframes navSolid {
+      to {
+        background: rgba(6, 6, 9, 0.8);
+        border-bottom-color: var(--line);
+      }
+    }
   }
   .nav__inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 66px;
+    height: 64px;
     gap: 1.5rem;
   }
   .nav__brand {
     display: inline-flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.55rem;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 1.02rem;
+    font-size: 1rem;
     letter-spacing: -0.02em;
   }
-  .nav__brand img {
-    border-radius: 9px;
-  }
+  .nav__brand img { border-radius: 8px; }
   .nav__links {
     display: none;
     gap: 1.9rem;
-    font-size: 0.92rem;
+    font-size: 0.9rem;
     color: var(--muted);
     font-weight: 500;
   }
@@ -60,9 +71,7 @@ import logo from "../assets/logo-ring.svg";
     position: relative;
     transition: color 0.2s var(--ease);
   }
-  .nav__links a:hover {
-    color: var(--text);
-  }
+  .nav__links a:hover { color: var(--text); }
   .nav__links a::after {
     content: "";
     position: absolute;
@@ -73,21 +82,15 @@ import logo from "../assets/logo-ring.svg";
     background: var(--signal);
     transition: width 0.25s var(--ease);
   }
-  .nav__links a:hover::after {
-    width: 100%;
-  }
+  .nav__links a:hover::after { width: 100%; }
   .nav__cta {
-    padding: 0.6em 1.1em;
-    font-size: 0.9rem;
+    padding: 0.55em 1.05em;
+    font-size: 0.88rem;
   }
-  @media (min-width: 880px) {
-    .nav__links {
-      display: flex;
-    }
+  @media (min-width: 900px) {
+    .nav__links { display: flex; }
   }
   @media (max-width: 520px) {
-    .nav__brand span {
-      display: none;
-    }
+    .nav__brand span { display: none; }
   }
 </style>

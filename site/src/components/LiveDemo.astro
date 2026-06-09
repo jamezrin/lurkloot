@@ -2,21 +2,21 @@
 import PopupDemo from "../popup-ui/PopupDemo.tsx";
 ---
 
-<section id="demo" class="demo">
+<section id="demo" class="demo act">
   <div class="wrap">
-    <div class="section-head reveal">
-      <p class="eyebrow">Try it yourself</p>
-      <h2>Not a screenshot — the actual UI.</h2>
-      <p>
-        This is the real Stream Autopilot popup, running right here on demo data.
-        Switch Twitch/Kick, open Settings, reorder campaigns, flip toggles —
-        poke around. It's exactly what you get after installing.
+    <div class="demo__head">
+      <p class="eyebrow reveal">Try it yourself</p>
+      <h2 class="reveal-slow">Not a screenshot.<br />The actual thing.</h2>
+      <p class="reveal">
+        This is the real Stream Autopilot popup, running right here on demo data. Switch
+        Twitch/Kick, open Settings, reorder campaigns, flip toggles — poke around. It's
+        exactly what you get after installing.
       </p>
     </div>
 
-    <div class="demo__stage reveal">
+    <div class="demo__stage">
       <div class="demo__glow" aria-hidden="true"></div>
-      <div class="demo__screen">
+      <div class="demo__screen arrive">
         <span class="demo__pill"><span class="dot"></span> live demo · mock data</span>
         <PopupDemo client:visible />
       </div>
@@ -25,13 +25,21 @@ import PopupDemo from "../popup-ui/PopupDemo.tsx";
 </section>
 
 <style>
-  .demo {
-    padding: clamp(3rem, 6vw, 5.5rem) 0;
-    overflow: hidden;
+  .demo { overflow: clip; }
+  .demo__head {
+    text-align: center;
+    max-width: 40ch;
+    margin: 0 auto clamp(3rem, 7vw, 5rem);
   }
-  .demo .section-head {
-    margin-bottom: clamp(2.5rem, 5vw, 3.5rem);
+  .demo__head h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    font-size: clamp(2.4rem, 6vw, 4.5rem);
+    margin: 0.6rem 0 1rem;
   }
+  .demo__head p { color: var(--muted); font-size: 1.08rem; }
 
   .demo__stage {
     position: relative;
@@ -40,32 +48,27 @@ import PopupDemo from "../popup-ui/PopupDemo.tsx";
   }
   .demo__glow {
     position: absolute;
-    top: -8%;
-    width: min(640px, 90%);
-    height: 70%;
-    background: radial-gradient(closest-side, rgba(124, 58, 237, 0.32), transparent 70%);
-    filter: blur(40px);
+    top: -12%;
+    width: min(720px, 92%);
+    height: 80%;
+    background: radial-gradient(closest-side, rgba(124, 58, 237, 0.38), transparent 70%);
+    filter: blur(50px);
     pointer-events: none;
   }
-
   .demo__screen {
     position: relative;
     width: 400px;
-    /* the popup's <main> is 600px tall; reserve it so there's no layout jump
-       before the island hydrates */
     min-height: 600px;
   }
-  /* The popup host (shadow root) carries the extension's own border/shadow. */
   .demo__screen :global(.sa-popup-host) {
     display: block;
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 50px 90px -50px rgba(0, 0, 0, 0.95);
+    box-shadow: 0 60px 110px -50px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.04);
   }
-
   .demo__pill {
     position: absolute;
-    top: -1.1rem;
+    top: -1.3rem;
     right: 0.4rem;
     z-index: 2;
     display: inline-flex;
@@ -74,21 +77,14 @@ import PopupDemo from "../popup-ui/PopupDemo.tsx";
     font-family: var(--font-mono);
     font-size: 0.68rem;
     letter-spacing: 0.06em;
-    padding: 0.4em 0.7em;
+    padding: 0.42em 0.75em;
     border-radius: 999px;
     border: 1px solid var(--line-strong);
     background: var(--ink-2);
     color: var(--muted);
   }
-
-  /* keep the fixed-width popup from overflowing narrow viewports */
   @media (max-width: 460px) {
-    .demo__stage {
-      height: calc(600px * 0.82 + 1.2rem);
-    }
-    .demo__screen {
-      transform: scale(0.82);
-      transform-origin: top center;
-    }
+    .demo__stage { height: calc(600px * 0.82 + 1.5rem); }
+    .demo__screen { transform: scale(0.82); transform-origin: top center; }
   }
 </style>

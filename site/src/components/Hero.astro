@@ -1,350 +1,223 @@
 ---
+import { Image } from "astro:assets";
 import { LINKS } from "../consts";
+import BrowserPills from "./BrowserPills.astro";
+import logo from "../assets/logo-ring.svg";
+import rust from "../assets/games/rust.jpg";
+import valorant from "../assets/games/valorant.jpg";
+import apex from "../assets/games/apex-legends.jpg";
+import cs from "../assets/games/counter-strike.jpg";
+import dbd from "../assets/games/dead-by-daylight.jpg";
+import warframe from "../assets/games/warframe.jpg";
+
+// Floating cover art = parallax depth. `pos` places it; `shift` is the scroll
+// parallax distance; `bob` toggles a gentle idle drift.
+const floats = [
+  { img: rust, pos: "top:14%;left:6%", w: 116, shift: "-200px", blur: 2, op: 0.5, bob: true },
+  { img: valorant, pos: "top:22%;right:8%", w: 132, shift: "-320px", blur: 1, op: 0.6, bob: false },
+  { img: apex, pos: "top:58%;left:11%", w: 100, shift: "-120px", blur: 3, op: 0.4, bob: false },
+  { img: cs, pos: "top:64%;right:13%", w: 108, shift: "-240px", blur: 2, op: 0.45, bob: true },
+  { img: dbd, pos: "top:40%;left:-2%", w: 88, shift: "-80px", blur: 4, op: 0.3, bob: false },
+  { img: warframe, pos: "top:8%;right:24%", w: 78, shift: "-160px", blur: 4, op: 0.3, bob: true },
+];
 ---
 
 <section id="top" class="hero">
-  <div class="wrap hero__grid">
-    <div class="hero__copy">
-      <p class="eyebrow rise" style="animation-delay:.05s">Twitch &amp; Kick drop automation</p>
-
-      <h1 class="rise" style="animation-delay:.12s">
-        Farm Twitch &amp; Kick drops<br />
-        on <span class="grad-text">autopilot</span>.
-      </h1>
-
-      <p class="hero__lede rise" style="animation-delay:.2s">
-        Stream Autopilot earns your in-game drops for you — quietly, in your own
-        browser. It watches the right channels, switches as campaigns end, and
-        auto-claims every reward. No watching streams. No password. No servers.
-      </p>
-
-      <div class="hero__cta rise" style="animation-delay:.28s">
-        <a class="btn btn--primary" href={LINKS.chrome} target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.66 5h9.78a4 4 0 0 1 3.46 2l.01.02L21.6 7.1A10 10 0 0 0 12 2Zm9.66 7H13.4a4 4 0 0 1 .6 2.06 4 4 0 0 1-.56 2.04L9.5 21.9A10 10 0 0 0 21.66 9ZM7.94 14.06 3.5 6.4A10 10 0 0 0 8.2 21.62L11.3 16A4 4 0 0 1 7.94 14.06ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg>
-          Add to Chrome — free
-        </a>
+  <div class="hero__bg" aria-hidden="true">
+    <div class="hero__orb hero__orb--1"></div>
+    <div class="hero__orb hero__orb--2"></div>
+    {floats.map((f) => (
+      <div
+        class:list={["hero__float", { "hero__float--bob": f.bob }]}
+        style={`${f.pos};--shift:${f.shift};--blur:${f.blur}px;--op:${f.op};width:${f.w}px`}
+      >
+        <Image src={f.img} alt="" widths={[120, 200]} sizes="120px" loading="eager" />
       </div>
-
-      <ul class="hero__trust rise" style="animation-delay:.36s">
-        <li><span class="dot"></span> No password</li>
-        <li><span class="dot"></span> Runs on your device</li>
-        <li><span class="dot"></span> No tracking</li>
-        <li><span class="dot"></span> 10 languages</li>
-      </ul>
-    </div>
-
-    <!-- Instrument cluster: the autopilot "flight deck" -->
-    <aside class="deck rise" style="animation-delay:.34s" aria-label="Live farming status (illustrative)">
-      <div class="deck__chrome">
-        <span class="deck__led"></span>
-        <span class="deck__title">autopilot · engaged</span>
-        <span class="deck__ver">v1.0</span>
-      </div>
-
-      <div class="ring-wrap">
-        <svg class="ring" viewBox="0 0 220 220" role="img" aria-label="Drop progress 72 percent">
-          <defs>
-            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#a06bff" />
-              <stop offset="0.55" stop-color="#7c3aed" />
-              <stop offset="1" stop-color="#53fc18" />
-            </linearGradient>
-          </defs>
-          <circle class="ring__track" cx="110" cy="110" r="92" />
-          <circle class="ring__prog" cx="110" cy="110" r="92" />
-          <g class="ring__ticks">
-            {Array.from({ length: 60 }).map((_, i) => (
-              <line
-                x1="110"
-                y1="14"
-                x2="110"
-                y2={i % 5 === 0 ? 24 : 19}
-                transform={`rotate(${i * 6} 110 110)`}
-              />
-            ))}
-          </g>
-        </svg>
-        <div class="ring__center">
-          <span class="ring__pct">72<small>%</small></span>
-          <span class="ring__label">campaign progress</span>
-          <span class="ring__play" aria-hidden="true">▶</span>
-        </div>
-      </div>
-
-      <div class="deck__feed" aria-hidden="true">
-        <div class="feed__row">
-          <span class="feed__tag tag--twitch">TWITCH</span>
-          <span class="feed__msg">Watching <b>RivalsPilot</b> · Rust</span>
-          <span class="feed__ok">+18m</span>
-        </div>
-        <div class="feed__row">
-          <span class="feed__tag tag--kick">KICK</span>
-          <span class="feed__msg">Switched channel · campaign ending</span>
-          <span class="feed__ok">auto</span>
-        </div>
-        <div class="feed__row">
-          <span class="feed__tag tag--claim">CLAIM</span>
-          <span class="feed__msg">Reward claimed · <b>Signal Booster</b></span>
-          <span class="feed__ok">✓</span>
-        </div>
-      </div>
-
-      <div class="deck__stats">
-        <div><span class="stat__n">2</span><span class="stat__l">platforms</span></div>
-        <div><span class="stat__n">0</span><span class="stat__l">tabs needed</span></div>
-        <div><span class="stat__n">∞</span><span class="stat__l">hands-off</span></div>
-      </div>
-    </aside>
+    ))}
   </div>
+
+  <div class="wrap hero__inner">
+    <p class="eyebrow rise" style="animation-delay:.05s">
+      <img src={logo.src} width="20" height="20" alt="" /> Stream Autopilot
+    </p>
+    <h1 class="hero__title rise" style="animation-delay:.12s">
+      Farm Twitch &amp; Kick drops<br />
+      <span class="grad-text">on autopilot.</span>
+    </h1>
+    <p class="hero__sub rise" style="animation-delay:.22s">
+      It watches the right channels, switches as campaigns end, and auto-claims every
+      reward — quietly, in your own browser. You just collect.
+    </p>
+    <div class="hero__cta rise" style="animation-delay:.32s">
+      <a class="btn btn--primary btn--lg" href={LINKS.chrome} target="_blank" rel="noopener">
+        Add to your browser — free
+      </a>
+    </div>
+    <div class="hero__pills rise" style="animation-delay:.42s">
+      <BrowserPills />
+    </div>
+  </div>
+
+  <a href="#why" class="hero__cue" aria-label="Scroll down">
+    <span>scroll</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M12 5v14M6 13l6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </a>
 </section>
 
 <style>
   .hero {
-    padding: clamp(2.5rem, 7vw, 6rem) 0 clamp(3rem, 6vw, 5.5rem);
-  }
-  .hero__grid {
-    display: grid;
-    gap: clamp(2.5rem, 5vw, 4.5rem);
-    align-items: center;
-  }
-  @media (min-width: 980px) {
-    .hero__grid {
-      grid-template-columns: 1.05fr 0.95fr;
-    }
-  }
-
-  h1 {
-    font-size: clamp(2.7rem, 7vw, 5.1rem);
-    margin: 1.1rem 0 0;
-  }
-  .hero__lede {
-    color: var(--muted);
-    font-size: clamp(1.05rem, 1.6vw, 1.22rem);
-    max-width: 36ch;
-    margin-top: 1.4rem;
-  }
-  .hero__cta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.85rem;
-    margin-top: 2rem;
-  }
-  .hero__src {
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    color: var(--muted);
-    transition: color 0.2s var(--ease);
-  }
-  .hero__src:hover {
-    color: var(--lime);
-  }
-  .hero__trust {
-    list-style: none;
-    padding: 0;
-    margin: 2rem 0 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem 1.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    letter-spacing: 0.02em;
-    color: var(--muted);
-  }
-  .hero__trust li {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55em;
-  }
-
-  /* -------- instrument cluster -------- */
-  .deck {
     position: relative;
-    border: 1px solid var(--line-strong);
-    border-radius: 22px;
-    background:
-      radial-gradient(120% 80% at 50% -10%, rgba(124, 58, 237, 0.18), transparent 60%),
-      linear-gradient(180deg, var(--ink-1), var(--ink-0));
-    padding: 1.1rem 1.1rem 1.3rem;
-    box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    overflow: hidden;
+    min-height: 100svh;
+    display: flex;
+    align-items: center;
+    overflow: clip;
+    padding: 7rem 0 5rem;
   }
-  .deck::before {
-    content: "";
+
+  /* ---- depth background ---- */
+  .hero__bg {
     position: absolute;
     inset: 0;
-    background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-    background-size: 26px 26px;
-    mask-image: radial-gradient(circle at 50% 35%, #000, transparent 78%);
+    z-index: 0;
     pointer-events: none;
   }
-  .deck__chrome {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--faint);
-    padding-bottom: 0.6rem;
-    border-bottom: 1px solid var(--line);
-  }
-  .deck__led {
-    width: 8px;
-    height: 8px;
+  .hero__orb {
+    position: absolute;
     border-radius: 50%;
-    background: var(--lime);
-    box-shadow: 0 0 12px var(--glow-lime);
-    animation: blink 2.4s infinite;
+    filter: blur(60px);
+    opacity: 0.5;
   }
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.35; }
+  .hero__orb--1 {
+    top: -10%;
+    left: 8%;
+    width: 46vw;
+    height: 46vw;
+    background: radial-gradient(closest-side, rgba(145, 71, 255, 0.45), transparent);
   }
-  .deck__ver {
-    margin-left: auto;
+  .hero__orb--2 {
+    bottom: -16%;
+    right: 4%;
+    width: 40vw;
+    height: 40vw;
+    background: radial-gradient(closest-side, rgba(83, 252, 24, 0.3), transparent);
   }
-
-  .ring-wrap {
-    position: relative;
-    width: min(280px, 70%);
-    margin: 1.4rem auto 1rem;
-    aspect-ratio: 1;
+  .hero__float {
+    position: absolute;
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+    overflow: hidden;
+    opacity: var(--op);
+    filter: blur(var(--blur)) saturate(1.1);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.9);
   }
-  .ring {
+  .hero__float :global(img) {
     width: 100%;
     height: 100%;
-    transform: rotate(-90deg);
-    filter: drop-shadow(0 0 18px rgba(124, 58, 237, 0.25));
+    object-fit: cover;
   }
-  .ring__track {
-    fill: none;
-    stroke: rgba(255, 255, 255, 0.08);
-    stroke-width: 12;
-  }
-  .ring__prog {
-    fill: none;
-    stroke: url(#ringGrad);
-    stroke-width: 12;
-    stroke-linecap: round;
-    stroke-dasharray: 578;
-    stroke-dashoffset: 578;
-    animation: fill 2s var(--ease) 0.5s forwards;
-  }
-  @keyframes fill {
-    to {
-      stroke-dashoffset: 162; /* ~72% of 578 */
-    }
-  }
-  .ring__ticks line {
-    stroke: rgba(255, 255, 255, 0.16);
-    stroke-width: 1.5;
-  }
-  .ring__center {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-content: center;
+
+  /* ---- foreground ---- */
+  .hero__inner {
+    position: relative;
+    z-index: 1;
     text-align: center;
-    gap: 0.1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  .ring__pct {
+  .eyebrow img {
+    border-radius: 6px;
+    vertical-align: middle;
+  }
+  .hero__title {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: clamp(2.6rem, 7vw, 3.4rem);
-    line-height: 1;
+    line-height: 0.98;
     letter-spacing: -0.04em;
+    font-size: clamp(2.9rem, 9vw, 7rem);
+    margin: 1.4rem 0 0;
   }
-  .ring__pct small {
-    font-size: 0.4em;
+  .hero__sub {
     color: var(--muted);
-    margin-left: 0.1em;
+    font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+    max-width: 46ch;
+    margin: 1.6rem auto 0;
   }
-  .ring__label {
+  .hero__cta {
+    margin-top: 2.4rem;
+  }
+  .btn--lg {
+    font-size: 1.08rem;
+    padding: 1em 1.8em;
+  }
+  .hero__pills {
+    margin-top: 1.6rem;
+  }
+
+  /* ---- scroll cue ---- */
+  .hero__cue {
+    position: absolute;
+    bottom: 1.8rem;
+    left: 50%;
+    translate: -50% 0;
+    z-index: 1;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
     font-family: var(--font-mono);
     font-size: 0.66rem;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--faint);
   }
-  .ring__play {
-    margin-top: 0.5rem;
-    font-size: 0.8rem;
-    color: var(--lime);
-    opacity: 0.9;
+  .hero__cue svg {
+    width: 18px;
+    height: 18px;
+    animation: cue 1.8s var(--ease) infinite;
+  }
+  @keyframes cue {
+    0%, 100% { transform: translateY(0); opacity: 0.5; }
+    50% { transform: translateY(5px); opacity: 1; }
   }
 
-  .deck__feed {
-    display: grid;
-    gap: 0.4rem;
-    margin-top: 0.4rem;
-  }
-  .feed__row {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-size: 0.82rem;
-    padding: 0.5rem 0.7rem;
-    border-radius: 11px;
-    background: rgba(255, 255, 255, 0.025);
-    border: 1px solid var(--line);
-    animation: rise 0.6s var(--ease) both;
-  }
-  .feed__row:nth-child(1) { animation-delay: 0.9s; }
-  .feed__row:nth-child(2) { animation-delay: 1.1s; }
-  .feed__row:nth-child(3) { animation-delay: 1.3s; }
-  .feed__tag {
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    letter-spacing: 0.08em;
-    padding: 0.25em 0.5em;
-    border-radius: 6px;
-    font-weight: 600;
-  }
-  .tag--twitch { background: rgba(145, 71, 255, 0.18); color: #c4a7ff; }
-  .tag--kick { background: rgba(83, 252, 24, 0.16); color: #9bff66; }
-  .tag--claim { background: rgba(255, 255, 255, 0.08); color: var(--text); }
-  .feed__msg { color: var(--muted); flex: 1; min-width: 0; }
-  .feed__msg b { color: var(--text); font-weight: 600; }
-  .feed__ok {
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    color: var(--lime);
+  /* ---- scroll-driven parallax (Chromium native scroll-timeline; in sync with Lenis) ---- */
+  @media (prefers-reduced-motion: no-preference) {
+    .hero__inner {
+      animation: heroLift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 95vh;
+    }
+    @keyframes heroLift {
+      to { transform: translateY(-70px); opacity: 0; }
+    }
+    .hero__float,
+    .hero__orb {
+      animation: heroDrift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 100vh;
+      will-change: transform;
+    }
+    @keyframes heroDrift {
+      to { transform: translateY(var(--shift, -120px)); }
+    }
+    .hero__float--bob {
+      animation-name: heroDrift;
+    }
+    .hero__float--bob :global(img) {
+      animation: bob 6s ease-in-out infinite alternate;
+    }
+    @keyframes bob {
+      to { translate: 0 -16px; }
+    }
   }
 
-  .deck__stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.6rem;
-    margin-top: 0.9rem;
-    text-align: center;
-  }
-  .deck__stats div {
-    padding: 0.6rem 0.3rem;
-    border-radius: 11px;
-    border: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.015);
-  }
-  .stat__n {
-    display: block;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 1.5rem;
-    line-height: 1;
-    background: var(--signal-text);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  .stat__l {
-    display: block;
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--faint);
-    margin-top: 0.3rem;
+  @media (max-width: 720px) {
+    /* fewer, calmer floats on small screens */
+    .hero__float--bob { display: none; }
+    .hero__float { opacity: calc(var(--op) * 0.7); }
   }
 </style>

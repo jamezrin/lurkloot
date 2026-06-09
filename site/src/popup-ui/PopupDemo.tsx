@@ -35,5 +35,12 @@ export default function PopupDemo() {
     };
   }, []);
 
-  return <div ref={hostRef} className="sa-popup-host" aria-label="Stream Autopilot popup — interactive demo" />;
+  return (
+    <div
+      ref={hostRef}
+      className="sa-popup-host"
+      data-lenis-prevent
+      aria-label="Stream Autopilot popup — interactive demo"
+    />
+  );
 }
