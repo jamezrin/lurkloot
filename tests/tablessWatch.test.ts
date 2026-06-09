@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChannelCandidate } from "../src/core/models";
+import type { ChannelCandidate } from "@stream-autopilot/shared/models";
 import { buildMinuteWatchedEvent, buildSpadeInput, gzipBase64 } from "../src/platforms/twitch/watch";
 import { KickWatcher, type WebSocketLike } from "../src/platforms/kick/watch";
 

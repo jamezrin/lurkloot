@@ -1,0 +1,13 @@
+{
+  "name": "@stream-autopilot/shared",
+  "version": "1.3.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    "./models": "./src/models.ts",
+    "./messages": "./src/messages.ts",
+    "./settings": "./src/settings.ts",
+    "./i18n": "./src/i18n.ts",
+    "./logging": "./src/logging.ts"
+  }
+}

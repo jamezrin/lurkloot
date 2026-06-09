@@ -1,4 +1,4 @@
-import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "../../core/models";
+import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@stream-autopilot/shared/models";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import { logActivity } from "../../core/activityLog";
 import { fetchJsonInPage, fetchKickInBackground, KickWafBlockedError, openPinnedMutedTab, stopWatchTab } from "../../core/tabs";

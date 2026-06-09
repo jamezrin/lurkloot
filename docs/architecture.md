@@ -7,16 +7,16 @@ Stream Autopilot is a WXT browser extension that farms Twitch and Kick drops thr
 - `entrypoints/background.ts` registers extension lifecycle hooks, alarms, tab-removal handling, and runtime message handling.
 - `src/background/controller.ts` coordinates settings/state persistence, scheduler ticks, popup messages, notifications, manual reward claims, and playback-control authorization.
 - `src/core/scheduler.ts` owns platform-independent campaign selection, Watch Queue fallback selection, auto-claiming, retry/backoff, session state, manual-watch pauses, and watch-mode lifecycle decisions.
-- `src/platforms/adapter.ts` defines the `PlatformAdapter` contract. `src/platforms/twitch.ts` and `src/platforms/kick.ts` implement platform-specific discovery, progress, candidate, validation, claim, and tab preparation behavior.
+- `src/platforms/adapter.ts` defines the `PlatformAdapter` contract. `src/platforms/twitch/index.ts` and `src/platforms/kick/index.ts` implement platform-specific discovery, progress, candidate, validation, claim, and tab preparation behavior.
 - `src/core/tabs.ts` contains shared browser-tab management and page-context fetch helpers.
 - `entrypoints/twitch.content.ts` and `entrypoints/kick.content.ts` start shared playback telemetry/control on platform pages.
-- `entrypoints/popup/` renders the React popup and talks only to the background controller through runtime messages.
+- `entrypoints/popup/` adapts WXT/browser APIs to the shared React popup UI in `packages/popup-ui`, which talks only to the background controller through runtime messages.
 
 State and normalized settings are loaded and saved through `src/core/storage.ts`. The scheduler stores independent `WatchSession`, campaign, diagnostics, event, manual-watch, and managed-tab state for `twitch` and `kick`. A short-lived Twitch Client-Integrity bundle is stored separately so claim mutations can replay page-issued Twitch headers while the token is valid.
 
 ## Runtime Messages
 
-The popup and content scripts do not call adapters directly. They send typed runtime messages from `src/core/messages.ts`:
+The popup and content scripts do not call adapters directly. They send typed runtime messages from `@stream-autopilot/shared/messages`:
 
 - Popup messages: `getSnapshot`, `saveSettings`, `setRunning`, `setPlatformEnabled`, `setAutomation`, `tickNow`, and `claimReward`.
 - Content-script messages: `getPlaybackControl` and `playbackTelemetry`.
@@ -25,13 +25,13 @@ The popup and content scripts do not call adapters directly. They send typed run
 
 ## Settings Model
 
-`mergeSettings` is the source of truth for defaults, migrations, and persisted-setting normalization. It fills missing keys from `DEFAULT_SETTINGS`, clamps numeric values, normalizes channel/game/campaign lists, and removes duplicate list entries.
+`mergeSettings` in `@stream-autopilot/shared/settings` is the source of truth for defaults, migrations, and persisted-setting normalization. It fills missing keys from `DEFAULT_SETTINGS`, clamps numeric values, normalizes channel/category/campaign lists, and removes duplicate list entries.
 
 Important setting groups:
 
 - Global automation: `running`, `autoStartDropFarming`, per-platform `enabled`.
 - Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `watchQueueFallbackOnly`, `priorityMode`, `campaignPriorities`, `excludedCampaignIds`.
-- Platform preferences: `platform[platform].watchQueueChannels`, `platform[platform].excludedChannels`, and `platform[platform].gamePriority`.
+- Platform preferences: `platform[platform].watchQueueChannels`, `platform[platform].excludedChannels`, `platform[platform].farmAllCategories`, and `platform[platform].categories`.
 - Tab/playback behavior: `tablessMode`, `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`, `autoCloseFinishedDrops`, `offlineRetryLimit`.
 - Notifications: `notifyRewardEarned`, `notifyNoDropsLeft`.
 

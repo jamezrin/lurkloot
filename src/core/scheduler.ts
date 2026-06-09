@@ -9,9 +9,9 @@ import type {
   SchedulerState,
   WatchDecision,
   WatchSession,
-} from "./models";
+} from "@stream-autopilot/shared/models";
 import { currentManagedPageContextTabs, registerManagedPageContextTabs, stopManagedPageContextTabs } from "./tabs";
-import { appendLog, shouldRecord, type LogLevel } from "./logging";
+import { appendLog, shouldRecord, type LogLevel } from "@stream-autopilot/shared/logging";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;

@@ -1,7 +1,7 @@
-import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "../core/messages";
-import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "../core/models";
-import { appendLog, shouldRecord, type LogLevel } from "../core/logging";
-import { applySettingsPatch, mergeSettings, type SettingsPatch } from "../core/settings";
+import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@stream-autopilot/shared/messages";
+import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "@stream-autopilot/shared/models";
+import { appendLog, shouldRecord, type LogLevel } from "@stream-autopilot/shared/logging";
+import { applySettingsPatch, mergeSettings, type SettingsPatch } from "@stream-autopilot/shared/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick } from "../core/scheduler";
 import { logActivity, setActivityLogger } from "../core/activityLog";
 import { setTwitchIntegrity } from "../core/tabs";

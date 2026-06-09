@@ -1,12 +1,9 @@
-// Renders the REAL extension popup (entrypoints/popup/app.tsx) inside a Shadow
-// DOM, with the extension's compiled CSS injected — so it looks and behaves
-// exactly like the extension, isolated from the landing page's styles, running
-// on mock data (no extension/background). Hydrated as an Astro island.
-import "./browser-mock"; // sets the demo global + aliases `wxt/browser` — must run first
+// Renders the shared popup UI inside a Shadow DOM, isolated from the landing
+// page's styles and backed by deterministic demo data.
 import { useEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Popup } from "@ext/entrypoints/popup/app";
-import popupCss from "./popup.generated.css?inline";
+import { Popup, createDemoPopupAdapter, screenshotVariant } from "@stream-autopilot/popup-ui";
+import popupCss from "@stream-autopilot/popup-ui/styles.css?inline";
 
 export default function PopupDemo() {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -26,7 +23,13 @@ export default function PopupDemo() {
     // contained, no portal/event-retargeting caveats.
     const root = createRoot(mount);
     rootRef.current = root;
-    root.render(<Popup />);
+    const adapter = createDemoPopupAdapter({ locale: "en", version: "1.0.0" });
+    root.render(
+      <Popup
+        adapter={adapter}
+        initialState={{ preview: true, locale: "en", variant: screenshotVariant("twitch-drops") }}
+      />,
+    );
 
     return () => {
       rootRef.current = null;

@@ -1,10 +1,10 @@
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
-import { SETTINGS_SESSION_PORT, type RuntimeMessage } from "../src/core/messages";
+import { SETTINGS_SESSION_PORT, type RuntimeMessage } from "@stream-autopilot/shared/messages";
 import { applyAdFocus } from "../src/core/tabs";
 import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "../src/background/controller";
-import { effectiveLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "../src/core/i18n";
-import type { ExtensionSettings, SupportedLocale } from "../src/core/models";
+import { effectiveLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "@stream-autopilot/shared/i18n";
+import type { ExtensionSettings, SupportedLocale } from "@stream-autopilot/shared/models";
 import { KickAdapter } from "../src/platforms/kick";
 import { TwitchAdapter } from "../src/platforms/twitch";
 

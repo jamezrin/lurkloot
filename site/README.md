@@ -16,22 +16,15 @@ pnpm preview    # serve the production build
 
 ## Interactive popup demo (shared with the extension)
 
-The "Try it yourself" section imports the **real** popup React components from
-`entrypoints/popup/app.tsx` and renders them as an Astro React island
-(`src/popup-ui/PopupDemo.tsx`) inside a **Shadow DOM** — running on mock data via
-the extension's built-in demo mode. Style isolation comes from the Shadow DOM +
-the extension's compiled CSS; `wxt/browser` is aliased to a mock
-(`src/popup-ui/browser-mock.ts`) that also flips on demo mode.
+The "Try it yourself" section imports the shared popup React package
+(`@stream-autopilot/popup-ui`) and renders it as an Astro React island
+(`src/popup-ui/PopupDemo.tsx`) inside a **Shadow DOM**. The demo is backed by the
+package's deterministic demo adapter, so the site has no WXT or extension
+runtime dependency.
 
-Two build outputs are committed so `pnpm deploy` stays self-contained; regenerate
-them whenever the popup UI changes:
-
-```bash
-# from the repo root — build the extension, then sync its compiled CSS + locales
-pnpm build
-node site/scripts/sync-popup-ui.mjs   # -> src/popup-ui/popup.generated.css,
-                                      #    public/_locales/*, public/logo-ring.svg
-```
+Style isolation comes from the Shadow DOM plus the popup package stylesheet
+(`@stream-autopilot/popup-ui/styles.css?inline`), compiled by Astro's Vite
+Tailwind plugin. No generated popup CSS sync step is required.
 
 ## Regenerating the social card
 
@@ -48,10 +41,10 @@ straight to Cloudflare, so Cloudflare never needs access to this (private) repo.
 cd site
 wrangler login            # one-time browser OAuth
 pnpm cf:create            # one-time: create the "stream-autopilot" project
-pnpm deploy               # build + upload dist/ to production (branch main)
+pnpm cf:deploy            # build + upload dist/ to production (branch main)
 ```
 
-`pnpm deploy` runs `astro build` then
+`pnpm cf:deploy` runs `astro build` then
 `wrangler pages deploy dist --project-name=stream-autopilot --branch=main`.
 Long-cache headers for fingerprinted assets are in `public/_headers`.
 

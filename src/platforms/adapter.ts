@@ -7,7 +7,7 @@ import type {
   ManagedWatchTab,
   Platform,
   WatchSession,
-} from "../core/models";
+} from "@stream-autopilot/shared/models";
 import type { TablessWatchController } from "../core/tablessWatch";
 
 export interface PreparedWatchTab {

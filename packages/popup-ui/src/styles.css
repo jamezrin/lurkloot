@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Scan the popup-ui components explicitly. Tailwind v4's automatic source
+   detection is rooted at the importing project, so when the landing page pulls
+   this stylesheet in through its node_modules symlink the components fall
+   outside the scanned tree (node_modules is excluded) and no utilities get
+   generated. An explicit @source — resolved relative to this file — makes the
+   scan location-independent, so both the extension and the site emit the same
+   utilities. */
+@source "./**/*.{ts,tsx}";
+
 @theme {
   --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, sans-serif;

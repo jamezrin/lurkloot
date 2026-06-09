@@ -1,4 +1,4 @@
-import type { ChannelCandidate, Platform } from "./models";
+import type { ChannelCandidate, Platform } from "@stream-autopilot/shared/models";
 
 // Result of one watch-heartbeat cycle. `ok` is whether the watch signal was
 // accepted (drop progress should advance); `live: false` tells the scheduler the

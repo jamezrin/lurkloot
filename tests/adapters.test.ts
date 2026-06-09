@@ -3,9 +3,9 @@ import type { PageFetcher } from "../src/platforms/adapter";
 import { createKickFetcher, KickAdapter } from "../src/platforms/kick";
 import { KickWafBlockedError } from "../src/core/tabs";
 import { TwitchAdapter } from "../src/platforms/twitch";
-import type { DropCampaign, DropReward, ExtensionSettings } from "../src/core/models";
+import type { DropCampaign, DropReward, ExtensionSettings } from "@stream-autopilot/shared/models";
 import { chooseCampaignDecision } from "../src/core/scheduler";
-import { DEFAULT_SETTINGS } from "../src/core/settings";
+import { DEFAULT_SETTINGS } from "@stream-autopilot/shared/settings";
 
 function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
   const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { ALARM_NAME, createBackgroundController } from "../src/background/controller";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "../src/core/models";
-import type { RuntimeSnapshot } from "../src/core/messages";
-import { DEFAULT_SETTINGS } from "../src/core/settings";
+import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@stream-autopilot/shared/models";
+import type { RuntimeSnapshot } from "@stream-autopilot/shared/messages";
+import { DEFAULT_SETTINGS } from "@stream-autopilot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PlatformAdapter } from "../src/platforms/adapter";
 import type { TablessWatchController } from "../src/core/tablessWatch";

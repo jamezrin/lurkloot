@@ -31,8 +31,10 @@
   --violet: #7c3aed;
   --lime: #53fc18;
   --lime-deep: #3fbf12;
-  --signal: linear-gradient(115deg, var(--purple-soft) 0%, var(--violet) 46%, var(--lime-deep) 100%);
-  --signal-text: linear-gradient(100deg, #c4a7ff 0%, #b7ff6a 100%);
+  /* Interpolate in OKLCH so purple->green arcs through vivid blue/teal instead
+     of the muddy grey-brown you get blending these two in sRGB. */
+  --signal: linear-gradient(115deg in oklch, var(--purple-soft) 0%, var(--lime) 100%);
+  --signal-text: linear-gradient(100deg in oklch, #c4a7ff 0%, #b7ff6a 100%);
 
   --glow-purple: rgba(145, 71, 255, 0.45);
   --glow-lime: rgba(83, 252, 24, 0.4);
