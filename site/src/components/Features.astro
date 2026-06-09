@@ -21,15 +21,14 @@
           <span class="feat__kicker">Default · low-resource</span>
           <h3>Tabless mode that sips, not chugs.</h3>
           <p>
-            Instead of pinning a video tab and burning bandwidth, it sends lightweight
-            watch heartbeats in the background — Twitch via API, Kick via a viewer
-            socket. Your drops keep ticking up while your CPU stays quiet. If progress
-            ever stalls, it transparently falls back to a real pinned, muted tab so you
-            never miss a reward.
+            Instead of pinning a video tab and burning bandwidth, it sends a lightweight
+            watch signal in the background on both Twitch and Kick. Your drops keep ticking
+            up while your computer stays quiet. If progress ever stalls, it quietly falls
+            back to a real pinned, muted tab so you never miss a reward.
           </p>
           <ul class="feat__checks">
-            <li>No video decoding, minimal data</li>
-            <li>Automatic visible-tab fallback</li>
+            <li>Barely any bandwidth or CPU</li>
+            <li>Falls back to a tab automatically</li>
             <li>Pauses when you watch a stream yourself</li>
           </ul>
         </div>
@@ -46,7 +45,7 @@
           </div>
           <div class="viz-pulse">
             <span></span><span></span><span></span><span></span><span></span>
-            <em>watch heartbeat</em>
+            <em>watch signal</em>
           </div>
         </div>
       </article>
@@ -108,7 +107,7 @@
         <h3>See exactly what it's doing.</h3>
         <p>
           A real-time, filterable event log records every decision — channel switches,
-          claims, skips, heartbeat health — so it's never a black box.
+          claims, skips, retries — so it's never a black box.
         </p>
         <div class="logline"><span class="lg-time">14:02</span><span class="lg-lvl">INFO</span> Switched to RivalsPilot · Rust drops live</div>
         <div class="logline"><span class="lg-time">14:18</span><span class="lg-lvl lg-ok">CLAIM</span> Reward unlocked &amp; claimed</div>
@@ -117,9 +116,10 @@
       <!-- Built for Chrome + i18n -->
       <article class="feat__card feat__card--accent reveal">
         <span class="feat__kicker">Built to last</span>
-        <h3>Built for Chrome. Ten languages.</h3>
+        <h3>Every Chromium browser. Ten languages.</h3>
         <p>
-          A polished Manifest&nbsp;V3 extension with a fully localized UI and
+          One polished extension that runs on Chrome, Edge, Brave, Opera, Vivaldi, Arc
+          and any other Chromium browser — with a fully localized interface and
           notifications in English, Spanish, French, Italian, Russian, German, Chinese,
           Hindi, Portuguese, and Arabic.
         </p>

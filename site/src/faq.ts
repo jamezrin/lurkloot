@@ -17,7 +17,7 @@ export const faqItems: FaqItem[] = [
   },
   {
     q: "Does it farm drops while I'm AFK or the tab is in the background?",
-    a: "Yes — that is the whole point. By default it uses a lightweight tabless mode that sends watch heartbeats in the background, so you don't need a video tab open at all. If progress ever stalls, it automatically falls back to a pinned, muted tab to keep your drops moving while you do other things.",
+    a: "Yes — that is the whole point. By default it uses a lightweight background mode that keeps your watch time counting without a video tab open at all. If progress ever stalls, it automatically falls back to a pinned, muted tab to keep your drops moving while you do other things.",
   },
   {
     q: "Which games and drops does it support?",

@@ -4,19 +4,17 @@ const platforms = [
     key: "twitch",
     name: "Twitch",
     blurb:
-      "Discovers your linked and unlinked drop campaigns, finds drops-enabled channels in the right category, and claims rewards — plus optional channel-point auto-claim.",
-    points: ["Campaign + inventory discovery", "Drops-enabled channel routing", "Channel points auto-claim"],
+      "It finds the Twitch drops you can earn, keeps you on a channel that's actually dropping them, and claims every reward for you — channel points included.",
+    points: ["Finds every drop you can earn", "Always on a dropping channel", "Claims drops + channel points"],
   },
   {
     key: "kick",
     name: "Kick",
     blurb:
-      "Full Kick drops support through your same-origin session — live campaign discovery, category-filtered channel selection, and a viewer-socket heartbeat for tabless farming.",
-    points: ["Live campaign + progress sync", "Category-filtered channels", "Viewer-socket heartbeat"],
+      "Full Kick drops support, right in your browser. It follows live campaigns, picks the right channel for the reward you want, and claims it the moment it unlocks.",
+    points: ["Follows live Kick campaigns", "Picks the right channel for you", "Claims rewards automatically"],
   },
 ];
-
-const games = ["Rust", "Valorant", "and every other active drops campaign"];
 ---
 
 <section id="platforms" class="plat">
@@ -45,13 +43,6 @@ const games = ["Rust", "Valorant", "and every other active drops campaign"];
           </ul>
         </article>
       ))}
-    </div>
-
-    <div class="plat__games reveal">
-      <span class="plat__games-label">Farms drops for</span>
-      <div class="plat__games-list">
-        {games.map((g) => <span class="game">{g}</span>)}
-      </div>
     </div>
   </div>
 </section>
