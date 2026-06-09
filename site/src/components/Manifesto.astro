@@ -85,23 +85,33 @@ const perks: Perk[] = [
       slides.forEach((s) => {
         s.style.opacity = "";
         s.style.transform = "";
+        s.style.filter = "";
+        s.style.pointerEvents = "";
       });
       ticks.forEach((t) => t.classList.remove("is-on"));
     };
 
+    const HOLD = 0.2; // ± fraction of a slot the slide stays fully visible (readable beat)
+    const FADE_END = 0.6; // fully hidden by here, so neighbours never co-exist at the midpoint
     const update = () => {
       ticking = false;
       if (!pinned) return;
       const total = pin.offsetHeight - window.innerHeight;
       const progress = Math.min(1, Math.max(0, -pin.getBoundingClientRect().top / total));
       const slot = 1 / (n - 1);
-      let active = Math.round(progress * (n - 1));
+      const active = Math.round(progress * (n - 1));
       slides.forEach((s, i) => {
         const center = i / (n - 1);
         const d = Math.abs(progress - center) / slot; // 0 at center, 1 one slot away
-        const o = Math.max(0, 1 - d);
+        const fade = d <= HOLD ? 0 : Math.min(1, (d - HOLD) / (FADE_END - HOLD));
+        const o = 1 - fade;
+        // incoming rises from below, outgoing exits upward — clear, single-slide motion
+        const dir = progress < center ? 1 : -1;
+        const shift = fade * dir * 140;
         s.style.opacity = String(o);
-        s.style.transform = `translateY(${(progress - center) * 60}px) scale(${0.96 + o * 0.04})`;
+        s.style.transform = `translateY(${shift}px) scale(${0.9 + o * 0.1})`;
+        s.style.filter = fade > 0.01 ? `blur(${fade * 12}px)` : "none";
+        s.style.pointerEvents = o > 0.5 ? "auto" : "none";
       });
       ticks.forEach((t, i) => t.classList.toggle("is-on", i === active));
     };
