@@ -50,26 +50,25 @@ const steps = [
     padding: 0;
     margin: clamp(2.5rem, 5vw, 4rem) 0 0;
     display: grid;
-    gap: 1.4rem;
+    gap: 1.1rem;
     counter-reset: step;
   }
   @media (min-width: 820px) {
     .how__steps {
       grid-template-columns: repeat(3, 1fr);
-      gap: 0;
     }
   }
   .how__step {
     position: relative;
-    padding: 1.8rem;
+    padding: clamp(1.6rem, 2.5vw, 2.1rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, var(--ink-1), var(--ink-0));
+    transition: border-color 0.3s var(--ease), transform 0.3s var(--ease);
   }
-  @media (min-width: 820px) {
-    .how__step {
-      padding: 0 2rem;
-    }
-    .how__step + .how__step {
-      border-left: 1px solid var(--line);
-    }
+  .how__step:hover {
+    border-color: var(--line-strong);
+    transform: translateY(-3px);
   }
   .how__n {
     font-family: var(--font-mono);
