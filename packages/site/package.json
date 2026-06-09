@@ -1,5 +1,5 @@
 {
-  "name": "stream-autopilot-site",
+  "name": "@stream-autopilot/site",
   "type": "module",
   "version": "1.0.0",
   "private": true,

@@ -2,6 +2,17 @@
 
 Stream Autopilot is a WXT browser extension that farms Twitch and Kick drops through normal logged-in browser sessions. Visible muted tabs are the default watch path; optional tabless low-resource mode sends platform watch heartbeats and falls back to tabs when unhealthy. The extension avoids asking for credentials, exporting cookies, or bypassing platform page detection.
 
+## Repository Layout
+
+The repository is a pnpm workspace whose root `package.json` is a pure orchestrator (delegating `dev`/`build`/`test`/`typecheck`/`verify` scripts to packages via `pnpm --filter`). All code lives under `packages/`:
+
+- `packages/extension` — the WXT extension (`src/`, `entrypoints/`, `wxt.config.ts`, `public/`, `tests/`). Builds to `packages/extension/.output/{chrome-mv3,firefox-mv2}`.
+- `packages/site` — the Astro marketing/landing page, which imports the real popup UI for its demo.
+- `packages/popup-ui` — the shared React popup UI (`@stream-autopilot/popup-ui`), consumed by both the extension and the site.
+- `packages/shared` — framework-agnostic models, messages, settings, i18n, and logging (`@stream-autopilot/shared`).
+
+Paths below such as `src/...` and `entrypoints/...` are relative to `packages/extension/`.
+
 ## Runtime Components
 
 - `entrypoints/background.ts` registers extension lifecycle hooks, alarms, tab-removal handling, and runtime message handling.

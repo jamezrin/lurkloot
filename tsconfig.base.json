@@ -1,5 +1,4 @@
 {
-  "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
@@ -15,9 +14,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "types": ["node", "vitest/globals"]
-  },
-  "include": ["**/*.ts", "**/*.tsx", ".wxt/wxt.d.ts"],
-  "exclude": ["node_modules", ".output", "site"]
+    "jsx": "react-jsx"
+  }
 }

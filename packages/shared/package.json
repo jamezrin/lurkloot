@@ -9,5 +9,11 @@
     "./settings": "./src/settings.ts",
     "./i18n": "./src/i18n.ts",
     "./logging": "./src/logging.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
   }
 }
