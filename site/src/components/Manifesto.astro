@@ -1,0 +1,117 @@
+---
+// Emotional, benefit-led "why you'll love it" band — the taglines that sell the
+// feeling of the product rather than its mechanics. Kept punchy/near-verbatim.
+type Perk = { n: string; head: string; sub: string };
+
+const perks: Perk[] = [
+  {
+    n: "01",
+    head: 'Always <span class="grad-text">first</span> to the drops.',
+    sub: "The second a campaign goes live, it's already farming — you never miss a limited or timed reward again.",
+  },
+  {
+    n: "02",
+    head: 'Watch who you <span class="grad-text">love</span>. Farm the no-names.',
+    sub: "Keep enjoying your favorite streamers while it quietly grinds drops on whoever's eligible in the background.",
+  },
+  {
+    n: "03",
+    head: 'Wake up to a <span class="grad-text">full inventory</span>.',
+    sub: "Leave it running overnight and collect the whole haul by morning. Zero babysitting, zero missed claims.",
+  },
+  {
+    n: "04",
+    head: 'Watch when <span class="grad-text">YOU</span> want.',
+    sub: "Your stream time is yours again. The grind happens whether you're watching or not.",
+  },
+];
+---
+
+<section id="why" class="why">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="eyebrow">Why you'll love it</p>
+      <h2>Drops, on your terms.</h2>
+      <p>Stop arranging your life around drop campaigns. Let them arrange themselves around you.</p>
+    </div>
+
+    <ul class="why__grid">
+      {perks.map((p) => (
+        <li class="perk reveal">
+          <span class="perk__n">{p.n}</span>
+          <h3 set:html={p.head}></h3>
+          <p>{p.sub}</p>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .why {
+    padding: clamp(3rem, 6vw, 5rem) 0;
+  }
+  .why__grid {
+    list-style: none;
+    padding: 0;
+    margin: clamp(2.5rem, 5vw, 3.5rem) 0 0;
+    display: grid;
+    gap: 1.1rem;
+  }
+  @media (min-width: 760px) {
+    .why__grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .perk {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(1.6rem, 3vw, 2.4rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, var(--ink-1), var(--ink-0));
+    transition: border-color 0.35s var(--ease), transform 0.35s var(--ease);
+  }
+  /* soft signal glow that blooms on hover, clipped to the card */
+  .perk::before {
+    content: "";
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    top: -160px;
+    right: -120px;
+    background: radial-gradient(closest-side, rgba(145, 71, 255, 0.22), transparent);
+    opacity: 0;
+    transition: opacity 0.45s var(--ease);
+    pointer-events: none;
+  }
+  .perk:hover {
+    transform: translateY(-4px);
+    border-color: var(--line-strong);
+  }
+  .perk:hover::before {
+    opacity: 1;
+  }
+
+  .perk__n {
+    position: relative;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.2em;
+    color: var(--faint);
+  }
+  .perk h3 {
+    position: relative;
+    font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+    line-height: 1.05;
+    margin: 0.7rem 0 0.8rem;
+    max-width: 16ch;
+  }
+  .perk p {
+    position: relative;
+    color: var(--muted);
+    font-size: 1rem;
+    max-width: 42ch;
+  }
+</style>
