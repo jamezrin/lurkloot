@@ -1,0 +1,130 @@
+---
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { marked } from "marked";
+import Base from "../layouts/Base.astro";
+import Footer from "../components/Footer.astro";
+import { LINKS } from "../consts";
+import logo from "../assets/logo-ring.svg";
+
+// Single source of truth: the same policy shipped with the extension + store.
+const source = readFileSync(
+  fileURLToPath(new URL("../../../stream-autopilot-privacy-policy.md", import.meta.url)),
+  "utf8",
+);
+// Drop the leading H1 (we render our own page title) and convert to HTML.
+const body = source.replace(/^#\s.*\n/, "");
+const html = marked.parse(body, { gfm: true, breaks: false });
+---
+
+<Base
+  title="Privacy Policy — Stream Autopilot"
+  description="Stream Autopilot does not collect, transmit, sell, or share user data. Everything stays on your device. Read the full privacy policy."
+>
+  <header class="legalnav">
+    <div class="wrap legalnav__inner">
+      <a class="legalnav__brand" href="/">
+        <img src={logo.src} width="28" height="28" alt="" />
+        <span>Stream Autopilot</span>
+      </a>
+      <a class="btn btn--primary legalnav__cta" href={LINKS.chrome} target="_blank" rel="noopener">
+        Add to browser
+      </a>
+    </div>
+  </header>
+
+  <main class="legal">
+    <div class="wrap legal__wrap">
+      <p class="eyebrow">Legal</p>
+      <h1>Privacy Policy</h1>
+      <article class="prose" set:html={html}></article>
+      <p class="legal__back"><a href="/">← Back to home</a></p>
+    </div>
+  </main>
+
+  <Footer />
+</Base>
+
+<style>
+  .legalnav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid var(--line);
+    background: rgba(6, 6, 9, 0.8);
+    backdrop-filter: blur(12px);
+  }
+  .legalnav__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    gap: 1.5rem;
+  }
+  .legalnav__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .legalnav__brand img { border-radius: 8px; }
+  .legalnav__cta { padding: 0.55em 1.05em; font-size: 0.88rem; }
+
+  .legal {
+    padding: clamp(3rem, 8vw, 6rem) 0 clamp(4rem, 8vw, 6rem);
+  }
+  .legal__wrap {
+    max-width: 760px;
+  }
+  .legal h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    margin: 0.6rem 0 0;
+  }
+
+  /* readable legal prose, on-brand */
+  .prose {
+    margin-top: clamp(2rem, 5vw, 3rem);
+    color: var(--muted);
+    font-size: 1.05rem;
+    line-height: 1.75;
+  }
+  .prose :global(h2) {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    font-size: 1.5rem;
+    margin: 2.4rem 0 0.8rem;
+  }
+  .prose :global(p) { margin: 0 0 1.1rem; }
+  .prose :global(ul) { margin: 0 0 1.1rem; padding-left: 1.3rem; }
+  .prose :global(li) { margin: 0.4rem 0; }
+  .prose :global(li)::marker { color: var(--purple-soft); }
+  .prose :global(strong) { color: var(--text); }
+  .prose :global(a) {
+    color: var(--lime);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .prose :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    padding: 0.12em 0.4em;
+    border-radius: 6px;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+  .legal__back {
+    margin-top: 3rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+  .legal__back a { color: var(--muted); }
+  .legal__back a:hover { color: var(--lime); }
+</style>

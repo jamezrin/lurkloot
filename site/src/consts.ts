@@ -27,6 +27,6 @@ export const SITE = {
 export const LINKS = {
   chrome:
     "https://chromewebstore.google.com/detail/stream-autopilot/aobaackpofkghaejdnnmpmeaiaoibhdn",
-  privacy:
-    "https://github.com/jamezrin/stream-autopilot/blob/main/stream-autopilot-privacy-policy.md",
+  // On-site page (rendered from the same source policy) — no GitHub link.
+  privacy: "/privacy",
 } as const;
