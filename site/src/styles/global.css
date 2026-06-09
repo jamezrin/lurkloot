@@ -1,0 +1,333 @@
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+/* ============================================================
+   Stream Autopilot — landing page
+   Aesthetic: dark, cinematic, Apple-style scroll experience.
+   Near-black canvas, deep gradient atmosphere + glow, generous
+   negative space, the brand purple->lime "signal" gradient.
+   Motion: Lenis smooth-scroll + CSS scroll-driven parallax/reveal.
+   ============================================================ */
+
+:root {
+  /* surfaces */
+  --void: #060609;
+  --ink-0: #0a0a11;
+  --ink-1: #0f0f18;
+  --ink-2: #15151f;
+  --ink-3: #1c1c29;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.14);
+
+  /* text */
+  --text: #ecedf5;
+  --muted: #9c9db4;
+  --faint: #6b6c84;
+
+  /* brand signal */
+  --purple: #9147ff;
+  --purple-soft: #a06bff;
+  --violet: #7c3aed;
+  --lime: #53fc18;
+  --lime-deep: #3fbf12;
+  --signal: linear-gradient(115deg, var(--purple-soft) 0%, var(--violet) 46%, var(--lime-deep) 100%);
+  --signal-text: linear-gradient(100deg, #c4a7ff 0%, #b7ff6a 100%);
+
+  --glow-purple: rgba(145, 71, 255, 0.45);
+  --glow-lime: rgba(83, 252, 24, 0.4);
+
+  --font-display: "Bricolage Grotesque Variable", "Geist Variable", system-ui, sans-serif;
+  --font-body: "Geist Variable", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  --maxw: 1200px;
+  --radius: 18px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* generous, cinematic vertical rhythm between acts */
+  --act: clamp(6rem, 14vh, 11rem);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+/* Lenis drives scrolling; it sets these classes on <html>. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+body {
+  position: relative;
+  font-family: var(--font-body);
+  background: var(--void);
+  color: var(--text);
+  line-height: 1.6;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+/* Cinematic atmosphere: deep, fixed gradient washes + a faint grain, so the
+   whole journey feels like one lit room rather than stacked cards. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 760px at 8% -6%, rgba(145, 71, 255, 0.18), transparent 60%),
+    radial-gradient(1000px 720px at 100% 2%, rgba(83, 252, 24, 0.1), transparent 58%),
+    radial-gradient(1200px 900px at 50% 120%, rgba(124, 58, 237, 0.16), transparent 60%);
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--purple);
+  color: #fff;
+}
+
+/* ---------- layout primitives ---------- */
+.wrap {
+  width: 100%;
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+section {
+  position: relative;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+}
+.eyebrow::before {
+  content: "";
+  width: 26px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--purple), transparent);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+}
+
+.grad-text {
+  background: var(--signal-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  --bg: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
+  padding: 0.85em 1.4em;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
+  white-space: nowrap;
+}
+.btn:hover {
+  transform: translateY(-2px);
+}
+.btn svg {
+  width: 1.15em;
+  height: 1.15em;
+}
+.btn--primary {
+  border: 0;
+  color: #0a0612;
+  background: var(--signal);
+  box-shadow: 0 10px 34px -12px var(--glow-purple), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+}
+.btn--primary:hover {
+  box-shadow: 0 18px 46px -12px var(--glow-purple), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.btn--ghost:hover {
+  border-color: var(--purple);
+}
+.btn--lg {
+  font-size: 1.08rem;
+  padding: 1em 1.8em;
+}
+
+/* ---------- pills / chips ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  padding: 0.4em 0.8em;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 10px var(--glow-lime);
+}
+
+/* ---------- entrance animation (load-time, staggered) ---------- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.85s var(--ease) both;
+}
+
+/* ---------- scroll-driven motion (CSS scroll-timeline; synced with Lenis) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* entrance: fade + rise as the element enters the viewport */
+  .reveal {
+    animation: rise linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 42%;
+  }
+  /* a slower, more cinematic reveal for big statements */
+  @keyframes rise-cinematic {
+    from { opacity: 0; transform: translateY(60px); filter: blur(6px); }
+    to { opacity: 1; transform: none; filter: blur(0); }
+  }
+  .reveal-slow {
+    animation: rise-cinematic linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 55%;
+  }
+  /* parallax: element drifts as it crosses the viewport. `--depth` sets amount
+     + direction (negative = moves up faster). Driven by native scroll → in sync
+     with Lenis momentum. */
+  @keyframes drift {
+    from { transform: translate3d(0, calc(var(--depth, 1) * 80px), 0); }
+    to { transform: translate3d(0, calc(var(--depth, 1) * -80px), 0); }
+  }
+  .par {
+    animation: drift linear both;
+    animation-timeline: view();
+    animation-range: cover;
+    will-change: transform;
+  }
+  /* scale/blur-in for media that should feel like it "arrives" */
+  @keyframes arrive {
+    from { opacity: 0; transform: scale(0.92) translateY(48px); }
+    to { opacity: 1; transform: none; }
+  }
+  .arrive {
+    animation: arrive linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 32%;
+  }
+}
+
+/* generous cinematic spacing helper */
+.act {
+  padding-block: var(--act);
+}
+
+/* shared section heading block */
+.section-head {
+  max-width: 760px;
+}
+.section-head h2 {
+  font-size: clamp(2rem, 4.4vw, 3.1rem);
+  margin: 0.5rem 0 0.9rem;
+}
+.section-head p {
+  color: var(--muted);
+  font-size: 1.08rem;
+  max-width: 60ch;
+}
+
+hr.rule {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+  margin: 0;
+}

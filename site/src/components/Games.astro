@@ -1,0 +1,172 @@
+---
+import { Image } from "astro:assets";
+
+// Eagerly import every game cover (Twitch box art) so Astro fingerprints +
+// optimizes them. The marquee stays zero-JS (pure CSS animation).
+const covers = import.meta.glob<{ default: ImageMetadata }>("../assets/games/*.jpg", { eager: true });
+
+const NAMES: Record<string, string> = {
+  rust: "Rust",
+  valorant: "Valorant",
+  "apex-legends": "Apex Legends",
+  "dota-2": "Dota 2",
+  "counter-strike": "Counter-Strike 2",
+  "escape-from-tarkov": "Escape from Tarkov",
+  "rainbow-six-siege": "Rainbow Six Siege",
+  "dead-by-daylight": "Dead by Daylight",
+  warframe: "Warframe",
+  "league-of-legends": "League of Legends",
+  "new-world": "New World",
+  "destiny-2": "Destiny 2",
+  "sea-of-thieves": "Sea of Thieves",
+  "halo-infinite": "Halo Infinite",
+  "diablo-iv": "Diablo IV",
+  pubg: "PUBG",
+  "war-thunder": "War Thunder",
+};
+
+type Game = { name: string; img: ImageMetadata };
+const games: Game[] = Object.entries(covers)
+  .map(([path, mod]) => {
+    const slug = path.split("/").pop()!.replace(".jpg", "");
+    return { name: NAMES[slug] ?? slug, img: mod.default };
+  })
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+// Split into two rows that scroll in opposite directions. Each row is doubled
+// so the CSS marquee loops seamlessly.
+const mid = Math.ceil(games.length / 2);
+const rowA: Game[] = games.slice(0, mid);
+const rowB: Game[] = games.slice(mid);
+const loopA = [...rowA, ...rowA];
+const loopB = [...rowB, ...rowB];
+---
+
+<section id="games" class="games">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="eyebrow">Loaded with drops</p>
+      <h2>From <span class="grad-text">Rust</span> to <span class="grad-text">Valorant</span> — and hundreds more.</h2>
+      <p>
+        If it has a Twitch or Kick drops campaign, Stream Autopilot farms it. Here are
+        a few of the biggest — but it works with <b>any</b> active campaign, the moment
+        it goes live.
+      </p>
+    </div>
+  </div>
+
+  <div class="marq">
+    <div class="marq__track">
+      {loopA.map((g) => (
+        <figure class="gcard">
+          <Image src={g.img} alt={`${g.name} — Twitch drops supported`} widths={[150, 260]} sizes="150px" loading="lazy" />
+          <figcaption>{g.name}</figcaption>
+        </figure>
+      ))}
+    </div>
+  </div>
+  <div class="marq marq--rev">
+    <div class="marq__track">
+      {loopB.map((g) => (
+        <figure class="gcard">
+          <Image src={g.img} alt={`${g.name} — Twitch drops supported`} widths={[150, 260]} sizes="150px" loading="lazy" />
+          <figcaption>{g.name}</figcaption>
+        </figure>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .games {
+    padding: clamp(3rem, 6vw, 5rem) 0 clamp(3.5rem, 6vw, 5rem);
+    overflow: hidden;
+  }
+  .games .section-head {
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+  }
+
+  .marq {
+    overflow: hidden;
+    padding: 0.6rem 0;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  }
+  .marq__track {
+    display: flex;
+    gap: 1rem;
+    width: max-content;
+    animation: scroll-l 58s linear infinite;
+  }
+  .marq--rev .marq__track {
+    animation-direction: reverse;
+    animation-duration: 66s;
+  }
+  .marq:hover .marq__track {
+    animation-play-state: paused;
+  }
+  @keyframes scroll-l {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marq__track {
+      animation: none;
+    }
+  }
+
+  .gcard {
+    position: relative;
+    flex: 0 0 auto;
+    width: clamp(116px, 13vw, 150px);
+    aspect-ratio: 3 / 4;
+    margin: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--ink-2);
+    box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.9);
+    transition: transform 0.35s var(--ease), border-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
+  }
+  .gcard :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(1.05) contrast(1.02);
+    transition: transform 0.5s var(--ease);
+  }
+  .gcard::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 45%, rgba(6, 6, 9, 0.92));
+    opacity: 0.85;
+    transition: opacity 0.35s var(--ease);
+  }
+  .gcard figcaption {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 1;
+    padding: 0.7rem 0.7rem 0.6rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    color: #fff;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+  }
+  .gcard:hover {
+    transform: translateY(-8px) scale(1.04);
+    border-color: var(--purple);
+    box-shadow: 0 30px 60px -28px var(--glow-purple);
+  }
+  .gcard:hover :global(img) {
+    transform: scale(1.08);
+  }
+  .gcard:hover::after {
+    opacity: 1;
+  }
+</style>

@@ -1,0 +1,223 @@
+---
+import { Image } from "astro:assets";
+import { LINKS } from "../consts";
+import BrowserPills from "./BrowserPills.astro";
+import logo from "../assets/logo-ring.svg";
+import rust from "../assets/games/rust.jpg";
+import valorant from "../assets/games/valorant.jpg";
+import apex from "../assets/games/apex-legends.jpg";
+import cs from "../assets/games/counter-strike.jpg";
+import dbd from "../assets/games/dead-by-daylight.jpg";
+import warframe from "../assets/games/warframe.jpg";
+
+// Floating cover art = parallax depth. `pos` places it; `shift` is the scroll
+// parallax distance; `bob` toggles a gentle idle drift.
+const floats = [
+  { img: rust, pos: "top:14%;left:6%", w: 116, shift: "-200px", blur: 2, op: 0.5, bob: true },
+  { img: valorant, pos: "top:22%;right:8%", w: 132, shift: "-320px", blur: 1, op: 0.6, bob: false },
+  { img: apex, pos: "top:58%;left:11%", w: 100, shift: "-120px", blur: 3, op: 0.4, bob: false },
+  { img: cs, pos: "top:64%;right:13%", w: 108, shift: "-240px", blur: 2, op: 0.45, bob: true },
+  { img: dbd, pos: "top:40%;left:-2%", w: 88, shift: "-80px", blur: 4, op: 0.3, bob: false },
+  { img: warframe, pos: "top:8%;right:24%", w: 78, shift: "-160px", blur: 4, op: 0.3, bob: true },
+];
+---
+
+<section id="top" class="hero">
+  <div class="hero__bg" aria-hidden="true">
+    <div class="hero__orb hero__orb--1"></div>
+    <div class="hero__orb hero__orb--2"></div>
+    {floats.map((f) => (
+      <div
+        class:list={["hero__float", { "hero__float--bob": f.bob }]}
+        style={`${f.pos};--shift:${f.shift};--blur:${f.blur}px;--op:${f.op};width:${f.w}px`}
+      >
+        <Image src={f.img} alt="" widths={[120, 200]} sizes="120px" loading="eager" />
+      </div>
+    ))}
+  </div>
+
+  <div class="wrap hero__inner">
+    <p class="eyebrow rise" style="animation-delay:.05s">
+      <img src={logo.src} width="20" height="20" alt="" /> Stream Autopilot
+    </p>
+    <h1 class="hero__title rise" style="animation-delay:.12s">
+      Farm Twitch &amp; Kick drops<br />
+      <span class="grad-text">on autopilot.</span>
+    </h1>
+    <p class="hero__sub rise" style="animation-delay:.22s">
+      It watches the right channels, switches as campaigns end, and auto-claims every
+      reward — quietly, in your own browser. You just collect.
+    </p>
+    <div class="hero__cta rise" style="animation-delay:.32s">
+      <a class="btn btn--primary btn--lg" href={LINKS.chrome} target="_blank" rel="noopener">
+        Add to your browser — free
+      </a>
+    </div>
+    <div class="hero__pills rise" style="animation-delay:.42s">
+      <BrowserPills />
+    </div>
+  </div>
+
+  <a href="#why" class="hero__cue" aria-label="Scroll down">
+    <span>scroll</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M12 5v14M6 13l6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </a>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: 100svh;
+    display: flex;
+    align-items: center;
+    overflow: clip;
+    padding: 7rem 0 5rem;
+  }
+
+  /* ---- depth background ---- */
+  .hero__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .hero__orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.5;
+  }
+  .hero__orb--1 {
+    top: -10%;
+    left: 8%;
+    width: 46vw;
+    height: 46vw;
+    background: radial-gradient(closest-side, rgba(145, 71, 255, 0.45), transparent);
+  }
+  .hero__orb--2 {
+    bottom: -16%;
+    right: 4%;
+    width: 40vw;
+    height: 40vw;
+    background: radial-gradient(closest-side, rgba(83, 252, 24, 0.3), transparent);
+  }
+  .hero__float {
+    position: absolute;
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+    overflow: hidden;
+    opacity: var(--op);
+    filter: blur(var(--blur)) saturate(1.1);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.9);
+  }
+  .hero__float :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* ---- foreground ---- */
+  .hero__inner {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .eyebrow img {
+    border-radius: 6px;
+    vertical-align: middle;
+  }
+  .hero__title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+    font-size: clamp(2.9rem, 9vw, 7rem);
+    margin: 1.4rem 0 0;
+  }
+  .hero__sub {
+    color: var(--muted);
+    font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+    max-width: 46ch;
+    margin: 1.6rem auto 0;
+  }
+  .hero__cta {
+    margin-top: 2.4rem;
+  }
+  .btn--lg {
+    font-size: 1.08rem;
+    padding: 1em 1.8em;
+  }
+  .hero__pills {
+    margin-top: 1.6rem;
+  }
+
+  /* ---- scroll cue ---- */
+  .hero__cue {
+    position: absolute;
+    bottom: 1.8rem;
+    left: 50%;
+    translate: -50% 0;
+    z-index: 1;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .hero__cue svg {
+    width: 18px;
+    height: 18px;
+    animation: cue 1.8s var(--ease) infinite;
+  }
+  @keyframes cue {
+    0%, 100% { transform: translateY(0); opacity: 0.5; }
+    50% { transform: translateY(5px); opacity: 1; }
+  }
+
+  /* ---- scroll-driven parallax (Chromium native scroll-timeline; in sync with Lenis) ---- */
+  @media (prefers-reduced-motion: no-preference) {
+    .hero__inner {
+      animation: heroLift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 95vh;
+    }
+    @keyframes heroLift {
+      to { transform: translateY(-70px); opacity: 0; }
+    }
+    .hero__float,
+    .hero__orb {
+      animation: heroDrift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 100vh;
+      will-change: transform;
+    }
+    @keyframes heroDrift {
+      to { transform: translateY(var(--shift, -120px)); }
+    }
+    .hero__float--bob {
+      animation-name: heroDrift;
+    }
+    .hero__float--bob :global(img) {
+      animation: bob 6s ease-in-out infinite alternate;
+    }
+    @keyframes bob {
+      to { translate: 0 -16px; }
+    }
+  }
+
+  @media (max-width: 720px) {
+    /* fewer, calmer floats on small screens */
+    .hero__float--bob { display: none; }
+    .hero__float { opacity: calc(var(--op) * 0.7); }
+  }
+</style>

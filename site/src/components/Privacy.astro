@@ -1,0 +1,98 @@
+---
+const guarantees = [
+  { t: "No password, ever", d: "It uses the session you're already logged into. Your credentials are never requested." },
+  { t: "Nothing leaves your device", d: "No exported cookies or tokens, no remote servers, no analytics harvesting your activity." },
+  { t: "No middleman servers", d: "It talks to Twitch and Kick straight from your browser — nothing is routed through anyone else." },
+  { t: "No tracking or telemetry", d: "Your viewing activity stays on your machine — it's never collected, profiled, or sold." },
+];
+---
+
+<section id="privacy" class="priv act">
+  <div class="wrap priv__inner">
+    <div class="priv__head">
+      <p class="eyebrow reveal">Private by design</p>
+      <h2 class="reveal-slow">Your account<br />stays yours.</h2>
+      <p class="reveal">
+        Other farmers ask you to hand over tokens or run on someone else's server.
+        This does neither — a local-only extension that never sees a password and never
+        phones home.
+      </p>
+    </div>
+    <ul class="priv__list">
+      {guarantees.map((g) => (
+        <li class="reveal">
+          <span class="priv__mark">✓</span>
+          <div>
+            <strong>{g.t}</strong>
+            <p>{g.d}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .priv__inner {
+    display: grid;
+    gap: clamp(2.5rem, 5vw, 4rem);
+    align-items: start;
+  }
+  @media (min-width: 900px) {
+    .priv__inner { grid-template-columns: 0.9fr 1.1fr; }
+    .priv__head { position: sticky; top: 96px; }
+  }
+  .priv__head h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    margin: 0.6rem 0 1rem;
+  }
+  .priv__head p {
+    color: var(--muted);
+    font-size: 1.08rem;
+    max-width: 42ch;
+  }
+  .priv__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 1rem;
+  }
+  @media (min-width: 560px) {
+    .priv__list { grid-template-columns: 1fr 1fr; }
+  }
+  .priv__list li {
+    display: flex;
+    gap: 0.9rem;
+    padding: 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: linear-gradient(180deg, var(--ink-1), var(--ink-0));
+  }
+  .priv__mark {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    display: grid;
+    place-content: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #0a0612;
+    background: var(--signal);
+  }
+  .priv__list strong {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    margin-bottom: 0.3rem;
+  }
+  .priv__list p {
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+</style>

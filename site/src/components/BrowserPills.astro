@@ -1,0 +1,78 @@
+---
+// Compact "works on every Chromium browser" row — full-color logos, small
+// footprint. Sits under CTAs instead of taking a whole section.
+import chrome from "../assets/browsers/chrome.svg?raw";
+import edge from "../assets/browsers/microsoft-edge.svg?raw";
+import brave from "../assets/browsers/brave.svg?raw";
+import opera from "../assets/browsers/opera.svg?raw";
+import vivaldi from "../assets/browsers/vivaldi.svg?raw";
+import arc from "../assets/browsers/arc.svg?raw";
+
+interface Props {
+  label?: string;
+  class?: string;
+}
+const { label = "Works on every Chromium browser", class: cls = "" } = Astro.props;
+const icons = [
+  { name: "Chrome", svg: chrome },
+  { name: "Edge", svg: edge },
+  { name: "Brave", svg: brave },
+  { name: "Opera", svg: opera },
+  { name: "Vivaldi", svg: vivaldi },
+  { name: "Arc", svg: arc },
+];
+---
+
+<div class:list={["bpills", cls]}>
+  <ul class="bpills__icons">
+    {icons.map((b) => (
+      <li class="bpills__icon" title={b.name} set:html={b.svg} aria-label={b.name}></li>
+    ))}
+  </ul>
+  <span class="bpills__label">{label}</span>
+</div>
+
+<style>
+  .bpills {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .bpills__icons {
+    display: inline-flex;
+    align-items: center;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .bpills__icon {
+    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    padding: 0.3rem;
+    margin-left: -7px;
+    border-radius: 50%;
+    background: var(--ink-2);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.8);
+    transition: transform 0.25s var(--ease);
+  }
+  .bpills__icon:first-child {
+    margin-left: 0;
+  }
+  .bpills__icon:hover {
+    transform: translateY(-3px);
+    z-index: 1;
+  }
+  .bpills__icon :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+  .bpills__label {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.02em;
+    color: var(--faint);
+  }
+</style>

@@ -1,0 +1,91 @@
+---
+import { LINKS } from "../consts";
+import logo from "../assets/logo-ring.svg";
+const year = new Date().getFullYear();
+---
+
+<footer class="foot">
+  <div class="wrap foot__inner">
+    <div class="foot__brand">
+      <a class="foot__logo" href="#top">
+        <img src={logo.src} width="34" height="34" alt="Stream Autopilot" />
+        <span>Stream Autopilot</span>
+      </a>
+      <p>Farm Twitch &amp; Kick drops on autopilot — free and private.</p>
+    </div>
+    <nav class="foot__links" aria-label="Footer">
+      <a href={LINKS.chrome} target="_blank" rel="noopener">Chrome Web Store</a>
+      <a href={LINKS.privacy}>Privacy Policy</a>
+    </nav>
+  </div>
+  <div class="wrap foot__legal">
+    <span>© {year} jamezrin</span>
+    <span class="foot__disc">
+      Not affiliated with, endorsed by, or sponsored by Twitch or Kick. All trademarks
+      belong to their respective owners. Use at your own discretion.
+    </span>
+  </div>
+</footer>
+
+<style>
+  .foot {
+    border-top: 1px solid var(--line);
+    padding: clamp(2.5rem, 5vw, 4rem) 0 2.5rem;
+    background: linear-gradient(180deg, transparent, rgba(124, 58, 237, 0.05));
+  }
+  .foot__inner {
+    display: grid;
+    gap: 2rem;
+  }
+  @media (min-width: 720px) {
+    .foot__inner {
+      grid-template-columns: 1fr auto;
+      align-items: start;
+    }
+  }
+  .foot__logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .foot__logo img { border-radius: 9px; }
+  .foot__brand p {
+    color: var(--muted);
+    font-size: 0.92rem;
+    margin-top: 0.8rem;
+    max-width: 34ch;
+  }
+  .foot__links {
+    display: grid;
+    gap: 0.7rem;
+    font-size: 0.92rem;
+    color: var(--muted);
+  }
+  @media (min-width: 480px) {
+    .foot__links {
+      grid-template-columns: 1fr 1fr;
+      gap: 0.7rem 2.5rem;
+    }
+  }
+  .foot__links a {
+    transition: color 0.2s var(--ease);
+  }
+  .foot__links a:hover { color: var(--lime); }
+  .foot__legal {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--faint);
+  }
+  .foot__disc {
+    max-width: 70ch;
+  }
+</style>

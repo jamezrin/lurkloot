@@ -1,0 +1,518 @@
+{
+  "extensionName": {
+    "message": "Stream Autopilot"
+  },
+  "extensionDescription": {
+    "message": "فارم Drops على Twitch وKick عبر جلسات المتصفح العادية، وعلامات تبويب مرئية مكتومة، ووضع اختياري منخفض الموارد."
+  },
+  "promoTagline": {
+    "message": "فارم Drops على Twitch وKick تلقائيًا."
+  },
+  "languageBrowser": {
+    "message": "استخدام لغة المتصفح"
+  },
+  "languageEnglish": {
+    "message": "الإنجليزية"
+  },
+  "languageSpanish": {
+    "message": "الإسبانية"
+  },
+  "languageFrench": {
+    "message": "الفرنسية"
+  },
+  "languageItalian": {
+    "message": "الإيطالية"
+  },
+  "languageRussian": {
+    "message": "الروسية"
+  },
+  "languageGerman": {
+    "message": "الألمانية"
+  },
+  "languageChinese": {
+    "message": "الصينية"
+  },
+  "languageHindi": {
+    "message": "الهندية"
+  },
+  "languagePortuguese": {
+    "message": "البرتغالية"
+  },
+  "languageArabic": {
+    "message": "العربية"
+  },
+  "settingsLanguageTitle": {
+    "message": "اللغة"
+  },
+  "settingsLanguageDescription": {
+    "message": "اختر اللغة المستخدمة في النافذة المنبثقة وإشعارات الإضافة."
+  },
+  "settingsTitle": {
+    "message": "الإعدادات"
+  },
+  "activityTitle": {
+    "message": "النشاط"
+  },
+  "activeStatus": {
+    "message": "نشط"
+  },
+  "pausedStatus": {
+    "message": "متوقف مؤقتًا"
+  },
+  "refreshSchedule": {
+    "message": "تحديث الجدول"
+  },
+  "openActivity": {
+    "message": "فتح النشاط"
+  },
+  "closeActivity": {
+    "message": "إغلاق النشاط"
+  },
+  "openSettings": {
+    "message": "فتح الإعدادات"
+  },
+  "closeSettings": {
+    "message": "إغلاق الإعدادات"
+  },
+  "loading": {
+    "message": "جارٍ التحميل"
+  },
+  "dropsTab": {
+    "message": "Drops"
+  },
+  "watchQueueTab": {
+    "message": "قائمة المشاهدة"
+  },
+  "automationTitle": {
+    "message": "أتمتة $1"
+  },
+  "automationRunning": {
+    "message": "قيد التشغيل"
+  },
+  "automationStarting": {
+    "message": "جارٍ البدء"
+  },
+  "automationStopping": {
+    "message": "جارٍ الإيقاف"
+  },
+  "startingAutomation": {
+    "message": "جارٍ بدء الأتمتة..."
+  },
+  "pausingAutomation": {
+    "message": "جارٍ إيقاف الأتمتة مؤقتًا..."
+  },
+  "watchingLabel": {
+    "message": "يشاهد"
+  },
+  "farmingLabel": {
+    "message": "يفارم"
+  },
+  "waitingEligibleStream": {
+    "message": "بانتظار بث مؤهل"
+  },
+  "watchingPausedHint": {
+    "message": "المشاهدة متوقفة مؤقتًا. فعّل المفتاح لاستئناف فارم Drops."
+  },
+  "priorityHint": {
+    "message": "تأخذ Drops الأولوية دائمًا على قائمة المشاهدة. اسحب الحملات من المقبض لتحديد ترتيب الفارم."
+  },
+  "noCampaigns": {
+    "message": "لم يتم اكتشاف أي حملات بعد."
+  },
+  "noActivity": {
+    "message": "لم يتم تسجيل أي نشاط بعد. اضغط تحديث لتشغيل فحص."
+  },
+  "platformActivity": {
+    "message": "نشاط $1"
+  },
+  "lastCheck": {
+    "message": "آخر فحص $1"
+  },
+  "noChecksYet": {
+    "message": "لا توجد فحوصات بعد"
+  },
+  "debug": {
+    "message": "تصحيح"
+  },
+  "info": {
+    "message": "معلومات"
+  },
+  "warn": {
+    "message": "تحذير"
+  },
+  "error": {
+    "message": "خطأ"
+  },
+  "notLinked": {
+    "message": "غير مرتبط"
+  },
+  "upcoming": {
+    "message": "قادمة"
+  },
+  "expired": {
+    "message": "منتهية"
+  },
+  "excluded": {
+    "message": "مستبعدة"
+  },
+  "finished": {
+    "message": "مكتملة"
+  },
+  "upcomingPill": {
+    "message": "قادمة"
+  },
+  "expiredPill": {
+    "message": "منتهية"
+  },
+  "finishedPill": {
+    "message": "مكتملة"
+  },
+  "complete": {
+    "message": "مكتمل"
+  },
+  "nextReward": {
+    "message": "التالي: $1"
+  },
+  "startsIn": {
+    "message": "يبدأ خلال $1"
+  },
+  "endsIn": {
+    "message": "ينتهي خلال $1"
+  },
+  "left": {
+    "message": "المتبقي"
+  },
+  "done": {
+    "message": "تم"
+  },
+  "farmed": {
+    "message": "تم الفارم"
+  },
+  "rewards": {
+    "message": "المكافآت"
+  },
+  "inCampaignOrder": {
+    "message": "حسب ترتيب الحملة"
+  },
+  "allChannels": {
+    "message": "كل القنوات"
+  },
+  "channelCount": {
+    "message": "$1 قنوات"
+  },
+  "includeInFarming": {
+    "message": "تضمين في الفارم"
+  },
+  "excludeFromFarming": {
+    "message": "استبعاد من الفارم"
+  },
+  "noWatchQueue": {
+    "message": "لا توجد قنوات مهيأة في قائمة المشاهدة."
+  },
+  "channelPlaceholder": {
+    "message": "قناة"
+  },
+  "add": {
+    "message": "إضافة"
+  },
+  "addChannel": {
+    "message": "إضافة قناة"
+  },
+  "queued": {
+    "message": "في القائمة"
+  },
+  "live": {
+    "message": "مباشر"
+  },
+  "settingsGeneralTitle": {
+    "message": "الإعدادات العامة"
+  },
+  "settingsGeneralDescription": {
+    "message": "ينطبق على Twitch وKick."
+  },
+  "pauseManualTitle": {
+    "message": "إيقاف مؤقت عند المشاهدة يدويًا"
+  },
+  "pauseManualDescription": {
+    "message": "أوقف الفارم أثناء فتح بث ومشاهدته بنفسك."
+  },
+  "autoStartTitle": {
+    "message": "بدء تلقائي عند التشغيل"
+  },
+  "autoStartDescription": {
+    "message": "ابدأ الفارم بمجرد تحميل الإضافة."
+  },
+  "notificationsTitle": {
+    "message": "الإشعارات"
+  },
+  "notificationsDescription": {
+    "message": "ينطبق على كل المنصات المفعلة."
+  },
+  "rewardEarnedTitle": {
+    "message": "تم الحصول على مكافأة"
+  },
+  "rewardEarnedDescription": {
+    "message": "إشعار عندما تصبح مكافأة Drop قابلة للاستلام."
+  },
+  "noDropsLeftTitle": {
+    "message": "لا توجد Drops متبقية"
+  },
+  "noDropsLeftDescription": {
+    "message": "إشعار عند نفاد كل الحملات النشطة."
+  },
+  "dropsSettingsTitle": {
+    "message": "Drops"
+  },
+  "dropsSettingsDescription": {
+    "message": "سلوك فارم الحملات المشترك."
+  },
+  "autoClaimTitle": {
+    "message": "استلام Drops تلقائيًا"
+  },
+  "autoClaimDescription": {
+    "message": "استلم المكافآت المكتسبة تلقائيًا عندما تصبح متاحة."
+  },
+  "campaignPriorityTitle": {
+    "message": "أولوية الحملة"
+  },
+  "campaignPriorityDescription": {
+    "message": "يحدد كيفية اختيار الحملات للفارم. قائمة الأولوية تفارم فقط الحملات التي رتبتها يدويًا؛ الخيارات الأخرى تختار من كل الحملات. حدّد الفئات لكل منصة من إعدادات المنصة."
+  },
+  "priorityListOnly": {
+    "message": "قائمة الأولوية فقط"
+  },
+  "endingSoonest": {
+    "message": "ينتهي أولًا"
+  },
+  "lowAvailabilityFirst": {
+    "message": "الأقل توفرًا أولًا"
+  },
+  "watchQueueSettingsTitle": {
+    "message": "قائمة المشاهدة"
+  },
+  "watchQueueSettingsDescription": {
+    "message": "سلوك قائمة الاحتياط المشترك."
+  },
+  "watchQueueFallbackOnlyTitle": {
+    "message": "فقط عند عدم وجود Drops نشطة"
+  },
+  "watchQueueFallbackOnlyDescription": {
+    "message": "يحافظ تلقائيًا على أولوية Drops."
+  },
+  "platformSettingsTitle": {
+    "message": "إعدادات المنصة"
+  },
+  "platformSettingsDescription": {
+    "message": "الأتمتة والقنوات لمزوّد واحد. بدّل بين Twitch وKick."
+  },
+  "farmingTabsTitle": {
+    "message": "علامات تبويب الفارم"
+  },
+  "farmingTabsDescription": {
+    "message": "عناصر التحكم لفارم تبويبات الفيديو. تُعطّل عناصر التحكم الخاصة بالتبويب أثناء وضع منخفض الموارد بدون تبويب."
+  },
+  "tablessTitle": {
+    "message": "وضع منخفض الموارد بدون تبويب"
+  },
+  "tablessDescription": {
+    "message": "فارم عبر إشارات مشاهدة خفيفة بدل تبويب فيديو. يستخدم Twitch نبضات مشاهدة؛ ويستخدم Kick اتصال مشاهد. يعود تلقائيًا إلى تبويب إذا توقف عن الاحتساب."
+  },
+  "autoCloseTabsTitle": {
+    "message": "إغلاق تبويبات الفارم تلقائيًا"
+  },
+  "autoCloseTabsDescription": {
+    "message": "يغلق تلقائيًا عندما تكون الإضافة خاملة، دون Drops للفارم أو بثوث للمشاهدة."
+  },
+  "muteTabsTitle": {
+    "message": "كتم تبويبات الفارم"
+  },
+  "muteTabsDescription": {
+    "message": "يبقي تبويبات Drops وقائمة المشاهدة مكتومة أثناء الفارم."
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "إبقاء فيديوهات الفارم غير مكتومة"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "يبقي مشغلات الفيديو في الصفحة غير مكتومة بينما تبويب المتصفح مكتوم."
+  },
+  "tablessDisabledReason": {
+    "message": "معطل أثناء تفعيل وضع منخفض الموارد بدون تبويب."
+  },
+  "adFocusTitle": {
+    "message": "تركيز التبويب أثناء الإعلانات"
+  },
+  "adFocusDescription": {
+    "message": "تتجمد مؤقتات الإعلانات في تبويبات الخلفية. يركز تبويب الفارم مؤقتًا أثناء الإعلان ثم يعيد تبويبك السابق."
+  },
+  "off": {
+    "message": "إيقاف"
+  },
+  "tabOnly": {
+    "message": "التبويب فقط"
+  },
+  "tabAndWindow": {
+    "message": "التبويب + النافذة"
+  },
+  "advancedTitle": {
+    "message": "متقدم"
+  },
+  "advancedDescription": {
+    "message": "غيّرها فقط إذا كنت تعرف ما تفعل: تتحكم بالمجدول والتسجيل منخفض المستوى."
+  },
+  "schedulerIntervalTitle": {
+    "message": "فاصل المجدول"
+  },
+  "schedulerIntervalDescription": {
+    "message": "مدى تكرار تحديث حالة الحملات والبثوث."
+  },
+  "secondsSuffix": {
+    "message": "ث"
+  },
+  "automationSectionTitle": {
+    "message": "الأتمتة"
+  },
+  "farmOnPlatform": {
+    "message": "فارم Drops وشاهد القائمة على $1."
+  },
+  "enabled": {
+    "message": "مفعل"
+  },
+  "watchQueueEditHint": {
+    "message": "حررها من تبويب قائمة المشاهدة بعد اختيار $1."
+  },
+  "excludedChannelsTitle": {
+    "message": "قنوات Drops المستبعدة"
+  },
+  "excludedChannelsDescription": {
+    "message": "سيتخطى فارم الحملات هؤلاء الباثين."
+  },
+  "excludedChannelsEmpty": {
+    "message": "لا توجد قنوات Drops مستبعدة."
+  },
+  "farmAllCategoriesTitle": {
+    "message": "فارم كل الفئات"
+  },
+  "farmAllCategoriesDescription": {
+    "message": "فارم Drops في كل فئات $1. أوقفه لفارم مجموعة مختارة فقط."
+  },
+  "categoriesToFarm": {
+    "message": "الفئات للفارم"
+  },
+  "dragToPrioritize": {
+    "message": "اسحب لتحديد الأولوية"
+  },
+  "noCategoriesSelected": {
+    "message": "لم يتم تحديد فئات: لن يتم فارم أي شيء على $1. أضف فئات أدناه."
+  },
+  "hasActiveDrops": {
+    "message": "لديه Drops نشطة"
+  },
+  "searchCategories": {
+    "message": "البحث في فئات $1"
+  },
+  "searching": {
+    "message": "جارٍ البحث…"
+  },
+  "noCategoriesFound": {
+    "message": "لم يتم العثور على فئات."
+  },
+  "alreadyAdded": {
+    "message": "مضاف بالفعل."
+  },
+  "activityLogLevelsTitle": {
+    "message": "مستويات سجل النشاط"
+  },
+  "activityLogLevelsDescription": {
+    "message": "اختر المستويات المسجلة في سجل النشاط. تبقى الأخطاء دائمًا."
+  },
+  "visibleCampaignsTitle": {
+    "message": "الحملات المرئية"
+  },
+  "visibleCampaignsDescription": {
+    "message": "اختر حالات الحملات التي تظهر في قائمة Drops. تبقى الحملة ذات المكافأة القابلة للاستلام مرئية دائمًا."
+  },
+  "forgetExcludedTitle": {
+    "message": "نسيان الحملات المستبعدة"
+  },
+  "forgetExcludedDescription": {
+    "message": "امسح كل الحملات التي استبعدتها من الفارم."
+  },
+  "forget": {
+    "message": "نسيان"
+  },
+  "unknownGame": {
+    "message": "لعبة غير معروفة"
+  },
+  "dropsCampaign": {
+    "message": "حملة Drops"
+  },
+  "later": {
+    "message": "لاحقًا"
+  },
+  "ended": {
+    "message": "انتهى"
+  },
+  "notificationRewardClaimed": {
+    "message": "تم استلام المكافأة"
+  },
+  "notificationRewardEarned": {
+    "message": "تم الحصول على مكافأة"
+  },
+  "notificationNoDropsLeft": {
+    "message": "لا توجد Drops متبقية"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$1 من $2"
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "لا توجد Drops مؤهلة للفارم على $1."
+  },
+  "screenshotTwitchHeadline": {
+    "message": "إدارة Drops على Twitch وKick من نافذة واحدة."
+  },
+  "screenshotTwitchSubcopy": {
+    "message": "يفارم Stream Autopilot الحملات المؤهلة عبر جلسة متصفحك العادية مع تبويبات مرئية مكتومة."
+  },
+  "screenshotKickHeadline": {
+    "message": "يفارم Drops على Kick الآن أيضًا."
+  },
+  "screenshotKickSubcopy": {
+    "message": "نفس الأتمتة وفحوصات الأهلية والاستلام التلقائي على Twitch، الآن لمكافآت منشئي Kick."
+  },
+  "screenshotQueueHeadline": {
+    "message": "تحافظ قائمة المشاهدة الاحتياطية على استمرار الكسب."
+  },
+  "screenshotQueueSubcopy": {
+    "message": "عند عدم وجود Drops نشطة، يشاهد Stream Autopilot قنواتك المفضلة حتى لا يضيع وقتك المتصل."
+  },
+  "screenshotSettingsHeadline": {
+    "message": "اضبط كل تفصيل حسب إعدادك."
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "أتمتة لكل منصة، استلام تلقائي، تبويبات مكتومة، أولوية الألعاب، ووضع تجريبي منخفض الموارد بدون تبويب."
+  },
+  "screenshotActivityHeadline": {
+    "message": "شاهد بالضبط ما يفعله."
+  },
+  "screenshotActivitySubcopy": {
+    "message": "يعرض سجل نشاط شفاف كل فحص وتبديل واستلام، مع التصفية حسب المستوى."
+  },
+  "autoClaimReady": {
+    "message": "الاستلام التلقائي جاهز"
+  },
+  "resumingAutomation": {
+    "message": "جارٍ استئناف التشغيل التلقائي..."
+  },
+  "attributionLinks": {
+    "message": "روابط النسبة"
+  },
+  "githubAttribution": {
+    "message": "jamezrin على GitHub"
+  },
+  "xAttribution": {
+    "message": "jamezrin على X"
+  },
+  "removeItem": {
+    "message": "إزالة $1"
+  }
+}
