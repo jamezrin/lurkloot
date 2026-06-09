@@ -1,0 +1,357 @@
+---
+// Editorial feature deep-dive. Deliberately varied block sizes/layouts — no
+// repeating card template. Each describes a real capability of the extension.
+---
+
+<section id="features" class="feat">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="eyebrow">What's under the hood</p>
+      <h2>More than a tab that watches a stream.</h2>
+      <p>
+        Stream Autopilot makes real decisions: which campaign matters most, which
+        live channel actually drops it, and when to claim. Here's the instrumentation.
+      </p>
+    </div>
+
+    <div class="feat__grid">
+      <!-- Lead block: tabless mode, full width, with a diagram -->
+      <article class="feat__lead reveal">
+        <div class="feat__lead-copy">
+          <span class="feat__kicker">Default · low-resource</span>
+          <h3>Tabless mode that sips, not chugs.</h3>
+          <p>
+            Instead of pinning a video tab and burning bandwidth, it sends lightweight
+            watch heartbeats in the background — Twitch via API, Kick via a viewer
+            socket. Your drops keep ticking up while your CPU stays quiet. If progress
+            ever stalls, it transparently falls back to a real pinned, muted tab so you
+            never miss a reward.
+          </p>
+          <ul class="feat__checks">
+            <li>No video decoding, minimal data</li>
+            <li>Automatic visible-tab fallback</li>
+            <li>Pauses when you watch a stream yourself</li>
+          </ul>
+        </div>
+        <div class="feat__lead-viz" aria-hidden="true">
+          <div class="viz-row">
+            <span class="viz-label">Old way</span>
+            <div class="viz-bar viz-bar--heavy"><span style="width:88%"></span></div>
+            <span class="viz-val">heavy</span>
+          </div>
+          <div class="viz-row">
+            <span class="viz-label">Tabless</span>
+            <div class="viz-bar viz-bar--light"><span style="width:14%"></span></div>
+            <span class="viz-val">~14%</span>
+          </div>
+          <div class="viz-pulse">
+            <span></span><span></span><span></span><span></span><span></span>
+            <em>watch heartbeat</em>
+          </div>
+        </div>
+      </article>
+
+      <!-- Smart scheduling -->
+      <article class="feat__card feat__card--wide reveal">
+        <span class="feat__kicker">Scheduler</span>
+        <h3>It farms the right campaign first.</h3>
+        <p>
+          Drag campaigns to set an explicit order, or choose a strategy and let it
+          decide: <b>ending soonest</b>, <b>lowest availability first</b>, or
+          <b>priority-list only</b>. It tracks the right live channel for each drop and
+          re-routes the instant a campaign finishes.
+        </p>
+        <div class="strat">
+          <span class="strat__chip strat__chip--on">Ending soonest</span>
+          <span class="strat__chip">Lowest availability</span>
+          <span class="strat__chip">Priority list</span>
+        </div>
+      </article>
+
+      <!-- Auto-claim -->
+      <article class="feat__card reveal">
+        <span class="feat__kicker">Rewards</span>
+        <h3>Auto-claim, the moment it unlocks.</h3>
+        <p>
+          Drops and — if you want — Twitch channel points are claimed for you. Optional
+          notifications ping you when a reward lands or when every campaign is done.
+        </p>
+        <div class="claim-chip">
+          <span class="dot"></span> Signal Booster claimed <em>✓</em>
+        </div>
+      </article>
+
+      <!-- Watch queue -->
+      <article class="feat__card reveal">
+        <span class="feat__kicker">Watch Queue</span>
+        <h3>Never idle between campaigns.</h3>
+        <p>
+          Add up to 20 fallback channels per platform. When no drops are active, it
+          keeps your watch time and channel points flowing — and yields the moment a
+          drop reappears.
+        </p>
+      </article>
+
+      <!-- Category filtering -->
+      <article class="feat__card reveal">
+        <span class="feat__kicker">Filters</span>
+        <h3>Only the games you care about.</h3>
+        <p>
+          Farm everything, or pin an ordered list of categories with live search.
+          Exclude specific campaigns and channels you'd rather skip.
+        </p>
+      </article>
+
+      <!-- Activity log -->
+      <article class="feat__card feat__card--wide reveal">
+        <span class="feat__kicker">Activity log</span>
+        <h3>See exactly what it's doing.</h3>
+        <p>
+          A real-time, filterable event log records every decision — channel switches,
+          claims, skips, heartbeat health — so it's never a black box.
+        </p>
+        <div class="logline"><span class="lg-time">14:02</span><span class="lg-lvl">INFO</span> Switched to RivalsPilot · Rust drops live</div>
+        <div class="logline"><span class="lg-time">14:18</span><span class="lg-lvl lg-ok">CLAIM</span> Reward unlocked &amp; claimed</div>
+      </article>
+
+      <!-- Cross-browser + i18n -->
+      <article class="feat__card feat__card--accent reveal">
+        <span class="feat__kicker">Built to last</span>
+        <h3>Chrome &amp; Firefox. Ten languages.</h3>
+        <p>
+          One open-source codebase, two browser builds (MV3 + MV2), localized UI and
+          notifications in English, Spanish, French, Italian, Russian, German, Chinese,
+          Hindi, Portuguese, and Arabic.
+        </p>
+        <div class="locales">EN · ES · FR · IT · RU · DE · 中文 · हिंदी · PT · العربية</div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<style>
+  .feat {
+    padding: clamp(3rem, 6vw, 5.5rem) 0;
+  }
+  .feat__grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1.1rem;
+    margin-top: clamp(2.5rem, 5vw, 3.5rem);
+  }
+  article {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, var(--ink-1), var(--ink-0));
+    padding: clamp(1.4rem, 2.5vw, 2rem);
+    grid-column: span 6;
+    transition: border-color 0.3s var(--ease), transform 0.3s var(--ease);
+  }
+  article:hover {
+    border-color: var(--line-strong);
+    transform: translateY(-3px);
+  }
+  .feat__kicker {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--purple-soft);
+  }
+  article h3 {
+    font-size: clamp(1.3rem, 2.3vw, 1.7rem);
+    margin: 0.7rem 0 0.7rem;
+  }
+  article p {
+    color: var(--muted);
+    font-size: 0.98rem;
+  }
+  article p b {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* responsive spans */
+  @media (min-width: 760px) {
+    .feat__lead { grid-column: span 6; }
+    .feat__card { grid-column: span 3; }
+    .feat__card--wide { grid-column: span 6; }
+  }
+  @media (min-width: 1040px) {
+    .feat__lead { grid-column: span 6; }
+    .feat__card { grid-column: span 2; }
+    .feat__card--wide { grid-column: span 3; }
+  }
+
+  /* lead block */
+  .feat__lead {
+    display: grid;
+    gap: 2rem;
+    background:
+      radial-gradient(100% 120% at 100% 0%, rgba(83, 252, 24, 0.08), transparent 55%),
+      linear-gradient(180deg, var(--ink-2), var(--ink-0));
+  }
+  @media (min-width: 820px) {
+    .feat__lead {
+      grid-template-columns: 1.1fr 0.9fr;
+      align-items: center;
+    }
+  }
+  .feat__lead h3 {
+    font-size: clamp(1.7rem, 3vw, 2.3rem);
+  }
+  .feat__lead p {
+    font-size: 1.05rem;
+  }
+  .feat__checks {
+    list-style: none;
+    padding: 0;
+    margin: 1.2rem 0 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .feat__checks li {
+    position: relative;
+    padding-left: 1.5rem;
+    font-size: 0.92rem;
+    color: var(--muted);
+  }
+  .feat__checks li::before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: var(--lime);
+  }
+
+  /* lead viz */
+  .feat__lead-viz {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.3rem;
+    background: var(--void);
+    display: grid;
+    gap: 1rem;
+  }
+  .viz-row {
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    align-items: center;
+    gap: 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+  .viz-label { color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; }
+  .viz-bar {
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+  }
+  .viz-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+  }
+  .viz-bar--heavy span { background: linear-gradient(90deg, #ff7849, #ff3b6b); }
+  .viz-bar--light span { background: var(--signal); }
+  .viz-val { color: var(--muted); }
+  .viz-pulse {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding-top: 0.6rem;
+    border-top: 1px dashed var(--line);
+  }
+  .viz-pulse span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--lime);
+    opacity: 0.3;
+    animation: hb 1.6s infinite;
+  }
+  .viz-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .viz-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  .viz-pulse span:nth-child(4) { animation-delay: 0.6s; }
+  .viz-pulse span:nth-child(5) { animation-delay: 0.8s; }
+  .viz-pulse em {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: var(--faint);
+    font-style: normal;
+    letter-spacing: 0.08em;
+  }
+  @keyframes hb {
+    0%, 100% { opacity: 0.25; transform: scale(1); }
+    40% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 10px var(--glow-lime); }
+  }
+
+  /* strategy chips */
+  .strat {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.1rem;
+  }
+  .strat__chip {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.45em 0.8em;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+  .strat__chip--on {
+    border-color: transparent;
+    background: var(--signal);
+    color: #0a0612;
+    font-weight: 600;
+  }
+
+  .claim-chip {
+    margin-top: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    padding: 0.5em 0.9em;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+  .claim-chip em { color: var(--lime); font-style: normal; }
+
+  /* accent card */
+  .feat__card--accent {
+    background:
+      radial-gradient(120% 100% at 0% 0%, rgba(145, 71, 255, 0.16), transparent 55%),
+      linear-gradient(180deg, var(--ink-2), var(--ink-0));
+  }
+  .locales {
+    margin-top: 1.1rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* log lines */
+  .logline {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    background: var(--void);
+    border: 1px solid var(--line);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lg-time { color: var(--faint); margin-right: 0.6rem; }
+  .lg-lvl { color: var(--purple-soft); margin-right: 0.6rem; }
+  .lg-ok { color: var(--lime); }
+</style>

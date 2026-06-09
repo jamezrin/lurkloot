@@ -1,0 +1,32 @@
+{
+  "name": "stream-autopilot-site",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Marketing landing page for the Stream Autopilot browser extension.",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "cf:create": "wrangler pages project create stream-autopilot --production-branch=main",
+    "deploy": "astro build && wrangler pages deploy dist --project-name=stream-autopilot --branch=main --commit-dirty=true"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.2.1",
+    "@fontsource-variable/bricolage-grotesque": "^5.1.1",
+    "@fontsource-variable/geist": "^5.1.0",
+    "@fontsource-variable/geist-mono": "^5.1.1",
+    "astro": "^5.1.1",
+    "sharp": "^0.34.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ]
+  },
+  "devDependencies": {
+    "wrangler": "^4.99.0"
+  }
+}

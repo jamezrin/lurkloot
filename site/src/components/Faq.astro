@@ -1,0 +1,98 @@
+---
+import { faqItems } from "../faq";
+---
+
+<section id="faq" class="faq">
+  <div class="wrap faq__inner">
+    <div class="faq__head reveal">
+      <p class="eyebrow">Answers</p>
+      <h2>Frequently asked.</h2>
+      <p>Everything people want to know before installing.</p>
+    </div>
+
+    <div class="faq__list">
+      {faqItems.map((item, i) => (
+        <details class="faq__item reveal" open={i === 0}>
+          <summary>
+            <span>{item.q}</span>
+            <span class="faq__plus" aria-hidden="true"></span>
+          </summary>
+          <p>{item.a}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq {
+    padding: clamp(3rem, 6vw, 5.5rem) 0;
+  }
+  .faq__inner {
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: start;
+  }
+  @media (min-width: 900px) {
+    .faq__inner {
+      grid-template-columns: 0.8fr 1.2fr;
+    }
+    .faq__head {
+      position: sticky;
+      top: 90px;
+    }
+  }
+  .faq__list {
+    display: grid;
+    gap: 0.7rem;
+  }
+  .faq__item {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--ink-0);
+    overflow: hidden;
+    transition: border-color 0.25s var(--ease);
+  }
+  .faq__item[open] {
+    border-color: var(--line-strong);
+    background: linear-gradient(180deg, var(--ink-1), var(--ink-0));
+  }
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.15rem 1.3rem;
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.06rem;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary:hover { color: var(--text); }
+  .faq__plus {
+    position: relative;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+  }
+  .faq__plus::before,
+  .faq__plus::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    background: var(--purple-soft);
+    transition: transform 0.3s var(--ease), opacity 0.3s var(--ease);
+  }
+  .faq__plus::before { width: 100%; height: 2px; }
+  .faq__plus::after { width: 2px; height: 100%; }
+  .faq__item[open] .faq__plus::after { transform: rotate(90deg); opacity: 0; }
+  .faq__item p {
+    padding: 0 1.3rem 1.3rem;
+    color: var(--muted);
+    font-size: 0.98rem;
+    max-width: 62ch;
+  }
+</style>

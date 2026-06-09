@@ -1,0 +1,97 @@
+---
+import { LINKS } from "../consts";
+
+const guarantees = [
+  { t: "No password, ever", d: "It uses the session you're already logged into. Your credentials are never requested." },
+  { t: "Nothing leaves your device", d: "No exported cookies or tokens, no remote servers, no analytics harvesting your activity." },
+  { t: "Same-origin only", d: "Platform API calls run in your own browser context — the way the real site does it." },
+  { t: "Auditable & open source", d: "The full codebase is public. Read exactly what it does before you trust it." },
+];
+---
+
+<section class="priv">
+  <div class="wrap priv__inner">
+    <div class="priv__head reveal">
+      <p class="eyebrow">Private by design</p>
+      <h2>Your account stays yours.</h2>
+      <p>
+        Drop farmers ask you to hand over tokens or run on someone else's server.
+        Stream Autopilot does neither. It's a local-only extension that never sees a
+        password and never phones home.
+      </p>
+      <a class="btn btn--ghost" href={LINKS.github} target="_blank" rel="noopener">Read the source ↗</a>
+    </div>
+    <ul class="priv__list">
+      {guarantees.map((g) => (
+        <li class="reveal">
+          <span class="priv__mark">✓</span>
+          <div>
+            <strong>{g.t}</strong>
+            <p>{g.d}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .priv {
+    padding: clamp(3rem, 6vw, 5.5rem) 0;
+  }
+  .priv__inner {
+    display: grid;
+    gap: clamp(2rem, 4vw, 3.5rem);
+    align-items: start;
+  }
+  @media (min-width: 900px) {
+    .priv__inner {
+      grid-template-columns: 0.9fr 1.1fr;
+    }
+  }
+  .priv__head .btn {
+    margin-top: 1.6rem;
+  }
+  .priv__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.9rem;
+  }
+  @media (min-width: 560px) {
+    .priv__list {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .priv__list li {
+    display: flex;
+    gap: 0.9rem;
+    padding: 1.3rem;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: linear-gradient(180deg, var(--ink-1), var(--ink-0));
+  }
+  .priv__mark {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    display: grid;
+    place-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #0a0612;
+    background: var(--signal);
+  }
+  .priv__list strong {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.08rem;
+    margin-bottom: 0.3rem;
+  }
+  .priv__list p {
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+</style>

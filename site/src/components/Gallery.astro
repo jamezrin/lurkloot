@@ -1,0 +1,121 @@
+---
+import { Image } from "astro:assets";
+import dropsTwitch from "../assets/screenshots/drops-twitch.png";
+import dropsKick from "../assets/screenshots/drops-kick.png";
+import watchQueue from "../assets/screenshots/watch-queue.png";
+import settings from "../assets/screenshots/settings.png";
+import activity from "../assets/screenshots/activity.png";
+
+const shots = [
+  { img: dropsTwitch, label: "Twitch drops", alt: "Stream Autopilot popup showing Twitch drop campaigns with live progress and farming status" },
+  { img: dropsKick, label: "Kick drops", alt: "Stream Autopilot popup showing Kick drop campaigns being farmed" },
+  { img: watchQueue, label: "Watch Queue", alt: "Stream Autopilot Watch Queue tab listing fallback channels to keep earning" },
+  { img: settings, label: "Settings", alt: "Stream Autopilot settings panel with tabless mode, auto-claim and priority controls" },
+  { img: activity, label: "Activity log", alt: "Stream Autopilot activity log showing real-time farming events" },
+];
+---
+
+<section class="gal">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="eyebrow">The cockpit</p>
+      <h2>Everything, managed from one popup.</h2>
+      <p>
+        No dashboards, no web app. The whole control surface lives in a single
+        browser popup — these are real screenshots of the actual UI.
+      </p>
+    </div>
+  </div>
+
+  <div class="gal__rail" role="list">
+    {shots.map((shot, i) => (
+      <figure class="shot reveal" role="listitem" style={`--i:${i}`}>
+        <div class="shot__frame">
+          <div class="shot__bar">
+            <span></span><span></span><span></span>
+            <em>popup</em>
+          </div>
+          <Image src={shot.img} alt={shot.alt} widths={[300, 440]} sizes="300px" loading="lazy" />
+        </div>
+        <figcaption>{shot.label}</figcaption>
+      </figure>
+    ))}
+  </div>
+</section>
+
+<style>
+  .gal {
+    padding: clamp(3rem, 6vw, 5.5rem) 0 clamp(3.5rem, 6vw, 5.5rem);
+    overflow: hidden;
+  }
+  .gal__rail {
+    display: flex;
+    gap: 1.4rem;
+    overflow-x: auto;
+    padding: 2rem max(24px, calc((100vw - var(--maxw)) / 2 + 24px));
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ink-3) transparent;
+  }
+  .gal__rail::-webkit-scrollbar { height: 8px; }
+  .gal__rail::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 99px; }
+
+  .shot {
+    flex: 0 0 auto;
+    scroll-snap-align: center;
+    margin: 0;
+    transition: transform 0.4s var(--ease);
+  }
+  /* gentle editorial stagger */
+  .shot:nth-child(even) { transform: translateY(22px); }
+  .shot:hover { transform: translateY(-6px); }
+  .shot:nth-child(even):hover { transform: translateY(16px); }
+
+  .shot__frame {
+    width: 300px;
+    border: 1px solid var(--line-strong);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--ink-1);
+    box-shadow: 0 40px 80px -40px rgba(0, 0, 0, 0.9);
+  }
+  .shot__bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.6rem 0.8rem;
+    background: var(--ink-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .shot__bar span {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--ink-3);
+  }
+  .shot__bar span:first-child { background: #ff5f57; }
+  .shot__bar span:nth-child(2) { background: #febc2e; }
+  .shot__bar span:nth-child(3) { background: #28c840; }
+  .shot__bar em {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    font-style: normal;
+  }
+  .shot__frame :global(img) {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  figcaption {
+    margin-top: 1rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+</style>

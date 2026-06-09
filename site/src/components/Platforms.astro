@@ -1,0 +1,180 @@
+---
+const platforms = [
+  {
+    key: "twitch",
+    name: "Twitch",
+    blurb:
+      "Discovers your linked and unlinked drop campaigns, finds drops-enabled channels in the right category, and claims rewards — plus optional channel-point auto-claim.",
+    points: ["Campaign + inventory discovery", "Drops-enabled channel routing", "Channel points auto-claim"],
+  },
+  {
+    key: "kick",
+    name: "Kick",
+    blurb:
+      "Full Kick drops support through your same-origin session — live campaign discovery, category-filtered channel selection, and a viewer-socket heartbeat for tabless farming.",
+    points: ["Live campaign + progress sync", "Category-filtered channels", "Viewer-socket heartbeat"],
+  },
+];
+
+const games = ["Rust", "Valorant", "and every other active drops campaign"];
+---
+
+<section id="platforms" class="plat">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="eyebrow">Coverage</p>
+      <h2>Two platforms. Every drop campaign.</h2>
+      <p>
+        Whether you're farming <b>Rust</b> Twitch drops, <b>Valorant</b> rewards, or a
+        Kick partner campaign, Stream Autopilot speaks both platforms natively — no
+        manual channel hunting.
+      </p>
+    </div>
+
+    <div class="plat__grid">
+      {platforms.map((p) => (
+        <article class={`plat__card plat__card--${p.key} reveal`}>
+          <div class="plat__head">
+            <span class={`plat__badge plat__badge--${p.key}`}>{p.name[0]}</span>
+            <h3>{p.name}</h3>
+            <span class="plat__status"><span class="dot"></span> supported</span>
+          </div>
+          <p>{p.blurb}</p>
+          <ul>
+            {p.points.map((pt) => <li>{pt}</li>)}
+          </ul>
+        </article>
+      ))}
+    </div>
+
+    <div class="plat__games reveal">
+      <span class="plat__games-label">Farms drops for</span>
+      <div class="plat__games-list">
+        {games.map((g) => <span class="game">{g}</span>)}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .plat {
+    padding: clamp(3rem, 6vw, 5.5rem) 0;
+  }
+  .plat__grid {
+    display: grid;
+    gap: 1.1rem;
+    margin-top: clamp(2.5rem, 5vw, 3.5rem);
+  }
+  @media (min-width: 760px) {
+    .plat__grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .plat__card {
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: clamp(1.6rem, 3vw, 2.2rem);
+    transition: transform 0.3s var(--ease), border-color 0.3s var(--ease);
+  }
+  .plat__card:hover {
+    transform: translateY(-3px);
+  }
+  .plat__card--twitch {
+    background: radial-gradient(120% 120% at 0% 0%, rgba(145, 71, 255, 0.2), transparent 55%), var(--ink-0);
+  }
+  .plat__card--twitch:hover { border-color: rgba(145, 71, 255, 0.55); }
+  .plat__card--kick {
+    background: radial-gradient(120% 120% at 100% 0%, rgba(83, 252, 24, 0.16), transparent 55%), var(--ink-0);
+  }
+  .plat__card--kick:hover { border-color: rgba(83, 252, 24, 0.5); }
+
+  .plat__head {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1.1rem;
+  }
+  .plat__badge {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: grid;
+    place-content: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: #0a0612;
+  }
+  .plat__badge--twitch { background: linear-gradient(135deg, #a06bff, #7c3aed); color: #fff; }
+  .plat__badge--kick { background: linear-gradient(135deg, #7bfd49, #3fbf12); }
+  .plat__head h3 {
+    font-size: 1.6rem;
+    flex: 1;
+  }
+  .plat__status {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+  }
+  .plat__card p {
+    color: var(--muted);
+    font-size: 1rem;
+  }
+  .plat__card ul {
+    list-style: none;
+    padding: 0;
+    margin: 1.2rem 0 0;
+    display: grid;
+    gap: 0.45rem;
+  }
+  .plat__card li {
+    position: relative;
+    padding-left: 1.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text);
+  }
+  .plat__card li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--purple-soft);
+  }
+
+  .plat__games {
+    margin-top: 1.4rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.8rem 1.2rem;
+    padding: 1.2rem 1.4rem;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius);
+  }
+  .plat__games-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .plat__games-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .game {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--text);
+  }
+  .game:not(:last-child)::after {
+    content: " ·";
+    color: var(--purple);
+  }
+</style>
