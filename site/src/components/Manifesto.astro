@@ -1,6 +1,8 @@
 ---
-// "Why you'll love it" — benefit-led taglines that sell the feeling. Copy is
-// kept verbatim; presentation is cinematic, scroll-revealed, alternating.
+// "Why you'll love it" — presented as a PINNED scroll sequence: the stage sticks
+// while each statement crossfades in as you scroll (Apple-style). Copy verbatim.
+// Progressive enhancement: without JS / on mobile / with reduced-motion it falls
+// back to a clean stacked list (see CSS — pinned styles only apply with .is-pinned).
 type Perk = { n: string; head: string; sub: string };
 
 const perks: Perk[] = [
@@ -27,25 +29,104 @@ const perks: Perk[] = [
 ];
 ---
 
-<section id="why" class="why act">
-  <div class="wrap">
-    <p class="eyebrow reveal">Why you'll love it</p>
-    <h2 class="why__lede reveal-slow">Drops, on your terms.</h2>
-    <p class="why__deck reveal">Stop arranging your life around drop campaigns. Let them arrange themselves around you.</p>
+<section id="why" class="why" data-slides={perks.length}>
+  <div class="why__intro act">
+    <div class="wrap">
+      <p class="eyebrow reveal">Why you'll love it</p>
+      <h2 class="why__lede reveal-slow">Drops, on your terms.</h2>
+      <p class="why__deck reveal">Stop arranging your life around drop campaigns. Let them arrange themselves around you.</p>
+    </div>
+  </div>
 
-    <ol class="why__list">
-      {perks.map((p) => (
-        <li class="why__item">
-          <span class="why__n par" style="--depth:-0.5">{p.n}</span>
-          <div class="why__body">
-            <h3 class="reveal-slow" set:html={p.head}></h3>
-            <p class="reveal">{p.sub}</p>
-          </div>
-        </li>
-      ))}
-    </ol>
+  <div class="why__pin">
+    <div class="why__stage">
+      <ol class="why__slides">
+        {perks.map((p) => (
+          <li class="why__slide">
+            <div class="wrap why__slide-inner">
+              <span class="why__n">{p.n}</span>
+              <h3 set:html={p.head}></h3>
+              <p set:html={p.sub}></p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div class="why__progress" aria-hidden="true">
+        {perks.map(() => <span class="why__tick"></span>)}
+      </div>
+    </div>
   </div>
 </section>
+
+<script>
+  // Pinned scroll-sequence driver. Reads native scroll (Lenis keeps it in sync),
+  // crossfades slides by proximity to their scroll "slot", lights the active tick.
+  const section = document.getElementById("why");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (section && !reduce) {
+    const pin = section.querySelector<HTMLElement>(".why__pin")!;
+    const slides = Array.from(section.querySelectorAll<HTMLElement>(".why__slide"));
+    const ticks = Array.from(section.querySelectorAll<HTMLElement>(".why__tick"));
+    const n = slides.length;
+    const MIN_WIDTH = 760;
+    let pinned = false;
+    let ticking = false;
+
+    const enable = () => {
+      pinned = true;
+      section.classList.add("is-pinned");
+      pin.style.height = `${n * 100}svh`;
+    };
+    const disable = () => {
+      pinned = false;
+      section.classList.remove("is-pinned");
+      pin.style.height = "";
+      slides.forEach((s) => {
+        s.style.opacity = "";
+        s.style.transform = "";
+      });
+      ticks.forEach((t) => t.classList.remove("is-on"));
+    };
+
+    const update = () => {
+      ticking = false;
+      if (!pinned) return;
+      const total = pin.offsetHeight - window.innerHeight;
+      const progress = Math.min(1, Math.max(0, -pin.getBoundingClientRect().top / total));
+      const slot = 1 / (n - 1);
+      let active = Math.round(progress * (n - 1));
+      slides.forEach((s, i) => {
+        const center = i / (n - 1);
+        const d = Math.abs(progress - center) / slot; // 0 at center, 1 one slot away
+        const o = Math.max(0, 1 - d);
+        s.style.opacity = String(o);
+        s.style.transform = `translateY(${(progress - center) * 60}px) scale(${0.96 + o * 0.04})`;
+      });
+      ticks.forEach((t, i) => t.classList.toggle("is-on", i === active));
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+
+    const sync = () => {
+      const shouldPin = window.innerWidth >= MIN_WIDTH;
+      if (shouldPin && !pinned) enable();
+      else if (!shouldPin && pinned) disable();
+      if (pinned) update();
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", sync, { passive: true });
+    sync();
+    // re-sync after layout settles (fonts/images)
+    window.addEventListener("load", sync);
+  }
+</script>
 
 <style>
   .why__lede {
@@ -61,73 +142,122 @@ const perks: Perk[] = [
     font-size: 1.15rem;
     max-width: 48ch;
   }
+  .why__intro {
+    padding-bottom: clamp(2rem, 5vw, 3rem);
+  }
 
-  .why__list {
+  /* ---------- fallback (stacked) layout — default ---------- */
+  .why__slides {
     list-style: none;
-    margin: clamp(3.5rem, 9vw, 7rem) 0 0;
+    margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: clamp(3.5rem, 8vw, 6.5rem);
+    gap: clamp(3.5rem, 9vw, 6.5rem);
   }
-  .why__item {
+  .why__slide-inner {
     display: grid;
-    grid-template-columns: minmax(auto, 0.8fr) 1.4fr;
-    gap: clamp(1rem, 4vw, 3rem);
-    align-items: center;
+    gap: 0.6rem;
   }
-  /* alternate the big number to the opposite side for editorial rhythm */
-  .why__item:nth-child(even) {
-    grid-template-columns: 1.4fr minmax(auto, 0.8fr);
-  }
-  .why__item:nth-child(even) .why__n {
-    order: 2;
-    text-align: right;
-  }
-  .why__item:nth-child(even) .why__body {
-    order: 1;
-  }
-
   .why__n {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: clamp(4rem, 14vw, 11rem);
+    font-size: clamp(3.4rem, 12vw, 9rem);
     line-height: 0.8;
     letter-spacing: -0.05em;
     color: transparent;
     -webkit-text-stroke: 1.5px var(--line-strong);
     opacity: 0.9;
-    user-select: none;
   }
-  .why__body h3 {
+  .why__slide h3 {
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: -0.035em;
     line-height: 1.02;
     font-size: clamp(1.9rem, 4.6vw, 3.4rem);
-    margin-bottom: 0.8rem;
   }
-  .why__body p {
+  .why__slide p {
     color: var(--muted);
     font-size: clamp(1.02rem, 1.6vw, 1.2rem);
-    max-width: 44ch;
+    max-width: 46ch;
+  }
+  .why__progress {
+    display: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .why:not(.is-pinned) .why__slide {
+      animation: rise-cinematic linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 50%;
+    }
   }
 
-  @media (max-width: 700px) {
-    .why__item,
-    .why__item:nth-child(even) {
-      grid-template-columns: 1fr;
-      gap: 0.4rem;
-    }
-    .why__item:nth-child(even) .why__n {
-      order: 0;
-      text-align: left;
-    }
-    .why__item:nth-child(even) .why__body {
-      order: 0;
-    }
-    .why__n {
-      font-size: clamp(3rem, 18vw, 5rem);
-    }
+  /* ---------- pinned slideshow (JS adds .is-pinned on >= 760px) ---------- */
+  .why.is-pinned .why__pin {
+    position: relative;
+  }
+  .why.is-pinned .why__stage {
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .why.is-pinned .why__slides {
+    display: block;
+    width: 100%;
+  }
+  .why.is-pinned .why__slide {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    will-change: opacity, transform;
+  }
+  .why.is-pinned .why__slide-inner {
+    text-align: center;
+    justify-items: center;
+    max-width: min(92vw, 880px);
+  }
+  .why.is-pinned .why__slide h3 {
+    max-width: 16ch;
+  }
+  .why.is-pinned .why__n {
+    font-size: clamp(6rem, 20vw, 16rem);
+    margin-bottom: 0.5rem;
+    -webkit-text-stroke: 2px var(--line-strong);
+  }
+  .why.is-pinned .why__slide h3 {
+    font-size: clamp(2.6rem, 7vw, 5.5rem);
+    line-height: 0.98;
+    margin-bottom: 1rem;
+  }
+  .why.is-pinned .why__slide p {
+    font-size: clamp(1.1rem, 2vw, 1.45rem);
+    max-width: 40ch;
+  }
+  .why__progress {
+    position: absolute;
+    right: clamp(1.2rem, 4vw, 3rem);
+    top: 50%;
+    translate: 0 -50%;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .why.is-pinned .why__progress {
+    display: flex;
+  }
+  .why__tick {
+    width: 3px;
+    height: 28px;
+    border-radius: 99px;
+    background: var(--line-strong);
+    transition: background 0.4s var(--ease), height 0.4s var(--ease);
+  }
+  .why__tick.is-on {
+    background: var(--signal);
+    height: 44px;
   }
 </style>
