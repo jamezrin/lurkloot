@@ -1165,4 +1165,52 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.playback).toBeDefined();
     expect(env.state.lastTickAt).toBeDefined();
   });
+
+  it("serializes handleTabRemoved against a concurrent tick so neither write is lost", async () => {
+    const env = harness();
+    env.state.manualWatch = {
+      kick: { platform: "kick", tabId: 50, checkedAt: new Date().toISOString(), active: true },
+    };
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: true,
+      channel: channel("twitch"),
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+    };
+
+    // Same snapshot-isolation trace as the writer-serialization test above: an
+    // unserialized handleTabRemoved would build on a stale snapshot and clobber
+    // tick()'s save (or vice versa).
+    const trace: string[] = [];
+    const originalSave = env.deps.saveState.getMockImplementation()!;
+    env.deps.loadState.mockImplementation(async () => {
+      trace.push("load");
+      return structuredClone(env.state);
+    });
+    env.deps.saveState.mockImplementation(async (next: SchedulerState) => {
+      trace.push("save");
+      await Promise.resolve();
+      await originalSave(next);
+    });
+
+    await Promise.all([
+      env.controller.handleTabRemoved(50),
+      env.controller.tick(),
+    ]);
+
+    // Serialized: every load is immediately followed by that operation's save.
+    expect(trace.length).toBeGreaterThanOrEqual(4);
+    for (let i = 0; i + 1 < trace.length; i += 2) {
+      expect(trace[i]).toBe("load");
+      expect(trace[i + 1]).toBe("save");
+    }
+    // Both writers' changes survive: the manual-watch entry is removed AND the
+    // concurrent tick committed its progress.
+    expect(env.state.manualWatch?.kick).toBeUndefined();
+    expect(env.state.lastTickAt).toBeDefined();
+  });
 });

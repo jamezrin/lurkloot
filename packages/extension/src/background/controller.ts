@@ -255,31 +255,40 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
-    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
-    const manualPlatforms = (["twitch", "kick"] as Platform[]).filter((platform) => state.manualWatch?.[platform]?.tabId === tabId);
-    if (manualPlatforms.length > 0) {
-      const manualWatch = { ...state.manualWatch };
-      for (const platform of manualPlatforms) delete manualWatch[platform];
-      await persist({
-        ...state,
-        manualWatch,
-      });
-    }
-    if (!settings.running) return;
-
-    for (const platform of ["twitch", "kick"] as Platform[]) {
-      const session = state.sessions[platform];
-      if (
-        settings.platform[platform].enabled
-        && session.status === "watching"
-        && session.tabManagedByExtension
-        && session.tabId === tabId
-      ) {
-        pendingTabEvents.push({ platform, level: "info", message: "Managed watch tab was closed; re-running scheduler" });
-        await tick();
-        return;
+    // Serialize the load-modify-persist under the state lock so it cannot race a
+    // concurrent tick()/heartbeat (both fire on a ~1-minute cadence while the
+    // user can close a tab at any moment). The trailing tick() is deferred to
+    // outside the lock because it re-acquires the lock itself — mirroring how
+    // runWatchHeartbeat returns its fallback work and ticks afterwards.
+    const shouldRerunScheduler = await withStateLock(async () => {
+      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+      const manualPlatforms = (["twitch", "kick"] as Platform[]).filter((platform) => state.manualWatch?.[platform]?.tabId === tabId);
+      if (manualPlatforms.length > 0) {
+        const manualWatch = { ...state.manualWatch };
+        for (const platform of manualPlatforms) delete manualWatch[platform];
+        await persist({
+          ...state,
+          manualWatch,
+        });
       }
-    }
+      if (!settings.running) return false;
+
+      for (const platform of ["twitch", "kick"] as Platform[]) {
+        const session = state.sessions[platform];
+        if (
+          settings.platform[platform].enabled
+          && session.status === "watching"
+          && session.tabManagedByExtension
+          && session.tabId === tabId
+        ) {
+          pendingTabEvents.push({ platform, level: "info", message: "Managed watch tab was closed; re-running scheduler" });
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (shouldRerunScheduler) await tick();
   }
 
   function tablessWatchContext(): WatchContext {
