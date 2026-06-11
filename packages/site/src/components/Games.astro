@@ -34,12 +34,18 @@ const games: Game[] = Object.entries(covers)
   .sort((a, b) => a.name.localeCompare(b.name));
 
 // Split into two rows that scroll in opposite directions. Each row is doubled
-// so the CSS marquee loops seamlessly.
+// so the CSS marquee loops seamlessly. (Mobile / reduced-motion fallback — on
+// desktop the covers form a revolving 3D carousel instead.)
 const mid = Math.ceil(games.length / 2);
 const rowA: Game[] = games.slice(0, mid);
 const rowB: Game[] = games.slice(mid);
 const loopA = [...rowA, ...rowA];
 const loopB = [...rowB, ...rowB];
+
+// 3D ring geometry: place every cover on a cylinder. Radius derives from the
+// card width + breathing room so neighbours never overlap.
+const RING_STEP = 360 / games.length;
+const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
 ---
 
 <section id="games" class="games">
@@ -52,6 +58,20 @@ const loopB = [...rowB, ...rowB];
         a few of the biggest — but it works with <b>any</b> active campaign, the moment
         it goes live.
       </p>
+    </div>
+  </div>
+
+  <!-- Desktop: a revolving 3D carousel of box art. -->
+  <div class="ring-scene" style={`--ring-r:${RING_RADIUS}px`}>
+    <div class="ring-tilt">
+      <div class="ring3d">
+        {games.map((g, i) => (
+          <figure class="gcard gcard--ring" style={`--ra:${(i * RING_STEP).toFixed(2)}deg`}>
+            <Image src={g.img} alt={`${g.name} — Twitch drops supported`} widths={[180, 320]} sizes="180px" loading="lazy" />
+            <figcaption>{g.name}</figcaption>
+          </figure>
+        ))}
+      </div>
     </div>
   </div>
 
@@ -84,6 +104,61 @@ const loopB = [...rowB, ...rowB];
   }
   .games .section-head {
     margin-bottom: clamp(2rem, 4vw, 3rem);
+  }
+
+  /* ---------- 3D ring carousel (desktop, motion-friendly only) ---------- */
+  .ring-scene {
+    display: none;
+  }
+  @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
+    .marq {
+      display: none;
+    }
+    .ring-scene {
+      display: block;
+      perspective: 1800px;
+      /* tall enough that the nearest (scaled-up) cards aren't masked off */
+      height: 490px;
+      margin-top: 0.5rem;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+      mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+    }
+    .ring-tilt {
+      height: 100%;
+      transform-style: preserve-3d;
+      transform: rotateX(-9deg);
+    }
+    .ring3d {
+      position: relative;
+      height: 100%;
+      transform-style: preserve-3d;
+      animation: ring-spin 75s linear infinite;
+    }
+    .ring-scene:hover .ring3d {
+      animation-play-state: paused;
+    }
+    @keyframes ring-spin {
+      to {
+        transform: rotateY(-360deg);
+      }
+    }
+    /* .gcard.gcard--ring outranks the base .gcard rules further down */
+    .gcard.gcard--ring {
+      position: absolute;
+      left: calc(50% - 85px);
+      top: calc(50% - 113px);
+      width: 170px;
+      height: 226px;
+      transform: rotateY(var(--ra)) translateZ(var(--ring-r));
+      backface-visibility: hidden;
+      transition: border-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
+    }
+    /* placement transform is load-bearing — pop with light, not movement */
+    .gcard.gcard--ring:hover {
+      transform: rotateY(var(--ra)) translateZ(var(--ring-r));
+      border-color: var(--purple);
+      box-shadow: 0 30px 60px -28px var(--glow-purple);
+    }
   }
 
   .marq {

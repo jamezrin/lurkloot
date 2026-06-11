@@ -11,14 +11,15 @@ import dbd from "../assets/games/dead-by-daylight.jpg";
 import warframe from "../assets/games/warframe.jpg";
 
 // Floating cover art = parallax depth. `pos` places it; `shift` is the scroll
-// parallax distance; `bob` toggles a gentle idle drift.
+// parallax distance; `bob` toggles a gentle idle drift; `depth` is how many px
+// it counter-drifts with the pointer (bigger = nearer; driven by hero-scene.ts).
 const floats = [
-  { img: rust, pos: "top:14%;left:6%", w: 116, shift: "-200px", blur: 2, op: 0.5, bob: true },
-  { img: valorant, pos: "top:22%;right:8%", w: 132, shift: "-320px", blur: 1, op: 0.6, bob: false },
-  { img: apex, pos: "top:58%;left:11%", w: 100, shift: "-120px", blur: 3, op: 0.4, bob: false },
-  { img: cs, pos: "top:64%;right:13%", w: 108, shift: "-240px", blur: 2, op: 0.45, bob: true },
-  { img: dbd, pos: "top:40%;left:-2%", w: 88, shift: "-80px", blur: 4, op: 0.3, bob: false },
-  { img: warframe, pos: "top:8%;right:24%", w: 78, shift: "-160px", blur: 4, op: 0.3, bob: true },
+  { img: rust, pos: "top:14%;left:6%", w: 116, shift: "-200px", blur: 2, op: 0.5, bob: true, depth: 18 },
+  { img: valorant, pos: "top:22%;right:8%", w: 132, shift: "-320px", blur: 1, op: 0.6, bob: false, depth: 26 },
+  { img: apex, pos: "top:58%;left:11%", w: 100, shift: "-120px", blur: 3, op: 0.4, bob: false, depth: 12 },
+  { img: cs, pos: "top:64%;right:13%", w: 108, shift: "-240px", blur: 2, op: 0.45, bob: true, depth: 16 },
+  { img: dbd, pos: "top:40%;left:-2%", w: 88, shift: "-80px", blur: 4, op: 0.3, bob: false, depth: 7 },
+  { img: warframe, pos: "top:8%;right:24%", w: 78, shift: "-160px", blur: 4, op: 0.3, bob: true, depth: 5 },
 ];
 ---
 
@@ -26,9 +27,11 @@ const floats = [
   <div class="hero__bg" aria-hidden="true">
     <div class="hero__orb hero__orb--1"></div>
     <div class="hero__orb hero__orb--2"></div>
+    <canvas class="hero__gl"></canvas>
     {floats.map((f) => (
       <div
         class:list={["hero__float", { "hero__float--bob": f.bob }]}
+        data-depth={f.depth}
         style={`${f.pos};--shift:${f.shift};--blur:${f.blur}px;--op:${f.op};width:${f.w}px`}
       >
         <Image src={f.img} alt="" widths={[120, 200]} sizes="120px" loading="eager" />
@@ -66,6 +69,10 @@ const floats = [
   </a>
 </section>
 
+<script>
+  import "../scripts/hero-scene.ts";
+</script>
+
 <style>
   .hero {
     position: relative;
@@ -102,6 +109,13 @@ const floats = [
     width: 40vw;
     height: 40vw;
     background: radial-gradient(closest-side, rgba(83, 252, 24, 0.3), transparent);
+  }
+  /* WebGL particle ring (hero-scene.ts). Sits over the orbs, under the floats. */
+  .hero__gl {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
   }
   .hero__float {
     position: absolute;

@@ -267,21 +267,28 @@ h3 {
 
 /* ---------- scroll-driven motion (CSS scroll-timeline; synced with Lenis) ---------- */
 @media (prefers-reduced-motion: no-preference) {
-  /* entrance: fade + rise as the element enters the viewport */
+  /* entrance: fade + rise as the element enters the viewport, with a hint of
+     3D — content swings up from a slight backward lean. */
+  @keyframes rise-3d {
+    from { opacity: 0; transform: perspective(900px) translateY(26px) rotateX(7deg); }
+    to { opacity: 1; transform: none; }
+  }
   .reveal {
-    animation: rise linear both;
+    animation: rise-3d linear both;
     animation-timeline: view();
     animation-range: entry 0% entry 42%;
+    transform-origin: 50% 100%;
   }
   /* a slower, more cinematic reveal for big statements */
   @keyframes rise-cinematic {
-    from { opacity: 0; transform: translateY(60px); filter: blur(6px); }
+    from { opacity: 0; transform: perspective(1000px) translateY(70px) rotateX(13deg); filter: blur(6px); }
     to { opacity: 1; transform: none; filter: blur(0); }
   }
   .reveal-slow {
     animation: rise-cinematic linear both;
     animation-timeline: view();
     animation-range: entry 0% entry 55%;
+    transform-origin: 50% 100%;
   }
   /* parallax: element drifts as it crosses the viewport. `--depth` sets amount
      + direction (negative = moves up faster). Driven by native scroll → in sync
@@ -298,7 +305,7 @@ h3 {
   }
   /* scale/blur-in for media that should feel like it "arrives" */
   @keyframes arrive {
-    from { opacity: 0; transform: scale(0.92) translateY(48px); }
+    from { opacity: 0; transform: perspective(1100px) scale(0.92) translateY(48px) rotateX(10deg); }
     to { opacity: 1; transform: none; }
   }
   .arrive {
@@ -306,6 +313,30 @@ h3 {
     animation-timeline: view();
     animation-range: entry 0% cover 32%;
   }
+}
+
+/* ---------- pointer-tracked 3D tilt (tilt.ts adds the transform + glare) ---------- */
+[data-tilt] {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.3s var(--ease);
+  will-change: transform;
+}
+[data-tilt] > .tilt-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    460px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 255, 255, 0.09),
+    transparent 60%
+  );
+  transition: opacity 0.35s var(--ease);
+}
+[data-tilt]:hover > .tilt-glare {
+  opacity: 1;
 }
 
 /* generous cinematic spacing helper */
