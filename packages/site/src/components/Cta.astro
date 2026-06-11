@@ -18,6 +18,12 @@ import BrowserPills from "./BrowserPills.astro";
       </a>
     </div>
     <div class="cta__pills"><BrowserPills /></div>
+    <ul class="cta__assure">
+      <li>No installer — just an extension</li>
+      <li>Vetted by the Chrome Web Store review</li>
+      <li>Windows · macOS · Linux · ChromeOS</li>
+      <li>Updated for every Twitch &amp; Kick change</li>
+    </ul>
     <p class="cta__fine">No account · No password · No tracking</p>
   </div>
 </section>
@@ -66,6 +72,38 @@ import BrowserPills from "./BrowserPills.astro";
   .cta__pills {
     position: relative;
     margin-top: 1.8rem;
+  }
+  /* compact objection-buster strip (replaces the old Assurance section) */
+  .cta__assure {
+    position: relative;
+    list-style: none;
+    padding: 0;
+    margin: 2rem 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.6rem;
+  }
+  .cta__assure li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    padding: 0.45em 0.9em;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .cta__assure li::before {
+    content: "✓";
+    font-weight: 700;
+    background: var(--signal-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   .cta__fine {
     position: relative;

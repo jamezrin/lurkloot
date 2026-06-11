@@ -1,8 +1,28 @@
 ---
+// Coverage = platforms + games in one act: what it farms (Twitch & Kick cards)
+// and the proof (revolving 3D wall of box art). Merges the old Platforms and
+// Games sections, which repeated each other's copy.
 import { Image } from "astro:assets";
 
+const platforms = [
+  {
+    key: "twitch",
+    name: "Twitch",
+    blurb:
+      "It finds the Twitch drops you can earn, keeps you on a channel that's actually dropping them, and claims every reward for you — channel points included.",
+    points: ["Finds every drop you can earn", "Always on a dropping channel", "Claims drops + channel points"],
+  },
+  {
+    key: "kick",
+    name: "Kick",
+    blurb:
+      "Full Kick drops support, right in your browser. It follows live campaigns, picks the right channel for the reward you want, and claims it the moment it unlocks.",
+    points: ["Follows live Kick campaigns", "Picks the right channel for you", "Claims rewards automatically"],
+  },
+];
+
 // Eagerly import every game cover (Twitch box art) so Astro fingerprints +
-// optimizes them. The marquee stays zero-JS (pure CSS animation).
+// optimizes them.
 const covers = import.meta.glob<{ default: ImageMetadata }>("../assets/games/*.jpg", { eager: true });
 
 const NAMES: Record<string, string> = {
@@ -48,17 +68,41 @@ const RING_STEP = 360 / games.length;
 const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
 ---
 
-<section id="games" class="games">
+<section id="coverage" class="cov act">
   <div class="wrap">
-    <div class="section-head reveal">
-      <p class="eyebrow">Loaded with drops</p>
-      <h2>From <span class="grad-text">Rust</span> to <span class="grad-text">Valorant</span> — and hundreds more.</h2>
-      <p>
-        If it has a Twitch or Kick drops campaign, Stream Autopilot farms it. Here are
-        a few of the biggest — but it works with <b>any</b> active campaign, the moment
-        it goes live.
+    <div class="cov__head">
+      <p class="eyebrow reveal">Coverage</p>
+      <h2 class="reveal-slow">Two platforms.<br />Every drop campaign.</h2>
+      <p class="reveal">
+        Farming <b>Rust</b> Twitch drops, <b>Valorant</b> rewards, or a Kick partner
+        campaign — it speaks both platforms natively, no manual channel hunting.
       </p>
     </div>
+
+    <div class="cov__grid">
+      {platforms.map((p) => (
+        <div class="reveal">
+        <article class={`cov__card cov__card--${p.key}`} data-tilt="" data-tilt-max="5">
+          <div class="cov__top">
+            <span class={`cov__badge cov__badge--${p.key}`}>{p.name[0]}</span>
+            <h3>{p.name}</h3>
+            <span class="cov__status"><span class="dot"></span> supported</span>
+          </div>
+          <p>{p.blurb}</p>
+          <ul>
+            {p.points.map((pt) => <li>{pt}</li>)}
+          </ul>
+        </article>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <div class="wrap">
+    <p class="cov__games-lede reveal">
+      From <span class="grad-text">Rust</span> to <span class="grad-text">Valorant</span> —
+      if it has an active campaign, it farms it the moment it goes live.
+    </p>
   </div>
 
   <!-- Desktop: a revolving 3D carousel of box art. -->
@@ -98,12 +142,116 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
 </section>
 
 <style>
-  .games {
-    padding: clamp(3rem, 6vw, 5rem) 0 clamp(3.5rem, 6vw, 5rem);
+  .cov {
     overflow: hidden;
   }
-  .games .section-head {
-    margin-bottom: clamp(2rem, 4vw, 3rem);
+  .cov__head h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    font-size: clamp(2.4rem, 6vw, 4.5rem);
+    margin: 0.6rem 0 1rem;
+  }
+  .cov__head > p:last-child {
+    color: var(--muted);
+    font-size: 1.1rem;
+    max-width: 52ch;
+  }
+  .cov__head b { color: var(--text); font-weight: 600; }
+
+  /* ---------- platform cards ---------- */
+  .cov__grid {
+    display: grid;
+    gap: 1.2rem;
+    margin-top: clamp(2.5rem, 6vw, 4rem);
+  }
+  @media (min-width: 760px) {
+    .cov__grid { grid-template-columns: 1fr 1fr; }
+  }
+  .cov__card {
+    height: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: clamp(1.8rem, 3vw, 2.6rem);
+    transition: transform 0.4s var(--ease), border-color 0.4s var(--ease);
+  }
+  .cov__card--twitch {
+    background: radial-gradient(120% 130% at 0% 0%, rgba(145, 71, 255, 0.22), transparent 55%), var(--ink-0);
+  }
+  .cov__card--twitch:hover { border-color: rgba(145, 71, 255, 0.55); }
+  .cov__card--kick {
+    background: radial-gradient(120% 130% at 100% 0%, rgba(83, 252, 24, 0.16), transparent 55%), var(--ink-0);
+  }
+  .cov__card--kick:hover { border-color: rgba(83, 252, 24, 0.5); }
+
+  .cov__top {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1.2rem;
+  }
+  .cov__badge {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    display: grid;
+    place-content: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.4rem;
+  }
+  .cov__badge--twitch { background: linear-gradient(135deg, #a06bff, #7c3aed); color: #fff; }
+  .cov__badge--kick { background: linear-gradient(135deg, #7bfd49, #3fbf12); color: #07140a; }
+  .cov__top h3 {
+    flex: 1;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.7rem;
+    letter-spacing: -0.02em;
+  }
+  .cov__status {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+  }
+  .cov__card > p {
+    color: var(--muted);
+    font-size: 1.02rem;
+  }
+  .cov__card ul {
+    list-style: none;
+    padding: 0;
+    margin: 1.3rem 0 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .cov__card li {
+    position: relative;
+    padding-left: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  .cov__card li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--purple-soft);
+  }
+
+  /* ---------- games lede ---------- */
+  .cov__games-lede {
+    text-align: center;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(1.2rem, 2.4vw, 1.7rem);
+    letter-spacing: -0.02em;
+    max-width: 44ch;
+    margin: clamp(4rem, 9vw, 6.5rem) auto clamp(1.5rem, 3vw, 2.5rem);
   }
 
   /* ---------- 3D ring carousel (desktop, motion-friendly only) ---------- */
@@ -117,9 +265,10 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
     .ring-scene {
       display: block;
       perspective: 1800px;
-      /* tall enough that the nearest (scaled-up) cards aren't masked off */
-      height: 490px;
-      margin-top: 0.5rem;
+      /* tall enough that the nearest cards — scaled up by perspective AND
+         pushed down ~85px by the rotateX tilt — aren't masked off */
+      height: 580px;
+      margin-top: -2rem;
       -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
       mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
     }
@@ -146,7 +295,8 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
     .gcard.gcard--ring {
       position: absolute;
       left: calc(50% - 85px);
-      top: calc(50% - 113px);
+      /* biased above center: the tilt drops the near (largest) cards lower */
+      top: calc(50% - 145px);
       width: 170px;
       height: 226px;
       transform: rotateY(var(--ra)) translateZ(var(--ring-r));
@@ -161,6 +311,7 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
     }
   }
 
+  /* ---------- marquee fallback ---------- */
   .marq {
     overflow: hidden;
     padding: 0.6rem 0;
