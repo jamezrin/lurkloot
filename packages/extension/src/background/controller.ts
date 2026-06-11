@@ -722,14 +722,20 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     }
 
     if (settings.notifyNoDropsLeft) {
+      const isDropsExhausted = (state: SchedulerState, platform: Platform): boolean =>
+        state.sessions[platform].status === "idle"
+        && state.campaigns[platform].length > 0
+        && state.campaigns[platform].every((campaign) => !hasEarnableReward(campaign));
+
       for (const platform of ["twitch", "kick"] as Platform[]) {
-        const session = next.sessions[platform];
         if (
           settings.running
           && settings.platform[platform].enabled
-          && session.status === "idle"
-          && next.campaigns[platform].length > 0
-          && next.campaigns[platform].every((campaign) => !hasEarnableReward(campaign))
+          // Only on the transition into the exhausted state, so the
+          // notification fires once instead of re-firing every tick (~1/min)
+          // for as long as the platform stays out of earnable drops.
+          && isDropsExhausted(next, platform)
+          && !isDropsExhausted(previous, platform)
         ) {
           await safeNotify(
             settings,

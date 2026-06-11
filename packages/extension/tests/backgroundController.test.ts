@@ -1001,6 +1001,42 @@ describe("background controller", () => {
     expect(env.deps.createNotification).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Reward earned" }));
   });
 
+  it("emits the no-drops-left notification once when entering the exhausted state", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      notifyNoDropsLeft: true,
+      platform: { ...DEFAULT_SETTINGS.platform, kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false } },
+    });
+    // A fully claimed campaign is present but has nothing earnable, so the
+    // scheduler goes idle into the "no drops left" condition.
+    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimed")]);
+
+    await env.controller.tick();
+
+    expect(env.deps.createNotification).toHaveBeenCalledWith(expect.objectContaining({ title: "No drops left" }));
+  });
+
+  it("does not re-emit the no-drops-left notification while the exhausted state persists", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      notifyNoDropsLeft: true,
+      notifyRewardEarned: false,
+      platform: { ...DEFAULT_SETTINGS.platform, kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false } },
+    });
+    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimed")]);
+
+    await env.controller.tick();
+    await env.controller.tick();
+
+    // The exhausted state persists across both ticks; the notification must fire
+    // only on the transition, not once per tick. No other notifications are
+    // enabled, so the no-drops notification is the only expected call.
+    expect(env.deps.createNotification).toHaveBeenCalledWith(expect.objectContaining({ title: "No drops left" }));
+    expect(env.deps.createNotification).toHaveBeenCalledTimes(1);
+  });
+
   it("persists an error event when scheduler execution throws unexpectedly", async () => {
     const env = harness();
     vi.mocked(env.deps.createAdapters).mockImplementation(() => {
