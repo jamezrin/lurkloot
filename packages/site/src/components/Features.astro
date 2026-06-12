@@ -47,11 +47,18 @@ const more = [
         </p>
       </div>
       <div class="beat__lift reveal">
-        <div class="beat__viz beat__viz--chips" data-tilt>
-          <span class="chip chip--on">Ending soonest</span>
-          <span class="chip">Lowest availability</span>
-          <span class="chip">Priority list</span>
-          <span class="chip chip--drag">⠿ drag to reorder</span>
+        <div class="beat__viz beat__viz--sched" data-tilt>
+          <div class="sched-strats">
+            <span class="schip">Ending soonest</span>
+            <span class="schip">Lowest availability</span>
+            <span class="schip schip--on">Priority list</span>
+          </div>
+          <ol class="sched-list">
+            <li class="srow"><i>⠿</i><b>1</b>Rust<em class="now">farming now</em></li>
+            <li class="srow"><i>⠿</i><b>2</b>VALORANT<em>up next</em></li>
+            <li class="srow"><i>⠿</i><b>3</b>Fortnite<em>queued</em></li>
+          </ol>
+          <div class="sched-hint">⠿ drag to reorder</div>
         </div>
       </div>
     </div>
@@ -216,27 +223,72 @@ const more = [
     40% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 10px var(--glow-lime); }
   }
 
-  .beat__viz--chips {
-    grid-auto-flow: row;
+  .beat__viz--sched {
     align-content: center;
-    gap: 0.7rem;
+    gap: 0.9rem;
   }
-  .chip {
-    justify-self: start;
+  .sched-strats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+  .schip {
     font-family: var(--font-mono);
-    font-size: 0.8rem;
-    padding: 0.55em 0.9em;
+    font-size: 0.7rem;
+    padding: 0.45em 0.85em;
     border-radius: 999px;
     border: 1px solid var(--line);
-    color: var(--muted);
+    color: var(--faint);
   }
-  .chip--on {
+  .schip--on {
     border-color: transparent;
     background: var(--signal);
     color: #0a0612;
     font-weight: 600;
   }
-  .chip--drag { color: var(--faint); border-style: dashed; }
+  .sched-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .srow {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    font-size: 0.95rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--line);
+  }
+  .srow i {
+    font-style: normal;
+    color: var(--faint);
+    cursor: grab;
+  }
+  .srow b {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 0.74rem;
+    color: var(--purple-soft);
+  }
+  .srow em {
+    margin-left: auto;
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--faint);
+  }
+  .srow em.now { color: var(--lime); }
+  .sched-hint {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--faint);
+    padding-top: 0.8rem;
+    border-top: 1px dashed var(--line);
+  }
 
   .claim {
     display: flex;
