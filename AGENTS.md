@@ -17,6 +17,19 @@ Use pnpm for all package tasks.
 - `pnpm verify`: run tests, typecheck, and both browser builds.
 - `pnpm zip` / `pnpm zip:firefox`: package release artifacts.
 
+## Cutting a Release
+
+Releases ship the extension to the Chrome Web Store and AMO, with the public changelog on the site kept in lockstep. Follow these steps from the repo root on a clean `main`:
+
+1. **Pick the version (semver).** `patch` for bugfixes only, `minor` for backwards-compatible features, `major` for breaking changes. This choice matters beyond convention: on update the extension auto-opens the changelog **only for minor/major bumps** (see `isMinorOrMajorBump` in `packages/extension/src/core/version.ts`), so patch releases ship silently.
+2. **Bump the version.** Update `"version"` to the new number in the four in-lockstep manifests: `package.json` (root), `packages/extension/package.json`, `packages/popup-ui/package.json`, and `packages/shared/package.json`. WXT reads `packages/extension/package.json` for the built `manifest.json`; the others are kept in sync for tidiness. (The `packages/site` version is independent — leave it.)
+3. **Update the changelog.** Add a new top entry to `packages/site/src/changelog.ts` with the `version`, the release `date` (ISO `YYYY-MM-DD`, the Chrome Web Store publish date), and the user-facing `changes` grouped by `kind` (`new` / `improved` / `fixed`). The page renders newest-first and the extension deep-links to `#v{version}`. If a future version was already staged as an `Unreleased` entry (no `date`), just fill in its `date`.
+4. **Verify.** Run `pnpm verify` (tests, typecheck, and both browser builds). Don't proceed if it fails.
+5. **Regenerate the artifacts.** Run `pnpm zip` and `pnpm zip:firefox`. They write `lurkloot-{version}-{browser}.zip` (and a sources zip for Firefox) to `packages/extension/.output/`.
+6. **Commit.** Stage the version bumps and the changelog change together and commit with the existing convention: `Bump version to X.Y.Z`. Optionally tag `vX.Y.Z`.
+7. **Publish.** Upload the Chrome zip to the Chrome Web Store and the Firefox zip + sources to AMO. Use the actual store-publish date in the changelog entry from step 3 if review lag moves it.
+8. **Deploy the site** so the new notes are live before users update: `pnpm --filter @lurkloot/site cf:deploy`. This matters because the extension opens `https://lurkloot.jamezrin.com/changelog#v{version}` on update.
+
 ## Coding Style & Naming Conventions
 
 Use strict TypeScript and ES modules. Keep imports explicit and prefer `type` imports for types. Follow the existing two-space indentation, double quotes, semicolons, and camelCase functions/variables. Use PascalCase for React components and TypeScript types. Keep platform behavior behind `PlatformAdapter`; do not mix Twitch/Kick parsing logic into scheduler or UI code.
