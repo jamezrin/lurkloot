@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { effectiveLocale, isRtlLocale, normalizeBrowserLocale, translateFromCatalogs, type MessageCatalog } from "@stream-autopilot/shared/i18n";
+import { effectiveLocale, isRtlLocale, normalizeBrowserLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 
 describe("i18n", () => {
   it("normalizes browser locales to supported extension locales", () => {

@@ -23,10 +23,10 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.6)
-      '@stream-autopilot/popup-ui':
+      '@lurkloot/popup-ui':
         specifier: workspace:*
         version: link:../popup-ui
-      '@stream-autopilot/shared':
+      '@lurkloot/shared':
         specifier: workspace:*
         version: link:../shared
       '@vitejs/plugin-react':
@@ -90,7 +90,7 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.6)
-      '@stream-autopilot/shared':
+      '@lurkloot/shared':
         specifier: workspace:*
         version: link:../shared
       framer-motion:
@@ -151,10 +151,10 @@ importers:
       '@fontsource-variable/geist-mono':
         specifier: ^5.1.1
         version: 5.2.8
-      '@stream-autopilot/popup-ui':
+      '@lurkloot/popup-ui':
         specifier: workspace:*
         version: link:../popup-ui
-      '@stream-autopilot/shared':
+      '@lurkloot/shared':
         specifier: workspace:*
         version: link:../shared
       '@tailwindcss/vite':

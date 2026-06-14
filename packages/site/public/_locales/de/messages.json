@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Stream Autopilot"
+    "message": "Lurkloot"
   },
   "extensionDescription": {
     "message": "Farme Twitch- und Kick-Drops über normale Browsersitzungen, sichtbare stummgeschaltete Tabs und optionalen Energiesparmodus."
@@ -471,7 +471,7 @@
     "message": "Twitch- und Kick-Drops aus einem Popup verwaltet."
   },
   "screenshotTwitchSubcopy": {
-    "message": "Stream Autopilot farmt geeignete Kampagnen über deine normale Browsersitzung mit sichtbaren stummen Tabs."
+    "message": "Lurkloot farmt geeignete Kampagnen über deine normale Browsersitzung mit sichtbaren stummen Tabs."
   },
   "screenshotKickHeadline": {
     "message": "Farmt jetzt auch Kick-Drops."
@@ -483,7 +483,7 @@
     "message": "Eine Ersatz-Warteschlange hält dich am Verdienen."
   },
   "screenshotQueueSubcopy": {
-    "message": "Wenn keine Drops aktiv sind, schaut Stream Autopilot deine Lieblingskanäle, damit Online-Zeit nicht ungenutzt bleibt."
+    "message": "Wenn keine Drops aktiv sind, schaut Lurkloot deine Lieblingskanäle, damit Online-Zeit nicht ungenutzt bleibt."
   },
   "screenshotSettingsHeadline": {
     "message": "Passe jedes Detail an dein Setup an."

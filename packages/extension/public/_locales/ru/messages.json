@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Stream Autopilot"
+    "message": "Lurkloot"
   },
   "extensionDescription": {
     "message": "Фармите drops Twitch и Kick через обычные сессии браузера, видимые вкладки без звука и дополнительный режим низкого потребления."
@@ -471,7 +471,7 @@
     "message": "Drops Twitch и Kick в одном popup."
   },
   "screenshotTwitchSubcopy": {
-    "message": "Stream Autopilot фармит подходящие кампании через обычную сессию браузера с видимыми вкладками без звука."
+    "message": "Lurkloot фармит подходящие кампании через обычную сессию браузера с видимыми вкладками без звука."
   },
   "screenshotKickHeadline": {
     "message": "Теперь фармит и drops Kick."
@@ -483,7 +483,7 @@
     "message": "Резервная очередь просмотра продолжает приносить прогресс."
   },
   "screenshotQueueSubcopy": {
-    "message": "Когда активных drops нет, Stream Autopilot смотрит любимые каналы, чтобы время онлайн не пропадало."
+    "message": "Когда активных drops нет, Lurkloot смотрит любимые каналы, чтобы время онлайн не пропадало."
   },
   "screenshotSettingsHeadline": {
     "message": "Настройте каждую деталь под себя."

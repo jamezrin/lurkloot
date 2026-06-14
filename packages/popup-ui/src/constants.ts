@@ -1,5 +1,5 @@
-import type { CampaignFilterKey, Platform } from "@stream-autopilot/shared/models";
-import type { LogLevel } from "@stream-autopilot/shared/logging";
+import type { CampaignFilterKey, Platform } from "@lurkloot/shared/models";
+import type { LogLevel } from "@lurkloot/shared/logging";
 import type { ScreenshotVariant } from "./types";
 
 export const PLATFORMS: Record<Platform, { label: string; mark: string; color: string }> = {

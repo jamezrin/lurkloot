@@ -1,7 +1,7 @@
-import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@stream-autopilot/shared/messages";
-import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "@stream-autopilot/shared/models";
-import { appendLog, shouldRecord, type LogLevel } from "@stream-autopilot/shared/logging";
-import { applySettingsPatch, mergeSettings, type SettingsPatch } from "@stream-autopilot/shared/settings";
+import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "@lurkloot/shared/models";
+import { appendLog, shouldRecord, type LogLevel } from "@lurkloot/shared/logging";
+import { applySettingsPatch, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick } from "../core/scheduler";
 import { logActivity, setActivityLogger } from "../core/activityLog";
 import { setTwitchIntegrity } from "../core/tabs";
@@ -10,11 +10,11 @@ import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 
-export const ALARM_NAME = "stream-autopilot.tick";
+export const ALARM_NAME = "lurkloot.tick";
 // A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
 // of the (heavier, configurable) discovery tick. chrome.alarms clamps to a
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
-export const WATCH_ALARM_NAME = "stream-autopilot.watch";
+export const WATCH_ALARM_NAME = "lurkloot.watch";
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const EN_RUNTIME_MESSAGES: Record<string, string> = {
   notificationRewardClaimed: "Reward claimed",

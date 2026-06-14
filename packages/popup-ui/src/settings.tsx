@@ -13,9 +13,9 @@ import type {
   ExtensionSettings,
   LanguageOverride,
   Platform,
-} from "@stream-autopilot/shared/models";
-import type { SettingsPatch } from "@stream-autopilot/shared/settings";
-import { LOCALE_OPTIONS } from "@stream-autopilot/shared/i18n";
+} from "@lurkloot/shared/models";
+import type { SettingsPatch } from "@lurkloot/shared/settings";
+import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import {
   CampaignFilterSettingRow,
   ForgetExcludedCampaignsRow,

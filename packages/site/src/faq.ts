@@ -8,8 +8,8 @@ export interface FaqItem {
 
 export const faqItems: FaqItem[] = [
   {
-    q: "Is Stream Autopilot free?",
-    a: "Yes. Stream Autopilot is completely free. There are no accounts, no subscriptions, and no paywalled features — install it from the Chrome Web Store and it works immediately.",
+    q: "Is Lurkloot free?",
+    a: "Yes. Lurkloot is completely free. There are no accounts, no subscriptions, and no paywalled features — install it from the Chrome Web Store and it works immediately.",
   },
   {
     q: "Does it need my Twitch or Kick password?",
@@ -25,11 +25,11 @@ export const faqItems: FaqItem[] = [
   },
   {
     q: "Is it safe to use? Will I get banned?",
-    a: "Stream Autopilot operates entirely within your own normal, logged-in browser session and does not touch your password or export any data. That said, it is an unofficial tool and is not affiliated with, endorsed by, or sponsored by Twitch or Kick. Automating viewing may be against a platform's terms of service, so use it at your own discretion.",
+    a: "Lurkloot operates entirely within your own normal, logged-in browser session and does not touch your password or export any data. That said, it is an unofficial tool and is not affiliated with, endorsed by, or sponsored by Twitch or Kick. Automating viewing may be against a platform's terms of service, so use it at your own discretion.",
   },
   {
     q: "How does the auto-claim work?",
-    a: "When a drop becomes claimable, Stream Autopilot claims it for you automatically — including Twitch channel points if you enable that toggle. You can also turn on notifications so you know the moment a reward lands, and it tells you when all campaigns are exhausted.",
+    a: "When a drop becomes claimable, Lurkloot claims it for you automatically — including Twitch channel points if you enable that toggle. You can also turn on notifications so you know the moment a reward lands, and it tells you when all campaigns are exhausted.",
   },
   {
     q: "Can I control which campaigns it prioritizes?",

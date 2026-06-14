@@ -8,10 +8,10 @@ import {
   screenshotVariant,
   type PopupAdapter,
   type ScreenshotVariant,
-} from "@stream-autopilot/popup-ui";
-import { SETTINGS_SESSION_PORT } from "@stream-autopilot/shared/messages";
-import { SUPPORTED_LOCALES } from "@stream-autopilot/shared/settings";
-import type { SupportedLocale } from "@stream-autopilot/shared/models";
+} from "@lurkloot/popup-ui";
+import { SETTINGS_SESSION_PORT } from "@lurkloot/shared/messages";
+import { SUPPORTED_LOCALES } from "@lurkloot/shared/settings";
+import type { SupportedLocale } from "@lurkloot/shared/models";
 
 const URL_PARAMS = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
 

@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Stream Autopilot"
+    "message": "Lurkloot"
   },
   "extensionDescription": {
     "message": "सामान्य ब्राउज़र सत्रों, दिखने वाले म्यूट टैब और वैकल्पिक लो-रिसोर्स मोड से Twitch और Kick drops फ़ार्म करें।"
@@ -471,7 +471,7 @@
     "message": "Twitch और Kick drops, एक popup से प्रबंधित।"
   },
   "screenshotTwitchSubcopy": {
-    "message": "Stream Autopilot सामान्य ब्राउज़र सत्र और दिखने वाले म्यूट टैब से योग्य कैंपेन फ़ार्म करता है।"
+    "message": "Lurkloot सामान्य ब्राउज़र सत्र और दिखने वाले म्यूट टैब से योग्य कैंपेन फ़ार्म करता है।"
   },
   "screenshotKickHeadline": {
     "message": "अब Kick drops भी फ़ार्म करता है।"
@@ -483,7 +483,7 @@
     "message": "बैकअप देखने की कतार आपको कमाई जारी रखने देती है।"
   },
   "screenshotQueueSubcopy": {
-    "message": "जब कोई active drops नहीं होते, Stream Autopilot आपके पसंदीदा चैनल देखता है ताकि ऑनलाइन समय बेकार न जाए।"
+    "message": "जब कोई active drops नहीं होते, Lurkloot आपके पसंदीदा चैनल देखता है ताकि ऑनलाइन समय बेकार न जाए।"
   },
   "screenshotSettingsHeadline": {
     "message": "अपने setup के लिए हर विवरण सेट करें।"

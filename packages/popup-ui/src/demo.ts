@@ -1,6 +1,6 @@
-import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@stream-autopilot/shared/messages";
-import type { DropCampaign, SupportedLocale } from "@stream-autopilot/shared/models";
-import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@stream-autopilot/shared/settings";
+import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { DropCampaign, SupportedLocale } from "@lurkloot/shared/models";
+import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import type { PopupAdapter } from "./types";
 
 function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackControl | CategorySearchResult {

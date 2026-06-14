@@ -1,4 +1,4 @@
-# Stream Autopilot
+# Lurkloot
 
 A cross-browser TypeScript WebExtension for farming Twitch and Kick drops through normal logged-in browser sessions. By default it uses real, visible, pinned, muted tabs; optional tabless low-resource mode sends platform watch heartbeats and automatically falls back to visible tabs if progress stops. It reuses the user's session context, including Kick's same-origin session cookie for Kick API calls, without asking for credentials or exporting cookies.
 

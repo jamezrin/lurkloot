@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Stream Autopilot"
+    "message": "Lurkloot"
   },
   "extensionDescription": {
     "message": "فارم Drops على Twitch وKick عبر جلسات المتصفح العادية، وعلامات تبويب مرئية مكتومة، ووضع اختياري منخفض الموارد."
@@ -471,7 +471,7 @@
     "message": "إدارة Drops على Twitch وKick من نافذة واحدة."
   },
   "screenshotTwitchSubcopy": {
-    "message": "يفارم Stream Autopilot الحملات المؤهلة عبر جلسة متصفحك العادية مع تبويبات مرئية مكتومة."
+    "message": "يفارم Lurkloot الحملات المؤهلة عبر جلسة متصفحك العادية مع تبويبات مرئية مكتومة."
   },
   "screenshotKickHeadline": {
     "message": "يفارم Drops على Kick الآن أيضًا."
@@ -483,7 +483,7 @@
     "message": "تحافظ قائمة المشاهدة الاحتياطية على استمرار الكسب."
   },
   "screenshotQueueSubcopy": {
-    "message": "عند عدم وجود Drops نشطة، يشاهد Stream Autopilot قنواتك المفضلة حتى لا يضيع وقتك المتصل."
+    "message": "عند عدم وجود Drops نشطة، يشاهد Lurkloot قنواتك المفضلة حتى لا يضيع وقتك المتصل."
   },
   "screenshotSettingsHeadline": {
     "message": "اضبط كل تفصيل حسب إعدادك."

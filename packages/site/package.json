@@ -1,16 +1,16 @@
 {
-  "name": "@stream-autopilot/site",
+  "name": "@lurkloot/site",
   "type": "module",
   "version": "1.0.0",
   "private": true,
-  "description": "Marketing landing page for the Stream Autopilot browser extension.",
+  "description": "Marketing landing page for the Lurkloot browser extension.",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "cf:create": "wrangler pages project create stream-autopilot --production-branch=main",
-    "cf:deploy": "astro build && wrangler pages deploy dist --project-name=stream-autopilot --branch=main --commit-dirty=true"
+    "cf:create": "wrangler pages project create lurkloot --production-branch=main",
+    "cf:deploy": "astro build && wrangler pages deploy dist --project-name=lurkloot --branch=main --commit-dirty=true"
   },
   "dependencies": {
     "@astrojs/react": "^4.2.0",
@@ -21,8 +21,8 @@
     "@fontsource-variable/bricolage-grotesque": "^5.1.1",
     "@fontsource-variable/geist": "^5.1.0",
     "@fontsource-variable/geist-mono": "^5.1.1",
-    "@stream-autopilot/popup-ui": "workspace:*",
-    "@stream-autopilot/shared": "workspace:*",
+    "@lurkloot/popup-ui": "workspace:*",
+    "@lurkloot/shared": "workspace:*",
     "@tailwindcss/vite": "^4.3.0",
     "astro": "^5.1.1",
     "framer-motion": "^12.40.0",

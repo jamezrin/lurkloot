@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import "@stream-autopilot/popup-ui/styles.css";
+import "@lurkloot/popup-ui/styles.css";
 import { PopupApp } from "./app";
 
 // Thin extension bootstrap. All popup UI lives in ./app so it can also be

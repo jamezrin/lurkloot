@@ -2,9 +2,9 @@
 set -euo pipefail
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-policy_file="${root_dir}/stream-autopilot-privacy-policy.md"
-gist_id="${STREAM_AUTOPILOT_PRIVACY_GIST_ID:-24177c19981a50c0ab3aefc70e4ffdb9}"
-gist_filename="${STREAM_AUTOPILOT_PRIVACY_GIST_FILENAME:-stream-autopilot-privacy-policy.md}"
+policy_file="${root_dir}/lurkloot-privacy-policy.md"
+gist_id="${LURKLOOT_PRIVACY_GIST_ID:-24177c19981a50c0ab3aefc70e4ffdb9}"
+gist_filename="${LURKLOOT_PRIVACY_GIST_FILENAME:-lurkloot-privacy-policy.md}"
 
 if [[ ! -f "${policy_file}" ]]; then
   echo "Missing privacy policy file: ${policy_file}" >&2

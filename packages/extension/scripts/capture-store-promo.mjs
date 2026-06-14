@@ -124,7 +124,7 @@ try {
     const localeDir = join(outputDir, locale);
     await mkdir(localeDir, { recursive: true });
     for (const format of formats) {
-      const outputPath = join(localeDir, `stream-autopilot-${format.file}.png`);
+      const outputPath = join(localeDir, `lurkloot-${format.file}.png`);
       await page.setViewportSize({ width: format.width, height: format.height });
       await page.goto(`${origin}${popupPath}?screenshot=promo&format=${format.id}&locale=${locale}`, { waitUntil: "networkidle" });
       await page.waitForSelector('img[src="/logo-ring.svg"]');

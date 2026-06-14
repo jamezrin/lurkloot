@@ -1,5 +1,5 @@
-import type { Platform } from "@stream-autopilot/shared/models";
-import type { LogLevel } from "@stream-autopilot/shared/logging";
+import type { Platform } from "@lurkloot/shared/models";
+import type { LogLevel } from "@lurkloot/shared/logging";
 
 // Several modules that emit activity-log entries are pure and have no access to
 // the scheduler state (tabs.ts, the platform adapters, the tabless watchers).

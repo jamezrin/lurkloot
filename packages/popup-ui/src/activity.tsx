@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Clock3 } from "lucide-react";
-import type { EventLogEntry, Platform } from "@stream-autopilot/shared/models";
-import { LOG_LEVELS, type LogLevel } from "@stream-autopilot/shared/logging";
+import type { EventLogEntry, Platform } from "@lurkloot/shared/models";
+import { LOG_LEVELS, type LogLevel } from "@lurkloot/shared/logging";
 import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { formatEventTime } from "./format";

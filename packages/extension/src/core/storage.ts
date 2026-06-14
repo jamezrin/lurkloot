@@ -1,7 +1,7 @@
 import { browser } from "wxt/browser";
-import type { ExtensionSettings, SchedulerState } from "@stream-autopilot/shared/models";
+import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
 import type { TwitchIntegrity } from "./twitchIntegrity";
-import { DEFAULT_SETTINGS, mergeSettings } from "@stream-autopilot/shared/settings";
+import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 
 const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Ban, ChevronDown, type LucideIcon } from "lucide-react";
-import type { CampaignFilterKey } from "@stream-autopilot/shared/models";
-import { LOG_LEVELS, type LogLevel } from "@stream-autopilot/shared/logging";
+import type { CampaignFilterKey } from "@lurkloot/shared/models";
+import { LOG_LEVELS, type LogLevel } from "@lurkloot/shared/logging";
 import {
   CAMPAIGN_FILTERS,
   COLLAPSED_SETTINGS_SECTIONS_KEY,

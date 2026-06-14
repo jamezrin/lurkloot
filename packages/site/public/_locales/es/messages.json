@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Stream Autopilot"
+    "message": "Lurkloot"
   },
   "extensionDescription": {
     "message": "Farmea drops de Twitch y Kick con sesiones normales del navegador, pestañas silenciadas visibles y un modo opcional de bajo consumo."
@@ -471,7 +471,7 @@
     "message": "Drops de Twitch y Kick, gestionados desde un popup."
   },
   "screenshotTwitchSubcopy": {
-    "message": "Stream Autopilot farmea campañas elegibles mediante tu sesión normal del navegador con pestañas visibles y silenciadas."
+    "message": "Lurkloot farmea campañas elegibles mediante tu sesión normal del navegador con pestañas visibles y silenciadas."
   },
   "screenshotKickHeadline": {
     "message": "Ahora también farmea drops de Kick."
@@ -483,7 +483,7 @@
     "message": "Una cola de visualización alternativa mantiene las ganancias."
   },
   "screenshotQueueSubcopy": {
-    "message": "Cuando no hay drops activos, Stream Autopilot ve tus canales favoritos para que tu tiempo conectado no se desperdicie."
+    "message": "Cuando no hay drops activos, Lurkloot ve tus canales favoritos para que tu tiempo conectado no se desperdicie."
   },
   "screenshotSettingsHeadline": {
     "message": "Ajusta cada detalle a tu setup."

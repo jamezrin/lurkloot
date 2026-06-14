@@ -1,5 +1,5 @@
-import type { RuntimeMessage } from "@stream-autopilot/shared/messages";
-import type { DropCampaign, Platform, SupportedLocale } from "@stream-autopilot/shared/models";
+import type { RuntimeMessage } from "@lurkloot/shared/messages";
+import type { DropCampaign, Platform, SupportedLocale } from "@lurkloot/shared/models";
 
 export type PopupTab = "drops" | "watchQueue";
 export type GameItem = { id: string; name: string; short: string; accent: string };
