@@ -29,6 +29,7 @@ export const LINKS = {
     "https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn",
   // On-site page (rendered from the same source policy) — no GitHub link.
   privacy: "/privacy",
+  changelog: "/changelog",
   x: "https://x.com/jamezrin",
   github: "https://github.com/jamezrin",
 } as const;
