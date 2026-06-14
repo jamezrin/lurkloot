@@ -14,7 +14,7 @@ import {
   setActivityLogger,
   setTwitchIntegrity,
   stopWatchTabWithBrowser,
-} from "../src/core/tabs";
+} from "@stream-autopilot/core/tabs";
 import type { LogLevel } from "@stream-autopilot/shared/logging";
 
 const channel: ChannelCandidate = {

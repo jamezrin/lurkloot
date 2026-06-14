@@ -1,33 +1,16 @@
 import { browser } from "wxt/browser";
 import type { ExtensionSettings, SchedulerState } from "@stream-autopilot/shared/models";
-import type { TwitchIntegrity } from "./twitchIntegrity";
+import type { TwitchIntegrity } from "@stream-autopilot/core/twitchIntegrity";
 import { DEFAULT_SETTINGS, mergeSettings } from "@stream-autopilot/shared/settings";
+import { DEFAULT_STATE } from "@stream-autopilot/core/defaults";
+
+export { DEFAULT_STATE };
 
 const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";
 // Captured Client-Integrity bundle, kept separate from scheduler state because
 // it is transient device/session-scoped auth rather than farming progress.
 const TWITCH_INTEGRITY_KEY = "twitchIntegrity";
-
-const emptySession = (platform: "twitch" | "kick") => ({
-  platform,
-  offlineChecks: 0,
-  status: "idle" as const,
-});
-
-export const DEFAULT_STATE: SchedulerState = {
-  sessions: {
-    twitch: emptySession("twitch"),
-    kick: emptySession("kick"),
-  },
-  managedWatchTabs: {},
-  managedPageContextTabs: {},
-  campaigns: {
-    twitch: [],
-    kick: [],
-  },
-  events: [],
-};
 
 export async function loadSettings(): Promise<ExtensionSettings> {
   const data = await browser.storage.local.get(SETTINGS_KEY);

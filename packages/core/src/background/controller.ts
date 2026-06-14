@@ -2,7 +2,7 @@ import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnap
 import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "@stream-autopilot/shared/models";
 import { appendLog, shouldRecord, type LogLevel } from "@stream-autopilot/shared/logging";
 import { applySettingsPatch, mergeSettings, type SettingsPatch } from "@stream-autopilot/shared/settings";
-import { MANUAL_WATCH_TTL_MS, runSchedulerTick } from "../core/scheduler";
+import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type SchedulerTickOptions } from "../core/scheduler";
 import { logActivity, setActivityLogger } from "../core/activityLog";
 import { setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
@@ -48,6 +48,10 @@ export interface BackgroundControllerDeps {
   createNotification?(notification: { title: string; message: string }): Promise<void>;
   translate?(settings: ExtensionSettings, key: string, substitutions?: string | string[]): string | Promise<string>;
   closeManagedTabsByUrl?(urls: string[]): Promise<void>;
+  // Closes page-context tabs the scheduler retired this tick (browser-bound).
+  // Omitted by headless/tabless runtimes; the scheduler then only updates its
+  // retained-context bookkeeping (see forgetManagedPageContextTabs).
+  stopPageContextTabs?: SchedulerTickOptions["stopPageContextTabs"];
   applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode): Promise<void>;
   loadTwitchIntegrity?(): Promise<TwitchIntegrity | undefined>;
   saveTwitchIntegrity?(value: TwitchIntegrity): Promise<void>;
@@ -238,7 +242,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
 
       try {
         const adapters = deps.createAdapters();
-        const result = await runSchedulerTick(state, settings, adapters, platforms ? { platforms } : undefined);
+        const result = await runSchedulerTick(state, settings, adapters, { platforms, stopPageContextTabs: deps.stopPageContextTabs });
         await emitNotifications(settings, state, result.state);
         await applyAdFocusForState(settings, result.state);
         await reconcileTablessWatchers(result.state, settings, adapters, platforms);

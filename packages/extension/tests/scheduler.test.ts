@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformSettings } from "@stream-autopilot/shared/models";
 import { DEFAULT_SETTINGS } from "@stream-autopilot/shared/settings";
-import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "../src/core/scheduler";
-import type { PlatformAdapter } from "../src/platforms/adapter";
+import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@stream-autopilot/core/scheduler";
+import type { PlatformAdapter } from "@stream-autopilot/core/adapter";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: `reward-${status}`,

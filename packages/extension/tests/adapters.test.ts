@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PageFetcher } from "../src/platforms/adapter";
-import { createKickFetcher, KickAdapter } from "../src/platforms/kick";
-import { KickWafBlockedError } from "../src/core/tabs";
-import { TwitchAdapter } from "../src/platforms/twitch";
+import type { PageFetcher } from "@stream-autopilot/core/adapter";
+import { createKickFetcher, KickAdapter } from "@stream-autopilot/core/kick";
+import { KickWafBlockedError } from "@stream-autopilot/core/tabs";
+import { TwitchAdapter } from "@stream-autopilot/core/twitch";
 import type { DropCampaign, DropReward, ExtensionSettings } from "@stream-autopilot/shared/models";
-import { chooseCampaignDecision } from "../src/core/scheduler";
+import { chooseCampaignDecision } from "@stream-autopilot/core/scheduler";
 import { DEFAULT_SETTINGS } from "@stream-autopilot/shared/settings";
 
 function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
@@ -1176,7 +1176,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${operation(init)}`);
     });
     const ensureIntegrity = vi.fn(async () => true);
-    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const adapter = new TwitchAdapter(fetcher, { ensureIntegrity });
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
 
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
@@ -1189,7 +1189,7 @@ describe("TwitchAdapter", () => {
       throw new Error("should not fetch without a claim id");
     });
     const ensureIntegrity = vi.fn(async () => true);
-    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const adapter = new TwitchAdapter(fetcher, { ensureIntegrity });
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" } as DropReward;
 
     expect(adapter.isClaimReady(reward)).toBe(false);
@@ -1206,7 +1206,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${operation(init)}`);
     });
     const ensureIntegrity = vi.fn(async () => true);
-    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const adapter = new TwitchAdapter(fetcher, { ensureIntegrity });
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
 
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).rejects.toThrow(/status=INELIGIBLE/);
@@ -1225,7 +1225,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${operation(init)}`);
     });
     const ensureIntegrity = vi.fn(async () => true);
-    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const adapter = new TwitchAdapter(fetcher, { ensureIntegrity });
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
 
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
@@ -1243,7 +1243,7 @@ describe("TwitchAdapter", () => {
     });
     // No token can be captured (e.g. logged out / no tab can be opened).
     const ensureIntegrity = vi.fn(async () => false);
-    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const adapter = new TwitchAdapter(fetcher, { ensureIntegrity });
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
 
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward))

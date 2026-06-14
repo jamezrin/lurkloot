@@ -12,6 +12,19 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/core:
+    dependencies:
+      '@stream-autopilot/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.19.19
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/extension:
     dependencies:
       '@dnd-kit/core':
@@ -23,6 +36,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.6)
+      '@stream-autopilot/core':
+        specifier: workspace:*
+        version: link:../core
       '@stream-autopilot/popup-ui':
         specifier: workspace:*
         version: link:../popup-ui

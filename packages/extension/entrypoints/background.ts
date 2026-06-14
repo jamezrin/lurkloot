@@ -1,12 +1,22 @@
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
 import { SETTINGS_SESSION_PORT, type RuntimeMessage } from "@stream-autopilot/shared/messages";
-import { applyAdFocus } from "../src/core/tabs";
-import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "../src/background/controller";
+import {
+  applyAdFocus,
+  ensureTwitchIntegrity,
+  fetchJsonInPage,
+  fetchKickInBackground,
+  fetchTwitchInBackground,
+  openPinnedMutedTab,
+  stopManagedPageContextTabs,
+  stopWatchTab,
+} from "../src/core/tabs";
+import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "@stream-autopilot/core/controller";
 import { effectiveLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "@stream-autopilot/shared/i18n";
 import type { ExtensionSettings, SupportedLocale } from "@stream-autopilot/shared/models";
-import { KickAdapter } from "../src/platforms/kick";
-import { TwitchAdapter } from "../src/platforms/twitch";
+import type { WatchTabPort } from "@stream-autopilot/core/adapter";
+import { createKickFetcher, KickAdapter } from "@stream-autopilot/core/kick";
+import { TwitchAdapter } from "@stream-autopilot/core/twitch";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -53,12 +63,26 @@ const controller = createBackgroundController({
   },
   translate,
   applyAdFocus: (platform, tabId, adActive, mode) => applyAdFocus(platform, tabId, adActive, mode),
+  stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
   loadTwitchIntegrity,
   saveTwitchIntegrity,
-  createAdapters: () => ({
-    twitch: new TwitchAdapter(),
-    kick: new KickAdapter(),
-  }),
+  createAdapters: () => {
+    // Browser bindings injected into the (browser-free) core adapters.
+    const watchTabs: WatchTabPort = { openPinnedMutedTab, stopWatchTab };
+    return {
+      twitch: new TwitchAdapter(
+        { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
+        { ensureIntegrity: ensureTwitchIntegrity, watchTabs },
+      ),
+      kick: new KickAdapter(
+        createKickFetcher({
+          background: (url, init) => fetchKickInBackground(url, init),
+          pageFetch: (url, init) => fetchJsonInPage("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
+        }),
+        { watchTabs },
+      ),
+    };
+  },
 });
 
 export default defineBackground(() => {

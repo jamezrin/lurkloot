@@ -1,8 +1,7 @@
 import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@stream-autopilot/shared/models";
 import type { HeartbeatResult, TablessWatchController, WatchContext } from "../../core/tablessWatch";
 import { logActivity } from "../../core/activityLog";
-import { ensureTwitchIntegrity, fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../../core/tabs";
-import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "../adapter";
+import type { PageFetcher, PlatformAdapter, WatchTabOptions, WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./watch";
 
@@ -232,17 +231,29 @@ interface TwitchCurrentDropData {
 export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
 
+  // Drop claims require a valid Client-Integrity token; the injected
+  // ensureIntegrity opens/reuses a live twitch.tv tab to capture one when none is
+  // present. Defaults to "none available" so a headless caller that cannot mint a
+  // token degrades gracefully (the claim surfaces its rejection) instead of throwing.
+  private readonly ensureIntegrity: () => Promise<boolean>;
+  // Tab-based watch transport; absent when the runtime is tabless-only.
+  private readonly watchTabs?: WatchTabPort;
+
   constructor(
     // Twitch GQL is unreachable from the twitch.tv page context (CORS / anti-
-    // tampering blocks it). The background fetch has host permissions for
-    // gql.twitch.tv and attaches the OAuth token from cookies, like the web client.
-    private readonly fetcher: PageFetcher = {
-      fetchJson: (url, init) => fetchTwitchInBackground(url, init),
-    },
-    // Drop claims require a valid Client-Integrity token; this opens/reuses a live
-    // twitch.tv tab to capture one when none is present (see src/core/tabs.ts).
-    private readonly ensureIntegrity: () => Promise<boolean> = ensureTwitchIntegrity,
-  ) {}
+    // tampering blocks it). The runtime injects a fetcher with host access to
+    // gql.twitch.tv that attaches the OAuth token, like the web client.
+    private readonly fetcher: PageFetcher,
+    deps: { ensureIntegrity?: () => Promise<boolean>; watchTabs?: WatchTabPort } = {},
+  ) {
+    this.ensureIntegrity = deps.ensureIntegrity ?? (async () => false);
+    this.watchTabs = deps.watchTabs;
+  }
+
+  private requireWatchTabs(): WatchTabPort {
+    if (!this.watchTabs) throw new Error("TwitchAdapter: no WatchTabPort configured; tab-based watch is unavailable in this runtime");
+    return this.watchTabs;
+  }
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
     let inventory = await this.fetchInventory();
@@ -508,11 +519,11 @@ export class TwitchAdapter implements PlatformAdapter {
   }
 
   prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>) {
-    return openPinnedMutedTab(channel, session, options);
+    return this.requireWatchTabs().openPinnedMutedTab(channel, session, options);
   }
 
   stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
-    return stopWatchTab(session, options);
+    return this.requireWatchTabs().stopWatchTab(session, options);
   }
 
   // Tabless farming: send Twitch's minute-watched telemetry instead of opening a

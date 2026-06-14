@@ -50,3 +50,12 @@ export interface PlatformAdapter {
 export interface PageFetcher {
   fetchJson<T>(url: string, init?: RequestInit): Promise<T>;
 }
+
+// Opens/closes the watch tab an adapter drives in tab-based (non-tabless) mode.
+// Browser-bound, so it is injected: the extension backs it with wxt/browser tabs
+// (core/tabs.ts open/stopWatchTabWithBrowser); a headless runtime can back it
+// with a real page (browser transport) or leave it unconfigured when tabless-only.
+export interface WatchTabPort {
+  openPinnedMutedTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab>;
+  stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;
+}
