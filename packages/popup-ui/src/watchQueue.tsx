@@ -6,6 +6,7 @@ import { GripVertical, Plus } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import { useT } from "./context";
 import { formatViewers } from "./format";
+import { channelUrl } from "./viewModels";
 import type { StreamerItem } from "./types";
 import {
   CompactRow,
@@ -17,7 +18,7 @@ import {
   useDndSensors,
 } from "./primitives";
 
-export function WatchQueuePanel({ streamers, onChange }: { platform: Platform; streamers: StreamerItem[]; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
+export function WatchQueuePanel({ platform, streamers, onChange }: { platform: Platform; streamers: StreamerItem[]; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
   const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -56,11 +57,11 @@ export function WatchQueuePanel({ streamers, onChange }: { platform: Platform; s
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
           <SortableContext items={streamers.map((streamer) => streamer.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
-              {streamers.map((streamer, index) => <SortableWatchQueue key={streamer.id} streamer={streamer} index={index} onRemove={() => removeChannel(streamer.id)} />)}
+              {streamers.map((streamer, index) => <SortableWatchQueue key={streamer.id} streamer={streamer} index={index} platform={platform} onRemove={() => removeChannel(streamer.id)} />)}
             </div>
           </SortableContext>
           <DragOverlay dropAnimation={null}>
-            {active ? <CompactRow isOverlay index={activeIndex} avatar={active.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={active.name} subtitle={active.subtitle} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<WatchQueueStatus streamer={active} />} /> : null}
+            {active ? <CompactRow isOverlay index={activeIndex} avatar={active.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={active.name} titleHref={channelUrl(platform, active.id)} subtitle={active.subtitle} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<WatchQueueStatus streamer={active} />} /> : null}
           </DragOverlay>
         </DndContext>
       )}
@@ -78,12 +79,12 @@ export function WatchQueuePanel({ streamers, onChange }: { platform: Platform; s
   );
 }
 
-function SortableWatchQueue({ streamer, index, onRemove }: { streamer: StreamerItem; index: number; onRemove(): void }) {
+function SortableWatchQueue({ streamer, index, platform, onRemove }: { streamer: StreamerItem; index: number; platform: Platform; onRemove(): void }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: streamer.id });
   const status = <WatchQueueStatus streamer={streamer} />;
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
-      <CompactRow index={index} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${streamer.name}`} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={`Remove ${streamer.name}`} onClick={onRemove} /></span>} />
+      <CompactRow index={index} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} titleHref={channelUrl(platform, streamer.id)} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${streamer.name}`} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={`Remove ${streamer.name}`} onClick={onRemove} /></span>} />
     </div>
   );
 }

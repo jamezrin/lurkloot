@@ -1,4 +1,4 @@
-import type { CampaignFilterKey, DropCampaign, ExtensionSettings, WatchSession } from "@lurkloot/shared/models";
+import type { CampaignFilterKey, DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
 import { NO_CATEGORY_ID, categoryListIndex, isUncategorizedCampaign } from "@lurkloot/shared/categories";
 import { CAMPAIGN_TINTS, GAME_ACCENTS, NO_CATEGORY_ACCENT, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
@@ -150,12 +150,17 @@ export function campaignLifecycleState(campaign: DropCampaign): CampaignLifecycl
   return undefined;
 }
 
+// URL of a channel's page on its platform.
+export function channelUrl(platform: Platform, name: string): string {
+  const base = platform === "kick" ? "https://kick.com/" : "https://www.twitch.tv/";
+  return `${base}${name}`;
+}
+
 // Every channel a restricted drop is tied to, each linked to its page. Empty for
 // general drops (any channel in the category qualifies).
 function channelLinks(campaign: DropCampaign): ChannelLink[] {
   if (campaign.isGeneralDrop || !campaign.allowedChannels?.length) return [];
-  const base = campaign.platform === "kick" ? "https://kick.com/" : "https://www.twitch.tv/";
-  return campaign.allowedChannels.map((name) => ({ name, url: `${base}${name}` }));
+  return campaign.allowedChannels.map((name) => ({ name, url: channelUrl(campaign.platform, name) }));
 }
 
 export function channelViewFromSession(session: WatchSession): FarmingChannelView | undefined {
