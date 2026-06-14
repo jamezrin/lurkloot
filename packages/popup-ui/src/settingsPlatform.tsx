@@ -13,7 +13,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AlertTriangle, Ban, GripVertical, Plus, Search } from "lucide-react";
-import type { CategorySelection, ExtensionSettings, Platform } from "@stream-autopilot/shared/models";
+import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { GAME_ACCENTS, PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { initials } from "./format";

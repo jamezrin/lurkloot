@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Stream Autopilot"
+    "message": "Lurkloot"
   },
   "extensionDescription": {
     "message": "Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode."
@@ -471,7 +471,7 @@
     "message": "Twitch and Kick drops, managed from one popup."
   },
   "screenshotTwitchSubcopy": {
-    "message": "Stream Autopilot farms eligible campaigns through your normal browser session with visible muted tabs."
+    "message": "Lurkloot farms eligible campaigns through your normal browser session with visible muted tabs."
   },
   "screenshotKickHeadline": {
     "message": "Now farming Kick drops too."
@@ -483,7 +483,7 @@
     "message": "A fallback Watch Queue keeps you earning."
   },
   "screenshotQueueSubcopy": {
-    "message": "When no drops are active, Stream Autopilot watches your favorite channels so your time online never goes to waste."
+    "message": "When no drops are active, Lurkloot watches your favorite channels so your time online never goes to waste."
   },
   "screenshotSettingsHeadline": {
     "message": "Tune every detail to your setup."

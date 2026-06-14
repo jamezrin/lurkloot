@@ -1,5 +1,5 @@
 {
-  "name": "@stream-autopilot/extension",
+  "name": "@lurkloot/extension",
   "version": "1.3.0",
   "description": "Cross-browser Twitch and Kick drops farming WebExtension using visible muted tabs.",
   "type": "module",
@@ -22,8 +22,8 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@stream-autopilot/popup-ui": "workspace:*",
-    "@stream-autopilot/shared": "workspace:*",
+    "@lurkloot/popup-ui": "workspace:*",
+    "@lurkloot/shared": "workspace:*",
     "@vitejs/plugin-react": "^5.0.0",
     "@wxt-dev/module-react": "^1.1.3",
     "framer-motion": "^12.40.0",

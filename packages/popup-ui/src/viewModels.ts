@@ -1,4 +1,4 @@
-import type { CampaignFilterKey, CategorySelection, DropCampaign, ExtensionSettings, WatchSession } from "@stream-autopilot/shared/models";
+import type { CampaignFilterKey, CategorySelection, DropCampaign, ExtensionSettings, WatchSession } from "@lurkloot/shared/models";
 import { CAMPAIGN_TINTS, GAME_ACCENTS, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
 import type { CampaignLifecycleState, CampaignView, FarmingChannelView, GameItem, StreamerItem, TFunction } from "./types";

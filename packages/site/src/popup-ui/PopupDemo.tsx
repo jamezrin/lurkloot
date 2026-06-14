@@ -2,8 +2,8 @@
 // page's styles and backed by deterministic demo data.
 import { useEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Popup, createDemoPopupAdapter, screenshotVariant } from "@stream-autopilot/popup-ui";
-import popupCss from "@stream-autopilot/popup-ui/styles.css?inline";
+import { Popup, createDemoPopupAdapter, screenshotVariant } from "@lurkloot/popup-ui";
+import popupCss from "@lurkloot/popup-ui/styles.css?inline";
 
 export default function PopupDemo() {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -43,7 +43,7 @@ export default function PopupDemo() {
       ref={hostRef}
       className="sa-popup-host"
       data-lenis-prevent
-      aria-label="Stream Autopilot popup — interactive demo"
+      aria-label="Lurkloot popup — interactive demo"
     />
   );
 }

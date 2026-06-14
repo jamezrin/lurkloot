@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Power, Radio } from "lucide-react";
-import type { Platform } from "@stream-autopilot/shared/models";
+import type { Platform } from "@lurkloot/shared/models";
 import { PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { formatViewers } from "./format";

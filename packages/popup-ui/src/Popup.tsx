@@ -9,10 +9,10 @@ import {
   Settings as SettingsIcon,
   X,
 } from "lucide-react";
-import type { CategorySearchResult, RuntimeSnapshot } from "@stream-autopilot/shared/messages";
-import type { CategorySelection, ExtensionSettings, Platform } from "@stream-autopilot/shared/models";
-import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@stream-autopilot/shared/settings";
-import { effectiveLocale, isRtlLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "@stream-autopilot/shared/i18n";
+import type { CategorySearchResult, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
+import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
+import { effectiveLocale, isRtlLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { I18nContext, PopupRuntimeContext } from "./context";
 import {
   PLATFORMS,
@@ -305,9 +305,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[var(--accent)] to-transparent" />
         <header className="flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-2.5">
-            <img src="/logo-ring.svg" alt="Stream Autopilot" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
+            <img src="/logo-ring.svg" alt="Lurkloot" width={36} height={36} className="h-9 w-9 rounded-xl shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
             <div className="min-w-0 leading-tight">
-              <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">Stream Autopilot</div>
+              <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">Lurkloot</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: enabled ? "var(--accent)" : "#a1a1aa" }} />
                 {settingsOpen ? t("settingsTitle") : activityOpen ? t("activityTitle") : resumingAutomation ? t("resumingAutomation") : `${enabled ? t("activeStatus") : t("pausedStatus")} · ${PLATFORMS[platform].label}`}

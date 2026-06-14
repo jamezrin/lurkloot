@@ -1,7 +1,7 @@
 import type { CategorySelection, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState } from "./models";
 import type { SettingsPatch } from "./settings";
 
-export const SETTINGS_SESSION_PORT = "stream-autopilot.settings-session";
+export const SETTINGS_SESSION_PORT = "lurkloot.settings-session";
 
 export type RuntimeMessage =
   | { type: "getSnapshot" }

@@ -1,12 +1,12 @@
 // Shared, single-source-of-truth content for the landing page.
 
 export const SITE = {
-  name: "Stream Autopilot",
+  name: "Lurkloot",
   tagline: "Farm Twitch & Kick drops on autopilot.",
   // Used for canonical/OG absolute URLs. Mirrors astro.config `site`.
-  url: "https://stream-autopilot.jamezrin.com",
+  url: "https://lurkloot.jamezrin.com",
   description:
-    "Stream Autopilot is a free browser extension that auto-farms Twitch and Kick drops through your own logged-in session. Lightweight tabless mode, auto-claim, smart channel switching, and a private, no-password design. Works with Rust, Valorant, and any drops campaign.",
+    "Lurkloot is a free browser extension that auto-farms Twitch and Kick drops through your own logged-in session. Lightweight tabless mode, auto-claim, smart channel switching, and a private, no-password design. Works with Rust, Valorant, and any drops campaign.",
   // SEO keyword spread — woven into copy, not stuffed.
   keywords: [
     "farm twitch drops",
@@ -20,13 +20,13 @@ export const SITE = {
     "twitch drops extension",
     "watch twitch drops automatically",
     "drops auto claim",
-    "stream autopilot",
+    "lurkloot",
   ].join(", "),
 } as const;
 
 export const LINKS = {
   chrome:
-    "https://chromewebstore.google.com/detail/stream-autopilot/aobaackpofkghaejdnnmpmeaiaoibhdn",
+    "https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn",
   // On-site page (rendered from the same source policy) — no GitHub link.
   privacy: "/privacy",
   x: "https://x.com/jamezrin",

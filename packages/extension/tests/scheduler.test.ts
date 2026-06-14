@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformSettings } from "@stream-autopilot/shared/models";
-import { DEFAULT_SETTINGS } from "@stream-autopilot/shared/settings";
+import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformSettings } from "@lurkloot/shared/models";
+import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "../src/core/scheduler";
 import type { PlatformAdapter } from "../src/platforms/adapter";
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChannelCandidate } from "@stream-autopilot/shared/models";
+import type { ChannelCandidate } from "@lurkloot/shared/models";
 import {
   applyAdFocusWithBrowser,
   currentManagedPageContextTabs,
@@ -15,7 +15,7 @@ import {
   setTwitchIntegrity,
   stopWatchTabWithBrowser,
 } from "../src/core/tabs";
-import type { LogLevel } from "@stream-autopilot/shared/logging";
+import type { LogLevel } from "@lurkloot/shared/logging";
 
 const channel: ChannelCandidate = {
   platform: "twitch",

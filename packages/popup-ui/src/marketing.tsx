@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import type { SupportedLocale } from "@stream-autopilot/shared/models";
-import { DEFAULT_LOCALE, isRtlLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "@stream-autopilot/shared/i18n";
+import type { SupportedLocale } from "@lurkloot/shared/models";
+import { DEFAULT_LOCALE, isRtlLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { PROMO_GRADIENT } from "./constants";
 import type { ScreenshotVariant } from "./types";
 

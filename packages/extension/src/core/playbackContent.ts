@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
-import type { PlaybackControl } from "@stream-autopilot/shared/messages";
-import type { Platform } from "@stream-autopilot/shared/models";
+import type { PlaybackControl } from "@lurkloot/shared/messages";
+import type { Platform } from "@lurkloot/shared/models";
 
 const REPORT_INTERVAL_MS = 5000;
 const DEFAULT_VIDEO_VOLUME = 1;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, mergeSettings } from "@stream-autopilot/shared/settings";
+import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 
 describe("settings", () => {
   it("defaults mockup popup settings", () => {

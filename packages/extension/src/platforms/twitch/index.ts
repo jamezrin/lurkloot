@@ -1,4 +1,4 @@
-import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@stream-autopilot/shared/models";
+import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
 import type { HeartbeatResult, TablessWatchController, WatchContext } from "../../core/tablessWatch";
 import { logActivity } from "../../core/activityLog";
 import { ensureTwitchIntegrity, fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../../core/tabs";

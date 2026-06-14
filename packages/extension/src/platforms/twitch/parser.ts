@@ -1,4 +1,4 @@
-import type { ChannelCandidate, DropCampaign, DropReward } from "@stream-autopilot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward } from "@lurkloot/shared/models";
 
 interface TwitchInventory {
   data?: {

@@ -120,12 +120,12 @@ try {
     const localeDir = join(outputDir, locale);
     await mkdir(localeDir, { recursive: true });
     for (const variant of variants) {
-      const outputPath = join(localeDir, `stream-autopilot-${variant.file}-1280x800.png`);
+      const outputPath = join(localeDir, `lurkloot-${variant.file}-1280x800.png`);
       await page.goto(`${origin}${popupPath}?screenshot=store&variant=${variant.id}&locale=${locale}`, { waitUntil: "networkidle" });
       // The header logo only renders after the snapshot loads (the loading
       // placeholder shows just "Loading"), and is present in every view/platform —
       // wait on it so Kick and non-Drops variants capture fully-rendered content.
-      await page.waitForSelector('header img[alt="Stream Autopilot"]');
+      await page.waitForSelector('header img[alt="Lurkloot"]');
       // The marketing headline starts as the raw i18n key until the locale
       // catalog loads; wait until it has been replaced with real copy so the
       // capture never freezes a half-translated overlay.

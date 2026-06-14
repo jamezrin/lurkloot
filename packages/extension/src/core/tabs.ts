@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
-import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "@stream-autopilot/shared/models";
-import type { LogLevel } from "@stream-autopilot/shared/logging";
+import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "@lurkloot/shared/models";
+import type { LogLevel } from "@lurkloot/shared/logging";
 import { logActivity as logTab, setActivityLogger } from "./activityLog";
 import type { TwitchIntegrity } from "./twitchIntegrity";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";

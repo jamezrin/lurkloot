@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Stream Autopilot"
+    "message": "Lurkloot"
   },
   "extensionDescription": {
     "message": "通过正常浏览器会话、可见的静音标签页和可选低资源模式刷 Twitch 与 Kick 掉宝。"
@@ -471,7 +471,7 @@
     "message": "在一个弹窗中管理 Twitch 与 Kick 掉宝。"
   },
   "screenshotTwitchSubcopy": {
-    "message": "Stream Autopilot 通过正常浏览器会话和可见静音标签页刷取符合条件的活动。"
+    "message": "Lurkloot 通过正常浏览器会话和可见静音标签页刷取符合条件的活动。"
   },
   "screenshotKickHeadline": {
     "message": "现在也能刷 Kick 掉宝。"
@@ -483,7 +483,7 @@
     "message": "备用观看队列让你持续获得收益。"
   },
   "screenshotQueueSubcopy": {
-    "message": "没有活动掉宝时，Stream Autopilot 会观看你喜欢的频道，让在线时间不浪费。"
+    "message": "没有活动掉宝时，Lurkloot 会观看你喜欢的频道，让在线时间不浪费。"
   },
   "screenshotSettingsHeadline": {
     "message": "按你的环境调整每个细节。"

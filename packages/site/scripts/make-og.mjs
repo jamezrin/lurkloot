@@ -36,7 +36,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8">
   .url { font-family:'Geist Mono',monospace; font-size:22px; color:#6b6c84; letter-spacing:0.04em; }
 </style></head>
 <body><div class="bg"></div><div class="pad">
-  <div class="top"><span class="logo">${logo}</span><span class="brand">Stream Autopilot</span></div>
+  <div class="top"><span class="logo">${logo}</span><span class="brand">Lurkloot</span></div>
   <h1>Farm Twitch &amp; Kick drops on <span class="grad">autopilot</span>.</h1>
   <div class="row">
     <div class="pills">

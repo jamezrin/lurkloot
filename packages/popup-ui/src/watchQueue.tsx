@@ -3,7 +3,7 @@ import { DndContext, DragOverlay, closestCenter, type DragEndEvent } from "@dnd-
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Plus } from "lucide-react";
-import type { Platform } from "@stream-autopilot/shared/models";
+import type { Platform } from "@lurkloot/shared/models";
 import { useT } from "./context";
 import { formatViewers } from "./format";
 import type { StreamerItem } from "./types";

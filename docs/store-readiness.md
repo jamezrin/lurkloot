@@ -1,6 +1,6 @@
 # Store Readiness
 
-Stream Autopilot is designed as a normal-session WebExtension:
+Lurkloot is designed as a normal-session WebExtension:
 
 - It opens or reuses normal browser watch tabs, pins them, and mutes them. Same-origin API helper tabs, when no suitable existing tab is available, are inactive and muted but not pinned watch tabs.
 - It can optionally farm in tabless low-resource mode by sending platform watch heartbeats; if those heartbeats stop earning, it falls back to visible muted tabs.
@@ -16,11 +16,11 @@ Stream Autopilot is designed as a normal-session WebExtension:
 
 ## Chrome Web Store listing
 
-- **Single purpose:** Stream Autopilot automates collecting Twitch and Kick viewer drops within the user's own logged-in browser session.
+- **Single purpose:** Lurkloot automates collecting Twitch and Kick viewer drops within the user's own logged-in browser session.
 - **Summary (≤132 chars):** Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode.
 - **Category:** Productivity.
-- **Detailed description:** Stream Autopilot farms Twitch and Kick viewer drops for you using your normal, already-logged-in browser session. By default it opens a visible, pinned, muted watch tab on the channel that earns the drop you want, switches channels as campaigns complete, and claims eligible rewards automatically. An optional tabless low-resource mode sends platform watch heartbeats instead of keeping a tab open, and automatically falls back to a visible muted tab if progress stalls. It never asks for your password, never exports cookies or tokens, and keeps all of its data on your device. The popup lets you enable each platform, prioritize campaigns and games, manage per-platform watch queues and excluded channels, and toggle auto-claim and notifications.
-- **Privacy policy URL:** the policy in `stream-autopilot-privacy-policy.md` must be published at a public URL (e.g. GitHub Pages or a gist) and that URL entered in the dashboard. A file in the repository is not sufficient.
+- **Detailed description:** Lurkloot farms Twitch and Kick viewer drops for you using your normal, already-logged-in browser session. By default it opens a visible, pinned, muted watch tab on the channel that earns the drop you want, switches channels as campaigns complete, and claims eligible rewards automatically. An optional tabless low-resource mode sends platform watch heartbeats instead of keeping a tab open, and automatically falls back to a visible muted tab if progress stalls. It never asks for your password, never exports cookies or tokens, and keeps all of its data on your device. The popup lets you enable each platform, prioritize campaigns and games, manage per-platform watch queues and excluded channels, and toggle auto-claim and notifications.
+- **Privacy policy URL:** the policy in `lurkloot-privacy-policy.md` must be published at a public URL (e.g. GitHub Pages or a gist) and that URL entered in the dashboard. A file in the repository is not sufficient.
 - **Remote code:** No. All code ships inside the installed package.
 - **Data usage:** No user data is sold, used for purposes unrelated to the single purpose, or used to determine creditworthiness/lending. No collected data is transmitted off-device.
 

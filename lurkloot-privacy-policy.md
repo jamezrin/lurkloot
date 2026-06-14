@@ -1,8 +1,8 @@
-# Stream Autopilot Privacy Policy
+# Lurkloot Privacy Policy
 
 Last updated: May 31, 2026
 
-Stream Autopilot does not collect, transmit, sell, or share user data.
+Lurkloot does not collect, transmit, sell, or share user data.
 
 ## Local Storage
 
@@ -10,7 +10,7 @@ The extension stores its settings, scheduler state, campaign progress, managed-t
 
 ## Platform Access
 
-Stream Autopilot accesses Twitch and Kick only to provide its core drops-farming functionality: detecting campaigns, checking progress, managing visible muted watch tabs, and claiming eligible rewards. It acts entirely within the user's existing logged-in browser session.
+Lurkloot accesses Twitch and Kick only to provide its core drops-farming functionality: detecting campaigns, checking progress, managing visible muted watch tabs, and claiming eligible rewards. It acts entirely within the user's existing logged-in browser session.
 
 To authorize requests inside that session, the extension reads certain session values on the user's own device:
 
@@ -25,4 +25,4 @@ The extension does not use remote code. All extension code is included in the in
 
 ## Contact
 
-For privacy questions about Stream Autopilot, contact the developer at jaime@jamezrin.name.
+For privacy questions about Lurkloot, contact the developer at jaime@jamezrin.name.

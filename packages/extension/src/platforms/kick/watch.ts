@@ -1,4 +1,4 @@
-import type { ChannelCandidate } from "@stream-autopilot/shared/models";
+import type { ChannelCandidate } from "@lurkloot/shared/models";
 import type { HeartbeatResult, TablessWatchController, WatchContext } from "../../core/tablessWatch";
 import type { PageFetcher } from "../adapter";
 
