@@ -1,5 +1,5 @@
 import type { Platform } from "@stream-autopilot/shared/models";
-import type { PageFetcher, PlatformAdapter } from "@stream-autopilot/core/adapter";
+import type { PageFetcher, PlatformAdapter, WatchTabPort } from "@stream-autopilot/core/adapter";
 import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith, KickWafBlockedError } from "@stream-autopilot/core/tabs";
 import { createKickFetcher, KickAdapter } from "@stream-autopilot/core/kick";
 import { TwitchAdapter } from "@stream-autopilot/core/twitch";
@@ -12,6 +12,19 @@ import { createStoreCookieApi } from "./cookieApi";
 // non-browser origins) is best-effort — a WAF block surfaces clearly and the
 // browser transport is the reliable Kick path. Tabless-only: no WatchTabPort is
 // injected, so the scheduler must run these platforms in tabless mode.
+// Tabless-safe watch port: there are no tabs to open in the HTTP transport, but
+// the scheduler still calls stopWatchTab to clean up idle/disabled platforms — a
+// harmless no-op here. Attempting to actually open a watch tab fails clearly,
+// pointing at the browser transport (tab-based fallback isn't possible headless).
+const tablessWatchPort: WatchTabPort = {
+  openPinnedMutedTab: () => {
+    throw new Error("tab-based watch is unavailable in the http transport; keep tablessMode on or use transport: \"browser\"");
+  },
+  stopWatchTab: async () => {
+    // nothing to stop without tabs
+  },
+};
+
 export function createHttpAdapters(credentials: PlatformCredentials): Record<Platform, PlatformAdapter> {
   const cookieApi = createStoreCookieApi(credentials);
 
@@ -32,7 +45,7 @@ export function createHttpAdapters(credentials: PlatformCredentials): Record<Pla
   });
 
   return {
-    twitch: new TwitchAdapter(twitchFetcher, { clientId: credentials.twitch?.clientId }),
-    kick: new KickAdapter(kickFetcher),
+    twitch: new TwitchAdapter(twitchFetcher, { clientId: credentials.twitch?.clientId, watchTabs: tablessWatchPort }),
+    kick: new KickAdapter(kickFetcher, { watchTabs: tablessWatchPort }),
   };
 }

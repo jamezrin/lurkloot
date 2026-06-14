@@ -6,6 +6,7 @@ import { applyEnvOverrides, AuthStore } from "./authStore";
 import { runTwitchDeviceFlow } from "./auth/twitchDeviceFlow";
 import { createHttpAdapters } from "./transport/http";
 import { registerConsoleLogger } from "./logger";
+import { runLoop } from "./runtime/run";
 
 interface ParsedArgs {
   command: string;
@@ -48,6 +49,9 @@ Usage:
   stream-autopilot discover [--config <path>]
       Run one discovery pass per enabled platform (http transport) and print the
       campaigns found. Uses credentials from the auth dir.
+
+  stream-autopilot run [--config <path>]
+      Start the full farming loop (discovery + watch heartbeats) until stopped.
 
   stream-autopilot auth status [--config <path>]
       Show which platform credentials are present and the Twitch integrity expiry.
@@ -179,6 +183,9 @@ async function main(): Promise<void> {
       break;
     case "discover":
       await discover(flags);
+      break;
+    case "run":
+      await runLoop(await loadConfig(configPath(flags)));
       break;
     case "auth":
       // `auth status` — the only auth subcommand for now.
