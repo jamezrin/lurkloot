@@ -146,6 +146,12 @@
   "notLinked": {
     "message": "लिंक नहीं"
   },
+  "linkAccount": {
+    "message": "अपना खाता लिंक करें"
+  },
+  "viewDropPage": {
+    "message": "ड्रॉप पेज देखें"
+  },
   "upcoming": {
     "message": "आगामी"
   },
@@ -442,6 +448,9 @@
   },
   "unknownGame": {
     "message": "अज्ञात गेम"
+  },
+  "noCategory": {
+    "message": "कोई श्रेणी नहीं"
   },
   "dropsCampaign": {
     "message": "Drops कैंपेन"

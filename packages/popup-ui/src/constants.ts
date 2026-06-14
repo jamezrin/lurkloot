@@ -19,6 +19,9 @@ export const RATE_NUDGE_MIN_DAYS = 3;
 
 export const GAME_ACCENTS = ["#2563eb", "#0891b2", "#ef4444", "#16a34a", "#9333ea", "#f59e0b"];
 
+// Neutral accent for the synthetic "No category" group (drops with no game).
+export const NO_CATEGORY_ACCENT = "#71717a";
+
 export const CAMPAIGN_TINTS = [
   "from-orange-400 via-sky-400 to-blue-700",
   "from-cyan-400 via-zinc-700 to-rose-500",

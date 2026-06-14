@@ -126,6 +126,21 @@ describe("Kick parsers", () => {
     expect(merged[0].accountLinkUrl).toBe("https://kick.facepunch.com");
   });
 
+  it("does not mark a first-party KICK drop unlinked when there is no connect URL", () => {
+    // Football/ED'S-style drops report user_app_connected:false with an empty
+    // connect_url — there is nothing to link, so they must stay linked. They do
+    // carry an info `url` that should be surfaced.
+    const campaigns = parseKickCampaigns({
+      data: [{ id: "c", status: "active", connect_url: "", url: "https://about.kick.com/news-and-press/9-football_drop", rewards: [{ id: "r", required_units: 60 }] }],
+    });
+    expect(campaigns[0].url).toBe("https://about.kick.com/news-and-press/9-football_drop");
+
+    const merged = mergeKickProgress(campaigns, {
+      data: [{ id: "c", user_app_connected: false, connect_url: "", progress_units: 0, rewards: [{ id: "r", required_units: 60 }] }],
+    });
+    expect(merged[0].accountLinked).toBe(true);
+  });
+
   it("normalizes bucketed Kick campaign and progress responses", () => {
     const campaigns = parseKickCampaigns({
       data: {
@@ -246,6 +261,7 @@ describe("Twitch parsers", () => {
               id: "abc",
               name: "Twitch Drops",
               game: { id: "game", name: "Game" },
+              detailsURL: "https://www.twitch.tv/drops/campaigns/abc",
               allow: { channels: [{ login: "Streamer" }] },
               timeBasedDrops: [{
                 id: "drop",
@@ -264,6 +280,7 @@ describe("Twitch parsers", () => {
 
     expect(campaigns[0].allowedChannels).toEqual(["streamer"]);
     expect(campaigns[0].connectionUrls).toEqual(["https://www.twitch.tv/streamer"]);
+    expect(campaigns[0].url).toBe("https://www.twitch.tv/drops/campaigns/abc");
     expect(campaigns[0].rewards[0].imageUrl).toBe("https://image");
     expect(campaigns[0].rewards[0].status).toBe("claimable");
     expect(campaigns[0].rewards[0].claimId).toBe("instance");

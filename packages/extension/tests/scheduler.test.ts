@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "../src/core/scheduler";
 import type { PlatformAdapter } from "../src/platforms/adapter";
 
@@ -114,6 +115,28 @@ describe("scheduler campaign selection", () => {
 
     expect(decision.action).toBe("watch");
     expect(decision.campaign?.id).toBe("listed");
+  });
+
+  it("the No category selection farms only category-less drops and skips categorized ones", async () => {
+    const categorized = campaign("categorized", { gameName: "Rust", categoryId: "13" });
+    const uncategorized = campaign("uncategorized"); // no gameName, no categoryId
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [categorized, uncategorized],
+      settings({
+        platform: {
+          twitch: { farmAllCategories: false, categories: [{ id: NO_CATEGORY_ID, name: "No category" }] },
+        },
+      }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("uncategorized");
   });
 
   it("category filter with an empty list farms nothing", async () => {

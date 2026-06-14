@@ -146,6 +146,12 @@
   "notLinked": {
     "message": "Не привязано"
   },
+  "linkAccount": {
+    "message": "Привязать аккаунт"
+  },
+  "viewDropPage": {
+    "message": "Открыть страницу дропа"
+  },
   "upcoming": {
     "message": "Предстоящие"
   },
@@ -442,6 +448,9 @@
   },
   "unknownGame": {
     "message": "Неизвестная игра"
+  },
+  "noCategory": {
+    "message": "Без категории"
   },
   "dropsCampaign": {
     "message": "Кампания drops"

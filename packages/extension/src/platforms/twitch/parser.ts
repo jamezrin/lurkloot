@@ -24,6 +24,7 @@ interface TwitchCampaign {
   status?: string;
   self?: { isAccountConnected?: boolean };
   accountLinkURL?: string | null;
+  detailsURL?: string | null;
   allow?: { channels?: Array<{ name?: string; login?: string }> };
   allowedChannels?: Array<{ name?: string; login?: string } | string>;
   timeBasedDrops?: TwitchReward[];
@@ -117,6 +118,7 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
       accountLinked,
       accountLinkUrl: campaign.accountLinkURL ?? undefined,
       status: finalStatus,
+      url: campaign.detailsURL ?? undefined,
       eligibility: eligibility(finalStatus, accountLinked, rewards.length),
       eligibilityReason: eligibilityReason(finalStatus, accountLinked, rewards.length),
       allowedChannels,
