@@ -2,6 +2,9 @@
   "extensionName": {
     "message": "Lurkloot"
   },
+  "extensionStoreName": {
+    "message": "Lurkloot - Farm de drops da Twitch e Kick"
+  },
   "extensionDescription": {
     "message": "Farme drops da Twitch e da Kick com sessões normais do navegador, abas visíveis silenciadas e modo opcional de baixo consumo."
   },

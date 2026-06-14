@@ -2,6 +2,9 @@
   "extensionName": {
     "message": "Lurkloot"
   },
+  "extensionStoreName": {
+    "message": "Lurkloot - Twitch- & Kick-Drops-Farmer"
+  },
   "extensionDescription": {
     "message": "Farme Twitch- und Kick-Drops über normale Browsersitzungen, sichtbare stummgeschaltete Tabs und optionalen Energiesparmodus."
   },

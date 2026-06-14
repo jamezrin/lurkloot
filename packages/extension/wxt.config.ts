@@ -11,7 +11,7 @@ export default defineConfig({
   }),
   manifest: {
     default_locale: "en",
-    name: "__MSG_extensionName__",
+    name: "__MSG_extensionStoreName__",
     description: "__MSG_extensionDescription__",
     permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest"],
     host_permissions: [

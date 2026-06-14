@@ -2,6 +2,9 @@
   "extensionName": {
     "message": "Lurkloot"
   },
+  "extensionStoreName": {
+    "message": "Lurkloot - Twitch & Kick Drop Farmer"
+  },
   "extensionDescription": {
     "message": "Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode."
   },
