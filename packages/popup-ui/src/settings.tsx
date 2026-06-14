@@ -42,7 +42,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
 }) {
   const t = useT();
   const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
-  const [exportState, setExportState] = useState<"idle" | "copied" | "error">("idle");
+  const [exportState, setExportState] = useState<"idle" | "confirm" | "copied" | "error">("idle");
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as SettingsPatch);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
   const tabPlaybackDisabled = settings.tablessMode;
@@ -153,23 +153,65 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
       </SettingsSection>
       {onExportCredentials ? (
         <SettingsSection title="Headless / CLI" description="Run the farmer in Docker without a browser." icon={Terminal}>
-          <div className="flex items-center justify-between gap-3 py-1">
+          <div className="py-1">
             <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-              Copy your Twitch/Kick session for <code>stream-autopilot login --import</code>. Treat it like a password.
+              Copy your Twitch/Kick session for <code>stream-autopilot login --import</code>.
             </p>
-            <button
-              type="button"
-              className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-white transition-opacity hover:opacity-90"
-              style={{ backgroundColor: "var(--accent)" }}
-              onClick={() => {
-                void onExportCredentials()
-                  .then(() => setExportState("copied"))
-                  .catch(() => setExportState("error"))
-                  .finally(() => setTimeout(() => setExportState("idle"), 2500));
-              }}
-            >
-              {exportState === "copied" ? "Copied!" : exportState === "error" ? "Failed" : "Export credentials"}
-            </button>
+            <AnimatePresence mode="wait" initial={false}>
+              {exportState === "confirm" ? (
+                <motion.div
+                  key="confirm"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="mt-2 overflow-hidden rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5"
+                  role="alertdialog"
+                  aria-label="Confirm credential export"
+                >
+                  <p className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                    This copies your full Twitch and Kick session tokens to the clipboard. Anyone with them can act as you — only paste it into your own CLI. Continue?
+                  </p>
+                  <div className="mt-2 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-500/10 dark:text-zinc-300"
+                      onClick={() => setExportState("idle")}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-white transition-opacity hover:opacity-90"
+                      style={{ backgroundColor: "var(--accent)" }}
+                      onClick={() => {
+                        void onExportCredentials()
+                          .then(() => setExportState("copied"))
+                          .catch(() => setExportState("error"))
+                          .finally(() => setTimeout(() => setExportState("idle"), 2500));
+                      }}
+                    >
+                      Copy anyway
+                    </button>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.button
+                  key="trigger"
+                  type="button"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  disabled={exportState === "copied" || exportState === "error"}
+                  className="mt-2 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-100"
+                  style={{ backgroundColor: "var(--accent)" }}
+                  onClick={() => setExportState("confirm")}
+                >
+                  {exportState === "copied" ? "Copied!" : exportState === "error" ? "Failed" : "Export credentials"}
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
         </SettingsSection>
       ) : null}
