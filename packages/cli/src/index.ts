@@ -1,7 +1,11 @@
 #!/usr/bin/env -S node --import tsx
+import type { Platform } from "@stream-autopilot/shared/models";
+import { setTwitchIntegrity } from "@stream-autopilot/core/tabs";
 import { loadConfig } from "./config";
 import { applyEnvOverrides, AuthStore } from "./authStore";
 import { runTwitchDeviceFlow } from "./auth/twitchDeviceFlow";
+import { createHttpAdapters } from "./transport/http";
+import { registerConsoleLogger } from "./logger";
 
 interface ParsedArgs {
   command: string;
@@ -40,6 +44,10 @@ const HELP = `stream-autopilot — headless drops farming CLI
 Usage:
   stream-autopilot validate-config [--config <path>]
       Load and normalize the config file; print the effective settings.
+
+  stream-autopilot discover [--config <path>]
+      Run one discovery pass per enabled platform (http transport) and print the
+      campaigns found. Uses credentials from the auth dir.
 
   stream-autopilot auth status [--config <path>]
       Show which platform credentials are present and the Twitch integrity expiry.
@@ -96,6 +104,47 @@ async function authStatus(flags: Record<string, string | boolean>): Promise<void
   }
 }
 
+async function discover(flags: Record<string, string | boolean>): Promise<void> {
+  const config = await loadConfig(configPath(flags));
+  registerConsoleLogger(config.settings.enabledLogLevels);
+
+  const store = new AuthStore(config.authDir);
+  const credentials = applyEnvOverrides(await store.loadCredentials());
+  // Prime the captured integrity token (claims need it; discovery does not, but
+  // this keeps a later claim in the same process best-effort ready).
+  const integrity = await store.loadIntegrity();
+  if (integrity) setTwitchIntegrity(integrity);
+
+  if (config.transport !== "http") {
+    throw new Error(`The "${config.transport}" transport is not implemented yet; use transport: "http" for now.`);
+  }
+  const adapters = createHttpAdapters(credentials);
+
+  const enabled = (["twitch", "kick"] as Platform[]).filter((platform) => config.settings.platform[platform].enabled);
+  if (enabled.length === 0) {
+    console.log("No platforms enabled in config.settings.platform.*.enabled");
+    return;
+  }
+
+  for (const platform of enabled) {
+    console.log(`\n=== ${platform} ===`);
+    if (platform === "twitch" && !credentials.twitch) {
+      console.log("  (no twitch credentials; run `login --twitch-device` first — results will be anonymous/empty)");
+    }
+    try {
+      const campaigns = await adapters[platform].discoverCampaigns();
+      console.log(`  ${campaigns.length} campaign(s) discovered`);
+      for (const campaign of campaigns.slice(0, 20)) {
+        const rewards = campaign.rewards.map((reward) => reward.status).join(",");
+        console.log(`  • ${campaign.name} [${campaign.status}] rewards: ${rewards || "none"}`);
+      }
+      if (campaigns.length > 20) console.log(`  …and ${campaigns.length - 20} more`);
+    } catch (error) {
+      console.error(`  ${platform} discovery failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+}
+
 async function login(flags: Record<string, string | boolean>): Promise<void> {
   if (!flags["twitch-device"]) {
     throw new Error("Only `login --twitch-device` is implemented so far. Browser-assisted login and --import are coming next.");
@@ -127,6 +176,9 @@ async function main(): Promise<void> {
   switch (command) {
     case "validate-config":
       await validateConfig(flags);
+      break;
+    case "discover":
+      await discover(flags);
       break;
     case "auth":
       // `auth status` — the only auth subcommand for now.
