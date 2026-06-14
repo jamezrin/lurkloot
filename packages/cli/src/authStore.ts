@@ -29,14 +29,14 @@ export interface PlatformCredentials {
 
 const CREDENTIALS_FILE = "credentials.json";
 const INTEGRITY_FILE = "twitch-integrity.json";
-/** Playwright storageState for the browser transport (opaque to the CLI core). */
-export const STORAGE_STATE_FILE = "storage-state.json";
+/** Persistent Playwright profile dir for the browser transport / browser login. */
+export const BROWSER_PROFILE_DIR = "browser-profile";
 
 export class AuthStore {
   constructor(private readonly dir: string) {}
 
-  get storageStatePath(): string {
-    return join(this.dir, STORAGE_STATE_FILE);
+  get browserProfileDir(): string {
+    return join(this.dir, BROWSER_PROFILE_DIR);
   }
 
   private async ensureDir(): Promise<void> {

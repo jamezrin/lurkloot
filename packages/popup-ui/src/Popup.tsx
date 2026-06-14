@@ -9,7 +9,7 @@ import {
   Settings as SettingsIcon,
   X,
 } from "lucide-react";
-import type { CategorySearchResult, RuntimeSnapshot } from "@stream-autopilot/shared/messages";
+import type { CategorySearchResult, CliCredentialExport, RuntimeSnapshot } from "@stream-autopilot/shared/messages";
 import type { CategorySelection, ExtensionSettings, Platform } from "@stream-autopilot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@stream-autopilot/shared/settings";
 import { effectiveLocale, isRtlLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "@stream-autopilot/shared/i18n";
@@ -256,6 +256,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return result.categories;
   }
 
+  async function exportCredentials(): Promise<void> {
+    const blob = await adapter.send<CliCredentialExport>({ type: "exportCliCredentials" });
+    await navigator.clipboard.writeText(JSON.stringify(blob));
+  }
+
   if (!snapshot) {
     return (
       <PopupRuntimeContext.Provider value={{ adapter, preview }}>
@@ -348,7 +353,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} initialPlatform={platform} />
+                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} initialPlatform={platform} onExportCredentials={preview ? undefined : exportCredentials} />
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>

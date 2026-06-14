@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import { chromium, type BrowserContext } from "playwright";
 import initCycleTLS from "cycletls";
 import type { PageFetcher } from "@stream-autopilot/core/adapter";
@@ -11,7 +10,6 @@ import { tablessWatchPort, type TransportHandle } from "./common";
 import { createCycleKickFetcher, createCycleWebSocketFactory } from "./impersonate";
 
 const TWITCH_INTEGRITY_PAGE = "https://www.twitch.tv/drops/inventory";
-const BROWSER_PROFILE_DIR = "browser-profile";
 
 // Playwright-backed transport. Its unique value over `impersonate` is capturing
 // Twitch's page-minted Client-Integrity token (Kasada proof-of-work, impossible
@@ -22,7 +20,7 @@ export async function createBrowserTransport(credentials: PlatformCredentials, a
   const store = new AuthStore(authDir);
   const cycleTLS = await initCycleTLS();
 
-  const context = await chromium.launchPersistentContext(join(authDir, BROWSER_PROFILE_DIR), {
+  const context = await chromium.launchPersistentContext(store.browserProfileDir, {
     headless: process.env.SA_HEADFUL !== "1",
   });
 

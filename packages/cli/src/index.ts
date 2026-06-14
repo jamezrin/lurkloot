@@ -4,6 +4,8 @@ import { setTwitchIntegrity } from "@stream-autopilot/core/tabs";
 import { loadConfig } from "./config";
 import { applyEnvOverrides, AuthStore } from "./authStore";
 import { runTwitchDeviceFlow } from "./auth/twitchDeviceFlow";
+import { runBrowserLogin } from "./auth/browserLogin";
+import { importCredentials } from "./auth/importCredentials";
 import { createTransport } from "./transport";
 import { registerConsoleLogger } from "./logger";
 import { runLoop } from "./runtime/run";
@@ -56,9 +58,16 @@ Usage:
   stream-autopilot auth status [--config <path>]
       Show which platform credentials are present and the Twitch integrity expiry.
 
-  stream-autopilot login --twitch-device [--config <path>] [--client-id <id>] [--scopes <s>]
-      Twitch device-code OAuth: shows a code to enter at the verification URL,
-      then stores the resulting token in the auth dir.
+  stream-autopilot login [--twitch-only | --kick-only] [--config <path>]
+      Browser-assisted login: opens a window to sign in to Twitch/Kick, then saves
+      the session (and a Twitch integrity token) to the auth dir.
+
+  stream-autopilot login --twitch-device [--client-id <id>] [--scopes <s>]
+      Twitch device-code OAuth (no browser): shows a code to enter at the
+      verification URL, then stores the resulting token.
+
+  stream-autopilot login --import <file|->
+      Import an extension-exported credential blob (use - for stdin).
 
 Options:
   --config <path>   Path to the JSON config (default: ./config.json)
@@ -150,11 +159,33 @@ async function discover(flags: Record<string, string | boolean>): Promise<void> 
 }
 
 async function login(flags: Record<string, string | boolean>): Promise<void> {
-  if (!flags["twitch-device"]) {
-    throw new Error("Only `login --twitch-device` is implemented so far. Browser-assisted login and --import are coming next.");
-  }
   const config = await loadConfig(configPath(flags));
-  const store = new AuthStore(config.authDir);
+
+  // login --import <file|->  : ingest an extension-exported credential blob.
+  if (flags.import) {
+    const source = typeof flags.import === "string" ? flags.import : "-";
+    await importCredentials(config.authDir, source);
+    return;
+  }
+
+  // login --twitch-device : pure-terminal Twitch device-code OAuth.
+  if (flags["twitch-device"]) {
+    await loginTwitchDevice(flags, config.authDir);
+    return;
+  }
+
+  // login (default) : browser-assisted login for the requested platforms.
+  const twitchOnly = flags["twitch-only"] === true;
+  const kickOnly = flags["kick-only"] === true;
+  await runBrowserLogin({
+    authDir: config.authDir,
+    twitch: !kickOnly,
+    kick: !twitchOnly,
+  });
+}
+
+async function loginTwitchDevice(flags: Record<string, string | boolean>, authDir: string): Promise<void> {
+  const store = new AuthStore(authDir);
   const result = await runTwitchDeviceFlow({
     clientId: typeof flags["client-id"] === "string" ? (flags["client-id"] as string) : undefined,
     scopes: typeof flags.scopes === "string" ? (flags.scopes as string) : undefined,
@@ -171,7 +202,7 @@ async function login(flags: Record<string, string | boolean>): Promise<void> {
     source: "device-flow",
     obtainedAt: new Date().toISOString(),
   });
-  console.log(`\n✔ Twitch token stored in ${config.authDir}/credentials.json (clientId=${result.clientId}).`);
+  console.log(`\n✔ Twitch token stored in ${authDir}/credentials.json (clientId=${result.clientId}).`);
   console.log("Run `stream-autopilot auth status` to confirm.");
 }
 

@@ -13,6 +13,7 @@ export type RuntimeMessage =
   | { type: "claimReward"; platform: Platform; campaignId: string; rewardId: string }
   | { type: "searchCategories"; platform: Platform; query: string }
   | { type: "tickNow" }
+  | { type: "exportCliCredentials" }
   | {
       type: "playbackTelemetry";
       platform: Platform;
@@ -22,6 +23,15 @@ export type RuntimeMessage =
 export interface RuntimeSnapshot {
   settings: ExtensionSettings;
   state: SchedulerState;
+}
+
+// The credential blob the popup's "Export CLI credentials" action returns, for
+// the CLI's `login --import`. Versioned so the importer can reject mismatches.
+export interface CliCredentialExport {
+  v: 1;
+  twitch?: { authToken: string; deviceId?: string; clientId?: string };
+  kick?: { sessionToken: string };
+  integrity?: { integrity: string; clientSessionId?: string; deviceId?: string; expiresAt: number };
 }
 
 export interface CategorySearchResult {

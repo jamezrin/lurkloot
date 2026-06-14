@@ -7,6 +7,7 @@ import {
   Radio,
   Settings as SettingsIcon,
   SlidersHorizontal,
+  Terminal,
 } from "lucide-react";
 import type {
   CategorySelection,
@@ -29,15 +30,19 @@ import { PlatformSettingsGroup, SettingsPlatformSwitch } from "./settingsPlatfor
 import { useT } from "./context";
 import type { GameItem } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, initialPlatform = "twitch" }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, initialPlatform = "twitch", onExportCredentials }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
   onSettingsChange(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void>;
   initialPlatform?: Platform;
+  // Copies a credential blob for the headless CLI's `login --import`. Optional so
+  // demo/screenshot renders can omit it.
+  onExportCredentials?(): Promise<void>;
 }) {
   const t = useT();
   const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
+  const [exportState, setExportState] = useState<"idle" | "copied" | "error">("idle");
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as SettingsPatch);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
   const tabPlaybackDisabled = settings.tablessMode;
@@ -146,6 +151,28 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
         <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={pollIntervalSeconds} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
         <LogLevelSettingRow value={settings.enabledLogLevels} onChange={(levels) => onSettingsChange({ enabledLogLevels: levels })} />
       </SettingsSection>
+      {onExportCredentials ? (
+        <SettingsSection title="Headless / CLI" description="Run the farmer in Docker without a browser." icon={Terminal}>
+          <div className="flex items-center justify-between gap-3 py-1">
+            <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+              Copy your Twitch/Kick session for <code>stream-autopilot login --import</code>. Treat it like a password.
+            </p>
+            <button
+              type="button"
+              className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "var(--accent)" }}
+              onClick={() => {
+                void onExportCredentials()
+                  .then(() => setExportState("copied"))
+                  .catch(() => setExportState("error"))
+                  .finally(() => setTimeout(() => setExportState("idle"), 2500));
+              }}
+            >
+              {exportState === "copied" ? "Copied!" : exportState === "error" ? "Failed" : "Export credentials"}
+            </button>
+          </div>
+        </SettingsSection>
+      ) : null}
     </div>
   );
 }

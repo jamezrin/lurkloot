@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
-import { SETTINGS_SESSION_PORT, type RuntimeMessage } from "@stream-autopilot/shared/messages";
+import { SETTINGS_SESSION_PORT, type CliCredentialExport, type RuntimeMessage } from "@stream-autopilot/shared/messages";
 import {
   applyAdFocus,
   ensureTwitchIntegrity,
@@ -85,6 +85,26 @@ const controller = createBackgroundController({
   },
 });
 
+// Builds the credential blob for the CLI's `login --import`, reading the same
+// cookies the background already uses to authenticate (auth-token/unique_id for
+// Twitch, session_token for Kick) plus the captured integrity token.
+async function cookieValue(url: string, name: string): Promise<string | undefined> {
+  return (await browser.cookies.get({ url, name }))?.value ?? undefined;
+}
+
+async function buildCliCredentialExport(): Promise<CliCredentialExport> {
+  const blob: CliCredentialExport = { v: 1 };
+  const authToken = await cookieValue("https://www.twitch.tv", "auth-token");
+  if (authToken) {
+    blob.twitch = { authToken, deviceId: await cookieValue("https://www.twitch.tv", "unique_id") };
+  }
+  const sessionToken = await cookieValue("https://kick.com", "session_token");
+  if (sessionToken) blob.kick = { sessionToken: decodeURIComponent(sessionToken) };
+  const integrity = await loadTwitchIntegrity();
+  if (integrity && integrity.expiresAt > Date.now()) blob.integrity = integrity;
+  return blob;
+}
+
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async () => {
     await controller.ensureAlarm();
@@ -121,6 +141,12 @@ export default defineBackground(() => {
   );
 
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
+    // Browser-only concern (reads cookies + stored integrity), handled here rather
+    // than in the browser-free core controller.
+    if (message.type === "exportCliCredentials") {
+      void buildCliCredentialExport().then(sendResponse);
+      return true;
+    }
     void controller.handleMessage(message, sender).then(sendResponse);
     return true;
   });

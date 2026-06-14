@@ -1,9 +1,9 @@
-import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@stream-autopilot/shared/messages";
+import type { CategorySearchResult, CliCredentialExport, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@stream-autopilot/shared/messages";
 import type { DropCampaign, SupportedLocale } from "@stream-autopilot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@stream-autopilot/shared/settings";
 import type { PopupAdapter } from "./types";
 
-function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackControl | CategorySearchResult {
+function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackControl | CategorySearchResult | CliCredentialExport {
   switch (message.type) {
     case "getSnapshot":
     case "tickNow":
@@ -54,6 +54,8 @@ function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackC
       return demoSnapshot();
     case "getPlaybackControl":
       return { managed: true, keepVideosUnmuted: true };
+    case "exportCliCredentials":
+      return { v: 1 };
   }
 }
 
