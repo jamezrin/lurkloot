@@ -85,7 +85,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
   const stats = campaignStats(campaign);
   const isFarming = Boolean(campaign.farmingChannel);
   const emphasized = isFarming || (!anyFarming && index === 0);
-  const channelLabel = campaign.allowedChannels[0] === "All" ? t("allChannels") : t("channelCount", String(campaign.allowedChannels.length + campaign.moreChannels));
+  const channelLabel = campaign.channels.length === 0 ? t("allChannels") : t("channelCount", String(campaign.channels.length));
   const timingLabel = campaign.status === "upcoming"
     ? t("startsIn", formatCountdown(campaign.starts, t))
     : t("endsIn", formatCountdown(campaign.ends, t));
@@ -176,10 +176,27 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                   {campaign.rewards.map((reward) => <RewardTile key={reward.id} reward={reward} />)}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 rounded-lg bg-zinc-50 px-2 py-1.5 text-[11px] text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
-                <Users size={12} className="shrink-0" />
-                <span className="truncate">{channelLabel}</span>
-                {campaign.allowedChannels[0] !== "All" ? <span className="truncate text-zinc-400 dark:text-zinc-500">· {campaign.allowedChannels.join(", ")}</span> : null}
+              <div className="rounded-lg bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
+                <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <Users size={12} className="shrink-0" />
+                  <span className="truncate">{channelLabel}</span>
+                </div>
+                {campaign.channels.length > 0 && (
+                  <div className="no-scrollbar mt-1.5 flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+                    {campaign.channels.map((channel) => (
+                      <a
+                        key={channel.name}
+                        href={channel.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                        className="inline-flex max-w-full items-center rounded-md border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 outline-none transition-colors hover:border-[var(--accent-ring)] hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+                      >
+                        <span className="truncate">{channel.name}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
               {!campaign.linked && campaign.linkUrl && (
                 <a
