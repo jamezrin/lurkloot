@@ -64,8 +64,14 @@ export async function runTwitchDeviceFlow(options: DeviceFlowOptions): Promise<D
   }
   options.onPrompt(device);
 
-  const deadline = Date.now() + device.expires_in * 1000;
-  let intervalMs = Math.max(1, device.interval) * 1000;
+  // Guard against a response that omits/garbles expires_in or interval: a NaN
+  // interval would make sleep(NaN) resolve immediately and hammer the token
+  // endpoint, and a NaN deadline would make the loop exit before polling. Fall
+  // back to the OAuth device-flow defaults (5s poll, 600s lifetime).
+  const expiresInSec = Number(device.expires_in);
+  const intervalSec = Number(device.interval);
+  const deadline = Date.now() + (Number.isFinite(expiresInSec) && expiresInSec > 0 ? expiresInSec : 600) * 1000;
+  let intervalMs = Math.max(1, Number.isFinite(intervalSec) && intervalSec > 0 ? intervalSec : 5) * 1000;
 
   while (Date.now() < deadline) {
     await sleep(intervalMs);

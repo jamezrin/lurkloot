@@ -45,7 +45,12 @@ export async function runBrowserLogin(options: BrowserLoginOptions): Promise<voi
   console.log("\nWaiting for login… (this window closes automatically once detected)\n");
 
   const deadline = Date.now() + timeoutMs;
-  let captured: PlatformCredentials = await store.loadCredentials();
+  // Start from existing creds so logging into one platform preserves the other's
+  // stored session — but an existing (possibly stale/expired) credential must NOT
+  // count as "captured": a fresh `login` always re-harvests the new session.
+  const captured: PlatformCredentials = { ...(await store.loadCredentials()) };
+  let twitchDone = !options.twitch;
+  let kickDone = !options.kick;
   const now = () => new Date().toISOString();
 
   try {
@@ -57,19 +62,28 @@ export async function runBrowserLogin(options: BrowserLoginOptions): Promise<voi
       const deviceId = twitchCookies.find((cookie) => cookie.name === "unique_id")?.value;
       const sessionToken = kickCookies.find((cookie) => cookie.name === "session_token")?.value;
 
-      if (options.twitch && authToken && !captured.twitch) {
-        captured = { ...captured, twitch: { authToken, deviceId, source: "login", obtainedAt: now() } };
-        await store.saveCredentials(captured);
-        console.log("✔ Captured Twitch session.");
+      // Save the Twitch session as soon as auth-token appears, but keep refreshing
+      // until unique_id (the device id) is also captured. Twitch sets unique_id on
+      // first page load, yet auth-token can land on an earlier poll, so finalizing
+      // immediately would persist deviceId undefined for the whole session.
+      if (options.twitch && !twitchDone && authToken) {
+        const changed = captured.twitch?.authToken !== authToken || captured.twitch?.deviceId !== deviceId;
+        if (changed) {
+          captured.twitch = { authToken, deviceId, source: "login", obtainedAt: now() };
+          await store.saveCredentials(captured);
+        }
+        if (deviceId != null) {
+          twitchDone = true;
+          console.log("✔ Captured Twitch session.");
+        }
       }
-      if (options.kick && sessionToken && !captured.kick) {
-        captured = { ...captured, kick: { sessionToken, source: "login", obtainedAt: now() } };
+      if (options.kick && !kickDone && sessionToken) {
+        captured.kick = { sessionToken, source: "login", obtainedAt: now() };
         await store.saveCredentials(captured);
+        kickDone = true;
         console.log("✔ Captured Kick session.");
       }
 
-      const twitchDone = !options.twitch || captured.twitch != null;
-      const kickDone = !options.kick || captured.kick != null;
       if (twitchDone && kickDone) {
         console.log(`\n✔ Login complete. Credentials saved to ${options.authDir}.`);
         return;

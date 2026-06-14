@@ -67,8 +67,14 @@ export function createCycleKickFetcher(cycleTLS: CycleTLSClient, sessionToken: s
       const body = typeof init?.body === "string" ? init.body : undefined;
       const response = await cycleTLS(url, { ja3: CHROME_JA3, http2Fingerprint: CHROME_HTTP2, userAgent: CHROME_UA, headers, body }, method);
 
-      const contentType = String(response.headers?.["Content-Type"] ?? response.headers?.["content-type"] ?? "");
-      const text = typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
+      // cycletls auto-parses a JSON body into an object; when it did, the response
+      // *is* JSON regardless of whether (or how) the Content-Type header came back,
+      // so don't let a missing/oddly-cased header make interpretKickResponse treat
+      // a valid 200 as a WAF challenge.
+      const parsedObject = response.data != null && typeof response.data === "object";
+      const headerContentType = String(response.headers?.["Content-Type"] ?? response.headers?.["content-type"] ?? "");
+      const contentType = parsedObject && !headerContentType.includes("application/json") ? "application/json" : headerContentType;
+      const text = parsedObject ? JSON.stringify(response.data) : String(response.data ?? "");
       // Shared with the extension's fetch so WAF/challenge classification (incl. a
       // challenge that slips through with HTTP 200) can't drift between transports.
       return interpretKickResponse<T>(url, response.status, "", text, contentType);

@@ -11,11 +11,21 @@ export function createStoreCookieApi(credentials: PlatformCredentials): CookieAp
   return {
     cookies: {
       get: async ({ url, name }) => {
-        if (url.includes("twitch.tv")) {
+        // Match on the actual hostname, not a substring: `url.includes("twitch.tv")`
+        // would also match e.g. https://twitch.tv.evil.example/ and hand the session
+        // token to an off-origin URL.
+        let host: string;
+        try {
+          host = new URL(url).hostname;
+        } catch {
+          return undefined;
+        }
+        const onHost = (domain: string) => host === domain || host.endsWith(`.${domain}`);
+        if (onHost("twitch.tv")) {
           if (name === "auth-token") return { value: credentials.twitch?.authToken };
           if (name === "unique_id") return { value: credentials.twitch?.deviceId };
         }
-        if (url.includes("kick.com")) {
+        if (onHost("kick.com")) {
           if (name === "session_token") return { value: credentials.kick?.sessionToken };
         }
         return undefined;

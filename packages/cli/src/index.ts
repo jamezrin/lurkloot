@@ -22,7 +22,14 @@ function parseArgs(argv: string[]): ParsedArgs {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg.startsWith("--")) {
-      const key = arg.slice(2);
+      const body = arg.slice(2);
+      // Support both `--config path` and the conventional `--config=path` form.
+      const eq = body.indexOf("=");
+      if (eq !== -1) {
+        flags[body.slice(0, eq)] = body.slice(eq + 1);
+        continue;
+      }
+      const key = body;
       const next = argv[i + 1];
       if (next != null && !next.startsWith("--")) {
         flags[key] = next;
