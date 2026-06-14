@@ -39,7 +39,7 @@ export async function createImpersonateTransport(credentials: PlatformCredential
   };
 }
 
-function createCycleKickFetcher(cycleTLS: CycleTLSClient, credentials: PlatformCredentials): PageFetcher {
+export function createCycleKickFetcher(cycleTLS: CycleTLSClient, credentials: PlatformCredentials): PageFetcher {
   return {
     fetchJson: async <T>(url: string, init?: RequestInit): Promise<T> => {
       const headers = browserHeaders(headersToObject(init?.headers));
@@ -70,7 +70,7 @@ function createCycleKickFetcher(cycleTLS: CycleTLSClient, credentials: PlatformC
 // Adapts cycletls' async, callback-based socket to the browser-style WebSocketLike
 // the KickWatcher drives. Connection happens lazily after construction; sends made
 // before the socket opens are queued.
-function createCycleWebSocketFactory(cycleTLS: CycleTLSClient): WebSocketFactory {
+export function createCycleWebSocketFactory(cycleTLS: CycleTLSClient): WebSocketFactory {
   return (url: string) => new CycleWebSocket(cycleTLS, url);
 }
 
