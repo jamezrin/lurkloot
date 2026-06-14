@@ -12,10 +12,13 @@
   },
   "dependencies": {
     "@stream-autopilot/core": "workspace:*",
-    "@stream-autopilot/shared": "workspace:*"
+    "@stream-autopilot/shared": "workspace:*",
+    "cycletls": "^2.0.5",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

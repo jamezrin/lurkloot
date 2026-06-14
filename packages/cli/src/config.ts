@@ -3,7 +3,7 @@ import { dirname, isAbsolute, resolve } from "node:path";
 import { mergeSettings } from "@stream-autopilot/shared/settings";
 import type { ExtensionSettings } from "@stream-autopilot/shared/models";
 
-export type Transport = "http" | "browser";
+export type Transport = "http" | "impersonate" | "browser";
 
 // The on-disk config wrapper. `settings` is the extension's ExtensionSettings
 // shape verbatim (validated/normalized through the shared mergeSettings), so the
@@ -25,7 +25,7 @@ export interface CliConfig {
   path: string;
 }
 
-const TRANSPORTS: Transport[] = ["http", "browser"];
+const TRANSPORTS: Transport[] = ["http", "impersonate", "browser"];
 
 export async function loadConfig(configPath: string): Promise<CliConfig> {
   const path = resolve(configPath);

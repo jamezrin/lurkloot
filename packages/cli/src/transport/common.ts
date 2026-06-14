@@ -1,0 +1,51 @@
+import type { Platform } from "@stream-autopilot/shared/models";
+import type { PlatformAdapter, WatchTabPort } from "@stream-autopilot/core/adapter";
+
+// A built set of platform adapters plus a teardown hook (e.g. to stop a
+// cycletls/Playwright subprocess). Every transport returns this shape so the
+// commands can dispose uniformly.
+export interface TransportHandle {
+  adapters: Record<Platform, PlatformAdapter>;
+  dispose: () => Promise<void>;
+}
+
+// Tabless-safe watch port for non-tab runtimes: stopWatchTab is a harmless no-op
+// (nothing to stop without tabs, but the scheduler calls it to clean up
+// idle/disabled platforms); opening a watch tab fails clearly. Shared by the
+// http and impersonate transports.
+export const tablessWatchPort: WatchTabPort = {
+  openPinnedMutedTab: () => {
+    throw new Error("tab-based watch is unavailable in this transport; keep tablessMode on or use transport: \"browser\"");
+  },
+  stopWatchTab: async () => {
+    // nothing to stop without tabs
+  },
+};
+
+// Chrome 124 fingerprint for TLS/JA3 + HTTP/2 impersonation (what Cloudflare
+// inspects). Mirrors curl_cffi's impersonate="chrome124" used by comparable Kick
+// miners. A fingerprint can itself become flagged over time; bump these together
+// (JA3 + HTTP/2 + UA must stay consistent) if Kick starts rejecting them.
+export const CHROME_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+export const CHROME_JA3 =
+  "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0";
+export const CHROME_HTTP2 = "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p";
+
+// Normalizes the various RequestInit.headers shapes into a plain object.
+export function headersToObject(headers: HeadersInit | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!headers) return out;
+  if (headers instanceof Headers) {
+    headers.forEach((value, key) => { out[key] = value; });
+  } else if (Array.isArray(headers)) {
+    for (const [key, value] of headers) out[key] = value;
+  } else {
+    Object.assign(out, headers);
+  }
+  return out;
+}
+
+export function hasHeader(headers: Record<string, string>, name: string): boolean {
+  return Object.keys(headers).some((key) => key.toLowerCase() === name.toLowerCase());
+}

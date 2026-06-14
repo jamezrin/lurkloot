@@ -4,7 +4,7 @@ import { setTwitchIntegrity } from "@stream-autopilot/core/tabs";
 import type { CliConfig } from "../config";
 import { applyEnvOverrides, AuthStore } from "../authStore";
 import { FileStorage } from "../storage";
-import { createHttpAdapters } from "../transport/http";
+import { createTransport } from "../transport";
 import { registerConsoleLogger } from "../logger";
 
 // Drives the full farming loop headlessly. Reuses the extension's background
@@ -13,14 +13,12 @@ import { registerConsoleLogger } from "../logger";
 export async function runLoop(config: CliConfig): Promise<void> {
   registerConsoleLogger(config.settings.enabledLogLevels);
 
-  if (config.transport !== "http") {
-    throw new Error(`The "${config.transport}" transport is not implemented yet; use transport: "http" for now.`);
-  }
-
   const store = new AuthStore(config.authDir);
   const credentials = applyEnvOverrides(await store.loadCredentials());
   const integrity = await store.loadIntegrity();
   if (integrity) setTwitchIntegrity(integrity);
+
+  const transport = await createTransport(config.transport, credentials, config.authDir);
 
   const stateFile = resolve(dirname(config.path), "state.json");
   const storage = new FileStorage(stateFile, config.settings);
@@ -53,10 +51,10 @@ export async function runLoop(config: CliConfig): Promise<void> {
     createNotification: async ({ title, message }) => console.log(`🔔 ${title}: ${message}`),
     loadTwitchIntegrity: () => store.loadIntegrity(),
     saveTwitchIntegrity: (value) => store.saveIntegrity(value),
-    createAdapters: () => createHttpAdapters(credentials),
+    createAdapters: () => transport.adapters,
   });
 
-  console.log(`Starting farming loop (transport=http, state=${stateFile})`);
+  console.log(`Starting farming loop (transport=${config.transport}, state=${stateFile})`);
   console.log(`  poll every ${config.settings.pollIntervalMinutes} min; watch heartbeat every 1 min. Ctrl-C to stop.`);
 
   await controller.ensureAlarm();
@@ -74,5 +72,6 @@ export async function runLoop(config: CliConfig): Promise<void> {
     process.once("SIGTERM", () => shutdown("SIGTERM"));
   });
 
+  await transport.dispose();
   console.log("Stopped. Latest state persisted to disk.");
 }

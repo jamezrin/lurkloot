@@ -4,7 +4,7 @@ import { logActivity } from "../../core/activityLog";
 import { KickWafBlockedError } from "../../core/tabs";
 import type { PageFetcher, PlatformAdapter, WatchTabOptions, WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
-import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
+import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
 
 interface KickLivestreamsResponse {
   data?: Array<KickLivestream> | { livestreams?: KickLivestream[] };
@@ -123,12 +123,17 @@ export class KickAdapter implements PlatformAdapter {
 
   // Tab-based watch transport; absent when the runtime is tabless-only.
   private readonly watchTabs?: WatchTabPort;
+  // Opens the tabless viewer WebSocket. Injected so a non-extension runtime can
+  // supply a fingerprint-impersonating socket (Kick's WS is Cloudflare-gated);
+  // defaults inside KickWatcher to the platform global WebSocket.
+  private readonly createWebSocket?: WebSocketFactory;
 
   constructor(
     private readonly fetcher: PageFetcher,
-    deps: { watchTabs?: WatchTabPort } = {},
+    deps: { watchTabs?: WatchTabPort; createWebSocket?: WebSocketFactory } = {},
   ) {
     this.watchTabs = deps.watchTabs;
+    this.createWebSocket = deps.createWebSocket;
   }
 
   private requireWatchTabs(): WatchTabPort {
@@ -297,6 +302,7 @@ export class KickAdapter implements PlatformAdapter {
   createTablessWatcher(): TablessWatchController {
     return new KickWatcher({
       fetcher: this.fetcher,
+      createWebSocket: this.createWebSocket,
       log: (level, message) => logActivity(level, message, "kick"),
     });
   }

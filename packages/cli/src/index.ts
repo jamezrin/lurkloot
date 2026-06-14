@@ -4,7 +4,7 @@ import { setTwitchIntegrity } from "@stream-autopilot/core/tabs";
 import { loadConfig } from "./config";
 import { applyEnvOverrides, AuthStore } from "./authStore";
 import { runTwitchDeviceFlow } from "./auth/twitchDeviceFlow";
-import { createHttpAdapters } from "./transport/http";
+import { createTransport } from "./transport";
 import { registerConsoleLogger } from "./logger";
 import { runLoop } from "./runtime/run";
 
@@ -119,33 +119,33 @@ async function discover(flags: Record<string, string | boolean>): Promise<void> 
   const integrity = await store.loadIntegrity();
   if (integrity) setTwitchIntegrity(integrity);
 
-  if (config.transport !== "http") {
-    throw new Error(`The "${config.transport}" transport is not implemented yet; use transport: "http" for now.`);
-  }
-  const adapters = createHttpAdapters(credentials);
-
   const enabled = (["twitch", "kick"] as Platform[]).filter((platform) => config.settings.platform[platform].enabled);
   if (enabled.length === 0) {
     console.log("No platforms enabled in config.settings.platform.*.enabled");
     return;
   }
 
-  for (const platform of enabled) {
-    console.log(`\n=== ${platform} ===`);
-    if (platform === "twitch" && !credentials.twitch) {
-      console.log("  (no twitch credentials; run `login --twitch-device` first — results will be anonymous/empty)");
-    }
-    try {
-      const campaigns = await adapters[platform].discoverCampaigns();
-      console.log(`  ${campaigns.length} campaign(s) discovered`);
-      for (const campaign of campaigns.slice(0, 20)) {
-        const rewards = campaign.rewards.map((reward) => reward.status).join(",");
-        console.log(`  • ${campaign.name} [${campaign.status}] rewards: ${rewards || "none"}`);
+  const { adapters, dispose } = await createTransport(config.transport, credentials, config.authDir);
+  try {
+    for (const platform of enabled) {
+      console.log(`\n=== ${platform} (${config.transport}) ===`);
+      if (platform === "twitch" && !credentials.twitch) {
+        console.log("  (no twitch credentials; run `login --twitch-device` first — results will be anonymous/empty)");
       }
-      if (campaigns.length > 20) console.log(`  …and ${campaigns.length - 20} more`);
-    } catch (error) {
-      console.error(`  ${platform} discovery failed: ${error instanceof Error ? error.message : String(error)}`);
+      try {
+        const campaigns = await adapters[platform].discoverCampaigns();
+        console.log(`  ${campaigns.length} campaign(s) discovered`);
+        for (const campaign of campaigns.slice(0, 20)) {
+          const rewards = campaign.rewards.map((reward) => reward.status).join(",");
+          console.log(`  • ${campaign.name} [${campaign.status}] rewards: ${rewards || "none"}`);
+        }
+        if (campaigns.length > 20) console.log(`  …and ${campaigns.length - 20} more`);
+      } catch (error) {
+        console.error(`  ${platform} discovery failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
+  } finally {
+    await dispose();
   }
 }
 
