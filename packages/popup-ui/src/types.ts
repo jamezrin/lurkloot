@@ -5,6 +5,7 @@ export type PopupTab = "drops" | "watchQueue";
 export type GameItem = { id: string; name: string; short: string; accent: string };
 export type StreamerItem = { id: string; name: string; live: boolean; subtitle?: string; viewers?: number };
 export type FarmingChannelView = { name: string; category?: string; viewers?: number };
+export type ChannelLink = { name: string; url: string };
 export type RewardView = { id: string; name: string; progress: number; requiredMinutes: number; obtained: boolean; art: string; tint: string; imageUrl?: string };
 export type CampaignLifecycleState = "upcoming" | "expired" | "finished";
 
@@ -23,8 +24,9 @@ export type CampaignView = {
   excluded: boolean;
   starts: string;
   ends: string;
-  allowedChannels: string[];
-  moreChannels: number;
+  // All channels this drop is restricted to, each with a link to its page. Empty
+  // for general drops (farmable on any channel in the category).
+  channels: ChannelLink[];
   farmingChannel?: FarmingChannelView;
   thumbnail: string;
   tint: string;

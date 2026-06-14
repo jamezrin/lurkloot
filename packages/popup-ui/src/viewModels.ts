@@ -2,7 +2,7 @@ import type { CampaignFilterKey, DropCampaign, ExtensionSettings, WatchSession }
 import { NO_CATEGORY_ID, categoryListIndex, isUncategorizedCampaign } from "@lurkloot/shared/categories";
 import { CAMPAIGN_TINTS, GAME_ACCENTS, NO_CATEGORY_ACCENT, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
-import type { CampaignLifecycleState, CampaignView, FarmingChannelView, GameItem, StreamerItem, TFunction } from "./types";
+import type { CampaignLifecycleState, CampaignView, ChannelLink, FarmingChannelView, GameItem, StreamerItem, TFunction } from "./types";
 
 const KICK_ASSET_BASE = "https://ext.kick.com";
 
@@ -108,7 +108,6 @@ export function campaignStats(campaign: CampaignView) {
 }
 
 export function campaignViewFromCampaign(campaign: DropCampaign, index: number, session: WatchSession, excluded: boolean): CampaignView {
-  const visibleChannels = channelsForView(campaign);
   return {
     id: campaign.id,
     gameId: gameId(campaign),
@@ -121,8 +120,7 @@ export function campaignViewFromCampaign(campaign: DropCampaign, index: number, 
     excluded,
     starts: campaign.startsAt ?? campaign.rewards.find((reward) => reward.availableFrom)?.availableFrom ?? "",
     ends: campaign.endsAt ?? campaign.rewards.find((reward) => reward.availableUntil)?.availableUntil ?? "",
-    allowedChannels: visibleChannels.channels,
-    moreChannels: visibleChannels.more,
+    channels: channelLinks(campaign),
     farmingChannel: session.campaignId === campaign.id ? channelViewFromSession(session) : undefined,
     thumbnail: initials(campaign.gameName ?? campaign.name),
     tint: CAMPAIGN_TINTS[index % CAMPAIGN_TINTS.length],
@@ -152,10 +150,12 @@ export function campaignLifecycleState(campaign: DropCampaign): CampaignLifecycl
   return undefined;
 }
 
-function channelsForView(campaign: DropCampaign): { channels: string[]; more: number } {
-  if (campaign.isGeneralDrop || !campaign.allowedChannels?.length) return { channels: ["All"], more: 0 };
-  const channels = campaign.allowedChannels.slice(0, 4);
-  return { channels, more: Math.max(0, campaign.allowedChannels.length - channels.length) };
+// Every channel a restricted drop is tied to, each linked to its page. Empty for
+// general drops (any channel in the category qualifies).
+function channelLinks(campaign: DropCampaign): ChannelLink[] {
+  if (campaign.isGeneralDrop || !campaign.allowedChannels?.length) return [];
+  const base = campaign.platform === "kick" ? "https://kick.com/" : "https://www.twitch.tv/";
+  return campaign.allowedChannels.map((name) => ({ name, url: `${base}${name}` }));
 }
 
 export function channelViewFromSession(session: WatchSession): FarmingChannelView | undefined {
