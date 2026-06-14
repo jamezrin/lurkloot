@@ -14,6 +14,7 @@
     "build:all": "pnpm -r build",
     "zip": "pnpm --filter @stream-autopilot/extension zip",
     "zip:firefox": "pnpm --filter @stream-autopilot/extension zip:firefox",
+    "cli": "pnpm --filter @stream-autopilot/cli cli",
     "test": "pnpm --filter @stream-autopilot/extension test",
     "typecheck": "pnpm -r typecheck",
     "screenshot:store": "pnpm --filter @stream-autopilot/extension screenshot:store",
