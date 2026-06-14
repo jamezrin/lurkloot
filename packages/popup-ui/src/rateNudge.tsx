@@ -33,7 +33,7 @@ export function RateNudge({ onRate, onDismiss }: { onRate(): void; onDismiss(): 
           target="_blank"
           rel="noreferrer"
           onClick={onRate}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-white outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-[var(--accent-contrast)] outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
           style={{ backgroundColor: "var(--accent)" }}
         >
           <Star size={12} fill="currentColor" />
