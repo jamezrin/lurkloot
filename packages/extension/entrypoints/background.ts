@@ -7,6 +7,8 @@ import { effectiveLocale, loadLocaleCatalog, translateFromCatalogs, type Message
 import type { ExtensionSettings, SupportedLocale } from "@lurkloot/shared/models";
 import { KickAdapter } from "../src/platforms/kick";
 import { TwitchAdapter } from "../src/platforms/twitch";
+import { isMinorOrMajorBump } from "../src/core/version";
+import { CHANGELOG_URL } from "../src/core/links";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -62,7 +64,7 @@ const controller = createBackgroundController({
 });
 
 export default defineBackground(() => {
-  browser.runtime.onInstalled.addListener(async () => {
+  browser.runtime.onInstalled.addListener(async (details) => {
     await controller.ensureAlarm();
     // Stamp the install date once so the popup can time the rate/review nudge.
     // Set-if-missing (rather than gating on reason === "install") also backfills
@@ -70,6 +72,13 @@ export default defineBackground(() => {
     const state = await loadState();
     if (!state.installedAt) {
       await saveState({ ...state, installedAt: new Date().toISOString() });
+    }
+
+    // On a meaningful update (major/minor — not a patch bugfix, not a fresh
+    // install), open the changelog so returning users see what's new.
+    const currentVersion = browser.runtime.getManifest().version;
+    if (details.reason === "update" && isMinorOrMajorBump(details.previousVersion, currentVersion)) {
+      await browser.tabs.create({ url: `${CHANGELOG_URL}#v${currentVersion}` });
     }
   });
 

@@ -1,0 +1,215 @@
+---
+import Base from "../layouts/Base.astro";
+import Footer from "../components/Footer.astro";
+import { LINKS } from "../consts";
+import { changelog, type ChangeKind } from "../changelog";
+import logo from "../assets/logo-ring.svg";
+
+const dateFmt = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+const formatDate = (iso: string) => dateFmt.format(new Date(`${iso}T00:00:00Z`));
+
+const kindLabel: Record<ChangeKind, string> = {
+  new: "New",
+  improved: "Improved",
+  fixed: "Fixed",
+};
+---
+
+<Base
+  title="Changelog — Lurkloot"
+  description="What's new in Lurkloot — release notes for every version of the Twitch and Kick drops farming extension."
+>
+  <header class="legalnav">
+    <div class="wrap legalnav__inner">
+      <a class="legalnav__brand" href="/">
+        <img src={logo.src} width="28" height="28" alt="" />
+        <span>Lurkloot</span>
+      </a>
+      <a class="btn btn--primary legalnav__cta" href={LINKS.chrome} target="_blank" rel="noopener">
+        Add to browser
+      </a>
+    </div>
+  </header>
+
+  <main class="legal">
+    <div class="wrap legal__wrap">
+      <p class="eyebrow">Release notes</p>
+      <h1>Changelog</h1>
+
+      <div class="log">
+        {changelog.map((entry) => (
+          <section class="rel" id={`v${entry.version}`}>
+            <div class="rel__head">
+              <h2 class="rel__version">v{entry.version}</h2>
+              {entry.date ? (
+                <time class="rel__date" datetime={entry.date}>{formatDate(entry.date)}</time>
+              ) : (
+                <span class="rel__date rel__date--unreleased">Unreleased</span>
+              )}
+            </div>
+            <ul class="rel__list">
+              {entry.changes.map((change) => (
+                <li class="change">
+                  <span class={`tag tag--${change.kind}`}>{kindLabel[change.kind]}</span>
+                  <span class="change__text">{change.text}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+
+      <p class="legal__back"><a href="/">← Back to home</a></p>
+    </div>
+  </main>
+
+  <Footer />
+</Base>
+
+<style>
+  .legalnav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid var(--line);
+    background: rgba(6, 6, 9, 0.8);
+    backdrop-filter: blur(12px);
+  }
+  .legalnav__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    gap: 1.5rem;
+  }
+  .legalnav__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .legalnav__brand img { border-radius: 8px; }
+  .legalnav__cta { padding: 0.55em 1.05em; font-size: 0.88rem; }
+
+  .legal {
+    padding: clamp(3rem, 8vw, 6rem) 0 clamp(4rem, 8vw, 6rem);
+  }
+  .legal__wrap {
+    max-width: 760px;
+  }
+  .legal h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    margin: 0.6rem 0 0;
+  }
+
+  .log {
+    margin-top: clamp(2rem, 5vw, 3rem);
+    display: grid;
+    gap: clamp(2rem, 4vw, 2.75rem);
+  }
+
+  /* Each release anchors below the sticky header when deep-linked. */
+  .rel {
+    scroll-margin-top: 84px;
+    padding-top: clamp(1.6rem, 3vw, 2.25rem);
+    border-top: 1px solid var(--line);
+  }
+  .rel:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+  .rel__head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+  }
+  .rel__version {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    font-size: 1.5rem;
+    margin: 0;
+  }
+  .rel__date {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--faint);
+  }
+  .rel__date--unreleased {
+    color: var(--lime);
+    padding: 0.18em 0.55em;
+    border-radius: 999px;
+    border: 1px solid color-mix(in oklab, var(--lime) 35%, var(--line));
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .rel__list {
+    list-style: none;
+    margin: 1.1rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.7rem;
+  }
+  .change {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr;
+    gap: 0.75rem;
+    align-items: baseline;
+  }
+  @media (max-width: 520px) {
+    .change {
+      grid-template-columns: 1fr;
+      gap: 0.3rem;
+    }
+  }
+  .change__text {
+    color: var(--muted);
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+  /* Small category label per change. */
+  .tag {
+    justify-self: start;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.18em 0.55em;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--ink-1);
+    white-space: nowrap;
+    transform: translateY(-0.08em);
+  }
+  .tag--new {
+    color: var(--lime);
+    border-color: color-mix(in oklab, var(--lime) 35%, var(--line));
+  }
+  .tag--improved {
+    color: var(--purple-soft);
+    border-color: color-mix(in oklab, var(--purple-soft) 35%, var(--line));
+  }
+  .tag--fixed {
+    color: var(--muted);
+  }
+
+  .legal__back {
+    margin-top: 3rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+  .legal__back a { color: var(--muted); }
+  .legal__back a:hover { color: var(--lime); }
+</style>
