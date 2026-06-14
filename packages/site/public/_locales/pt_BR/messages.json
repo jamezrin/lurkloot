@@ -521,6 +521,9 @@
   "xAttribution": {
     "message": "jamezrin no X"
   },
+  "chromeWebStoreAttribution": {
+    "message": "Lurkloot na Chrome Web Store"
+  },
   "removeItem": {
     "message": "Remover $1"
   }

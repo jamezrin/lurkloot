@@ -521,6 +521,9 @@
   "xAttribution": {
     "message": "X पर jamezrin"
   },
+  "chromeWebStoreAttribution": {
+    "message": "Chrome वेब स्टोर पर Lurkloot"
+  },
   "rateNudgeTitle": {
     "message": "Lurkloot पसंद आया?"
   },

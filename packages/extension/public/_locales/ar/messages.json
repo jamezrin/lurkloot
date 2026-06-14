@@ -521,6 +521,9 @@
   "xAttribution": {
     "message": "jamezrin على X"
   },
+  "chromeWebStoreAttribution": {
+    "message": "Lurkloot على متجر Chrome الإلكتروني"
+  },
   "rateNudgeTitle": {
     "message": "هل يعجبك Lurkloot؟"
   },

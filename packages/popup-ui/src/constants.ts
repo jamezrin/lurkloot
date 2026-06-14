@@ -13,7 +13,8 @@ export const COLLAPSED_SETTINGS_SECTIONS_KEY = "popup:collapsedSettingsSections"
 // Chrome Web Store listing for the rate/review nudge. Single source of truth for
 // the store id so the reviews URL stays correct if the listing slug changes.
 export const CHROME_WEB_STORE_ID = "aobaackpofkghaejdnnmpmeaiaoibhdn";
-export const CHROME_WEB_STORE_REVIEW_URL = `https://chromewebstore.google.com/detail/${CHROME_WEB_STORE_ID}/reviews`;
+export const CHROME_WEB_STORE_URL = `https://chromewebstore.google.com/detail/${CHROME_WEB_STORE_ID}`;
+export const CHROME_WEB_STORE_REVIEW_URL = `${CHROME_WEB_STORE_URL}/reviews`;
 // How long after install before the one-time "rate it" nudge appears.
 export const RATE_NUDGE_MIN_DAYS = 3;
 
