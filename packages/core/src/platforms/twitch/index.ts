@@ -8,7 +8,10 @@ import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./watch";
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 
-const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
+// The web client id, used by the extension (page-minted integrity is bound to
+// it). A headless runtime authenticating via device-code OAuth must instead use
+// the client id that token was issued for, so the Client-ID is injectable.
+export const TWITCH_WEB_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 
 const TWITCH_QUERIES = {
   inventory: {
@@ -238,16 +241,21 @@ export class TwitchAdapter implements PlatformAdapter {
   private readonly ensureIntegrity: () => Promise<boolean>;
   // Tab-based watch transport; absent when the runtime is tabless-only.
   private readonly watchTabs?: WatchTabPort;
+  // Sent as the Client-ID on every GQL request; must match the client id the
+  // active OAuth token was issued for (web client by default; a device-code token
+  // requires its own client id).
+  private readonly clientId: string;
 
   constructor(
     // Twitch GQL is unreachable from the twitch.tv page context (CORS / anti-
     // tampering blocks it). The runtime injects a fetcher with host access to
     // gql.twitch.tv that attaches the OAuth token, like the web client.
     private readonly fetcher: PageFetcher,
-    deps: { ensureIntegrity?: () => Promise<boolean>; watchTabs?: WatchTabPort } = {},
+    deps: { ensureIntegrity?: () => Promise<boolean>; watchTabs?: WatchTabPort; clientId?: string } = {},
   ) {
     this.ensureIntegrity = deps.ensureIntegrity ?? (async () => false);
     this.watchTabs = deps.watchTabs;
+    this.clientId = deps.clientId ?? TWITCH_WEB_CLIENT_ID;
   }
 
   private requireWatchTabs(): WatchTabPort {
@@ -593,7 +601,7 @@ export class TwitchAdapter implements PlatformAdapter {
         "Accept": "*/*",
         "Accept-Language": "en-US",
         "Content-Type": "text/plain; charset=UTF-8",
-        "Client-ID": TWITCH_CLIENT_ID,
+        "Client-ID": this.clientId,
       },
       ...(credentials ? { credentials } : {}),
       body: JSON.stringify(
