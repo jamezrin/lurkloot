@@ -171,6 +171,7 @@ export function channelViewFromSession(session: WatchSession): FarmingChannelVie
     name: channel.displayName ?? channel.username,
     category: channel.categoryName,
     viewers: channel.viewerCount,
+    url: channel.url || channelUrl(channel.platform, channel.username),
   };
 }
 

@@ -55,7 +55,11 @@ export function AutomationHero({ platformLabel, enabled, pending, onChange, farm
                   <p className="flex items-center gap-1 truncate">
                     <Radio size={11} className="shrink-0" style={{ color: "var(--accent-text)" }} />
                     {t("watchingLabel")}
-                    <span className="truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingChannel.name}</span>
+                    {farmingChannel.url ? (
+                      <a href={farmingChannel.url} target="_blank" rel="noreferrer" className="truncate font-semibold text-zinc-800 outline-none hover:text-[var(--accent-text)] hover:underline focus-visible:text-[var(--accent-text)] dark:text-zinc-100">{farmingChannel.name}</a>
+                    ) : (
+                      <span className="truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingChannel.name}</span>
+                    )}
                     {farmingChannel.viewers != null && <span className="shrink-0 text-zinc-400 dark:text-zinc-500">· {formatViewers(farmingChannel.viewers)}</span>}
                   </p>
                 ) : (
