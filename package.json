@@ -1,6 +1,6 @@
 {
   "name": "stream-autopilot",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Cross-browser Twitch and Kick drops farming WebExtension using visible muted tabs.",
   "type": "module",
   "private": true,
