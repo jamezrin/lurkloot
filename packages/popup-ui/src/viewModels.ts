@@ -1,5 +1,6 @@
-import type { CampaignFilterKey, CategorySelection, DropCampaign, ExtensionSettings, WatchSession } from "@lurkloot/shared/models";
-import { CAMPAIGN_TINTS, GAME_ACCENTS, REWARD_TINTS } from "./constants";
+import type { CampaignFilterKey, DropCampaign, ExtensionSettings, WatchSession } from "@lurkloot/shared/models";
+import { NO_CATEGORY_ID, categoryListIndex, isUncategorizedCampaign } from "@lurkloot/shared/categories";
+import { CAMPAIGN_TINTS, GAME_ACCENTS, NO_CATEGORY_ACCENT, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
 import type { CampaignLifecycleState, CampaignView, FarmingChannelView, GameItem, StreamerItem, TFunction } from "./types";
 
@@ -63,14 +64,15 @@ export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction):
   const discovered = new Map<string, GameItem>();
   campaigns.forEach((campaign, index) => {
     const id = gameId(campaign);
-    if (!discovered.has(id)) {
-      discovered.set(id, {
+    if (discovered.has(id)) return;
+    discovered.set(id, id === NO_CATEGORY_ID
+      ? { id, name: t("noCategory"), short: "–", accent: NO_CATEGORY_ACCENT }
+      : {
         id,
         name: campaign.gameName ?? t("unknownGame"),
         short: initials(campaign.gameName ?? campaign.name),
         accent: GAME_ACCENTS[index % GAME_ACCENTS.length],
       });
-    }
   });
   return [...discovered.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -82,17 +84,8 @@ function categoryPriorityScore(campaign: DropCampaign, settings: ExtensionSettin
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
-function categoryListIndex(campaign: DropCampaign, list: CategorySelection[]): number {
-  if (list.length === 0) return -1;
-  const candidates = [campaign.categoryId, campaign.gameName]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.toLowerCase());
-  if (candidates.length === 0) return -1;
-  return list.findIndex((category) =>
-    candidates.includes(category.id.toLowerCase()) || candidates.includes(category.name.toLowerCase()));
-}
-
 function gameId(campaign: DropCampaign): string {
+  if (isUncategorizedCampaign(campaign)) return NO_CATEGORY_ID;
   return (campaign.categoryId ?? campaign.gameName ?? campaign.name).trim().toLowerCase();
 }
 
@@ -123,6 +116,8 @@ export function campaignViewFromCampaign(campaign: DropCampaign, index: number, 
     status: campaign.status,
     lifecycle: campaignLifecycleState(campaign),
     linked: campaign.accountLinked !== false,
+    linkUrl: campaign.accountLinkUrl || undefined,
+    pageUrl: campaign.url || undefined,
     excluded,
     starts: campaign.startsAt ?? campaign.rewards.find((reward) => reward.availableFrom)?.availableFrom ?? "",
     ends: campaign.endsAt ?? campaign.rewards.find((reward) => reward.availableUntil)?.availableUntil ?? "",

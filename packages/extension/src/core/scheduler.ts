@@ -1,6 +1,5 @@
 import type { PlatformAdapter } from "../platforms/adapter";
 import type {
-  CategorySelection,
   ChannelCandidate,
   DropCampaign,
   DropReward,
@@ -10,6 +9,7 @@ import type {
   WatchDecision,
   WatchSession,
 } from "@lurkloot/shared/models";
+import { categoryListIndex } from "@lurkloot/shared/categories";
 import { currentManagedPageContextTabs, registerManagedPageContextTabs, stopManagedPageContextTabs } from "./tabs";
 import { appendLog, shouldRecord, type LogLevel } from "@lurkloot/shared/logging";
 
@@ -63,18 +63,6 @@ function isEligible(campaign: DropCampaign, settings: ExtensionSettings): boolea
 
 function isInPriorityList(campaign: DropCampaign, settings: ExtensionSettings): boolean {
   return settings.campaignPriorities[campaign.id] != null;
-}
-
-// Position of a campaign's category in a selection list, by id or name
-// (case-insensitive); -1 when absent. Campaigns sometimes carry only a gameName.
-function categoryListIndex(campaign: DropCampaign, list: CategorySelection[]): number {
-  if (list.length === 0) return -1;
-  const candidates = [campaign.categoryId, campaign.gameName]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.toLowerCase());
-  if (candidates.length === 0) return -1;
-  return list.findIndex((category) =>
-    candidates.includes(category.id.toLowerCase()) || candidates.includes(category.name.toLowerCase()));
 }
 
 function hasCampaignEnded(campaign: DropCampaign): boolean {

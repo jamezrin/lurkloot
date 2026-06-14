@@ -15,6 +15,11 @@ export type CampaignView = {
   status: DropCampaign["status"];
   lifecycle?: CampaignLifecycleState;
   linked: boolean;
+  // The org account-link URL (Kick connect_url / Twitch accountLinkURL), when the
+  // campaign actually requires linking. Absent when there is nothing to link.
+  linkUrl?: string;
+  // The campaign's info/landing page, when one is provided.
+  pageUrl?: string;
   excluded: boolean;
   starts: string;
   ends: string;

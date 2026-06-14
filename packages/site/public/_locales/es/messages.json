@@ -146,6 +146,12 @@
   "notLinked": {
     "message": "No vinculado"
   },
+  "linkAccount": {
+    "message": "Vincula tu cuenta"
+  },
+  "viewDropPage": {
+    "message": "Ver página del drop"
+  },
   "upcoming": {
     "message": "Próximas"
   },
@@ -442,6 +448,9 @@
   },
   "unknownGame": {
     "message": "Juego desconocido"
+  },
+  "noCategory": {
+    "message": "Sin categoría"
   },
   "dropsCampaign": {
     "message": "Campaña de drops"

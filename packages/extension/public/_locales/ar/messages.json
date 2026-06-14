@@ -146,6 +146,12 @@
   "notLinked": {
     "message": "غير مرتبط"
   },
+  "linkAccount": {
+    "message": "اربط حسابك"
+  },
+  "viewDropPage": {
+    "message": "عرض صفحة الدروب"
+  },
   "upcoming": {
     "message": "قادمة"
   },
@@ -442,6 +448,9 @@
   },
   "unknownGame": {
     "message": "لعبة غير معروفة"
+  },
+  "noCategory": {
+    "message": "بدون فئة"
   },
   "dropsCampaign": {
     "message": "حملة Drops"

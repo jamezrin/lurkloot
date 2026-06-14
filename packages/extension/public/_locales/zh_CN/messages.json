@@ -146,6 +146,12 @@
   "notLinked": {
     "message": "未关联"
   },
+  "linkAccount": {
+    "message": "关联账号"
+  },
+  "viewDropPage": {
+    "message": "查看掉宝页面"
+  },
   "upcoming": {
     "message": "即将开始"
   },
@@ -442,6 +448,9 @@
   },
   "unknownGame": {
     "message": "未知游戏"
+  },
+  "noCategory": {
+    "message": "无分类"
   },
   "dropsCampaign": {
     "message": "掉宝活动"

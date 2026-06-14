@@ -59,6 +59,7 @@ const TWITCH_CAMPAIGN_FIELDS = `{
   endAt
   status
   accountLinkURL
+  detailsURL
   self { isAccountConnected }
   game { id name displayName slug boxArtURL }
   allow { channels { name login } }

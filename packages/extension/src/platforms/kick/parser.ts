@@ -37,6 +37,8 @@ interface KickCampaign {
   category?: { id?: string | number; name?: string; slug?: string; image_url?: string };
   // Org/game account-link URL (e.g. https://accounts.krafton.com/auth/kick/...).
   connect_url?: string;
+  // Campaign info/landing page (e.g. https://about.kick.com/news-and-press/...).
+  url?: string;
   channels?: Array<{
     slug?: string;
     username?: string;
@@ -148,6 +150,7 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
       status,
       accountLinked: true,
       accountLinkUrl: campaign.connect_url,
+      url: campaign.url,
       eligibility: status === "active" && rewards.length > 0 ? "eligible" : status === "completed" ? "completed" : rewards.length === 0 ? "no_rewards" : status === "active" ? "eligible" : status,
       eligibilityReason: status === "active" && rewards.length > 0 ? "Eligible" : status === "completed" ? "All rewards are claimed" : rewards.length === 0 ? "Campaign has no rewards" : `Campaign is ${status}`,
       allowedChannels,
@@ -232,13 +235,16 @@ export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgress
         ? "completed"
         : campaign.status;
 
+    // `user_app_connected` is Kick's account-link flag (the org connection), but
+    // first-party KICK drops report it false while exposing no connect_url — there
+    // is nothing to link, so only treat the campaign as unlinked when an actual
+    // link URL exists. Absent flag means leave as-is.
+    const linkUrl = campaignProgress?.connect_url || campaign.accountLinkUrl;
     return {
       ...campaign,
       status,
-      // `user_app_connected` is Kick's account-link flag (the org connection).
-      // Only an explicit false gates the campaign; absent means leave as-is.
-      accountLinked: campaignProgress?.user_app_connected === false ? false : campaign.accountLinked,
-      accountLinkUrl: campaignProgress?.connect_url ?? campaign.accountLinkUrl,
+      accountLinked: campaignProgress?.user_app_connected === false && Boolean(linkUrl) ? false : campaign.accountLinked,
+      accountLinkUrl: linkUrl,
       gameName: campaignProgress?.category?.name ?? campaign.gameName,
       gameImageUrl: campaignProgress?.category?.image_url ?? campaign.gameImageUrl,
       categoryId: campaignProgress?.category?.id == null ? campaign.categoryId : String(campaignProgress.category.id),

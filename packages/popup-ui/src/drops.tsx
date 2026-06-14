@@ -9,6 +9,7 @@ import {
   Check,
   ChevronDown,
   Clock3,
+  ExternalLink,
   Gift,
   GripVertical,
   Link2,
@@ -92,9 +93,12 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
 
   return (
     <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-transparent" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized ? { boxShadow: isOverlay ? "0 20px 50px -12px rgba(0,0,0,0.5)" : "0 0 0 1.5px var(--accent-ring), 0 10px 30px -18px var(--accent-glow)" } : undefined}>
-      <div className="flex items-stretch">
+      <div className="relative flex items-stretch">
         <div className="flex w-8 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">{dragHandle ?? <GripVertical size={16} className="text-zinc-300 dark:text-zinc-600" />}</div>
-        <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-2.5 p-2.5 text-left outline-none">
+        {/* Full-area toggle behind the content so the page-link anchor can live next
+            to the title without nesting an <a> inside a <button>. */}
+        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={campaign.title} className="absolute inset-y-0 left-8 right-0 z-0 outline-none" />
+        <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2.5 p-2.5">
           <div className="relative flex h-10 w-10 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
             <ImageWithFallback src={campaign.imageUrl} alt={campaign.title} fit="cover" fallback={
               <div className={cn("flex h-full w-full items-end bg-gradient-to-br p-1.5", campaign.tint)}>
@@ -104,7 +108,22 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <div className="line-clamp-1 text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</div>
+              <div className="flex min-w-0 items-center gap-1">
+                <span className="line-clamp-1 text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</span>
+                {campaign.pageUrl && (
+                  <a
+                    href={campaign.pageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(event) => event.stopPropagation()}
+                    aria-label={t("viewDropPage")}
+                    title={t("viewDropPage")}
+                    className="pointer-events-auto shrink-0 rounded p-0.5 text-zinc-400 outline-none transition-colors hover:text-[var(--accent-text)] focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500"
+                  >
+                    <ExternalLink size={12} />
+                  </a>
+                )}
+              </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <span className="text-[13px] font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>{stats.progress.toFixed(0)}%</span>
                 <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-zinc-400 dark:text-zinc-500"><ChevronDown size={16} /></motion.div>
@@ -126,7 +145,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
             </div>
             <div className="mt-2"><ProgressBar value={stats.progress} glow={emphasized} /></div>
           </div>
-        </button>
+        </div>
       </div>
       <AnimatePresence initial={false}>
         {expanded && (
@@ -162,6 +181,19 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                 <span className="truncate">{channelLabel}</span>
                 {campaign.allowedChannels[0] !== "All" ? <span className="truncate text-zinc-400 dark:text-zinc-500">· {campaign.allowedChannels.join(", ")}</span> : null}
               </div>
+              {!campaign.linked && campaign.linkUrl && (
+                <a
+                  href={campaign.linkUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(event) => event.stopPropagation()}
+                  className="flex items-center gap-1.5 rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-[11px] font-medium text-amber-700 outline-none transition-colors hover:border-amber-400 hover:bg-amber-100/70 focus-visible:ring-2 focus-visible:ring-amber-400 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+                >
+                  <Link2 size={12} className="shrink-0" />
+                  <span className="truncate">{t("linkAccount")}</span>
+                  <ExternalLink size={11} className="ml-auto shrink-0 opacity-70" />
+                </a>
+              )}
               {onToggleExclude && (
                 <button
                   type="button"
