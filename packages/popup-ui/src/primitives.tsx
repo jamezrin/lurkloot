@@ -118,14 +118,18 @@ export function EmptyPanel({ children }: { children: React.ReactNode }) {
   return <div className="grid min-h-24 place-items-center rounded-2xl border border-dashed border-zinc-300 bg-white p-4 text-center text-sm font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900">{children}</div>;
 }
 
-export function CompactRow({ avatar, avatarStyle, index, title, subtitle, trailing, dragHandle, isOverlay = false, dimmed = false }: { avatar: string; avatarStyle: React.CSSProperties; index: number; title: string; subtitle?: string; trailing: React.ReactNode; dragHandle: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
+export function CompactRow({ avatar, avatarStyle, index, title, titleHref, subtitle, trailing, dragHandle, isOverlay = false, dimmed = false }: { avatar: string; avatarStyle: React.CSSProperties; index: number; title: string; titleHref?: string; subtitle?: string; trailing: React.ReactNode; dragHandle: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
   return (
     <div className={cn("flex items-center gap-2 rounded-xl border bg-white px-2 py-2 dark:bg-zinc-900", isOverlay ? "border-transparent shadow-2xl shadow-black/25" : "border-zinc-200 shadow-sm dark:border-zinc-800", dimmed && "opacity-40")}>
       {dragHandle}
       <span className="w-4 text-center text-[11px] font-bold tabular" style={{ color: "var(--accent-text)" }}>{index + 1}</span>
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold" style={avatarStyle}>{avatar}</span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[13px] font-medium leading-tight text-zinc-900 dark:text-zinc-100">{title}</span>
+        {titleHref ? (
+          <a href={titleHref} target="_blank" rel="noreferrer" className="truncate text-[13px] font-medium leading-tight text-zinc-900 outline-none hover:text-[var(--accent-text)] hover:underline focus-visible:text-[var(--accent-text)] dark:text-zinc-100">{title}</a>
+        ) : (
+          <span className="truncate text-[13px] font-medium leading-tight text-zinc-900 dark:text-zinc-100">{title}</span>
+        )}
         {subtitle ? <span className="truncate text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">{subtitle}</span> : null}
       </span>
       {trailing}
