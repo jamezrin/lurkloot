@@ -134,7 +134,10 @@ async function discover(flags: Record<string, string | boolean>): Promise<void> 
     return;
   }
 
-  const { adapters, dispose } = await createTransport(config.transport, credentials, config.authDir);
+  const { adapters, dispose } = await createTransport(config.transport, credentials, config.authDir, {
+    twitch: config.settings.platform.twitch.enabled,
+    kick: config.settings.platform.kick.enabled,
+  });
   try {
     for (const platform of enabled) {
       console.log(`\n=== ${platform} (${config.transport}) ===`);

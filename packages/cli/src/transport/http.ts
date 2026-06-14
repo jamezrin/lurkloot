@@ -32,7 +32,15 @@ export function createHttpTransport(credentials: PlatformCredentials): Transport
   return {
     adapters: {
       twitch: new TwitchAdapter(twitchFetcher, { clientId: credentials.twitch?.clientId, watchTabs: tablessWatchPort }),
-      kick: new KickAdapter(kickFetcher, { watchTabs: tablessWatchPort }),
+      kick: new KickAdapter(kickFetcher, {
+        watchTabs: tablessWatchPort,
+        // The viewer socket needs a browser TLS fingerprint; fail with a clear
+        // pointer rather than attempting a non-impersonated global WebSocket that
+        // Kick rejects (and that doesn't exist on Node < 22).
+        createWebSocket: () => {
+          throw new Error("Kick tabless watch is unavailable on the http transport; use transport: \"impersonate\" or \"browser\"");
+        },
+      }),
     },
     dispose: async () => {
       // no resources to release

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
@@ -43,6 +43,8 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   const t = useT();
   const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
   const [exportState, setExportState] = useState<"idle" | "confirm" | "copied" | "error">("idle");
+  const exportResetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => { if (exportResetTimer.current) clearTimeout(exportResetTimer.current); }, []);
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as SettingsPatch);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
   const tabPlaybackDisabled = settings.tablessMode;
@@ -188,7 +190,9 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                         void onExportCredentials()
                           .then(() => setExportState("copied"))
                           .catch(() => setExportState("error"))
-                          .finally(() => setTimeout(() => setExportState("idle"), 2500));
+                          .finally(() => {
+                            exportResetTimer.current = setTimeout(() => setExportState("idle"), 2500);
+                          });
                       }}
                     >
                       Copy anyway

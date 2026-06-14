@@ -18,10 +18,18 @@ export async function runLoop(config: CliConfig): Promise<void> {
   const integrity = await store.loadIntegrity();
   if (integrity) setTwitchIntegrity(integrity);
 
-  const transport = await createTransport(config.transport, credentials, config.authDir);
+  const transport = await createTransport(config.transport, credentials, config.authDir, {
+    twitch: config.settings.platform.twitch.enabled,
+    kick: config.settings.platform.kick.enabled,
+  });
+
+  // `run` is the explicit intent to farm; enable the loop here (visibly) rather
+  // than having storage silently override the config's running flag.
+  const settings = { ...config.settings, running: true };
+  if (!config.settings.running) console.log("Enabling farming (running=true) for `run`.");
 
   const stateFile = resolve(dirname(config.path), "state.json");
-  const storage = new FileStorage(stateFile, config.settings);
+  const storage = new FileStorage(stateFile, settings);
 
   // chrome.alarms replacement: each createAlarm(name) (re)arms a setInterval that
   // calls the matching controller handler. Re-arming on the same name (e.g. when

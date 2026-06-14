@@ -98,8 +98,11 @@ async function buildCliCredentialExport(): Promise<CliCredentialExport> {
   if (authToken) {
     blob.twitch = { authToken, deviceId: await cookieValue("https://www.twitch.tv", "unique_id") };
   }
+  // Store the raw (URL-encoded) cookie value — the same form browser-assisted
+  // login stores and that the Kick fetchers decode exactly once. Decoding here
+  // would double-decode for import-sourced credentials.
   const sessionToken = await cookieValue("https://kick.com", "session_token");
-  if (sessionToken) blob.kick = { sessionToken: decodeURIComponent(sessionToken) };
+  if (sessionToken) blob.kick = { sessionToken };
   const integrity = await loadTwitchIntegrity();
   if (integrity && integrity.expiresAt > Date.now()) blob.integrity = integrity;
   return blob;

@@ -1,15 +1,6 @@
 import { readFile } from "node:fs/promises";
-import type { TwitchIntegrity } from "@stream-autopilot/core/twitchIntegrity";
+import type { CliCredentialExport } from "@stream-autopilot/shared/messages";
 import { AuthStore } from "../authStore";
-
-// The blob the extension's "Export CLI credentials" action produces. Versioned so
-// the importer can reject incompatible shapes.
-export interface CliCredentialExport {
-  v: 1;
-  twitch?: { authToken: string; deviceId?: string; clientId?: string };
-  kick?: { sessionToken: string };
-  integrity?: TwitchIntegrity;
-}
 
 // Reads an export blob (from a file path, or stdin when source is "-") and writes
 // it into the auth store. Lets a user who already runs the extension onboard the

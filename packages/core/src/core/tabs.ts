@@ -474,8 +474,53 @@ export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string
 }
 
 // Kick hosts whose endpoints replay the session_token cookie as a Bearer (mirrors
-// pageFetchJson). kick.com/api/v2/* is public and does not need it.
-const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com"];
+// pageFetchJson). kick.com/api/v2/* is public and does not need it. Exported so
+// non-extension transports (the CLI's TLS-impersonating fetcher) share the same
+// host list instead of copying it.
+export const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com"];
+
+// The Authorization header value for a Kick request, or undefined when the host
+// is public / no token is available. The stored cookie is URL-encoded, so it is
+// decoded exactly once here — every caller must pass the raw (encoded) cookie.
+export function kickBearerForUrl(url: string, sessionToken: string | undefined): string | undefined {
+  if (!sessionToken) return undefined;
+  if (!KICK_AUTH_HOSTS.some((host) => url.includes(host))) return undefined;
+  return `Bearer ${decodeURIComponent(sessionToken)}`;
+}
+
+// Shared Kick response policy: turns an HTTP status + raw body into either the
+// parsed JSON, an `{ html }` wrapper for legitimate non-API HTML pages, or a
+// KickWafBlockedError when the response looks like a Cloudflare challenge (403,
+// "security policy"/"blocked" text, or a non-JSON body on an API/WS endpoint —
+// including a challenge that slips through with HTTP 200). Used by both the
+// extension's service-worker fetch and the CLI's impersonating fetch so the
+// classification can never drift between transports.
+export function interpretKickResponse<T>(
+  url: string,
+  status: number,
+  statusText: string,
+  body: string,
+  contentType: string,
+): T {
+  if (status < 200 || status >= 300) {
+    const blocked = status === 403 || /security policy|blocked/i.test(body);
+    const message = `HTTP ${status} ${statusText}`.trim();
+    throw blocked ? new KickWafBlockedError(message) : new Error(message);
+  }
+  if (contentType.includes("application/json")) {
+    try {
+      return JSON.parse(body) as T;
+    } catch {
+      throw new KickWafBlockedError("Kick returned a non-JSON body (likely a challenge page)");
+    }
+  }
+  // Non-API kick.com pages (e.g. a channel page) legitimately return HTML; an API
+  // or WS endpoint returning non-JSON means a challenge interstitial slipped a 2xx.
+  if (url.includes("/api/") || url.includes("websockets.kick.com")) {
+    throw new KickWafBlockedError("Kick returned a non-JSON API response (likely a challenge page)");
+  }
+  return { html: body } as T;
+}
 
 // Distinguishes "Kick's WAF / origin check rejected the service-worker request"
 // (fall back to the page-context tab) from a genuine error. Thrown by
@@ -495,9 +540,12 @@ export class KickWafBlockedError extends Error {
 // stack is WAF-blocked for unrelated reasons).
 export async function fetchKickInBackgroundWith<T>(api: CookieApi, url: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers ?? {});
-  if (KICK_AUTH_HOSTS.some((host) => url.includes(host)) && !headers.has("authorization")) {
+  // Only read the cookie for hosts that actually use it (kick.com/api/v2/* is
+  // public), so a public request never touches the cookie jar.
+  if (!headers.has("authorization") && KICK_AUTH_HOSTS.some((host) => url.includes(host))) {
     const sessionToken = (await api.cookies?.get({ url: "https://kick.com", name: "session_token" }))?.value;
-    if (sessionToken) headers.set("authorization", `Bearer ${decodeURIComponent(sessionToken)}`);
+    const bearer = kickBearerForUrl(url, sessionToken);
+    if (bearer) headers.set("authorization", bearer);
   }
 
   let response: Response;
@@ -510,27 +558,7 @@ export async function fetchKickInBackgroundWith<T>(api: CookieApi, url: string, 
   }
 
   const text = await response.text();
-  if (!response.ok) {
-    const blocked = response.status === 403 || /security policy|blocked/i.test(text);
-    const message = `HTTP ${response.status} ${response.statusText}`;
-    throw blocked ? new KickWafBlockedError(message) : new Error(message);
-  }
-
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      throw new KickWafBlockedError("service worker got a non-JSON body (likely a challenge page)");
-    }
-  }
-  // Non-API kick.com pages (e.g. a channel page) legitimately return HTML; API
-  // endpoints returning non-JSON means a challenge interstitial slipped a 200, so
-  // treat that as blocked and let the caller use the page tab.
-  if (url.includes("/api/") || url.includes("websockets.kick.com")) {
-    throw new KickWafBlockedError("service worker got a non-JSON API response (likely a challenge page)");
-  }
-  return { html: text } as T;
+  return interpretKickResponse<T>(url, response.status, response.statusText, text, response.headers.get("content-type") ?? "");
 }
 
 export async function fetchJsonInPageWithBrowser<T>(

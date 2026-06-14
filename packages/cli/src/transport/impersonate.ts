@@ -1,68 +1,77 @@
 import initCycleTLS, { type CycleTLSClient, type CycleTLSWebSocketResponse } from "cycletls";
 import type { PageFetcher } from "@stream-autopilot/core/adapter";
-import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@stream-autopilot/core/tabs";
+import { fetchTwitchInBackgroundWith, interpretKickResponse, kickBearerForUrl } from "@stream-autopilot/core/tabs";
 import { KickAdapter } from "@stream-autopilot/core/kick";
 import { TwitchAdapter } from "@stream-autopilot/core/twitch";
 import type { WebSocketFactory, WebSocketLike } from "@stream-autopilot/core/kick/watch";
 import type { PlatformCredentials } from "../authStore";
 import { createStoreCookieApi } from "./cookieApi";
-import { CHROME_HTTP2, CHROME_JA3, CHROME_UA, hasHeader, headersToObject, tablessWatchPort, type TransportHandle } from "./common";
+import {
+  CHROME_HTTP2,
+  CHROME_JA3,
+  CHROME_UA,
+  disabledFetcher,
+  hasHeader,
+  headersToObject,
+  tablessWatchPort,
+  type EnabledPlatforms,
+  type TransportHandle,
+} from "./common";
 
-const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com"];
-const HTTP_METHODS = ["head", "get", "post", "put", "delete", "trace", "options", "connect", "patch"] as const;
-type HttpMethod = (typeof HTTP_METHODS)[number];
+type HttpMethod = "head" | "get" | "post" | "put" | "delete" | "trace" | "options" | "connect" | "patch";
 
 // TLS-impersonating transport: routes Kick through cycletls so the request carries
 // a real Chrome JA3/HTTP-2 fingerprint, which is what Cloudflare's WAF inspects —
 // the same approach (curl_cffi impersonate) that comparable Node-less Kick miners
 // use. This reaches Kick's API and viewer WebSocket without a browser. Twitch has
 // no such WAF, so it uses the plain server-side fetch with stored credentials.
-export async function createImpersonateTransport(credentials: PlatformCredentials): Promise<TransportHandle> {
-  const cycleTLS = await initCycleTLS();
-
-  const kickFetcher = createCycleKickFetcher(cycleTLS, credentials);
-  const kickWebSocket = createCycleWebSocketFactory(cycleTLS);
+export async function createImpersonateTransport(credentials: PlatformCredentials, enabled: EnabledPlatforms): Promise<TransportHandle> {
+  // cycletls spawns a Go subprocess; only start it when Kick is actually farmed.
+  const cycleTLS = enabled.kick ? await initCycleTLS() : undefined;
 
   const cookieApi = createStoreCookieApi(credentials);
   const twitchFetcher: PageFetcher = {
     fetchJson: (url, init) => fetchTwitchInBackgroundWith(cookieApi, url, init),
   };
 
+  const kick = cycleTLS
+    ? new KickAdapter(createCycleKickFetcher(cycleTLS, credentials.kick?.sessionToken), {
+        watchTabs: tablessWatchPort,
+        createWebSocket: createCycleWebSocketFactory(cycleTLS),
+      })
+    : new KickAdapter(disabledFetcher("kick"), { watchTabs: tablessWatchPort });
+
   return {
     adapters: {
       twitch: new TwitchAdapter(twitchFetcher, { clientId: credentials.twitch?.clientId, watchTabs: tablessWatchPort }),
-      kick: new KickAdapter(kickFetcher, { watchTabs: tablessWatchPort, createWebSocket: kickWebSocket }),
+      kick,
     },
     dispose: async () => {
-      await cycleTLS.exit();
+      if (cycleTLS) await cycleTLS.exit();
     },
   };
 }
 
-export function createCycleKickFetcher(cycleTLS: CycleTLSClient, credentials: PlatformCredentials): PageFetcher {
+// Captures only the session token (not the whole credentials object) so the
+// long-lived fetcher closure doesn't retain unrelated state.
+export function createCycleKickFetcher(cycleTLS: CycleTLSClient, sessionToken: string | undefined): PageFetcher {
   return {
     fetchJson: async <T>(url: string, init?: RequestInit): Promise<T> => {
       const headers = browserHeaders(headersToObject(init?.headers));
-      if (KICK_AUTH_HOSTS.some((host) => url.includes(host)) && !hasHeader(headers, "authorization")) {
-        const token = credentials.kick?.sessionToken;
-        if (token) headers["Authorization"] = `Bearer ${decodeURIComponent(token)}`;
+      if (!hasHeader(headers, "authorization")) {
+        const bearer = kickBearerForUrl(url, sessionToken);
+        if (bearer) headers["Authorization"] = bearer;
       }
 
-      const method = (init?.method ?? "GET").toLowerCase();
+      const method = (init?.method ?? "GET").toLowerCase() as HttpMethod;
       const body = typeof init?.body === "string" ? init.body : undefined;
-      const response = await cycleTLS(
-        url,
-        { ja3: CHROME_JA3, http2Fingerprint: CHROME_HTTP2, userAgent: CHROME_UA, headers, body },
-        (HTTP_METHODS as readonly string[]).includes(method) ? (method as HttpMethod) : "get",
-      );
+      const response = await cycleTLS(url, { ja3: CHROME_JA3, http2Fingerprint: CHROME_HTTP2, userAgent: CHROME_UA, headers, body }, method);
 
-      if (response.status === 403) {
-        throw new KickWafBlockedError(`Kick WAF rejected the impersonated request (HTTP 403) for ${safeHost(url)}`);
-      }
-      if (response.status >= 400) {
-        throw new Error(`Kick HTTP ${response.status} for ${safeHost(url)}`);
-      }
-      return parseBody<T>(response.data, String(response.headers?.["Content-Type"] ?? response.headers?.["content-type"] ?? ""));
+      const contentType = String(response.headers?.["Content-Type"] ?? response.headers?.["content-type"] ?? "");
+      const text = typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
+      // Shared with the extension's fetch so WAF/challenge classification (incl. a
+      // challenge that slips through with HTTP 200) can't drift between transports.
+      return interpretKickResponse<T>(url, response.status, "", text, contentType);
     },
   };
 }
@@ -77,7 +86,8 @@ export function createCycleWebSocketFactory(cycleTLS: CycleTLSClient): WebSocket
 class CycleWebSocket implements WebSocketLike {
   readyState = 0; // CONNECTING
   private socket?: CycleTLSWebSocketResponse;
-  private readonly queue: string[] = [];
+  private closed = false;
+  private queue: string[] = [];
   private readonly listeners: Record<string, Array<(event: unknown) => void>> = {
     open: [], message: [], close: [], error: [],
   };
@@ -91,6 +101,12 @@ class CycleWebSocket implements WebSocketLike {
         headers: { Origin: "https://kick.com", Referer: "https://kick.com/", "User-Agent": CHROME_UA },
       })
       .then((socket) => {
+        // close() may have been called while the connection was still pending —
+        // honor it instead of resurrecting a socket the caller already abandoned.
+        if (this.closed) {
+          void socket.close();
+          return;
+        }
         this.socket = socket;
         this.readyState = 1; // OPEN
         socket.onMessage((message) => {
@@ -98,20 +114,27 @@ class CycleWebSocket implements WebSocketLike {
           this.dispatch("message", { data });
         });
         socket.onClose(() => { this.readyState = 3; this.dispatch("close", {}); });
-        socket.onError((error) => this.dispatch("error", error));
+        socket.onError((error) => { if (!this.closed) this.dispatch("error", error); });
         for (const data of this.queue.splice(0)) void socket.send(data);
         this.dispatch("open", {});
       })
-      .catch((error) => { this.readyState = 3; this.dispatch("error", error); });
+      .catch((error) => {
+        this.readyState = 3;
+        this.queue = [];
+        if (!this.closed) this.dispatch("error", error);
+      });
   }
 
   send(data: string): void {
     if (this.socket && this.readyState === 1) void this.socket.send(data);
-    else this.queue.push(data);
+    else if (!this.closed) this.queue.push(data);
   }
 
   close(): void {
+    if (this.closed) return;
+    this.closed = true;
     this.readyState = 3;
+    this.queue = [];
     if (this.socket) void this.socket.close();
   }
 
@@ -132,22 +155,4 @@ function browserHeaders(headers: Record<string, string>): Record<string, string>
   if (!hasHeader(next, "origin")) next["Origin"] = "https://kick.com";
   if (!hasHeader(next, "referer")) next["Referer"] = "https://kick.com/";
   return next;
-}
-
-function parseBody<T>(data: unknown, contentType: string): T {
-  if (typeof data !== "string") return data as T;
-  if (contentType.includes("application/json")) return JSON.parse(data) as T;
-  try {
-    return JSON.parse(data) as T;
-  } catch {
-    return { html: data } as T;
-  }
-}
-
-function safeHost(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
 }
