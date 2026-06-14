@@ -521,6 +521,9 @@
   "xAttribution": {
     "message": "X पर jamezrin"
   },
+  "chromeWebStoreAttribution": {
+    "message": "Chrome वेब स्टोर पर Lurkloot"
+  },
   "removeItem": {
     "message": "$1 हटाएँ"
   }

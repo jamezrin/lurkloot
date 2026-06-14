@@ -521,6 +521,9 @@
   "xAttribution": {
     "message": "X 上的 jamezrin"
   },
+  "chromeWebStoreAttribution": {
+    "message": "Chrome 应用商店中的 Lurkloot"
+  },
   "rateNudgeTitle": {
     "message": "喜欢 Lurkloot 吗？"
   },
