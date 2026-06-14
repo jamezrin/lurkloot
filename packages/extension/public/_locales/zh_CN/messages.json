@@ -512,6 +512,18 @@
   "xAttribution": {
     "message": "X 上的 jamezrin"
   },
+  "rateNudgeTitle": {
+    "message": "喜欢 Lurkloot 吗？"
+  },
+  "rateNudgeBody": {
+    "message": "在 Chrome 应用商店留下简短评价会很有帮助。"
+  },
+  "rateNudgeAction": {
+    "message": "去评价"
+  },
+  "rateNudgeDismiss": {
+    "message": "暂不"
+  },
   "removeItem": {
     "message": "移除 $1"
   }

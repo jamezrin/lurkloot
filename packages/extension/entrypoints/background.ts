@@ -64,6 +64,13 @@ const controller = createBackgroundController({
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async () => {
     await controller.ensureAlarm();
+    // Stamp the install date once so the popup can time the rate/review nudge.
+    // Set-if-missing (rather than gating on reason === "install") also backfills
+    // a sane date for users upgrading from a pre-nudge version.
+    const state = await loadState();
+    if (!state.installedAt) {
+      await saveState({ ...state, installedAt: new Date().toISOString() });
+    }
   });
 
   browser.runtime.onStartup.addListener(async () => {

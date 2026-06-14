@@ -16,6 +16,7 @@ import { effectiveLocale, isRtlLocale, loadLocaleCatalog, translateFromCatalogs,
 import { I18nContext, PopupRuntimeContext } from "./context";
 import {
   PLATFORMS,
+  RATE_NUDGE_MIN_DAYS,
   SCREENSHOT_VARIANTS,
   SELECTED_PLATFORM_KEY,
 } from "./constants";
@@ -40,6 +41,7 @@ import {
 import { IconButton, SubTabs, cn } from "./primitives";
 import { ActivityLog } from "./activity";
 import { AttributionFooter } from "./footer";
+import { RateNudge, shouldShowRateNudge } from "./rateNudge";
 import { DropsPanel } from "./drops";
 import { WatchQueuePanel } from "./watchQueue";
 import { AutomationHero, PlatformSwitcher } from "./automation";
@@ -356,6 +358,15 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
+                <AnimatePresence initial={false}>
+                  {!preview && shouldShowRateNudge(snapshot.state.installedAt, settings.rateNudgeStatus, new Date(), RATE_NUDGE_MIN_DAYS) ? (
+                    <RateNudge
+                      key="rate-nudge"
+                      onRate={() => void updateSettings({ rateNudgeStatus: "rated" })}
+                      onDismiss={() => void updateSettings({ rateNudgeStatus: "dismissed" })}
+                    />
+                  ) : null}
+                </AnimatePresence>
                 <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} statusMessage={resumingAutomation ? t("resumingAutomation") : session.message} onChange={setAutomation} />
                 <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
                   <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />

@@ -10,6 +10,13 @@ export const PLATFORMS: Record<Platform, { label: string; mark: string; color: s
 export const SELECTED_PLATFORM_KEY = "popup:selectedPlatform";
 export const COLLAPSED_SETTINGS_SECTIONS_KEY = "popup:collapsedSettingsSections";
 
+// Chrome Web Store listing for the rate/review nudge. Single source of truth for
+// the store id so the reviews URL stays correct if the listing slug changes.
+export const CHROME_WEB_STORE_ID = "aobaackpofkghaejdnnmpmeaiaoibhdn";
+export const CHROME_WEB_STORE_REVIEW_URL = `https://chromewebstore.google.com/detail/${CHROME_WEB_STORE_ID}/reviews`;
+// How long after install before the one-time "rate it" nudge appears.
+export const RATE_NUDGE_MIN_DAYS = 3;
+
 export const GAME_ACCENTS = ["#2563eb", "#0891b2", "#ef4444", "#16a34a", "#9333ea", "#f59e0b"];
 
 export const CAMPAIGN_TINTS = [
