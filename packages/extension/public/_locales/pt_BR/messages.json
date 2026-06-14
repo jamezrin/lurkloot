@@ -512,6 +512,18 @@
   "xAttribution": {
     "message": "jamezrin no X"
   },
+  "rateNudgeTitle": {
+    "message": "Curtindo o Lurkloot?"
+  },
+  "rateNudgeBody": {
+    "message": "Uma avaliação rápida na Chrome Web Store ajuda muito."
+  },
+  "rateNudgeAction": {
+    "message": "Avaliar"
+  },
+  "rateNudgeDismiss": {
+    "message": "Agora não"
+  },
   "removeItem": {
     "message": "Remover $1"
   }

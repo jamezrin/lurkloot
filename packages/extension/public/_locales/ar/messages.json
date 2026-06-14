@@ -512,6 +512,18 @@
   "xAttribution": {
     "message": "jamezrin على X"
   },
+  "rateNudgeTitle": {
+    "message": "هل يعجبك Lurkloot؟"
+  },
+  "rateNudgeBody": {
+    "message": "تقييم سريع على متجر Chrome يساعد كثيرًا."
+  },
+  "rateNudgeAction": {
+    "message": "قيّمه"
+  },
+  "rateNudgeDismiss": {
+    "message": "ليس الآن"
+  },
   "removeItem": {
     "message": "إزالة $1"
   }

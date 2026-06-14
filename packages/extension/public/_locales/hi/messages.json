@@ -512,6 +512,18 @@
   "xAttribution": {
     "message": "X पर jamezrin"
   },
+  "rateNudgeTitle": {
+    "message": "Lurkloot पसंद आया?"
+  },
+  "rateNudgeBody": {
+    "message": "Chrome Web Store पर एक छोटी समीक्षा बहुत मदद करती है।"
+  },
+  "rateNudgeAction": {
+    "message": "रेटिंग दें"
+  },
+  "rateNudgeDismiss": {
+    "message": "अभी नहीं"
+  },
   "removeItem": {
     "message": "$1 हटाएँ"
   }

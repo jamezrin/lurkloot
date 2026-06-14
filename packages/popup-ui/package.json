@@ -5,6 +5,7 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./rateNudge": "./src/rateNudge.logic.ts",
     "./styles.css": "./src/styles.css"
   },
   "scripts": {

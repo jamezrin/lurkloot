@@ -1,9 +1,10 @@
-import type { AdFocusMode, CampaignFilterKey, CategorySelection, ExtensionSettings, LanguageOverride, Platform, PlatformSettings, PriorityMode, SupportedLocale } from "./models";
+import type { AdFocusMode, CampaignFilterKey, CategorySelection, ExtensionSettings, LanguageOverride, Platform, PlatformSettings, PriorityMode, RateNudgeStatus, SupportedLocale } from "./models";
 import { LOG_LEVELS, type LogLevel } from "./logging";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
 const CAMPAIGN_FILTER_KEYS: CampaignFilterKey[] = ["notLinked", "upcoming", "expired", "excluded", "finished"];
+const RATE_NUDGE_STATUSES: RateNudgeStatus[] = ["pending", "rated", "dismissed"];
 export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar"];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 
@@ -58,6 +59,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   offlineRetryLimit: 3,
   pollIntervalMinutes: 1,
   enabledLogLevels: ["info", "warn", "error"],
+  rateNudgeStatus: "pending",
 };
 
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
@@ -105,6 +107,9 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
     enabledLogLevels: normalizeLogLevels(value),
+    rateNudgeStatus: RATE_NUDGE_STATUSES.includes(value?.rateNudgeStatus as RateNudgeStatus)
+      ? (value!.rateNudgeStatus as RateNudgeStatus)
+      : DEFAULT_SETTINGS.rateNudgeStatus,
   };
 }
 

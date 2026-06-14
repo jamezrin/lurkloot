@@ -6,6 +6,10 @@ export type CampaignStatus = "active" | "upcoming" | "expired" | "completed";
 
 export type RewardStatus = "locked" | "in_progress" | "claimable" | "claimed";
 
+// Lifecycle of the one-time Chrome Web Store rate/review nudge. "pending" until
+// the user either rates or dismisses it, after which it never shows again.
+export type RateNudgeStatus = "pending" | "rated" | "dismissed";
+
 export interface DropReward {
   id: string;
   name: string;
@@ -206,6 +210,7 @@ export interface ExtensionSettings {
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
   enabledLogLevels: LogLevel[];
+  rateNudgeStatus: RateNudgeStatus;
 }
 
 export interface EventLogEntry {
@@ -224,6 +229,9 @@ export interface SchedulerState {
   campaigns: Record<Platform, DropCampaign[]>;
   events: EventLogEntry[];
   lastTickAt?: string;
+  // ISO timestamp recorded once by the background on install; drives the
+  // time-based rate/review nudge. Undefined means "unknown" (pre-feature state).
+  installedAt?: string;
 }
 
 export interface WatchDecision {

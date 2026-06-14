@@ -108,6 +108,15 @@ describe("settings", () => {
       .toBe("ending_soonest");
   });
 
+  it("validates the rate nudge status", () => {
+    expect(DEFAULT_SETTINGS.rateNudgeStatus).toBe("pending");
+    expect(mergeSettings(undefined).rateNudgeStatus).toBe("pending");
+    expect(mergeSettings({ rateNudgeStatus: "rated" }).rateNudgeStatus).toBe("rated");
+    expect(mergeSettings({ rateNudgeStatus: "dismissed" }).rateNudgeStatus).toBe("dismissed");
+    expect(mergeSettings({ rateNudgeStatus: "bogus" } as unknown as Parameters<typeof mergeSettings>[0]).rateNudgeStatus)
+      .toBe("pending");
+  });
+
   it("validates the language override", () => {
     expect(mergeSettings(undefined).languageOverride).toBe("browser");
     expect(mergeSettings({ languageOverride: "es" }).languageOverride).toBe("es");
