@@ -67,5 +67,8 @@ export default defineConfig({
     sourcesRoot: ".",
     artifactTemplate: "{{name}}-{{version}}-{{browser}}.zip",
     sourcesTemplate: "{{name}}-{{version}}-sources.zip",
+    // Generated, gitignored outputs (store screenshots/promo tiles) live here;
+    // keep them out of the AMO sources zip.
+    excludeSources: ["artifacts/**"],
   }
 });
