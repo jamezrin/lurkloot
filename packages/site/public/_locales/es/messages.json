@@ -74,6 +74,9 @@
   "closeSettings": {
     "message": "Cerrar configuración"
   },
+  "back": {
+    "message": "Volver"
+  },
   "loading": {
     "message": "Cargando"
   },

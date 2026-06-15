@@ -77,6 +77,9 @@
   "closeSettings": {
     "message": "Close settings"
   },
+  "back": {
+    "message": "Back"
+  },
   "loading": {
     "message": "Loading"
   },

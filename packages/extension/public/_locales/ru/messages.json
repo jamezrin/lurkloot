@@ -77,6 +77,9 @@
   "closeSettings": {
     "message": "Закрыть настройки"
   },
+  "back": {
+    "message": "Назад"
+  },
   "loading": {
     "message": "Загрузка"
   },

@@ -74,6 +74,9 @@
   "closeSettings": {
     "message": "सेटिंग्स बंद करें"
   },
+  "back": {
+    "message": "वापस"
+  },
   "loading": {
     "message": "लोड हो रहा है"
   },

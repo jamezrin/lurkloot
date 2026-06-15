@@ -74,6 +74,9 @@
   "closeSettings": {
     "message": "إغلاق الإعدادات"
   },
+  "back": {
+    "message": "رجوع"
+  },
   "loading": {
     "message": "جارٍ التحميل"
   },

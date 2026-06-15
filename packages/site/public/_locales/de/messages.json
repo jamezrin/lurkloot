@@ -74,6 +74,9 @@
   "closeSettings": {
     "message": "Einstellungen schließen"
   },
+  "back": {
+    "message": "Zurück"
+  },
   "loading": {
     "message": "Lädt"
   },

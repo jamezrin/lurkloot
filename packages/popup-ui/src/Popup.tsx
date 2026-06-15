@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowLeft,
   Clock3,
   Gift,
   Info,
   Play,
   RotateCcw,
   Settings as SettingsIcon,
-  X,
 } from "lucide-react";
 import type { CategorySearchResult, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
@@ -317,23 +317,26 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <IconButton label={t("refreshSchedule")} onClick={() => void refreshNow()} disabled={refreshing}>
-              <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
-            </IconButton>
-            <IconButton
-              label={activityOpen ? t("closeActivity") : t("openActivity")}
-              active={activityOpen}
-              onClick={() => { setActivityOpen((value) => !value); setSettingsOpen(false); }}
-            >
-              {activityOpen ? <X size={16} /> : <Clock3 size={16} />}
-            </IconButton>
-            <IconButton
-              label={settingsOpen ? t("closeSettings") : t("openSettings")}
-              active={settingsOpen}
-              onClick={() => { setSettingsOpen((value) => !value); setActivityOpen(false); }}
-            >
-              {settingsOpen ? <X size={16} /> : <SettingsIcon size={16} />}
-            </IconButton>
+            {settingsOpen || activityOpen ? (
+              <IconButton
+                label={t("back")}
+                onClick={() => { setSettingsOpen(false); setActivityOpen(false); }}
+              >
+                <ArrowLeft size={16} />
+              </IconButton>
+            ) : (
+              <>
+                <IconButton label={t("refreshSchedule")} onClick={() => void refreshNow()} disabled={refreshing}>
+                  <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
+                </IconButton>
+                <IconButton label={t("openActivity")} onClick={() => { setActivityOpen(true); setSettingsOpen(false); }}>
+                  <Clock3 size={16} />
+                </IconButton>
+                <IconButton label={t("openSettings")} onClick={() => { setSettingsOpen(true); setActivityOpen(false); }}>
+                  <SettingsIcon size={16} />
+                </IconButton>
+              </>
+            )}
           </div>
         </header>
         {!settingsOpen && !activityOpen ? (
