@@ -6,10 +6,9 @@ Per-language copy for the Chrome Web Store (and AMO) listing.
 (benefit-led, in the spirit of the TDM listing). The gaming term **"farm" / "farming"** is
 used in every language — never crop/agriculture words ("cultivar", "coltivare", "زراعة", etc.).
 
-> ⚠️ **Open decision — Arabic farming term.** Arabic below uses the gaming loanword
-> **فارم / يفارم** (transliteration of "farm"). The shipped Arabic strings currently use the
-> agriculture verb **زراعة / يزرع** ("to plant/cultivate"), which is what we're moving away
-> from. Confirm the preferred Arabic gaming term before this is treated as final.
+> **Arabic farming term — resolved.** Both the store copy and the shipped UI strings use the
+> gaming loanword **فارم / يفارم** (transliteration of "farm"). The agriculture verb
+> **زراعة / يزرع** ("to plant/cultivate") is no longer used anywhere.
 
 The **short description** is the one-line blurb shown in search results (Chrome limit: 132 chars).
 The **detailed description** is the main listing body (plain text — no markdown rendering).
@@ -161,8 +160,6 @@ Pelo popup você pode ativar cada plataforma, priorizar as campanhas e os jogos 
 ---
 
 ## Arabic (ar)
-
-> Uses the gaming loanword **فارم / يفارم** (see open decision at the top).
 
 **Short:** فارم تلقائي لدروبات Twitch وKick في متصفحك. وضع خفيف بلا تبويبات افتراضيًا، مطالبة تلقائية، وخصوصية بالتصميم.
 
