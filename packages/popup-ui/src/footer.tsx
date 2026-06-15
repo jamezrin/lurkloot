@@ -1,7 +1,7 @@
 import React from "react";
-import { Chrome, Github } from "lucide-react";
+import { Chrome, Github, Globe } from "lucide-react";
 import { useT } from "./context";
-import { CHROME_WEB_STORE_URL } from "./constants";
+import { CHROME_WEB_STORE_URL, SITE_URL } from "./constants";
 
 export function AttributionFooter({ version }: { version: string }): React.ReactElement {
   const t = useT();
@@ -9,6 +9,16 @@ export function AttributionFooter({ version }: { version: string }): React.React
     <footer className="flex h-9 shrink-0 items-center justify-between border-t border-zinc-200/70 bg-white/85 px-3 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-500">
       <span className="text-[10px] font-medium tabular">v{version}</span>
       <nav aria-label={t("attributionLinks")} className="flex items-center gap-1.5">
+        <a
+          href={SITE_URL}
+          target="_blank"
+          rel="noreferrer"
+          title={t("siteAttribution")}
+          aria-label={t("siteAttribution")}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        >
+          <Globe size={15} />
+        </a>
         <a
           href={CHROME_WEB_STORE_URL}
           target="_blank"

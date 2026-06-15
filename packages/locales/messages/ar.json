@@ -530,6 +530,9 @@
   "chromeWebStoreAttribution": {
     "message": "Lurkloot على متجر Chrome الإلكتروني"
   },
+  "siteAttribution": {
+    "message": "موقع Lurkloot"
+  },
   "rateNudgeTitle": {
     "message": "هل يعجبك Lurkloot؟"
   },

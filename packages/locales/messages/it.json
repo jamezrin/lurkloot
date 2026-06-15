@@ -530,6 +530,9 @@
   "chromeWebStoreAttribution": {
     "message": "Lurkloot su Chrome Web Store"
   },
+  "siteAttribution": {
+    "message": "Sito web di Lurkloot"
+  },
   "rateNudgeTitle": {
     "message": "Ti piace Lurkloot?"
   },

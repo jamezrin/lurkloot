@@ -530,6 +530,9 @@
   "chromeWebStoreAttribution": {
     "message": "Chrome 应用商店中的 Lurkloot"
   },
+  "siteAttribution": {
+    "message": "Lurkloot 网站"
+  },
   "rateNudgeTitle": {
     "message": "喜欢 Lurkloot 吗？"
   },

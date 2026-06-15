@@ -530,6 +530,9 @@
   "chromeWebStoreAttribution": {
     "message": "Chrome वेब स्टोर पर Lurkloot"
   },
+  "siteAttribution": {
+    "message": "Lurkloot वेबसाइट"
+  },
   "rateNudgeTitle": {
     "message": "Lurkloot पसंद आया?"
   },

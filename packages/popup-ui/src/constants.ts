@@ -15,6 +15,8 @@ export const COLLAPSED_SETTINGS_SECTIONS_KEY = "popup:collapsedSettingsSections"
 export const CHROME_WEB_STORE_ID = "aobaackpofkghaejdnnmpmeaiaoibhdn";
 export const CHROME_WEB_STORE_URL = `https://chromewebstore.google.com/detail/${CHROME_WEB_STORE_ID}`;
 export const CHROME_WEB_STORE_REVIEW_URL = `${CHROME_WEB_STORE_URL}/reviews`;
+// Canonical marketing/landing site for the extension.
+export const SITE_URL = "https://lurkloot.jamezrin.com";
 // How long after install before the one-time "rate it" nudge appears.
 export const RATE_NUDGE_MIN_DAYS = 3;
 
