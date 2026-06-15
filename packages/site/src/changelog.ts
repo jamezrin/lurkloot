@@ -34,13 +34,32 @@ export const changelog: ChangelogEntry[] = [
           "Added direct links to each drop's campaign page, plus a “No category” grouping for uncategorized drops.",
       },
       { kind: "new", text: "Added a Chrome Web Store link in the settings footer." },
+      { kind: "new", text: "Added a link to the Lurkloot website in the popup footer." },
+      {
+        kind: "new",
+        text: "Added a What’s New page that opens automatically after meaningful updates.",
+      },
+      {
+        kind: "improved",
+        text:
+          "Clicking the campaign being farmed now jumps straight to its card on the Drops tab.",
+      },
+      {
+        kind: "improved",
+        text:
+          "Activity and Settings sub-pages now show a single back button instead of the full toolbar.",
+      },
       {
         kind: "improved",
         text: "Added an occasional one-time prompt to rate the extension.",
       },
       {
         kind: "fixed",
-        text: "Corrected the Twitch liveness fallback default and removed dead diagnostics state.",
+        text: "Stopped the “no earnable drops left” notification from repeating every minute.",
+      },
+      {
+        kind: "fixed",
+        text: "Fixed a tab-close race that could overwrite in-progress farming state.",
       },
     ],
   },
@@ -79,6 +98,11 @@ export const changelog: ChangelogEntry[] = [
         text: "Fixed Kick reward images by resolving relative paths to the Kick CDN.",
       },
       { kind: "fixed", text: "Fixed editing automation settings while farming was paused." },
+      {
+        kind: "fixed",
+        text:
+          "Fixed the Twitch live-status check so it no longer stalls on a channel that has gone offline.",
+      },
     ],
   },
   {
