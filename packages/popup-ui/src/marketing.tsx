@@ -1,26 +1,25 @@
 import React, { useEffect, useState } from "react";
 import type { SupportedLocale } from "@lurkloot/shared/models";
-import { DEFAULT_LOCALE, isRtlLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+import { DEFAULT_LOCALE, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+import { loadCatalog } from "@lurkloot/locales";
 import { PROMO_GRADIENT } from "./constants";
 import type { ScreenshotVariant } from "./types";
 
 export function StoreScreenshot({
   variant,
   children,
-  getUrl,
   locale = DEFAULT_LOCALE,
 }: {
   variant: ScreenshotVariant;
   children: React.ReactNode;
-  getUrl: (path: string) => string;
   locale?: SupportedLocale;
 }): React.ReactElement {
   const [catalog, setCatalog] = useState<MessageCatalog | undefined>(undefined);
   const [fallback, setFallback] = useState<MessageCatalog | undefined>(undefined);
   useEffect(() => {
-    void loadLocaleCatalog(locale, getUrl).then(setCatalog);
-    void loadLocaleCatalog(DEFAULT_LOCALE, getUrl).then(setFallback);
-  }, [getUrl, locale]);
+    void loadCatalog(locale).then(setCatalog);
+    void loadCatalog(DEFAULT_LOCALE).then(setFallback);
+  }, [locale]);
   const translate = (key: string) => translateFromCatalogs(key, undefined, catalog, fallback ?? catalog ?? {});
   return (
     <div
@@ -69,19 +68,17 @@ function PromoPills({ translate, scale = 1 }: { translate: (key: string) => stri
 
 export function PromoTile({
   format,
-  getUrl,
   locale = DEFAULT_LOCALE,
 }: {
   format: "small" | "marquee";
-  getUrl: (path: string) => string;
   locale?: SupportedLocale;
 }): React.ReactElement {
   const [catalog, setCatalog] = useState<MessageCatalog | undefined>(undefined);
   const [fallback, setFallback] = useState<MessageCatalog | undefined>(undefined);
   useEffect(() => {
-    void loadLocaleCatalog(locale, getUrl).then(setCatalog);
-    void loadLocaleCatalog(DEFAULT_LOCALE, getUrl).then(setFallback);
-  }, [getUrl, locale]);
+    void loadCatalog(locale).then(setCatalog);
+    void loadCatalog(DEFAULT_LOCALE).then(setFallback);
+  }, [locale]);
   const translate = (key: string) => translateFromCatalogs(key, undefined, catalog, fallback ?? catalog ?? {});
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
 

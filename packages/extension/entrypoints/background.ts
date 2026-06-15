@@ -3,7 +3,8 @@ import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, 
 import { SETTINGS_SESSION_PORT, type RuntimeMessage } from "@lurkloot/shared/messages";
 import { applyAdFocus } from "../src/core/tabs";
 import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "../src/background/controller";
-import { effectiveLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, SupportedLocale } from "@lurkloot/shared/models";
 import { KickAdapter } from "../src/platforms/kick";
 import { TwitchAdapter } from "../src/platforms/twitch";
@@ -12,11 +13,10 @@ import { CHANGELOG_URL } from "../src/core/links";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
-const getUrl = (path: string) => browser.runtime.getURL(path as never);
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
-  const loaded = await loadLocaleCatalog(locale as SupportedLocale, getUrl);
+  const loaded = await loadCatalog(locale as SupportedLocale);
   localeCatalogs.set(locale, loaded);
   return loaded;
 }

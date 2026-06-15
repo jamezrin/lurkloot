@@ -60,7 +60,6 @@ function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackC
 export function createDemoPopupAdapter(options?: {
   locale?: SupportedLocale;
   version?: string;
-  getUrl?: (path: string) => string;
 }): PopupAdapter {
   const store: Record<string, unknown> = {};
   return {
@@ -77,7 +76,6 @@ export function createDemoPopupAdapter(options?: {
     connectSettingsSession: () => () => undefined,
     getMessage: () => "",
     getUiLanguage: () => options?.locale ?? "en",
-    getUrl: options?.getUrl ?? ((path) => path),
   };
 }
 

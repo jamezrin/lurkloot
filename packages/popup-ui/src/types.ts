@@ -54,7 +54,6 @@ export interface PopupAdapter {
   connectSettingsSession?(): () => void;
   getMessage(key: string, substitutions?: string | string[]): string;
   getUiLanguage(): string;
-  getUrl(path: string): string;
 }
 
 export interface PopupInitialState {

@@ -54,13 +54,3 @@ export function translateFromCatalogs(
       : [substitutions];
   return values.reduce((text, value, index) => text.replaceAll(`$${index + 1}`, value), template);
 }
-
-export async function loadLocaleCatalog(locale: SupportedLocale, getUrl: (path: string) => string): Promise<MessageCatalog | undefined> {
-  try {
-    const response = await fetch(getUrl(`/_locales/${locale}/messages.json`));
-    if (!response.ok) return undefined;
-    return await response.json() as MessageCatalog;
-  } catch {
-    return undefined;
-  }
-}

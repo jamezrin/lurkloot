@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { effectiveLocale, isRtlLocale, normalizeBrowserLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+
+// Catalogs live in the single-source @lurkloot/locales package as <locale>.json.
+const messagesDir = dirname(createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"));
+const localeCodes = () => readdirSync(messagesDir).filter((entry) => entry.endsWith(".json")).map((entry) => entry.replace(/\.json$/, ""));
+const readCatalog = (locale: string) => JSON.parse(readFileSync(join(messagesDir, `${locale}.json`), "utf8")) as MessageCatalog;
 
 describe("i18n", () => {
   it("normalizes browser locales to supported extension locales", () => {
@@ -32,21 +38,19 @@ describe("i18n", () => {
   });
 
   it("keeps locale catalog keys in sync", () => {
-    const root = join(process.cwd(), "public", "_locales");
-    const locales = readdirSync(root).filter((entry) => !entry.startsWith("."));
-    const english = JSON.parse(readFileSync(join(root, "en", "messages.json"), "utf8")) as MessageCatalog;
+    const locales = localeCodes();
+    const english = readCatalog("en");
     const englishKeys = Object.keys(english).sort();
 
     expect(locales).toContain("ar");
     for (const locale of locales) {
-      const catalog = JSON.parse(readFileSync(join(root, locale, "messages.json"), "utf8")) as MessageCatalog;
+      const catalog = readCatalog(locale);
       expect(Object.keys(catalog).sort(), locale).toEqual(englishKeys);
     }
   });
 
   it("does not leave non-English catalogs as English except product/common terms", () => {
-    const root = join(process.cwd(), "public", "_locales");
-    const english = JSON.parse(readFileSync(join(root, "en", "messages.json"), "utf8")) as MessageCatalog;
+    const english = readCatalog("en");
     const allowedSameAsEnglish = new Set([
       "extensionName",
       "dropsTab",
@@ -65,8 +69,8 @@ describe("i18n", () => {
       "off",
     ]);
 
-    for (const locale of readdirSync(root).filter((entry) => entry !== "en" && !entry.startsWith("."))) {
-      const catalog = JSON.parse(readFileSync(join(root, locale, "messages.json"), "utf8")) as MessageCatalog;
+    for (const locale of localeCodes().filter((entry) => entry !== "en")) {
+      const catalog = readCatalog(locale);
       const unchanged = Object.keys(english).filter((key) =>
         catalog[key]?.message === english[key]?.message && !allowedSameAsEnglish.has(key));
       expect(unchanged, locale).toEqual([]);

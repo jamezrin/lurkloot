@@ -23,6 +23,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.6)
+      '@lurkloot/locales':
+        specifier: workspace:*
+        version: link:../locales
       '@lurkloot/popup-ui':
         specifier: workspace:*
         version: link:../popup-ui
@@ -79,6 +82,16 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.19)(lightningcss@1.32.0)
 
+  packages/locales:
+    dependencies:
+      '@lurkloot/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/popup-ui:
     dependencies:
       '@dnd-kit/core':
@@ -90,6 +103,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.6)
+      '@lurkloot/locales':
+        specifier: workspace:*
+        version: link:../locales
       '@lurkloot/shared':
         specifier: workspace:*
         version: link:../shared

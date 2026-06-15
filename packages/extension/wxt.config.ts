@@ -1,8 +1,27 @@
+import { createRequire } from "node:module";
+import { readdirSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { defineConfig } from "wxt";
 import tailwindcss from "@tailwindcss/vite";
 
+// Native `_locales` are required by the manifest's localized store listing
+// (default_locale + __MSG__). They are not committed; we materialize them from
+// the single source of truth, the @lurkloot/locales package, at build time.
+const messagesDir = dirname(createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"));
+
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
+  hooks: {
+    "build:publicAssets"(_wxt, files) {
+      for (const file of readdirSync(messagesDir)) {
+        if (!file.endsWith(".json")) continue;
+        files.push({
+          absoluteSrc: join(messagesDir, file),
+          relativeDest: `_locales/${basename(file, ".json")}/messages.json`,
+        });
+      }
+    },
+  },
   vite: () => ({
     build: {
       sourcemap: false,

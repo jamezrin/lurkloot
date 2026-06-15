@@ -12,7 +12,8 @@ import {
 import type { CategorySearchResult, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
-import { effectiveLocale, isRtlLocale, loadLocaleCatalog, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+import { loadCatalog } from "@lurkloot/locales";
 import { I18nContext, PopupRuntimeContext } from "./context";
 import {
   PLATFORMS,
@@ -85,7 +86,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
 
   useEffect(() => {
     let cancelled = false;
-    void loadLocaleCatalog("en", adapter.getUrl).then((catalog) => {
+    void loadCatalog("en").then((catalog) => {
       if (!cancelled) setFallbackCatalog(catalog);
     });
     return () => {
@@ -101,7 +102,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         cancelled = true;
       };
     }
-    void loadLocaleCatalog(languageOverride, adapter.getUrl).then((catalog) => {
+    void loadCatalog(languageOverride).then((catalog) => {
       if (!cancelled) setOverrideCatalog(catalog);
     });
     return () => {

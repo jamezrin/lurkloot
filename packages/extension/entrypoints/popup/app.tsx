@@ -39,7 +39,6 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     },
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),
     getUiLanguage: () => browser.i18n.getUILanguage(),
-    getUrl: (path) => browser.runtime.getURL(path as never),
   };
 }
 
@@ -47,18 +46,17 @@ export const POPUP_ADAPTER: PopupAdapter = SCREENSHOT_MODE || PROMO_MODE
   ? createDemoPopupAdapter({
       locale: POPUP_LOCALE,
       version: browser.runtime.getManifest().version,
-      getUrl: (path) => browser.runtime.getURL(path as never),
     })
   : createExtensionPopupAdapter();
 
 export function PopupApp(): React.ReactElement {
   if (PROMO_MODE) {
-    return <PromoTile format={PROMO_FORMAT} getUrl={POPUP_ADAPTER.getUrl} locale={POPUP_LOCALE} />;
+    return <PromoTile format={PROMO_FORMAT} locale={POPUP_LOCALE} />;
   }
 
   if (SCREENSHOT_MODE) {
     return (
-      <StoreScreenshot variant={SCREENSHOT_VARIANT} getUrl={POPUP_ADAPTER.getUrl} locale={POPUP_LOCALE}>
+      <StoreScreenshot variant={SCREENSHOT_VARIANT} locale={POPUP_LOCALE}>
         <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: POPUP_LOCALE, variant: SCREENSHOT_VARIANT }} />
       </StoreScreenshot>
     );
