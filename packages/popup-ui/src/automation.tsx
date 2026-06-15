@@ -30,7 +30,7 @@ export function PlatformSwitcher({ active, automation, onChange }: { active: Pla
   );
 }
 
-export function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitle, farmingChannel, statusMessage }: { platformLabel: string; enabled: boolean; pending: boolean; onChange(value: boolean): Promise<void>; farmingTitle?: string; farmingChannel?: FarmingChannelView; statusMessage?: string }) {
+export function AutomationHero({ platformLabel, enabled, pending, onChange, farmingTitle, farmingChannel, onFarmingTitleClick, statusMessage }: { platformLabel: string; enabled: boolean; pending: boolean; onChange(value: boolean): Promise<void>; farmingTitle?: string; farmingChannel?: FarmingChannelView; onFarmingTitleClick?(): void; statusMessage?: string }) {
   const t = useT();
   const status = pending ? (enabled ? t("automationStarting") : t("automationStopping")) : enabled ? t("automationRunning") : t("pausedStatus");
 
@@ -65,7 +65,16 @@ export function AutomationHero({ platformLabel, enabled, pending, onChange, farm
                 ) : (
                   <p className="line-clamp-2 leading-snug" title={statusMessage}>{statusMessage ?? t("waitingEligibleStream")}</p>
                 )}
-                {farmingTitle && <p className="truncate">{t("farmingLabel")} <span className="font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span></p>}
+                {farmingTitle && (
+                  <p className="flex items-center gap-1 truncate">
+                    <span className="shrink-0">{t("farmingLabel")}</span>
+                    {onFarmingTitleClick ? (
+                      <button type="button" onClick={onFarmingTitleClick} className="truncate font-semibold text-zinc-800 outline-none hover:text-[var(--accent-text)] hover:underline focus-visible:text-[var(--accent-text)] dark:text-zinc-100">{farmingTitle}</button>
+                    ) : (
+                      <span className="truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span>
+                    )}
+                  </p>
+                )}
               </>
             ) : (
               <p className="line-clamp-2 leading-snug">{t("watchingPausedHint")}</p>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { DndContext, DragOverlay, closestCenter, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -35,12 +35,23 @@ import {
   useDndSensors,
 } from "./primitives";
 
-export function DropsPanel({ campaigns, gameMap, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
+export function DropsPanel({ campaigns, gameMap, focus, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
   const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const firstId = campaigns[0]?.id;
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(firstId ? { [firstId]: true } : {});
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Jump to a campaign requested from elsewhere (e.g. the "Farming {campaign}"
+  // link in the hero): expand it and scroll its card into view.
+  useEffect(() => {
+    if (!focus) return;
+    setExpandedIds((current) => ({ ...current, [focus.id]: true }));
+    const cards = listRef.current?.querySelectorAll<HTMLElement>("[data-campaign-id]");
+    const el = cards && Array.from(cards).find((card) => card.dataset.campaignId === focus.id);
+    requestAnimationFrame(() => el?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [focus?.seq]);
   const activeCampaign = campaigns.find((campaign) => campaign.id === activeId);
   const activeIndex = campaigns.findIndex((campaign) => campaign.id === activeId);
   const anyFarming = campaigns.some((campaign) => Boolean(campaign.farmingChannel));
@@ -58,7 +69,7 @@ export function DropsPanel({ campaigns, gameMap, onReorder, onToggleExclude }: {
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event: DragStartEvent) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
       <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2">
+        <div ref={listRef} className="space-y-2">
           {campaigns.map((campaign, index) => (
             <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onToggleExclude={onToggleExclude} />
           ))}
@@ -74,7 +85,7 @@ export function DropsPanel({ campaigns, gameMap, onReorder, onToggleExclude }: {
 function SortableCampaign(props: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; onToggle(): void; onToggleExclude(id: string): void | Promise<void> }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.campaign.id });
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
+    <div ref={setNodeRef} data-campaign-id={props.campaign.id} style={{ transform: CSS.Transform.toString(transform), transition }}>
       <CampaignCard {...props} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${props.campaign.title}`} />} />
     </div>
   );

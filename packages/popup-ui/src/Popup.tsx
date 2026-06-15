@@ -68,6 +68,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [refreshing, setRefreshing] = useState(false);
   const [resumingAutomation, setResumingAutomation] = useState(false);
   const [pendingAutomation, setPendingAutomation] = useState<Partial<Record<Platform, boolean>>>({});
+  // Request to jump to a campaign in the drops list (expand + scroll). The seq
+  // counter lets repeated clicks on the same campaign re-trigger the effect.
+  const [campaignFocus, setCampaignFocus] = useState<{ id: string; seq: number } | null>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const wasSettingsOpen = useRef(settingsOpen);
@@ -295,6 +298,12 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const automationPending = pendingAutomation[platform] != null;
   const activeCampaign = campaigns.find((campaign) => campaign.farmingChannel);
   const farmingChannel = activeCampaign?.farmingChannel ?? sessionChannel;
+  const onFarmingTitleClick = activeCampaign
+    ? () => {
+        setTab("drops");
+        setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }));
+      }
+    : undefined;
 
   return (
       <PopupRuntimeContext.Provider value={{ adapter, preview }}>
@@ -371,7 +380,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     />
                   ) : null}
                 </AnimatePresence>
-                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} statusMessage={resumingAutomation ? t("resumingAutomation") : session.message} onChange={setAutomation} />
+                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={resumingAutomation ? t("resumingAutomation") : session.message} onChange={setAutomation} />
                 <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
                   <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
                   <p className="leading-snug text-zinc-600 dark:text-zinc-300">
@@ -392,6 +401,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                       <DropsPanel
                         campaigns={campaigns}
                         gameMap={gameMap}
+                        focus={campaignFocus}
                         onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) })}
                         onToggleExclude={(id) => {
                           const next = new Set(settings.excludedCampaignIds);
