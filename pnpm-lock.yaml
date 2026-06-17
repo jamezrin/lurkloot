@@ -12,6 +12,28 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/cli:
+    dependencies:
+      '@lurkloot/core':
+        specifier: workspace:*
+        version: link:../core
+      '@lurkloot/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.19.19
+      esbuild:
+        specifier: ^0.27.0
+        version: 0.27.7
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.19)(lightningcss@1.32.0)
+
   packages/core:
     dependencies:
       '@lurkloot/shared':
