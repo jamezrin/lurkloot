@@ -12,11 +12,8 @@ describe("createTransport", () => {
     await expect(handle.dispose()).resolves.toBeUndefined();
   });
 
-  it("rejects transports that are not implemented yet", async () => {
-    // impersonate is covered by impersonate.test.ts (with cycletls mocked, so no
-    // real subprocess spawns here); browser is the only one still unimplemented.
-    await expect(createTransport("browser", {}, "/tmp/auth", ENABLED)).rejects.toThrow(/not available yet/);
-  });
+  // impersonate and browser are exercised by impersonate.test.ts / browser.test.ts
+  // (with cycletls/Playwright handled there, so no real subprocess spawns here).
 });
 
 describe("tablessWatchPort", () => {
