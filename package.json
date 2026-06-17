@@ -11,6 +11,8 @@
     "build": "pnpm --filter @lurkloot/extension build",
     "build:firefox": "pnpm --filter @lurkloot/extension build:firefox",
     "build:site": "pnpm --filter @lurkloot/site build",
+    "build:cli": "pnpm --filter @lurkloot/cli build",
+    "cli": "node packages/cli/dist/index.mjs",
     "build:all": "pnpm -r build",
     "zip": "pnpm --filter @lurkloot/extension zip",
     "zip:firefox": "pnpm --filter @lurkloot/extension zip:firefox",

@@ -1,0 +1,13 @@
+# Keep the build context lean: the Dockerfile copies only the cli/core/shared
+# subtree it needs, and never wants installed deps or generated artifacts.
+**/node_modules
+**/dist
+packages/extension/.output
+packages/extension/.wxt
+packages/site/dist
+packages/site/.astro
+**/*.log
+.git
+.github
+.claude
+docs
