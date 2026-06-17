@@ -7,14 +7,15 @@
     "lurkloot": "./dist/index.mjs"
   },
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/index.mjs",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/index.mjs --external:cycletls",
     "cli": "pnpm build && node dist/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@lurkloot/core": "workspace:*",
-    "@lurkloot/shared": "workspace:*"
+    "@lurkloot/shared": "workspace:*",
+    "cycletls": "^2.0.5"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

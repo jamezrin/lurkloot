@@ -13,7 +13,8 @@ describe("createTransport", () => {
   });
 
   it("rejects transports that are not implemented yet", async () => {
-    await expect(createTransport("impersonate", {}, "/tmp/auth", ENABLED)).rejects.toThrow(/not available yet/);
+    // impersonate is covered by impersonate.test.ts (with cycletls mocked, so no
+    // real subprocess spawns here); browser is the only one still unimplemented.
     await expect(createTransport("browser", {}, "/tmp/auth", ENABLED)).rejects.toThrow(/not available yet/);
   });
 });

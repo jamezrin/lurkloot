@@ -4,7 +4,7 @@ import { logActivity } from "../../core/activityLog";
 import { KickWafBlockedError } from "../../core/tabs";
 import { unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
-import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
+import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
 
 interface KickLivestreamsResponse {
   data?: Array<KickLivestream> | { livestreams?: KickLivestream[] };
@@ -125,6 +125,11 @@ export class KickAdapter implements PlatformAdapter {
     private readonly fetcher: PageFetcher,
     // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
     private readonly watchTabPort: WatchTabPort = unavailableWatchTabPort,
+    // Optional factory for the tabless viewer WebSocket. The extension leaves it
+    // unset (the watcher uses the platform WebSocket from the service worker); a
+    // headless runtime injects one that rides its impersonated session so the
+    // handshake clears Kick's WAF.
+    private readonly webSocketFactory?: WebSocketFactory,
   ) {}
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
@@ -288,6 +293,7 @@ export class KickAdapter implements PlatformAdapter {
   createTablessWatcher(): TablessWatchController {
     return new KickWatcher({
       fetcher: this.fetcher,
+      createWebSocket: this.webSocketFactory,
       log: (level, message) => logActivity(level, message, "kick"),
     });
   }
