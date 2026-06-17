@@ -1,6 +1,7 @@
 import type { Transport } from "../config";
 import type { PlatformCredentials } from "../authStore";
 import { createHttpTransport } from "./http";
+import { createImpersonateTransport } from "./impersonate";
 import type { EnabledPlatforms, TransportHandle } from "./common";
 
 export type { TransportHandle, EnabledPlatforms } from "./common";
@@ -19,8 +20,9 @@ export async function createTransport(
     case "http":
       return createHttpTransport(credentials, enabled);
     case "impersonate":
+      return createImpersonateTransport(credentials, enabled);
     case "browser":
-      throw new Error(`Transport "${transport}" is not available yet (added in a later phase); use "http" for now`);
+      throw new Error(`Transport "${transport}" is not available yet (added in a later phase); use "http" or "impersonate"`);
     default:
       throw new Error(`Unknown transport: ${transport as string}`);
   }
