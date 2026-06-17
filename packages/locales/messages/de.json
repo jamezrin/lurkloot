@@ -547,5 +547,20 @@
   },
   "removeItem": {
     "message": "$1 entfernen"
+  },
+  "cliExportTitle": {
+    "message": "Headless-CLI"
+  },
+  "cliExportDescription": {
+    "message": "Führe das Drop-Farming auf einem Server oder in Docker mit der Lurkloot-CLI aus – mit der angemeldeten Sitzung dieses Browsers."
+  },
+  "cliExportHint": {
+    "message": "Exportiert deine Twitch- und Kick-Sitzungstokens, damit „login --import“ der CLI sie wiederverwenden kann. Halte die Datei geheim – wer sie hat, kann deine Sitzungen nutzen."
+  },
+  "cliExportConfirm": {
+    "message": "Dies lädt deine Twitch- und Kick-Sitzungstokens in eine Datei herunter. Wer diese Datei besitzt, kann auf diesen Seiten in deinem Namen handeln. Fortfahren?"
+  },
+  "cliExportButton": {
+    "message": "Anmeldedaten exportieren"
   }
 }

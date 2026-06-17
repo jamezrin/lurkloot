@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
-import { SETTINGS_SESSION_PORT, type RuntimeMessage } from "@lurkloot/shared/messages";
+import { SETTINGS_SESSION_PORT, type CliCredentialBlob, type RuntimeMessage } from "@lurkloot/shared/messages";
 import {
   applyAdFocus,
   ensureTwitchIntegrity,
@@ -91,6 +91,26 @@ const controller = createBackgroundController({
   }),
 });
 
+// Builds the CLI credential blob from the user's live session cookies: Twitch
+// auth-token / unique_id and Kick session_token — exactly what the headless
+// transports replay. Reads only these; nothing else leaves the browser.
+async function buildCliCredentialBlob(): Promise<CliCredentialBlob> {
+  const cookie = async (url: string, name: string): Promise<string | undefined> =>
+    (await browser.cookies.get({ url, name }))?.value;
+  return {
+    version: 1,
+    credentials: {
+      twitch: {
+        authToken: await cookie("https://www.twitch.tv", "auth-token"),
+        deviceId: await cookie("https://www.twitch.tv", "unique_id"),
+      },
+      kick: {
+        sessionToken: await cookie("https://kick.com", "session_token"),
+      },
+    },
+  };
+}
+
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async (details) => {
     await controller.ensureAlarm();
@@ -141,6 +161,13 @@ export default defineBackground(() => {
   );
 
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
+    // Credential export reads the user's live session cookies, which only the
+    // extension can do — handle it here rather than in the browser-free engine.
+    // The popup gates this behind an explicit confirm dialog.
+    if (message.type === "exportCliCredentials") {
+      void buildCliCredentialBlob().then(sendResponse);
+      return true;
+    }
     void controller.handleMessage(message, sender).then(sendResponse);
     return true;
   });

@@ -7,6 +7,7 @@ import {
   Radio,
   Settings as SettingsIcon,
   SlidersHorizontal,
+  Terminal,
 } from "lucide-react";
 import type {
   CategorySelection,
@@ -29,11 +30,14 @@ import { PlatformSettingsGroup, SettingsPlatformSwitch } from "./settingsPlatfor
 import { useT } from "./context";
 import type { GameItem } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, initialPlatform = "twitch" }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, initialPlatform = "twitch" }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
   onSettingsChange(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void>;
+  // Optional: when provided, the settings view shows an "Export credentials"
+  // action for the headless CLI. The extension wires it; the demo omits it.
+  onExportCredentials?: () => void | Promise<void>;
   initialPlatform?: Platform;
 }) {
   const t = useT();
@@ -146,6 +150,22 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
         <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={pollIntervalSeconds} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
         <LogLevelSettingRow value={settings.enabledLogLevels} onChange={(levels) => onSettingsChange({ enabledLogLevels: levels })} />
       </SettingsSection>
+      {onExportCredentials && (
+        <SettingsSection title={t("cliExportTitle")} description={t("cliExportDescription")} icon={Terminal}>
+          <div className="flex items-center justify-between gap-3 px-1 py-1">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("cliExportHint")}</p>
+            <button
+              type="button"
+              className="shrink-0 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)]"
+              onClick={() => {
+                if (window.confirm(t("cliExportConfirm"))) void onExportCredentials();
+              }}
+            >
+              {t("cliExportButton")}
+            </button>
+          </div>
+        </SettingsSection>
+      )}
     </div>
   );
 }

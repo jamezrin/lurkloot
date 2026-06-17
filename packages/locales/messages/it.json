@@ -547,5 +547,20 @@
   },
   "removeItem": {
     "message": "Rimuovi $1"
+  },
+  "cliExportTitle": {
+    "message": "CLI senza browser"
+  },
+  "cliExportDescription": {
+    "message": "Esegui il farming dei drop su un server o in Docker con la CLI di Lurkloot, usando la sessione connessa di questo browser."
+  },
+  "cliExportHint": {
+    "message": "Esporta i token di sessione di Twitch e Kick così che «login --import» della CLI possa riutilizzarli. Tieni privato il file: chiunque lo possieda può usare le tue sessioni."
+  },
+  "cliExportConfirm": {
+    "message": "Questo scaricherà i token di sessione di Twitch e Kick in un file. Chiunque abbia quel file può agire come te su quei siti. Continuare?"
+  },
+  "cliExportButton": {
+    "message": "Esporta credenziali"
   }
 }

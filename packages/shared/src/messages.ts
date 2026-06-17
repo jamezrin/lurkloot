@@ -13,11 +13,24 @@ export type RuntimeMessage =
   | { type: "claimReward"; platform: Platform; campaignId: string; rewardId: string }
   | { type: "searchCategories"; platform: Platform; query: string }
   | { type: "tickNow" }
+  | { type: "exportCliCredentials" }
   | {
       type: "playbackTelemetry";
       platform: Platform;
       telemetry: Omit<PlaybackTelemetry, "platform" | "checkedAt">;
     };
+
+// Credential blob the popup exports for the headless CLI's `login --import`. It
+// carries only the session tokens the CLI transports replay — never anything the
+// config holds — and is produced from the user's live cookies on explicit,
+// confirm-gated request.
+export interface CliCredentialBlob {
+  version: number;
+  credentials: {
+    twitch?: { authToken?: string; deviceId?: string };
+    kick?: { sessionToken?: string };
+  };
+}
 
 export interface RuntimeSnapshot {
   settings: ExtensionSettings;
