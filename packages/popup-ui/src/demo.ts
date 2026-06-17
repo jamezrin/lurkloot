@@ -51,6 +51,9 @@ function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackC
       };
     case "claimReward":
     case "playbackTelemetry":
+    // The demo host never offers credential export (no exportCredentials hook),
+    // so this is unreachable — return a snapshot to keep the switch exhaustive.
+    case "exportCliCredentials":
       return demoSnapshot();
     case "getPlaybackControl":
       return { managed: true, keepVideosUnmuted: true };

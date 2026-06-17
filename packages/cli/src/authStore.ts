@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export interface TwitchCredentials {
@@ -34,6 +34,25 @@ export function loadCredentials(authDir: string, env: NodeJS.ProcessEnv = proces
       sessionToken: env.SA_KICK_SESSION_TOKEN ?? stored.kick?.sessionToken,
     },
   };
+}
+
+// Merges new credentials into <authDir>/credentials.json, preserving any
+// existing fields a partial login did not set (e.g. a Twitch-only login keeps
+// the stored Kick token). The login flows write the store; loadCredentials reads
+// it back (with SA_* overrides).
+export function saveCredentials(authDir: string, creds: PlatformCredentials): void {
+  mkdirSync(authDir, { recursive: true });
+  const path = join(authDir, CREDENTIALS_FILE);
+  const existing = readStore(path);
+  const merged: PlatformCredentials = {
+    twitch: pruneUndefined({ ...existing.twitch, ...creds.twitch }),
+    kick: pruneUndefined({ ...existing.kick, ...creds.kick }),
+  };
+  writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`);
+}
+
+function pruneUndefined<T extends Record<string, unknown>>(value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
 }
 
 function readStore(path: string): PlatformCredentials {

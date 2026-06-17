@@ -1,4 +1,4 @@
-import type { RuntimeMessage } from "@lurkloot/shared/messages";
+import type { CliCredentialBlob, RuntimeMessage } from "@lurkloot/shared/messages";
 import type { DropCampaign, Platform, SupportedLocale } from "@lurkloot/shared/models";
 
 export type PopupTab = "drops" | "watchQueue";
@@ -54,6 +54,9 @@ export interface PopupAdapter {
   connectSettingsSession?(): () => void;
   getMessage(key: string, substitutions?: string | string[]): string;
   getUiLanguage(): string;
+  // Optional: download/persist an exported credential blob for the headless CLI.
+  // Only the live extension implements it (the demo omits it, hiding the action).
+  exportCredentials?(blob: CliCredentialBlob): void;
 }
 
 export interface PopupInitialState {

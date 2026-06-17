@@ -547,5 +547,20 @@
   },
   "removeItem": {
     "message": "Supprimer $1"
+  },
+  "cliExportTitle": {
+    "message": "CLI sans navigateur"
+  },
+  "cliExportDescription": {
+    "message": "Exécutez le farming de drops sur un serveur ou dans Docker avec la CLI Lurkloot, en utilisant la session connectée de ce navigateur."
+  },
+  "cliExportHint": {
+    "message": "Exporte vos jetons de session Twitch et Kick pour que « login --import » de la CLI puisse les réutiliser. Gardez le fichier privé : quiconque le possède peut utiliser vos sessions."
+  },
+  "cliExportConfirm": {
+    "message": "Ceci télécharge vos jetons de session Twitch et Kick dans un fichier. Quiconque possède ce fichier peut agir en votre nom sur ces sites. Continuer ?"
+  },
+  "cliExportButton": {
+    "message": "Exporter les identifiants"
   }
 }

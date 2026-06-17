@@ -6,6 +6,9 @@ import { loadConfig, TRANSPORTS, type CliConfig, type Transport } from "./config
 import { hasKickAuth, hasTwitchAuth, loadCredentials } from "./authStore";
 import { createTransport, type EnabledPlatforms } from "./transport";
 import { runLoop } from "./runtime/run";
+import { importCredentials } from "./auth/importCredentials";
+import { twitchDeviceLogin } from "./auth/twitchDeviceFlow";
+import { browserLogin } from "./auth/browserLogin";
 import { createLogger } from "./logger";
 import type { LogLevel } from "@lurkloot/shared/logging";
 
@@ -17,6 +20,10 @@ interface Args {
   state?: string;
   once: boolean;
   logLevel: LogLevel;
+  importFile?: string;
+  twitchDevice: boolean;
+  twitchOnly: boolean;
+  kickOnly: boolean;
 }
 
 const USAGE = `lurkloot <command> [options]
@@ -25,6 +32,7 @@ Commands:
   validate-config   Load + normalize the config and print the effective settings
   discover          Run one discovery pass per enabled platform
   run               Full farming loop until SIGINT/SIGTERM
+  login             Sign in and store credentials (see login options)
   auth status       Report which credentials are available
 
 Options:
@@ -33,10 +41,19 @@ Options:
   --state <path>    State file (default: <configDir>/state.json)
   --once            run: a single tick, then exit
   --log <level>     debug | info | warn | error (default: info)
+
+login options:
+  --import <file>   Import an extension-exported credential blob ("-" = stdin)
+  --twitch-device   Twitch device-code OAuth (no browser)
+  --twitch-only     Browser login: Twitch only
+  --kick-only       Browser login: Kick only
 `;
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { command: "", rest: [], config: "config.json", once: false, logLevel: "info" };
+  const args: Args = {
+    command: "", rest: [], config: "config.json", once: false, logLevel: "info",
+    twitchDevice: false, twitchOnly: false, kickOnly: false,
+  };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -46,6 +63,10 @@ function parseArgs(argv: string[]): Args {
       case "--state": args.state = argv[++i]; break;
       case "--once": args.once = true; break;
       case "--log": args.logLevel = argv[++i] as LogLevel; break;
+      case "--import": args.importFile = argv[++i]; break;
+      case "--twitch-device": args.twitchDevice = true; break;
+      case "--twitch-only": args.twitchOnly = true; break;
+      case "--kick-only": args.kickOnly = true; break;
       case "-h": case "--help": positional.push("help"); break;
       default: positional.push(arg);
     }
@@ -87,6 +108,21 @@ async function main(): Promise<number> {
   if (args.command === "validate-config") {
     const config = loadConfig(args.config);
     process.stdout.write(`${JSON.stringify({ transport: config.transport, authDir: config.authDir, settings: config.settings }, null, 2)}\n`);
+    return 0;
+  }
+
+  if (args.command === "login") {
+    const config = loadConfig(args.config);
+    if (args.importFile) {
+      const creds = importCredentials(config.authDir, args.importFile);
+      logger.info(`Imported credentials${creds.twitch?.authToken ? " (twitch)" : ""}${creds.kick?.sessionToken ? " (kick)" : ""} into ${config.authDir}`, "login");
+      return 0;
+    }
+    if (args.twitchDevice) {
+      await twitchDeviceLogin(config.authDir, logger);
+      return 0;
+    }
+    await browserLogin(config.authDir, { twitchOnly: args.twitchOnly, kickOnly: args.kickOnly }, logger);
     return 0;
   }
 

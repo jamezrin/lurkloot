@@ -39,6 +39,17 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     },
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),
     getUiLanguage: () => browser.i18n.getUILanguage(),
+    exportCredentials: (blob) => {
+      // Download the credential blob the CLI's `login --import` consumes. The
+      // popup is a normal extension page, so a Blob URL + anchor works without
+      // the downloads permission.
+      const url = URL.createObjectURL(new Blob([JSON.stringify(blob, null, 2)], { type: "application/json" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "lurkloot-credentials.json";
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    },
   };
 }
 
