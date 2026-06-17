@@ -1,8 +1,7 @@
 import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
 import type { HeartbeatResult, TablessWatchController, WatchContext } from "../../core/tablessWatch";
 import { logActivity } from "../../core/activityLog";
-import { ensureTwitchIntegrity, fetchTwitchInBackground, openPinnedMutedTab, stopWatchTab } from "../../core/tabs";
-import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "../adapter";
+import { unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./watch";
 
@@ -235,14 +234,17 @@ export class TwitchAdapter implements PlatformAdapter {
 
   constructor(
     // Twitch GQL is unreachable from the twitch.tv page context (CORS / anti-
-    // tampering blocks it). The background fetch has host permissions for
-    // gql.twitch.tv and attaches the OAuth token from cookies, like the web client.
-    private readonly fetcher: PageFetcher = {
-      fetchJson: (url, init) => fetchTwitchInBackground(url, init),
-    },
-    // Drop claims require a valid Client-Integrity token; this opens/reuses a live
-    // twitch.tv tab to capture one when none is present (see src/core/tabs.ts).
-    private readonly ensureIntegrity: () => Promise<boolean> = ensureTwitchIntegrity,
+    // tampering blocks it). The injected fetcher reaches gql.twitch.tv with the
+    // OAuth token: the extension backs it with its host-permissioned background
+    // fetch (like the web client); a headless runtime with its own transport.
+    private readonly fetcher: PageFetcher,
+    // Drop claims require a valid Client-Integrity token; this captures one (the
+    // extension opens/reuses a live twitch.tv tab) when none is present. Defaults
+    // to "no integrity available", which is correct for transports that cannot
+    // mint one (and matches discovery/progress, which never need it).
+    private readonly ensureIntegrity: () => Promise<boolean> = async () => false,
+    // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
+    private readonly watchTabPort: WatchTabPort = unavailableWatchTabPort,
   ) {}
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
@@ -509,11 +511,11 @@ export class TwitchAdapter implements PlatformAdapter {
   }
 
   prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>) {
-    return openPinnedMutedTab(channel, session, options);
+    return this.watchTabPort.openPinnedMutedTab(channel, session, options);
   }
 
   stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
-    return stopWatchTab(session, options);
+    return this.watchTabPort.stopWatchTab(session, options);
   }
 
   // Tabless farming: send Twitch's minute-watched telemetry instead of opening a

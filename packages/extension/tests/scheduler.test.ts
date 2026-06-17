@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
-import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "../src/core/scheduler";
-import type { PlatformAdapter } from "../src/platforms/adapter";
+import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
+import type { PlatformAdapter } from "@lurkloot/core/adapter";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: `reward-${status}`,

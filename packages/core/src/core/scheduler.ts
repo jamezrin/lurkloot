@@ -10,7 +10,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
-import { currentManagedPageContextTabs, registerManagedPageContextTabs, stopManagedPageContextTabs } from "./tabs";
+import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
 import { appendLog, shouldRecord, type LogLevel } from "@lurkloot/shared/logging";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
@@ -281,8 +281,18 @@ export interface SchedulerTickResult {
   decisions: WatchDecision[];
 }
 
+// Closing managed page-context tabs is browser-bound, so it is injected. The
+// default forgets them from state only (no tab API) — enough for headless and
+// test runs; the extension injects the browser-backed variant that also removes
+// the real tabs.
+export type StopPageContextTabs = (
+  contexts: SchedulerManagedPageContexts,
+  options?: { platforms?: Platform[] },
+) => Promise<SchedulerManagedPageContexts> | SchedulerManagedPageContexts;
+
 export interface SchedulerTickOptions {
   platforms?: Platform[];
+  stopPageContextTabs?: StopPageContextTabs;
 }
 
 export async function runSchedulerTick(
@@ -291,6 +301,7 @@ export async function runSchedulerTick(
   adapters: Record<Platform, PlatformAdapter>,
   options: SchedulerTickOptions = {},
 ): Promise<SchedulerTickResult> {
+  const stopPageContextTabs = options.stopPageContextTabs ?? forgetManagedPageContextTabs;
   registerManagedPageContextTabs(state.managedPageContextTabs ?? {});
   let nextState: SchedulerState = {
     ...state,
@@ -333,7 +344,7 @@ export async function runSchedulerTick(
           lastHeartbeatOk: undefined,
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-        nextState.managedPageContextTabs = await stopManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
+        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
         nextState = addTickEvent(nextState, platform, "info", "Manual watch detected; pausing farming for this platform", enabledLevels);
         continue;
       }
@@ -359,7 +370,7 @@ export async function runSchedulerTick(
           lastHeartbeatOk: undefined,
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-        nextState.managedPageContextTabs = await stopManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
+        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
         nextState = addTickEvent(nextState, platform, "info", "Automation disabled", enabledLevels);
         continue;
       }
@@ -502,7 +513,7 @@ export async function runSchedulerTick(
             nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
           }
         }
-        nextState.managedPageContextTabs = await stopManagedPageContextTabs(currentManagedPageContextTabs(), { platforms: [platform] });
+        nextState.managedPageContextTabs = await stopPageContextTabs(currentManagedPageContextTabs(), { platforms: [platform] });
         if (settings.autoClaimChannelPoints && adapter.claimChannelPoints) {
           try {
             const claimed = await adapter.claimChannelPoints(decision.channel);

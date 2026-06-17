@@ -2,7 +2,7 @@ import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnap
 import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { appendLog, shouldRecord, type LogLevel } from "@lurkloot/shared/logging";
 import { applySettingsPatch, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
-import { MANUAL_WATCH_TTL_MS, runSchedulerTick } from "../core/scheduler";
+import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
 import { logActivity, setActivityLogger } from "../core/activityLog";
 import { setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
@@ -51,6 +51,10 @@ export interface BackgroundControllerDeps {
   applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode): Promise<void>;
   loadTwitchIntegrity?(): Promise<TwitchIntegrity | undefined>;
   saveTwitchIntegrity?(value: TwitchIntegrity): Promise<void>;
+  // Browser-bound page-context tab teardown, injected into the scheduler tick.
+  // Omitted in headless/test runs, where the scheduler forgets contexts from
+  // state only (see runSchedulerTick / StopPageContextTabs).
+  stopPageContextTabs?: StopPageContextTabs;
 }
 
 export function createBackgroundController(deps: BackgroundControllerDeps) {
@@ -238,7 +242,10 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
 
       try {
         const adapters = deps.createAdapters();
-        const result = await runSchedulerTick(state, settings, adapters, platforms ? { platforms } : undefined);
+        const result = await runSchedulerTick(state, settings, adapters, {
+          ...(platforms ? { platforms } : {}),
+          stopPageContextTabs: deps.stopPageContextTabs,
+        });
         await emitNotifications(settings, state, result.state);
         await applyAdFocusForState(settings, result.state);
         await reconcileTablessWatchers(result.state, settings, adapters, platforms);

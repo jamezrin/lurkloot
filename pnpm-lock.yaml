@@ -12,6 +12,19 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/core:
+    dependencies:
+      '@lurkloot/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.19.19
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/extension:
     dependencies:
       '@dnd-kit/core':
@@ -23,6 +36,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.6)
+      '@lurkloot/core':
+        specifier: workspace:*
+        version: link:../core
       '@lurkloot/locales':
         specifier: workspace:*
         version: link:../locales

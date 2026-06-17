@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PageFetcher } from "../src/platforms/adapter";
-import { createKickFetcher, KickAdapter } from "../src/platforms/kick";
-import { KickWafBlockedError } from "../src/core/tabs";
-import { TwitchAdapter } from "../src/platforms/twitch";
+import type { PageFetcher } from "@lurkloot/core/adapter";
+import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
+import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { TwitchAdapter } from "@lurkloot/core/twitch";
 import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shared/models";
-import { chooseCampaignDecision } from "../src/core/scheduler";
+import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 
 function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {

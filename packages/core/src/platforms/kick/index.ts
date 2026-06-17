@@ -1,8 +1,8 @@
 import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import { logActivity } from "../../core/activityLog";
-import { fetchJsonInPage, fetchKickInBackground, KickWafBlockedError, openPinnedMutedTab, stopWatchTab } from "../../core/tabs";
-import type { PageFetcher, PlatformAdapter, WatchTabOptions } from "../adapter";
+import { KickWafBlockedError } from "../../core/tabs";
+import { unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
 
@@ -55,12 +55,10 @@ function isKickClaimSuccess(response: KickClaimResponse): boolean {
 // real-Chrome run shows exactly which calls are tabless-capable. The fallback
 // makes this risk-free: farming behaves as before regardless of the result.
 export function createKickFetcher(deps: {
-  background?: (url: string, init?: RequestInit) => Promise<unknown>;
-  pageFetch?: (url: string, init?: RequestInit) => Promise<unknown>;
-} = {}): PageFetcher {
-  const background = deps.background ?? ((url: string, init?: RequestInit) => fetchKickInBackground<unknown>(url, init));
-  const pageFetch = deps.pageFetch ?? ((url: string, init?: RequestInit) =>
-    fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }));
+  background: (url: string, init?: RequestInit) => Promise<unknown>;
+  pageFetch: (url: string, init?: RequestInit) => Promise<unknown>;
+}): PageFetcher {
+  const { background, pageFetch } = deps;
   const announced = new Map<string, "background" | "fallback">();
   const report = (host: string, outcome: "background" | "fallback", detail: string): void => {
     const repeat = announced.get(host) === outcome;
@@ -124,7 +122,9 @@ export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
 
   constructor(
-    private readonly fetcher: PageFetcher = createKickFetcher(),
+    private readonly fetcher: PageFetcher,
+    // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
+    private readonly watchTabPort: WatchTabPort = unavailableWatchTabPort,
   ) {}
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
@@ -274,11 +274,11 @@ export class KickAdapter implements PlatformAdapter {
   }
 
   prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>) {
-    return openPinnedMutedTab(channel, session, options);
+    return this.watchTabPort.openPinnedMutedTab(channel, session, options);
   }
 
   stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
-    return stopWatchTab(session, options);
+    return this.watchTabPort.stopWatchTab(session, options);
   }
 
   // Tabless farming via Kick's viewer WebSocket (see KickWatcher). Reuses this
