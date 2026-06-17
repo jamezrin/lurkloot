@@ -2,6 +2,7 @@ import type { Transport } from "../config";
 import type { PlatformCredentials } from "../authStore";
 import { createHttpTransport } from "./http";
 import { createImpersonateTransport } from "./impersonate";
+import { createBrowserTransport } from "./browser";
 import type { EnabledPlatforms, TransportHandle } from "./common";
 
 export type { TransportHandle, EnabledPlatforms } from "./common";
@@ -13,7 +14,7 @@ export type { TransportHandle, EnabledPlatforms } from "./common";
 export async function createTransport(
   transport: Transport,
   credentials: PlatformCredentials,
-  _authDir: string,
+  authDir: string,
   enabled: EnabledPlatforms,
 ): Promise<TransportHandle> {
   switch (transport) {
@@ -22,7 +23,7 @@ export async function createTransport(
     case "impersonate":
       return createImpersonateTransport(credentials, enabled);
     case "browser":
-      throw new Error(`Transport "${transport}" is not available yet (added in a later phase); use "http" or "impersonate"`);
+      return createBrowserTransport(credentials, authDir, enabled);
     default:
       throw new Error(`Unknown transport: ${transport as string}`);
   }
