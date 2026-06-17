@@ -1,13 +1,23 @@
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
 import { SETTINGS_SESSION_PORT, type RuntimeMessage } from "@lurkloot/shared/messages";
-import { applyAdFocus } from "../src/core/tabs";
-import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "../src/background/controller";
+import {
+  applyAdFocus,
+  ensureTwitchIntegrity,
+  fetchJsonInPage,
+  fetchKickInBackground,
+  fetchTwitchInBackground,
+  openPinnedMutedTab,
+  stopManagedPageContextTabs,
+  stopWatchTab,
+} from "../src/core/tabs";
+import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, SupportedLocale } from "@lurkloot/shared/models";
-import { KickAdapter } from "../src/platforms/kick";
-import { TwitchAdapter } from "../src/platforms/twitch";
+import type { WatchTabPort } from "@lurkloot/core/adapter";
+import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
+import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { CHANGELOG_URL } from "../src/core/links";
 
@@ -30,6 +40,13 @@ async function translate(settings: ExtensionSettings, key: string, substitutions
   const [active, fallback] = await Promise.all([catalog(locale), catalog("en")]);
   return translateFromCatalogs(key, substitutions, active, fallback ?? {});
 }
+
+// Browser-backed watch-tab port shared by both adapters: binds the engine's
+// WatchTabPort to the extension's wxt/browser tab wrappers.
+const watchTabPort: WatchTabPort = {
+  openPinnedMutedTab: (channel, session, options) => openPinnedMutedTab(channel, session, options),
+  stopWatchTab: (session, options) => stopWatchTab(session, options),
+};
 
 const controller = createBackgroundController({
   loadSettings,
@@ -57,9 +74,20 @@ const controller = createBackgroundController({
   applyAdFocus: (platform, tabId, adActive, mode) => applyAdFocus(platform, tabId, adActive, mode),
   loadTwitchIntegrity,
   saveTwitchIntegrity,
+  stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
   createAdapters: () => ({
-    twitch: new TwitchAdapter(),
-    kick: new KickAdapter(),
+    twitch: new TwitchAdapter(
+      { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
+      ensureTwitchIntegrity,
+      watchTabPort,
+    ),
+    kick: new KickAdapter(
+      createKickFetcher({
+        background: (url, init) => fetchKickInBackground<unknown>(url, init),
+        pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
+      }),
+      watchTabPort,
+    ),
   }),
 });
 

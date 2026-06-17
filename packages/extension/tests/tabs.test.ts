@@ -14,7 +14,7 @@ import {
   setActivityLogger,
   setTwitchIntegrity,
   stopWatchTabWithBrowser,
-} from "../src/core/tabs";
+} from "@lurkloot/core/tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
 
 const channel: ChannelCandidate = {

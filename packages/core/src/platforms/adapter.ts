@@ -50,3 +50,26 @@ export interface PlatformAdapter {
 export interface PageFetcher {
   fetchJson<T>(url: string, init?: RequestInit): Promise<T>;
 }
+
+// Opens/closes the watch tab an adapter drives in tab-based (non-tabless) mode.
+// Browser-bound, so it is injected rather than imported: the extension backs it
+// with wxt/browser tabs (see the extension's core/tabs wrappers over
+// open/stopWatchTabWithBrowser); a headless runtime backs it with a real page or
+// leaves it unconfigured when running tabless-only.
+export interface WatchTabPort {
+  openPinnedMutedTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab>;
+  stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;
+}
+
+// Default watch-tab port for runtimes that never open a tab (headless tabless
+// mode, unit tests): opening fails loudly, while stopping is a harmless no-op
+// (nothing to stop without a tab, but the scheduler still calls it to clean up
+// idle/disabled platforms). Runtimes that watch via a tab inject a real port.
+export const unavailableWatchTabPort: WatchTabPort = {
+  openPinnedMutedTab() {
+    throw new Error("No watch-tab port configured; this runtime cannot open a watch tab (enable tabless mode or inject a WatchTabPort)");
+  },
+  async stopWatchTab() {
+    // nothing to stop without a tab
+  },
+};

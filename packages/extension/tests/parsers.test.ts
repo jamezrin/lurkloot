@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mergeKickProgress, parseKickCampaigns } from "../src/platforms/kick/parser";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, withCampaignStatus } from "../src/platforms/twitch/parser";
+import { mergeKickProgress, parseKickCampaigns } from "@lurkloot/core/kick/parser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, withCampaignStatus } from "@lurkloot/core/twitch/parser";
 
 describe("Kick parsers", () => {
   it("normalizes campaigns and merges progress", () => {

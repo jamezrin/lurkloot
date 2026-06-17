@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { integrityExpiry, integrityFromHeaders } from "../src/core/twitchIntegrity";
+import { integrityExpiry, integrityFromHeaders } from "@lurkloot/core/twitchIntegrity";
 
 function jwt(payload: Record<string, unknown>): string {
   const segment = (value: unknown) =>

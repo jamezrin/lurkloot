@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
-import { buildMinuteWatchedEvent, buildSpadeInput, gzipBase64 } from "../src/platforms/twitch/watch";
-import { KickWatcher, type WebSocketLike } from "../src/platforms/kick/watch";
+import { buildMinuteWatchedEvent, buildSpadeInput, gzipBase64 } from "@lurkloot/core/twitch/watch";
+import { KickWatcher, type WebSocketLike } from "@lurkloot/core/kick/watch";
 
 async function gunzipBase64(b64: string): Promise<string> {
   const binary = atob(b64);
