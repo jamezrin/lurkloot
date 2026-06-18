@@ -1327,3 +1327,29 @@ describe("TwitchAdapter", () => {
     ]);
   });
 });
+
+describe("TwitchAdapter client identity", () => {
+  const emptyCategories = { data: { searchCategories: { edges: [] } } };
+
+  it("sends an injected non-web Client-ID + matching User-Agent on GQL requests", async () => {
+    let captured: RequestInit | undefined;
+    const adapter = new TwitchAdapter(
+      jsonFetcher((_url, init) => { captured = init; return emptyCategories; }),
+      undefined,
+      undefined,
+      { clientId: "kd1unb4b3q4t58fwlpcbzcbnm76a8fp", userAgent: "Dalvik/android-app" },
+    );
+    await adapter.searchCategories("rust");
+    const headers = captured?.headers as Record<string, string>;
+    expect(headers["Client-ID"]).toBe("kd1unb4b3q4t58fwlpcbzcbnm76a8fp");
+    expect(headers["User-Agent"]).toBe("Dalvik/android-app");
+  });
+
+  it("defaults to the web Client-ID and omits the User-Agent (extension behavior)", async () => {
+    let captured: RequestInit | undefined;
+    await new TwitchAdapter(jsonFetcher((_url, init) => { captured = init; return emptyCategories; })).searchCategories("rust");
+    const headers = captured?.headers as Record<string, string>;
+    expect(headers["Client-ID"]).toBe("kimne78kx3ncx6brgo4mv6wki5h1ko");
+    expect(headers["User-Agent"]).toBeUndefined();
+  });
+});

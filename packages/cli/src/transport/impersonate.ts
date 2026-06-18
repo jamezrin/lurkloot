@@ -2,6 +2,7 @@ import { fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
 import { KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import type { PlatformCredentials } from "../authStore";
+import { twitchClientIdentity } from "../twitch";
 import { twitchCookieApi } from "./cookieApi";
 import { createCycleKickFetcher, createCycleKickWebSocketFactory, initCycle, type CycleTLSClient } from "./cycle";
 import { tablessWatchPort, type EnabledPlatforms, type TransportHandle } from "./common";
@@ -29,6 +30,7 @@ export async function createImpersonateTransport(
         { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init) },
         async () => false,
         tablessWatchPort,
+        twitchClientIdentity(creds),
       ),
       kick: new KickAdapter(
         createCycleKickFetcher(cycleTLS, creds),

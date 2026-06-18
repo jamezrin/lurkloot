@@ -25,9 +25,13 @@ describe("parseConfig", () => {
   });
 
   it("accepts every known transport", () => {
-    for (const transport of ["http", "impersonate", "browser"] as const) {
+    for (const transport of ["http", "impersonate"] as const) {
       expect(parseConfig({ transport }, CONFIG_PATH).transport).toBe(transport);
     }
+  });
+
+  it("rejects the retired browser transport", () => {
+    expect(() => parseConfig({ transport: "browser" }, CONFIG_PATH)).toThrow(/Unknown transport/);
   });
 
   it("rejects an unknown transport", () => {

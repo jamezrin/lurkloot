@@ -1,15 +1,16 @@
 import { saveCredentials } from "../authStore";
+import { TWITCH_ANDROID_CLIENT_ID } from "../twitch";
 import type { Logger } from "../logger";
 
 // Twitch's device-code OAuth, so a headless host can get a Twitch token with no
-// browser: request a code, show the user the activation URL, then poll until
-// they authorize. Uses the SmartTV/console public client id (the same family of
-// client used by device-flow drop tools). Whether this token is accepted for the
-// drops GQL + claims is the maintainer spike called out in the epic.
+// browser: request a code, show the user the activation URL, then poll until they
+// authorize. Uses the Android app client id — the same one the transports send
+// as Client-ID, so the token and the GQL identity match and Twitch never gates
+// it behind integrity (this is exactly how TwitchDropsMiner authenticates).
 const DEVICE_ENDPOINT = "https://id.twitch.tv/oauth2/device";
 const TOKEN_ENDPOINT = "https://id.twitch.tv/oauth2/token";
-export const SMARTTV_CLIENT_ID = "ue6666qo983tsx6so1t0vnawi233wa";
-const SCOPES = "user:read:follows channel:read:subscriptions";
+// No scopes are needed for the drops GQL (matches TDM's empty-scopes request).
+const SCOPES = "";
 
 export interface DeviceCode {
   device_code: string;
@@ -19,7 +20,7 @@ export interface DeviceCode {
   expires_in: number;
 }
 
-export async function requestDeviceCode(clientId = SMARTTV_CLIENT_ID): Promise<DeviceCode> {
+export async function requestDeviceCode(clientId = TWITCH_ANDROID_CLIENT_ID): Promise<DeviceCode> {
   const response = await fetch(DEVICE_ENDPOINT, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -43,7 +44,7 @@ export async function pollForToken(
   deviceCode: string,
   intervalSeconds: number,
   expiresInSeconds: number,
-  clientId = SMARTTV_CLIENT_ID,
+  clientId = TWITCH_ANDROID_CLIENT_ID,
   sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
 ): Promise<string> {
   const deadline = Date.now() + expiresInSeconds * 1000;
@@ -68,7 +69,7 @@ export async function pollForToken(
   throw new Error("Device code expired before authorization");
 }
 
-export async function twitchDeviceLogin(authDir: string, logger: Logger, clientId = SMARTTV_CLIENT_ID): Promise<void> {
+export async function twitchDeviceLogin(authDir: string, logger: Logger, clientId = TWITCH_ANDROID_CLIENT_ID): Promise<void> {
   const code = await requestDeviceCode(clientId);
   logger.info(`Open ${code.verification_uri} and enter code: ${code.user_code}`, "login");
   logger.info(`Waiting for authorization (expires in ${Math.round(code.expires_in / 60)} min)…`, "login");

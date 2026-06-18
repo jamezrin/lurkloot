@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { mergeSettings } from "@lurkloot/shared/settings";
 import type { ExtensionSettings } from "@lurkloot/shared/models";
 
-export const TRANSPORTS = ["http", "impersonate", "browser"] as const;
+export const TRANSPORTS = ["http", "impersonate"] as const;
 export type Transport = (typeof TRANSPORTS)[number];
 
 export interface CliConfig {
