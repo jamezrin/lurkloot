@@ -51,6 +51,12 @@ lerna-debug.log*
 !.env.example
 *.pem
 
+# CLI local runtime (config + credential/state stores)
+/config.json
+/auth/
+/data/
+state.json
+
 # Editor / IDE
 .vscode/*
 !.vscode/extensions.json
