@@ -2,6 +2,7 @@ import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloo
 import { KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import type { PlatformCredentials } from "../authStore";
+import { twitchClientIdentity } from "../twitch";
 import { kickCookieApi, twitchCookieApi } from "./cookieApi";
 import { tablessWatchPort, type EnabledPlatforms, type TransportHandle } from "./common";
 
@@ -18,6 +19,7 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
         { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchApi, url, init) },
         async () => false,
         tablessWatchPort,
+        twitchClientIdentity(creds),
       ),
       kick: new KickAdapter(
         { fetchJson: (url, init) => fetchKickInBackgroundWith(kickApi, url, init) },

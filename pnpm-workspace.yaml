@@ -1,2 +1,10 @@
 packages:
   - "packages/*"
+
+# Dependencies allowed to run install scripts (pnpm 10 blocks others and errors).
+# cycletls ships prebuilt Go binaries in its tarball, so this is just to satisfy
+# pnpm's approval gate during a clean install (e.g. in the Docker build).
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - cycletls

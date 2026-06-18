@@ -8,7 +8,6 @@ import { createTransport, type EnabledPlatforms } from "./transport";
 import { runLoop } from "./runtime/run";
 import { importCredentials } from "./auth/importCredentials";
 import { twitchDeviceLogin } from "./auth/twitchDeviceFlow";
-import { browserLogin } from "./auth/browserLogin";
 import { createLogger } from "./logger";
 import type { LogLevel } from "@lurkloot/shared/logging";
 
@@ -22,8 +21,6 @@ interface Args {
   logLevel: LogLevel;
   importFile?: string;
   twitchDevice: boolean;
-  twitchOnly: boolean;
-  kickOnly: boolean;
 }
 
 const USAGE = `lurkloot <command> [options]
@@ -45,14 +42,12 @@ Options:
 login options:
   --import <file>   Import an extension-exported credential blob ("-" = stdin)
   --twitch-device   Twitch device-code OAuth (no browser)
-  --twitch-only     Browser login: Twitch only
-  --kick-only       Browser login: Kick only
 `;
 
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     command: "", rest: [], config: "config.json", once: false, logLevel: "info",
-    twitchDevice: false, twitchOnly: false, kickOnly: false,
+    twitchDevice: false,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i += 1) {
@@ -65,8 +60,6 @@ function parseArgs(argv: string[]): Args {
       case "--log": args.logLevel = argv[++i] as LogLevel; break;
       case "--import": args.importFile = argv[++i]; break;
       case "--twitch-device": args.twitchDevice = true; break;
-      case "--twitch-only": args.twitchOnly = true; break;
-      case "--kick-only": args.kickOnly = true; break;
       case "-h": case "--help": positional.push("help"); break;
       default: positional.push(arg);
     }
@@ -122,8 +115,8 @@ async function main(): Promise<number> {
       await twitchDeviceLogin(config.authDir, logger);
       return 0;
     }
-    await browserLogin(config.authDir, { twitchOnly: args.twitchOnly, kickOnly: args.kickOnly }, logger);
-    return 0;
+    logger.error("Specify a login method: --twitch-device (Twitch, no browser) or --import <file> (an extension credential export; Kick session token comes from there or SA_KICK_SESSION_TOKEN)");
+    return 1;
   }
 
   if (args.command === "auth") {

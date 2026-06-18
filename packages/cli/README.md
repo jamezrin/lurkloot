@@ -2,8 +2,8 @@
 
 A headless command-line / Docker runtime for Lurkloot. It reuses the browser
 extension's farming engine (`@lurkloot/core`) through clean port/adapter seams —
-there is **no faking of `chrome`/`browser` globals**; each runtime injects its
-own implementations.
+there is **no faking of `chrome`/`browser` globals**, and **no browser at all**:
+both platforms farm over pure HTTP.
 
 ## Quick start
 
@@ -24,7 +24,7 @@ go in the config** — they live in the auth store.
 
 ```jsonc
 {
-  "transport": "impersonate",   // "http" | "impersonate" | "browser"
+  "transport": "impersonate",   // "http" | "impersonate"
   "authDir": "auth",            // resolved relative to this file
   "settings": {                 // ExtensionSettings shape, merged over defaults
     "running": true,
@@ -43,32 +43,37 @@ go in the config** — they live in the auth store.
 | Transport | Twitch | Kick | Notes |
 |---|---|---|---|
 | `http` | ✅ plain Node fetch | ❌ Cloudflare WAF (403) | Lightest; Twitch-only in practice. |
-| `impersonate` | ✅ | ✅ **cycletls Chrome JA3/HTTP-2** | Recommended default. Fixes Kick with no browser. |
-| `browser` | ✅ + **integrity capture** (claims) | ✅ via cycletls | Playwright; needed for Twitch drop *claims* (the Client-Integrity token cannot be minted headless). |
+| `impersonate` | ✅ | ✅ **cycletls Chrome JA3/HTTP-2** | Recommended default. Reaches both with no browser. |
+
+Both transports talk to Twitch as the **Android app client**
+(`kd1unb4b3q4t58fwlpcbzcbnm76a8fp`) — the same identity TwitchDropsMiner uses.
+Twitch only enforces Client-Integrity (Kasada) for the *web* client id, so under
+the Android client discovery, watch progress, **and drop claims** all work with
+plain OAuth — no integrity token, no browser.
 
 Kick's Cloudflare WAF inspects the TLS/JA3 + HTTP-2 fingerprint, so a plain Node
 request is rejected (HTTP 403). The `impersonate` transport sends a real Chrome
 fingerprint via [cycletls](https://github.com/Danny-Dasilva/CycleTLS) and reaches
-Kick's API and viewer socket without a browser. Twitch has no such WAF; the only
-thing it needs a browser for is capturing the page-minted Client-Integrity token
-required to *claim* drops.
+Kick's API and viewer socket without a browser.
 
 ## Auth
 
-Credentials live in `<authDir>/` (`credentials.json`, plus a `browser-profile/`
-for the browser transport). The login flows write the store; `auth status`
-reports what is present.
+Credentials live in `<authDir>/credentials.json`. The login flows write the
+store; `auth status` reports what is present.
 
 ```bash
+pnpm cli login --twitch-device       # Twitch device-code OAuth, no browser
 pnpm cli login --import creds.json   # import an extension export ("-" = stdin)
-pnpm cli login --twitch-device       # device-code OAuth, no browser (Twitch)
-pnpm cli login                       # browser-assisted sign-in (Twitch + Kick)
-pnpm cli login --twitch-only         # or --kick-only
 pnpm cli auth status
 ```
 
-The browser extension can export a credential blob for `login --import` via its
-Settings → **Export credentials** button.
+- **`login --twitch-device`** runs Twitch's device-code OAuth against the Android
+  client (no scopes, like TDM): it prints an activation URL + code, you approve
+  it on any device, and the token is saved. The token's client matches the
+  Client-ID the transports send, so no integrity is ever required.
+- **`login --import`** ingests a credential blob exported by the extension
+  (Settings → **Export credentials**) — the simplest way to supply a **Kick**
+  session token headlessly.
 
 Env-var overrides (useful for Docker secrets) take precedence over the store:
 `SA_TWITCH_AUTH_TOKEN`, `SA_TWITCH_DEVICE_ID`, `SA_TWITCH_CLIENT_ID`,
@@ -80,10 +85,12 @@ Env-var overrides (useful for Docker secrets) take precedence over the store:
 - `discover` — one discovery pass per enabled platform.
 - `run` — full farming loop (discovery + watch heartbeats) until SIGINT/SIGTERM,
   persisting `state.json`. `--once` runs a single tick.
-- `login [--import <f>|--twitch-device|--twitch-only|--kick-only]`
+- `login [--twitch-device | --import <file>]`
 - `auth status`
 
 ## Docker
+
+No browser means a slim Node image:
 
 ```bash
 # build from the repo root
@@ -95,8 +102,6 @@ docker run --rm -v "$PWD/data:/data" lurkloot-cli
 docker run --rm -v "$PWD/data:/data" lurkloot-cli discover --config /data/config.json
 ```
 
-Run `login` on your desktop first (the browser-assisted flow needs a display, or
-use `login --twitch-device` / an extension export), then mount the resulting
-`auth/` dir into the container. The Playwright-based image supports every
-transport; for `http`/`impersonate` only, swap the base image for `node:22-slim`
-to drop the ~1.5 GB browser layer.
+Authenticate first — `login --twitch-device` works headlessly inside the
+container, or run it on any host and mount the resulting `auth/` dir in. Supply a
+Kick token via an extension export (`login --import`) or `SA_KICK_SESSION_TOKEN`.

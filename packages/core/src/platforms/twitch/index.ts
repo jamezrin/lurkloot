@@ -8,7 +8,18 @@ import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./watch";
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 
+// Twitch's web Client-ID — the default identity. It is the one Twitch gates
+// behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
+
+export interface TwitchAdapterOptions {
+  // GQL Client-ID. Defaults to the web client. A headless runtime passes a
+  // non-web id (e.g. the Android app) so Twitch never enforces integrity.
+  clientId?: string;
+  // User-Agent to send with GQL requests, matching the client id. Only set in
+  // non-browser runtimes — browsers forbid overriding User-Agent on fetch.
+  userAgent?: string;
+}
 
 const TWITCH_QUERIES = {
   inventory: {
@@ -232,20 +243,31 @@ interface TwitchCurrentDropData {
 export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
 
+  private readonly clientId: string;
+  private readonly userAgent?: string;
+
   constructor(
     // Twitch GQL is unreachable from the twitch.tv page context (CORS / anti-
     // tampering blocks it). The injected fetcher reaches gql.twitch.tv with the
     // OAuth token: the extension backs it with its host-permissioned background
     // fetch (like the web client); a headless runtime with its own transport.
     private readonly fetcher: PageFetcher,
-    // Drop claims require a valid Client-Integrity token; this captures one (the
-    // extension opens/reuses a live twitch.tv tab) when none is present. Defaults
-    // to "no integrity available", which is correct for transports that cannot
-    // mint one (and matches discovery/progress, which never need it).
+    // Twitch only enforces Client-Integrity (Kasada) for the WEB client id, so
+    // this is only meaningful under that id (the extension, which captures the
+    // page-minted token). A runtime using a non-web client id never needs it, so
+    // it defaults to "no integrity available".
     private readonly ensureIntegrity: () => Promise<boolean> = async () => false,
     // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
     private readonly watchTabPort: WatchTabPort = unavailableWatchTabPort,
-  ) {}
+    // Identity the GQL requests present. Defaults to the WEB client (what the
+    // extension uses). A headless runtime can pass a non-web client id + matching
+    // user agent (e.g. the Android app) so Twitch never gates it behind integrity
+    // — the persisted-query hashes are client-agnostic, so claims work unchanged.
+    options: TwitchAdapterOptions = {},
+  ) {
+    this.clientId = options.clientId ?? TWITCH_CLIENT_ID;
+    this.userAgent = options.userAgent;
+  }
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
     let inventory = await this.fetchInventory();
@@ -585,7 +607,8 @@ export class TwitchAdapter implements PlatformAdapter {
         "Accept": "*/*",
         "Accept-Language": "en-US",
         "Content-Type": "text/plain; charset=UTF-8",
-        "Client-ID": TWITCH_CLIENT_ID,
+        "Client-ID": this.clientId,
+        ...(this.userAgent ? { "User-Agent": this.userAgent } : {}),
       },
       ...(credentials ? { credentials } : {}),
       body: JSON.stringify(
