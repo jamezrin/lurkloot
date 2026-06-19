@@ -58,22 +58,28 @@ Kick's API and viewer socket without a browser.
 
 ## Auth
 
-Credentials live in `<authDir>/credentials.json`. The login flows write the
-store; `auth status` reports what is present.
+Credentials live in `<authDir>/credentials.json`. The `auth` sub-commands write
+the store; `auth status` reports what is present.
 
 ```bash
-pnpm cli login --twitch-device       # Twitch device-code OAuth, no browser
-pnpm cli login --import creds.json   # import an extension export ("-" = stdin)
+pnpm cli auth twitch device-login    # Twitch device-code OAuth, no browser
+pnpm cli auth kick device-login      # Kick smart-TV link flow, no browser
+pnpm cli auth import creds.json      # import an extension export ("-" = stdin)
+pnpm cli auth kick logout            # forget stored credentials for a platform
 pnpm cli auth status
 ```
 
-- **`login --twitch-device`** runs Twitch's device-code OAuth against the Android
-  client (no scopes, like TDM): it prints an activation URL + code, you approve
-  it on any device, and the token is saved. The token's client matches the
-  Client-ID the transports send, so no integrity is ever required.
-- **`login --import`** ingests a credential blob exported by the extension
-  (Settings → **Export credentials**) — the simplest way to supply a **Kick**
-  session token headlessly.
+- **`auth twitch device-login`** runs Twitch's device-code OAuth against the
+  Android client (no scopes, like TDM): it prints an activation URL + code, you
+  approve it on any device, and the token is saved. The token's client matches
+  the Client-ID the transports send, so no integrity is ever required.
+- **`auth kick device-login`** runs Kick's smart-TV link flow (the same one the
+  Kick TV app uses): it prints a `kick.com/tv/login` URL + a 6-digit code; open
+  it on any device where you're signed in to Kick and confirm the code, and the
+  session token is saved — no cookie export needed.
+- **`auth import`** ingests a credential blob exported by the extension
+  (Settings → **Export credentials**) — another way to supply a **Kick** session
+  token headlessly.
 
 Env-var overrides (useful for Docker secrets) take precedence over the store:
 `SA_TWITCH_AUTH_TOKEN`, `SA_TWITCH_DEVICE_ID`, `SA_TWITCH_CLIENT_ID`,
@@ -85,8 +91,20 @@ Env-var overrides (useful for Docker secrets) take precedence over the store:
 - `discover` — one discovery pass per enabled platform.
 - `run` — full farming loop (discovery + watch heartbeats) until SIGINT/SIGTERM,
   persisting `state.json`. `--once` runs a single tick.
-- `login [--twitch-device | --import <file>]`
-- `auth status`
+- `auth import <file>` — import an extension credential export ("-" = stdin).
+- `auth twitch device-login` — Twitch device-code OAuth (no browser).
+- `auth kick device-login` — Kick smart-TV link flow (no browser).
+- `auth <platform> logout` — forget the stored `twitch` / `kick` credentials (an
+  `SA_*` env override, if set, still applies — it warns when that's the case).
+- `auth status` — report which credentials are present.
+
+The CLI is built on [yargs](https://yargs.js.org): every command and subcommand
+has `--help`, unknown flags/subcommands are rejected, and `--config` / `--log`
+are accepted everywhere. For shell autocomplete, source the generated script:
+
+```bash
+pnpm cli completion >> ~/.bashrc   # or ~/.zshrc, then restart your shell
+```
 
 ## Docker
 
@@ -102,6 +120,7 @@ docker run --rm -v "$PWD/data:/data" lurkloot-cli
 docker run --rm -v "$PWD/data:/data" lurkloot-cli discover --config /data/config.json
 ```
 
-Authenticate first — `login --twitch-device` works headlessly inside the
-container, or run it on any host and mount the resulting `auth/` dir in. Supply a
-Kick token via an extension export (`login --import`) or `SA_KICK_SESSION_TOKEN`.
+Authenticate first — `auth twitch device-login` / `auth kick device-login` work
+headlessly inside the container, or run them on any host and mount the resulting
+`auth/` dir in. A Kick token can also come from an extension export
+(`auth import`) or `SA_KICK_SESSION_TOKEN`.

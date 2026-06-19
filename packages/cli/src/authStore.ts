@@ -51,6 +51,20 @@ export function saveCredentials(authDir: string, creds: PlatformCredentials): vo
   writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`);
 }
 
+// Removes a platform's stored credentials from <authDir>/credentials.json,
+// leaving the other platform untouched. Returns true if something was removed.
+// Only the on-disk store is affected — an SA_* env override still wins in
+// loadCredentials, so a caller may want to warn that the platform is still
+// authenticated from the environment.
+export function forgetCredentials(authDir: string, platform: keyof PlatformCredentials): boolean {
+  const path = join(authDir, CREDENTIALS_FILE);
+  const existing = readStore(path);
+  if (!existing[platform]) return false;
+  delete existing[platform];
+  writeFileSync(path, `${JSON.stringify(existing, null, 2)}\n`);
+  return true;
+}
+
 function pruneUndefined<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
 }

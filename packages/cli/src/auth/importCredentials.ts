@@ -3,17 +3,13 @@ import { resolve } from "node:path";
 import { saveCredentials, type PlatformCredentials } from "../authStore";
 
 interface CredentialBlob {
-  // The extension export wraps credentials in { version, credentials }; a bare
-  // PlatformCredentials object is also accepted.
+  // The canonical extension export: { version, credentials: { twitch, kick } }.
   version?: number;
   credentials?: PlatformCredentials;
-  twitch?: PlatformCredentials["twitch"];
-  kick?: PlatformCredentials["kick"];
 }
 
 // Parses an extension-exported credential blob from a file (or stdin when the
-// source is "-"). Tolerant of both the wrapped { credentials } shape and a bare
-// { twitch, kick } object.
+// source is "-"). Accepts only the canonical { version, credentials } shape.
 export function readCredentialBlob(source: string): PlatformCredentials {
   const text = source === "-" ? readFileSync(0, "utf8") : readFileSync(resolve(process.cwd(), source), "utf8");
   let parsed: CredentialBlob;
@@ -22,7 +18,10 @@ export function readCredentialBlob(source: string): PlatformCredentials {
   } catch (error) {
     throw new Error(`Credential blob is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
-  const creds = parsed.credentials ?? { twitch: parsed.twitch, kick: parsed.kick };
+  const creds = parsed.credentials;
+  if (!creds || typeof creds !== "object") {
+    throw new Error('Credential blob is missing a "credentials" object (expected an extension export)');
+  }
   if (!creds.twitch?.authToken && !creds.kick?.sessionToken) {
     throw new Error("Credential blob has no Twitch auth token or Kick session token");
   }
