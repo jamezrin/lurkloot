@@ -1,12 +1,13 @@
 import { createBackgroundController } from "@lurkloot/core/controller";
 import { setActivityLogger } from "@lurkloot/core/activityLog";
-import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
+import type { SchedulerState } from "@lurkloot/shared/models";
 import { loadState, saveState } from "../storage";
+import { toEngineSettings, type CliSettings } from "../settings";
 import type { TransportHandle } from "../transport";
 import type { Logger } from "../logger";
 
 export interface RunOptions {
-  settings: ExtensionSettings;
+  settings: CliSettings;
   statePath: string;
   transport: TransportHandle;
   logger: Logger;
@@ -22,9 +23,12 @@ export interface RunOptions {
 // SIGINT/SIGTERM, disposing the transport.
 export async function runLoop(options: RunOptions): Promise<void> {
   const { settings, statePath, transport, logger } = options;
+  // The shared engine works on the full ExtensionSettings; expand the CLI's
+  // schema once, pinning the headless invariants (always running, always tabless).
+  const engineSettings = toEngineSettings(settings);
 
   const controller = createBackgroundController({
-    loadSettings: async () => settings,
+    loadSettings: async () => engineSettings,
     // Settings come from the config file; the run loop never mutates them.
     saveSettings: async () => {},
     loadState: () => loadState(statePath),

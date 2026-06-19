@@ -139,7 +139,7 @@ export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPa
   });
 }
 
-function normalizeLogLevels(value: Partial<ExtensionSettings> & { verboseLogging?: boolean } | undefined): LogLevel[] {
+export function normalizeLogLevels(value: Partial<ExtensionSettings> & { verboseLogging?: boolean } | undefined): LogLevel[] {
   // No stored array -> migrate the legacy verboseLogging toggle (verbose meant
   // debug entries were recorded on top of the info/warn/error baseline).
   if (!Array.isArray(value?.enabledLogLevels)) {
@@ -154,16 +154,16 @@ function normalizeLogLevels(value: Partial<ExtensionSettings> & { verboseLogging
   return valid.includes("error") ? valid : [...valid, "error"];
 }
 
-function booleanOr(value: boolean | undefined, fallback: boolean): boolean {
+export function booleanOr(value: boolean | undefined, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function clampInteger(value: number | undefined, min: number, max: number, fallback: number): number {
+export function clampInteger(value: number | undefined, min: number, max: number, fallback: number): number {
   if (value == null || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
-function clampNumber(value: number | undefined, min: number, max: number, fallback: number): number {
+export function clampNumber(value: number | undefined, min: number, max: number, fallback: number): number {
   if (value == null || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
 }
@@ -172,7 +172,7 @@ function clampNumber(value: number | undefined, min: number, max: number, fallba
 // non-empty name. The legacy `gamePriority: string[]` is intentionally NOT
 // migrated: it stored ids without display names (and was an ordering hint, not an
 // allowlist), so carrying it over would surface bare numeric ids like "13".
-function normalizeCategorySelections(value: CategorySelection[] | undefined): CategorySelection[] {
+export function normalizeCategorySelections(value: CategorySelection[] | undefined): CategorySelection[] {
   if (!Array.isArray(value)) return [];
   const seen = new Set<string>();
   const result: CategorySelection[] = [];
@@ -191,7 +191,7 @@ function normalizeCategorySelections(value: CategorySelection[] | undefined): Ca
 
 // Campaign ids are case-sensitive and matched verbatim against campaign.id in
 // the scheduler, so unlike channel/game lists they must not be lowercased.
-function normalizeIdList(value: string[] | undefined): string[] {
+export function normalizeIdList(value: string[] | undefined): string[] {
   if (!Array.isArray(value)) return [];
   return [...new Set(value
     .filter((item): item is string => typeof item === "string")
@@ -205,7 +205,7 @@ function normalizeCampaignVisibility(value: Partial<Record<CampaignFilterKey, bo
   ) as Record<CampaignFilterKey, boolean>;
 }
 
-function normalizeChannelList(value: string[] | undefined): string[] {
+export function normalizeChannelList(value: string[] | undefined): string[] {
   if (!Array.isArray(value)) return [];
   return [...new Set(value
     .filter((item): item is string => typeof item === "string")
@@ -213,7 +213,7 @@ function normalizeChannelList(value: string[] | undefined): string[] {
     .filter(Boolean))];
 }
 
-function normalizePriorities(value: Record<string, number> | undefined): Record<string, number> {
+export function normalizePriorities(value: Record<string, number> | undefined): Record<string, number> {
   if (!value || typeof value !== "object") return {};
   return Object.fromEntries(
     Object.entries(value)

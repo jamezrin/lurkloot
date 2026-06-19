@@ -16,12 +16,20 @@ describe("parseConfig", () => {
     expect(config.authDir).toBe(resolve("/tmp/lurkloot", "creds"));
   });
 
-  it("merges settings over the extension defaults", () => {
+  it("merges settings over the CLI defaults", () => {
     const config = parseConfig({ settings: { pollIntervalMinutes: 7 } }, CONFIG_PATH);
     expect(config.settings.pollIntervalMinutes).toBe(7);
-    // A field left out of the config still gets its extension default.
-    expect(typeof config.settings.tablessMode).toBe("boolean");
+    // A field left out of the config still gets its default.
+    expect(typeof config.settings.autoClaim).toBe("boolean");
     expect(config.settings.platform.twitch).toBeDefined();
+  });
+
+  it("rejects extension-only settings copied from the browser config", () => {
+    expect(() => parseConfig({ settings: { adFocusMode: "window" } }, CONFIG_PATH)).toThrow(/extension-only/);
+  });
+
+  it("rejects an unknown top-level config key", () => {
+    expect(() => parseConfig({ credentials: {} }, CONFIG_PATH)).toThrow(/Unknown config key/);
   });
 
   it("accepts every known transport", () => {

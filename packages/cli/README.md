@@ -17,18 +17,30 @@ pnpm cli validate-config --config ./config.json
 
 ## Config
 
-The config file reuses the extension's `ExtensionSettings` model **verbatim**
-(validated through the same `mergeSettings`), so defaults and behavior match the
-extension. Only `transport` and `authDir` are CLI-specific. **Credentials never
-go in the config** — they live in the auth store.
+The CLI has its **own** settings schema — it is *not* the extension's
+`ExtensionSettings` verbatim. Only settings that do something in the headless,
+tabless watch path are accepted; the schema is validated strictly, so an unknown
+key (or an extension-only one copy-pasted from the browser config) is a **hard
+error** that names the offender. `running` and `tablessMode` are gone — the CLI
+always runs and is always tabless. **Credentials never go in the config** — they
+live in the auth store.
+
+Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`,
+`campaignPriorities`, `excludedCampaignIds`, `watchQueueFallbackOnly`,
+`offlineRetryLimit`, `pollIntervalMinutes`, `enabledLogLevels`,
+`notifyRewardEarned`, `notifyNoDropsLeft`, and per-platform `enabled`,
+`watchQueueChannels`, `excludedChannels`, `farmAllCategories`, `categories`.
+
+Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
+`muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
+`adFocusMode`, `autoCloseFinishedDrops`, `autoStartDropFarming`,
+`campaignVisibility`, `languageOverride`, `rateNudgeStatus`.
 
 ```jsonc
 {
   "transport": "impersonate",   // "http" | "impersonate"
   "authDir": "auth",            // resolved relative to this file
-  "settings": {                 // ExtensionSettings shape, merged over defaults
-    "running": true,
-    "tablessMode": true,
+  "settings": {                 // CLI settings schema, merged over defaults
     "pollIntervalMinutes": 5,
     "platform": {
       "twitch": { "enabled": true },
