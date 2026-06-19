@@ -1,13 +1,15 @@
 ---
-// Section order tells the story: hook (Hero, Why), show (How, the real demo),
-// depth (Features), proof (Coverage: platforms + games), trust (Privacy, FAQ),
-// close (CTA with the objection-buster strip).
+// Section order tells the story: hook (Hero, Why), show (How, the popup demo),
+// depth (Features, then the headless CLI that runs the same engine), proof
+// (Coverage: platforms + games), trust (Privacy, FAQ), close (CTA with the
+// objection-buster strip).
 import Base from "../layouts/Base.astro";
 import Hero from "../components/Hero.astro";
 import Manifesto from "../components/Manifesto.astro";
 import HowItWorks from "../components/HowItWorks.astro";
 import LiveDemo from "../components/LiveDemo.astro";
 import Features from "../components/Features.astro";
+import Cli from "../components/Cli.astro";
 import Coverage from "../components/Coverage.astro";
 import Privacy from "../components/Privacy.astro";
 import Faq from "../components/Faq.astro";
@@ -22,6 +24,7 @@ import Footer from "../components/Footer.astro";
     <HowItWorks />
     <LiveDemo />
     <Features />
+    <Cli />
     <Coverage />
     <Privacy />
     <Faq />

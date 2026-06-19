@@ -4,6 +4,7 @@ const guarantees = [
   { t: "Nothing leaves your device", d: "No exported cookies or tokens, no remote servers, no analytics harvesting your activity." },
   { t: "No middleman servers", d: "It talks to Twitch and Kick straight from your browser — nothing is routed through anyone else." },
   { t: "No tracking or telemetry", d: "Your viewing activity stays on your machine — it's never collected, profiled, or sold." },
+  { t: "Open source", d: "Every line is public. Read it, build it yourself, and verify it does exactly what it says — no trust required.", wide: true },
 ];
 ---
 
@@ -14,13 +15,13 @@ const guarantees = [
       <h2 class="reveal-slow">Your account<br />stays yours.</h2>
       <p class="reveal">
         Other farmers ask you to hand over tokens or run on someone else's server.
-        This does neither — a local-only extension that never sees a password and never
-        phones home.
+        This does neither — a local-only, fully open-source tool that never sees a
+        password and never phones home.
       </p>
     </div>
     <ul class="priv__list">
       {guarantees.map((g) => (
-        <li class="reveal">
+        <li class:list={["reveal", { wide: g.wide }]}>
           <span class="priv__mark">✓</span>
           <div>
             <strong>{g.t}</strong>
@@ -64,6 +65,7 @@ const guarantees = [
   }
   @media (min-width: 560px) {
     .priv__list { grid-template-columns: 1fr 1fr; }
+    .priv__list li.wide { grid-column: 1 / -1; }
   }
   .priv__list li {
     display: flex;

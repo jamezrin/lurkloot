@@ -1,4 +1,8 @@
 ---
+import { Image } from "astro:assets";
+import pepega from "../assets/memes/pepega.webp";
+import gigachad from "../assets/memes/gigachad.jpg";
+
 // Main features as cinematic alternating beats (text + a stylized visual that
 // parallaxes). Followed by a compact "and more" row for breadth.
 const more = [
@@ -28,10 +32,22 @@ const more = [
         </p>
       </div>
       <div class="beat__lift reveal">
-        <div class="beat__viz" data-tilt>
-          <div class="viz-row"><span>Old way</span><i class="bar bar--heavy"><b style="width:88%"></b></i><em>heavy</em></div>
-          <div class="viz-row"><span>Autopilot</span><i class="bar bar--light"><b style="width:14%"></b></i><em>~14%</em></div>
-          <div class="viz-pulse"><s></s><s></s><s></s><s></s><s></s><em>watching</em></div>
+        <div class="beat__viz beat__viz--meme" data-tilt>
+          <figure class="meme meme--bad">
+            <div class="meme__pic"><Image src={pepega} alt="Pepega" widths={[128, 256]} sizes="160px" /></div>
+            <figcaption>
+              <span class="meme__who">Without Lurkloot</span>
+              <span class="meme__tag">old way · heavy</span>
+            </figcaption>
+          </figure>
+          <span class="meme__vs" aria-hidden="true">vs</span>
+          <figure class="meme meme--good">
+            <div class="meme__pic"><Image src={gigachad} alt="Gigachad" widths={[320, 660]} sizes="240px" /></div>
+            <figcaption>
+              <span class="meme__who">With Lurkloot</span>
+              <span class="meme__tag">autopilot · ~14% CPU</span>
+            </figcaption>
+          </figure>
         </div>
       </div>
     </div>
@@ -221,6 +237,68 @@ const more = [
   @keyframes hb {
     0%, 100% { opacity: 0.25; transform: scale(1); }
     40% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 10px var(--glow-lime); }
+  }
+
+  /* meme face-off: Pepega (without) vs Gigachad (with) */
+  .beat__viz--meme {
+    grid-auto-flow: column;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: clamp(0.8rem, 2vw, 1.4rem);
+  }
+  .meme {
+    margin: 0;
+    display: grid;
+    gap: 0.7rem;
+    text-align: center;
+  }
+  .meme__pic {
+    aspect-ratio: 1;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    display: grid;
+    place-items: center;
+  }
+  .meme__pic :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .meme--bad .meme__pic {
+    background: radial-gradient(120% 120% at 50% 0%, rgba(255, 59, 107, 0.18), var(--ink-2));
+    filter: saturate(0.9);
+  }
+  .meme--good .meme__pic {
+    background: radial-gradient(120% 120% at 50% 0%, rgba(83, 252, 24, 0.16), var(--ink-2));
+    box-shadow: 0 0 0 1px rgba(83, 252, 24, 0.18), 0 30px 60px -40px var(--glow-lime);
+  }
+  .meme figcaption {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .meme__who {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.98rem;
+  }
+  .meme--good .meme__who {
+    background: var(--signal-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .meme__tag {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.04em;
+    color: var(--faint);
+  }
+  .meme__vs {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+    align-self: center;
   }
 
   .beat__viz--sched {

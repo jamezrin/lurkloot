@@ -1,0 +1,202 @@
+---
+import { LINKS, DOCKER_IMAGE } from "../consts";
+
+// Same engine as the extension, no browser — these are the real commands from the
+// CLI README/Dockerfile, just pointed at the prebuilt GHCR image.
+const points = [
+  {
+    t: "The same engine as the extension",
+    d: "It runs @lurkloot/core directly — no faked browser globals, no headless Chrome. Identical farming logic.",
+  },
+  {
+    t: "No browser at all",
+    d: "Both platforms farm over plain HTTP, with a real Chrome TLS fingerprint to reach Kick. Twitch and Kick, no tab.",
+  },
+  {
+    t: "Prebuilt, multi-arch image",
+    d: "Pull it from GHCR for amd64 and arm64 — nothing to build. Perfect for a server, a NAS, or a Raspberry Pi.",
+  },
+  {
+    t: "Device-login for both",
+    d: "Authorize Twitch and Kick from any device with a code. No password, no cookie export, ever.",
+  },
+];
+---
+
+<section id="cli" class="cli act">
+  <div class="wrap">
+    <div class="cli__head">
+      <p class="eyebrow reveal">No browser required</p>
+      <h2 class="reveal-slow">Prefer the terminal?<br />Run it on a <span class="grad-text">server</span>.</h2>
+      <p class="reveal">
+        The exact same farming engine, headless. No browser, no video tab — drop it on a
+        box you already keep running and let your drops pile up 24/7.
+      </p>
+    </div>
+
+    <div class="cli__inner">
+      <div class="cli__term reveal" data-lenis-prevent>
+        <div class="cli__bar" aria-hidden="true">
+          <span></span><span></span><span></span>
+          <em>lurkloot — docker</em>
+        </div>
+        <pre class="cli__code"><code><span class="c"># one prebuilt, multi-arch image — nothing to build</span>
+<span class="p">docker</span> run -v <span class="s">"$PWD/data:/data"</span> \
+  <span class="i">{DOCKER_IMAGE}</span> auth twitch device-login
+
+<span class="c"># then just run the loop</span>
+<span class="p">docker</span> run -v <span class="s">"$PWD/data:/data"</span> <span class="i">{DOCKER_IMAGE}</span></code></pre>
+      </div>
+
+      <div class="cli__side">
+        <ul class="cli__points">
+          {points.map((pt) => (
+            <li class="reveal">
+              <span class="cli__mark">›</span>
+              <div>
+                <strong>{pt.t}</strong>
+                <p>{pt.d}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div class="cli__btns reveal">
+          <a class="btn btn--ghost" href={LINKS.github} target="_blank" rel="noopener">
+            View on GitHub
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M7 17 17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </a>
+          <a class="btn btn--ghost" href={LINKS.cli} target="_blank" rel="noopener">
+            Read the CLI docs
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M7 17 17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .cli__head {
+    text-align: center;
+    max-width: 42ch;
+    margin: 0 auto clamp(2.5rem, 6vw, 4rem);
+  }
+  .cli__head h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    font-size: clamp(2.4rem, 6vw, 4.5rem);
+    margin: 0.6rem 0 1rem;
+  }
+  .cli__head p {
+    color: var(--muted);
+    font-size: 1.08rem;
+  }
+
+  .cli__inner {
+    display: grid;
+    gap: clamp(2rem, 4vw, 3.5rem);
+    align-items: center;
+  }
+  @media (min-width: 920px) {
+    .cli__inner { grid-template-columns: 1.05fr 0.95fr; }
+  }
+
+  /* terminal window */
+  .cli__term {
+    border: 1px solid var(--line-strong);
+    border-radius: 16px;
+    background: linear-gradient(180deg, var(--ink-2), var(--ink-0));
+    overflow: hidden;
+    box-shadow: 0 50px 90px -50px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  }
+  .cli__bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .cli__bar span {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--ink-3);
+    border: 1px solid var(--line-strong);
+  }
+  .cli__bar em {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    color: var(--faint);
+    font-style: normal;
+  }
+  .cli__code {
+    margin: 0;
+    padding: 1.4rem 1.3rem;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: var(--text);
+    -webkit-overflow-scrolling: touch;
+  }
+  .cli__code .c { color: var(--faint); }
+  .cli__code .p { color: var(--purple-soft); font-weight: 600; }
+  .cli__code .s { color: var(--lime); }
+  .cli__code .i {
+    background: var(--signal-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 600;
+  }
+
+  /* points + CTAs */
+  .cli__points {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 1.1rem;
+  }
+  .cli__points li {
+    display: flex;
+    gap: 0.85rem;
+  }
+  .cli__mark {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 1.1rem;
+    line-height: 1.5;
+    background: var(--signal-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .cli__points strong {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.08rem;
+    margin-bottom: 0.2rem;
+  }
+  .cli__points p {
+    color: var(--muted);
+    font-size: 0.94rem;
+    max-width: 44ch;
+  }
+  .cli__btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    margin-top: 1.8rem;
+  }
+</style>
