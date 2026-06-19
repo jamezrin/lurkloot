@@ -2,21 +2,32 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings } from "@lurkloot/shared/settings";
 
 describe("engine settings", () => {
-  it("normalizes the engine contract without the extension-only fields", () => {
+  // The tab-policy fields (mute / keep-unmuted / auto-close / ad focus) and the
+  // pure-UI fields are host-only: the engine reads none of them, so they must not
+  // appear on the EngineSettings contract.
+  const HOST_ONLY_FIELDS = [
+    "muteFarmingTabs",
+    "keepFarmingVideosUnmuted",
+    "autoCloseFinishedDrops",
+    "adFocusMode",
+    "languageOverride",
+    "campaignVisibility",
+    "rateNudgeStatus",
+  ] as const;
+
+  it("normalizes the engine contract without the host-only fields", () => {
     const engine = mergeEngineSettings({ pollIntervalMinutes: 5 });
     expect(engine.pollIntervalMinutes).toBe(5);
     expect(engine.platform.twitch).toBeDefined();
-    // Host-only fields are not part of the engine contract.
-    expect("languageOverride" in engine).toBe(false);
-    expect("campaignVisibility" in engine).toBe(false);
-    expect("rateNudgeStatus" in engine).toBe(false);
+    for (const field of HOST_ONLY_FIELDS) expect(field in engine).toBe(false);
   });
 
   it("layers host-only fields on top of the engine defaults", () => {
-    // The extension defaults are the engine defaults plus the three host fields.
+    // The extension defaults are the engine defaults plus the host-only fields.
     expect(DEFAULT_SETTINGS).toMatchObject(DEFAULT_ENGINE_SETTINGS);
+    for (const field of HOST_ONLY_FIELDS) expect(field in DEFAULT_SETTINGS).toBe(true);
+    expect(DEFAULT_SETTINGS.adFocusMode).toBe("window");
     expect(DEFAULT_SETTINGS.languageOverride).toBe("browser");
-    expect(DEFAULT_SETTINGS.campaignVisibility).toBeDefined();
     expect(DEFAULT_SETTINGS.rateNudgeStatus).toBe("pending");
   });
 });

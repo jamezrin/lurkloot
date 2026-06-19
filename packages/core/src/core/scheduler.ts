@@ -323,7 +323,7 @@ export async function runSchedulerTick(
     try {
       nextState = addTickEvent(nextState, platform, "debug", `Tick start (previous status: ${previous.status})`, enabledLevels);
       if (settings.pauseOnManualWatch && hasRecentManualWatch(nextState, platform)) {
-        await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
+        await adapter.stopWatchTab?.(previous);
         nextState.sessions[platform] = {
           ...previous,
           status: "paused",
@@ -349,7 +349,7 @@ export async function runSchedulerTick(
         continue;
       }
       if (!settings.running || !platformSettings.enabled) {
-        await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
+        await adapter.stopWatchTab?.(previous);
         nextState.sessions[platform] = {
           ...previous,
           status: "paused",
@@ -448,7 +448,7 @@ export async function runSchedulerTick(
       decisions.push(decision);
       nextState = addTickEvent(nextState, platform, decision.action === "idle" ? "warn" : "info", decision.reason, enabledLevels);
       if (decision.action === "idle") {
-        await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
+        await adapter.stopWatchTab?.(previous);
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
       }
       const session = sessionForDecision(decision, previous, shouldKeep);
@@ -461,7 +461,7 @@ export async function runSchedulerTick(
         if (useTabless) {
           // Tabless: no video tab. Close any tab we previously opened for this
           // platform; the controller starts/keeps the heartbeat watcher.
-          await adapter.stopWatchTab?.(previous, { closeManagedTabs: settings.autoCloseFinishedDrops });
+          await adapter.stopWatchTab?.(previous);
           nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
           session.watchMode = "tabless";
           session.tablessFallback = false;
@@ -479,12 +479,12 @@ export async function runSchedulerTick(
             enabledLevels,
           );
         } else {
-          const watchTabOptions = {
-            muted: settings.muteFarmingTabs,
-            closeManagedTabs: settings.autoCloseFinishedDrops,
-            keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
-            ...(nextState.managedWatchTabs?.[platform] ? { managedTab: nextState.managedWatchTabs[platform] } : {}),
-          };
+          // Tab policy (mute / keep-unmuted / auto-close) is owned by the host's
+          // injected WatchTabPort, not the engine; the scheduler only forwards the
+          // managed-tab handle it tracks in state.
+          const watchTabOptions = nextState.managedWatchTabs?.[platform]
+            ? { managedTab: nextState.managedWatchTabs[platform] }
+            : {};
           const prepared = await adapter.prepareWatchTab(decision.channel, previous, watchTabOptions);
           session.tabId = prepared.tabId;
           session.tabManagedByExtension = prepared.managedByExtension;

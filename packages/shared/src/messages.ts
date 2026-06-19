@@ -1,4 +1,4 @@
-import type { CategorySelection, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState } from "./models";
+import type { CategorySelection, EngineSettings, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState } from "./models";
 import type { SettingsPatch } from "./settings";
 
 export const SETTINGS_SESSION_PORT = "lurkloot.settings-session";
@@ -32,8 +32,11 @@ export interface CliCredentialBlob {
   };
 }
 
-export interface RuntimeSnapshot {
-  settings: ExtensionSettings;
+// Parametrized over the host's settings type so the generic background
+// controller can return its own `S`. Defaults to ExtensionSettings, the only
+// host that consumes a snapshot (the popup), so existing usages are unchanged.
+export interface RuntimeSnapshot<S extends EngineSettings = ExtensionSettings> {
+  settings: S;
   state: SchedulerState;
 }
 

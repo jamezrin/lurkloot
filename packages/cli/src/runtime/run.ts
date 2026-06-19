@@ -23,7 +23,7 @@ export interface RunOptions {
 // SIGINT/SIGTERM, disposing the transport.
 export async function runLoop(options: RunOptions): Promise<void> {
   const { settings, statePath, transport, logger } = options;
-  // The shared engine works on the full ExtensionSettings; expand the CLI's
+  // The shared engine works on the EngineSettings contract; expand the CLI's
   // schema once, pinning the headless invariants (always running, always tabless).
   const engineSettings = toEngineSettings(settings);
 

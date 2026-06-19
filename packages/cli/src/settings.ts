@@ -3,14 +3,14 @@ import {
   booleanOr,
   clampInteger,
   clampNumber,
-  mergeSettings,
+  mergeEngineSettings,
   normalizeCategorySelections,
   normalizeChannelList,
   normalizeIdList,
   normalizeLogLevels,
   normalizePriorities,
 } from "@lurkloot/shared/settings";
-import type { ExtensionSettings, Platform, PlatformSettings, PriorityMode } from "@lurkloot/shared/models";
+import type { EngineSettings, Platform, PlatformSettings, PriorityMode } from "@lurkloot/shared/models";
 import type { LogLevel } from "@lurkloot/shared/logging";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
@@ -140,7 +140,7 @@ export function parseCliSettings(raw: unknown): CliSettings {
     throw new Error(`Invalid CLI settings:\n  - ${offenders.join("\n  - ")}`);
   }
 
-  const v = value as Partial<ExtensionSettings>;
+  const v = value as Partial<EngineSettings>;
   return {
     autoClaim: booleanOr(v.autoClaim, DEFAULT_CLI_SETTINGS.autoClaim),
     autoClaimChannelPoints: booleanOr(v.autoClaimChannelPoints, DEFAULT_CLI_SETTINGS.autoClaimChannelPoints),
@@ -159,7 +159,7 @@ export function parseCliSettings(raw: unknown): CliSettings {
   };
 }
 
-function normalizePlatform(raw: ExtensionSettings["platform"] | undefined): Record<Platform, PlatformSettings> {
+function normalizePlatform(raw: EngineSettings["platform"] | undefined): Record<Platform, PlatformSettings> {
   const build = (platform: Platform): PlatformSettings => {
     const ps = (raw?.[platform] ?? {}) as Partial<PlatformSettings>;
     const defaults = DEFAULT_CLI_SETTINGS.platform[platform];
@@ -174,13 +174,13 @@ function normalizePlatform(raw: ExtensionSettings["platform"] | undefined): Reco
   return { twitch: build("twitch"), kick: build("kick") };
 }
 
-// Expands the CLI settings into the full ExtensionSettings the shared engine
-// requires. The browser-only fields are forced to inert defaults and the CLI
-// invariants are pinned: always running, always tabless, never pausing on a
-// (nonexistent) manual watch, and never auto-starting via the controller (the
-// CLI drives tick() directly).
-export function toEngineSettings(cli: CliSettings): ExtensionSettings {
-  return mergeSettings({
+// Expands the CLI settings into the EngineSettings contract the shared engine
+// consumes. The CLI invariants are pinned: always running, always tabless, never
+// pausing on a (nonexistent) manual watch, and never auto-starting via the
+// controller (the CLI drives tick() directly). Tab-policy fields are not part of
+// the engine contract — the CLI never opens a tab — so there is nothing to force.
+export function toEngineSettings(cli: CliSettings): EngineSettings {
+  return mergeEngineSettings({
     ...cli,
     running: true,
     tablessMode: true,

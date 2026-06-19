@@ -12,6 +12,7 @@ import {
   stopWatchTab,
 } from "../src/core/tabs";
 import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
+import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, SupportedLocale } from "@lurkloot/shared/models";
@@ -31,24 +32,40 @@ async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   return loaded;
 }
 
-async function translate(settings: ExtensionSettings, key: string, substitutions?: string | string[]): Promise<string> {
-  if (settings.languageOverride === "browser") {
+// The engine no longer carries the locale; the host resolves it from its own
+// settings on demand.
+async function translate(key: string, substitutions?: string | string[]): Promise<string> {
+  const { languageOverride } = await loadSettings();
+  if (languageOverride === "browser") {
     const message = getMessage(key, substitutions);
     if (message) return message;
   }
-  const locale = effectiveLocale(settings.languageOverride, browser.i18n.getUILanguage());
+  const locale = effectiveLocale(languageOverride, browser.i18n.getUILanguage());
   const [active, fallback] = await Promise.all([catalog(locale), catalog("en")]);
   return translateFromCatalogs(key, substitutions, active, fallback ?? {});
 }
 
 // Browser-backed watch-tab port shared by both adapters: binds the engine's
-// WatchTabPort to the extension's wxt/browser tab wrappers.
+// WatchTabPort to the extension's wxt/browser tab wrappers. The host owns the tab
+// policy (mute / keep-unmuted / auto-close), filling it from its own settings
+// before delegating — the engine never reads those fields.
 const watchTabPort: WatchTabPort = {
-  openPinnedMutedTab: (channel, session, options) => openPinnedMutedTab(channel, session, options),
-  stopWatchTab: (session, options) => stopWatchTab(session, options),
+  openPinnedMutedTab: async (channel, session, options) => {
+    const settings = await loadSettings();
+    return openPinnedMutedTab(channel, session, {
+      muted: settings.muteFarmingTabs,
+      keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
+      closeManagedTabs: settings.autoCloseFinishedDrops,
+      ...options,
+    });
+  },
+  stopWatchTab: async (session, options) => {
+    const settings = await loadSettings();
+    return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options });
+  },
 };
 
-const controller = createBackgroundController({
+const controller = createBackgroundController<ExtensionSettings>({
   loadSettings,
   saveSettings,
   loadState,
@@ -71,7 +88,12 @@ const controller = createBackgroundController({
     });
   },
   translate,
-  applyAdFocus: (platform, tabId, adActive, mode) => applyAdFocus(platform, tabId, adActive, mode),
+  applySettingsPatch,
+  applyAdFocus: async (platform, tabId, adActive) => {
+    const { adFocusMode } = await loadSettings();
+    await applyAdFocus(platform, tabId, adActive, adFocusMode);
+  },
+  loadTabPlaybackPolicy: async () => ({ keepVideosUnmuted: (await loadSettings()).keepFarmingVideosUnmuted !== false }),
   loadTwitchIntegrity,
   saveTwitchIntegrity,
   stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),

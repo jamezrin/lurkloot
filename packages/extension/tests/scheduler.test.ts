@@ -566,7 +566,7 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "new", live: true }),
       expect.objectContaining({ tabId: 7 }),
-      { muted: true, closeManagedTabs: true, keepVideosUnmuted: true },
+      {},
     );
     expect(twitch.readProgress).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ channel: first }));
   });
@@ -726,7 +726,7 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "old" }),
       expect.objectContaining({ tabId: 7 }),
-      { muted: true, closeManagedTabs: true, keepVideosUnmuted: true },
+      {},
     );
   });
 
@@ -768,7 +768,7 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "new" }),
       expect.objectContaining({ tabId: 7 }),
-      { muted: true, closeManagedTabs: true, keepVideosUnmuted: true },
+      {},
     );
   });
 
@@ -953,7 +953,7 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "old" }),
       expect.objectContaining({ tabId: 7 }),
-      { muted: true, closeManagedTabs: true, keepVideosUnmuted: true },
+      {},
     );
     expect(result.state.events.some((event) => event.message === "Watch tab playback did not become active")).toBe(true);
   });
@@ -990,7 +990,7 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "fallback" }),
       expect.objectContaining({ tabId: 7 }),
-      { muted: true, closeManagedTabs: true, keepVideosUnmuted: true },
+      {},
     );
   });
 
@@ -1059,58 +1059,6 @@ describe("scheduler tick", () => {
 
     expect(twitch.claimReward).toHaveBeenCalledWith(ready, ready.rewards[0]);
     expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
-  });
-
-  it("passes mute-tab setting to prepared watch tabs", async () => {
-    const twitch = adapter("twitch", [campaign("drops")], [channel("allowed")]);
-
-    await runSchedulerTick(
-      {
-        sessions: {
-          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
-          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
-        },
-        campaigns: { twitch: [], kick: [] },
-        events: [],
-      },
-      settings({
-        muteFarmingTabs: false,
-        platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
-      }),
-      { twitch, kick: adapter("kick", [], []) },
-    );
-
-    expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
-      expect.objectContaining({ username: "allowed" }),
-      expect.any(Object),
-      { muted: false, closeManagedTabs: true, keepVideosUnmuted: true },
-    );
-  });
-
-  it("passes video playback control setting to prepared watch tabs", async () => {
-    const twitch = adapter("twitch", [campaign("drops")], [channel("allowed")]);
-
-    await runSchedulerTick(
-      {
-        sessions: {
-          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
-          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
-        },
-        campaigns: { twitch: [], kick: [] },
-        events: [],
-      },
-      settings({
-        keepFarmingVideosUnmuted: false,
-        platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
-      }),
-      { twitch, kick: adapter("kick", [], []) },
-    );
-
-    expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
-      expect.objectContaining({ username: "allowed" }),
-      expect.any(Object),
-      { muted: true, closeManagedTabs: true, keepVideosUnmuted: false },
-    );
   });
 
   it("does not claim rewards after their claim window has expired", async () => {
@@ -1309,7 +1257,7 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7, tabManagedByExtension: true }), { closeManagedTabs: true });
+    expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7, tabManagedByExtension: true }));
     expect(result.state.sessions.twitch.tabId).toBeUndefined();
     expect(result.state.sessions.twitch.channel).toBeUndefined();
     expect(result.state.managedPageContextTabs?.twitch).toBeUndefined();
@@ -1331,7 +1279,7 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7 }), { closeManagedTabs: true });
+    expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7 }));
     expect(result.state.sessions.twitch.status).toBe("idle");
     expect(result.state.sessions.twitch.tabId).toBeUndefined();
   });
@@ -1409,7 +1357,7 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "fallback", live: true }),
       expect.any(Object),
-      { muted: true, closeManagedTabs: true, keepVideosUnmuted: true },
+      {},
     );
     expect(result.state.sessions.twitch).toMatchObject({
       status: "watching",

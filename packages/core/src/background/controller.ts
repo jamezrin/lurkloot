@@ -1,7 +1,7 @@
 import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { AdFocusMode, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "@lurkloot/shared/models";
+import type { DropCampaign, DropReward, EngineSettings, EventLogEntry, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { appendLog, shouldRecord, type LogLevel } from "@lurkloot/shared/logging";
-import { applySettingsPatch, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
+import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
 import { logActivity, setActivityLogger } from "../core/activityLog";
 import { setTwitchIntegrity } from "../core/tabs";
@@ -38,17 +38,29 @@ function withStateLock<T>(operation: () => Promise<T>): Promise<T> {
   return run;
 }
 
-export interface BackgroundControllerDeps {
-  loadSettings(): Promise<ExtensionSettings>;
-  saveSettings(settings: ExtensionSettings): Promise<void>;
+// Generic over the host's settings type `S`, which must satisfy the engine
+// contract (EngineSettings). The extension parametrizes it with its fuller
+// ExtensionSettings (load/save round-trip the host-only fields); the CLI uses the
+// bare EngineSettings. The engine itself only ever reads EngineSettings fields.
+export interface BackgroundControllerDeps<S extends EngineSettings = EngineSettings> {
+  loadSettings(): Promise<S>;
+  saveSettings(settings: S): Promise<void>;
   loadState(): Promise<SchedulerState>;
   saveState(state: SchedulerState): Promise<void>;
   createAlarm(name: string, options: { periodInMinutes: number }): Promise<void>;
   createAdapters(): Record<Platform, PlatformAdapter>;
   createNotification?(notification: { title: string; message: string }): Promise<void>;
-  translate?(settings: ExtensionSettings, key: string, substitutions?: string | string[]): string | Promise<string>;
+  translate?(key: string, substitutions?: string | string[]): string | Promise<string>;
   closeManagedTabsByUrl?(urls: string[]): Promise<void>;
-  applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode): Promise<void>;
+  // Tab-mode ad focus. The host (extension) owns the focus policy (adFocusMode),
+  // so the engine only reports whether an ad is active for a given watch tab.
+  applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean): Promise<void>;
+  // Tab-mode playback policy the host supplies to managed watch tabs. Defaults to
+  // keeping videos unmuted when the host does not provide it.
+  loadTabPlaybackPolicy?(): Promise<{ keepVideosUnmuted: boolean }>;
+  // Applies a popup settings patch to the host's full settings. Host-only; the
+  // CLI never sends settings-mutating messages, so it can omit this.
+  applySettingsPatch?(current: S, patch: SettingsPatch): S;
   loadTwitchIntegrity?(): Promise<TwitchIntegrity | undefined>;
   saveTwitchIntegrity?(value: TwitchIntegrity): Promise<void>;
   // Browser-bound page-context tab teardown, injected into the scheduler tick.
@@ -57,7 +69,7 @@ export interface BackgroundControllerDeps {
   stopPageContextTabs?: StopPageContextTabs;
 }
 
-export function createBackgroundController(deps: BackgroundControllerDeps) {
+export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
   // tabs.ts is a pure module with no access to scheduler state, so it reports
   // lifecycle/ad-focus events through this sink. They are buffered and merged
   // into the very state object being saved (see persist) to avoid a load/save
@@ -181,7 +193,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     if (!cleanup.hasStaleSession) {
       if (settings.autoStartDropFarming && settings.running) await tick();
       if (settings.running && !settings.autoStartDropFarming) {
-        await deps.saveSettings(mergeSettings({ ...settings, running: false }));
+        await deps.saveSettings({ ...settings, running: false });
       }
       return;
     }
@@ -192,7 +204,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
 
     let nextSettings = settings;
     if (settings.running && !settings.autoStartDropFarming) {
-      nextSettings = mergeSettings({ ...settings, running: false });
+      nextSettings = { ...settings, running: false };
       await deps.saveSettings(nextSettings);
     }
 
@@ -208,7 +220,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     }
   }
 
-  async function snapshot(): Promise<RuntimeSnapshot> {
+  async function snapshot(): Promise<RuntimeSnapshot<S>> {
     return {
       settings: await deps.loadSettings(),
       state: await deps.loadState(),
@@ -221,10 +233,12 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     return run;
   }
 
-  async function updateStoredSettings(patch: SettingsPatch): Promise<ExtensionSettings> {
+  async function updateStoredSettings(patch: SettingsPatch): Promise<S> {
     return withSettingsLock(async () => {
-      const current = mergeSettings(await deps.loadSettings());
-      const settings = applySettingsPatch(current, patch);
+      if (!deps.applySettingsPatch) {
+        throw new Error("applySettingsPatch dependency is required to mutate settings");
+      }
+      const settings = deps.applySettingsPatch(await deps.loadSettings(), patch);
       await deps.saveSettings(settings);
       await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
       return settings;
@@ -233,9 +247,9 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
 
   async function tick(platforms?: Platform[], options?: { forcePaused?: boolean }): Promise<void> {
     await withStateLock(async () => {
-      const storedSettings = mergeSettings(await deps.loadSettings());
-      const settings = options?.forcePaused || settingsPauseCount > 0
-        ? mergeSettings({ ...storedSettings, running: false })
+      const storedSettings = await deps.loadSettings();
+      const settings: S = options?.forcePaused || settingsPauseCount > 0
+        ? { ...storedSettings, running: false }
         : storedSettings;
       const state = await deps.loadState();
       const enabledLevels = settings.enabledLogLevels;
@@ -247,7 +261,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
           stopPageContextTabs: deps.stopPageContextTabs,
         });
         await emitNotifications(settings, state, result.state);
-        await applyAdFocusForState(settings, result.state);
+        await applyAdFocusForState(result.state);
         await reconcileTablessWatchers(result.state, settings, adapters, platforms);
         // The per-tick heartbeat is debug noise next to the richer per-platform
         // entries the scheduler already records; the popup shows "last check" too.
@@ -308,7 +322,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   // rest (idle, paused, fell back to a tab, or watching with a real tab).
   async function reconcileTablessWatchers(
     state: SchedulerState,
-    settings: ExtensionSettings,
+    settings: EngineSettings,
     adapters: Record<Platform, PlatformAdapter>,
     platforms?: Platform[],
   ): Promise<void> {
@@ -430,7 +444,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   async function endSettingsSession(): Promise<void> {
     settingsPauseCount = Math.max(0, settingsPauseCount - 1);
     if (settingsPauseCount > 0) return;
-    const settings = mergeSettings(await deps.loadSettings());
+    const settings = await deps.loadSettings();
     if (settings.running && hasEnabledPlatform(settings)) await tick();
   }
 
@@ -480,14 +494,14 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
       await persist(nextState);
 
       if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
-        await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), settings.adFocusMode);
+        await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive));
       }
     });
   }
 
   function recordManualWatchTelemetry(
     state: SchedulerState,
-    settings: ExtensionSettings,
+    settings: EngineSettings,
     message: Extract<RuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
   ): SchedulerState {
@@ -511,12 +525,12 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     return { ...state, manualWatch };
   }
 
-  async function applyAdFocusForState(settings: ExtensionSettings, state: SchedulerState): Promise<void> {
+  async function applyAdFocusForState(state: SchedulerState): Promise<void> {
     if (!deps.applyAdFocus) return;
     for (const platform of ["twitch", "kick"] as Platform[]) {
       const session = state.sessions[platform];
       const watching = session.status === "watching" && session.tabId != null;
-      await deps.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive), settings.adFocusMode);
+      await deps.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive));
     }
   }
 
@@ -524,19 +538,19 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     message: Extract<RuntimeMessage, { type: "getPlaybackControl" }>,
     senderTabId?: number,
   ): Promise<PlaybackControl> {
-    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    const [policy, state] = await Promise.all([deps.loadTabPlaybackPolicy?.(), deps.loadState()]);
     const session = state.sessions[message.platform];
     return {
       managed: senderTabId != null
         && session.status === "watching"
         && session.tabId === senderTabId,
-      keepVideosUnmuted: settings.keepFarmingVideosUnmuted !== false,
+      keepVideosUnmuted: policy?.keepVideosUnmuted ?? true,
     };
   }
 
   async function claimRewardNow(
     message: Extract<RuntimeMessage, { type: "claimReward" }>,
-  ): Promise<RuntimeSnapshot> {
+  ): Promise<RuntimeSnapshot<S>> {
     // Hold the state lock across the whole load→persist so a concurrent tick or
     // telemetry write can't clobber the claimed-reward update. snapshot() runs
     // after the lock so it reflects the committed state.
@@ -590,12 +604,11 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
             ? `Claimed ${reward.name} from ${campaign.name}`
             : `Could not claim ${reward.name} from ${campaign.name}`,
         });
-        const settings = settingsWithDefaults(await deps.loadSettings());
+        const settings = await deps.loadSettings();
         if (claimed && settings.notifyRewardEarned) {
           await safeNotify(
-            settings,
-            await tr(settings, "notificationRewardClaimed"),
-            await tr(settings, "notificationRewardFromCampaign", [reward.name, campaign.name]),
+            await tr("notificationRewardClaimed"),
+            await tr("notificationRewardFromCampaign", [reward.name, campaign.name]),
           );
         }
         await persist(nextState);
@@ -613,7 +626,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   async function handleMessage(
     message: RuntimeMessage,
     sender?: { tab?: { id?: number } },
-  ): Promise<RuntimeSnapshot | PlaybackControl | CategorySearchResult | void> {
+  ): Promise<RuntimeSnapshot<S> | PlaybackControl | CategorySearchResult | void> {
     if (message.type === "getPlaybackControl") {
       return getPlaybackControl(message, sender?.tab?.id);
     }
@@ -692,7 +705,7 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     }
   }
 
-  async function safeNotify(settings: ExtensionSettings, title: string, message: string): Promise<void> {
+  async function safeNotify(title: string, message: string): Promise<void> {
     if (!deps.createNotification) return;
     try {
       await deps.createNotification({ title, message });
@@ -701,8 +714,8 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     }
   }
 
-  async function tr(settings: ExtensionSettings, key: string, substitutions?: string | string[]): Promise<string> {
-    const translated = await deps.translate?.(settings, key, substitutions);
+  async function tr(key: string, substitutions?: string | string[]): Promise<string> {
+    const translated = await deps.translate?.(key, substitutions);
     if (translated) return translated;
     const template = EN_RUNTIME_MESSAGES[key] ?? key;
     const values = Array.isArray(substitutions)
@@ -714,16 +727,15 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
   }
 
   async function emitNotifications(
-    settings: ExtensionSettings,
+    settings: EngineSettings,
     previous: SchedulerState,
     next: SchedulerState,
   ): Promise<void> {
     if (settings.notifyRewardEarned) {
       for (const reward of newlyEarnedRewards(previous, next)) {
         await safeNotify(
-          settings,
-          await tr(settings, "notificationRewardEarned"),
-          await tr(settings, "notificationRewardFromCampaign", [reward.reward.name, reward.campaign.name]),
+          await tr("notificationRewardEarned"),
+          await tr("notificationRewardFromCampaign", [reward.reward.name, reward.campaign.name]),
         );
       }
     }
@@ -745,9 +757,8 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
           && !isDropsExhausted(previous, platform)
         ) {
           await safeNotify(
-            settings,
-            await tr(settings, "notificationNoDropsLeft"),
-            await tr(settings, "notificationNoDropsLeftMessage", platformLabel(platform)),
+            await tr("notificationNoDropsLeft"),
+            await tr("notificationNoDropsLeftMessage", platformLabel(platform)),
           );
         }
       }
@@ -765,10 +776,6 @@ export function createBackgroundController(deps: BackgroundControllerDeps) {
     tick,
     runWatchHeartbeat,
   };
-
-  function settingsWithDefaults(settings: ExtensionSettings): ExtensionSettings {
-    return mergeSettings(settings);
-  }
 }
 
 function staleStartupCleanup(state: SchedulerState): {
@@ -823,7 +830,7 @@ function pausedStartupSession(session: WatchSession): WatchSession {
   };
 }
 
-function hasEnabledPlatform(settings: ExtensionSettings): boolean {
+function hasEnabledPlatform(settings: EngineSettings): boolean {
   return (["twitch", "kick"] as Platform[]).some((platform) => settings.platform[platform].enabled);
 }
 

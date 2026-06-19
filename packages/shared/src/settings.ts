@@ -20,10 +20,6 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   autoClaimChannelPoints: true,
   tablessMode: true,
   pauseOnManualWatch: true,
-  autoCloseFinishedDrops: true,
-  muteFarmingTabs: true,
-  keepFarmingVideosUnmuted: true,
-  adFocusMode: "window",
   notifyRewardEarned: true,
   notifyNoDropsLeft: true,
   autoStartDropFarming: true,
@@ -55,6 +51,10 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
 // The extension's full defaults: the engine contract plus the host-only knobs.
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   ...DEFAULT_ENGINE_SETTINGS,
+  muteFarmingTabs: true,
+  keepFarmingVideosUnmuted: true,
+  autoCloseFinishedDrops: true,
+  adFocusMode: "window",
   languageOverride: "browser",
   // Preserve the previously hard-coded view: show not-linked, upcoming and
   // finished campaigns; hide expired and excluded ones unless opted back in.
@@ -78,12 +78,6 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     autoClaimChannelPoints: booleanOr(value?.autoClaimChannelPoints, DEFAULT_ENGINE_SETTINGS.autoClaimChannelPoints),
     tablessMode: booleanOr(value?.tablessMode, DEFAULT_ENGINE_SETTINGS.tablessMode),
     pauseOnManualWatch: booleanOr(value?.pauseOnManualWatch, DEFAULT_ENGINE_SETTINGS.pauseOnManualWatch),
-    autoCloseFinishedDrops: booleanOr(value?.autoCloseFinishedDrops, DEFAULT_ENGINE_SETTINGS.autoCloseFinishedDrops),
-    muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_ENGINE_SETTINGS.muteFarmingTabs),
-    keepFarmingVideosUnmuted: booleanOr(value?.keepFarmingVideosUnmuted, DEFAULT_ENGINE_SETTINGS.keepFarmingVideosUnmuted),
-    adFocusMode: AD_FOCUS_MODES.includes(value?.adFocusMode as AdFocusMode)
-      ? (value!.adFocusMode as AdFocusMode)
-      : DEFAULT_ENGINE_SETTINGS.adFocusMode,
     notifyRewardEarned: booleanOr(value?.notifyRewardEarned, DEFAULT_ENGINE_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_ENGINE_SETTINGS.notifyNoDropsLeft),
     autoStartDropFarming: booleanOr(value?.autoStartDropFarming, DEFAULT_ENGINE_SETTINGS.autoStartDropFarming),
@@ -121,6 +115,12 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
   return {
     ...mergeEngineSettings(value),
+    muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_SETTINGS.muteFarmingTabs),
+    keepFarmingVideosUnmuted: booleanOr(value?.keepFarmingVideosUnmuted, DEFAULT_SETTINGS.keepFarmingVideosUnmuted),
+    autoCloseFinishedDrops: booleanOr(value?.autoCloseFinishedDrops, DEFAULT_SETTINGS.autoCloseFinishedDrops),
+    adFocusMode: AD_FOCUS_MODES.includes(value?.adFocusMode as AdFocusMode)
+      ? (value!.adFocusMode as AdFocusMode)
+      : DEFAULT_SETTINGS.adFocusMode,
     languageOverride: normalizeLanguageOverride(value?.languageOverride),
     campaignVisibility: normalizeCampaignVisibility(value?.campaignVisibility),
     rateNudgeStatus: RATE_NUDGE_STATUSES.includes(value?.rateNudgeStatus as RateNudgeStatus)

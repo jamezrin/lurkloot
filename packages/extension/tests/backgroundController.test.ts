@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
-import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
@@ -70,6 +70,9 @@ function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: t
     createNotification: vi.fn(async () => undefined),
     closeManagedTabsByUrl: vi.fn(async () => undefined),
     applyAdFocus: vi.fn(async () => undefined),
+    // Host-owned tab policy + settings-patch application (see background.ts).
+    loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false })),
+    applySettingsPatch: vi.fn((current: ExtensionSettings, patch) => applySettingsPatch(current, patch)),
     createAdapters: vi.fn(() => ({ twitch, kick })),
   };
 
@@ -288,8 +291,8 @@ describe("background controller", () => {
     const snapshot = asSnapshot(await env.controller.handleMessage({ type: "setRunning", running: false }));
 
     expect(env.settings.running).toBe(false);
-    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 10 }), { closeManagedTabs: false });
-    expect(env.kick.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 20 }), { closeManagedTabs: false });
+    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 10 }));
+    expect(env.kick.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 20 }));
     expect(snapshot.state.sessions.twitch.status).toBe("paused");
     expect(snapshot.state.sessions.kick.status).toBe("paused");
     expect(snapshot.state.managedPageContextTabs?.twitch).toBeUndefined();
@@ -477,7 +480,7 @@ describe("background controller", () => {
     await env.controller.beginSettingsSession();
 
     expect(env.settings.running).toBe(true);
-    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ status: "watching" }), expect.anything());
+    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ status: "watching" }));
     expect(env.state.sessions.twitch.status).toBe("paused");
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
 
@@ -690,7 +693,7 @@ describe("background controller", () => {
       },
     }, { tab: { id: 10 } });
 
-    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, true, "window");
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, true);
   });
 
   it("releases ad focus when telemetry reports no ad", async () => {
@@ -712,7 +715,7 @@ describe("background controller", () => {
       },
     }, { tab: { id: 10 } });
 
-    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false, "tab");
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false);
   });
 
   it("does not focus for telemetry from a tab that is not the watch tab", async () => {
@@ -799,8 +802,8 @@ describe("background controller", () => {
 
     await env.controller.handleMessage({ type: "tickNow" });
 
-    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false, "window");
-    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("kick", 20, false, "window");
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false);
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("kick", 20, false);
   });
 
   it("allows playback control only for the current watch tab", async () => {

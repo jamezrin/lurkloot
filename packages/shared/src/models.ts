@@ -196,10 +196,6 @@ export interface EngineSettings {
   // back to a tab automatically if heartbeats stop earning.
   tablessMode: boolean;
   pauseOnManualWatch: boolean;
-  autoCloseFinishedDrops: boolean;
-  muteFarmingTabs: boolean;
-  keepFarmingVideosUnmuted: boolean;
-  adFocusMode: AdFocusMode;
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;
   autoStartDropFarming: boolean;
@@ -214,8 +210,15 @@ export interface EngineSettings {
 }
 
 // The browser extension's full settings schema: the engine contract plus the
-// host-only knobs the engine never reads (popup UI state, i18n).
+// host-only knobs the engine never reads. Tab policy (mute / ad focus / auto-close
+// / keep-unmuted) is supplied to the engine through the injected WatchTabPort and
+// applyAdFocus, not read from settings by the engine; popup UI state (i18n, Drops
+// filter, rate nudge) is pure host state.
 export interface ExtensionSettings extends EngineSettings {
+  muteFarmingTabs: boolean;
+  keepFarmingVideosUnmuted: boolean;
+  autoCloseFinishedDrops: boolean;
+  adFocusMode: AdFocusMode;
   languageOverride: LanguageOverride;
   // Which campaign states are shown in the Drops list. See CampaignFilterKey.
   campaignVisibility: Record<CampaignFilterKey, boolean>;
