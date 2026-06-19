@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
+import { DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings } from "@lurkloot/shared/settings";
+
+describe("engine settings", () => {
+  it("normalizes the engine contract without the extension-only fields", () => {
+    const engine = mergeEngineSettings({ pollIntervalMinutes: 5 });
+    expect(engine.pollIntervalMinutes).toBe(5);
+    expect(engine.platform.twitch).toBeDefined();
+    // Host-only fields are not part of the engine contract.
+    expect("languageOverride" in engine).toBe(false);
+    expect("campaignVisibility" in engine).toBe(false);
+    expect("rateNudgeStatus" in engine).toBe(false);
+  });
+
+  it("layers host-only fields on top of the engine defaults", () => {
+    // The extension defaults are the engine defaults plus the three host fields.
+    expect(DEFAULT_SETTINGS).toMatchObject(DEFAULT_ENGINE_SETTINGS);
+    expect(DEFAULT_SETTINGS.languageOverride).toBe("browser");
+    expect(DEFAULT_SETTINGS.campaignVisibility).toBeDefined();
+    expect(DEFAULT_SETTINGS.rateNudgeStatus).toBe("pending");
+  });
+});
 
 describe("settings", () => {
   it("defaults mockup popup settings", () => {

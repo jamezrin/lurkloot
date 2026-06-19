@@ -1,4 +1,4 @@
-import type { AdFocusMode, CampaignFilterKey, CategorySelection, ExtensionSettings, LanguageOverride, Platform, PlatformSettings, PriorityMode, RateNudgeStatus, SupportedLocale } from "./models";
+import type { AdFocusMode, CampaignFilterKey, CategorySelection, EngineSettings, ExtensionSettings, LanguageOverride, Platform, PlatformSettings, PriorityMode, RateNudgeStatus, SupportedLocale } from "./models";
 import { LOG_LEVELS, type LogLevel } from "./logging";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
@@ -13,17 +13,17 @@ export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "campai
   campaignVisibility?: Partial<ExtensionSettings["campaignVisibility"]>;
 };
 
-export const DEFAULT_SETTINGS: ExtensionSettings = {
-  languageOverride: "browser",
+// The engine-contract defaults: the universal subset every host shares.
+export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   running: false,
   autoClaim: true,
   autoClaimChannelPoints: true,
   tablessMode: true,
+  pauseOnManualWatch: true,
+  autoCloseFinishedDrops: true,
   muteFarmingTabs: true,
   keepFarmingVideosUnmuted: true,
-  pauseOnManualWatch: true,
   adFocusMode: "window",
-  autoCloseFinishedDrops: true,
   notifyRewardEarned: true,
   notifyNoDropsLeft: true,
   autoStartDropFarming: true,
@@ -47,6 +47,15 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   },
   campaignPriorities: {},
   excludedCampaignIds: [],
+  offlineRetryLimit: 3,
+  pollIntervalMinutes: 1,
+  enabledLogLevels: ["info", "warn", "error"],
+};
+
+// The extension's full defaults: the engine contract plus the host-only knobs.
+export const DEFAULT_SETTINGS: ExtensionSettings = {
+  ...DEFAULT_ENGINE_SETTINGS,
+  languageOverride: "browser",
   // Preserve the previously hard-coded view: show not-linked, upcoming and
   // finished campaigns; hide expired and excluded ones unless opted back in.
   campaignVisibility: {
@@ -56,57 +65,64 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
     excluded: false,
     finished: true,
   },
-  offlineRetryLimit: 3,
-  pollIntervalMinutes: 1,
-  enabledLogLevels: ["info", "warn", "error"],
   rateNudgeStatus: "pending",
 };
 
-export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
+// Normalizes the universal engine contract. The engine (packages/core) and any
+// non-extension host (CLI) merge through this; host-only fields are not touched.
+export function mergeEngineSettings(value: Partial<EngineSettings> | undefined): EngineSettings {
   const platform = value?.platform;
   return {
-    languageOverride: normalizeLanguageOverride(value?.languageOverride),
-    running: booleanOr(value?.running, DEFAULT_SETTINGS.running),
-    autoClaim: booleanOr(value?.autoClaim, DEFAULT_SETTINGS.autoClaim),
-    autoClaimChannelPoints: booleanOr(value?.autoClaimChannelPoints, DEFAULT_SETTINGS.autoClaimChannelPoints),
-    tablessMode: booleanOr(value?.tablessMode, DEFAULT_SETTINGS.tablessMode),
-    muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_SETTINGS.muteFarmingTabs),
-    keepFarmingVideosUnmuted: booleanOr(value?.keepFarmingVideosUnmuted, DEFAULT_SETTINGS.keepFarmingVideosUnmuted),
-    pauseOnManualWatch: booleanOr(value?.pauseOnManualWatch, DEFAULT_SETTINGS.pauseOnManualWatch),
+    running: booleanOr(value?.running, DEFAULT_ENGINE_SETTINGS.running),
+    autoClaim: booleanOr(value?.autoClaim, DEFAULT_ENGINE_SETTINGS.autoClaim),
+    autoClaimChannelPoints: booleanOr(value?.autoClaimChannelPoints, DEFAULT_ENGINE_SETTINGS.autoClaimChannelPoints),
+    tablessMode: booleanOr(value?.tablessMode, DEFAULT_ENGINE_SETTINGS.tablessMode),
+    pauseOnManualWatch: booleanOr(value?.pauseOnManualWatch, DEFAULT_ENGINE_SETTINGS.pauseOnManualWatch),
+    autoCloseFinishedDrops: booleanOr(value?.autoCloseFinishedDrops, DEFAULT_ENGINE_SETTINGS.autoCloseFinishedDrops),
+    muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_ENGINE_SETTINGS.muteFarmingTabs),
+    keepFarmingVideosUnmuted: booleanOr(value?.keepFarmingVideosUnmuted, DEFAULT_ENGINE_SETTINGS.keepFarmingVideosUnmuted),
     adFocusMode: AD_FOCUS_MODES.includes(value?.adFocusMode as AdFocusMode)
       ? (value!.adFocusMode as AdFocusMode)
-      : DEFAULT_SETTINGS.adFocusMode,
-    autoCloseFinishedDrops: booleanOr(value?.autoCloseFinishedDrops, DEFAULT_SETTINGS.autoCloseFinishedDrops),
-    notifyRewardEarned: booleanOr(value?.notifyRewardEarned, DEFAULT_SETTINGS.notifyRewardEarned),
-    notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_SETTINGS.notifyNoDropsLeft),
-    autoStartDropFarming: booleanOr(value?.autoStartDropFarming, DEFAULT_SETTINGS.autoStartDropFarming),
-    watchQueueFallbackOnly: booleanOr(value?.watchQueueFallbackOnly, DEFAULT_SETTINGS.watchQueueFallbackOnly),
+      : DEFAULT_ENGINE_SETTINGS.adFocusMode,
+    notifyRewardEarned: booleanOr(value?.notifyRewardEarned, DEFAULT_ENGINE_SETTINGS.notifyRewardEarned),
+    notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_ENGINE_SETTINGS.notifyNoDropsLeft),
+    autoStartDropFarming: booleanOr(value?.autoStartDropFarming, DEFAULT_ENGINE_SETTINGS.autoStartDropFarming),
+    watchQueueFallbackOnly: booleanOr(value?.watchQueueFallbackOnly, DEFAULT_ENGINE_SETTINGS.watchQueueFallbackOnly),
     priorityMode: PRIORITY_MODES.includes(value?.priorityMode as PriorityMode)
       ? (value!.priorityMode as PriorityMode)
-      : DEFAULT_SETTINGS.priorityMode,
+      : DEFAULT_ENGINE_SETTINGS.priorityMode,
     platform: {
       twitch: {
-        enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_SETTINGS.platform.twitch.enabled),
+        enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_ENGINE_SETTINGS.platform.twitch.enabled),
         watchQueueChannels: normalizeChannelList(platform?.twitch?.watchQueueChannels),
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
-        farmAllCategories: booleanOr(platform?.twitch?.farmAllCategories, DEFAULT_SETTINGS.platform.twitch.farmAllCategories),
+        farmAllCategories: booleanOr(platform?.twitch?.farmAllCategories, DEFAULT_ENGINE_SETTINGS.platform.twitch.farmAllCategories),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
       },
       kick: {
-        enabled: booleanOr(platform?.kick?.enabled, DEFAULT_SETTINGS.platform.kick.enabled),
+        enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),
         watchQueueChannels: normalizeChannelList(platform?.kick?.watchQueueChannels),
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
-        farmAllCategories: booleanOr(platform?.kick?.farmAllCategories, DEFAULT_SETTINGS.platform.kick.farmAllCategories),
+        farmAllCategories: booleanOr(platform?.kick?.farmAllCategories, DEFAULT_ENGINE_SETTINGS.platform.kick.farmAllCategories),
         categories: normalizeCategorySelections(platform?.kick?.categories),
       },
     },
     campaignPriorities: normalizePriorities(value?.campaignPriorities),
     excludedCampaignIds: normalizeIdList(value?.excludedCampaignIds),
-    campaignVisibility: normalizeCampaignVisibility(value?.campaignVisibility),
-    offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_SETTINGS.offlineRetryLimit),
+    offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_ENGINE_SETTINGS.offlineRetryLimit),
     // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
-    pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_SETTINGS.pollIntervalMinutes),
+    pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_ENGINE_SETTINGS.pollIntervalMinutes),
     enabledLogLevels: normalizeLogLevels(value),
+  };
+}
+
+// Normalizes the extension's full settings: the engine contract plus the
+// host-only fields the engine never reads.
+export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
+  return {
+    ...mergeEngineSettings(value),
+    languageOverride: normalizeLanguageOverride(value?.languageOverride),
+    campaignVisibility: normalizeCampaignVisibility(value?.campaignVisibility),
     rateNudgeStatus: RATE_NUDGE_STATUSES.includes(value?.rateNudgeStatus as RateNudgeStatus)
       ? (value!.rateNudgeStatus as RateNudgeStatus)
       : DEFAULT_SETTINGS.rateNudgeStatus,
@@ -139,7 +155,7 @@ export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPa
   });
 }
 
-export function normalizeLogLevels(value: Partial<ExtensionSettings> & { verboseLogging?: boolean } | undefined): LogLevel[] {
+export function normalizeLogLevels(value: Partial<EngineSettings> & { verboseLogging?: boolean } | undefined): LogLevel[] {
   // No stored array -> migrate the legacy verboseLogging toggle (verbose meant
   // debug entries were recorded on top of the info/warn/error baseline).
   if (!Array.isArray(value?.enabledLogLevels)) {

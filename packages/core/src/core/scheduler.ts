@@ -3,7 +3,7 @@ import type {
   ChannelCandidate,
   DropCampaign,
   DropReward,
-  ExtensionSettings,
+  EngineSettings,
   Platform,
   SchedulerState,
   WatchDecision,
@@ -29,7 +29,7 @@ function activeReward(campaign: DropCampaign): DropReward | undefined {
 // heartbeats have been failing past the retry limit.
 function chooseTablessWatch(
   previous: WatchSession,
-  settings: ExtensionSettings,
+  settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "supportsTabless">,
   sameChannel: boolean,
 ): boolean {
@@ -39,7 +39,7 @@ function chooseTablessWatch(
   return true;
 }
 
-function isEligible(campaign: DropCampaign, settings: ExtensionSettings): boolean {
+function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
   if (campaign.status !== "active") return false;
   if (hasCampaignEnded(campaign)) return false;
   if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
@@ -61,7 +61,7 @@ function isEligible(campaign: DropCampaign, settings: ExtensionSettings): boolea
   return campaign.rewards.some((reward) => reward.status !== "claimed" && reward.preconditionsMet !== false && isRewardRelevantNow(reward));
 }
 
-function isInPriorityList(campaign: DropCampaign, settings: ExtensionSettings): boolean {
+function isInPriorityList(campaign: DropCampaign, settings: EngineSettings): boolean {
   return settings.campaignPriorities[campaign.id] != null;
 }
 
@@ -80,7 +80,7 @@ function endScore(campaign: DropCampaign): number {
   return campaign.endsAt ? Date.parse(campaign.endsAt) : Number.MAX_SAFE_INTEGER;
 }
 
-export function sortCampaigns(campaigns: DropCampaign[], settings: ExtensionSettings): DropCampaign[] {
+export function sortCampaigns(campaigns: DropCampaign[], settings: EngineSettings): DropCampaign[] {
   return [...campaigns].sort((left, right) => {
     const leftPriority = settings.campaignPriorities[left.id] ?? left.priority;
     const rightPriority = settings.campaignPriorities[right.id] ?? right.priority;
@@ -109,7 +109,7 @@ export function sortCampaigns(campaigns: DropCampaign[], settings: ExtensionSett
 // Order within the per-platform categories list sets farming priority — but only
 // while the filter is active. When "Farm all categories" is on the (hidden) list
 // must never silently reorder, so every campaign scores equal.
-function categoryPriorityScore(campaign: DropCampaign, settings: ExtensionSettings): number {
+function categoryPriorityScore(campaign: DropCampaign, settings: EngineSettings): number {
   const platformSettings = settings.platform[campaign.platform];
   if (platformSettings.farmAllCategories) return Number.MAX_SAFE_INTEGER;
   const index = categoryListIndex(campaign, platformSettings.categories);
@@ -119,7 +119,7 @@ function categoryPriorityScore(campaign: DropCampaign, settings: ExtensionSettin
 export async function chooseCampaignDecision(
   platform: Platform,
   campaigns: DropCampaign[],
-  settings: ExtensionSettings,
+  settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "listCandidateChannels" | "checkChannel">,
 ): Promise<WatchDecision> {
   const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
@@ -168,7 +168,7 @@ export async function chooseCampaignDecision(
   return { platform, action: "idle", reason: `${noCampaignReason} and no Watch Queue channels` };
 }
 
-function noEligibleCampaignReason(campaigns: DropCampaign[], settings: ExtensionSettings): string {
+function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
   if (campaigns.length === 0) return "No campaigns discovered";
   const notExcluded = campaigns.filter((campaign) => !settings.excludedCampaignIds.includes(campaign.id));
   if (notExcluded.length === 0) return "All campaigns are excluded";
@@ -297,7 +297,7 @@ export interface SchedulerTickOptions {
 
 export async function runSchedulerTick(
   state: SchedulerState,
-  settings: ExtensionSettings,
+  settings: EngineSettings,
   adapters: Record<Platform, PlatformAdapter>,
   options: SchedulerTickOptions = {},
 ): Promise<SchedulerTickResult> {
@@ -564,7 +564,7 @@ function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolea
   return !Number.isNaN(checkedAt) && Date.now() - checkedAt <= MANUAL_WATCH_TTL_MS;
 }
 
-function hasWatchQueueChannels(settings: ExtensionSettings, platform: Platform): boolean {
+function hasWatchQueueChannels(settings: EngineSettings, platform: Platform): boolean {
   return settings.platform[platform].watchQueueChannels.some((username) => username.trim());
 }
 
@@ -663,7 +663,7 @@ function canClaimReward(reward: DropReward): boolean {
 async function shouldKeepWatching(
   previous: WatchSession,
   nextDecision: WatchDecision,
-  settings: ExtensionSettings,
+  settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "checkChannel">,
 ): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string; channel?: ChannelCandidate }> {
   if (!previous.channel || previous.status !== "watching") {

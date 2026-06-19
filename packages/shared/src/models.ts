@@ -183,8 +183,11 @@ export interface PlatformSettings {
   categories: CategorySelection[];
 }
 
-export interface ExtensionSettings {
-  languageOverride: LanguageOverride;
+// The universal settings contract the farming engine (packages/core) consumes.
+// Host-agnostic: every field here does something during a scheduler tick on any
+// host (extension or CLI). Host-only knobs (browser tab policy, popup UI) live on
+// ExtensionSettings below, never here.
+export interface EngineSettings {
   running: boolean;
   autoClaim: boolean;
   autoClaimChannelPoints: boolean;
@@ -192,11 +195,11 @@ export interface ExtensionSettings {
   // video tab. Twitch uses API heartbeats; Kick uses a viewer WebSocket. Falls
   // back to a tab automatically if heartbeats stop earning.
   tablessMode: boolean;
+  pauseOnManualWatch: boolean;
+  autoCloseFinishedDrops: boolean;
   muteFarmingTabs: boolean;
   keepFarmingVideosUnmuted: boolean;
-  pauseOnManualWatch: boolean;
   adFocusMode: AdFocusMode;
-  autoCloseFinishedDrops: boolean;
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;
   autoStartDropFarming: boolean;
@@ -205,11 +208,17 @@ export interface ExtensionSettings {
   platform: Record<Platform, PlatformSettings>;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
-  // Which campaign states are shown in the Drops list. See CampaignFilterKey.
-  campaignVisibility: Record<CampaignFilterKey, boolean>;
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
   enabledLogLevels: LogLevel[];
+}
+
+// The browser extension's full settings schema: the engine contract plus the
+// host-only knobs the engine never reads (popup UI state, i18n).
+export interface ExtensionSettings extends EngineSettings {
+  languageOverride: LanguageOverride;
+  // Which campaign states are shown in the Drops list. See CampaignFilterKey.
+  campaignVisibility: Record<CampaignFilterKey, boolean>;
   rateNudgeStatus: RateNudgeStatus;
 }
 
