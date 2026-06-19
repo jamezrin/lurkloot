@@ -6,24 +6,27 @@ Lurkloot is a WXT browser extension that farms Twitch and Kick drops through nor
 
 The repository is a pnpm workspace whose root `package.json` is a pure orchestrator (delegating `dev`/`build`/`test`/`typecheck`/`verify` scripts to packages via `pnpm --filter`). All code lives under `packages/`:
 
-- `packages/extension` — the WXT extension (`src/`, `entrypoints/`, `wxt.config.ts`, `public/`, `tests/`). Builds to `packages/extension/.output/{chrome-mv3,firefox-mv2}`.
-- `packages/site` — the Astro marketing/landing page, which imports the real popup UI for its demo.
+- `packages/extension` — the WXT extension shell (`entrypoints/`, browser-specific `src/`, `wxt.config.ts`, `public/`, `tests/`). Builds to `packages/extension/.output/{chrome-mv3,firefox-mv2}`.
+- `packages/core` — the browser-free farming engine (`@lurkloot/core`): scheduler, background controller, platform adapters/parsers, tab/watch abstractions, tabless watch logic, and Twitch integrity helpers. It is consumed by both the extension and CLI.
+- `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`.
+- `packages/locales` — the localized message catalogs and async catalog loader (`@lurkloot/locales`), used by extension code and shared UI.
 - `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by both the extension and the site.
 - `packages/shared` — framework-agnostic models, messages, settings, i18n, and logging (`@lurkloot/shared`).
+- `packages/site` — the Astro marketing/landing page, which imports the real popup UI for its demo.
 
-Paths below such as `src/...` and `entrypoints/...` are relative to `packages/extension/`.
+Package-qualified paths below are written as `packages/<package>/...` when ownership matters. Bare extension paths such as `entrypoints/...` are relative to `packages/extension/`.
 
 ## Runtime Components
 
-- `entrypoints/background.ts` registers extension lifecycle hooks, alarms, tab-removal handling, and runtime message handling.
-- `src/background/controller.ts` coordinates settings/state persistence, scheduler ticks, popup messages, notifications, manual reward claims, and playback-control authorization.
-- `src/core/scheduler.ts` owns platform-independent campaign selection, Watch Queue fallback selection, auto-claiming, retry/backoff, session state, manual-watch pauses, and watch-mode lifecycle decisions.
-- `src/platforms/adapter.ts` defines the `PlatformAdapter` contract. `src/platforms/twitch/index.ts` and `src/platforms/kick/index.ts` implement platform-specific discovery, progress, candidate, validation, claim, and tab preparation behavior.
-- `src/core/tabs.ts` contains shared browser-tab management and page-context fetch helpers.
+- `entrypoints/background.ts` registers extension lifecycle hooks, alarms, tab-removal handling, runtime message handling, and browser-specific adapters around `@lurkloot/core`.
+- `packages/core/src/background/controller.ts` coordinates settings/state persistence, scheduler ticks, popup messages, notifications, manual reward claims, and playback-control authorization.
+- `packages/core/src/core/scheduler.ts` owns platform-independent campaign selection, Watch Queue fallback selection, auto-claiming, retry/backoff, session state, manual-watch pauses, and watch-mode lifecycle decisions.
+- `packages/core/src/platforms/adapter.ts` defines the `PlatformAdapter` contract. `packages/core/src/platforms/twitch/index.ts` and `packages/core/src/platforms/kick/index.ts` implement platform-specific discovery, progress, candidate, validation, claim, and tab preparation behavior.
+- `packages/core/src/core/tabs.ts` contains shared tab-management and page-context-fetch abstractions; `packages/extension/src/core/tabs.ts` binds those abstractions to live WXT/browser tab and cookie APIs.
 - `entrypoints/twitch.content.ts` and `entrypoints/kick.content.ts` start shared playback telemetry/control on platform pages.
 - `entrypoints/popup/` adapts WXT/browser APIs to the shared React popup UI in `packages/popup-ui`, which talks only to the background controller through runtime messages.
 
-State and normalized settings are loaded and saved through `src/core/storage.ts`. The scheduler stores independent `WatchSession`, campaign, diagnostics, event, manual-watch, and managed-tab state for `twitch` and `kick`. A short-lived Twitch Client-Integrity bundle is stored separately so claim mutations can replay page-issued Twitch headers while the token is valid.
+State and normalized settings are loaded and saved through `packages/extension/src/core/storage.ts` in the extension and through `packages/cli/src/storage.ts` in the CLI. The scheduler stores independent `WatchSession`, campaign, diagnostics, event, manual-watch, and managed-tab state for `twitch` and `kick`. A short-lived Twitch Client-Integrity bundle is stored separately so claim mutations can replay page-issued Twitch headers while the token is valid.
 
 ## Runtime Messages
 
@@ -66,7 +69,7 @@ Campaign ordering is shared across platforms: explicit campaign priority, platfo
 
 ## Same-Origin Fetching
 
-Most platform calls go through `fetchJsonInPage` in `src/core/tabs.ts`. It finds or opens a temporary tab on the platform origin, then executes `fetch` in the page `MAIN` world. This keeps requests inside the browser's normal logged-in session and any page clearance context.
+In the extension, most platform calls go through the page-context fetch helpers wired by `packages/extension/src/core/tabs.ts` onto abstractions from `@lurkloot/core/tabs`. They find or open a temporary tab on the platform origin, then execute `fetch` in the page `MAIN` world. This keeps requests inside the browser's normal logged-in session and any page clearance context.
 
 For Kick, `pageFetchJson` reads `session_token` from the Kick page context and adds it as a bearer token for `web.kick.com` API calls. For Twitch, GraphQL requests use Twitch's public web client id and normal browser credentials unless a public channel check explicitly passes `credentials: "omit"`. Twitch claim mutations also replay a short-lived Client-Integrity bundle captured from page-origin Twitch GraphQL traffic.
 

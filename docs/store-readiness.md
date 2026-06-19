@@ -29,12 +29,12 @@ Lurkloot is designed as a normal-session WebExtension:
 Paste-ready justifications for the Chrome Web Store privacy tab. Each maps to actual usage in the codebase.
 
 - **`alarms`** — Schedules the periodic scheduler tick and the one-minute watch heartbeat that drive drops farming; without it there is no farming loop. (`entrypoints/background.ts`)
-- **`storage`** — Persists user settings, scheduler/campaign state, the diagnostic event log, and the short-lived Twitch integrity bundle locally. (`src/core/storage.ts`)
-- **`tabs`** — Opens, pins, mutes, retargets, queries, and closes the extension's own watch tabs and temporary same-origin API tabs; managed tab ids are tracked so only extension-created tabs are touched. (`src/core/tabs.ts`)
-- **`scripting`** — Runs a self-contained `fetch` in the page's MAIN world (same-origin to Twitch/Kick) so platform API calls happen inside the user's logged-in session instead of a cross-origin background request. (`src/core/tabs.ts`)
-- **`notifications`** — Shows optional, user-toggleable local notifications when a reward is earned or a platform has no drops left. (`src/background/controller.ts`)
-- **`cookies`** — Reads the user's Twitch `auth-token` and `unique_id` cookies — which are httpOnly and therefore only readable via this API — to authorize Twitch GQL requests as the logged-in user, mirroring the Twitch web client. The cookies are never stored or transmitted off-device. (`src/core/tabs.ts`)
-- **`webRequest`** — Observes outgoing request headers on `https://gql.twitch.tv/*` to capture the `Client-Integrity` token the user's own Twitch page already sends, so authenticated drop-claim mutations can replay it. Headers are only read, never modified or blocked. (`entrypoints/background.ts`, `src/core/twitchIntegrity.ts`)
+- **`storage`** — Persists user settings, scheduler/campaign state, the diagnostic event log, and the short-lived Twitch integrity bundle locally. (`packages/extension/src/core/storage.ts`)
+- **`tabs`** — Opens, pins, mutes, retargets, queries, and closes the extension's own watch tabs and temporary same-origin API tabs; managed tab ids are tracked so only extension-created tabs are touched. (`packages/extension/src/core/tabs.ts`, `packages/core/src/core/tabs.ts`)
+- **`scripting`** — Runs a self-contained `fetch` in the page's MAIN world (same-origin to Twitch/Kick) so platform API calls happen inside the user's logged-in session instead of a cross-origin background request. (`packages/extension/src/core/tabs.ts`)
+- **`notifications`** — Shows optional, user-toggleable local notifications when a reward is earned or a platform has no drops left. (`packages/core/src/background/controller.ts`, `packages/extension/entrypoints/background.ts`)
+- **`cookies`** — Reads the user's Twitch `auth-token` and `unique_id` cookies — which are httpOnly and therefore only readable via this API — to authorize Twitch GQL requests as the logged-in user, mirroring the Twitch web client. The cookies are never stored or transmitted off-device. (`packages/extension/src/core/tabs.ts`)
+- **`webRequest`** — Observes outgoing request headers on `https://gql.twitch.tv/*` to capture the `Client-Integrity` token the user's own Twitch page already sends, so authenticated drop-claim mutations can replay it. Headers are only read, never modified or blocked. (`packages/extension/entrypoints/background.ts`, `packages/core/src/core/twitchIntegrity.ts`)
 
 ## Host permission justifications
 
