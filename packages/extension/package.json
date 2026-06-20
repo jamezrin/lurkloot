@@ -42,7 +42,7 @@
     "@types/react-dom": "^19.2.3",
     "playwright": "^1.60.0",
     "tailwindcss": "^4.3.0",
-    "typescript": "^5.7.2",
+    "typescript": "^6.0.0",
     "vitest": "^4.0.0"
   }
 }
