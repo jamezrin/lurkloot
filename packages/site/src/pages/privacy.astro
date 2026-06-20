@@ -1,17 +1,13 @@
 ---
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { marked } from "marked";
 import Base from "../layouts/Base.astro";
 import Footer from "../components/Footer.astro";
 import { LINKS } from "../consts";
 import logo from "../assets/logo-ring.svg";
-
 // Single source of truth: the same policy shipped with the extension + store.
-const source = readFileSync(
-  fileURLToPath(new URL("../../../../privacy-policy.md", import.meta.url)),
-  "utf8",
-);
+// Inlined at build via Vite ?raw so it doesn't depend on runtime file paths
+// (Astro 6 resolves import.meta.url to the emitted chunk, not the source).
+import source from "../../../../privacy-policy.md?raw";
 // Drop the leading H1 (we render our own page title) and convert to HTML.
 const body = source.replace(/^#\s.*\n/, "");
 const html = marked.parse(body, { gfm: true, breaks: false });
