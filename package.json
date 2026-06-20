@@ -25,6 +25,6 @@
     "verify": "pnpm -r typecheck && pnpm --filter @lurkloot/extension test && pnpm --filter @lurkloot/extension build && pnpm --filter @lurkloot/extension build:firefox"
   },
   "devDependencies": {
-    "typescript": "^5.7.2"
+    "typescript": "^6.0.0"
   }
 }

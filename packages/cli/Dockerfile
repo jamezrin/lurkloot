@@ -4,7 +4,7 @@
 # Node + cycletls, so no browser is needed — this is a slim Node image.
 
 # --- Build stage: install the cli + core + shared subtree and bundle the CLI ---
-FROM node:22-slim AS build
+FROM node:24-slim AS build
 WORKDIR /repo
 RUN corepack enable
 # cycletls downloads a small Go helper binary on install; needs CA certs.
@@ -32,7 +32,7 @@ RUN pnpm --filter @lurkloot/cli build
 RUN pnpm --filter @lurkloot/cli deploy --legacy --prod /app
 
 # --- Runtime stage ---
-FROM node:22-slim
+FROM node:24-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
