@@ -1,7 +1,7 @@
 ---
 import { Image } from "astro:assets";
 import pepega from "../assets/memes/pepega.webp";
-import gigachad from "../assets/memes/gigachad.jpg";
+import gigachad from "../assets/memes/gigachad.webp";
 
 // Main features as cinematic alternating beats (text + a stylized visual that
 // parallaxes). Followed by a compact "and more" row for breadth.
@@ -37,7 +37,7 @@ const more = [
             <div class="meme__pic"><Image src={pepega} alt="Pepega" widths={[128, 256]} sizes="160px" /></div>
             <figcaption>
               <span class="meme__who">Without Lurkloot</span>
-              <span class="meme__tag">old way · heavy</span>
+              <span class="meme__tag">manual and annoying grind</span>
             </figcaption>
           </figure>
           <span class="meme__vs" aria-hidden="true">vs</span>
@@ -45,7 +45,7 @@ const more = [
             <div class="meme__pic"><Image src={gigachad} alt="Gigachad" widths={[320, 660]} sizes="240px" /></div>
             <figcaption>
               <span class="meme__who">With Lurkloot</span>
-              <span class="meme__tag">autopilot · ~14% CPU</span>
+              <span class="meme__tag">fully automatic and efficient</span>
             </figcaption>
           </figure>
         </div>
@@ -259,15 +259,43 @@ const more = [
     border: 1px solid var(--line);
     display: grid;
     place-items: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .meme:hover .meme__pic {
+    transform: translateY(-6px);
+  }
+  .meme--bad:hover .meme__pic {
+    border-color: rgba(255, 59, 107, 0.45);
+    box-shadow: 0 22px 50px -28px rgba(255, 59, 107, 0.6);
+  }
+  .meme--good:hover .meme__pic {
+    border-color: rgba(83, 252, 24, 0.45);
+    box-shadow: 0 0 0 1px rgba(83, 252, 24, 0.3), 0 32px 64px -32px var(--glow-lime);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .meme:hover .meme__pic {
+      transform: none;
+    }
+    .meme:hover .meme__pic :global(img) {
+      transform: none;
+    }
   }
   .meme__pic :global(img) {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .meme:hover .meme__pic :global(img) {
+    transform: scale(1.12);
   }
   .meme--bad .meme__pic {
     background: radial-gradient(120% 120% at 50% 0%, rgba(255, 59, 107, 0.18), var(--ink-2));
     filter: saturate(0.9);
+  }
+  /* pepega is wider than tall — show it whole instead of cropping the sides */
+  .meme--bad .meme__pic :global(img) {
+    object-fit: contain;
   }
   .meme--good .meme__pic {
     background: radial-gradient(120% 120% at 50% 0%, rgba(83, 252, 24, 0.16), var(--ink-2));
