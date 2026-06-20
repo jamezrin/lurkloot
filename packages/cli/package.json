@@ -16,12 +16,12 @@
     "@lurkloot/core": "workspace:*",
     "@lurkloot/shared": "workspace:*",
     "cycletls": "^2.0.5",
-    "yargs": "^17.7.2"
+    "yargs": "^18.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/yargs": "^17.0.33",
-    "esbuild": "^0.27.0",
+    "esbuild": "^0.28.0",
     "typescript": "^6.0.0",
     "vitest": "^4.0.0"
   }

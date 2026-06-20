@@ -31,7 +31,7 @@
     "marked": "^18.0.5",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.0",
     "three": "^0.184.0"
   },
   "devDependencies": {
@@ -39,6 +39,6 @@
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.184.1",
     "vite": "^7.3.2",
-    "wrangler": "^4.99.0"
+    "wrangler": "^4.103.0"
   }
 }
