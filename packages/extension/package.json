@@ -43,6 +43,6 @@
     "playwright": "^1.60.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.0.0"
   }
 }
