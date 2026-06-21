@@ -19,6 +19,28 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "1.4.0",
+    // Unreleased — omit `date` until the public release.
+    changes: [
+      { kind: "new", text: "Lurkloot’s source code is now public." },
+      {
+        kind: "new",
+        text:
+          "Added a command-line app that farms drops headlessly — no browser tab or extension required.",
+      },
+      {
+        kind: "new",
+        text:
+          "The command-line app ships as a Docker image, so you can run it on a server or NAS.",
+      },
+      {
+        kind: "improved",
+        text:
+          "Redesigned the landing page around the command-line app and the now-public source.",
+      },
+    ],
+  },
+  {
     version: "1.3.0",
     date: "2026-06-18",
     changes: [
