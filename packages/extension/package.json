@@ -26,7 +26,7 @@
     "@lurkloot/locales": "workspace:*",
     "@lurkloot/popup-ui": "workspace:*",
     "@lurkloot/shared": "workspace:*",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@vitejs/plugin-react": "^6.0.0",
     "@wxt-dev/module-react": "^1.1.3",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.0.0",
