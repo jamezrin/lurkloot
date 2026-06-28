@@ -1,10 +1,16 @@
 packages:
   - "packages/*"
 
-# Dependencies allowed to run install scripts (pnpm 10 blocks others and errors).
-# cycletls ships prebuilt Go binaries in its tarball, so this is just to satisfy
-# pnpm's approval gate during a clean install (e.g. in the Docker build).
-onlyBuiltDependencies:
-  - esbuild
-  - sharp
-  - cycletls
+# Dependencies allowed to run install/build scripts. pnpm 11 requires every
+# package that ships a build script to be explicitly allowed (true) or denied
+# (false); otherwise `pnpm install` aborts with ERR_PNPM_IGNORED_BUILDS.
+#   - esbuild, sharp, cycletls, workerd all ship working prebuilt binaries in
+#     their tarballs (or platform optional deps), so we let their scripts run.
+#   - spawn-sync is an unused transitive native shim for legacy Node; deny it.
+# (The CLI Docker build uses --ignore-scripts, so this gate doesn't apply there.)
+allowBuilds:
+  esbuild: true
+  sharp: true
+  cycletls: true
+  workerd: true
+  spawn-sync: false
