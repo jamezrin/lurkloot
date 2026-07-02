@@ -222,7 +222,7 @@ importers:
         version: link:../shared
       '@tailwindcss/vite':
         specifier: ^4.3.1
-        version: 4.3.1(vite@7.3.5(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0))
+        version: 4.3.1(vite@8.0.14(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0))
       astro:
         specifier: ^6.0.0
         version: 6.4.8(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.4)
@@ -261,8 +261,8 @@ importers:
         specifier: ^0.184.1
         version: 0.184.1
       vite:
-        specifier: ^7.3.2
-        version: 7.3.5(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)
+        specifier: ^8.0.0
+        version: 8.0.14(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)
       wrangler:
         specifier: ^4.103.0
         version: 4.103.0
@@ -5048,19 +5048,19 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.3.1
       '@tailwindcss/oxide-win32-x64-msvc': 4.3.1
 
-  '@tailwindcss/vite@4.3.1(vite@7.3.5(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0))':
-    dependencies:
-      '@tailwindcss/node': 4.3.1
-      '@tailwindcss/oxide': 4.3.1
-      tailwindcss: 4.3.1
-      vite: 7.3.5(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)
-
   '@tailwindcss/vite@4.3.1(vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.7)(jiti@2.7.0))':
     dependencies:
       '@tailwindcss/node': 4.3.1
       '@tailwindcss/oxide': 4.3.1
       tailwindcss: 4.3.1
       vite: 8.0.14(@types/node@24.13.2)(esbuild@0.27.7)(jiti@2.7.0)
+
+  '@tailwindcss/vite@4.3.1(vite@8.0.14(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0))':
+    dependencies:
+      '@tailwindcss/node': 4.3.1
+      '@tailwindcss/oxide': 4.3.1
+      tailwindcss: 4.3.1
+      vite: 8.0.14(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)
 
   '@tweenjs/tween.js@23.1.3': {}
 
