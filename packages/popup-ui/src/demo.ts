@@ -133,6 +133,8 @@ function demoSnapshot(): RuntimeSnapshot {
         { id: "tw-marathon-badge", name: "Founder Badge", requiredMinutes: 30, watchedMinutes: 30, status: "claimed" },
         { id: "tw-marathon-boost", name: "Signal Booster", requiredMinutes: 60, watchedMinutes: 44, status: "in_progress", isCurrentReward: true },
         { id: "tw-marathon-skin", name: "Chrome Runner Skin", requiredMinutes: 120, watchedMinutes: 0, status: "locked" },
+        { id: "tw-marathon-charm", name: "Orbit Charm", requiredMinutes: 180, watchedMinutes: 0, status: "locked" },
+        { id: "tw-marathon-emote", name: "Runner Emote", requiredMinutes: 240, watchedMinutes: 0, status: "locked" },
       ],
     },
     {
