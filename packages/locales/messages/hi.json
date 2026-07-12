@@ -533,6 +533,10 @@
   "siteAttribution": {
     "message": "Lurkloot वेबसाइट"
   },
+  "updateNoticeTitle": { "message": "Lurkloot को $1 में अपडेट किया गया" },
+  "updateNoticeBody": { "message": "नई सुविधाएँ और बदलाव देखें।" },
+  "updateNoticeAction": { "message": "बदलाव देखें" },
+  "updateNoticeDismiss": { "message": "अपडेट सूचना हटाएँ" },
   "rateNudgeTitle": {
     "message": "Lurkloot पसंद आया?"
   },

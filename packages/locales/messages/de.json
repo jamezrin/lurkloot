@@ -533,6 +533,10 @@
   "siteAttribution": {
     "message": "Lurkloot-Website"
   },
+  "updateNoticeTitle": { "message": "Lurkloot wurde auf $1 aktualisiert" },
+  "updateNoticeBody": { "message": "Sieh dir die Neuerungen und Änderungen an." },
+  "updateNoticeAction": { "message": "Änderungen ansehen" },
+  "updateNoticeDismiss": { "message": "Update-Hinweis schließen" },
   "rateNudgeTitle": {
     "message": "Gefällt dir Lurkloot?"
   },

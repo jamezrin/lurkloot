@@ -12,6 +12,11 @@ import {
 import { SETTINGS_SESSION_PORT } from "@lurkloot/shared/messages";
 import { SUPPORTED_LOCALES } from "@lurkloot/shared/settings";
 import type { SupportedLocale } from "@lurkloot/shared/models";
+import {
+  changelogUrl,
+  dismissPendingChangelogVersion,
+  loadPendingChangelogVersion,
+} from "../../src/core/updateNotice";
 
 const URL_PARAMS = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
 
@@ -39,6 +44,9 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     },
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),
     getUiLanguage: () => browser.i18n.getUILanguage(),
+    getPendingChangelogVersion: loadPendingChangelogVersion,
+    dismissPendingChangelogVersion,
+    changelogUrl,
     exportCredentials: (blob) => {
       // Download the credential blob the CLI's `login --import` consumes. The
       // popup is a normal extension page, so a Blob URL + anchor works without

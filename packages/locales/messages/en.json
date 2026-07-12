@@ -533,6 +533,10 @@
   "siteAttribution": {
     "message": "Lurkloot website"
   },
+  "updateNoticeTitle": { "message": "Lurkloot was updated to $1" },
+  "updateNoticeBody": { "message": "See what's new and what changed." },
+  "updateNoticeAction": { "message": "View changes" },
+  "updateNoticeDismiss": { "message": "Dismiss update notice" },
   "rateNudgeTitle": {
     "message": "Enjoying Lurkloot?"
   },

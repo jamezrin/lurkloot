@@ -533,6 +533,10 @@
   "siteAttribution": {
     "message": "Сайт Lurkloot"
   },
+  "updateNoticeTitle": { "message": "Lurkloot обновлён до версии $1" },
+  "updateNoticeBody": { "message": "Узнайте о новых функциях и изменениях." },
+  "updateNoticeAction": { "message": "Посмотреть изменения" },
+  "updateNoticeDismiss": { "message": "Закрыть уведомление об обновлении" },
   "rateNudgeTitle": {
     "message": "Нравится Lurkloot?"
   },

@@ -54,6 +54,11 @@ export interface PopupAdapter {
   connectSettingsSession?(): () => void;
   getMessage(key: string, substitutions?: string | string[]): string;
   getUiLanguage(): string;
+  // Optional extension lifecycle hooks. Demo/site hosts omit these, which also
+  // keeps update notices out of screenshots and the landing-page popup demo.
+  getPendingChangelogVersion?(): Promise<string | undefined>;
+  dismissPendingChangelogVersion?(): Promise<void>;
+  changelogUrl?(version: string): string;
   // Optional: download/persist an exported credential blob for the headless CLI.
   // Only the live extension implements it (the demo omits it, hiding the action).
   exportCredentials?(blob: CliCredentialBlob): void;

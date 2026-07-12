@@ -533,6 +533,10 @@
   "siteAttribution": {
     "message": "Lurkloot 网站"
   },
+  "updateNoticeTitle": { "message": "Lurkloot 已更新至 $1" },
+  "updateNoticeBody": { "message": "查看新增内容和改动。" },
+  "updateNoticeAction": { "message": "查看改动" },
+  "updateNoticeDismiss": { "message": "关闭更新通知" },
   "rateNudgeTitle": {
     "message": "喜欢 Lurkloot 吗？"
   },

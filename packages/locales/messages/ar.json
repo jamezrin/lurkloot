@@ -533,6 +533,10 @@
   "siteAttribution": {
     "message": "موقع Lurkloot"
   },
+  "updateNoticeTitle": { "message": "تم تحديث Lurkloot إلى الإصدار $1" },
+  "updateNoticeBody": { "message": "تعرّف على الميزات الجديدة والتغييرات." },
+  "updateNoticeAction": { "message": "عرض التغييرات" },
+  "updateNoticeDismiss": { "message": "تجاهل إشعار التحديث" },
   "rateNudgeTitle": {
     "message": "هل يعجبك Lurkloot؟"
   },
