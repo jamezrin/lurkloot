@@ -1,6 +1,7 @@
 {
   "name": "@lurkloot/shared",
   "version": "1.4.0",
+  "license": "Apache-2.0",
   "type": "module",
   "private": true,
   "exports": {

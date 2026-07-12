@@ -2,6 +2,7 @@
   "name": "@lurkloot/site",
   "type": "module",
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "description": "Marketing landing page for the Lurkloot browser extension.",
   "scripts": {

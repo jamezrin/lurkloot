@@ -38,7 +38,7 @@ Releases ship the extension to the Chrome Web Store and AMO, with the public cha
 3. **Update the changelog.** Add a new top entry to `packages/site/src/changelog.ts` with the `version`, the release `date` (ISO `YYYY-MM-DD`, the Chrome Web Store publish date), and the user-facing `changes` grouped by `kind` (`new` / `improved` / `fixed`). The page renders newest-first and the extension deep-links to `#v{version}`. If a future version was already staged as an `Unreleased` entry (no `date`), just fill in its `date`.
 4. **Verify.** Run `pnpm verify` (tests, typecheck, and both browser builds). Don't proceed if it fails.
 5. **Regenerate the artifacts.** Run `pnpm zip` and `pnpm zip:firefox`. They write `lurkloot-{version}-{browser}.zip` (and a sources zip for Firefox) to `packages/extension/.output/`.
-6. **Commit.** Stage the version bumps and the changelog change together and commit with the existing convention: `Bump version to X.Y.Z`. Optionally tag `vX.Y.Z`.
+6. **Commit.** Stage the version bumps and the changelog change together and commit as `chore(release): bump version to X.Y.Z`. Optionally tag `vX.Y.Z`.
 7. **Publish.** Upload the Chrome zip to the Chrome Web Store and the Firefox zip + sources to AMO. Use the actual store-publish date in the changelog entry from step 3 if review lag moves it.
 8. **Deploy the site** so the new notes are live before users update: `pnpm --filter @lurkloot/site cf:deploy`. This matters because the extension opens `https://lurkloot.jamezrin.com/changelog#v{version}` on update.
 
@@ -56,7 +56,17 @@ Tests use Vitest in a Node environment with globals enabled and live in `package
 
 ## Commit & Pull Request Guidelines
 
-Recent history uses short imperative commit subjects, for example `Fix viewer count refresh in scheduler` or `Add popup schedule refresh button`; one conventional prefix exists: `feat: initial commit`. Keep commits focused and describe the behavior or module changed. Pull requests should include a concise summary, testing performed, linked issues when applicable, and screenshots or recordings for popup UI changes.
+Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) using `<type>[optional scope]: <description>`. Use lowercase types and imperative, present-tense descriptions without a trailing period. Keep commits focused and use a scope when it adds useful context, such as `feat(popup): add schedule refresh button` or `fix(scheduler): refresh viewer counts`.
+
+Use these commit types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, and `revert`. Mark breaking changes with `!` before the colon and explain them in a `BREAKING CHANGE:` footer. Release commits use `chore(release): bump version to X.Y.Z`.
+
+Name branches `<type>/<short-kebab-case-description>`, using the same types as commits; for example, `feat/popup-schedule-refresh`, `fix/scheduler-viewer-count`, or `docs/release-process`. Use `release/X.Y.Z` for release preparation and `hotfix/<short-kebab-case-description>` for urgent production fixes. Keep established bot-generated branch formats such as `renovate/*` unchanged. Do not include issue numbers unless they help identify the work; when used, put one after the type, for example `fix/123-scheduler-timeout`.
+
+Pull requests should include a concise summary, testing performed, linked issues when applicable, and screenshots or recordings for popup UI changes. PR titles should also follow Conventional Commits so squash merges preserve a valid commit subject.
+
+## License
+
+The repository is licensed under Apache License 2.0; see `LICENSE`. New source files and contributions are covered by the repository license. Preserve required copyright, license, attribution, and `NOTICE` information when reusing third-party code, and record significant changes to Apache-2.0-licensed files as required by that license. Do not copy code from references or elsewhere unless its license is compatible and its obligations are satisfied.
 
 ## Security & Configuration Tips
 
