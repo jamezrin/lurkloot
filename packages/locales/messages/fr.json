@@ -533,6 +533,10 @@
   "siteAttribution": {
     "message": "Site web de Lurkloot"
   },
+  "updateNoticeTitle": { "message": "Lurkloot a été mis à jour vers la version $1" },
+  "updateNoticeBody": { "message": "Découvrez les nouveautés et les changements." },
+  "updateNoticeAction": { "message": "Voir les changements" },
+  "updateNoticeDismiss": { "message": "Fermer l’avis de mise à jour" },
   "rateNudgeTitle": {
     "message": "Lurkloot vous plaît ?"
   },

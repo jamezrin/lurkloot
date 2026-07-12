@@ -20,7 +20,7 @@ import type { WatchTabPort } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
-import { CHANGELOG_URL } from "../src/core/links";
+import { savePendingChangelogVersion } from "../src/core/updateNotice";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -145,10 +145,11 @@ export default defineBackground(() => {
     }
 
     // On a meaningful update (major/minor — not a patch bugfix, not a fresh
-    // install), open the changelog so returning users see what's new.
+    // install), queue a popup notice so returning users can choose to see
+    // what's new without an unsolicited browser tab interrupting them.
     const currentVersion = browser.runtime.getManifest().version;
     if (details.reason === "update" && isMinorOrMajorBump(details.previousVersion, currentVersion)) {
-      await browser.tabs.create({ url: `${CHANGELOG_URL}#v${currentVersion}` });
+      await savePendingChangelogVersion(currentVersion);
     }
   });
 

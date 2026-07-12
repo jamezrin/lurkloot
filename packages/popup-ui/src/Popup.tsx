@@ -43,6 +43,7 @@ import { IconButton, SubTabs, cn } from "./primitives";
 import { ActivityLog } from "./activity";
 import { AttributionFooter } from "./footer";
 import { RateNudge, shouldShowRateNudge } from "./rateNudge";
+import { UpdateNotice } from "./updateNotice";
 import { DropsPanel } from "./drops";
 import { WatchQueuePanel } from "./watchQueue";
 import { AutomationHero, PlatformSwitcher } from "./automation";
@@ -67,6 +68,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [activityOpen, setActivityOpen] = useState(preview && initialVariant.view === "activity");
   const [refreshing, setRefreshing] = useState(false);
   const [resumingAutomation, setResumingAutomation] = useState(false);
+  const [pendingChangelogVersion, setPendingChangelogVersion] = useState<string>();
   const [pendingAutomation, setPendingAutomation] = useState<Partial<Record<Platform, boolean>>>({});
   // Request to jump to a campaign in the drops list (expand + scroll). The seq
   // counter lets repeated clicks on the same campaign re-trigger the effect.
@@ -146,6 +148,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       setSnapshot(snapshotWithMergedSettings(nextSnapshot));
     });
   }, [adapter, initialVariant.platform, preview]);
+
+  useEffect(() => {
+    if (preview || !adapter.getPendingChangelogVersion) return;
+    void adapter.getPendingChangelogVersion().then(setPendingChangelogVersion);
+  }, [adapter, preview]);
+
+  function dismissUpdateNotice(): void {
+    setPendingChangelogVersion(undefined);
+    void adapter.dismissPendingChangelogVersion?.();
+  }
 
   useEffect(() => {
     if (preview || !settingsOpen || !adapter.connectSettingsSession) return;
@@ -314,6 +326,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }));
       }
     : undefined;
+  const updateNotice = pendingChangelogVersion && adapter.changelogUrl
+    ? { version: pendingChangelogVersion, href: adapter.changelogUrl(pendingChangelogVersion) }
+    : undefined;
 
   return (
       <PopupRuntimeContext.Provider value={{ adapter, preview }}>
@@ -382,7 +397,15 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
                 <AnimatePresence initial={false}>
-                  {!preview && shouldShowRateNudge(snapshot.state.installedAt, settings.rateNudgeStatus, new Date(), RATE_NUDGE_MIN_DAYS) ? (
+                  {updateNotice ? (
+                    <UpdateNotice
+                      key="update-notice"
+                      version={updateNotice.version}
+                      href={updateNotice.href}
+                      onDismiss={dismissUpdateNotice}
+                    />
+                  ) : null}
+                  {!updateNotice && !preview && shouldShowRateNudge(snapshot.state.installedAt, settings.rateNudgeStatus, new Date(), RATE_NUDGE_MIN_DAYS) ? (
                     <RateNudge
                       key="rate-nudge"
                       onRate={() => void updateSettings({ rateNudgeStatus: "rated" })}
