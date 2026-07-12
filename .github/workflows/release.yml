@@ -1,0 +1,165 @@
+name: Publish declared release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      allow_stable_rebuild:
+        description: Allow explicitly approved replacement of an existing stable release
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  # main can have only one active declared version; this serializes every build
+  # of that version and cancels superseded pre-release commits.
+  group: declared-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  declaration:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      docker_tags: ${{ steps.release.outputs.docker_tags }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm release:check
+      - id: release
+        shell: bash
+        run: |
+          version=$(awk '$1 == "version:" { print $2 }' release.yml)
+          prerelease=$(awk '$1 == "prerelease:" { print $2 }' release.yml)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          {
+            echo 'docker_tags<<EOF'
+            echo "$version"
+            echo "sha-${GITHUB_SHA::12}"
+            if [[ "$prerelease" == true ]]; then
+              echo main
+            else
+              echo "${version%.*}"
+              echo "${version%%.*}"
+              echo latest
+            fi
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+      - name: Protect stable releases from mutation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+          PRERELEASE: ${{ steps.release.outputs.prerelease }}
+          OVERRIDE: ${{ inputs.allow_stable_rebuild || false }}
+        run: |
+          existing=$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease 2>/dev/null || true)
+          if [[ "$existing" == false && "$OVERRIDE" != true ]]; then
+            echo "v$VERSION is already stable. Declare the next pre-release, or manually dispatch with the protected stable-releases environment approval and override." >&2
+            exit 1
+          fi
+          if [[ "$PRERELEASE" == true && "$existing" == false ]]; then
+            echo "A stable v$VERSION cannot be changed back to a pre-release." >&2
+            exit 1
+          fi
+
+  approval:
+    needs: declaration
+    runs-on: ubuntu-latest
+    environment: ${{ (needs.declaration.outputs.prerelease == 'false' || inputs.allow_stable_rebuild) && 'stable-releases' || 'prereleases' }}
+    steps:
+      - run: echo "Release environment approved"
+
+  verify:
+    needs: [declaration, approval]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+
+  extension:
+    needs: [declaration, verify]
+    uses: ./.github/workflows/build-extension.yml
+    with:
+      sign_crx: true
+    secrets:
+      CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+
+  docker:
+    needs: [declaration, verify]
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      push: true
+      tags: ${{ needs.declaration.outputs.docker_tags }}
+
+  publish:
+    needs: [declaration, verify, extension, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: extension-release-assets
+          path: release-assets
+      - name: Move version tag
+        env:
+          VERSION: ${{ needs.declaration.outputs.version }}
+        run: |
+          git tag --force "v$VERSION" "$GITHUB_SHA"
+          git push --force origin "v$VERSION"
+      - name: Replace release and assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.declaration.outputs.version }}
+          PRERELEASE: ${{ needs.declaration.outputs.prerelease }}
+        run: |
+          tag="v$VERSION"
+          built_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          notes=$(printf 'Automated build of `%s` from commit `%s`, built at `%s`.' "$tag" "$GITHUB_SHA" "$built_at")
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release view "$tag" --json assets --jq '.assets[].name' | while read -r asset; do
+              gh release delete-asset "$tag" "$asset" --yes
+            done
+            args=(--title "$tag" --notes "$notes")
+            [[ "$PRERELEASE" == true ]] && args+=(--prerelease --latest=false) || args+=(--latest)
+            gh release edit "$tag" "${args[@]}"
+          else
+            args=(--title "$tag" --notes "$notes" --verify-tag)
+            [[ "$PRERELEASE" == true ]] && args+=(--prerelease --latest=false) || args+=(--latest)
+            gh release create "$tag" "${args[@]}"
+          fi
+          gh release upload "$tag" release-assets/*
+      - name: Verify downloadable assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.declaration.outputs.version }}
+        run: |
+          mkdir downloaded
+          gh release download "v$VERSION" --dir downloaded
+          cd downloaded
+          sha256sum --check SHA256SUMS
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 5

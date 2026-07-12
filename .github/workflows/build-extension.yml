@@ -1,0 +1,63 @@
+name: Build extension artifacts
+
+on:
+  workflow_call:
+    inputs:
+      sign_crx:
+        type: boolean
+        default: false
+    secrets:
+      CRX_PRIVATE_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm release:check
+      - run: pnpm zip && pnpm zip:firefox
+      - name: Normalize ZIP names
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          output=packages/extension/.output
+          mkdir release-assets
+          chrome_zip=$(find "$output" -maxdepth 1 -name "*-$version-chrome.zip" -print -quit)
+          firefox_zip=$(find "$output" -maxdepth 1 -name "*-$version-firefox.zip" -print -quit)
+          sources_zip=$(find "$output" -maxdepth 1 -name "*-$version-sources.zip" -print -quit)
+          test -n "$chrome_zip" -a -n "$firefox_zip" -a -n "$sources_zip"
+          cp "$chrome_zip" "release-assets/lurkloot-$version-chrome.zip"
+          cp "$firefox_zip" "release-assets/lurkloot-$version-firefox.zip"
+          cp "$sources_zip" "release-assets/lurkloot-$version-firefox-sources.zip"
+      - name: Build signed CRX3
+        if: inputs.sign_crx
+        env:
+          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+        run: |
+          test -n "$CRX_PRIVATE_KEY" || { echo "CRX_PRIVATE_KEY is not configured" >&2; exit 1; }
+          printf '%s' "$CRX_PRIVATE_KEY" > "$RUNNER_TEMP/lurkloot.pem"
+          version=$(node -p "require('./package.json').version")
+          pnpm build
+          pnpm dlx crx3@2.0.0 -p "$RUNNER_TEMP/lurkloot.pem" -o "release-assets/lurkloot-$version-chrome.crx" -- packages/extension/.output/chrome-mv3
+          rm -f "$RUNNER_TEMP/lurkloot.pem"
+      - name: Generate checksums
+        working-directory: release-assets
+        run: sha256sum lurkloot-* > SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: extension-release-assets
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 7

@@ -23,6 +23,8 @@
     "promo:store": "pnpm --filter @lurkloot/extension promo:store",
     "kick:inspect": "pnpm --filter @lurkloot/extension kick:inspect",
     "privacy:gist": "scripts/update-privacy-gist.sh",
+    "release:prepare": "node scripts/release.mjs prepare",
+    "release:check": "node scripts/release.mjs check",
     "verify": "pnpm -r typecheck && pnpm --filter @lurkloot/extension test && pnpm --filter @lurkloot/extension build && pnpm --filter @lurkloot/extension build:firefox"
   },
   "devDependencies": {

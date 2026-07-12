@@ -8,28 +8,9 @@ name: CLI Docker image
 #   - tags (v*.*.*):  publish semver tags.
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*.*.*']
-    paths:
-      - 'packages/cli/**'
-      - 'packages/core/**'
-      - 'packages/shared/**'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'package.json'
-      - 'tsconfig.base.json'
-      - '.github/workflows/cli-docker.yml'
-  pull_request:
-    paths:
-      - 'packages/cli/**'
-      - 'packages/core/**'
-      - 'packages/shared/**'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'package.json'
-      - 'tsconfig.base.json'
-      - '.github/workflows/cli-docker.yml'
+  # Superseded by release.yml and pr-validation.yml. Retained temporarily so
+  # existing branch-protection references do not break during migration.
+  workflow_dispatch:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
