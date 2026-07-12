@@ -8,6 +8,8 @@ import {
   Ban,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   ExternalLink,
   Gift,
@@ -183,9 +185,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                   <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} style={{ color: "var(--accent-text)" }} /> {t("rewards")}</span>
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{t("inCampaignOrder")}</span>
                 </div>
-                <div className="no-scrollbar -mx-0.5 flex gap-2 overflow-x-auto px-0.5 pb-1">
-                  {campaign.rewards.map((reward) => <RewardTile key={reward.id} reward={reward} />)}
-                </div>
+                <RewardCarousel rewards={campaign.rewards} />
               </div>
               <div className="rounded-lg bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
                 <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -241,6 +241,79 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
         )}
       </AnimatePresence>
     </article>
+  );
+}
+
+function RewardCarousel({ rewards }: { rewards: RewardView[] }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const rewardIds = rewards.map((reward) => reward.id).join("\u0000");
+
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+
+    function updateControls(): void {
+      if (!row) return;
+      const maxScrollLeft = Math.max(0, row.scrollWidth - row.clientWidth);
+      const isRtl = getComputedStyle(row).direction === "rtl";
+      const scrollPosition = isRtl ? -row.scrollLeft : row.scrollLeft;
+      setCanScrollLeft(isRtl ? scrollPosition < maxScrollLeft - 1 : scrollPosition > 1);
+      setCanScrollRight(isRtl ? scrollPosition > 1 : scrollPosition < maxScrollLeft - 1);
+    }
+
+    row.addEventListener("scroll", updateControls, { passive: true });
+    const resizeObserver = typeof ResizeObserver === "undefined"
+      ? undefined
+      : new ResizeObserver(updateControls);
+    resizeObserver?.observe(row);
+    Array.from(row.children).forEach((child) => resizeObserver?.observe(child));
+    const frame = requestAnimationFrame(updateControls);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      row.removeEventListener("scroll", updateControls);
+      resizeObserver?.disconnect();
+    };
+  }, [rewardIds]);
+
+  function scroll(direction: -1 | 1): void {
+    const row = rowRef.current;
+    if (!row) return;
+    const firstReward = row.firstElementChild as HTMLElement | null;
+    const gap = Number.parseFloat(getComputedStyle(row).columnGap) || 0;
+    row.scrollBy({ left: direction * ((firstReward?.offsetWidth ?? row.clientWidth) + gap), behavior: "smooth" });
+  }
+
+  return (
+    <div className="relative -mx-0.5">
+      <div ref={rowRef} className="no-scrollbar flex gap-2 overflow-x-auto px-0.5 pb-1">
+        {rewards.map((reward) => <RewardTile key={reward.id} reward={reward} />)}
+      </div>
+      {canScrollLeft && (
+        <button
+          type="button"
+          onClick={() => scroll(-1)}
+          aria-label="Scroll rewards left"
+          title="Scroll rewards left"
+          className="absolute left-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-700 shadow-md outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          <ChevronLeft size={16} aria-hidden="true" />
+        </button>
+      )}
+      {canScrollRight && (
+        <button
+          type="button"
+          onClick={() => scroll(1)}
+          aria-label="Scroll rewards right"
+          title="Scroll rewards right"
+          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-700 shadow-md outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
+      )}
+    </div>
   );
 }
 
