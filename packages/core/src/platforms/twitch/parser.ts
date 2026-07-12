@@ -93,9 +93,11 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
           : rawStatus === "expired"
           ? "expired"
           : "active";
-    const parsedRewards = (campaign.timeBasedDrops ?? []).map((drop) =>
-      parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops),
-    );
+    // Twitch includes subscription, purchase, and other action-gated rewards in
+    // timeBasedDrops. Retain them internally so an obtained reward can still be
+    // claimed, but mark them as non-watch rewards so they never drive farming.
+    const parsedRewards = (campaign.timeBasedDrops ?? [])
+      .map((drop) => parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops));
     const rewards = parsedRewards.map((reward) => ({
       ...reward,
       preconditionsMet: (reward.preconditionRewardIds ?? []).every((id) =>
@@ -103,7 +105,8 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
       ),
     }));
 
-    const finalStatus = rewards.length > 0 && rewards.every((reward) => reward.status === "claimed") ? "completed" : status;
+    const watchRewards = rewards.filter((reward) => reward.isWatchBased !== false);
+    const finalStatus = watchRewards.length > 0 && watchRewards.every((reward) => reward.status === "claimed") ? "completed" : status;
 
     return {
       id: campaign.id,
@@ -119,8 +122,8 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
       accountLinkUrl: campaign.accountLinkURL ?? undefined,
       status: finalStatus,
       url: campaign.detailsURL ?? undefined,
-      eligibility: eligibility(finalStatus, accountLinked, rewards.length),
-      eligibilityReason: eligibilityReason(finalStatus, accountLinked, rewards.length),
+      eligibility: eligibility(finalStatus, accountLinked, watchRewards.length),
+      eligibilityReason: eligibilityReason(finalStatus, accountLinked, watchRewards.length),
       allowedChannels,
       connectionUrls: allowedChannels.length > 0
         ? allowedChannels.map((login) => `https://www.twitch.tv/${login}`)
@@ -142,6 +145,7 @@ function parseTwitchReward(
 ): DropReward {
   const watchedMinutes = reward.self?.currentMinutesWatched ?? 0;
   const requiredMinutes = reward.requiredMinutesWatched ?? 0;
+  const isWatchBased = requiredMinutes > 0;
   const benefits = (reward.benefitEdges ?? [])
     .map((edge) => edge.benefit)
     .filter((benefit): benefit is NonNullable<typeof benefit> => Boolean(benefit));
@@ -156,7 +160,7 @@ function parseTwitchReward(
   // edge once the claim is released, and reconstruct it deterministically when
   // the edge is absent so a watched-complete drop is still claimable.
   const claimId = reward.self?.dropInstanceID
-    ?? (userId ? `${userId}#${campaignId}#${reward.id}` : undefined);
+    ?? (isWatchBased && userId ? `${userId}#${campaignId}#${reward.id}` : undefined);
   const preconditionRewardIds = reward.preconditionDrops?.map((drop) => drop.id) ?? [];
 
   return {
@@ -167,6 +171,7 @@ function parseTwitchReward(
     benefitType: benefits[0]?.distributionType,
     requiredMinutes,
     requiredSubs: reward.requiredSubs,
+    isWatchBased,
     watchedMinutes: isClaimed ? requiredMinutes : watchedMinutes,
     claimId,
     availableFrom: reward.startAt,
@@ -176,6 +181,8 @@ function parseTwitchReward(
     preconditionsMet: preconditionRewardIds.length === 0,
     status: isClaimed
       ? "claimed"
+      : !isWatchBased && reward.self?.dropInstanceID
+        ? "claimable"
       : watchedMinutes >= requiredMinutes && requiredMinutes > 0
         ? "claimable"
         : watchedMinutes > 0
@@ -217,7 +224,8 @@ export function mergeTwitchCampaignProgress(
       }
       return merged;
     });
-    const allClaimed = rewards.length > 0 && rewards.every((reward) => reward.status === "claimed");
+    const watchRewards = rewards.filter((reward) => reward.isWatchBased !== false);
+    const allClaimed = watchRewards.length > 0 && watchRewards.every((reward) => reward.status === "claimed");
     const next = { ...campaign, status: progress?.status ?? campaign.status, rewards };
     return allClaimed ? withCampaignStatus(next, "completed") : next;
   });
@@ -271,11 +279,12 @@ function eligibilityReason(status: DropCampaign["status"], accountLinked: boolea
 // longer lists the campaign as active) that the inventory payload can't convey.
 export function withCampaignStatus(campaign: DropCampaign, status: DropCampaign["status"]): DropCampaign {
   const accountLinked = campaign.accountLinked !== false;
+  const watchRewardCount = campaign.rewards.filter((reward) => reward.isWatchBased !== false).length;
   return {
     ...campaign,
     status,
-    eligibility: eligibility(status, accountLinked, campaign.rewards.length),
-    eligibilityReason: eligibilityReason(status, accountLinked, campaign.rewards.length),
+    eligibility: eligibility(status, accountLinked, watchRewardCount),
+    eligibilityReason: eligibilityReason(status, accountLinked, watchRewardCount),
   };
 }
 

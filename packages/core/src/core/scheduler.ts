@@ -633,7 +633,10 @@ async function claimReadyRewards(
     updated.push({
       ...campaign,
       rewards,
-      status: rewards.every((reward) => reward.status === "claimed") ? "completed" : campaign.status,
+      status: rewards.some((reward) => reward.isWatchBased !== false)
+        && rewards.filter((reward) => reward.isWatchBased !== false).every((reward) => reward.status === "claimed")
+        ? "completed"
+        : campaign.status,
     });
   }
 
@@ -645,6 +648,7 @@ function isRewardRelevantNow(reward: DropReward): boolean {
 }
 
 function isRewardAvailableToEarn(reward: DropReward): boolean {
+  if (reward.isWatchBased === false) return false;
   const now = Date.now();
   const startsAt = reward.availableFrom ? Date.parse(reward.availableFrom) : undefined;
   const endsAt = reward.availableUntil ? Date.parse(reward.availableUntil) : undefined;

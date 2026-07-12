@@ -125,7 +125,7 @@ export function campaignViewFromCampaign(campaign: DropCampaign, index: number, 
     thumbnail: initials(campaign.gameName ?? campaign.name),
     tint: CAMPAIGN_TINTS[index % CAMPAIGN_TINTS.length],
     imageUrl: campaign.gameImageUrl,
-    rewards: campaign.rewards.map((reward, rewardIndex) => {
+    rewards: campaign.rewards.filter((reward) => reward.isWatchBased !== false).map((reward, rewardIndex) => {
       const progress = reward.requiredMinutes > 0
         ? Math.min(100, (Math.min(reward.watchedMinutes, reward.requiredMinutes) / reward.requiredMinutes) * 100)
         : reward.status === "claimed" ? 100 : 0;

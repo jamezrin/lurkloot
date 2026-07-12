@@ -866,7 +866,7 @@ function hasEarnableReward(campaign: DropCampaign): boolean {
     && !hasCampaignEnded(campaign)
     && campaign.accountLinked !== false
     && (!campaign.eligibility || campaign.eligibility === "eligible")
-    && campaign.rewards.some((reward) => reward.status !== "claimed" && reward.status !== "claimable" && reward.preconditionsMet !== false);
+    && campaign.rewards.some((reward) => reward.isWatchBased !== false && reward.status !== "claimed" && reward.status !== "claimable" && reward.preconditionsMet !== false);
 }
 
 function hasCampaignEnded(campaign: DropCampaign): boolean {

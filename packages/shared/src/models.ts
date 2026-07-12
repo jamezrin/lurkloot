@@ -18,6 +18,7 @@ export interface DropReward {
   benefitType?: "UNKNOWN" | "BADGE" | "EMOTE" | "DIRECT_ENTITLEMENT" | string;
   requiredMinutes: number;
   requiredSubs?: number;
+  isWatchBased?: boolean;
   watchedMinutes: number;
   status: RewardStatus;
   claimId?: string;
