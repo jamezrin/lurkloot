@@ -27,6 +27,7 @@ describe("Kick parsers", () => {
     expect(merged[0].connectionUrls).toEqual(["https://kick.com/creator"]);
     expect(merged[0].rewards[0].status).toBe("claimable");
     expect(merged[0].rewards[0].claimId).toBe("claim-99");
+    expect(merged[0].rewards[0].isWatchBased).toBe(true);
   });
 
   it("resolves relative reward image paths to absolute ext.kick.com URLs", () => {
@@ -249,9 +250,84 @@ describe("Kick parsers", () => {
 
     expect(campaigns[0].rewards[0].requiredMinutes).toBe(90);
   });
+
+  it("marks zero-duration Kick rewards as non-watch rewards", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: "campaign",
+        rewards: [
+          { id: "missing-duration" },
+          { id: "zero-duration", required_units: 0 },
+        ],
+      }],
+    });
+
+    expect(campaigns[0].rewards.map((reward) => reward.isWatchBased)).toEqual([false, false]);
+  });
 });
 
 describe("Twitch parsers", () => {
+  it("marks subscription-only and other zero-minute rewards as non-watch rewards", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "subscription-campaign",
+      name: "Jubilee Badge",
+      timeBasedDrops: [
+        { id: "subscription", name: "Jubilee Badge", requiredMinutesWatched: 0, requiredSubs: 1 },
+        { id: "purchase", name: "Purchase Reward" },
+      ],
+    }]);
+
+    expect(campaigns[0].rewards).toHaveLength(2);
+    expect(campaigns[0].rewards.every((reward) => reward.isWatchBased === false)).toBe(true);
+    expect(campaigns[0].eligibility).toBe("no_rewards");
+  });
+
+  it("keeps only watch-based rewards in mixed campaigns", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "mixed-campaign",
+      name: "Detroit Badge Drop",
+      timeBasedDrops: [
+        { id: "subscription", name: "Detroit Blue LED", requiredMinutesWatched: 0, requiredSubs: 1 },
+        { id: "watch", name: "Android Triangle", requiredMinutesWatched: 60 },
+        { id: "combined", name: "Watch and Subscribe", requiredMinutesWatched: 60, requiredSubs: 1 },
+      ],
+    }]);
+
+    expect(campaigns[0].rewards.filter((reward) => reward.isWatchBased !== false).map((reward) => reward.id)).toEqual(["watch", "combined"]);
+    expect(campaigns[0].eligibility).toBe("eligible");
+  });
+
+  it("does not unlock a watch reward whose paid prerequisite was excluded", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "paid-prerequisite-campaign",
+      timeBasedDrops: [
+        { id: "subscription", requiredMinutesWatched: 0, requiredSubs: 1 },
+        { id: "watch", requiredMinutesWatched: 60, preconditionDrops: [{ id: "subscription" }] },
+      ],
+    }]);
+
+    expect(campaigns[0].rewards).toHaveLength(2);
+    expect(campaigns[0].rewards.find((reward) => reward.id === "watch")?.preconditionsMet).toBe(false);
+  });
+
+  it("makes an obtained subscription reward claimable only with Twitch's real instance id", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "subscription-campaign",
+      timeBasedDrops: [{
+        id: "subscription",
+        requiredMinutesWatched: 0,
+        requiredSubs: 1,
+        self: { dropInstanceID: "subscription-instance" },
+      }],
+    }]);
+
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      isWatchBased: false,
+      status: "claimable",
+      claimId: "subscription-instance",
+    });
+  });
+
   it("normalizes inventory campaigns with ACL and claim ids", () => {
     const campaigns = parseTwitchInventory({
       data: {

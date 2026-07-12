@@ -1014,6 +1014,38 @@ describe("scheduler tick", () => {
     expect(twitch.claimReward).toHaveBeenCalledWith(ready, ready.rewards[0]);
   });
 
+  it("claims an obtained non-watch reward without selecting it for farming", async () => {
+    const actionReward = {
+      ...reward("claimable"),
+      requiredMinutes: 0,
+      watchedMinutes: 0,
+      isWatchBased: false,
+      claimId: "subscription-instance",
+    };
+    const ready = campaign("subscription-drops", {
+      eligibility: "no_rewards",
+      rewards: [actionReward],
+    });
+    const twitch = adapter("twitch", [ready], [channel("allowed")]);
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        events: [],
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.claimReward).toHaveBeenCalledWith(ready, actionReward);
+    expect(twitch.listCandidateChannels).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).toBe("idle");
+  });
+
   it("defers claiming a ready reward until the adapter reports it is claim-ready", async () => {
     const ready = campaign("drops", { rewards: [reward("claimable")] });
     const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady: vi.fn(() => false) };
