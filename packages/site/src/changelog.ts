@@ -22,7 +22,10 @@ export const changelog: ChangelogEntry[] = [
     version: "1.4.0",
     // Unreleased — omit `date` until the public release.
     changes: [
-      { kind: "new", text: "Lurkloot’s source code is now public." },
+      {
+        kind: "new",
+        text: "Lurkloot’s source code is now public under the Apache License 2.0.",
+      },
       {
         kind: "new",
         text:
@@ -37,6 +40,16 @@ export const changelog: ChangelogEntry[] = [
         kind: "improved",
         text:
           "Redesigned the landing page around the command-line app and the now-public source.",
+      },
+      {
+        kind: "improved",
+        text:
+          "What’s New is now shown as a notice in the popup after meaningful updates instead of opening a browser tab automatically.",
+      },
+      {
+        kind: "fixed",
+        text:
+          "Twitch now ignores subscription, purchase, and other non-watch rewards when choosing campaigns to farm.",
       },
     ],
   },
