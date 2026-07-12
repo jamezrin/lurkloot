@@ -1,0 +1,21 @@
+name: GHCR retention
+
+on:
+  schedule:
+    - cron: "37 4 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  prune-untagged:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: lurkloot-cli
+          package-type: container
+          delete-only-untagged-versions: "true"
+          min-versions-to-keep: 10

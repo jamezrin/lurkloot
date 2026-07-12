@@ -1,0 +1,33 @@
+name: Pull request validation
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm release:check
+      - run: pnpm verify
+
+  extension:
+    uses: ./.github/workflows/build-extension.yml
+    with:
+      sign_crx: false
+
+  docker:
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      push: false
