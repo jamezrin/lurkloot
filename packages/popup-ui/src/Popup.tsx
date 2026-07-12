@@ -326,6 +326,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }));
       }
     : undefined;
+  const updateNotice = pendingChangelogVersion && adapter.changelogUrl
+    ? { version: pendingChangelogVersion, href: adapter.changelogUrl(pendingChangelogVersion) }
+    : undefined;
 
   return (
       <PopupRuntimeContext.Provider value={{ adapter, preview }}>
@@ -394,15 +397,15 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
                 <AnimatePresence initial={false}>
-                  {pendingChangelogVersion && adapter.changelogUrl ? (
+                  {updateNotice ? (
                     <UpdateNotice
                       key="update-notice"
-                      version={pendingChangelogVersion}
-                      href={adapter.changelogUrl(pendingChangelogVersion)}
+                      version={updateNotice.version}
+                      href={updateNotice.href}
                       onDismiss={dismissUpdateNotice}
                     />
                   ) : null}
-                  {!pendingChangelogVersion && !preview && shouldShowRateNudge(snapshot.state.installedAt, settings.rateNudgeStatus, new Date(), RATE_NUDGE_MIN_DAYS) ? (
+                  {!updateNotice && !preview && shouldShowRateNudge(snapshot.state.installedAt, settings.rateNudgeStatus, new Date(), RATE_NUDGE_MIN_DAYS) ? (
                     <RateNudge
                       key="rate-nudge"
                       onRate={() => void updateSettings({ rateNudgeStatus: "rated" })}
