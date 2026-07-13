@@ -1,26 +1,12 @@
 name: Deploy site
 
-# Build the Astro landing site and deploy it to the production Cloudflare Pages
-# project (lurkloot) on push to main. Path-filtered so unrelated changes don't
-# redeploy; workflow_dispatch allows manual redeploys.
+# Build the Astro landing site and deploy the declared release channel to the
+# matching Cloudflare Pages branch. The release workflow calls this only after
+# publication succeeds; workflow_dispatch allows manual redeploys.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'packages/site/**'
-      - 'packages/shared/**'
-      - 'packages/popup-ui/**'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'package.json'
-      - '.github/workflows/site-deploy.yml'
   workflow_dispatch:
   workflow_call:
-    inputs:
-      after_release:
-        type: boolean
-        default: false
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
@@ -38,40 +24,44 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     outputs:
-      deploy: ${{ steps.decision.outputs.deploy }}
+      branch: ${{ steps.target.outputs.branch }}
+      channel: ${{ steps.target.outputs.channel }}
+      environment: ${{ steps.target.outputs.environment }}
+      url: ${{ steps.target.outputs.url }}
     steps:
       - name: Require the main branch
         run: test "$GITHUB_REF" = refs/heads/main
       - uses: actions/checkout@v7
-      - id: decision
-        env:
-          AFTER_RELEASE: ${{ inputs.after_release || false }}
-          EVENT_NAME: ${{ github.event_name }}
+      - id: target
+        name: Select deployment target
         run: |
           channel=$(node -p "require('./package.json').release.channel")
           case "$channel" in
-            prerelease|stable) ;;
+            prerelease)
+              echo "branch=next" >> "$GITHUB_OUTPUT"
+              echo "channel=prerelease" >> "$GITHUB_OUTPUT"
+              echo "environment=prerelease-site" >> "$GITHUB_OUTPUT"
+              echo "url=https://next.lurkloot.pages.dev" >> "$GITHUB_OUTPUT"
+              ;;
+            stable)
+              echo "branch=main" >> "$GITHUB_OUTPUT"
+              echo "channel=production" >> "$GITHUB_OUTPUT"
+              echo "environment=production-site" >> "$GITHUB_OUTPUT"
+              echo "url=https://lurkloot.jamezrin.com" >> "$GITHUB_OUTPUT"
+              ;;
             *)
-              echo "deploy=false" >> "$GITHUB_OUTPUT"
               echo "Unsupported release channel: $channel" >&2
               exit 1
               ;;
           esac
-          if [[ "$EVENT_NAME" == push && "$channel" == stable && "$AFTER_RELEASE" != true ]]; then
-            echo "deploy=false" >> "$GITHUB_OUTPUT"
-            echo "Stable site deployment is deferred until release publication succeeds."
-          else
-            echo "deploy=true" >> "$GITHUB_OUTPUT"
-          fi
 
   deploy:
     needs: gate
-    if: needs.gate.outputs.deploy == 'true'
     name: Build & deploy
     runs-on: ubuntu-latest
     environment:
-      name: production-site
-      url: https://lurkloot.jamezrin.com
+      name: ${{ needs.gate.outputs.environment }}
+      url: ${{ needs.gate.outputs.url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -92,6 +82,8 @@ jobs:
 
       - name: Build site
         run: pnpm build:site
+        env:
+          SITE_DEPLOYMENT_CHANNEL: ${{ needs.gate.outputs.channel }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v4
@@ -99,4 +91,4 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: packages/site
-          command: pages deploy dist --project-name=lurkloot --branch=main
+          command: pages deploy dist --project-name=lurkloot --branch=${{ needs.gate.outputs.branch }}
