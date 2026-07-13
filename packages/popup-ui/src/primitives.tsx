@@ -1,7 +1,7 @@
 import React from "react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { GripVertical, X, type LucideIcon } from "lucide-react";
 import type { PopupTab } from "./types";
 
