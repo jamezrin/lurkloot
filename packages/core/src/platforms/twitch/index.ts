@@ -11,6 +11,7 @@ const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 // Twitch's web Client-ID — the default identity. It is the one Twitch gates
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
+const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
 
 export interface TwitchAdapterOptions {
   // GQL Client-ID. Defaults to the web client. A headless runtime passes a
@@ -36,6 +37,7 @@ const TWITCH_QUERIES = {
   gameDirectoryHash: "cb5dc816e139dcb8a118f14b4b677d59abc224a4b016c4bc2bb00a47fe0ddec4",
   streamInfoHash: "198492e0857f6aedead9665c81c5a06d67b25b58034649687124083ff288597d",
   currentDropHash: "4d06b702d25d652afb9ef835d2a550031f1cf762b193523a92166f40ea3d142b",
+  availableDropsHash: "782dad0f032942260171d2d80a654f88bdd0c5a9dddc392e9bc92218a0f42d20",
   channelPointsHash: "374314de591e69925fce3ddc2bcf085796f56ebb8cad67a0daa3165c03adc345",
   claimCommunityPointsHash: "46aaeebe02c99afdf4fc97c7c0cba964124bf6b0af229395f1f6d1feed05b3d0",
   claimHash: "a455deea71bdc9015b78eb49f4acfbce8baa7ccbedd28e549bb025bd0f751930",
@@ -132,6 +134,12 @@ const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
         dropID
         currentMinutesWatched
       }
+    }
+  }`,
+  DropsHighlightService_AvailableDrops: `query DropsHighlightService_AvailableDrops($channelID: ID!) {
+    channel(id: $channelID) {
+      id
+      viewerDropCampaigns { id }
     }
   }`,
   ChannelPointsContext: `query ChannelPointsContext($channelLogin: String!) {
@@ -240,11 +248,24 @@ interface TwitchCurrentDropData {
   };
 }
 
+interface TwitchAvailableDropsData {
+  channel?: {
+    id?: string;
+    viewerDropCampaigns?: Array<{ id?: string }> | null;
+  } | null;
+}
+
+interface CachedAvailableCampaigns {
+  campaignIds: Set<string>;
+  expiresAt: number;
+}
+
 export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
 
   private readonly clientId: string;
   private readonly userAgent?: string;
+  private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
 
   constructor(
     // Twitch GQL is unreachable from the twitch.tv page context (CORS / anti-
@@ -407,24 +428,72 @@ export class TwitchAdapter implements PlatformAdapter {
         "omit",
       );
       const stream = response.data?.user?.stream;
+      const channelId = response.data?.user?.id;
       const actualCategoryId = stream?.game?.id;
       const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
+      const categoryMatches = !expectedCategoryId || actualCategoryId === expectedCategoryId;
+      const campaignMatches = stream && categoryMatches && campaign && channelId
+        ? await this.checkCampaignAvailability(channelId, campaign.id, channel.username)
+        : undefined;
       return {
         live: Boolean(stream),
-        categoryMatches: !expectedCategoryId || actualCategoryId === expectedCategoryId,
-        reason: stream ? undefined : "Twitch channel is offline",
+        categoryMatches,
+        campaignMatches,
+        reason: !stream
+          ? "Twitch channel is offline"
+          : campaignMatches === false
+            ? "Twitch campaign is not available on this channel"
+            : undefined,
         candidate: {
           ...channel,
           displayName: response.data?.user?.displayName ?? channel.displayName,
           categoryId: actualCategoryId ?? channel.categoryId,
           categoryName: stream?.game?.name ?? channel.categoryName,
           viewerCount: stream?.viewersCount ?? channel.viewerCount,
-          channelId: response.data?.user?.id ?? channel.channelId,
+          channelId: channelId ?? channel.channelId,
           broadcastId: stream?.id ?? channel.broadcastId,
         },
       };
     } catch (error) {
       return this.checkChannelFromPage(channel, campaign, error);
+    }
+  }
+
+  private async checkCampaignAvailability(
+    channelId: string,
+    campaignId: string,
+    channelLogin: string,
+  ): Promise<boolean | undefined> {
+    const cached = this.availableCampaignsByChannel.get(channelId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.campaignIds.has(campaignId);
+    }
+    if (cached) this.availableCampaignsByChannel.delete(channelId);
+
+    try {
+      const response = await this.gql<TwitchAvailableDropsData>(
+        "DropsHighlightService_AvailableDrops",
+        TWITCH_QUERIES.availableDropsHash,
+        { channelID: channelId },
+      );
+      const campaigns = response.data?.channel?.viewerDropCampaigns;
+      if (!Array.isArray(campaigns)) {
+        logActivity("debug", `Twitch did not return available campaign data for ${channelLogin}; using live/category validation`, "twitch");
+        return undefined;
+      }
+
+      const campaignIds = new Set(
+        campaigns.map((campaign) => campaign.id).filter((id): id is string => Boolean(id)),
+      );
+      this.availableCampaignsByChannel.set(channelId, {
+        campaignIds,
+        expiresAt: Date.now() + CHANNEL_CAMPAIGN_CACHE_TTL_MS,
+      });
+      return campaignIds.has(campaignId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logActivity("debug", `Could not confirm available Twitch campaigns for ${channelLogin}; using live/category validation: ${message}`, "twitch");
+      return undefined;
     }
   }
 

@@ -206,7 +206,7 @@ async function firstValidCandidate(
 ): Promise<ChannelCandidate | undefined> {
   for (const candidate of candidates) {
     const check = await adapter.checkChannel(candidate, campaign);
-    if (check.live && check.categoryMatches) {
+    if (check.live && check.categoryMatches && check.campaignMatches !== false) {
       return channelFromCheck(candidate, check);
     }
   }

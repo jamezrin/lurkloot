@@ -293,8 +293,90 @@ describe("Twitch parsers", () => {
       ],
     }]);
 
-    expect(campaigns[0].rewards.filter((reward) => reward.isWatchBased !== false).map((reward) => reward.id)).toEqual(["watch", "combined"]);
+    expect(campaigns[0].rewards.filter((reward) => reward.isWatchBased !== false).map((reward) => reward.id)).toEqual(["watch"]);
+    expect(campaigns[0].rewards.find((reward) => reward.id === "combined")).toMatchObject({
+      requiredSubs: 1,
+      isWatchBased: false,
+      status: "locked",
+    });
     expect(campaigns[0].eligibility).toBe("eligible");
+  });
+
+  it("does not farm a mixed watch-and-subscription reward without a real claim instance", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "mixed-only",
+      self: { isAccountConnected: true },
+      timeBasedDrops: [{
+        id: "combined",
+        requiredMinutesWatched: 60,
+        requiredSubs: 1,
+        self: { currentMinutesWatched: 60 },
+      }],
+    }]);
+
+    expect(campaigns[0].eligibility).toBe("no_rewards");
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      isWatchBased: false,
+      status: "in_progress",
+      claimId: undefined,
+    });
+  });
+
+  it("makes an obtained mixed-requirement reward claimable with Twitch's real instance id", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "mixed-obtained",
+      timeBasedDrops: [{
+        id: "combined",
+        requiredMinutesWatched: 60,
+        requiredSubs: 1,
+        self: { currentMinutesWatched: 60, dropInstanceID: "mixed-instance" },
+      }],
+    }]);
+
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      isWatchBased: false,
+      status: "claimable",
+      claimId: "mixed-instance",
+    });
+  });
+
+  it("keeps linked native badge and emote watch rewards farmable", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "native-rewards",
+      self: { isAccountConnected: true },
+      timeBasedDrops: [
+        {
+          id: "badge",
+          requiredMinutesWatched: 30,
+          benefitEdges: [{ benefit: { id: "badge-benefit", distributionType: "BADGE" } }],
+        },
+        {
+          id: "emote",
+          requiredMinutesWatched: 60,
+          benefitEdges: [{ benefit: { id: "emote-benefit", distributionType: "EMOTE" } }],
+        },
+      ],
+    }]);
+
+    expect(campaigns[0].eligibility).toBe("eligible");
+    expect(campaigns[0].rewards).toMatchObject([
+      { benefitType: "BADGE", isWatchBased: true },
+      { benefitType: "EMOTE", isWatchBased: true },
+    ]);
+  });
+
+  it("does not bypass account linking for unconfirmed native reward payloads", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "unlinked-native",
+      self: { isAccountConnected: false },
+      timeBasedDrops: [{
+        id: "badge",
+        requiredMinutesWatched: 30,
+        benefitEdges: [{ benefit: { id: "badge-benefit", distributionType: "BADGE" } }],
+      }],
+    }]);
+
+    expect(campaigns[0].eligibility).toBe("account_not_linked");
   });
 
   it("does not unlock a watch reward whose paid prerequisite was excluded", () => {

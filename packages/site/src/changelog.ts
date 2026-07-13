@@ -51,6 +51,11 @@ export const changelog: ChangelogEntry[] = [
         text:
           "Twitch now ignores subscription, purchase, and other non-watch rewards when choosing campaigns to farm.",
       },
+      {
+        kind: "fixed",
+        text:
+          "Twitch now confirms that a selected live channel offers the intended campaign when that information is available.",
+      },
     ],
   },
   {

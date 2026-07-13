@@ -76,6 +76,10 @@ export interface ChannelCandidate {
 export interface ChannelCheck {
   live: boolean;
   categoryMatches: boolean;
+  // Undefined when the platform cannot confirm campaign availability. A
+  // definitive false rejects the candidate; soft failures keep the existing
+  // live/category validation path usable.
+  campaignMatches?: boolean;
   reason?: string;
   candidate: ChannelCandidate;
 }
