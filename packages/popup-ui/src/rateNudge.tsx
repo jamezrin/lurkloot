@@ -1,5 +1,5 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Star, X } from "lucide-react";
 import { CHROME_WEB_STORE_REVIEW_URL } from "./constants";
 import { useT } from "./context";
