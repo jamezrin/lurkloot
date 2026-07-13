@@ -25,7 +25,7 @@ git commit -m "chore(release): bump version to 1.5.0"
 git push -u origin release/1.5.0
 ```
 
-Open a pull request and merge it into `main`. The unified workflow creates the GitHub pre-release, attaches the Chrome CRX/ZIP, Firefox ZIP/source ZIP, and checksums, and uploads the Chrome ZIP as an unsubmitted Chrome Web Store draft. It also publishes the `VERSION`, `main`, and `sha-COMMIT` Docker tags; `latest` remains on the newest stable version.
+Open a pull request and merge it into `main`. The unified workflow creates the GitHub pre-release, attaches the Chrome CRX/ZIP, Firefox ZIP/source ZIP, and checksums, and uploads the Chrome ZIP as an unsubmitted Chrome Web Store draft. It also publishes the `VERSION`, `main`, and `sha-COMMIT` Docker tags and deploys the site to the no-index Cloudflare Pages preview at `https://next.lurkloot.pages.dev`; `latest` and `https://lurkloot.jamezrin.com` remain on the newest stable version.
 
 While `release.channel` is `prerelease`, every subsequent successful `main` build replaces the pre-release assets, CWS draft, version tag, and mutable Docker tags. Once a CWS revision is submitted for review or approved for deferred publishing, later builds leave that revision frozen.
 
@@ -52,14 +52,14 @@ Before promotion, manually submit the CWS draft for review with automatic publis
 After the workflow succeeds:
 
 1. Confirm the Chrome Web Store and GitHub Release both show the new version, then upload the Firefox ZIP/source ZIP to AMO.
-2. Confirm the release workflow deployed the dated public changelog to the site.
+2. Confirm the release workflow deployed the dated public changelog to `https://lurkloot.jamezrin.com`.
 3. Prepare the next pre-release before merging further feature changes. The stable-release guard intentionally refuses to mutate the released version.
 
 ## Artifacts and credentials
 
 The release contains Chrome CRX/ZIP, Firefox ZIP/source ZIP, and `SHA256SUMS`. CRX3 packaging uses the pinned `crx3@2.0.0` CLI and the `CRX_PRIVATE_KEY` Actions secret. Store a PEM-encoded RSA private key in that secret and preserve it permanently: replacing it changes the sideloaded extension ID. Pull requests build unsigned ZIPs and both Docker architectures, but do not receive that secret or publish anything.
 
-Create the GitHub environments `prereleases` and `stable-releases`; add required reviewers to `stable-releases`. `GITHUB_TOKEN` supplies scoped release and GHCR access. No registry deletion occurs during publication. The scheduled retention workflow removes only old untagged GHCR versions and keeps at least ten.
+Create the GitHub release environments `prereleases` and `stable-releases`, plus the site deployment environments `prerelease-site` and `production-site`. Set the site environment URLs to `https://next.lurkloot.pages.dev` and `https://lurkloot.jamezrin.com`, respectively. Add required reviewers to `stable-releases` and, if production site deployments also need an approval gate, to `production-site`. `GITHUB_TOKEN` supplies scoped release and GHCR access. No registry deletion occurs during publication. The scheduled retention workflow removes only old untagged GHCR versions and keeps at least ten.
 
 Chrome Web Store automation requires repository secret `CWS_SERVICE_ACCOUNT_JSON` and repository variables `CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID`. Add the service-account email to the publisher in the Chrome Developer Dashboard. Pull requests never receive the credential and never contact CWS.
 
@@ -87,4 +87,4 @@ If publication partially succeeds, rerun the same commit. The release job re-upl
 
 ## Store upload
 
-GitHub Releases are the canonical built artifacts. Chrome review submission and AMO upload remain manual; approved Chrome publication and the dated site deployment are automated during stable promotion. Download the verified Firefox ZIP/source ZIP from the stable GitHub release for AMO.
+GitHub Releases are the canonical built artifacts. Chrome review submission and AMO upload remain manual. Pre-releases deploy the site to the `next` Cloudflare Pages preview branch; approved Chrome publication and the production site deployment are automated during stable promotion. Download the verified Firefox ZIP/source ZIP from the stable GitHub release for AMO.

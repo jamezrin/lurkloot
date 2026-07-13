@@ -48,6 +48,15 @@ pnpm cf:deploy            # build + upload dist/ to production (branch main)
 `wrangler pages deploy dist --project-name=lurkloot --branch=main`.
 Long-cache headers for fingerprinted assets are in `public/_headers`.
 
+GitHub release deployments use the same Pages project with channel-specific
+branches. Pre-releases deploy to the `next` preview branch at
+`https://next.lurkloot.pages.dev`, while stable releases deploy to `main` and
+therefore update `https://lurkloot.jamezrin.com`. GitHub records these against
+the `prerelease-site` and `production-site` environments, respectively. The
+pre-release build blocks all crawlers in `robots.txt` and sends an
+`X-Robots-Tag: noindex, nofollow, noarchive` header for every route; production
+remains crawlable.
+
 **Custom domain — `lurkloot.jamezrin.com`** (zone already on this
 Cloudflare account). The domain is attached to the project; it needs one DNS
 record (wrangler's OAuth scope can't edit DNS, so add it once):
