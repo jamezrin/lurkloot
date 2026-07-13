@@ -7,6 +7,7 @@ import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings"
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
+import { logActivity } from "@lurkloot/core/activityLog";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: "reward",
@@ -791,6 +792,37 @@ describe("background controller", () => {
     const messages = published.filter((event) => event.category === "diagnostic").map((event) => event.message);
     expect(messages).toContain("Ad started; keeping the watch tab counting down");
     expect(published.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.startsWith("Playback was blocked"))).toBe(true);
+  });
+
+  it("publishes focus diagnostics exactly once in the telemetry operation batch", async () => {
+    const reported: EngineEvent[][] = [];
+    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+      reportEvents: async (events) => { reported.push([...events]); },
+    });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+    reported.length = 0;
+    env.deps.applyAdFocus.mockImplementation(async () => {
+      logActivity("info", "focus-adjusted", "twitch");
+    });
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+        adActive: true,
+      },
+    }, { tab: { id: 10 } });
+
+    const focusDiagnostics = reported
+      .flatMap((events) => events)
+      .filter((event) => event.category === "diagnostic" && event.message === "focus-adjusted");
+    expect(focusDiagnostics).toHaveLength(1);
   });
 
   it("focuses the watch tab when an ad is reported on the managed tab", async () => {

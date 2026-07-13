@@ -140,9 +140,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function persistAndReport(state: SchedulerState, events: readonly EngineEvent[] = []): Promise<void> {
+    await saveOperationalState(state);
+    await reportBestEffort(events);
+  }
+
+  async function saveOperationalState(state: SchedulerState): Promise<void> {
     const { events: _legacyEvents, ...operationalState } = state as SchedulerState & { events?: unknown };
     await deps.saveState(operationalState);
-    await reportBestEffort(events);
   }
 
   async function reportBestEffort(events: readonly EngineEvent[]): Promise<void> {
@@ -499,10 +503,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         : [];
       for (const event of playbackDiagnostics) emit(event);
 
-      await persistAndReport(nextState, events);
-
-      if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
-        await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive));
+      await saveOperationalState(nextState);
+      try {
+        if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
+          await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive));
+        }
+      } finally {
+        await reportBestEffort(events);
       }
     }));
   }
