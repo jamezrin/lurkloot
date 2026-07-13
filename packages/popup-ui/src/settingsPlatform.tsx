@@ -250,7 +250,7 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
           <SortableContext items={categories.map((category) => category.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">{categories.map((category, index) => <SortableCategoryRow key={category.id} category={category} index={index} accent={accentFor(index)} onRemove={() => void onChange(categories.filter((entry) => entry.id !== category.id))} />)}</div>
           </SortableContext>
-          <DragOverlay dropAnimation={null}>{active ? <CompactRow isOverlay index={activeIndex} avatar={initials(active.name)} avatarStyle={{ backgroundColor: accentFor(activeIndex), color: "#fff" }} title={active.name} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<span className="w-4" />} /> : null}</DragOverlay>
+          <DragOverlay dropAnimation={null}>{active ? <CompactRow isOverlay index={activeIndex} avatar={initials(active.name)} avatarImageUrl={active.imageUrl} avatarStyle={{ backgroundColor: accentFor(activeIndex), color: "#fff" }} title={active.name} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<span className="w-4" />} /> : null}</DragOverlay>
         </DndContext>
       )}
 
@@ -316,7 +316,7 @@ function SortableCategoryRow({ category, index, accent, onRemove }: { category: 
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
-      <CompactRow index={index} avatar={initials(category.name)} avatarStyle={{ backgroundColor: accent, color: "#fff" }} title={category.name} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${category.name}`} />} trailing={<RemoveRowButton label={`Remove ${category.name}`} onClick={onRemove} />} />
+      <CompactRow index={index} avatar={initials(category.name)} avatarImageUrl={category.imageUrl} avatarStyle={{ backgroundColor: accent, color: "#fff" }} title={category.name} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${category.name}`} />} trailing={<RemoveRowButton label={`Remove ${category.name}`} onClick={onRemove} />} />
     </div>
   );
 }
