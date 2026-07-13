@@ -12,31 +12,28 @@ const packages = [
   "packages/popup-ui/package.json",
   "packages/shared/package.json",
 ];
-const declarationPath = "release.yml";
-const changelogPath = "packages/site/src/changelog.ts";
+const rootManifestPath = packages[0];
+const changelogPath = "packages/site/src/changelog.json";
 const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+const releaseChannels = new Set(["prerelease", "stable"]);
 
 function fail(message) {
   console.error(`release: ${message}`);
   process.exitCode = 1;
 }
 
-function declaration(source) {
-  const version = source.match(/^version:\s*([^\s#]+)\s*$/m)?.[1];
-  const rawPrerelease = source.match(/^prerelease:\s*(true|false)\s*$/m)?.[1];
-  if (!version || !rawPrerelease) throw new Error("release.yml must contain version and prerelease");
-  return { version, prerelease: rawPrerelease === "true" };
+function declaration(manifest) {
+  const channel = manifest.release?.channel;
+  if (!releaseChannels.has(channel)) {
+    throw new Error('package.json release.channel must be "prerelease" or "stable"');
+  }
+  return { version: manifest.version, channel, prerelease: channel === "prerelease" };
 }
 
-function changelogEntry(source, version) {
-  const marker = `version: "${version}"`;
-  const start = source.indexOf(marker);
-  if (start < 0) return undefined;
-  const next = source.indexOf("\n  {", start);
-  const text = source.slice(start, next < 0 ? source.length : next);
-  const date = text.match(/\n\s*date:\s*"([^"]+)"/)?.[1];
-  return { text, date };
+function changelogEntry(changelog, version) {
+  if (!Array.isArray(changelog)) throw new Error("changelog must be an array");
+  return changelog.find((entry) => entry.version === version);
 }
 
 function validDate(value) {
@@ -48,7 +45,7 @@ function validDate(value) {
 async function check() {
   let active;
   try {
-    active = declaration(await readFile(declarationPath, "utf8"));
+    active = declaration(JSON.parse(await readFile(rootManifestPath, "utf8")));
   } catch (error) {
     fail(error.message);
     return;
@@ -60,8 +57,8 @@ async function check() {
       fail(`${path} has version ${manifest.version}; expected ${active.version}`);
     }
   }
-  const source = await readFile(changelogPath, "utf8");
-  const entry = changelogEntry(source, active.version);
+  const changelog = JSON.parse(await readFile(changelogPath, "utf8"));
+  const entry = changelogEntry(changelog, active.version);
   if (!entry) fail(`changelog has no ${active.version} entry`);
   else if (active.prerelease && entry.date) fail(`prerelease ${active.version} must be Unreleased (no date)`);
   else if (!active.prerelease && !validDate(entry.date)) fail(`stable ${active.version} must have a valid dated changelog entry`);
@@ -73,29 +70,27 @@ async function prepare(args) {
   if (!semver.test(version ?? "")) throw new Error("usage: release:prepare VERSION (--prerelease | --stable --date YYYY-MM-DD)");
   if (!['--prerelease', '--stable'].includes(status)) throw new Error("choose exactly one of --prerelease or --stable");
   const prerelease = status === "--prerelease";
+  const channel = prerelease ? "prerelease" : "stable";
   if (!prerelease && (dateFlag !== "--date" || !validDate(date))) throw new Error("stable releases require a valid --date YYYY-MM-DD");
   if (prerelease && args.length !== 2) throw new Error("pre-releases do not accept a release date");
 
   for (const path of packages) {
     const manifest = JSON.parse(await readFile(path, "utf8"));
     manifest.version = version;
+    if (path === rootManifestPath) manifest.release = { ...manifest.release, channel };
     await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`);
   }
-  await writeFile(declarationPath, `version: ${version}\nprerelease: ${prerelease}\n`);
 
-  let source = await readFile(changelogPath, "utf8");
-  const entry = changelogEntry(source, version);
+  const changelog = JSON.parse(await readFile(changelogPath, "utf8"));
+  const entry = changelogEntry(changelog, version);
   if (!entry) {
-    const insertion = `  {\n    version: "${version}",\n${prerelease ? "    // Unreleased — omit `date` until the public release.\n" : `    date: "${date}",\n`}    changes: [],\n  },\n`;
-    source = source.replace("export const changelog: ChangelogEntry[] = [\n", `export const changelog: ChangelogEntry[] = [\n${insertion}`);
+    changelog.unshift({ version, ...(prerelease ? {} : { date }), changes: [] });
   } else if (prerelease) {
-    source = source.replace(entry.text, entry.text.replace(/\n\s*date:\s*"\d{4}-\d{2}-\d{2}",?/, ""));
-  } else if (entry.date) {
-    source = source.replace(entry.text, entry.text.replace(/date:\s*"\d{4}-\d{2}-\d{2}"/, `date: "${date}"`));
+    delete entry.date;
   } else {
-    source = source.replace(entry.text, entry.text.replace(/(version:\s*"[^"]+",)/, `$1\n    date: "${date}",`).replace(/\n\s*\/\/ Unreleased[^\n]*/, ""));
+    entry.date = date;
   }
-  await writeFile(changelogPath, source);
+  await writeFile(changelogPath, `${JSON.stringify(changelog, null, 2)}\n`);
   await check();
 }
 

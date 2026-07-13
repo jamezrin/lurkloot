@@ -11,13 +11,12 @@ on:
         default: false
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 concurrency:
-  # main can have only one active declared version; this serializes every build
-  # of that version and cancels superseded pre-release commits.
-  group: declared-release-${{ github.ref }}
+  # Publication mutates shared tags, releases, store state, and Docker aliases,
+  # so every invocation must serialize regardless of its triggering ref.
+  group: declared-release
   cancel-in-progress: true
 
 jobs:
@@ -28,6 +27,8 @@ jobs:
       prerelease: ${{ steps.release.outputs.prerelease }}
       docker_tags: ${{ steps.release.outputs.docker_tags }}
     steps:
+      - name: Require the main branch
+        run: test "$GITHUB_REF" = refs/heads/main
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -43,8 +44,13 @@ jobs:
       - id: release
         shell: bash
         run: |
-          version=$(awk '$1 == "version:" { print $2 }' release.yml)
-          prerelease=$(awk '$1 == "prerelease:" { print $2 }' release.yml)
+          version=$(node -p "require('./package.json').version")
+          channel=$(node -p "require('./package.json').release.channel")
+          case "$channel" in
+            prerelease) prerelease=true ;;
+            stable) prerelease=false ;;
+            *) echo "Unsupported release channel: $channel" >&2; exit 1 ;;
+          esac
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           {
@@ -97,7 +103,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm verify
+      - run: pnpm check
 
   extension:
     needs: [declaration, verify]
@@ -109,6 +115,9 @@ jobs:
 
   docker:
     needs: [declaration, verify]
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/build-docker.yml
     with:
       push: true
@@ -145,9 +154,15 @@ jobs:
             exit 1
           }
           git diff --quiet "$candidate_commit" "$GITHUB_SHA" -- \
-            package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json \
+            pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json \
             packages/extension packages/core packages/shared packages/locales packages/popup-ui || {
             echo "Extension build inputs changed after the CWS candidate was uploaded; upload and review a new candidate." >&2
+            exit 1
+          }
+          diff -u \
+            <(git show "$candidate_commit:package.json" | jq -S 'del(.release.channel)') \
+            <(jq -S 'del(.release.channel)' package.json) || {
+            echo "Root package build inputs other than release.channel changed after the CWS candidate was uploaded." >&2
             exit 1
           }
       - id: prerelease
@@ -193,6 +208,9 @@ jobs:
   docker-publish:
     needs: [declaration, docker, chrome-web-store]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     env:
       IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
     steps:
@@ -227,6 +245,8 @@ jobs:
   publish:
     needs: [declaration, verify, extension, docker-publish, chrome-web-store]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -273,3 +293,13 @@ jobs:
           cd downloaded
           sha256sum --check SHA256SUMS
           test "$(find . -maxdepth 1 -type f | wc -l)" -eq 5
+
+  site:
+    needs: [declaration, publish]
+    if: needs.declaration.outputs.prerelease == 'false'
+    uses: ./.github/workflows/site-deploy.yml
+    with:
+      after_release: true
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

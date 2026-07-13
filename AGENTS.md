@@ -10,7 +10,7 @@ This is a TypeScript pnpm monorepo (`packages/*`, see `pnpm-workspace.yaml`) cen
 - **`packages/locales`** — the localized message catalog package imported as `@lurkloot/locales`. JSON catalogs live in `messages/`, and `src/index.ts` exposes the async catalog loader used by the extension and popup UI.
 - **`packages/popup-ui`** — the shared React popup UI imported as `@lurkloot/popup-ui` (`Popup.tsx`, `primitives.tsx`, view components like `watchQueue.tsx`/`drops.tsx`/`settings.tsx`, and the rate-nudge logic), consumed by both the extension popup and the site demo.
 - **`packages/shared`** — framework-agnostic shared contracts imported as `@lurkloot/shared`: `models.ts`, `settings.ts`, `messages.ts`, `categories.ts`, `i18n.ts`, `logging.ts`.
-- **`packages/site`** — the Astro marketing site (deployed to Cloudflare Pages at `https://lurkloot.jamezrin.com`). Pages are in `src/pages/` (`index.astro`, `privacy.astro`, `changelog.astro`), content data in `src/changelog.ts`/`src/faq.ts`/`src/consts.ts`, and components/layouts/styles alongside. It imports the real popup UI for the live demo.
+- **`packages/site`** — the Astro marketing site (deployed to Cloudflare Pages at `https://lurkloot.jamezrin.com`). Pages are in `src/pages/` (`index.astro`, `privacy.astro`, `changelog.astro`), changelog data is in `src/changelog.json` with types in `src/changelog.ts`, other content data is in `src/faq.ts`/`src/consts.ts`, and components/layouts/styles are alongside. It imports the real popup UI for the live demo.
 
 Other top-level dirs: `docs/` (architecture and store-listing notes), `scripts/` (repo tooling), and `references/` (optional, untracked local snapshots — see below).
 
@@ -26,12 +26,13 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 - `pnpm typecheck`: run `tsc --noEmit` across all packages (`pnpm -r typecheck`).
 - `pnpm build` / `pnpm build:firefox`: create production extension builds.
 - `pnpm build:site`: build the Astro site; `pnpm build:all` builds every package.
-- `pnpm verify`: run typecheck, tests, and both browser builds.
+- `pnpm check`: run script tests, workspace typechecks, extension tests, and the Astro site build.
+- `pnpm verify`: run `pnpm check` and both browser builds.
 - `pnpm zip` / `pnpm zip:firefox`: package release artifacts into `packages/extension/.output/`.
 
 ## Cutting a Release
 
-`release.yml` declares the active version and pre-release/stable state. Use `pnpm release:prepare X.Y.Z --prerelease` to start a version, or `pnpm release:prepare X.Y.Z --stable --date YYYY-MM-DD` to promote it. Then fill in the changelog, run `pnpm release:check`, and commit the declaration, manifests, and changelog together as `chore(release): bump version to X.Y.Z`. Do not create or move release tags manually; the unified workflow owns tags, GitHub release assets, and Docker aliases. See `docs/releases.md` for publication, recovery, credentials, store upload, and migration details.
+The root `package.json` declares the active version and release channel (`release.channel`: `prerelease` or `stable`). Use `pnpm release:prepare X.Y.Z --prerelease` to start a version, or `pnpm release:prepare X.Y.Z --stable --date YYYY-MM-DD` to promote it. Then fill in the changelog, run `pnpm release:check`, and commit the declaration, synchronized manifests, and changelog together as `chore(release): bump version to X.Y.Z`. Do not create or move release tags manually; the unified workflow owns tags, GitHub release assets, and Docker aliases. See `docs/releases.md` for publication, recovery, credentials, store upload, and migration details.
 
 ## Coding Style & Naming Conventions
 

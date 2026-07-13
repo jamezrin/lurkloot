@@ -16,6 +16,16 @@ on:
       - 'package.json'
       - '.github/workflows/site-deploy.yml'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      after_release:
+        type: boolean
+        default: false
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
 
 permissions:
   contents: read
@@ -25,9 +35,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.decision.outputs.deploy }}
+    steps:
+      - name: Require the main branch
+        run: test "$GITHUB_REF" = refs/heads/main
+      - uses: actions/checkout@v7
+      - id: decision
+        env:
+          AFTER_RELEASE: ${{ inputs.after_release || false }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          channel=$(node -p "require('./package.json').release.channel")
+          case "$channel" in
+            prerelease|stable) ;;
+            *)
+              echo "deploy=false" >> "$GITHUB_OUTPUT"
+              echo "Unsupported release channel: $channel" >&2
+              exit 1
+              ;;
+          esac
+          if [[ "$EVENT_NAME" == push && "$channel" == stable && "$AFTER_RELEASE" != true ]]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Stable site deployment is deferred until release publication succeeds."
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
+    needs: gate
+    if: needs.gate.outputs.deploy == 'true'
     name: Build & deploy
     runs-on: ubuntu-latest
+    environment:
+      name: production-site
+      url: https://lurkloot.jamezrin.com
     steps:
       - name: Checkout
         uses: actions/checkout@v7
