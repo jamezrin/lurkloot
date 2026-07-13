@@ -72,6 +72,7 @@ export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction):
         name: campaign.gameName ?? t("unknownGame"),
         short: initials(campaign.gameName ?? campaign.name),
         accent: GAME_ACCENTS[index % GAME_ACCENTS.length],
+        imageUrl: campaign.gameImageUrl,
       });
   });
   return [...discovered.values()].sort((left, right) => left.name.localeCompare(right.name));

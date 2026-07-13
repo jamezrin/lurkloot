@@ -259,7 +259,16 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
           <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("hasActiveDrops")}</div>
           <div className="flex flex-wrap gap-1.5">
             {unaddedSuggestions.map((suggestion) => (
-              <CategoryAddChip key={suggestion.id} name={suggestion.name} onClick={() => addCategory({ id: suggestion.id, name: suggestion.name })} />
+              <CategoryAddChip
+                key={suggestion.id}
+                name={suggestion.name}
+                imageUrl={suggestion.imageUrl}
+                onClick={() => addCategory({
+                  id: suggestion.id,
+                  name: suggestion.name,
+                  ...(suggestion.imageUrl ? { imageUrl: suggestion.imageUrl } : {}),
+                })}
+              />
             ))}
           </div>
         </div>
