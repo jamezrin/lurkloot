@@ -1,5 +1,5 @@
 import type { ActivityPage, CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { DropCampaign, DropReward, EngineSettings, EventLogEntry, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "@lurkloot/shared/models";
+import type { DropCampaign, DropReward, EngineSettings, EventLogEntry, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import { appendActivity, appendLog, shouldRecord, type LogLevel } from "@lurkloot/shared/logging";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
@@ -871,7 +871,7 @@ function appendFarmingLifecycleEvents(previous: SchedulerState, next: SchedulerS
       const session = next.sessions[platform];
       const prior = previous.sessions[platform];
       const changed = session.status !== prior.status || session.message !== prior.message;
-      const actionable = session.status === "error" || (session.status === "paused" && /manual watch/i.test(session.message ?? ""));
+      const actionable = session.status === "error" || session.reasonCode === "manual_watch";
       if (changed && actionable) {
         const reason = farmingStopReason(session);
         result = appendActivity(result, {
@@ -899,19 +899,12 @@ function farmingTarget(state: SchedulerState, platform: Platform): {
   return campaign && reward ? { session, campaign, reward } : undefined;
 }
 
-function farmingStopReason(session: WatchSession): { code: string; message: string } {
+function farmingStopReason(session: WatchSession): { code: WatchReasonCode; message: string } {
   const message = session.message ?? "farming target changed";
-  if (session.status === "error") return { code: "platform_error", message };
-  if (/manual watch/i.test(message)) return { code: "manual_watch", message };
-  if (/automation disabled/i.test(message)) return { code: "automation_disabled", message };
-  if (/offline/i.test(message)) return { code: "channel_offline", message };
-  if (/higher priority/i.test(message)) return { code: "higher_priority_reward", message };
-  if (/campaign.*no longer eligible/i.test(message)) return { code: "campaign_ineligible", message };
-  if (/category/i.test(message)) return { code: "channel_mismatch", message };
-  if (/playback|heartbeat/i.test(message)) return { code: "watch_unhealthy", message };
-  if (/complete|claim/i.test(message)) return { code: "watch_requirement_completed", message };
-  if (/eligible|no .*drop/i.test(message)) return { code: "no_eligible_channel", message };
-  return { code: "target_changed", message };
+  return {
+    code: session.reasonCode ?? (session.status === "error" ? "platform_error" : "target_changed"),
+    message,
+  };
 }
 
 function staleStartupCleanup(state: SchedulerState): {
@@ -963,6 +956,7 @@ function pausedStartupSession(session: WatchSession): WatchSession {
     errorChecks: 0,
     retryAfter: undefined,
     message: "Browser restarted; farming paused",
+    reasonCode: "runtime_restart",
   };
 }
 

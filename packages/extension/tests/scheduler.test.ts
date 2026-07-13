@@ -318,6 +318,7 @@ describe("scheduler campaign selection", () => {
     expect(decision).toMatchObject({
       action: "idle",
       reason: "Only upcoming campaigns are available and no Watch Queue channels",
+      reasonCode: "no_eligible_channel",
     });
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
@@ -621,6 +622,7 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch).toMatchObject({
       status: "paused",
       message: "Manual watch detected",
+      reasonCode: "manual_watch",
       tabId: undefined,
     });
     expect(twitch.stopWatchTab).toHaveBeenCalled();
@@ -973,6 +975,7 @@ describe("scheduler tick", () => {
     );
 
     expect(result.state.sessions.twitch.message).toBe("Watch tab playback did not become active");
+    expect(result.state.sessions.twitch.reasonCode).toBe("watch_unhealthy");
     expect(result.state.sessions.twitch.playback).toBeUndefined();
     expect(result.state.sessions.twitch.playbackChecks).toBe(3);
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(

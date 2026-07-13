@@ -99,6 +99,7 @@ export interface WatchSession {
   retryAfter?: string;
   status: "idle" | "watching" | "paused" | "error";
   message?: string;
+  reasonCode?: WatchReasonCode;
   playback?: PlaybackTelemetry;
   // How the current channel is being watched. "tabless" sends API watch
   // heartbeats with no tab (low-resource mode); "tab" is the classic visible
@@ -114,6 +115,29 @@ export interface WatchSession {
   lastHeartbeatOk?: boolean;
   heartbeatChecks?: number;
 }
+
+export type WatchReasonCode =
+  | "eligible_campaign"
+  | "watch_queue_selected"
+  | "no_eligible_channel"
+  | "no_existing_session"
+  | "manual_watch"
+  | "automation_disabled"
+  | "platform_disabled"
+  | "platform_backoff"
+  | "platform_error"
+  | "campaign_ineligible"
+  | "channel_excluded"
+  | "channel_offline"
+  | "channel_mismatch"
+  | "watch_unhealthy"
+  | "higher_priority_reward"
+  | "higher_priority_watch_queue"
+  | "keeping_current_watch"
+  | "keeping_watch_queue"
+  | "watch_requirement_completed"
+  | "runtime_restart"
+  | "target_changed";
 
 export interface ManagedWatchTab {
   platform: Platform;
@@ -275,4 +299,5 @@ export interface WatchDecision {
   reward?: DropReward;
   channel?: ChannelCandidate;
   reason: string;
+  reasonCode: WatchReasonCode;
 }

@@ -7,6 +7,7 @@ import type {
   Platform,
   SchedulerState,
   WatchDecision,
+  WatchReasonCode,
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
@@ -146,6 +147,7 @@ export async function chooseCampaignDecision(
         reward,
         channel,
         reason: "Eligible campaign selected",
+        reasonCode: "eligible_campaign",
       };
     }
   }
@@ -162,10 +164,11 @@ export async function chooseCampaignDecision(
       action: "fallback",
       channel: fallback,
       reason: `${noCampaignReason}; Watch Queue channel selected`,
+      reasonCode: "watch_queue_selected",
     };
   }
 
-  return { platform, action: "idle", reason: `${noCampaignReason} and no Watch Queue channels` };
+  return { platform, action: "idle", reason: `${noCampaignReason} and no Watch Queue channels`, reasonCode: "no_eligible_channel" };
 }
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
@@ -251,6 +254,7 @@ function sessionForDecision(
       tabId: undefined,
       tabManagedByExtension: undefined,
       message: decision.reason,
+      reasonCode: decision.reasonCode,
       playback: undefined,
       playbackChecks: 0,
       watchMode: undefined,
@@ -271,6 +275,7 @@ function sessionForDecision(
     rewardId: decision.reward?.id,
     startedAt: keepPlayback ? previous.startedAt : new Date().toISOString(),
     message: decision.reason,
+    reasonCode: decision.reasonCode,
     playback: keepPlayback ? previous.playback : undefined,
     playbackChecks: keepStatus?.playbackChecks ?? 0,
   };
@@ -336,6 +341,7 @@ export async function runSchedulerTick(
           errorChecks: 0,
           retryAfter: undefined,
           message: "Manual watch detected",
+          reasonCode: "manual_watch",
           watchMode: undefined,
           tablessFallback: undefined,
           heartbeatChecks: 0,
@@ -362,6 +368,7 @@ export async function runSchedulerTick(
           errorChecks: 0,
           retryAfter: undefined,
           message: "Automation disabled",
+          reasonCode: settings.running ? "platform_disabled" : "automation_disabled",
           watchMode: undefined,
           tablessFallback: undefined,
           heartbeatChecks: 0,
@@ -380,6 +387,7 @@ export async function runSchedulerTick(
           status: "error",
           lastCheckedAt: new Date().toISOString(),
           message: `Waiting until ${previous.retryAfter} before retrying after platform errors`,
+          reasonCode: "platform_backoff",
         };
         nextState = addTickEvent(nextState, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred", enabledLevels);
         continue;
@@ -432,7 +440,7 @@ export async function runSchedulerTick(
       const selectionChanged = previous.campaignId !== decision.campaign?.id
         || previous.rewardId !== decision.reward?.id
         || previous.channel?.url !== decision.channel?.url
-        || previous.message !== decision.reason;
+        || previous.reasonCode !== decision.reasonCode;
       if (selectionChanged) {
         nextState = addTickEvent(
           nextState,
@@ -462,22 +470,24 @@ export async function runSchedulerTick(
             ?.rewards.find((reward) => reward.id === previous.rewardId),
           channel: shouldKeep.channel ?? previous.channel,
           reason: shouldKeep.reason,
+          reasonCode: shouldKeep.reasonCode,
         };
       } else if (previous.status === "watching" && previous.channel && shouldKeep.reason !== "No existing watch session") {
         decision = {
           ...decision,
           reason: shouldKeep.reason,
+          reasonCode: shouldKeep.reasonCode,
         };
       }
 
       const decisionChanged = previous.campaignId !== decision.campaign?.id
         || previous.rewardId !== decision.reward?.id
         || previous.channel?.url !== decision.channel?.url
-        || previous.message !== decision.reason;
+        || previous.reasonCode !== decision.reasonCode;
 
       decisions.push(decision);
       if (decisionChanged) {
-        const decisionLevel = decision.action === "idle" || /playback|heartbeat|offline|failed|error/i.test(decision.reason)
+        const decisionLevel = decision.action === "idle" || ["channel_offline", "watch_unhealthy", "platform_error"].includes(decision.reasonCode)
           ? "warn"
           : "debug";
         nextState = addTickEvent(nextState, platform, decisionLevel, decision.reason, enabledLevels);
@@ -573,6 +583,7 @@ export async function runSchedulerTick(
         errorChecks,
         retryAfter: nextRetryAfter(errorChecks),
         message,
+        reasonCode: "platform_error",
       };
       nextState.managedPageContextTabs = currentManagedPageContextTabs();
       nextState = addTickEvent(nextState, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`, enabledLevels);
@@ -723,21 +734,21 @@ async function shouldKeepWatching(
   nextDecision: WatchDecision,
   settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "checkChannel">,
-): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string; channel?: ChannelCandidate }> {
+): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string; reasonCode: WatchReasonCode; channel?: ChannelCandidate }> {
   if (!previous.channel || previous.status !== "watching") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session", reasonCode: "no_existing_session" };
   }
   if (nextDecision.action === "idle") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason, reasonCode: nextDecision.reasonCode };
   }
   if (previous.campaignId && nextDecision.action !== "watch") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current campaign is no longer eligible" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current campaign is no longer eligible", reasonCode: "campaign_ineligible" };
   }
   if (previous.campaignId && settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current channel is excluded from drops" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current channel is excluded from drops", reasonCode: "channel_excluded" };
   }
   if (previous.rewardId && nextDecision.reward?.id !== previous.rewardId) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current reward completed; switching farming target" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current reward completed; switching farming target", reasonCode: "watch_requirement_completed" };
   }
   // Tabless sessions have no playback telemetry; their health is the heartbeat,
   // which the controller tracks and falls back to a tab on. Here we only keep or
@@ -755,6 +766,7 @@ async function shouldKeepWatching(
           playbackChecks: fallbackPlaybackChecks,
           channel: channelFromCheck(previous.channel, fallbackCheck),
           reason: "Keeping current Watch Queue tab",
+          reasonCode: "keeping_watch_queue",
         };
       }
     }
@@ -765,7 +777,7 @@ async function shouldKeepWatching(
     && nextDecision.action === "watch"
     && nextDecision.campaign?.id !== previous.campaignId;
   if (differentCampaignAvailable) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority eligible campaign available" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority eligible campaign available", reasonCode: "higher_priority_reward" };
   }
 
   // When watching a Watch Queue fallback, a different selection means a
@@ -775,17 +787,17 @@ async function shouldKeepWatching(
     && nextDecision.action === "fallback"
     && !previous.campaignId;
   if (differentFallbackAvailable) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Watch Queue channel available" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Watch Queue channel available", reasonCode: "higher_priority_watch_queue" };
   }
 
   const check = await adapter.checkChannel(previous.channel);
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
   if (offlineChecks >= settings.offlineRetryLimit) {
-    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached" };
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached", reasonCode: "channel_offline" };
   }
 
   if (!check.categoryMatches) {
-    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel category no longer matches" };
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel category no longer matches", reasonCode: "channel_mismatch" };
   }
 
   const playbackChecks = isTabless || isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
@@ -795,6 +807,7 @@ async function shouldKeepWatching(
       offlineChecks,
       playbackChecks,
       reason: "Watch tab playback did not become active",
+      reasonCode: "watch_unhealthy",
     };
   }
 
@@ -804,6 +817,7 @@ async function shouldKeepWatching(
     playbackChecks,
     channel: channelFromCheck(previous.channel, check),
     reason: "Keeping current watch tab",
+    reasonCode: "keeping_current_watch",
   };
 }
 
