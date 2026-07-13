@@ -46,7 +46,6 @@ describe("settings", () => {
       languageOverride: "browser",
       watchQueueFallbackOnly: true,
       pollIntervalMinutes: 1,
-      enabledLogLevels: ["info", "warn", "error"],
       diagnosticLogging: false,
       platform: {
         twitch: { excludedChannels: [], farmAllCategories: true, categories: [] },
@@ -64,20 +63,16 @@ describe("settings", () => {
     expect(mergeSettings({ offlineRetryLimit: Number.NaN }).offlineRetryLimit).toBe(DEFAULT_SETTINGS.offlineRetryLimit);
   });
 
-  it("maps the extension diagnostic opt-in to internal log levels", () => {
-    expect(mergeSettings(undefined).enabledLogLevels).toEqual(["info", "warn", "error"]);
-    expect(mergeSettings({ enabledLogLevels: undefined }).enabledLogLevels).toEqual(["info", "warn", "error"]);
-    expect(mergeSettings({ enabledLogLevels: ["warn", "debug"] }).diagnosticLogging).toBe(true);
-    expect(mergeSettings({ enabledLogLevels: ["warn", "debug"] }).enabledLogLevels)
-      .toEqual(["debug", "info", "warn", "error"]);
-    expect(mergeSettings({ diagnosticLogging: false, enabledLogLevels: ["debug"] }).enabledLogLevels)
-      .toEqual(["info", "warn", "error"]);
+  it("keeps diagnostic logging independent from the removed engine log-level setting", () => {
+    expect(mergeSettings(undefined).diagnosticLogging).toBe(false);
+    expect(mergeSettings({ diagnosticLogging: true }).diagnosticLogging).toBe(true);
+    expect(mergeSettings({ diagnosticLogging: false, enabledLogLevels: ["debug"] } as never).diagnosticLogging).toBe(false);
+    expect("enabledLogLevels" in mergeSettings({ enabledLogLevels: ["debug"] } as never)).toBe(false);
   });
 
   it("migrates the legacy verboseLogging flag", () => {
-    expect(mergeSettings({ verboseLogging: true } as never).enabledLogLevels).toEqual(["debug", "info", "warn", "error"]);
     expect(mergeSettings({ verboseLogging: true } as never).diagnosticLogging).toBe(true);
-    expect(mergeSettings({ verboseLogging: false } as never).enabledLogLevels).toEqual(["info", "warn", "error"]);
+    expect(mergeSettings({ verboseLogging: false } as never).diagnosticLogging).toBe(false);
   });
 
   it("normalizes imported list, priority, mode, and boolean settings", () => {

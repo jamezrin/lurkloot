@@ -57,7 +57,7 @@ function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackC
     case "exportCliCredentials":
       return demoSnapshot();
     case "getActivity":
-      return { events: demoSnapshot().state.events, hasMore: false };
+      return { events: [], hasMore: false };
     case "getPlaybackControl":
       return { managed: true, keepVideosUnmuted: true };
   }
@@ -259,14 +259,6 @@ function demoSnapshot(): RuntimeSnapshot {
         twitch: twitchCampaigns,
         kick: kickCampaigns,
       },
-      events: [
-        { id: "ev-1", at: new Date(now - 18_000).toISOString(), platform: "twitch", level: "info", message: "Watching RivalsPilot · farming Marathon Legends Launch Drops" },
-        { id: "ev-2", at: new Date(now - 96_000).toISOString(), platform: "twitch", level: "info", message: "Claimed reward Founder Badge from Marathon Legends Launch Drops" },
-        { id: "ev-3", at: new Date(now - 142_000).toISOString(), platform: "twitch", level: "warn", message: "Spellforge Creator Drops skipped — account not linked" },
-        { id: "ev-4", at: new Date(now - 210_000).toISOString(), platform: "twitch", level: "info", message: "Switched channel to RivalsPilot (18.4K viewers) for higher priority drop" },
-        { id: "ev-5", at: new Date(now - 264_000).toISOString(), level: "info", message: "Scheduler tick complete · 2 eligible campaigns across Twitch and Kick" },
-        { id: "ev-6", at: new Date(now - 318_000).toISOString(), platform: "twitch", level: "info", message: "Refocused farming tab to advance an ad countdown" },
-      ],
       lastTickAt: new Date(now - 45_000).toISOString(),
     },
   };

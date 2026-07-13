@@ -21,7 +21,6 @@ export const DEFAULT_STATE: SchedulerState = {
     twitch: [],
     kick: [],
   },
-  events: [],
 };
 
 // Merges a persisted (possibly partial/older) state over DEFAULT_STATE, ensuring
@@ -29,9 +28,10 @@ export const DEFAULT_STATE: SchedulerState = {
 // layer and any file-backed storage so a new top-level slice only has to be
 // added in one place.
 export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined): SchedulerState {
+  const { events: _legacyEvents, ...operationalState } = stored as (Partial<SchedulerState> & { events?: unknown }) ?? {};
   return {
     ...DEFAULT_STATE,
-    ...stored,
+    ...operationalState,
     sessions: { ...DEFAULT_STATE.sessions, ...stored?.sessions },
     managedWatchTabs: { ...DEFAULT_STATE.managedWatchTabs, ...stored?.managedWatchTabs },
     managedPageContextTabs: { ...DEFAULT_STATE.managedPageContextTabs, ...stored?.managedPageContextTabs },

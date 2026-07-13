@@ -10,7 +10,6 @@ import {
   normalizePriorities,
 } from "@lurkloot/shared/settings";
 import type { EngineSettings, Platform, PlatformSettings, PriorityMode } from "@lurkloot/shared/models";
-import { LOG_LEVELS } from "@lurkloot/shared/logging";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
 // ExtensionSettings. It only exposes settings that actually do something in the
@@ -66,8 +65,8 @@ const CLI_SETTING_KEYS = new Set<string>([
   "watchQueueFallbackOnly",
   "offlineRetryLimit",
   "pollIntervalMinutes",
-  // Accepted as a legacy no-op so existing configs keep loading. Runtime log
-  // filtering belongs to the global --log option and the process logger.
+  // Accepted as a legacy no-op until Task 8 adds the CLI deprecation warning.
+  // Runtime log filtering belongs to the global --log option and process logger.
   "enabledLogLevels",
   "notifyRewardEarned",
   "notifyNoDropsLeft",
@@ -180,9 +179,6 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Record<
 export function toEngineSettings(cli: CliSettings): EngineSettings {
   return mergeEngineSettings({
     ...cli,
-    // The process logger is the CLI's sole output filter. Let every engine
-    // event reach it; Docker/systemd/Loki own persistence and retention.
-    enabledLogLevels: [...LOG_LEVELS],
     running: true,
     tablessMode: true,
     pauseOnManualWatch: false,

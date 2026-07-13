@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
-import type { ChannelCandidate, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { EngineEvent } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
@@ -46,7 +47,13 @@ function adapter(platform: Platform): PlatformAdapter {
   };
 }
 
-function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: true }, persistEvents = false) {
+function harness(
+  settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: true },
+  overrides: {
+    saveState?: (state: SchedulerState) => Promise<void>;
+    reportEvents?: (events: readonly EngineEvent[]) => Promise<void>;
+  } = {},
+) {
   let currentSettings = settings;
   let currentState: SchedulerState = {
     ...DEFAULT_STATE,
@@ -57,16 +64,16 @@ function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: t
   };
   const twitch = adapter("twitch");
   const kick = adapter("kick");
-  const recordEvents = vi.fn<(events: readonly EventLogEntry[]) => Promise<void>>(async () => undefined);
+  const reportEvents = vi.fn<(events: readonly EngineEvent[]) => Promise<void>>(async () => undefined);
   const deps = {
     loadSettings: vi.fn(async () => currentSettings),
     saveSettings: vi.fn(async (next: ExtensionSettings) => {
       currentSettings = next;
     }),
     loadState: vi.fn(async () => currentState),
-    saveState: vi.fn(async (next: SchedulerState) => {
+    saveState: vi.fn(overrides.saveState ?? (async (next: SchedulerState) => {
       currentState = next;
-    }),
+    })),
     createAlarm: vi.fn(async () => undefined),
     createNotification: vi.fn(async () => undefined),
     closeManagedTabsByUrl: vi.fn(async () => undefined),
@@ -75,7 +82,7 @@ function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: t
     loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false })),
     applySettingsPatch: vi.fn((current: ExtensionSettings, patch) => applySettingsPatch(current, patch)),
     createAdapters: vi.fn(() => ({ twitch, kick })),
-    ...(persistEvents ? { recordEvents } : {}),
+    reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
   };
 
   return {
@@ -89,11 +96,31 @@ function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: t
     },
     twitch,
     kick,
-    recordEvents,
+    reportEvents: deps.reportEvents,
   };
 }
 
 describe("background controller", () => {
+  it("saves operational state before publishing the ordered batch", async () => {
+    const calls: string[] = [];
+    const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
+      saveState: async () => { calls.push("state"); },
+      reportEvents: async () => { calls.push("events"); },
+    });
+
+    await env.controller.tick();
+
+    expect(calls).toEqual(["state", "events"]);
+  });
+
+  it("never persists an event outbox in scheduler state", async () => {
+    const env = harness();
+
+    await env.controller.tick();
+
+    expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
+  });
+
   it("publishes lifecycle events through the host sink without persisting log history", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
@@ -102,19 +129,19 @@ describe("background controller", () => {
         ...DEFAULT_SETTINGS.platform,
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
-    }, true);
+    });
 
     await env.controller.tick();
     await env.controller.tick();
 
-    const published = env.recordEvents.mock.calls.flatMap(([events]) => events);
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
     expect(published.filter((event) => event.code === "farming_started")).toHaveLength(1);
     expect(published).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "farming_started",
       platform: "twitch",
     }));
-    expect(env.state.events).toEqual([]);
+    expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
   });
 
   it("publishes a farming stop reason when automation is disabled", async () => {
@@ -125,18 +152,18 @@ describe("background controller", () => {
         ...DEFAULT_SETTINGS.platform,
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
-    }, true);
+    });
     await env.controller.tick();
 
     await env.controller.handleMessage({ type: "setRunning", running: false });
 
-    const published = env.recordEvents.mock.calls.flatMap(([events]) => events);
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
     expect(published).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "farming_stopped",
       data: expect.objectContaining({ reason: "automation_disabled" }),
     }));
-    expect(env.state.events).toEqual([]);
+    expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
   });
 
   it("creates the scheduler alarm from persisted settings", async () => {
@@ -180,6 +207,11 @@ describe("background controller", () => {
         documentHidden: false,
       },
     };
+    env.state.campaigns.twitch = [{
+      ...campaign("twitch"),
+      id: "old-campaign",
+      rewards: [{ ...reward(), id: "old-reward" }],
+    }];
     env.state.managedWatchTabs = {
       twitch: {
         platform: "twitch",
@@ -196,7 +228,13 @@ describe("background controller", () => {
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
     expect(env.state.sessions.twitch.status).toBe("watching");
     expect(env.state.sessions.twitch.tabId).toBe(10);
-    expect(env.state.events.some((entry) => entry.message === "Browser restart detected; cleared stale farming tabs before resuming")).toBe(true);
+    expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({
+        category: "activity",
+        code: "farming_stopped",
+        data: expect.objectContaining({ reason: "runtime_restart" }),
+      }),
+    ]));
   });
 
   it("pauses stale restart sessions and disables running when auto-start is disabled", async () => {
@@ -231,10 +269,6 @@ describe("background controller", () => {
       tabId: undefined,
       tabManagedByExtension: undefined,
       message: "Browser restarted; farming paused",
-    });
-    expect(env.state.events[0]).toMatchObject({
-      level: "info",
-      message: "Browser restart detected; paused farming and cleared stale farming tabs",
     });
   });
 
@@ -297,7 +331,7 @@ describe("background controller", () => {
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.deps.closeManagedTabsByUrl).not.toHaveBeenCalled();
     expect(env.deps.saveState).not.toHaveBeenCalled();
-    expect(env.state.events).toEqual([]);
+    expect(env.reportEvents).not.toHaveBeenCalled();
   });
 
   it("disables running on startup when auto-start is disabled even without stale tabs", async () => {
@@ -566,18 +600,18 @@ describe("background controller", () => {
     expect(env.kick.discoverCampaigns).toHaveBeenCalledTimes(1);
     expect(snapshot.state.sessions.twitch.status).toBe("watching");
     expect(snapshot.state.sessions.kick.status).toBe("watching");
-    expect(snapshot.state.events.some((event) => event.code === "farming_started")).toBe(true);
-    expect(snapshot.state.events.some((event) => event.level === "debug")).toBe(false);
+    expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ category: "activity", code: "farming_started" }),
+    ]));
   });
 
-  it("records debug entries only when the debug level is enabled", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, enabledLogLevels: ["debug", "info", "warn", "error"] });
+  it("reports scheduler diagnostics without consulting host diagnostic settings", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, diagnosticLogging: false });
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "tickNow" }));
+    await env.controller.handleMessage({ type: "tickNow" });
 
-    expect(snapshot.state.events.some((event) => event.level === "debug" && event.message.startsWith("Campaign decision"))).toBe(true);
-    expect(snapshot.state.events.some((event) => event.message === "Scheduler tick completed")).toBe(false);
-    expect(snapshot.state.events.some((event) => event.message.startsWith("Tick start"))).toBe(false);
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    expect(published.some((event) => event.category === "diagnostic" && event.level === "debug")).toBe(true);
   });
 
   it("records playback telemetry only for the managed watch tab", async () => {
@@ -713,9 +747,10 @@ describe("background controller", () => {
       telemetry: { videoCount: 1, mutedVideoCount: 1, unmutedVideoCount: 0, playingVideoCount: 1, blockedPlaybackCount: 1, documentHidden: false, adActive: true },
     }, { tab: { id: 10 } });
 
-    const messages = env.state.events.map((event) => event.message);
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    const messages = published.filter((event) => event.category === "diagnostic").map((event) => event.message);
     expect(messages).toContain("Ad started; keeping the watch tab counting down");
-    expect(env.state.events.some((event) => event.level === "warn" && event.message.startsWith("Playback was blocked"))).toBe(true);
+    expect(published.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.startsWith("Playback was blocked"))).toBe(true);
   });
 
   it("focuses the watch tab when an ad is reported on the managed tab", async () => {
@@ -806,7 +841,8 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.playback).toBeUndefined();
     expect(env.state.manualWatch?.twitch).toBeUndefined();
     expect(env.deps.applyAdFocus).not.toHaveBeenCalled();
-    expect(env.state.events.some((event) => event.message.startsWith("Ad started"))).toBe(false);
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    expect(published.some((event) => event.category === "diagnostic" && event.message.startsWith("Ad started"))).toBe(false);
   });
 
   it("does not treat tabless sessions as managed playback telemetry targets", async () => {
@@ -1005,29 +1041,34 @@ describe("background controller", () => {
       status: "completed",
       rewards: [{ id: "reward", status: "claimed", watchedMinutes: 60 }],
     });
-    expect(snapshot.state.events).toContainEqual(expect.objectContaining({
-      category: "activity",
-      code: "reward_claimed",
-      data: expect.objectContaining({ method: "manual" }),
-    }));
+    expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({
+        category: "activity",
+        code: "reward_claimed",
+        data: expect.objectContaining({ method: "manual" }),
+      }),
+    ]));
   });
 
   it("records a warning when a manual claim target is stale", async () => {
     const env = harness();
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({
+    await env.controller.handleMessage({
       type: "claimReward",
       platform: "twitch",
       campaignId: "missing-campaign",
       rewardId: "reward",
-    }));
+    });
 
     expect(env.twitch.claimReward).not.toHaveBeenCalled();
-    expect(snapshot.state.events[0]).toMatchObject({
-      platform: "twitch",
-      level: "warn",
-      message: "Reward claim skipped because the campaign or reward is no longer available",
-    });
+    expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "Reward claim skipped because the campaign or reward is no longer available",
+      }),
+    ]));
   });
 
   it("emits reward notifications best-effort when rewards become earned", async () => {
@@ -1089,7 +1130,7 @@ describe("background controller", () => {
     expect(env.deps.createNotification).toHaveBeenCalledTimes(1);
   });
 
-  it("persists an error event when scheduler execution throws unexpectedly", async () => {
+  it("reports a controller-fatal interruption even when diagnostics are filtered by the host", async () => {
     const env = harness();
     vi.mocked(env.deps.createAdapters).mockImplementation(() => {
       throw new Error("adapter factory failed");
@@ -1097,8 +1138,10 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    expect(env.state.events[0].level).toBe("error");
-    expect(env.state.events[0].message).toBe("adapter factory failed");
+    expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ category: "activity", code: "interruption", level: "error" }),
+      expect.objectContaining({ category: "diagnostic", level: "error", message: "adapter factory failed" }),
+    ]));
   });
 
   function fakeTablessWatcher(tick: () => Promise<{ ok: boolean; live?: boolean; message?: string }>) {

@@ -15,16 +15,27 @@ import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "@lurkl
 import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
-import type { ExtensionSettings, SupportedLocale } from "@lurkloot/shared/models";
+import type { EventLogEntry, ExtensionSettings, SupportedLocale } from "@lurkloot/shared/models";
+import type { EngineEvent } from "@lurkloot/shared/events";
 import type { WatchTabPort } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
-import { appendActivityEvents, clearActivityEvents, loadActivityEvents } from "../src/core/activityStorage";
+import { appendActivityEvents } from "../src/core/activityStorage";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
+
+function toLegacyHistoryEntry(event: EngineEvent): EventLogEntry {
+  return {
+    ...event,
+    id: `${Date.now()}-${event.platform ?? "all"}-${Math.random().toString(16).slice(2)}`,
+    at: new Date().toISOString(),
+    message: event.category === "diagnostic" ? event.message : event.code,
+    ...(event.data ? { data: { ...event.data } } : {}),
+  };
+}
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
@@ -71,12 +82,12 @@ const controller = createBackgroundController<ExtensionSettings>({
   saveSettings,
   loadState,
   saveState,
-  recordEvents: async (events) => {
+  reportEvents: async (events) => {
     const { diagnosticLogging } = await loadSettings();
-    await appendActivityEvents(events.filter((event) => (event.category ?? "diagnostic") === "activity" || diagnosticLogging));
+    await appendActivityEvents(events
+      .filter((event) => event.category === "activity" || diagnosticLogging)
+      .map(toLegacyHistoryEntry));
   },
-  loadEvents: loadActivityEvents,
-  clearEvents: clearActivityEvents,
   createAlarm: (name, options) => browser.alarms.create(name, options),
   closeManagedTabsByUrl: async (urls) => {
     for (const url of urls) {
@@ -104,7 +115,7 @@ const controller = createBackgroundController<ExtensionSettings>({
   loadTwitchIntegrity,
   saveTwitchIntegrity,
   stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
-  createAdapters: () => ({
+  createAdapters: (_emit) => ({
     twitch: new TwitchAdapter(
       { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
       ensureTwitchIntegrity,

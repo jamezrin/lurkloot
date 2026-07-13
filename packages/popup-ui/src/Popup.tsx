@@ -407,7 +407,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
-                <ActivityLog events={preview ? snapshot.state.events : activityEvents} platform={platform} lastTickAt={snapshot.state.lastTickAt} diagnosticLogging={settings.diagnosticLogging} />
+                <ActivityLog events={activityEvents} platform={platform} lastTickAt={snapshot.state.lastTickAt} diagnosticLogging={settings.diagnosticLogging} />
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">

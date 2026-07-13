@@ -235,7 +235,6 @@ export interface EngineSettings {
   excludedCampaignIds: string[];
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
-  enabledLogLevels: LogLevel[];
 }
 
 // The browser extension's full settings schema: the engine contract plus the
@@ -257,14 +256,17 @@ export interface ExtensionSettings extends EngineSettings {
   diagnosticLogging: boolean;
 }
 
+/** @deprecated Legacy activity-history compatibility; use EventCategory from ./events. */
 export type EventCategory = "activity" | "diagnostic";
 
+/** @deprecated Legacy activity-history compatibility; use ActivityEvent from ./events. */
 export type ActivityEventCode =
   | "farming_started"
   | "farming_stopped"
   | "reward_claimed"
   | "interruption";
 
+/** @deprecated Legacy activity-history compatibility; use StoredEngineEvent from ./events. */
 export interface EventLogEntry {
   id: string;
   at: string;
@@ -282,10 +284,6 @@ export interface SchedulerState {
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
   campaigns: Record<Platform, DropCampaign[]>;
-  // Transient event outbox used by the pure scheduler/controller result. Real
-  // hosts drain it through recordEvents and persist operational state with an
-  // empty array; older non-host tests may still inspect it directly.
-  events: EventLogEntry[];
   lastTickAt?: string;
   // ISO timestamp recorded once by the background on install; drives the
   // time-based rate/review nudge. Undefined means "unknown" (pre-feature state).

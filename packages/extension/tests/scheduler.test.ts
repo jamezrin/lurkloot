@@ -570,7 +570,6 @@ describe("scheduler tick", () => {
       kick: { platform: "kick", status: "idle", offlineChecks: 0 },
     },
     campaigns: { twitch: [], kick: [] },
-    events: [],
   };
 
   it("returns claim activity in the event batch without mutating scheduler state", async () => {
@@ -581,7 +580,7 @@ describe("scheduler tick", () => {
       { twitch: adapter("twitch", [ready], []), kick: adapter("kick", [], []) },
     );
 
-    expect(result.state.events).toEqual(baseState.events);
+    expect(result.state).not.toHaveProperty("events");
     expect(result.events).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "reward_claimed",
@@ -712,7 +711,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ offlineRetryLimit: 3, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -744,7 +742,6 @@ describe("scheduler tick", () => {
           twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date().toISOString() },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
@@ -775,7 +772,6 @@ describe("scheduler tick", () => {
           twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date(Date.now() - 60_000).toISOString() },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -785,11 +781,11 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalled();
   });
 
-  it("returns diagnostics regardless of configured log levels", async () => {
+  it("returns diagnostics without host log filtering", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
     const adapters = () => ({ twitch, kick: adapter("kick", [], []) });
 
-    const quiet = await runSchedulerTick(baseState, settings({ enabledLogLevels: ["info", "warn", "error"] }), adapters());
+    const quiet = await runSchedulerTick(baseState, settings(), adapters());
     expect(quiet.events.some((event) => event.category === "diagnostic" && event.level === "debug")).toBe(true);
     expect(quiet.events.some((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"))).toBe(true);
     expect(quiet.events.some((event) => event.category === "diagnostic" && event.message.startsWith("Tick start"))).toBe(false);
@@ -812,7 +808,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -834,7 +829,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["xqc", "toonyx"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -864,7 +858,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -899,7 +892,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({
         platform: {
@@ -951,7 +943,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -992,7 +983,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1041,7 +1031,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1086,7 +1075,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({
         offlineRetryLimit: 3,
@@ -1128,7 +1116,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["fallback"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1154,7 +1141,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1184,7 +1170,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1206,7 +1191,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1232,7 +1216,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1253,7 +1236,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1273,7 +1255,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({
         autoClaim: false,
@@ -1296,7 +1277,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1319,7 +1299,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
@@ -1343,7 +1322,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
@@ -1373,7 +1351,6 @@ describe("scheduler tick", () => {
         managedWatchTabs: {
           twitch: { platform: "twitch", tabId: 42, channelUrl: "https://www.twitch.tv/current", ownedByExtension: true },
         },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
@@ -1396,7 +1373,6 @@ describe("scheduler tick", () => {
         kick: { platform: "kick" as const, status: "idle" as const, offlineChecks: 0 },
       },
       campaigns: { twitch: [], kick: [] },
-      events: [],
     };
     const tickSettings = settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } });
 
@@ -1432,7 +1408,6 @@ describe("scheduler tick", () => {
           },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ running: false }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1454,7 +1429,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1476,7 +1450,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1503,7 +1476,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings(),
       { twitch, kick },
@@ -1532,7 +1504,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["fallback"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1571,7 +1542,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1598,7 +1568,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1623,7 +1592,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1649,7 +1617,6 @@ describe("scheduler tabless mode", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ tablessMode: true, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1684,7 +1651,6 @@ describe("scheduler tabless mode", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [campaign("drops")], kick: [] },
-        events: [],
       },
       settings({ offlineRetryLimit: 3, tablessMode: true, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1717,7 +1683,6 @@ describe("scheduler tabless mode", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [campaign("drops")], kick: [] },
-        events: [],
       },
       settings({ tablessMode: true, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1737,7 +1702,6 @@ describe("scheduler tabless mode", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ tablessMode: false, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },

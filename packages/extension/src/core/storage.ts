@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
+import type { EventLogEntry, ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
 import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import { DEFAULT_STATE, mergeSchedulerState } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
@@ -12,6 +12,7 @@ const STATE_KEY = "schedulerState";
 // Captured Client-Integrity bundle, kept separate from scheduler state because
 // it is transient device/session-scoped auth rather than farming progress.
 const TWITCH_INTEGRITY_KEY = "twitchIntegrity";
+type LegacyStoredSchedulerState = Partial<SchedulerState> & { events?: EventLogEntry[] };
 
 export async function loadSettings(): Promise<ExtensionSettings> {
   const data = await browser.storage.local.get(SETTINGS_KEY);
@@ -24,19 +25,20 @@ export async function saveSettings(settings: ExtensionSettings): Promise<void> {
 
 export async function loadState(): Promise<SchedulerState> {
   const data = await browser.storage.local.get(STATE_KEY);
-  const state = mergeSchedulerState(data[STATE_KEY] as Partial<SchedulerState> | undefined);
+  const stored = data[STATE_KEY] as LegacyStoredSchedulerState | undefined;
+  const state = mergeSchedulerState(stored);
+  const legacyEvents = stored?.events ?? [];
   // One-time migration from the former rolling array embedded in operational
   // scheduler state. A failed import is harmless and retried on the next load.
-  if (state.events.length > 0) {
-    const migrated = { ...state, events: [] };
+  if (legacyEvents.length > 0) {
     try {
-      await appendActivityEvents(state.events);
-      await browser.storage.local.set({ [STATE_KEY]: migrated });
+      await appendActivityEvents(legacyEvents);
+      await browser.storage.local.set({ [STATE_KEY]: state });
     } catch {
       // Activity history is best-effort; a database failure must not prevent
       // the scheduler from loading its operational state.
     }
-    return migrated;
+    return state;
   }
   return state;
 }
