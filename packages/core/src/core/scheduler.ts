@@ -734,6 +734,18 @@ async function shouldKeepWatching(
   if (!previous.channel || previous.status !== "watching") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session", reasonCode: "no_existing_session" };
   }
+  const previousReward = campaigns
+    .find((campaign) => campaign.id === previous.campaignId)
+    ?.rewards.find((reward) => reward.id === previous.rewardId);
+  if (previousReward?.status === "claimable" || previousReward?.status === "claimed") {
+    return {
+      keep: false,
+      offlineChecks: 0,
+      playbackChecks: 0,
+      reason: "Current reward completed; switching farming target",
+      reasonCode: "watch_requirement_completed",
+    };
+  }
   if (nextDecision.action === "idle") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason, reasonCode: nextDecision.reasonCode };
   }
@@ -744,7 +756,7 @@ async function shouldKeepWatching(
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current channel is excluded from drops", reasonCode: "channel_excluded" };
   }
   if (previous.rewardId && nextDecision.reward?.id !== previous.rewardId) {
-    const replacement = classifyRewardSwitch(previous, nextDecision, campaigns);
+    const replacement = classifyRewardSwitch(nextDecision);
     return { keep: false, offlineChecks: 0, playbackChecks: 0, ...replacement };
   }
   // Tabless sessions have no playback telemetry; their health is the heartbeat,
@@ -845,19 +857,8 @@ function isHeartbeatHealthy(session: WatchSession): boolean {
 }
 
 function classifyRewardSwitch(
-  previous: WatchSession,
   nextDecision: WatchDecision,
-  campaigns: readonly DropCampaign[],
 ): { reason: string; reasonCode: FarmingStopReason } {
-  const previousReward = campaigns
-    .find((campaign) => campaign.id === previous.campaignId)
-    ?.rewards.find((reward) => reward.id === previous.rewardId);
-  if (previousReward?.status === "claimable" || previousReward?.status === "claimed") {
-    return {
-      reason: "Current reward completed; switching farming target",
-      reasonCode: "watch_requirement_completed",
-    };
-  }
   if (nextDecision.action !== "watch") {
     return {
       reason: "Current campaign is no longer eligible",

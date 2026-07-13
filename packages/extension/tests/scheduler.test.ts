@@ -635,6 +635,66 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.reasonCode).not.toBe("watch_requirement_completed");
   });
 
+  it("classifies a refreshed claimed reward as completed when the next decision is idle", async () => {
+    const currentChannel = channel("creator");
+    const completedReward = reward("claimed");
+    const twitch = adapter("twitch", [campaign("drops", { rewards: [completedReward] })], []);
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            campaignId: "drops",
+            rewardId: completedReward.id,
+            channel: currentChannel,
+            offlineChecks: 0,
+          },
+        },
+      },
+      settings({
+        autoClaim: false,
+        platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.decisions[0].action).toBe("idle");
+    expect(result.state.sessions.twitch.reasonCode).toBe("watch_requirement_completed");
+  });
+
+  it("classifies a refreshed claimable reward as completed when switching to Watch Queue fallback", async () => {
+    const currentChannel = channel("creator");
+    const completedReward = reward("claimable");
+    const twitch = adapter("twitch", [campaign("drops", { rewards: [completedReward] })], []);
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            campaignId: "drops",
+            rewardId: completedReward.id,
+            channel: currentChannel,
+            offlineChecks: 0,
+          },
+        },
+      },
+      settings({
+        autoClaim: false,
+        platform: { twitch: { enabled: true, watchQueueChannels: ["fallback"] }, kick: { enabled: false, watchQueueChannels: [] } },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.decisions[0].action).toBe("fallback");
+    expect(result.state.sessions.twitch.reasonCode).toBe("watch_requirement_completed");
+  });
+
   it("switches after offline retry threshold", async () => {
     const first = channel("old");
     const next = channel("new");
