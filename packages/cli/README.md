@@ -17,6 +17,11 @@ pnpm cli validate-config --config ./config.json
 
 ## Config
 
+The CLI creates the requested config file automatically when it does not exist.
+The generated file is JSONC: it lists every supported default and includes
+comments explaining the important choices. Existing `.json` and `.jsonc` files
+both accept `//` / `/* */` comments and trailing commas.
+
 The CLI has its **own** settings schema — it is *not* the extension's
 `ExtensionSettings` verbatim. Only settings that do something in the headless,
 tabless watch path are accepted; the schema is validated strictly, so an unknown
@@ -38,7 +43,7 @@ Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
 
 ```jsonc
 {
-  "transport": "impersonate",   // "http" | "impersonate"
+  "transport": "impersonate",   // default; use "http" for Twitch-only setups
   "authDir": "auth",            // resolved relative to this file
   "settings": {                 // CLI settings schema, merged over defaults
     "pollIntervalMinutes": 5,
@@ -126,7 +131,18 @@ No browser means a slim Node image:
 # build from the repo root
 docker build -f packages/cli/Dockerfile -t lurkloot-cli .
 
-# run the loop against a mounted data dir holding config.json (+ auth/)
+# Or use the published image. The first command creates a documented config.json.
+# Authenticate Twitch and/or Kick before starting the farming loop.
+docker run --rm -it -v "$PWD/data:/data" \
+  ghcr.io/jamezrin/lurkloot-cli:latest auth twitch device-login
+docker run --rm -it -v "$PWD/data:/data" \
+  ghcr.io/jamezrin/lurkloot-cli:latest auth kick device-login
+
+# Leave the farming loop running in the background.
+docker run -d --name lurkloot --restart unless-stopped \
+  -v "$PWD/data:/data" ghcr.io/jamezrin/lurkloot-cli:latest
+
+# The same flow with an image built locally:
 docker run --rm -v "$PWD/data:/data" lurkloot-cli
 # one-off discovery
 docker run --rm -v "$PWD/data:/data" lurkloot-cli discover --config /data/config.json
