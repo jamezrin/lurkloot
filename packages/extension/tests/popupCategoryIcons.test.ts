@@ -65,6 +65,36 @@ describe("popup category icons", () => {
     ]);
   });
 
+  it("fills missing artwork from a later campaign in the same category", () => {
+    const firstCampaign: DropCampaign = {
+      id: "fortnite-drops-first",
+      platform: "twitch",
+      name: "Fortnite Drops First",
+      categoryId: "33214",
+      gameName: "Fortnite First",
+      status: "active",
+      rewards: [],
+    };
+    const laterCampaign: DropCampaign = {
+      id: "fortnite-drops-later",
+      platform: "twitch",
+      name: "Fortnite Drops Later",
+      categoryId: "33214",
+      gameName: "Fortnite Later",
+      gameImageUrl: "https://art.example/fortnite-later.jpg",
+      status: "active",
+      rewards: [],
+    };
+
+    expect(gameItemsFromCampaigns([firstCampaign, laterCampaign], t)).toEqual([
+      expect.objectContaining({
+        id: "33214",
+        name: "Fortnite First",
+        imageUrl: "https://art.example/fortnite-later.jpg",
+      }),
+    ]);
+  });
+
   it("keeps the synthetic no-category suggestion on the initials fallback", () => {
     const campaign: DropCampaign = {
       id: "uncategorized-drops",
