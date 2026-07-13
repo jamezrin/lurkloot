@@ -8,7 +8,7 @@
     "lurkloot": "./dist/index.mjs"
   },
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/index.mjs --external:cycletls",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --main-fields=module,main --outfile=dist/index.mjs --external:cycletls",
     "cli": "pnpm build && node dist/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
@@ -17,6 +17,7 @@
     "@lurkloot/core": "workspace:*",
     "@lurkloot/shared": "workspace:*",
     "cycletls": "^2.0.5",
+    "jsonc-parser": "^3.3.1",
     "yargs": "^18.0.0"
   },
   "devDependencies": {
