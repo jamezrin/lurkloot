@@ -1,0 +1,108 @@
+name: Bug report
+description: Tell us about a reproducible problem with Lurkloot
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Lurkloot! Please search existing issues before filing a new one.
+
+        **Do not include passwords, cookies, authorization headers, session tokens, or other credentials.**
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe what went wrong and what you expected to happen instead.
+      placeholder: Lurkloot did X, but I expected Y.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest set of steps that reliably causes the problem.
+      placeholder: |
+        1. Open the Lurkloot popup
+        2. Enable Twitch
+        3. Select ...
+        4. See ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Where are you running Lurkloot?
+      options:
+        - Chrome or Chromium extension
+        - Firefox extension
+        - Headless CLI or Docker
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Lurkloot version
+      description: Find this in the popup footer, extension manager, CLI output, or Docker image tag.
+      placeholder: "1.4.0"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and operating system
+      description: For CLI or Docker, include the host OS and architecture instead.
+      placeholder: Chrome 138 on Windows 11, or Docker on Linux arm64
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Affected streaming platform
+      options:
+        - Twitch
+        - Kick
+        - Both
+        - Not platform-specific
+    validations:
+      required: true
+
+  - type: dropdown
+    id: watch_mode
+    attributes:
+      label: Watch mode
+      options:
+        - Visible tab
+        - Tabless
+        - Both
+        - Not applicable
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste a short relevant log excerpt. Remove all credentials and private account information first.
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add screenshots or anything else that may help, such as campaign, game, channel, frequency, or recent changes.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues for this problem.
+          required: true
+        - label: I removed passwords, cookies, tokens, authorization headers, and other credentials from this report.
+          required: true

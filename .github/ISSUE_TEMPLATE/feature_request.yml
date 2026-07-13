@@ -1,0 +1,62 @@
+name: Feature request
+description: Suggest an improvement or new idea for Lurkloot
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea! Please search existing issues first so related suggestions can stay together.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Explain the limitation or frustration behind the request.
+      placeholder: I would like to ... because ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like Lurkloot to do?
+      description: Describe the outcome you want. Mockups or examples are welcome.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of Lurkloot does this affect?
+      options:
+        - Browser extension
+        - Popup interface
+        - Twitch farming
+        - Kick farming
+        - Headless CLI or Docker
+        - Website or documentation
+        - Other or multiple areas
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: If applicable, describe any current workaround or alternative approach.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add screenshots, links, examples, or anything else that helps explain the idea.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues for a similar request.
+          required: true
+        - label: This request does not involve storing credentials, exporting cookies, or bypassing platform detection.
+          required: true
