@@ -1,6 +1,6 @@
 ---
 import "../styles/global.css";
-import { SITE, LINKS } from "../consts";
+import { EXTERNAL_URLS, SITE } from "../consts";
 import { faqItems } from "../faq";
 
 interface Props {
@@ -27,7 +27,7 @@ const softwareLd = {
   operatingSystem: "Chrome, Edge, Brave, Opera, Vivaldi, and other Chromium browsers",
   description: SITE.description,
   url: SITE.url,
-  downloadUrl: LINKS.chrome,
+  downloadUrl: EXTERNAL_URLS.chrome,
   softwareVersion: "1.0",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   author: { "@type": "Person", name: "jamezrin" },
