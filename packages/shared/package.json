@@ -10,7 +10,8 @@
     "./messages": "./src/messages.ts",
     "./settings": "./src/settings.ts",
     "./i18n": "./src/i18n.ts",
-    "./logging": "./src/logging.ts"
+    "./logging": "./src/logging.ts",
+    "./events": "./src/events.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
