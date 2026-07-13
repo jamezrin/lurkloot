@@ -12,21 +12,23 @@ const packages = [
   "packages/popup-ui/package.json",
   "packages/shared/package.json",
 ];
-const declarationPath = "release.yml";
+const rootManifestPath = packages[0];
 const changelogPath = "packages/site/src/changelog.ts";
 const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+const releaseChannels = new Set(["prerelease", "stable"]);
 
 function fail(message) {
   console.error(`release: ${message}`);
   process.exitCode = 1;
 }
 
-function declaration(source) {
-  const version = source.match(/^version:\s*([^\s#]+)\s*$/m)?.[1];
-  const rawPrerelease = source.match(/^prerelease:\s*(true|false)\s*$/m)?.[1];
-  if (!version || !rawPrerelease) throw new Error("release.yml must contain version and prerelease");
-  return { version, prerelease: rawPrerelease === "true" };
+function declaration(manifest) {
+  const channel = manifest.release?.channel;
+  if (!releaseChannels.has(channel)) {
+    throw new Error('package.json release.channel must be "prerelease" or "stable"');
+  }
+  return { version: manifest.version, channel, prerelease: channel === "prerelease" };
 }
 
 function changelogEntry(source, version) {
@@ -48,7 +50,7 @@ function validDate(value) {
 async function check() {
   let active;
   try {
-    active = declaration(await readFile(declarationPath, "utf8"));
+    active = declaration(JSON.parse(await readFile(rootManifestPath, "utf8")));
   } catch (error) {
     fail(error.message);
     return;
@@ -73,15 +75,16 @@ async function prepare(args) {
   if (!semver.test(version ?? "")) throw new Error("usage: release:prepare VERSION (--prerelease | --stable --date YYYY-MM-DD)");
   if (!['--prerelease', '--stable'].includes(status)) throw new Error("choose exactly one of --prerelease or --stable");
   const prerelease = status === "--prerelease";
+  const channel = prerelease ? "prerelease" : "stable";
   if (!prerelease && (dateFlag !== "--date" || !validDate(date))) throw new Error("stable releases require a valid --date YYYY-MM-DD");
   if (prerelease && args.length !== 2) throw new Error("pre-releases do not accept a release date");
 
   for (const path of packages) {
     const manifest = JSON.parse(await readFile(path, "utf8"));
     manifest.version = version;
+    if (path === rootManifestPath) manifest.release = { ...manifest.release, channel };
     await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`);
   }
-  await writeFile(declarationPath, `version: ${version}\nprerelease: ${prerelease}\n`);
 
   let source = await readFile(changelogPath, "utf8");
   const entry = changelogEntry(source, version);

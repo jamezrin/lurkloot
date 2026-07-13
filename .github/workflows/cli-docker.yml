@@ -8,7 +8,7 @@ name: CLI Docker image
 #   - tags (v*.*.*):  publish semver tags.
 
 on:
-  # Superseded by release.yml and pr-validation.yml. Retained temporarily so
+  # Superseded by the unified release and PR validation workflows. Retained temporarily so
   # existing branch-protection references do not break during migration.
   workflow_dispatch:
 

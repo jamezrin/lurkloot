@@ -1,6 +1,6 @@
 # Releases
 
-`release.yml` is the canonical declaration of the version currently being built and whether it is mutable (`prerelease: true`) or stable. `pnpm release:check` verifies that declaration, all in-lockstep package manifests, semver, and the changelog agree.
+The root `package.json` is the canonical declaration of the version currently being built and its release channel. `release.channel` is `prerelease` while the release is mutable and `stable` after promotion. `pnpm release:check` verifies that declaration, all in-lockstep package manifests, semver, and the changelog agree.
 
 ## Prepare a pre-release
 
@@ -14,20 +14,20 @@ git switch -c release/1.5.0
 pnpm release:prepare 1.5.0 --prerelease
 ```
 
-This updates `release.yml`, synchronizes the root, extension, core, CLI, locales, popup UI, and shared package versions, and creates an empty Unreleased changelog entry when needed. Fill in its user-facing changes in `packages/site/src/changelog.ts`, then validate and publish the preparation branch:
+This updates the root release declaration, synchronizes the extension, core, CLI, locales, popup UI, and shared package versions, and creates an empty Unreleased changelog entry when needed. Fill in its user-facing changes in `packages/site/src/changelog.ts`, then validate and publish the preparation branch:
 
 ```bash
 pnpm release:check
 pnpm verify
 
-git add release.yml package.json packages/*/package.json packages/site/src/changelog.ts
+git add package.json packages/*/package.json packages/site/src/changelog.ts
 git commit -m "chore(release): bump version to 1.5.0"
 git push -u origin release/1.5.0
 ```
 
 Open a pull request and merge it into `main`. The unified workflow creates the GitHub pre-release, attaches the Chrome CRX/ZIP, Firefox ZIP/source ZIP, and checksums, and uploads the Chrome ZIP as an unsubmitted Chrome Web Store draft. It also publishes the `VERSION`, `main`, and `sha-COMMIT` Docker tags; `latest` remains on the newest stable version.
 
-While `prerelease: true`, every subsequent successful `main` build replaces the pre-release assets, CWS draft, version tag, and mutable Docker tags. Once a CWS revision is submitted for review or approved for deferred publishing, later builds leave that revision frozen.
+While `release.channel` is `prerelease`, every subsequent successful `main` build replaces the pre-release assets, CWS draft, version tag, and mutable Docker tags. Once a CWS revision is submitted for review or approved for deferred publishing, later builds leave that revision frozen.
 
 ## Promote to stable
 
@@ -42,7 +42,7 @@ pnpm release:prepare 1.5.0 --stable --date YYYY-MM-DD
 pnpm release:check
 pnpm verify
 
-git add release.yml package.json packages/*/package.json packages/site/src/changelog.ts
+git add package.json packages/*/package.json packages/site/src/changelog.ts
 git commit -m "chore(release): bump version to 1.5.0"
 git push -u origin release/1.5.0-stable
 ```

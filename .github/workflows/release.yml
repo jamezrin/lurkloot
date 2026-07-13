@@ -43,8 +43,9 @@ jobs:
       - id: release
         shell: bash
         run: |
-          version=$(awk '$1 == "version:" { print $2 }' release.yml)
-          prerelease=$(awk '$1 == "prerelease:" { print $2 }' release.yml)
+          version=$(node -p "require('./package.json').version")
+          channel=$(node -p "require('./package.json').release.channel")
+          [[ "$channel" == prerelease ]] && prerelease=true || prerelease=false
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           {

@@ -31,7 +31,7 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 
 ## Cutting a Release
 
-`release.yml` declares the active version and pre-release/stable state. Use `pnpm release:prepare X.Y.Z --prerelease` to start a version, or `pnpm release:prepare X.Y.Z --stable --date YYYY-MM-DD` to promote it. Then fill in the changelog, run `pnpm release:check`, and commit the declaration, manifests, and changelog together as `chore(release): bump version to X.Y.Z`. Do not create or move release tags manually; the unified workflow owns tags, GitHub release assets, and Docker aliases. See `docs/releases.md` for publication, recovery, credentials, store upload, and migration details.
+The root `package.json` declares the active version and release channel (`release.channel`: `prerelease` or `stable`). Use `pnpm release:prepare X.Y.Z --prerelease` to start a version, or `pnpm release:prepare X.Y.Z --stable --date YYYY-MM-DD` to promote it. Then fill in the changelog, run `pnpm release:check`, and commit the declaration, synchronized manifests, and changelog together as `chore(release): bump version to X.Y.Z`. Do not create or move release tags manually; the unified workflow owns tags, GitHub release assets, and Docker aliases. See `docs/releases.md` for publication, recovery, credentials, store upload, and migration details.
 
 ## Coding Style & Naming Conventions
 
