@@ -167,7 +167,10 @@ jobs:
         run: |
           tag="cws-v$VERSION-candidate"
           checksum=$(sha256sum "release-assets/lurkloot-$VERSION-chrome.zip" | awk '{print $1}')
-          git tag --force --annotate "$tag" "$GITHUB_SHA" --message "chrome_zip_sha256=$checksum"
+          git \
+            -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            tag --force --annotate "$tag" "$GITHUB_SHA" --message "chrome_zip_sha256=$checksum"
           git push --force origin "refs/tags/$tag"
       - id: stable
         name: Publish approved staged revision
