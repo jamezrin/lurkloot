@@ -61,7 +61,7 @@ test("attributes every GitHub-owned website destination", () => {
 Add this script to `packages/site/package.json`:
 
 ```json
-"test": "node --test tests/*.test.mjs"
+"test": "astro build && node --test tests/*.test.mjs"
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -142,7 +142,7 @@ test("keeps the structured download URL canonical", async () => {
 
 - [ ] **Step 2: Build and run the test to verify the metadata assertion fails**
 
-Run: `pnpm --filter @lurkloot/site build && pnpm --filter @lurkloot/site test`
+Run: `pnpm --filter @lurkloot/site test`
 
 Expected: FAIL because `downloadUrl` still uses attributed `LINKS.chrome`.
 
@@ -162,7 +162,7 @@ downloadUrl: EXTERNAL_URLS.chrome,
 
 - [ ] **Step 4: Verify tests, generated anchors, and the production build**
 
-Run: `pnpm --filter @lurkloot/site build && pnpm --filter @lurkloot/site test && rg -o 'https://(chromewebstore\.google\.com|github\.com)[^"< ]+' packages/site/dist -g '*.html'`
+Run: `pnpm --filter @lurkloot/site test && rg -o 'https://(chromewebstore\.google\.com|github\.com)[^"< ]+' packages/site/dist -g '*.html'`
 
 Expected: tests pass; visible links include the specified UTM parameters; JSON-LD contains the canonical Chrome URL; the CLI URL places its query before `#readme`.
 
