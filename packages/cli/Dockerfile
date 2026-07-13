@@ -40,7 +40,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
 ENV NODE_ENV=production
 
-# Mount a data dir holding config.json (and the auth/ produced by `login`).
+# Mount a data dir; the CLI creates config.json and auth/ on first use.
 # `run` is the default; override the command for discover/validate-config/etc.
 WORKDIR /data
 ENTRYPOINT ["node", "/app/dist/index.mjs"]

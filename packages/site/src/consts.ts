@@ -29,9 +29,9 @@ export const SITE = {
   ].join(", "),
 } as const;
 
-// Published headless image — built multi-arch (amd64 + arm64) on GHCR by
-// .github/workflows/cli-docker.yml. Used verbatim in the CLI section's snippet.
-export const DOCKER_IMAGE = "ghcr.io/jamezrin/lurkloot-cli";
+// Published headless image — built multi-arch (amd64 + arm64) on GHCR by the
+// unified release workflow. Used verbatim in the CLI section's snippet.
+export const DOCKER_IMAGE = "ghcr.io/jamezrin/lurkloot-cli:latest";
 
 export const LINKS = {
   chrome:
