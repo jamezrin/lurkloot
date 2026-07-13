@@ -26,7 +26,8 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 - `pnpm typecheck`: run `tsc --noEmit` across all packages (`pnpm -r typecheck`).
 - `pnpm build` / `pnpm build:firefox`: create production extension builds.
 - `pnpm build:site`: build the Astro site; `pnpm build:all` builds every package.
-- `pnpm verify`: run typecheck, tests, and both browser builds.
+- `pnpm check`: run script tests, workspace typechecks, extension tests, and the Astro site build.
+- `pnpm verify`: run `pnpm check` and both browser builds.
 - `pnpm zip` / `pnpm zip:firefox`: package release artifacts into `packages/extension/.output/`.
 
 ## Cutting a Release

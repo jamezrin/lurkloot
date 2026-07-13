@@ -52,7 +52,7 @@ Before promotion, manually submit the CWS draft for review with automatic publis
 After the workflow succeeds:
 
 1. Confirm the Chrome Web Store and GitHub Release both show the new version, then upload the Firefox ZIP/source ZIP to AMO.
-2. Deploy the dated public changelog with `pnpm --filter @lurkloot/site cf:deploy`.
+2. Confirm the release workflow deployed the dated public changelog to the site.
 3. Prepare the next pre-release before merging further feature changes. The stable-release guard intentionally refuses to mutate the released version.
 
 ## Artifacts and credentials
@@ -87,4 +87,4 @@ If publication partially succeeds, rerun the same commit. The release job re-upl
 
 ## Store upload
 
-GitHub Releases are the canonical built artifacts. Chrome review submission and AMO upload remain manual; approved Chrome publication is automated during stable promotion. Download the verified Firefox ZIP/source ZIP from the stable GitHub release for AMO, and deploy the site so its dated changelog is live before users update.
+GitHub Releases are the canonical built artifacts. Chrome review submission and AMO upload remain manual; approved Chrome publication and the dated site deployment are automated during stable promotion. Download the verified Firefox ZIP/source ZIP from the stable GitHub release for AMO.

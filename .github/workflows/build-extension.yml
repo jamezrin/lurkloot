@@ -49,7 +49,6 @@ jobs:
           test -n "$CRX_PRIVATE_KEY" || { echo "CRX_PRIVATE_KEY is not configured" >&2; exit 1; }
           printf '%s' "$CRX_PRIVATE_KEY" > "$RUNNER_TEMP/lurkloot.pem"
           version=$(node -p "require('./package.json').version")
-          pnpm build
           pnpm dlx crx3@2.0.0 -p "$RUNNER_TEMP/lurkloot.pem" -o "release-assets/lurkloot-$version-chrome.crx" -- packages/extension/.output/chrome-mv3
           rm -f "$RUNNER_TEMP/lurkloot.pem"
       - name: Generate checksums

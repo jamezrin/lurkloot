@@ -30,7 +30,8 @@
     "release:check": "node scripts/release.mjs check",
     "release:test": "node --test scripts/release.test.mjs",
     "cws:test": "node --test scripts/cws.test.mjs",
-    "verify": "pnpm cws:test && pnpm release:test && pnpm -r typecheck && pnpm --filter @lurkloot/extension test && pnpm --filter @lurkloot/extension build && pnpm --filter @lurkloot/extension build:firefox"
+    "check": "pnpm cws:test && pnpm release:test && pnpm -r typecheck && pnpm test && pnpm build:site",
+    "verify": "pnpm check && pnpm build && pnpm build:firefox"
   },
   "devDependencies": {
     "typescript": "^6.0.0"
