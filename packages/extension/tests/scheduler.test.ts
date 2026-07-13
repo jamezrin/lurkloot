@@ -364,6 +364,31 @@ describe("scheduler campaign selection", () => {
     expect(checkChannel).toHaveBeenCalledTimes(3);
   });
 
+  it("skips channels that do not offer the selected campaign", async () => {
+    const unavailable = channel("unavailable", { isAclMatch: true });
+    const valid = channel("valid", { isAclMatch: false });
+    const checkChannel = vi.fn(async (candidate: ChannelCandidate) => ({
+      live: true,
+      categoryMatches: true,
+      campaignMatches: candidate.username !== "unavailable",
+      candidate,
+    }));
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("drops")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [unavailable, valid]),
+        checkChannel,
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.channel?.username).toBe("valid");
+    expect(checkChannel).toHaveBeenCalledTimes(2);
+  });
+
   it("does not select candidates whose validation cannot prove live category match", async () => {
     const unverifiable = channel("unverifiable", { isAclMatch: true });
     const valid = channel("valid", { isAclMatch: false });

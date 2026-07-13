@@ -145,7 +145,10 @@ function parseTwitchReward(
 ): DropReward {
   const watchedMinutes = reward.self?.currentMinutesWatched ?? 0;
   const requiredMinutes = reward.requiredMinutesWatched ?? 0;
-  const isWatchBased = requiredMinutes > 0;
+  const requiredSubs = reward.requiredSubs ?? 0;
+  // A reward that also requires subscriptions cannot be completed by watching
+  // alone. Keep it for ownership/claim tracking, but never let it drive farming.
+  const isWatchBased = requiredMinutes > 0 && requiredSubs <= 0;
   const benefits = (reward.benefitEdges ?? [])
     .map((edge) => edge.benefit)
     .filter((benefit): benefit is NonNullable<typeof benefit> => Boolean(benefit));
@@ -181,8 +184,12 @@ function parseTwitchReward(
     preconditionsMet: preconditionRewardIds.length === 0,
     status: isClaimed
       ? "claimed"
-      : !isWatchBased && reward.self?.dropInstanceID
-        ? "claimable"
+      : !isWatchBased
+        ? reward.self?.dropInstanceID
+          ? "claimable"
+          : watchedMinutes > 0
+            ? "in_progress"
+            : "locked"
       : watchedMinutes >= requiredMinutes && requiredMinutes > 0
         ? "claimable"
         : watchedMinutes > 0
