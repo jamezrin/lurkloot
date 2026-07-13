@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { EXTERNAL_URLS, LINKS } from "../src/consts.ts";
 
@@ -25,4 +26,13 @@ test("attributes every GitHub-owned website destination", () => {
 
   assert.equal(new URL(LINKS.cli).hash, "#readme");
   assert.match(LINKS.cli, /\?[^#]+#readme$/);
+});
+
+test("keeps the structured download URL canonical", async () => {
+  const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+  const match = html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/);
+
+  assert.ok(match);
+  const software = JSON.parse(match[1]);
+  assert.equal(software.downloadUrl, EXTERNAL_URLS.chrome);
 });
