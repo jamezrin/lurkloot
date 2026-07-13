@@ -63,6 +63,19 @@ describe("popup category icons", () => {
       }),
     ]);
   });
+
+  it("keeps the synthetic no-category suggestion on the initials fallback", () => {
+    const campaign: DropCampaign = {
+      id: "uncategorized-drops",
+      platform: "kick",
+      name: "Event Drops",
+      gameImageUrl: "https://art.example/unused.jpg",
+      status: "active",
+      rewards: [],
+    };
+
+    expect(gameItemsFromCampaigns([campaign], t)[0]).not.toHaveProperty("imageUrl");
+  });
 });
 ```
 
@@ -127,7 +140,7 @@ Run:
 pnpm --filter @lurkloot/extension exec vitest run tests/popupCategoryIcons.test.ts
 ```
 
-Expected: PASS with 1 test passing.
+Expected: PASS with 2 tests passing.
 
 - [ ] **Step 5: Run the popup UI typecheck**
 
@@ -290,7 +303,7 @@ Run:
 pnpm --filter @lurkloot/extension exec vitest run tests/popupCategoryIcons.test.ts
 ```
 
-Expected: PASS with 3 tests passing and no warnings.
+Expected: PASS with 4 tests passing and no warnings.
 
 - [ ] **Step 6: Run the full extension tests and popup UI typecheck**
 
