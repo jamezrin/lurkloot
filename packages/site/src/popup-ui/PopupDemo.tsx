@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Popup, createDemoPopupAdapter, screenshotVariant } from "@lurkloot/popup-ui";
 import popupCss from "@lurkloot/popup-ui/styles.css?inline";
+import rootManifest from "../../../../package.json";
 
 // Tailwind v4 backs many utilities (border-style, shadows, rings, gradients,
 // transforms…) with registered @property custom properties. @property only
@@ -52,7 +53,7 @@ export default function PopupDemo() {
     // contained, no portal/event-retargeting caveats.
     const root = createRoot(mount);
     rootRef.current = root;
-    const adapter = createDemoPopupAdapter({ locale: "en", version: "1.0.0" });
+    const adapter = createDemoPopupAdapter({ locale: "en", version: rootManifest.version });
     root.render(
       <Popup
         adapter={adapter}
