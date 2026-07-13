@@ -7,7 +7,7 @@
   "description": "Marketing landing page for the Lurkloot browser extension.",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node scripts/configure-deployment.mjs",
+    "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
     "cf:create": "wrangler pages project create lurkloot --production-branch=main",
