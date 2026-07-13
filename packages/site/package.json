@@ -26,20 +26,20 @@
     "@lurkloot/shared": "workspace:*",
     "@tailwindcss/vite": "^4.3.1",
     "astro": "^7.0.0",
-    "framer-motion": "^12.40.0",
+    "motion": "^12.40.0",
     "lenis": "^1.3.23",
     "lucide-react": "^1.0.0",
     "marked": "^18.0.5",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "sharp": "^0.35.0",
-    "three": "^0.184.0"
+    "three": "^0.185.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@types/three": "^0.184.1",
-    "vite": "^7.3.2",
+    "@types/three": "^0.185.0",
+    "vite": "^8.0.0",
     "wrangler": "^4.103.0"
   }
 }

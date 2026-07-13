@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Power, Radio } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import { PLATFORMS } from "./constants";
