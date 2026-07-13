@@ -704,7 +704,6 @@ export class TwitchAdapter implements PlatformAdapter {
       if (pageError) throw new Error(`${operationName}: ${pageError}`);
       return normalizeTwitchGqlResponse<T>(raw);
     };
-    logActivity("debug", `GQL ${operationName} request (${query ? "inline" : "persisted"} query)`, "twitch");
     let activeQuery = query;
     let response = await fetchOnce(activeQuery);
     if (!isTwitchGqlResponse<T>(response)) {

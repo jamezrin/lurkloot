@@ -52,7 +52,6 @@ export function defaultConfigJsonc(): string {
     "offlineRetryLimit": ${json(defaults.offlineRetryLimit)},
     // How often campaign discovery and watch state are refreshed (1-60 minutes).
     "pollIntervalMinutes": ${json(defaults.pollIntervalMinutes)},
-    "enabledLogLevels": ${json(defaults.enabledLogLevels)},
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
 

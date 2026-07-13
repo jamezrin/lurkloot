@@ -21,6 +21,7 @@ import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
+import { appendActivityEvents, clearActivityEvents, loadActivityEvents } from "../src/core/activityStorage";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -70,6 +71,12 @@ const controller = createBackgroundController<ExtensionSettings>({
   saveSettings,
   loadState,
   saveState,
+  recordEvents: async (events) => {
+    const { diagnosticLogging } = await loadSettings();
+    await appendActivityEvents(events.filter((event) => (event.category ?? "diagnostic") === "activity" || diagnosticLogging));
+  },
+  loadEvents: loadActivityEvents,
+  clearEvents: clearActivityEvents,
   createAlarm: (name, options) => browser.alarms.create(name, options),
   closeManagedTabsByUrl: async (urls) => {
     for (const url of urls) {

@@ -566,5 +566,14 @@
   },
   "cliExportButton": {
     "message": "Exportar credenciales"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Incluir registros de diagnóstico"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Registra detalles técnicos adicionales para ayudar a diagnosticar problemas. La actividad normal siempre se conserva."
+  },
+  "showDiagnosticLogs": {
+    "message": "Mostrar diagnósticos"
   }
 }

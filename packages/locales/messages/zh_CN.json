@@ -566,5 +566,14 @@
   },
   "cliExportButton": {
     "message": "导出凭据"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "包含诊断日志"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "记录有助于诊断问题的其他技术详情。正常活动始终会保留。"
+  },
+  "showDiagnosticLogs": {
+    "message": "显示诊断信息"
   }
 }

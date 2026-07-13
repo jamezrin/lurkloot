@@ -666,10 +666,10 @@ describe("scheduler tick", () => {
 
     const quiet = await runSchedulerTick(baseState, settings({ enabledLogLevels: ["info", "warn", "error"] }), adapters());
     expect(quiet.state.events.some((event) => event.level === "debug")).toBe(false);
-    expect(quiet.state.events.some((event) => event.message.startsWith("Discovered"))).toBe(true);
 
     const verbose = await runSchedulerTick(baseState, settings({ enabledLogLevels: ["debug", "info", "warn", "error"] }), adapters());
-    expect(verbose.state.events.some((event) => event.level === "debug")).toBe(true);
+    expect(verbose.state.events.some((event) => event.message.startsWith("Campaign inventory changed"))).toBe(true);
+    expect(verbose.state.events.some((event) => event.message.startsWith("Tick start"))).toBe(false);
   });
 
   it("switches on category mismatch", async () => {
@@ -1359,7 +1359,12 @@ describe("scheduler tick", () => {
     );
 
     expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
-    expect(result.state.events.some((event) => event.message.includes("Claimed Reward"))).toBe(true);
+    expect(result.state.events).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "reward_claimed",
+      message: expect.stringContaining("Claimed Reward"),
+      data: expect.objectContaining({ method: "automatic" }),
+    }));
   });
 
   it("isolates adapter failures per platform", async () => {

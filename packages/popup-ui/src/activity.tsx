@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Clock3 } from "lucide-react";
 import type { EventLogEntry, Platform } from "@lurkloot/shared/models";
-import { LOG_LEVELS, type LogLevel } from "@lurkloot/shared/logging";
 import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { formatEventTime } from "./format";
@@ -10,34 +9,23 @@ export function ActivityLog({
   events,
   platform,
   lastTickAt,
-  enabledLogLevels,
+  diagnosticLogging,
 }: {
   events: EventLogEntry[];
   platform: Platform;
   lastTickAt?: string;
-  enabledLogLevels: LogLevel[];
+  diagnosticLogging: boolean;
 }): React.ReactElement {
   const t = useT();
-  const [activeLevels, setActiveLevels] = useState<Set<LogLevel>>(() => new Set(enabledLogLevels));
-  useEffect(() => {
-    setActiveLevels(new Set(enabledLogLevels));
-  }, [enabledLogLevels.join(",")]);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const forPlatform = useMemo(
     () => events.filter((event) => !event.platform || event.platform === platform),
     [events, platform],
   );
-  const visible = useMemo(
-    () => forPlatform.filter((event) => activeLevels.has(event.level)).slice(-80).reverse(),
-    [forPlatform, activeLevels],
-  );
+  const visible = useMemo(() => forPlatform
+    .filter((event) => showDiagnostics || (event.category ?? "diagnostic") === "activity")
+    .slice(0, 80), [forPlatform, showDiagnostics]);
   const errorCount = forPlatform.filter((event) => event.level === "error").length;
-  const toggleLevel = (level: LogLevel) =>
-    setActiveLevels((current) => {
-      const next = new Set(current);
-      if (next.has(level)) next.delete(level);
-      else next.add(level);
-      return next;
-    });
 
   return (
     <div className="space-y-2.5">
@@ -55,26 +43,16 @@ export function ActivityLog({
           {lastTickAt ? t("lastCheck", formatEventTime(lastTickAt)) : t("noChecksYet")}
         </span>
       </div>
-      <div className="flex flex-wrap items-center gap-1 px-0.5">
-        {LOG_LEVELS.map((level) => {
-          const active = activeLevels.has(level);
-          return (
-            <button
-              key={level}
-              type="button"
-              onClick={() => toggleLevel(level)}
-              className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold transition ${active
-                ? "border-transparent text-white"
-                : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
-              style={active ? { backgroundColor: EVENT_LEVEL_COLOR[level] } : undefined}
-              aria-pressed={active}
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "#ffffff" : EVENT_LEVEL_COLOR[level] }} />
-              {t(level)}
-            </button>
-          );
-        })}
-      </div>
+      {diagnosticLogging ? (
+        <button
+          type="button"
+          onClick={() => setShowDiagnostics((current) => !current)}
+          className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold transition ${showDiagnostics ? "border-transparent bg-zinc-600 text-white" : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
+          aria-pressed={showDiagnostics}
+        >
+          {t("showDiagnosticLogs")}
+        </button>
+      ) : null}
       <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
         {visible.length === 0 ? (
           <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{t("noActivity")}</p>

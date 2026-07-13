@@ -9,8 +9,8 @@ import {
   RotateCcw,
   Settings as SettingsIcon,
 } from "lucide-react";
-import type { CategorySearchResult, CliCredentialBlob, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
+import type { ActivityPage, CategorySearchResult, CliCredentialBlob, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { CategorySelection, EventLogEntry, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
@@ -66,6 +66,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [tab, setTab] = useState<PopupTab>(preview && initialVariant.view === "watchQueue" ? "watchQueue" : "drops");
   const [settingsOpen, setSettingsOpen] = useState(preview && initialVariant.view === "settings");
   const [activityOpen, setActivityOpen] = useState(preview && initialVariant.view === "activity");
+  const [activityEvents, setActivityEvents] = useState<EventLogEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [resumingAutomation, setResumingAutomation] = useState(false);
   const [pendingChangelogVersion, setPendingChangelogVersion] = useState<string>();
@@ -153,6 +154,20 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     if (preview || !adapter.getPendingChangelogVersion) return;
     void adapter.getPendingChangelogVersion().then(setPendingChangelogVersion);
   }, [adapter, preview]);
+
+  useEffect(() => {
+    if (!activityOpen || preview) return;
+    let cancelled = false;
+    const refresh = () => void adapter.send<ActivityPage>({ type: "getActivity", platform, limit: 80 }).then((page) => {
+      if (!cancelled) setActivityEvents(page.events);
+    });
+    refresh();
+    const interval = setInterval(refresh, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activityOpen, adapter, platform, preview]);
 
   function dismissUpdateNotice(): void {
     setPendingChangelogVersion(undefined);
@@ -392,7 +407,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
-                <ActivityLog events={snapshot.state.events} platform={platform} lastTickAt={snapshot.state.lastTickAt} enabledLogLevels={settings.enabledLogLevels} />
+                <ActivityLog events={preview ? snapshot.state.events : activityEvents} platform={platform} lastTickAt={snapshot.state.lastTickAt} diagnosticLogging={settings.diagnosticLogging} />
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">

@@ -1,6 +1,6 @@
-import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { ActivityPage, CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { DropCampaign, DropReward, EngineSettings, EventLogEntry, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "@lurkloot/shared/models";
-import { appendLog, shouldRecord, type LogLevel } from "@lurkloot/shared/logging";
+import { appendActivity, appendLog, shouldRecord, type LogLevel } from "@lurkloot/shared/logging";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
 import { logActivity, setActivityLogger } from "../core/activityLog";
@@ -47,6 +47,9 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   saveSettings(settings: S): Promise<void>;
   loadState(): Promise<SchedulerState>;
   saveState(state: SchedulerState): Promise<void>;
+  recordEvents?(events: readonly EventLogEntry[]): Promise<void>;
+  loadEvents?(query: Extract<RuntimeMessage, { type: "getActivity" }>): Promise<ActivityPage>;
+  clearEvents?(): Promise<void>;
   createAlarm(name: string, options: { periodInMinutes: number }): Promise<void>;
   createAdapters(): Record<Platform, PlatformAdapter>;
   createNotification?(notification: { title: string; message: string }): Promise<void>;
@@ -129,7 +132,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function persist(state: SchedulerState): Promise<void> {
     if (pendingTabEvents.length === 0) {
-      await deps.saveState(state);
+      if (deps.recordEvents) {
+        await deps.saveState({ ...state, events: [] });
+        try {
+          await deps.recordEvents(state.events);
+        } catch {
+          // Activity persistence is best-effort and must never stop farming.
+        }
+      } else {
+        await deps.saveState(state);
+      }
       return;
     }
     const enabledLevels = (await deps.loadSettings()).enabledLogLevels;
@@ -137,7 +149,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     for (const entry of pendingTabEvents.splice(0)) {
       next = withEvent(next, entry, enabledLevels);
     }
-    await deps.saveState(next);
+    if (deps.recordEvents) {
+      await deps.saveState({ ...next, events: [] });
+      try {
+        await deps.recordEvents(next.events);
+      } catch {
+        // Activity persistence is best-effort and must never stop farming.
+      }
+    } else {
+      await deps.saveState(next);
+    }
   }
 
   // Appends an event only if its level is enabled in settings.
@@ -260,12 +281,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           ...(platforms ? { platforms } : {}),
           stopPageContextTabs: deps.stopPageContextTabs,
         });
-        await emitNotifications(settings, state, result.state);
+        const stateWithLifecycle = appendFarmingLifecycleEvents(state, result.state);
+        await emitNotifications(settings, state, stateWithLifecycle);
         await applyAdFocusForState(result.state);
         await reconcileTablessWatchers(result.state, settings, adapters, platforms);
-        // The per-tick heartbeat is debug noise next to the richer per-platform
-        // entries the scheduler already records; the popup shows "last check" too.
-        await persist(withEvent(result.state, { level: "debug", message: "Scheduler tick completed" }, enabledLevels));
+        await persist(stateWithLifecycle);
       } catch (error) {
         await persist(withEvent(state, {
           level: "error",
@@ -591,19 +611,32 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             status: rewards.every((candidate) => candidate.status === "claimed") ? "completed" as const : item.status,
           };
         });
-        const nextState = appendLog({
+        const stateWithCampaigns = {
           ...state,
           campaigns: {
             ...state.campaigns,
             [message.platform]: nextCampaigns,
           },
-        }, {
-          platform: message.platform,
-          level: claimed ? "info" : "warn",
-          message: claimed
-            ? `Claimed ${reward.name} from ${campaign.name}`
-            : `Could not claim ${reward.name} from ${campaign.name}`,
-        });
+        };
+        const nextState = claimed
+          ? appendActivity(stateWithCampaigns, {
+            platform: message.platform,
+            level: "info",
+            code: "reward_claimed",
+            data: {
+              campaignId: campaign.id,
+              campaignName: campaign.name,
+              rewardId: reward.id,
+              rewardName: reward.name,
+              method: "manual",
+            },
+            message: `Claimed ${reward.name} from ${campaign.name}`,
+          })
+          : appendLog(stateWithCampaigns, {
+            platform: message.platform,
+            level: "warn",
+            message: `Could not claim ${reward.name} from ${campaign.name}`,
+          });
         const settings = await deps.loadSettings();
         if (claimed && settings.notifyRewardEarned) {
           await safeNotify(
@@ -626,7 +659,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function handleMessage(
     message: RuntimeMessage,
     sender?: { tab?: { id?: number } },
-  ): Promise<RuntimeSnapshot<S> | PlaybackControl | CategorySearchResult | void> {
+  ): Promise<RuntimeSnapshot<S> | PlaybackControl | CategorySearchResult | ActivityPage | void> {
     if (message.type === "getPlaybackControl") {
       return getPlaybackControl(message, sender?.tab?.id);
     }
@@ -638,6 +671,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
     if (message.type === "getSnapshot") {
       return snapshot();
+    }
+
+    if (message.type === "getActivity") {
+      try {
+        return await deps.loadEvents?.(message) ?? { events: [], hasMore: false };
+      } catch {
+        return { events: [], hasMore: false };
+      }
+    }
+
+    if (message.type === "clearActivity") {
+      await deps.clearEvents?.();
+      return undefined;
     }
 
     if (message.type === "setRunning") {
@@ -776,6 +822,96 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     tick,
     runWatchHeartbeat,
   };
+}
+
+function appendFarmingLifecycleEvents(previous: SchedulerState, next: SchedulerState): SchedulerState {
+  let result = next;
+  for (const platform of ["twitch", "kick"] as Platform[]) {
+    const before = farmingTarget(previous, platform);
+    const after = farmingTarget(next, platform);
+    const sameTarget = before?.campaign.id === after?.campaign.id && before?.reward.id === after?.reward.id;
+    if (sameTarget) continue;
+
+    if (before) {
+      const updatedReward = next.campaigns[platform]
+        .find((campaign) => campaign.id === before.campaign.id)
+        ?.rewards.find((reward) => reward.id === before.reward.id);
+      const reason = updatedReward?.status === "claimed" || updatedReward?.status === "claimable"
+        ? { code: "watch_requirement_completed", message: "watch requirement completed" }
+        : farmingStopReason(next.sessions[platform]);
+      result = appendActivity(result, {
+        platform,
+        level: next.sessions[platform].status === "error" ? "error" : "info",
+        code: "farming_stopped",
+        message: `Stopped farming ${before.reward.name} from ${before.campaign.name}: ${reason.message}`,
+        data: {
+          campaignId: before.campaign.id,
+          campaignName: before.campaign.name,
+          rewardId: before.reward.id,
+          rewardName: before.reward.name,
+          reason: reason.code,
+        },
+      });
+    }
+    if (after) {
+      result = appendActivity(result, {
+        platform,
+        level: "info",
+        code: "farming_started",
+        message: `Started farming ${after.reward.name} from ${after.campaign.name}${after.session.channel ? ` on ${after.session.channel.displayName ?? after.session.channel.username}` : ""}`,
+        data: {
+          campaignId: after.campaign.id,
+          campaignName: after.campaign.name,
+          rewardId: after.reward.id,
+          rewardName: after.reward.name,
+          ...(after.session.channel ? { channel: after.session.channel.displayName ?? after.session.channel.username } : {}),
+        },
+      });
+    } else if (!before) {
+      const session = next.sessions[platform];
+      const prior = previous.sessions[platform];
+      const changed = session.status !== prior.status || session.message !== prior.message;
+      const actionable = session.status === "error" || (session.status === "paused" && /manual watch/i.test(session.message ?? ""));
+      if (changed && actionable) {
+        const reason = farmingStopReason(session);
+        result = appendActivity(result, {
+          platform,
+          level: session.status === "error" ? "error" : "warn",
+          code: "interruption",
+          message: session.message ?? "Farming was interrupted",
+          data: { reason: reason.code },
+        });
+      }
+    }
+  }
+  return result;
+}
+
+function farmingTarget(state: SchedulerState, platform: Platform): {
+  session: WatchSession;
+  campaign: DropCampaign;
+  reward: DropReward;
+} | undefined {
+  const session = state.sessions[platform];
+  if (session.status !== "watching" || !session.campaignId || !session.rewardId) return undefined;
+  const campaign = state.campaigns[platform].find((candidate) => candidate.id === session.campaignId);
+  const reward = campaign?.rewards.find((candidate) => candidate.id === session.rewardId);
+  return campaign && reward ? { session, campaign, reward } : undefined;
+}
+
+function farmingStopReason(session: WatchSession): { code: string; message: string } {
+  const message = session.message ?? "farming target changed";
+  if (session.status === "error") return { code: "platform_error", message };
+  if (/manual watch/i.test(message)) return { code: "manual_watch", message };
+  if (/automation disabled/i.test(message)) return { code: "automation_disabled", message };
+  if (/offline/i.test(message)) return { code: "channel_offline", message };
+  if (/higher priority/i.test(message)) return { code: "higher_priority_reward", message };
+  if (/campaign.*no longer eligible/i.test(message)) return { code: "campaign_ineligible", message };
+  if (/category/i.test(message)) return { code: "channel_mismatch", message };
+  if (/playback|heartbeat/i.test(message)) return { code: "watch_unhealthy", message };
+  if (/complete|claim/i.test(message)) return { code: "watch_requirement_completed", message };
+  if (/eligible|no .*drop/i.test(message)) return { code: "no_eligible_channel", message };
+  return { code: "target_changed", message };
 }
 
 function staleStartupCleanup(state: SchedulerState): {

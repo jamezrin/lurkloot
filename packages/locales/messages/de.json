@@ -566,5 +566,14 @@
   },
   "cliExportButton": {
     "message": "Anmeldedaten exportieren"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Diagnoseprotokolle einschließen"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Zeichnet zusätzliche technische Details zur Fehlerdiagnose auf. Normale Aktivitäten werden immer gespeichert."
+  },
+  "showDiagnosticLogs": {
+    "message": "Diagnose anzeigen"
   }
 }

@@ -33,6 +33,9 @@ export async function runLoop(options: RunOptions): Promise<void> {
     saveSettings: async () => {},
     loadState: () => loadState(statePath),
     saveState: (state: SchedulerState) => saveState(statePath, state),
+    recordEvents: async (events) => {
+      for (const event of events) logger.log(event.level, event.message, event.platform ?? event.category);
+    },
     // The CLI drives its own interval below, so alarm scheduling is a no-op.
     createAlarm: async () => {},
     createAdapters: () => transport.adapters,

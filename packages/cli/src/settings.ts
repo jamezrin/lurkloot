@@ -7,11 +7,10 @@ import {
   normalizeCategorySelections,
   normalizeChannelList,
   normalizeIdList,
-  normalizeLogLevels,
   normalizePriorities,
 } from "@lurkloot/shared/settings";
 import type { EngineSettings, Platform, PlatformSettings, PriorityMode } from "@lurkloot/shared/models";
-import type { LogLevel } from "@lurkloot/shared/logging";
+import { LOG_LEVELS } from "@lurkloot/shared/logging";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
 // ExtensionSettings. It only exposes settings that actually do something in the
@@ -29,7 +28,6 @@ export interface CliSettings {
   watchQueueFallbackOnly: boolean;
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
-  enabledLogLevels: LogLevel[];
   // Gate the controller's reward/no-drops notifications, which the CLI renders
   // as log lines (see runtime/run.ts createNotification).
   notifyRewardEarned: boolean;
@@ -51,7 +49,6 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   watchQueueFallbackOnly: DEFAULT_SETTINGS.watchQueueFallbackOnly,
   offlineRetryLimit: DEFAULT_SETTINGS.offlineRetryLimit,
   pollIntervalMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
-  enabledLogLevels: [...DEFAULT_SETTINGS.enabledLogLevels],
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
   platform: {
@@ -69,6 +66,8 @@ const CLI_SETTING_KEYS = new Set<string>([
   "watchQueueFallbackOnly",
   "offlineRetryLimit",
   "pollIntervalMinutes",
+  // Accepted as a legacy no-op so existing configs keep loading. Runtime log
+  // filtering belongs to the global --log option and the process logger.
   "enabledLogLevels",
   "notifyRewardEarned",
   "notifyNoDropsLeft",
@@ -152,7 +151,6 @@ export function parseCliSettings(raw: unknown): CliSettings {
     watchQueueFallbackOnly: booleanOr(v.watchQueueFallbackOnly, DEFAULT_CLI_SETTINGS.watchQueueFallbackOnly),
     offlineRetryLimit: clampInteger(v.offlineRetryLimit, 1, 10, DEFAULT_CLI_SETTINGS.offlineRetryLimit),
     pollIntervalMinutes: clampNumber(v.pollIntervalMinutes, 1, 60, DEFAULT_CLI_SETTINGS.pollIntervalMinutes),
-    enabledLogLevels: normalizeLogLevels({ enabledLogLevels: v.enabledLogLevels }),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform),
@@ -182,6 +180,9 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Record<
 export function toEngineSettings(cli: CliSettings): EngineSettings {
   return mergeEngineSettings({
     ...cli,
+    // The process logger is the CLI's sole output filter. Let every engine
+    // event reach it; Docker/systemd/Loki own persistence and retention.
+    enabledLogLevels: [...LOG_LEVELS],
     running: true,
     tablessMode: true,
     pauseOnManualWatch: false,

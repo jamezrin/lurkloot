@@ -566,5 +566,14 @@
   },
   "cliExportButton": {
     "message": "Exporter les identifiants"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Inclure les journaux de diagnostic"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Enregistre des détails techniques supplémentaires pour diagnostiquer les problèmes. L’activité normale est toujours conservée."
+  },
+  "showDiagnosticLogs": {
+    "message": "Afficher les diagnostics"
   }
 }

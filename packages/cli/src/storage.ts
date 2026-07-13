@@ -10,7 +10,7 @@ import { mergeSchedulerState } from "@lurkloot/core/defaults";
 export async function loadState(path: string): Promise<SchedulerState> {
   try {
     const text = await readFile(path, "utf8");
-    return mergeSchedulerState(JSON.parse(text) as Partial<SchedulerState>);
+    return { ...mergeSchedulerState(JSON.parse(text) as Partial<SchedulerState>), events: [] };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return mergeSchedulerState(undefined);
@@ -21,5 +21,5 @@ export async function loadState(path: string): Promise<SchedulerState> {
 
 export async function saveState(path: string, state: SchedulerState): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(state, null, 2)}\n`);
+  await writeFile(path, `${JSON.stringify({ ...state, events: undefined }, null, 2)}\n`);
 }

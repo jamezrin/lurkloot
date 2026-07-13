@@ -566,5 +566,14 @@
   },
   "cliExportButton": {
     "message": "क्रेडेंशियल निर्यात करें"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "डायग्नोस्टिक लॉग शामिल करें"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "समस्याओं के निदान में मदद के लिए अतिरिक्त तकनीकी विवरण रिकॉर्ड करें। सामान्य गतिविधि हमेशा रखी जाती है।"
+  },
+  "showDiagnosticLogs": {
+    "message": "डायग्नोस्टिक दिखाएँ"
   }
 }

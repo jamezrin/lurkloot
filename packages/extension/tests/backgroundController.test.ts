@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, EventLogEntry, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
@@ -46,7 +46,7 @@ function adapter(platform: Platform): PlatformAdapter {
   };
 }
 
-function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: true }) {
+function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: true }, persistEvents = false) {
   let currentSettings = settings;
   let currentState: SchedulerState = {
     ...DEFAULT_STATE,
@@ -57,6 +57,7 @@ function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: t
   };
   const twitch = adapter("twitch");
   const kick = adapter("kick");
+  const recordEvents = vi.fn<(events: readonly EventLogEntry[]) => Promise<void>>(async () => undefined);
   const deps = {
     loadSettings: vi.fn(async () => currentSettings),
     saveSettings: vi.fn(async (next: ExtensionSettings) => {
@@ -74,6 +75,7 @@ function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: t
     loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false })),
     applySettingsPatch: vi.fn((current: ExtensionSettings, patch) => applySettingsPatch(current, patch)),
     createAdapters: vi.fn(() => ({ twitch, kick })),
+    ...(persistEvents ? { recordEvents } : {}),
   };
 
   return {
@@ -87,10 +89,56 @@ function harness(settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: t
     },
     twitch,
     kick,
+    recordEvents,
   };
 }
 
 describe("background controller", () => {
+  it("publishes lifecycle events through the host sink without persisting log history", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    }, true);
+
+    await env.controller.tick();
+    await env.controller.tick();
+
+    const published = env.recordEvents.mock.calls.flatMap(([events]) => events);
+    expect(published.filter((event) => event.code === "farming_started")).toHaveLength(1);
+    expect(published).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "farming_started",
+      platform: "twitch",
+    }));
+    expect(env.state.events).toEqual([]);
+  });
+
+  it("publishes a farming stop reason when automation is disabled", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    }, true);
+    await env.controller.tick();
+
+    await env.controller.handleMessage({ type: "setRunning", running: false });
+
+    const published = env.recordEvents.mock.calls.flatMap(([events]) => events);
+    expect(published).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "farming_stopped",
+      data: expect.objectContaining({ reason: "automation_disabled" }),
+    }));
+    expect(env.state.events).toEqual([]);
+  });
+
   it("creates the scheduler alarm from persisted settings", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, pollIntervalMinutes: 11 });
 
@@ -518,9 +566,7 @@ describe("background controller", () => {
     expect(env.kick.discoverCampaigns).toHaveBeenCalledTimes(1);
     expect(snapshot.state.sessions.twitch.status).toBe("watching");
     expect(snapshot.state.sessions.kick.status).toBe("watching");
-    // The tick ran and recorded the per-platform decision; the debug-only
-    // "Scheduler tick completed" heartbeat is suppressed while verbose is off.
-    expect(snapshot.state.events.some((event) => event.message === "Eligible campaign selected")).toBe(true);
+    expect(snapshot.state.events.some((event) => event.code === "farming_started")).toBe(true);
     expect(snapshot.state.events.some((event) => event.level === "debug")).toBe(false);
   });
 
@@ -529,11 +575,9 @@ describe("background controller", () => {
 
     const snapshot = asSnapshot(await env.controller.handleMessage({ type: "tickNow" }));
 
-    expect(snapshot.state.events[0]).toMatchObject({
-      level: "debug",
-      message: "Scheduler tick completed",
-    });
-    expect(snapshot.state.events.some((event) => event.level === "debug" && event.message.startsWith("Tick start"))).toBe(true);
+    expect(snapshot.state.events.some((event) => event.level === "debug" && event.message.startsWith("Campaign decision"))).toBe(true);
+    expect(snapshot.state.events.some((event) => event.message === "Scheduler tick completed")).toBe(false);
+    expect(snapshot.state.events.some((event) => event.message.startsWith("Tick start"))).toBe(false);
   });
 
   it("records playback telemetry only for the managed watch tab", async () => {
@@ -961,6 +1005,11 @@ describe("background controller", () => {
       status: "completed",
       rewards: [{ id: "reward", status: "claimed", watchedMinutes: 60 }],
     });
+    expect(snapshot.state.events).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "reward_claimed",
+      data: expect.objectContaining({ method: "manual" }),
+    }));
   });
 
   it("records a warning when a manual claim target is stale", async () => {

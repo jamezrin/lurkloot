@@ -3,6 +3,7 @@ import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models"
 import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import { DEFAULT_STATE, mergeSchedulerState } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
+import { appendActivityEvents, clearActivityEvents } from "./activityStorage";
 
 export { DEFAULT_STATE };
 
@@ -23,7 +24,21 @@ export async function saveSettings(settings: ExtensionSettings): Promise<void> {
 
 export async function loadState(): Promise<SchedulerState> {
   const data = await browser.storage.local.get(STATE_KEY);
-  return mergeSchedulerState(data[STATE_KEY] as Partial<SchedulerState> | undefined);
+  const state = mergeSchedulerState(data[STATE_KEY] as Partial<SchedulerState> | undefined);
+  // One-time migration from the former rolling array embedded in operational
+  // scheduler state. A failed import is harmless and retried on the next load.
+  if (state.events.length > 0) {
+    const migrated = { ...state, events: [] };
+    try {
+      await appendActivityEvents(state.events);
+      await browser.storage.local.set({ [STATE_KEY]: migrated });
+    } catch {
+      // Activity history is best-effort; a database failure must not prevent
+      // the scheduler from loading its operational state.
+    }
+    return migrated;
+  }
+  return state;
 }
 
 export async function saveState(state: SchedulerState): Promise<void> {
@@ -44,4 +59,10 @@ export async function resetStorage(): Promise<void> {
     [SETTINGS_KEY]: DEFAULT_SETTINGS,
     [STATE_KEY]: DEFAULT_STATE,
   });
+  try {
+    await clearActivityEvents();
+  } catch {
+    // Resetting operational state still succeeds if activity storage is
+    // unavailable or has already been removed by the browser.
+  }
 }

@@ -28,6 +28,7 @@ export function appendLog(
   entry: Omit<EventLogEntry, "id" | "at">,
 ): SchedulerState {
   const fullEntry: EventLogEntry = {
+    category: "diagnostic",
     ...entry,
     id: `${Date.now()}-${entry.platform ?? "all"}-${Math.random().toString(16).slice(2)}`,
     at: new Date().toISOString(),
@@ -36,4 +37,11 @@ export function appendLog(
     ...state,
     events: [fullEntry, ...state.events].slice(0, MAX_LOG_ENTRIES),
   };
+}
+
+export function appendActivity(
+  state: SchedulerState,
+  entry: Omit<EventLogEntry, "id" | "at" | "category">,
+): SchedulerState {
+  return appendLog(state, { ...entry, category: "activity" });
 }

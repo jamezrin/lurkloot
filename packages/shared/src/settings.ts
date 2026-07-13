@@ -66,6 +66,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
     finished: true,
   },
   rateNudgeStatus: "pending",
+  diagnosticLogging: false,
 };
 
 // Normalizes the universal engine contract. The engine (packages/core) and any
@@ -113,8 +114,15 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
 // Normalizes the extension's full settings: the engine contract plus the
 // host-only fields the engine never reads.
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
+  const legacyVerbose = (value as (Partial<ExtensionSettings> & { verboseLogging?: boolean }) | undefined)?.verboseLogging;
+  const diagnosticLogging = typeof value?.diagnosticLogging === "boolean"
+    ? value.diagnosticLogging
+    : Array.isArray(value?.enabledLogLevels)
+      ? value.enabledLogLevels.includes("debug")
+      : legacyVerbose === true;
   return {
     ...mergeEngineSettings(value),
+    enabledLogLevels: diagnosticLogging ? [...LOG_LEVELS] : ["info", "warn", "error"],
     muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_SETTINGS.muteFarmingTabs),
     keepFarmingVideosUnmuted: booleanOr(value?.keepFarmingVideosUnmuted, DEFAULT_SETTINGS.keepFarmingVideosUnmuted),
     autoCloseFinishedDrops: booleanOr(value?.autoCloseFinishedDrops, DEFAULT_SETTINGS.autoCloseFinishedDrops),
@@ -126,6 +134,7 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     rateNudgeStatus: RATE_NUDGE_STATUSES.includes(value?.rateNudgeStatus as RateNudgeStatus)
       ? (value!.rateNudgeStatus as RateNudgeStatus)
       : DEFAULT_SETTINGS.rateNudgeStatus,
+    diagnosticLogging,
   };
 }
 

@@ -566,5 +566,14 @@
   },
   "cliExportButton": {
     "message": "Экспортировать учётные данные"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Включить диагностические журналы"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Записывает дополнительные технические сведения для диагностики проблем. Обычная активность сохраняется всегда."
+  },
+  "showDiagnosticLogs": {
+    "message": "Показать диагностику"
   }
 }

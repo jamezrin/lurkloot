@@ -228,7 +228,18 @@ export interface ExtensionSettings extends EngineSettings {
   // Which campaign states are shown in the Drops list. See CampaignFilterKey.
   campaignVisibility: Record<CampaignFilterKey, boolean>;
   rateNudgeStatus: RateNudgeStatus;
+  // Extension-only persistence policy. Normal farming activity is always
+  // recorded; this opt-in adds lower-level technical diagnostics.
+  diagnosticLogging: boolean;
 }
+
+export type EventCategory = "activity" | "diagnostic";
+
+export type ActivityEventCode =
+  | "farming_started"
+  | "farming_stopped"
+  | "reward_claimed"
+  | "interruption";
 
 export interface EventLogEntry {
   id: string;
@@ -236,6 +247,9 @@ export interface EventLogEntry {
   platform?: Platform;
   level: LogLevel;
   message: string;
+  category?: EventCategory;
+  code?: ActivityEventCode | string;
+  data?: Record<string, string | number | boolean | undefined>;
 }
 
 export interface SchedulerState {
@@ -244,6 +258,9 @@ export interface SchedulerState {
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
   campaigns: Record<Platform, DropCampaign[]>;
+  // Transient event outbox used by the pure scheduler/controller result. Real
+  // hosts drain it through recordEvents and persist operational state with an
+  // empty array; older non-host tests may still inspect it directly.
   events: EventLogEntry[];
   lastTickAt?: string;
   // ISO timestamp recorded once by the background on install; drives the

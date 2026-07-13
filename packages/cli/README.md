@@ -32,7 +32,7 @@ live in the auth store.
 
 Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`,
 `campaignPriorities`, `excludedCampaignIds`, `watchQueueFallbackOnly`,
-`offlineRetryLimit`, `pollIntervalMinutes`, `enabledLogLevels`,
+`offlineRetryLimit`, `pollIntervalMinutes`,
 `notifyRewardEarned`, `notifyNoDropsLeft`, and per-platform `enabled`,
 `watchQueueChannels`, `excludedChannels`, `farmAllCategories`, `categories`.
 

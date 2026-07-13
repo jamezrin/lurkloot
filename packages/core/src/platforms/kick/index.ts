@@ -134,10 +134,6 @@ export class KickAdapter implements PlatformAdapter {
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
     const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/campaigns");
-    // Debug-gated raw dump (only surfaces with verbose logging). On launch day
-    // this lets us confirm the live shape matched the parser — and patch
-    // kickParser.ts on the spot if a field drifted — instead of guessing.
-    logActivity("debug", `Kick /drops/campaigns raw: ${truncateJson(data)}`, "kick");
     return parseKickCampaigns(data as Parameters<typeof parseKickCampaigns>[0]);
   }
 
@@ -150,7 +146,6 @@ export class KickAdapter implements PlatformAdapter {
       const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/progress", {
         headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
       });
-      logActivity("debug", `Kick /drops/progress raw: ${truncateJson(data)}`, "kick");
       return mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -256,7 +251,6 @@ export class KickAdapter implements PlatformAdapter {
           }),
         },
       );
-      logActivity("debug", `Kick /drops/claim raw (${reward.name}): ${truncateJson(response)}`, "kick");
       const claimed = isKickClaimSuccess(response);
       if (!claimed && campaign.accountLinked === false) this.warnAccountNotLinked(campaign, reward);
       return claimed;
@@ -329,19 +323,6 @@ export class KickAdapter implements PlatformAdapter {
       };
     }
   }
-}
-
-// Serializes a response for the debug log, capping length so a large payload
-// cannot bloat the rolling activity log. Falls back gracefully on cycles.
-function truncateJson(value: unknown, max = 1500): string {
-  let text: string;
-  try {
-    text = JSON.stringify(value);
-  } catch {
-    text = String(value);
-  }
-  if (text == null) return "undefined";
-  return text.length > max ? `${text.slice(0, max)}… (${text.length} chars)` : text;
 }
 
 function parseBooleanField(html: string, names: string[]): boolean | undefined {

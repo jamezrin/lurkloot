@@ -566,5 +566,14 @@
   },
   "cliExportButton": {
     "message": "تصدير بيانات الاعتماد"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "تضمين سجلات التشخيص"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "يسجل تفاصيل تقنية إضافية للمساعدة في تشخيص المشكلات. يتم الاحتفاظ بالنشاط العادي دائمًا."
+  },
+  "showDiagnosticLogs": {
+    "message": "عرض التشخيص"
   }
 }
