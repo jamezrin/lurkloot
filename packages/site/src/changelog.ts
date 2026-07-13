@@ -1,6 +1,4 @@
-// Changelog content — the single source of truth for the on-site /changelog page.
-// Newest version first. Text is plain (no markup) to keep the page simple.
-// The extension deep-links here on update (e.g. /changelog#v1.3.0).
+import changelogData from "./changelog.json";
 
 export type ChangeKind = "new" | "improved" | "fixed";
 
@@ -10,175 +8,23 @@ export interface Change {
 }
 
 export interface ChangelogEntry {
-  version: string; // "1.3.0"
-  // ISO date "2026-06-07" of the Chrome Web Store release; formatted on the page.
-  // Omit for a version that hasn't been published yet (rendered as "Unreleased").
+  version: string;
   date?: string;
   changes: Change[];
 }
 
-export const changelog: ChangelogEntry[] = [
-  {
-    version: "1.4.0",
-    // Unreleased — omit `date` until the public release.
-    changes: [
-      {
-        kind: "new",
-        text: "Lurkloot’s source code is now public under the Apache License 2.0.",
-      },
-      {
-        kind: "new",
-        text:
-          "Added a command-line app that farms drops headlessly — no browser tab or extension required.",
-      },
-      {
-        kind: "new",
-        text:
-          "The command-line app ships as a Docker image, so you can run it on a server or NAS.",
-      },
-      {
-        kind: "improved",
-        text:
-          "Redesigned the landing page around the command-line app and the now-public source.",
-      },
-      {
-        kind: "improved",
-        text:
-          "What’s New is now shown as a notice in the popup after meaningful updates instead of opening a browser tab automatically.",
-      },
-      {
-        kind: "fixed",
-        text:
-          "Twitch now ignores subscription, purchase, and other non-watch rewards when choosing campaigns to farm.",
-      },
-      {
-        kind: "fixed",
-        text:
-          "Twitch now confirms that a selected live channel offers the intended campaign when that information is available.",
-      },
-    ],
-  },
-  {
-    version: "1.3.0",
-    date: "2026-06-18",
-    changes: [
-      { kind: "new", text: "Renamed to Lurkloot." },
-      {
-        kind: "new",
-        text:
-          "Streamer and channel names are now clickable links to their channel page — in the watch queue, on each drop's allowed channels, and in the automation view.",
-      },
-      {
-        kind: "new",
-        text:
-          "Added direct links to each drop's campaign page, plus a “No category” grouping for uncategorized drops.",
-      },
-      { kind: "new", text: "Added a Chrome Web Store link in the settings footer." },
-      { kind: "new", text: "Added a link to the Lurkloot website in the popup footer." },
-      {
-        kind: "new",
-        text: "Added a What’s New page that opens automatically after meaningful updates.",
-      },
-      {
-        kind: "improved",
-        text:
-          "Clicking the campaign being farmed now jumps straight to its card on the Drops tab.",
-      },
-      {
-        kind: "improved",
-        text:
-          "Activity and Settings sub-pages now show a single back button instead of the full toolbar.",
-      },
-      {
-        kind: "improved",
-        text: "Added an occasional one-time prompt to rate the extension.",
-      },
-      {
-        kind: "fixed",
-        text: "Stopped the “no earnable drops left” notification from repeating every minute.",
-      },
-      {
-        kind: "fixed",
-        text: "Fixed a tab-close race that could overwrite in-progress farming state.",
-      },
-    ],
-  },
-  {
-    version: "1.2.0",
-    date: "2026-06-07",
-    changes: [
-      { kind: "new", text: "Added a “Priority list only” farming mode." },
-      {
-        kind: "new",
-        text: "Added per-platform category filters and campaign visibility controls.",
-      },
-      {
-        kind: "new",
-        text: "Added a per-level activity log control and a reset for excluded campaigns.",
-      },
-      {
-        kind: "new",
-        text: "Added campaign lifecycle pills and a start countdown for upcoming campaigns.",
-      },
-      { kind: "new", text: "Localized the interface and store assets." },
-      {
-        kind: "improved",
-        text: "Tabless background farming is now enabled by default.",
-      },
-      {
-        kind: "improved",
-        text: "Reorganized settings into collapsible, grouped sections with a platform switcher.",
-      },
-      {
-        kind: "improved",
-        text: "Kick now tries a background fetch before falling back to a page.",
-      },
-      {
-        kind: "fixed",
-        text: "Fixed Kick reward images by resolving relative paths to the Kick CDN.",
-      },
-      { kind: "fixed", text: "Fixed editing automation settings while farming was paused." },
-      {
-        kind: "fixed",
-        text:
-          "Fixed the Twitch live-status check so it no longer stalls on a channel that has gone offline.",
-      },
-    ],
-  },
-  {
-    version: "1.1.0",
-    date: "2026-06-06",
-    changes: [
-      {
-        kind: "fixed",
-        text: "Hardened Kick drop auto-claim against the live API so claims register reliably.",
-      },
-      {
-        kind: "fixed",
-        text: "More reliable Twitch drop claiming by replaying the page's Client-Integrity token.",
-      },
-    ],
-  },
-  {
-    version: "1.0.0",
-    date: "2026-06-05",
-    changes: [
-      {
-        kind: "new",
-        text:
-          "First public release: automatic Twitch and Kick drop farming through your own logged-in session.",
-      },
-      {
-        kind: "new",
-        text: "Opt-in tabless low-resource mode that farms without a visible video tab.",
-      },
-      { kind: "new", text: "Automatic drop claiming, including Twitch channel points." },
-      { kind: "new", text: "Activity log panel with adjustable detail levels." },
-      {
-        kind: "improved",
-        text: "Smart channel switching and real campaign progress tracking.",
-      },
-      { kind: "fixed", text: "Detect already-owned Twitch drops to avoid re-farming them." },
-    ],
-  },
-];
+const changeKinds = new Set<ChangeKind>(["new", "improved", "fixed"]);
+
+function isChangeKind(kind: string): kind is ChangeKind {
+  return changeKinds.has(kind as ChangeKind);
+}
+
+export const changelog: ChangelogEntry[] = changelogData.map((entry) => ({
+  ...entry,
+  changes: entry.changes.map((change) => {
+    if (!isChangeKind(change.kind)) {
+      throw new Error(`Unknown changelog change kind: ${change.kind}`);
+    }
+    return { ...change, kind: change.kind };
+  }),
+}));

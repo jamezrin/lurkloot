@@ -29,12 +29,10 @@ async function fixture(t, { version = "1.4.0", channel = "prerelease", date } = 
     await writeFile(absolutePath, `${JSON.stringify(manifest, null, 2)}\n`);
   }
 
-  const changelogPath = join(root, "packages/site/src/changelog.ts");
+  const changelogPath = join(root, "packages/site/src/changelog.json");
   await mkdir(dirname(changelogPath), { recursive: true });
-  await writeFile(
-    changelogPath,
-    `export const changelog: ChangelogEntry[] = [\n  {\n    version: "${version}",\n${date ? `    date: "${date}",\n` : "    // Unreleased — omit `date` until the public release.\n"}    changes: [],\n  },\n];\n`,
-  );
+  const entry = { version, ...(date ? { date } : {}), changes: [] };
+  await writeFile(changelogPath, `${JSON.stringify([entry], null, 2)}\n`);
   return root;
 }
 
@@ -74,12 +72,9 @@ test("prepare starts a prerelease and synchronizes every manifest", async (t) =>
   }
   const rootManifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
   assert.equal(rootManifest.release.channel, "prerelease");
-  const changelog = await readFile(join(root, "packages/site/src/changelog.ts"), "utf8");
-  assert.match(changelog, /version: "1\.5\.0"/);
-  const entryStart = changelog.indexOf('version: "1.5.0"');
-  const entryEnd = changelog.indexOf("\n  {", entryStart);
-  const entry = changelog.slice(entryStart, entryEnd);
-  assert.doesNotMatch(entry, /\n\s*date:/);
+  const changelog = JSON.parse(await readFile(join(root, "packages/site/src/changelog.json"), "utf8"));
+  assert.equal(changelog[0].version, "1.5.0");
+  assert.equal(changelog[0].date, undefined);
 });
 
 test("prepare promotes a prerelease to stable", async (t) => {
@@ -89,7 +84,6 @@ test("prepare promotes a prerelease to stable", async (t) => {
   assert.equal(result.status, 0, result.stderr);
   const rootManifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
   assert.equal(rootManifest.release.channel, "stable");
-  const changelog = await readFile(join(root, "packages/site/src/changelog.ts"), "utf8");
-  assert.match(changelog, /date: "2026-07-13"/);
-  assert.doesNotMatch(changelog, /Unreleased/);
+  const changelog = JSON.parse(await readFile(join(root, "packages/site/src/changelog.json"), "utf8"));
+  assert.equal(changelog[0].date, "2026-07-13");
 });

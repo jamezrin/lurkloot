@@ -13,7 +13,7 @@ const packages = [
   "packages/shared/package.json",
 ];
 const rootManifestPath = packages[0];
-const changelogPath = "packages/site/src/changelog.ts";
+const changelogPath = "packages/site/src/changelog.json";
 const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 const releaseChannels = new Set(["prerelease", "stable"]);
@@ -31,14 +31,9 @@ function declaration(manifest) {
   return { version: manifest.version, channel, prerelease: channel === "prerelease" };
 }
 
-function changelogEntry(source, version) {
-  const marker = `version: "${version}"`;
-  const start = source.indexOf(marker);
-  if (start < 0) return undefined;
-  const next = source.indexOf("\n  {", start);
-  const text = source.slice(start, next < 0 ? source.length : next);
-  const date = text.match(/\n\s*date:\s*"([^"]+)"/)?.[1];
-  return { text, date };
+function changelogEntry(changelog, version) {
+  if (!Array.isArray(changelog)) throw new Error("changelog must be an array");
+  return changelog.find((entry) => entry.version === version);
 }
 
 function validDate(value) {
@@ -62,8 +57,8 @@ async function check() {
       fail(`${path} has version ${manifest.version}; expected ${active.version}`);
     }
   }
-  const source = await readFile(changelogPath, "utf8");
-  const entry = changelogEntry(source, active.version);
+  const changelog = JSON.parse(await readFile(changelogPath, "utf8"));
+  const entry = changelogEntry(changelog, active.version);
   if (!entry) fail(`changelog has no ${active.version} entry`);
   else if (active.prerelease && entry.date) fail(`prerelease ${active.version} must be Unreleased (no date)`);
   else if (!active.prerelease && !validDate(entry.date)) fail(`stable ${active.version} must have a valid dated changelog entry`);
@@ -86,19 +81,16 @@ async function prepare(args) {
     await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`);
   }
 
-  let source = await readFile(changelogPath, "utf8");
-  const entry = changelogEntry(source, version);
+  const changelog = JSON.parse(await readFile(changelogPath, "utf8"));
+  const entry = changelogEntry(changelog, version);
   if (!entry) {
-    const insertion = `  {\n    version: "${version}",\n${prerelease ? "    // Unreleased — omit `date` until the public release.\n" : `    date: "${date}",\n`}    changes: [],\n  },\n`;
-    source = source.replace("export const changelog: ChangelogEntry[] = [\n", `export const changelog: ChangelogEntry[] = [\n${insertion}`);
+    changelog.unshift({ version, ...(prerelease ? {} : { date }), changes: [] });
   } else if (prerelease) {
-    source = source.replace(entry.text, entry.text.replace(/\n\s*date:\s*"\d{4}-\d{2}-\d{2}",?/, ""));
-  } else if (entry.date) {
-    source = source.replace(entry.text, entry.text.replace(/date:\s*"\d{4}-\d{2}-\d{2}"/, `date: "${date}"`));
+    delete entry.date;
   } else {
-    source = source.replace(entry.text, entry.text.replace(/(version:\s*"[^"]+",)/, `$1\n    date: "${date}",`).replace(/\n\s*\/\/ Unreleased[^\n]*/, ""));
+    entry.date = date;
   }
-  await writeFile(changelogPath, source);
+  await writeFile(changelogPath, `${JSON.stringify(changelog, null, 2)}\n`);
   await check();
 }
 

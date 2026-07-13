@@ -14,13 +14,13 @@ git switch -c release/1.5.0
 pnpm release:prepare 1.5.0 --prerelease
 ```
 
-This updates the root release declaration, synchronizes the extension, core, CLI, locales, popup UI, and shared package versions, and creates an empty Unreleased changelog entry when needed. Fill in its user-facing changes in `packages/site/src/changelog.ts`, then validate and publish the preparation branch:
+This updates the root release declaration, synchronizes the extension, core, CLI, locales, popup UI, and shared package versions, and creates an empty Unreleased changelog entry when needed. Fill in its user-facing changes in `packages/site/src/changelog.json`, then validate and publish the preparation branch:
 
 ```bash
 pnpm release:check
 pnpm verify
 
-git add package.json packages/*/package.json packages/site/src/changelog.ts
+git add package.json packages/*/package.json packages/site/src/changelog.json
 git commit -m "chore(release): bump version to 1.5.0"
 git push -u origin release/1.5.0
 ```
@@ -42,7 +42,7 @@ pnpm release:prepare 1.5.0 --stable --date YYYY-MM-DD
 pnpm release:check
 pnpm verify
 
-git add package.json packages/*/package.json packages/site/src/changelog.ts
+git add package.json packages/*/package.json packages/site/src/changelog.json
 git commit -m "chore(release): bump version to 1.5.0"
 git push -u origin release/1.5.0-stable
 ```

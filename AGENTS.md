@@ -10,7 +10,7 @@ This is a TypeScript pnpm monorepo (`packages/*`, see `pnpm-workspace.yaml`) cen
 - **`packages/locales`** — the localized message catalog package imported as `@lurkloot/locales`. JSON catalogs live in `messages/`, and `src/index.ts` exposes the async catalog loader used by the extension and popup UI.
 - **`packages/popup-ui`** — the shared React popup UI imported as `@lurkloot/popup-ui` (`Popup.tsx`, `primitives.tsx`, view components like `watchQueue.tsx`/`drops.tsx`/`settings.tsx`, and the rate-nudge logic), consumed by both the extension popup and the site demo.
 - **`packages/shared`** — framework-agnostic shared contracts imported as `@lurkloot/shared`: `models.ts`, `settings.ts`, `messages.ts`, `categories.ts`, `i18n.ts`, `logging.ts`.
-- **`packages/site`** — the Astro marketing site (deployed to Cloudflare Pages at `https://lurkloot.jamezrin.com`). Pages are in `src/pages/` (`index.astro`, `privacy.astro`, `changelog.astro`), content data in `src/changelog.ts`/`src/faq.ts`/`src/consts.ts`, and components/layouts/styles alongside. It imports the real popup UI for the live demo.
+- **`packages/site`** — the Astro marketing site (deployed to Cloudflare Pages at `https://lurkloot.jamezrin.com`). Pages are in `src/pages/` (`index.astro`, `privacy.astro`, `changelog.astro`), changelog data is in `src/changelog.json` with types in `src/changelog.ts`, other content data is in `src/faq.ts`/`src/consts.ts`, and components/layouts/styles are alongside. It imports the real popup UI for the live demo.
 
 Other top-level dirs: `docs/` (architecture and store-listing notes), `scripts/` (repo tooling), and `references/` (optional, untracked local snapshots — see below).
 
