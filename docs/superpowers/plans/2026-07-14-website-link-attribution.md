@@ -101,11 +101,11 @@ export const LINKS = {
 } as const;
 ```
 
-- [ ] **Step 4: Run focused tests and typecheck**
+- [ ] **Step 4: Run focused tests**
 
-Run: `pnpm --filter @lurkloot/site test && pnpm --filter @lurkloot/site typecheck`
+Run: `pnpm --filter @lurkloot/site test`
 
-Expected: all link tests pass and Astro reports no type errors.
+Expected: all link tests pass. The site has no standalone typecheck script; Task 2 and `pnpm check` validate it through the supported Astro production build.
 
 - [ ] **Step 5: Commit**
 

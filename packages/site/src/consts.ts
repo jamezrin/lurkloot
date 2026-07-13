@@ -33,15 +33,30 @@ export const SITE = {
 // unified release workflow. Used verbatim in the CLI section's snippet.
 export const DOCKER_IMAGE = "ghcr.io/jamezrin/lurkloot-cli:latest";
 
-export const LINKS = {
+export const EXTERNAL_URLS = {
   chrome:
     "https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn",
+  github: "https://github.com/jamezrin/lurkloot",
+  cli: "https://github.com/jamezrin/lurkloot/tree/main/packages/cli",
+  ghcr: "https://github.com/jamezrin/lurkloot/pkgs/container/lurkloot-cli",
+} as const;
+
+function withCampaign(url: string, campaign: "extension_install" | "open_source"): string {
+  const attributed = new URL(url);
+  attributed.searchParams.set("utm_source", "lurkloot_website");
+  attributed.searchParams.set("utm_medium", "referral");
+  attributed.searchParams.set("utm_campaign", campaign);
+  return attributed.href;
+}
+
+export const LINKS = {
+  chrome: withCampaign(EXTERNAL_URLS.chrome, "extension_install"),
   // On-site page (rendered from the same source policy).
   privacy: "/privacy",
   changelog: "/changelog",
   x: "https://x.com/jamezrin",
   // The open-source repo (not the profile) — surfaced across hero/CLI/footer.
-  github: "https://github.com/jamezrin/lurkloot",
-  cli: "https://github.com/jamezrin/lurkloot/tree/main/packages/cli#readme",
-  ghcr: "https://github.com/jamezrin/lurkloot/pkgs/container/lurkloot-cli",
+  github: withCampaign(EXTERNAL_URLS.github, "open_source"),
+  cli: withCampaign(`${EXTERNAL_URLS.cli}#readme`, "open_source"),
+  ghcr: withCampaign(EXTERNAL_URLS.ghcr, "open_source"),
 } as const;
