@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
-import type { EngineEvent } from "@lurkloot/shared/events";
+import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
@@ -81,7 +81,7 @@ function harness(
     // Host-owned tab policy + settings-patch application (see background.ts).
     loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false })),
     applySettingsPatch: vi.fn((current: ExtensionSettings, patch) => applySettingsPatch(current, patch)),
-    createAdapters: vi.fn(() => ({ twitch, kick })),
+    createAdapters: vi.fn((_emit: EventEmitter) => ({ twitch, kick })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
   };
 
@@ -119,6 +119,46 @@ describe("background controller", () => {
     await env.controller.tick();
 
     expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
+  });
+
+  it("preserves adapter and scheduler event order within one tick batch", async () => {
+    const env = harness();
+    vi.mocked(env.deps.createAdapters).mockImplementation((emit) => {
+      emit({ category: "diagnostic", level: "debug", message: "adapter-created" });
+      return { twitch: env.twitch, kick: env.kick };
+    });
+
+    await env.controller.tick();
+
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    const adapterIndex = published.findIndex((event) => event.category === "diagnostic" && event.message === "adapter-created");
+    const schedulerIndex = published.findIndex((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"));
+    expect(adapterIndex).toBeGreaterThanOrEqual(0);
+    expect(schedulerIndex).toBeGreaterThan(adapterIndex);
+  });
+
+  it("publishes category-search diagnostics in their own operation without leaking into the next tick", async () => {
+    const env = harness();
+    env.twitch.searchCategories = vi.fn(async () => {
+      throw new Error("category lookup failed");
+    });
+
+    await env.controller.handleMessage({ type: "searchCategories", platform: "twitch", query: "game" });
+
+    expect(env.reportEvents).toHaveBeenCalledWith([
+      expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "Category search failed: category lookup failed",
+      }),
+    ]);
+
+    env.reportEvents.mockClear();
+    await env.controller.tick();
+
+    const tickEvents = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    expect(tickEvents.some((event) => event.category === "diagnostic" && event.message.includes("category lookup failed"))).toBe(false);
   });
 
   it("publishes lifecycle events through the host sink without persisting log history", async () => {
