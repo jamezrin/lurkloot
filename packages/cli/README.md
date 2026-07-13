@@ -131,8 +131,8 @@ No browser means a slim Node image:
 # build from the repo root
 docker build -f packages/cli/Dockerfile -t lurkloot-cli .
 
-# Or use the published image. The first command creates a documented config.json
-# with Kick-capable defaults. Authenticate each platform you want to use.
+# Or use the published image. The first command creates a documented config.json.
+# Authenticate Twitch and/or Kick before starting the farming loop.
 docker run --rm -it -v "$PWD/data:/data" \
   ghcr.io/jamezrin/lurkloot-cli:latest auth twitch device-login
 docker run --rm -it -v "$PWD/data:/data" \

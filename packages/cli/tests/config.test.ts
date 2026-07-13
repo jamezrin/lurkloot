@@ -8,7 +8,7 @@ import { DEFAULT_CLI_SETTINGS } from "../src/settings";
 const CONFIG_PATH = "/tmp/lurkloot/config.json";
 
 describe("parseConfig", () => {
-  it("defaults to the Kick-capable impersonate transport and <configDir>/auth", () => {
+  it("defaults to the impersonate transport and <configDir>/auth", () => {
     const config = parseConfig({}, CONFIG_PATH);
     expect(config.transport).toBe("impersonate");
     expect(config.authDir).toBe(resolve("/tmp/lurkloot", "auth"));
