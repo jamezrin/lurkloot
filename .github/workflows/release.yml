@@ -46,7 +46,11 @@ jobs:
         run: |
           version=$(node -p "require('./package.json').version")
           channel=$(node -p "require('./package.json').release.channel")
-          [[ "$channel" == prerelease ]] && prerelease=true || prerelease=false
+          case "$channel" in
+            prerelease) prerelease=true ;;
+            stable) prerelease=false ;;
+            *) echo "Unsupported release channel: $channel" >&2; exit 1 ;;
+          esac
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           {
