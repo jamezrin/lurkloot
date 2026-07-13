@@ -40,12 +40,16 @@ const points = [
           <span></span><span></span><span></span>
           <em>lurkloot — docker</em>
         </div>
-        <pre class="cli__code"><code><span class="c"># one prebuilt, multi-arch image — nothing to build</span>
-<span class="p">docker</span> run -v <span class="s">"$PWD/data:/data"</span> \
+        <pre class="cli__code"><code><span class="c"># config.json is created with sensible defaults</span>
+<span class="p">docker</span> run --rm -it -v <span class="s">"$PWD/data:/data"</span> \
   <span class="i">{DOCKER_IMAGE}</span> auth twitch device-login
 
-<span class="c"># then just run the loop</span>
-<span class="p">docker</span> run -v <span class="s">"$PWD/data:/data"</span> <span class="i">{DOCKER_IMAGE}</span></code></pre>
+<span class="p">docker</span> run --rm -it -v <span class="s">"$PWD/data:/data"</span> \
+  <span class="i">{DOCKER_IMAGE}</span> auth kick device-login
+
+<span class="c"># then leave the farming loop running</span>
+<span class="p">docker</span> run -d --name lurkloot --restart unless-stopped \
+  -v <span class="s">"$PWD/data:/data"</span> <span class="i">{DOCKER_IMAGE}</span></code></pre>
       </div>
 
       <div class="cli__side">

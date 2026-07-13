@@ -193,7 +193,7 @@ function buildCli(argv: string[]): Argv {
   return yargs(argv)
     .scriptName("lurkloot")
     .usage("$0 <command> [options]")
-    .option("config", { type: "string", default: "config.json", describe: "Config file", global: true })
+    .option("config", { type: "string", default: "config.json", describe: "Config file (created with defaults if missing)", global: true })
     .option("log", { type: "string", choices: ["debug", "info", "warn", "error"], default: "info", describe: "Log level", global: true })
     .command(validateConfigCommand)
     .command(discoverCommand)
