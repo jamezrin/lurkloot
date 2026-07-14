@@ -158,8 +158,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   useEffect(() => {
     if (!activityOpen || preview) return;
     let cancelled = false;
-    const refresh = () => void adapter.send<ActivityPage>({ type: "getActivity", platform, limit: 80 }).then((page) => {
-      if (!cancelled) setActivityEvents(page.events);
+    const refresh = () => void adapter.send<ActivityPage>({ type: "getActivity", platform, category: "activity", limit: 80 }).then((page) => {
+      if (!cancelled) setActivityEvents(page.events as EventLogEntry[]);
     });
     refresh();
     const interval = setInterval(refresh, 5000);

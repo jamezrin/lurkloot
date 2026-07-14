@@ -57,7 +57,7 @@ function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackC
     case "exportCliCredentials":
       return demoSnapshot();
     case "getActivity":
-      return { events: [], hasMore: false };
+      return { events: [] };
     case "getPlaybackControl":
       return { managed: true, keepVideosUnmuted: true };
   }

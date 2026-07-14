@@ -1,4 +1,5 @@
-import type { CategorySelection, EngineSettings, EventCategory, EventLogEntry, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState } from "./models";
+import type { ActivityHistoryRecord, EventCategory } from "./events";
+import type { CategorySelection, EngineSettings, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState } from "./models";
 import type { SettingsPatch } from "./settings";
 
 export const SETTINGS_SESSION_PORT = "lurkloot.settings-session";
@@ -13,7 +14,7 @@ export type RuntimeMessage =
   | { type: "claimReward"; platform: Platform; campaignId: string; rewardId: string }
   | { type: "searchCategories"; platform: Platform; query: string }
   | { type: "tickNow" }
-  | { type: "getActivity"; platform?: Platform; category?: EventCategory; before?: string; limit?: number }
+  | ({ type: "getActivity" } & ActivityQuery)
   | { type: "clearActivity" }
   | { type: "exportCliCredentials" }
   | {
@@ -51,7 +52,14 @@ export interface PlaybackControl {
   keepVideosUnmuted: boolean;
 }
 
+export interface ActivityQuery {
+  platform?: Platform;
+  category: EventCategory;
+  cursor?: string;
+  limit?: number;
+}
+
 export interface ActivityPage {
-  events: EventLogEntry[];
-  hasMore: boolean;
+  events: ActivityHistoryRecord[];
+  nextCursor?: string;
 }

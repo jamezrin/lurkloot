@@ -1,11 +1,40 @@
-import type { ActivityPage } from "@lurkloot/shared/messages";
-import type { EventCategory, EventLogEntry, Platform } from "@lurkloot/shared/models";
+import type { ActivityPage, ActivityQuery } from "@lurkloot/shared/messages";
+import type {
+  ActivityHistoryRecord,
+  EngineEvent,
+  EventCategory,
+  StoredEngineEvent,
+  StoredLegacyEvent,
+} from "@lurkloot/shared/events";
 
 const DATABASE_NAME = "lurkloot-activity";
-const DATABASE_VERSION = 1;
-const STORE_NAME = "events";
-const MAX_RECORDS = 2_000;
+const DATABASE_VERSION = 2;
+const EVENT_STORE = "events";
+const META_STORE = "meta";
+const CATEGORY_INDEX = "category_at_id";
+const PLATFORM_CATEGORY_INDEX = "platform_category_at_id";
+const LAST_PRUNED_AT = "lastPrunedAt";
+const MAX_RECORDS_PER_CATEGORY = 2_000;
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
+const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1_000;
+const DEFAULT_LIMIT = 80;
+const MAX_LIMIT = 100;
+
+type ActivityCursor = [at: string, id: string];
+type MetaRecord = { key: string; value: string };
+
+function encodeCursor([at, id]: ActivityCursor): string {
+  return encodeURIComponent(JSON.stringify([at, id]));
+}
+
+function decodeCursor(value: string): ActivityCursor {
+  const decoded = JSON.parse(decodeURIComponent(value)) as unknown;
+  if (!Array.isArray(decoded) || decoded.length !== 2
+    || typeof decoded[0] !== "string" || typeof decoded[1] !== "string") {
+    throw new Error("Invalid activity cursor");
+  }
+  return [decoded[0], decoded[1]];
+}
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -22,112 +51,272 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
   });
 }
 
-let databasePromise: Promise<IDBDatabase> | undefined;
-
-function openDatabase(): Promise<IDBDatabase> {
-  if (databasePromise) return databasePromise;
-  databasePromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
-    request.onupgradeneeded = () => {
-      const database = request.result;
-      const store = database.createObjectStore(STORE_NAME, { keyPath: "id" });
-      store.createIndex("at", "at");
-      store.createIndex("platform", "platform");
-      store.createIndex("category", "category");
-    };
-    request.onsuccess = () => {
-      request.result.onversionchange = () => request.result.close();
-      resolve(request.result);
-    };
-    request.onerror = () => {
-      databasePromise = undefined;
-      reject(request.error ?? new Error("Could not open the activity database"));
-    };
-  });
-  return databasePromise;
+function categoryRange(category: EventCategory): IDBKeyRange {
+  return IDBKeyRange.bound([category], [category, []]);
 }
 
-export async function appendActivityEvents(events: readonly EventLogEntry[]): Promise<void> {
-  if (events.length === 0) return;
-  const database = await openDatabase();
-  const transaction = database.transaction(STORE_NAME, "readwrite");
-  const store = transaction.objectStore(STORE_NAME);
-  for (const event of events) store.put(event);
-  await transactionDone(transaction);
-  await pruneActivityEvents();
+export interface ActivityRepository {
+  open(): Promise<IDBDatabase>;
+  append(events: readonly EngineEvent[]): Promise<void>;
+  importLegacy(events: readonly StoredLegacyEvent[]): Promise<void>;
+  load(query: ActivityQuery): Promise<ActivityPage>;
+  clear(): Promise<void>;
+  prune(): Promise<void>;
+  count(category: EventCategory): Promise<number>;
+  close(): void;
+  deleteDatabase(): Promise<void>;
+  closeForVersionChangeForTest(): void;
+  failNextOpenForTest(): void;
 }
 
-export async function loadActivityEvents(query: {
-  platform?: Platform;
-  category?: EventCategory;
-  before?: string;
-  limit?: number;
-}): Promise<ActivityPage> {
-  const database = await openDatabase();
-  const transaction = database.transaction(STORE_NAME, "readonly");
-  const index = transaction.objectStore(STORE_NAME).index("at");
-  const upperBound = query.before ? IDBKeyRange.upperBound(query.before, true) : undefined;
-  const request = index.openCursor(upperBound, "prev");
-  const limit = Math.min(100, Math.max(1, query.limit ?? 80));
-  const events: EventLogEntry[] = [];
-  let hasMore = false;
+class IndexedDbActivityRepository implements ActivityRepository {
+  private databasePromise: Promise<IDBDatabase> | undefined;
+  private database: IDBDatabase | undefined;
+  private prunePromise: Promise<void> | undefined;
+  private failNextOpen = false;
 
-  await new Promise<void>((resolve, reject) => {
-    request.onerror = () => reject(request.error ?? new Error("Could not read activity"));
+  constructor(private readonly databaseName: string) {}
+
+  open(): Promise<IDBDatabase> {
+    if (this.databasePromise) return this.databasePromise;
+    this.databasePromise = this.openFresh().catch((error: unknown) => {
+      this.databasePromise = undefined;
+      throw error;
+    });
+    return this.databasePromise;
+  }
+
+  private openFresh(): Promise<IDBDatabase> {
+    if (this.failNextOpen) {
+      this.failNextOpen = false;
+      return Promise.reject(new Error("Simulated IndexedDB open failure"));
+    }
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.databaseName, DATABASE_VERSION);
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        const eventStore = database.objectStoreNames.contains(EVENT_STORE)
+          ? request.transaction!.objectStore(EVENT_STORE)
+          : database.createObjectStore(EVENT_STORE, { keyPath: "id" });
+        for (const indexName of Array.from(eventStore.indexNames)) eventStore.deleteIndex(indexName);
+        eventStore.createIndex(CATEGORY_INDEX, ["category", "at", "id"]);
+        eventStore.createIndex(PLATFORM_CATEGORY_INDEX, ["platform", "category", "at", "id"]);
+        if (!database.objectStoreNames.contains(META_STORE)) {
+          database.createObjectStore(META_STORE, { keyPath: "key" });
+        }
+      };
+      request.onsuccess = () => {
+        const database = request.result;
+        this.database = database;
+        database.onversionchange = () => {
+          if (this.database === database) this.database = undefined;
+          this.databasePromise = undefined;
+          database.close();
+        };
+        resolve(database);
+      };
+      request.onerror = () => reject(request.error ?? new Error("Could not open the activity database"));
+      request.onblocked = () => reject(new Error("Activity database open was blocked"));
+    });
+  }
+
+  async append(events: readonly EngineEvent[]): Promise<void> {
+    if (events.length === 0) return;
+    const at = new Date().toISOString();
+    const stored: StoredEngineEvent[] = events.map((event, index) => ({
+      ...event,
+      id: `${at}-${String(index).padStart(6, "0")}-${crypto.randomUUID()}`,
+      at,
+      ...(event.data ? { data: { ...event.data } } : {}),
+    })) as StoredEngineEvent[];
+    await this.putAll(stored);
+    await this.pruneIfDue();
+  }
+
+  async importLegacy(events: readonly StoredLegacyEvent[]): Promise<void> {
+    if (events.length === 0) return;
+    await this.putAll(events);
+    await this.pruneIfDue();
+  }
+
+  private async putAll(events: readonly ActivityHistoryRecord[]): Promise<void> {
+    const database = await this.open();
+    const transaction = database.transaction(EVENT_STORE, "readwrite");
+    const store = transaction.objectStore(EVENT_STORE);
+    for (const event of events) store.put(event);
+    await transactionDone(transaction);
+  }
+
+  async load(query: ActivityQuery): Promise<ActivityPage> {
+    const database = await this.open();
+    const transaction = database.transaction(EVENT_STORE, "readonly");
+    const index = transaction.objectStore(EVENT_STORE).index(CATEGORY_INDEX);
+    const cutoff = new Date(Date.now() - RETENTION_MS).toISOString();
+    const lower: [EventCategory, string, string] = [query.category, cutoff, ""];
+    const range = query.cursor
+      ? IDBKeyRange.bound(lower, [query.category, ...decodeCursor(query.cursor)], false, true)
+      : IDBKeyRange.bound(lower, [query.category, []]);
+    const request = index.openCursor(range, "prev");
+    const limit = Math.min(MAX_LIMIT, Math.max(1, query.limit ?? DEFAULT_LIMIT));
+    const events: ActivityHistoryRecord[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      request.onerror = () => reject(request.error ?? new Error("Could not read activity"));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+          resolve();
+          return;
+        }
+        const event = cursor.value as ActivityHistoryRecord;
+        if (!query.platform || !event.platform || event.platform === query.platform) {
+          events.push(event);
+          if (events.length === limit + 1) {
+            resolve();
+            return;
+          }
+        }
+        cursor.continue();
+      };
+    });
+    await transactionDone(transaction);
+
+    const hasMore = events.length > limit;
+    if (hasMore) events.pop();
+    const last = events.at(-1);
+    return {
+      events,
+      ...(hasMore && last ? { nextCursor: encodeCursor([last.at, last.id]) } : {}),
+    };
+  }
+
+  async clear(): Promise<void> {
+    const database = await this.open();
+    const transaction = database.transaction([EVENT_STORE, META_STORE], "readwrite");
+    transaction.objectStore(EVENT_STORE).clear();
+    transaction.objectStore(META_STORE).clear();
+    await transactionDone(transaction);
+  }
+
+  async count(category: EventCategory): Promise<number> {
+    const database = await this.open();
+    const transaction = database.transaction(EVENT_STORE, "readonly");
+    const count = await requestResult(transaction.objectStore(EVENT_STORE).index(CATEGORY_INDEX).count(categoryRange(category)));
+    await transactionDone(transaction);
+    return count;
+  }
+
+  async prune(): Promise<void> {
+    if (this.prunePromise) return this.prunePromise;
+    this.prunePromise = this.pruneNow().finally(() => {
+      this.prunePromise = undefined;
+    });
+    return this.prunePromise;
+  }
+
+  private async pruneIfDue(): Promise<void> {
+    if (this.prunePromise) return this.prunePromise;
+    const database = await this.open();
+    const transaction = database.transaction(META_STORE, "readonly");
+    const record = await requestResult(transaction.objectStore(META_STORE).get(LAST_PRUNED_AT)) as MetaRecord | undefined;
+    await transactionDone(transaction);
+    const lastPrunedAt = record ? Date.parse(record.value) : Number.NaN;
+    if (!Number.isFinite(lastPrunedAt) || Date.now() - lastPrunedAt >= PRUNE_INTERVAL_MS) {
+      await this.prune();
+    }
+  }
+
+  private async pruneNow(): Promise<void> {
+    const cutoff = new Date(Date.now() - RETENTION_MS).toISOString();
+    for (const category of ["activity", "diagnostic"] as const) {
+      await this.deleteExpired(category, cutoff);
+      await this.deleteExcess(category);
+    }
+    const database = await this.open();
+    const transaction = database.transaction(META_STORE, "readwrite");
+    transaction.objectStore(META_STORE).put({ key: LAST_PRUNED_AT, value: new Date().toISOString() } satisfies MetaRecord);
+    await transactionDone(transaction);
+  }
+
+  private async deleteExpired(category: EventCategory, cutoff: string): Promise<void> {
+    const database = await this.open();
+    const transaction = database.transaction(EVENT_STORE, "readwrite");
+    const store = transaction.objectStore(EVENT_STORE);
+    const range = IDBKeyRange.bound([category], [category, cutoff, ""], false, true);
+    const request = store.index(CATEGORY_INDEX).openKeyCursor(range);
     request.onsuccess = () => {
       const cursor = request.result;
-      if (!cursor) {
-        resolve();
-        return;
-      }
-      const event = cursor.value as EventLogEntry;
-      const category = event.category ?? "diagnostic";
-      const matches = (!query.platform || !event.platform || event.platform === query.platform)
-        && (!query.category || category === query.category);
-      if (matches && events.length < limit) events.push(event);
-      else if (matches) {
-        hasMore = true;
-        resolve();
-        return;
-      }
+      if (!cursor) return;
+      store.delete(cursor.primaryKey);
       cursor.continue();
     };
-  });
-  await transactionDone(transaction);
-  return { events, hasMore };
-}
+    await transactionDone(transaction);
+  }
 
-export async function clearActivityEvents(): Promise<void> {
-  const database = await openDatabase();
-  const transaction = database.transaction(STORE_NAME, "readwrite");
-  transaction.objectStore(STORE_NAME).clear();
-  await transactionDone(transaction);
-}
+  private async deleteExcess(category: EventCategory): Promise<void> {
+    const database = await this.open();
+    const countTransaction = database.transaction(EVENT_STORE, "readonly");
+    const count = await requestResult(countTransaction.objectStore(EVENT_STORE).index(CATEGORY_INDEX).count(categoryRange(category)));
+    await transactionDone(countTransaction);
+    let excess = count - MAX_RECORDS_PER_CATEGORY;
+    if (excess <= 0) return;
 
-async function pruneActivityEvents(): Promise<void> {
-  const database = await openDatabase();
-  const transaction = database.transaction(STORE_NAME, "readwrite");
-  const store = transaction.objectStore(STORE_NAME);
-  const at = store.index("at");
-  const cutoff = new Date(Date.now() - RETENTION_MS).toISOString();
-  const stale = at.openKeyCursor(IDBKeyRange.upperBound(cutoff, true));
-  stale.onsuccess = () => {
-    const cursor = stale.result;
-    if (!cursor) return;
-    store.delete(cursor.primaryKey);
-    cursor.continue();
-  };
-  const count = await requestResult(store.count());
-  let excess = Math.max(0, count - MAX_RECORDS);
-  if (excess > 0) {
-    const oldest = at.openKeyCursor(undefined, "next");
-    oldest.onsuccess = () => {
-      const cursor = oldest.result;
+    const deleteTransaction = database.transaction(EVENT_STORE, "readwrite");
+    const store = deleteTransaction.objectStore(EVENT_STORE);
+    const request = store.index(CATEGORY_INDEX).openKeyCursor(categoryRange(category), "next");
+    request.onsuccess = () => {
+      const cursor = request.result;
       if (!cursor || excess <= 0) return;
       store.delete(cursor.primaryKey);
       excess -= 1;
       cursor.continue();
     };
+    await transactionDone(deleteTransaction);
   }
-  await transactionDone(transaction);
+
+  close(): void {
+    this.database?.close();
+    this.database = undefined;
+    this.databasePromise = undefined;
+  }
+
+  async deleteDatabase(): Promise<void> {
+    this.close();
+    await requestResult(indexedDB.deleteDatabase(this.databaseName));
+  }
+
+  closeForVersionChangeForTest(): void {
+    const database = this.database;
+    if (!database) return;
+    this.database = undefined;
+    this.databasePromise = undefined;
+    database.close();
+  }
+
+  failNextOpenForTest(): void {
+    this.close();
+    this.failNextOpen = true;
+  }
+}
+
+const repository = new IndexedDbActivityRepository(DATABASE_NAME);
+
+export function createActivityRepositoryForTest(databaseName: string): ActivityRepository {
+  return new IndexedDbActivityRepository(databaseName);
+}
+
+export function appendActivityEvents(events: readonly EngineEvent[]): Promise<void> {
+  return repository.append(events);
+}
+
+export function importLegacyActivityEvents(events: readonly StoredLegacyEvent[]): Promise<void> {
+  return repository.importLegacy(events);
+}
+
+export function loadActivityEvents(query: ActivityQuery): Promise<ActivityPage> {
+  return repository.load(query);
+}
+
+export function clearActivityEvents(): Promise<void> {
+  return repository.clear();
 }

@@ -1,9 +1,10 @@
 import { browser } from "wxt/browser";
-import type { EventLogEntry, ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
+import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
+import type { LegacyEventLogEntry, StoredLegacyEvent } from "@lurkloot/shared/events";
 import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import { DEFAULT_STATE, mergeSchedulerState } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
-import { appendActivityEvents, clearActivityEvents } from "./activityStorage";
+import { clearActivityEvents, importLegacyActivityEvents } from "./activityStorage";
 
 export { DEFAULT_STATE };
 
@@ -12,7 +13,7 @@ const STATE_KEY = "schedulerState";
 // Captured Client-Integrity bundle, kept separate from scheduler state because
 // it is transient device/session-scoped auth rather than farming progress.
 const TWITCH_INTEGRITY_KEY = "twitchIntegrity";
-type LegacyStoredSchedulerState = Partial<SchedulerState> & { events?: EventLogEntry[] };
+type LegacyStoredSchedulerState = Partial<SchedulerState> & { events?: LegacyEventLogEntry[] };
 
 export async function loadSettings(): Promise<ExtensionSettings> {
   const data = await browser.storage.local.get(SETTINGS_KEY);
@@ -32,7 +33,12 @@ export async function loadState(): Promise<SchedulerState> {
   // scheduler state. A failed import is harmless and retried on the next load.
   if (legacyEvents.length > 0) {
     try {
-      await appendActivityEvents(legacyEvents);
+      const normalized = legacyEvents.map((event): StoredLegacyEvent => ({
+        ...event,
+        category: event.category ?? "diagnostic",
+        legacy: true,
+      }));
+      await importLegacyActivityEvents(normalized);
       await browser.storage.local.set({ [STATE_KEY]: state });
     } catch {
       // Activity history is best-effort; a database failure must not prevent
@@ -44,7 +50,11 @@ export async function loadState(): Promise<SchedulerState> {
 }
 
 export async function saveState(state: SchedulerState): Promise<void> {
-  await browser.storage.local.set({ [STATE_KEY]: state });
+  const data = await browser.storage.local.get(STATE_KEY);
+  const legacyEvents = (data[STATE_KEY] as LegacyStoredSchedulerState | undefined)?.events;
+  await browser.storage.local.set({
+    [STATE_KEY]: legacyEvents?.length ? { ...state, events: legacyEvents } : state,
+  });
 }
 
 export async function loadTwitchIntegrity(): Promise<TwitchIntegrity | undefined> {
