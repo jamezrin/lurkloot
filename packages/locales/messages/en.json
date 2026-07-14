@@ -737,5 +737,32 @@
   },
   "compatibilityRestoreAutomatic": {
     "message": "Restore automatic compatibility"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch July 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "GraphQL heartbeat v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Spade heartbeat v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Trowel heartbeat v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Inventory query v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Inventory query v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick July 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Claim handling v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Claim handling v2"
   }
 }

@@ -682,60 +682,87 @@
     "message": "显示诊断信息"
   },
   "compatibilityAutomatic": {
-    "message": "兼容性: Automatic"
+    "message": "自动"
   },
   "compatibilityTwitchProfileTitle": {
-    "message": "兼容性: Twitch compatibility profile"
+    "message": "Twitch 兼容性配置文件"
   },
   "compatibilityTwitchProfileDescription": {
-    "message": "兼容性: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+    "message": "选择内置的 Twitch 配置文件，或让 Lurkloot 自动选择。"
   },
   "compatibilityKickProfileTitle": {
-    "message": "兼容性: Kick compatibility profile"
+    "message": "Kick 兼容性配置文件"
   },
   "compatibilityKickProfileDescription": {
-    "message": "兼容性: Choose a bundled Kick profile or let Lurkloot select it automatically."
+    "message": "选择内置的 Kick 配置文件，或让 Lurkloot 自动选择。"
   },
   "compatibilityEffectiveTitle": {
-    "message": "兼容性: Effective compatibility"
+    "message": "当前兼容性"
   },
   "compatibilityExpertShow": {
-    "message": "兼容性: Show expert compatibility controls"
+    "message": "显示专家控件"
   },
   "compatibilityExpertHide": {
-    "message": "兼容性: Hide expert compatibility controls"
+    "message": "隐藏专家控件"
   },
   "compatibilityTwitchHeartbeatTitle": {
-    "message": "兼容性: Twitch heartbeat transport"
+    "message": "Twitch 心跳传输"
   },
   "compatibilityTwitchHeartbeatDescription": {
-    "message": "兼容性: Override the bundled Twitch watch heartbeat."
+    "message": "覆盖内置的 Twitch 观看心跳。"
   },
   "compatibilityTwitchInventoryTitle": {
-    "message": "兼容性: Twitch inventory query"
+    "message": "Twitch 库存查询"
   },
   "compatibilityTwitchInventoryDescription": {
-    "message": "兼容性: Override the bundled Twitch inventory query."
+    "message": "覆盖内置的 Twitch 库存查询。"
   },
   "compatibilityKickClaimTitle": {
-    "message": "兼容性: Kick claim-link handling"
+    "message": "Kick 链接处理"
   },
   "compatibilityKickClaimDescription": {
-    "message": "兼容性: Override the bundled Kick account-link handling."
+    "message": "覆盖内置的 Kick 账户链接处理。"
   },
   "compatibilityLifecycleRecommended": {
-    "message": "兼容性: Recommended"
+    "message": "推荐"
   },
   "compatibilityLifecycleLegacy": {
-    "message": "兼容性: Legacy"
+    "message": "旧版"
   },
   "compatibilityLifecycleExperimental": {
-    "message": "兼容性: Experimental"
+    "message": "实验性"
   },
   "compatibilityOverrideWarning": {
-    "message": "兼容性: Manual compatibility overrides are active. They may stop working when platforms change."
+    "message": "手动兼容性覆盖已启用。平台变化时可能会失效。"
   },
   "compatibilityRestoreAutomatic": {
-    "message": "兼容性: Restore automatic compatibility"
+    "message": "恢复自动兼容性"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch 2026 年 7 月版"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "GraphQL 心跳 v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Spade 心跳 v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Trowel 心跳 v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "库存查询 v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "库存查询 v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick 2026 年 7 月版"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "链接处理 v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "链接处理 v2"
   }
 }

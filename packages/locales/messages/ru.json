@@ -682,60 +682,87 @@
     "message": "Показать диагностику"
   },
   "compatibilityAutomatic": {
-    "message": "Совместимость: Automatic"
+    "message": "Автоматически"
   },
   "compatibilityTwitchProfileTitle": {
-    "message": "Совместимость: Twitch compatibility profile"
+    "message": "Профиль совместимости Twitch"
   },
   "compatibilityTwitchProfileDescription": {
-    "message": "Совместимость: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+    "message": "Выберите встроенный профиль Twitch или разрешите Lurkloot выбрать его автоматически."
   },
   "compatibilityKickProfileTitle": {
-    "message": "Совместимость: Kick compatibility profile"
+    "message": "Профиль совместимости Kick"
   },
   "compatibilityKickProfileDescription": {
-    "message": "Совместимость: Choose a bundled Kick profile or let Lurkloot select it automatically."
+    "message": "Выберите встроенный профиль Kick или разрешите Lurkloot выбрать его автоматически."
   },
   "compatibilityEffectiveTitle": {
-    "message": "Совместимость: Effective compatibility"
+    "message": "Активная совместимость"
   },
   "compatibilityExpertShow": {
-    "message": "Совместимость: Show expert compatibility controls"
+    "message": "Показать расширенные настройки"
   },
   "compatibilityExpertHide": {
-    "message": "Совместимость: Hide expert compatibility controls"
+    "message": "Скрыть расширенные настройки"
   },
   "compatibilityTwitchHeartbeatTitle": {
-    "message": "Совместимость: Twitch heartbeat transport"
+    "message": "Передача пульса Twitch"
   },
   "compatibilityTwitchHeartbeatDescription": {
-    "message": "Совместимость: Override the bundled Twitch watch heartbeat."
+    "message": "Переопределить встроенный пульс Twitch."
   },
   "compatibilityTwitchInventoryTitle": {
-    "message": "Совместимость: Twitch inventory query"
+    "message": "Запрос инвентаря Twitch"
   },
   "compatibilityTwitchInventoryDescription": {
-    "message": "Совместимость: Override the bundled Twitch inventory query."
+    "message": "Переопределить встроенный запрос инвентаря Twitch."
   },
   "compatibilityKickClaimTitle": {
-    "message": "Совместимость: Kick claim-link handling"
+    "message": "Обработка ссылок Kick"
   },
   "compatibilityKickClaimDescription": {
-    "message": "Совместимость: Override the bundled Kick account-link handling."
+    "message": "Переопределить встроенную обработку ссылок Kick."
   },
   "compatibilityLifecycleRecommended": {
-    "message": "Совместимость: Recommended"
+    "message": "Рекомендуется"
   },
   "compatibilityLifecycleLegacy": {
-    "message": "Совместимость: Legacy"
+    "message": "Устаревшее"
   },
   "compatibilityLifecycleExperimental": {
-    "message": "Совместимость: Experimental"
+    "message": "Экспериментальное"
   },
   "compatibilityOverrideWarning": {
-    "message": "Совместимость: Manual compatibility overrides are active. They may stop working when platforms change."
+    "message": "Включены ручные настройки. Они могут перестать работать после изменений платформ."
   },
   "compatibilityRestoreAutomatic": {
-    "message": "Совместимость: Restore automatic compatibility"
+    "message": "Восстановить автоматическую совместимость"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch, июль 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "Пульс GraphQL v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Пульс Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Пульс Trowel v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Запрос инвентаря v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Запрос инвентаря v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick, июль 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Обработка ссылок v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Обработка ссылок v2"
   }
 }

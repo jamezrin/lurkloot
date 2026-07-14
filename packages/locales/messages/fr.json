@@ -682,60 +682,87 @@
     "message": "Afficher les diagnostics"
   },
   "compatibilityAutomatic": {
-    "message": "Compatibilité: Automatic"
+    "message": "Automatique"
   },
   "compatibilityTwitchProfileTitle": {
-    "message": "Compatibilité: Twitch compatibility profile"
+    "message": "Profil de compatibilité Twitch"
   },
   "compatibilityTwitchProfileDescription": {
-    "message": "Compatibilité: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+    "message": "Choisissez un profil Twitch fourni ou laissez Lurkloot le sélectionner automatiquement."
   },
   "compatibilityKickProfileTitle": {
-    "message": "Compatibilité: Kick compatibility profile"
+    "message": "Profil de compatibilité Kick"
   },
   "compatibilityKickProfileDescription": {
-    "message": "Compatibilité: Choose a bundled Kick profile or let Lurkloot select it automatically."
+    "message": "Choisissez un profil Kick fourni ou laissez Lurkloot le sélectionner automatiquement."
   },
   "compatibilityEffectiveTitle": {
-    "message": "Compatibilité: Effective compatibility"
+    "message": "Compatibilité active"
   },
   "compatibilityExpertShow": {
-    "message": "Compatibilité: Show expert compatibility controls"
+    "message": "Afficher les options avancées"
   },
   "compatibilityExpertHide": {
-    "message": "Compatibilité: Hide expert compatibility controls"
+    "message": "Masquer les options avancées"
   },
   "compatibilityTwitchHeartbeatTitle": {
-    "message": "Compatibilité: Twitch heartbeat transport"
+    "message": "Transport des pulsations Twitch"
   },
   "compatibilityTwitchHeartbeatDescription": {
-    "message": "Compatibilité: Override the bundled Twitch watch heartbeat."
+    "message": "Remplacez la pulsation de visionnage Twitch fournie."
   },
   "compatibilityTwitchInventoryTitle": {
-    "message": "Compatibilité: Twitch inventory query"
+    "message": "Requête d’inventaire Twitch"
   },
   "compatibilityTwitchInventoryDescription": {
-    "message": "Compatibilité: Override the bundled Twitch inventory query."
+    "message": "Remplacez la requête d’inventaire Twitch fournie."
   },
   "compatibilityKickClaimTitle": {
-    "message": "Compatibilité: Kick claim-link handling"
+    "message": "Gestion des liens Kick"
   },
   "compatibilityKickClaimDescription": {
-    "message": "Compatibilité: Override the bundled Kick account-link handling."
+    "message": "Remplacez la gestion fournie des liens de compte Kick."
   },
   "compatibilityLifecycleRecommended": {
-    "message": "Compatibilité: Recommended"
+    "message": "Recommandé"
   },
   "compatibilityLifecycleLegacy": {
-    "message": "Compatibilité: Legacy"
+    "message": "Ancien"
   },
   "compatibilityLifecycleExperimental": {
-    "message": "Compatibilité: Experimental"
+    "message": "Expérimental"
   },
   "compatibilityOverrideWarning": {
-    "message": "Compatibilité: Manual compatibility overrides are active. They may stop working when platforms change."
+    "message": "Des options manuelles sont actives. Elles peuvent cesser de fonctionner lorsque les plateformes évoluent."
   },
   "compatibilityRestoreAutomatic": {
-    "message": "Compatibilité: Restore automatic compatibility"
+    "message": "Rétablir la compatibilité automatique"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch juillet 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "Pulsation GraphQL v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Pulsation Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Pulsation Trowel v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Requête d’inventaire v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Requête d’inventaire v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick juillet 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Gestion des liens v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Gestion des liens v2"
   }
 }

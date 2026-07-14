@@ -682,60 +682,87 @@
     "message": "डायग्नोस्टिक दिखाएँ"
   },
   "compatibilityAutomatic": {
-    "message": "संगतता: Automatic"
+    "message": "स्वचालित"
   },
   "compatibilityTwitchProfileTitle": {
-    "message": "संगतता: Twitch compatibility profile"
+    "message": "Twitch संगतता प्रोफ़ाइल"
   },
   "compatibilityTwitchProfileDescription": {
-    "message": "संगतता: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+    "message": "शामिल Twitch प्रोफ़ाइल चुनें या Lurkloot को अपने आप चुनने दें।"
   },
   "compatibilityKickProfileTitle": {
-    "message": "संगतता: Kick compatibility profile"
+    "message": "Kick संगतता प्रोफ़ाइल"
   },
   "compatibilityKickProfileDescription": {
-    "message": "संगतता: Choose a bundled Kick profile or let Lurkloot select it automatically."
+    "message": "शामिल Kick प्रोफ़ाइल चुनें या Lurkloot को अपने आप चुनने दें।"
   },
   "compatibilityEffectiveTitle": {
-    "message": "संगतता: Effective compatibility"
+    "message": "प्रभावी संगतता"
   },
   "compatibilityExpertShow": {
-    "message": "संगतता: Show expert compatibility controls"
+    "message": "विशेषज्ञ नियंत्रण दिखाएँ"
   },
   "compatibilityExpertHide": {
-    "message": "संगतता: Hide expert compatibility controls"
+    "message": "विशेषज्ञ नियंत्रण छिपाएँ"
   },
   "compatibilityTwitchHeartbeatTitle": {
-    "message": "संगतता: Twitch heartbeat transport"
+    "message": "Twitch हार्टबीट ट्रांसपोर्ट"
   },
   "compatibilityTwitchHeartbeatDescription": {
-    "message": "संगतता: Override the bundled Twitch watch heartbeat."
+    "message": "शामिल Twitch हार्टबीट बदलें।"
   },
   "compatibilityTwitchInventoryTitle": {
-    "message": "संगतता: Twitch inventory query"
+    "message": "Twitch इन्वेंट्री क्वेरी"
   },
   "compatibilityTwitchInventoryDescription": {
-    "message": "संगतता: Override the bundled Twitch inventory query."
+    "message": "शामिल Twitch इन्वेंट्री क्वेरी बदलें।"
   },
   "compatibilityKickClaimTitle": {
-    "message": "संगतता: Kick claim-link handling"
+    "message": "Kick लिंक प्रबंधन"
   },
   "compatibilityKickClaimDescription": {
-    "message": "संगतता: Override the bundled Kick account-link handling."
+    "message": "शामिल Kick खाता-लिंक प्रबंधन बदलें।"
   },
   "compatibilityLifecycleRecommended": {
-    "message": "संगतता: Recommended"
+    "message": "अनुशंसित"
   },
   "compatibilityLifecycleLegacy": {
-    "message": "संगतता: Legacy"
+    "message": "पुराना"
   },
   "compatibilityLifecycleExperimental": {
-    "message": "संगतता: Experimental"
+    "message": "प्रायोगिक"
   },
   "compatibilityOverrideWarning": {
-    "message": "संगतता: Manual compatibility overrides are active. They may stop working when platforms change."
+    "message": "मैन्युअल संगतता बदलाव सक्रिय हैं। प्लेटफ़ॉर्म बदलने पर वे काम करना बंद कर सकते हैं।"
   },
   "compatibilityRestoreAutomatic": {
-    "message": "संगतता: Restore automatic compatibility"
+    "message": "स्वचालित संगतता बहाल करें"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch जुलाई 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "GraphQL हार्टबीट v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Spade हार्टबीट v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Trowel हार्टबीट v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "इन्वेंट्री क्वेरी v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "इन्वेंट्री क्वेरी v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick जुलाई 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "लिंक प्रबंधन v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "लिंक प्रबंधन v2"
   }
 }

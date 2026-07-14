@@ -682,60 +682,87 @@
     "message": "Mostra diagnostica"
   },
   "compatibilityAutomatic": {
-    "message": "Compatibilità: Automatic"
+    "message": "Automatica"
   },
   "compatibilityTwitchProfileTitle": {
-    "message": "Compatibilità: Twitch compatibility profile"
+    "message": "Profilo di compatibilità Twitch"
   },
   "compatibilityTwitchProfileDescription": {
-    "message": "Compatibilità: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+    "message": "Scegli un profilo Twitch incluso o lascia che Lurkloot lo selezioni automaticamente."
   },
   "compatibilityKickProfileTitle": {
-    "message": "Compatibilità: Kick compatibility profile"
+    "message": "Profilo di compatibilità Kick"
   },
   "compatibilityKickProfileDescription": {
-    "message": "Compatibilità: Choose a bundled Kick profile or let Lurkloot select it automatically."
+    "message": "Scegli un profilo Kick incluso o lascia che Lurkloot lo selezioni automaticamente."
   },
   "compatibilityEffectiveTitle": {
-    "message": "Compatibilità: Effective compatibility"
+    "message": "Compatibilità attiva"
   },
   "compatibilityExpertShow": {
-    "message": "Compatibilità: Show expert compatibility controls"
+    "message": "Mostra i controlli avanzati"
   },
   "compatibilityExpertHide": {
-    "message": "Compatibilità: Hide expert compatibility controls"
+    "message": "Nascondi i controlli avanzati"
   },
   "compatibilityTwitchHeartbeatTitle": {
-    "message": "Compatibilità: Twitch heartbeat transport"
+    "message": "Trasporto heartbeat di Twitch"
   },
   "compatibilityTwitchHeartbeatDescription": {
-    "message": "Compatibilità: Override the bundled Twitch watch heartbeat."
+    "message": "Sostituisci l’heartbeat Twitch incluso."
   },
   "compatibilityTwitchInventoryTitle": {
-    "message": "Compatibilità: Twitch inventory query"
+    "message": "Query dell’inventario Twitch"
   },
   "compatibilityTwitchInventoryDescription": {
-    "message": "Compatibilità: Override the bundled Twitch inventory query."
+    "message": "Sostituisci la query dell’inventario Twitch inclusa."
   },
   "compatibilityKickClaimTitle": {
-    "message": "Compatibilità: Kick claim-link handling"
+    "message": "Gestione dei link Kick"
   },
   "compatibilityKickClaimDescription": {
-    "message": "Compatibilità: Override the bundled Kick account-link handling."
+    "message": "Sostituisci la gestione inclusa dei link Kick."
   },
   "compatibilityLifecycleRecommended": {
-    "message": "Compatibilità: Recommended"
+    "message": "Consigliata"
   },
   "compatibilityLifecycleLegacy": {
-    "message": "Compatibilità: Legacy"
+    "message": "Precedente"
   },
   "compatibilityLifecycleExperimental": {
-    "message": "Compatibilità: Experimental"
+    "message": "Sperimentale"
   },
   "compatibilityOverrideWarning": {
-    "message": "Compatibilità: Manual compatibility overrides are active. They may stop working when platforms change."
+    "message": "Sono attive impostazioni manuali. Potrebbero smettere di funzionare quando le piattaforme cambiano."
   },
   "compatibilityRestoreAutomatic": {
-    "message": "Compatibilità: Restore automatic compatibility"
+    "message": "Ripristina la compatibilità automatica"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch luglio 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "Heartbeat GraphQL v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Heartbeat Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Heartbeat Trowel v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Query inventario v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Query inventario v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick luglio 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Gestione link v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Gestione link v2"
   }
 }

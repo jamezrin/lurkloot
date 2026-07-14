@@ -682,60 +682,87 @@
     "message": "عرض التشخيص"
   },
   "compatibilityAutomatic": {
-    "message": "التوافق: Automatic"
+    "message": "تلقائي"
   },
   "compatibilityTwitchProfileTitle": {
-    "message": "التوافق: Twitch compatibility profile"
+    "message": "ملف توافق Twitch"
   },
   "compatibilityTwitchProfileDescription": {
-    "message": "التوافق: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+    "message": "اختر ملف Twitch مضمنًا أو دع Lurkloot يختاره تلقائيًا."
   },
   "compatibilityKickProfileTitle": {
-    "message": "التوافق: Kick compatibility profile"
+    "message": "ملف توافق Kick"
   },
   "compatibilityKickProfileDescription": {
-    "message": "التوافق: Choose a bundled Kick profile or let Lurkloot select it automatically."
+    "message": "اختر ملف Kick مضمنًا أو دع Lurkloot يختاره تلقائيًا."
   },
   "compatibilityEffectiveTitle": {
-    "message": "التوافق: Effective compatibility"
+    "message": "التوافق الفعّال"
   },
   "compatibilityExpertShow": {
-    "message": "التوافق: Show expert compatibility controls"
+    "message": "إظهار عناصر التحكم المتقدمة"
   },
   "compatibilityExpertHide": {
-    "message": "التوافق: Hide expert compatibility controls"
+    "message": "إخفاء عناصر التحكم المتقدمة"
   },
   "compatibilityTwitchHeartbeatTitle": {
-    "message": "التوافق: Twitch heartbeat transport"
+    "message": "نقل نبضات Twitch"
   },
   "compatibilityTwitchHeartbeatDescription": {
-    "message": "التوافق: Override the bundled Twitch watch heartbeat."
+    "message": "تجاوز نبض مشاهدة Twitch المضمن."
   },
   "compatibilityTwitchInventoryTitle": {
-    "message": "التوافق: Twitch inventory query"
+    "message": "استعلام مخزون Twitch"
   },
   "compatibilityTwitchInventoryDescription": {
-    "message": "التوافق: Override the bundled Twitch inventory query."
+    "message": "تجاوز استعلام مخزون Twitch المضمن."
   },
   "compatibilityKickClaimTitle": {
-    "message": "التوافق: Kick claim-link handling"
+    "message": "معالجة روابط Kick"
   },
   "compatibilityKickClaimDescription": {
-    "message": "التوافق: Override the bundled Kick account-link handling."
+    "message": "تجاوز المعالجة المضمنة لروابط حساب Kick."
   },
   "compatibilityLifecycleRecommended": {
-    "message": "التوافق: Recommended"
+    "message": "موصى به"
   },
   "compatibilityLifecycleLegacy": {
-    "message": "التوافق: Legacy"
+    "message": "قديم"
   },
   "compatibilityLifecycleExperimental": {
-    "message": "التوافق: Experimental"
+    "message": "تجريبي"
   },
   "compatibilityOverrideWarning": {
-    "message": "التوافق: Manual compatibility overrides are active. They may stop working when platforms change."
+    "message": "تجاوزات التوافق اليدوية مفعّلة. قد تتوقف عن العمل عندما تتغير المنصات."
   },
   "compatibilityRestoreAutomatic": {
-    "message": "التوافق: Restore automatic compatibility"
+    "message": "استعادة التوافق التلقائي"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch يوليو 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "نبض GraphQL الإصدار 1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "نبض Spade الإصدار 1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "نبض Trowel الإصدار 1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "استعلام المخزون الإصدار 1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "استعلام المخزون الإصدار 2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick يوليو 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "معالجة الروابط الإصدار 1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "معالجة الروابط الإصدار 2"
   }
 }

@@ -682,60 +682,87 @@
     "message": "Mostrar diagnósticos"
   },
   "compatibilityAutomatic": {
-    "message": "Compatibilidade: Automatic"
+    "message": "Automática"
   },
   "compatibilityTwitchProfileTitle": {
-    "message": "Compatibilidade: Twitch compatibility profile"
+    "message": "Perfil de compatibilidade da Twitch"
   },
   "compatibilityTwitchProfileDescription": {
-    "message": "Compatibilidade: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+    "message": "Escolha um perfil da Twitch incluído ou deixe o Lurkloot selecioná-lo automaticamente."
   },
   "compatibilityKickProfileTitle": {
-    "message": "Compatibilidade: Kick compatibility profile"
+    "message": "Perfil de compatibilidade da Kick"
   },
   "compatibilityKickProfileDescription": {
-    "message": "Compatibilidade: Choose a bundled Kick profile or let Lurkloot select it automatically."
+    "message": "Escolha um perfil da Kick incluído ou deixe o Lurkloot selecioná-lo automaticamente."
   },
   "compatibilityEffectiveTitle": {
-    "message": "Compatibilidade: Effective compatibility"
+    "message": "Compatibilidade ativa"
   },
   "compatibilityExpertShow": {
-    "message": "Compatibilidade: Show expert compatibility controls"
+    "message": "Mostrar controles avançados"
   },
   "compatibilityExpertHide": {
-    "message": "Compatibilidade: Hide expert compatibility controls"
+    "message": "Ocultar controles avançados"
   },
   "compatibilityTwitchHeartbeatTitle": {
-    "message": "Compatibilidade: Twitch heartbeat transport"
+    "message": "Transporte de pulsos da Twitch"
   },
   "compatibilityTwitchHeartbeatDescription": {
-    "message": "Compatibilidade: Override the bundled Twitch watch heartbeat."
+    "message": "Substitua o pulso de visualização da Twitch incluído."
   },
   "compatibilityTwitchInventoryTitle": {
-    "message": "Compatibilidade: Twitch inventory query"
+    "message": "Consulta do inventário da Twitch"
   },
   "compatibilityTwitchInventoryDescription": {
-    "message": "Compatibilidade: Override the bundled Twitch inventory query."
+    "message": "Substitua a consulta do inventário da Twitch incluída."
   },
   "compatibilityKickClaimTitle": {
-    "message": "Compatibilidade: Kick claim-link handling"
+    "message": "Tratamento de links da Kick"
   },
   "compatibilityKickClaimDescription": {
-    "message": "Compatibilidade: Override the bundled Kick account-link handling."
+    "message": "Substitua o tratamento incluído de links da conta Kick."
   },
   "compatibilityLifecycleRecommended": {
-    "message": "Compatibilidade: Recommended"
+    "message": "Recomendado"
   },
   "compatibilityLifecycleLegacy": {
-    "message": "Compatibilidade: Legacy"
+    "message": "Legado"
   },
   "compatibilityLifecycleExperimental": {
-    "message": "Compatibilidade: Experimental"
+    "message": "Em teste"
   },
   "compatibilityOverrideWarning": {
-    "message": "Compatibilidade: Manual compatibility overrides are active. They may stop working when platforms change."
+    "message": "Há configurações manuais ativas. Elas podem parar de funcionar quando as plataformas mudarem."
   },
   "compatibilityRestoreAutomatic": {
-    "message": "Compatibilidade: Restore automatic compatibility"
+    "message": "Restaurar compatibilidade automática"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch julho de 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "Pulso GraphQL v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Pulso Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Pulso Trowel v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Consulta de inventário v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Consulta de inventário v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick julho de 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Tratamento de links v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Tratamento de links v2"
   }
 }

@@ -27,3 +27,17 @@
 - Static patch/lifecycle metadata is module-scoped; interaction updates occur in event handlers; no effect-derived state or inline component definitions were added.
 - Compatibility patches preserve platform/field nesting and the reset patch covers both platform objects atomically.
 - Scope is limited to the requested Advanced UI, adapter wiring, catalogs, test collection, and focused tests.
+
+## Review fixes
+
+- Replaced the prefixed English fallback copy in `ar`, `de`, `es`, `fr`, `hi`, `it`, `pt_BR`, `ru`, and `zh_CN` with complete language-specific translations. Added localized labels for every registry-backed profile and capability option; the stable implementation ID remains visible in parentheses and is never used as an English-label fallback.
+- Added a localized capability label to each effective row: Twitch profile, heartbeat transport, inventory query, Kick profile, and claim-link handling.
+- Replaced server-rendered string inspection with a mounted React 19 interaction harness using `createRoot`, `act`, and LinkeDOM. The test expands the expert disclosure, changes Twitch and Kick selectors, clicks Restore automatic compatibility, verifies each nested patch and the final single atomic two-platform reset patch, and asserts that Trowel and text inputs remain unavailable.
+
+## Review-fix RED/GREEN evidence
+
+- RED: `pnpm --filter @lurkloot/extension test -- compatibilitySettingsView.test.tsx` — failed 2 interaction/UI tests: effective rows lacked capability labels, and the mounted interaction exposed the former static-only coverage.
+- GREEN focused UI/settings run: `pnpm --filter @lurkloot/extension test -- compatibilitySettingsView.test.tsx settings.test.ts` — PASS, 23 files / 432 tests.
+- Workspace typecheck: `pnpm typecheck` — PASS across all seven workspace packages.
+- Extension suite: `pnpm --filter @lurkloot/extension test` — PASS, 23 files / 432 tests.
+- Diff hygiene: `git diff --check` — PASS.

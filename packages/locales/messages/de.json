@@ -682,60 +682,87 @@
     "message": "Diagnose anzeigen"
   },
   "compatibilityAutomatic": {
-    "message": "Kompatibilität: Automatic"
+    "message": "Automatisch"
   },
   "compatibilityTwitchProfileTitle": {
-    "message": "Kompatibilität: Twitch compatibility profile"
+    "message": "Twitch-Kompatibilitätsprofil"
   },
   "compatibilityTwitchProfileDescription": {
-    "message": "Kompatibilität: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+    "message": "Wähle ein mitgeliefertes Twitch-Profil oder lass Lurkloot es automatisch auswählen."
   },
   "compatibilityKickProfileTitle": {
-    "message": "Kompatibilität: Kick compatibility profile"
+    "message": "Kick-Kompatibilitätsprofil"
   },
   "compatibilityKickProfileDescription": {
-    "message": "Kompatibilität: Choose a bundled Kick profile or let Lurkloot select it automatically."
+    "message": "Wähle ein mitgeliefertes Kick-Profil oder lass Lurkloot es automatisch auswählen."
   },
   "compatibilityEffectiveTitle": {
-    "message": "Kompatibilität: Effective compatibility"
+    "message": "Aktive Kompatibilität"
   },
   "compatibilityExpertShow": {
-    "message": "Kompatibilität: Show expert compatibility controls"
+    "message": "Expertenoptionen anzeigen"
   },
   "compatibilityExpertHide": {
-    "message": "Kompatibilität: Hide expert compatibility controls"
+    "message": "Expertenoptionen ausblenden"
   },
   "compatibilityTwitchHeartbeatTitle": {
-    "message": "Kompatibilität: Twitch heartbeat transport"
+    "message": "Twitch-Heartbeat-Übertragung"
   },
   "compatibilityTwitchHeartbeatDescription": {
-    "message": "Kompatibilität: Override the bundled Twitch watch heartbeat."
+    "message": "Mitgelieferten Twitch-Wiedergabe-Heartbeat überschreiben."
   },
   "compatibilityTwitchInventoryTitle": {
-    "message": "Kompatibilität: Twitch inventory query"
+    "message": "Twitch-Inventarabfrage"
   },
   "compatibilityTwitchInventoryDescription": {
-    "message": "Kompatibilität: Override the bundled Twitch inventory query."
+    "message": "Mitgelieferte Twitch-Inventarabfrage überschreiben."
   },
   "compatibilityKickClaimTitle": {
-    "message": "Kompatibilität: Kick claim-link handling"
+    "message": "Kick-Verknüpfungsverarbeitung"
   },
   "compatibilityKickClaimDescription": {
-    "message": "Kompatibilität: Override the bundled Kick account-link handling."
+    "message": "Mitgelieferte Kick-Kontoverknüpfung überschreiben."
   },
   "compatibilityLifecycleRecommended": {
-    "message": "Kompatibilität: Recommended"
+    "message": "Empfohlen"
   },
   "compatibilityLifecycleLegacy": {
-    "message": "Kompatibilität: Legacy"
+    "message": "Veraltet"
   },
   "compatibilityLifecycleExperimental": {
-    "message": "Kompatibilität: Experimental"
+    "message": "Experimentell"
   },
   "compatibilityOverrideWarning": {
-    "message": "Kompatibilität: Manual compatibility overrides are active. They may stop working when platforms change."
+    "message": "Manuelle Kompatibilitätsoptionen sind aktiv. Sie könnten nach Plattformänderungen nicht mehr funktionieren."
   },
   "compatibilityRestoreAutomatic": {
-    "message": "Kompatibilität: Restore automatic compatibility"
+    "message": "Automatische Kompatibilität wiederherstellen"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch Juli 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "GraphQL-Heartbeat v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Spade-Heartbeat v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Trowel-Heartbeat v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Inventarabfrage v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Inventarabfrage v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick Juli 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Verknüpfungsverarbeitung v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Verknüpfungsverarbeitung v2"
   }
 }
