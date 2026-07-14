@@ -15,7 +15,8 @@ const CATEGORY_INDEX = "category_at_id";
 const PLATFORM_CATEGORY_INDEX = "platform_category_at_id";
 const LAST_PRUNED_AT = "lastPrunedAt";
 const MAX_RECORDS_PER_CATEGORY = 2_000;
-const RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
+const ACTIVITY_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
+const DIAGNOSTIC_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 const DEFAULT_LIMIT = 80;
 const MAX_LIMIT = 100;
@@ -53,6 +54,10 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
 
 function categoryRange(category: EventCategory): IDBKeyRange {
   return IDBKeyRange.bound([category], [category, []]);
+}
+
+function retentionMs(category: EventCategory): number {
+  return category === "activity" ? ACTIVITY_RETENTION_MS : DIAGNOSTIC_RETENTION_MS;
 }
 
 export interface ActivityRepository {
@@ -95,12 +100,27 @@ class IndexedDbActivityRepository implements ActivityRepository {
       const request = indexedDB.open(this.databaseName, DATABASE_VERSION);
       request.onupgradeneeded = () => {
         const database = request.result;
-        const eventStore = database.objectStoreNames.contains(EVENT_STORE)
+        const existingEventStore = database.objectStoreNames.contains(EVENT_STORE);
+        const eventStore = existingEventStore
           ? request.transaction!.objectStore(EVENT_STORE)
           : database.createObjectStore(EVENT_STORE, { keyPath: "id" });
         for (const indexName of Array.from(eventStore.indexNames)) eventStore.deleteIndex(indexName);
         eventStore.createIndex(CATEGORY_INDEX, ["category", "at", "id"]);
         eventStore.createIndex(PLATFORM_CATEGORY_INDEX, ["platform", "category", "at", "id"]);
+        if (existingEventStore) {
+          const cursorRequest = eventStore.openCursor();
+          cursorRequest.onsuccess = () => {
+            const cursor = cursorRequest.result;
+            if (!cursor) return;
+            const value = cursor.value as Record<string, unknown>;
+            cursor.update({
+              ...value,
+              category: value.category ?? "diagnostic",
+              legacy: true,
+            });
+            cursor.continue();
+          };
+        }
         if (!database.objectStoreNames.contains(META_STORE)) {
           database.createObjectStore(META_STORE, { keyPath: "key" });
         }
@@ -116,7 +136,9 @@ class IndexedDbActivityRepository implements ActivityRepository {
         resolve(database);
       };
       request.onerror = () => reject(request.error ?? new Error("Could not open the activity database"));
-      request.onblocked = () => reject(new Error("Activity database open was blocked"));
+      // Keep a blocked request pending. Rejecting cannot cancel an IDB open;
+      // its later success would otherwise create an untracked connection.
+      request.onblocked = () => undefined;
     });
   }
 
@@ -143,15 +165,26 @@ class IndexedDbActivityRepository implements ActivityRepository {
     const database = await this.open();
     const transaction = database.transaction(EVENT_STORE, "readwrite");
     const store = transaction.objectStore(EVENT_STORE);
-    for (const event of events) store.put(event);
-    await transactionDone(transaction);
+    const done = transactionDone(transaction);
+    try {
+      for (const event of events) store.put(event);
+    } catch (error) {
+      try {
+        transaction.abort();
+      } catch {
+        // Preserve the original synchronous enqueue error.
+      }
+      await done.catch(() => undefined);
+      throw error;
+    }
+    await done;
   }
 
   async load(query: ActivityQuery): Promise<ActivityPage> {
     const database = await this.open();
     const transaction = database.transaction(EVENT_STORE, "readonly");
     const index = transaction.objectStore(EVENT_STORE).index(CATEGORY_INDEX);
-    const cutoff = new Date(Date.now() - RETENTION_MS).toISOString();
+    const cutoff = new Date(Date.now() - retentionMs(query.category)).toISOString();
     const lower: [EventCategory, string, string] = [query.category, cutoff, ""];
     const range = query.cursor
       ? IDBKeyRange.bound(lower, [query.category, ...decodeCursor(query.cursor)], false, true)
@@ -227,8 +260,8 @@ class IndexedDbActivityRepository implements ActivityRepository {
   }
 
   private async pruneNow(): Promise<void> {
-    const cutoff = new Date(Date.now() - RETENTION_MS).toISOString();
     for (const category of ["activity", "diagnostic"] as const) {
+      const cutoff = new Date(Date.now() - retentionMs(category)).toISOString();
       await this.deleteExpired(category, cutoff);
       await this.deleteExcess(category);
     }

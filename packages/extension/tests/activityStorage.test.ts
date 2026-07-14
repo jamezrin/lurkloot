@@ -33,11 +33,13 @@ function diagnosticEvent(index: number): EngineEvent {
 
 describe("activity repository", () => {
   let repository: ActivityRepository;
+  let databaseName: string;
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(NOW);
-    repository = createActivityRepositoryForTest(`activity-${crypto.randomUUID()}`);
+    databaseName = `activity-${crypto.randomUUID()}`;
+    repository = createActivityRepositoryForTest(databaseName);
   });
 
   afterEach(async () => {
@@ -100,6 +102,24 @@ describe("activity repository", () => {
     expect((await repository.load({ category: "activity" })).events.map(({ id }) => id)).toEqual(["current"]);
   });
 
+  it("expires diagnostics after 7 days while retaining same-age activity", async () => {
+    await repository.append([activityEvent("prune-marker")]);
+    const eightDaysAgo = new Date(NOW.getTime() - 8 * DAY_MS).toISOString();
+    await repository.importLegacy([
+      { id: "old-activity", at: eightDaysAgo, category: "activity", level: "info", message: "activity", legacy: true },
+      { id: "old-diagnostic", at: eightDaysAgo, category: "diagnostic", level: "info", message: "diagnostic", legacy: true },
+    ]);
+
+    expect((await repository.load({ category: "activity" })).events.map(({ id }) => id)).toContain("old-activity");
+    expect((await repository.load({ category: "diagnostic" })).events).toEqual([]);
+    expect(await repository.count("diagnostic")).toBe(1);
+
+    await repository.prune();
+
+    expect(await repository.count("diagnostic")).toBe(0);
+    expect(await repository.count("activity")).toBe(2);
+  });
+
   it("reopens after versionchange closes the cached connection", async () => {
     await repository.open();
     repository.closeForVersionChangeForTest();
@@ -114,6 +134,89 @@ describe("activity repository", () => {
 
     expect(database.version).toBe(2);
     expect(indexes).toEqual(["category_at_id", "platform_category_at_id"]);
+  });
+
+  it("normalizes category-less version 1 rows during the version 2 upgrade", async () => {
+    const versionOne = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(databaseName, 1);
+      request.onupgradeneeded = () => {
+        const store = request.result.createObjectStore("events", { keyPath: "id" });
+        store.createIndex("at", "at");
+        store.createIndex("platform", "platform");
+        store.createIndex("category", "category");
+        store.put({
+          id: "v1-diagnostic",
+          at: new Date(NOW.getTime() - DAY_MS).toISOString(),
+          level: "info",
+          message: "legacy diagnostic",
+        });
+        store.put({
+          id: "v1-expired-diagnostic",
+          at: new Date(NOW.getTime() - 8 * DAY_MS).toISOString(),
+          level: "info",
+          message: "expired legacy diagnostic",
+        });
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    versionOne.close();
+
+    const page = await repository.load({ category: "diagnostic" });
+
+    expect(page.events).toEqual([expect.objectContaining({
+      id: "v1-diagnostic",
+      category: "diagnostic",
+      legacy: true,
+    })]);
+    expect(await repository.count("diagnostic")).toBe(2);
+    await repository.prune();
+    expect(await repository.count("diagnostic")).toBe(1);
+  });
+
+  it("keeps a blocked upgrade pending and leaves no late connection behind", async () => {
+    const blocker = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(databaseName, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("events", { keyPath: "id" });
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const versionChange = new Promise<void>((resolve) => {
+      blocker.onversionchange = () => resolve();
+    });
+    let settledWhileBlocked = false;
+    const openResult = repository.open().then(
+      (database) => ({ status: "resolved" as const, database }),
+      (error: unknown) => ({ status: "rejected" as const, error }),
+    );
+    void openResult.then(() => {
+      settledWhileBlocked = true;
+    });
+    await versionChange;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    const wasSettledWhileBlocked = settledWhileBlocked;
+    blocker.close();
+    const result = await openResult;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    // Open version 3 as an external lifecycle probe. Any abandoned v2
+    // connection must close on versionchange or this request remains blocked.
+    repository.close();
+    const probe = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(databaseName, 3);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    probe.close();
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(databaseName);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+
+    expect(wasSettledWhileBlocked).toBe(false);
+    expect(result.status).toBe("resolved");
   });
 
   it("resets a rejected open so the next operation can retry", async () => {
@@ -146,5 +249,24 @@ describe("activity repository", () => {
     expect(page.events).toHaveLength(2);
     expect(page.events.some((event) => event.platform === "kick")).toBe(false);
     expect(page.events.some((event) => event.platform == null)).toBe(true);
+  });
+
+  it("aborts the entire legacy import when a later value cannot be cloned", async () => {
+    const invalid = {
+      id: "invalid",
+      at: NOW.toISOString(),
+      category: "diagnostic",
+      level: "info",
+      message: "invalid",
+      legacy: true,
+      data: { invalid: () => undefined },
+    } as unknown as StoredLegacyEvent;
+
+    await expect(repository.importLegacy([
+      { id: "valid", at: NOW.toISOString(), category: "diagnostic", level: "info", message: "valid", legacy: true },
+      invalid,
+    ])).rejects.toBeInstanceOf(DOMException);
+
+    expect(await repository.count("diagnostic")).toBe(0);
   });
 });
