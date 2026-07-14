@@ -262,24 +262,75 @@ describe("Kick parsers", () => {
       }],
     });
 
-    expect(campaigns[0].rewards.map((reward) => reward.isWatchBased)).toEqual([false, false]);
+    expect(campaigns[0].rewards).toMatchObject([
+      { requirement: "action", isWatchBased: false },
+      { requirement: "action", isWatchBased: false },
+    ]);
+  });
+
+  it("classifies positive-duration Kick rewards as watch rewards", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: "campaign",
+        rewards: [{ id: "watch", required_units: 30 }],
+      }],
+    });
+
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      requirement: "watch",
+      isWatchBased: true,
+    });
   });
 });
 
 describe("Twitch parsers", () => {
-  it("marks subscription-only and other zero-minute rewards as non-watch rewards", () => {
+  it("classifies subscription-only campaigns as waiting for a qualifying subscription", () => {
     const campaigns = parseTwitchInventory([{
       id: "subscription-campaign",
       name: "Jubilee Badge",
-      timeBasedDrops: [
-        { id: "subscription", name: "Jubilee Badge", requiredMinutesWatched: 0, requiredSubs: 1 },
-        { id: "purchase", name: "Purchase Reward" },
-      ],
+      timeBasedDrops: [{ id: "subscription", name: "Jubilee Badge", requiredMinutesWatched: 0, requiredSubs: 1 }],
     }]);
 
-    expect(campaigns[0].rewards).toHaveLength(2);
-    expect(campaigns[0].rewards.every((reward) => reward.isWatchBased === false)).toBe(true);
+    expect(campaigns[0]).toMatchObject({
+      eligibility: "waiting_for_subscription",
+      eligibilityReason: "Waiting for a qualifying subscription",
+    });
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      requirement: "subscription",
+      requiredSubs: 1,
+      isWatchBased: false,
+    });
+  });
+
+  it("classifies unknown zero-minute rewards as action-gated with no farmable rewards", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "action-campaign",
+      timeBasedDrops: [{ id: "purchase", name: "Purchase Reward" }],
+    }]);
+
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      requirement: "action",
+      isWatchBased: false,
+    });
     expect(campaigns[0].eligibility).toBe("no_rewards");
+  });
+
+  it("marks claimed subscription-only campaigns completed", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "claimed-subscription-campaign",
+      timeBasedDrops: [{
+        id: "subscription",
+        requiredSubs: 1,
+        self: { isClaimed: true },
+      }],
+    }]);
+
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      requirement: "subscription",
+      status: "claimed",
+    });
+    expect(campaigns[0].status).toBe("completed");
+    expect(campaigns[0].eligibility).toBe("completed");
   });
 
   it("keeps only watch-based rewards in mixed campaigns", () => {
@@ -295,6 +346,7 @@ describe("Twitch parsers", () => {
 
     expect(campaigns[0].rewards.filter((reward) => reward.isWatchBased !== false).map((reward) => reward.id)).toEqual(["watch"]);
     expect(campaigns[0].rewards.find((reward) => reward.id === "combined")).toMatchObject({
+      requirement: "subscription",
       requiredSubs: 1,
       isWatchBased: false,
       status: "locked",
@@ -314,8 +366,9 @@ describe("Twitch parsers", () => {
       }],
     }]);
 
-    expect(campaigns[0].eligibility).toBe("no_rewards");
+    expect(campaigns[0].eligibility).toBe("waiting_for_subscription");
     expect(campaigns[0].rewards[0]).toMatchObject({
+      requirement: "subscription",
       isWatchBased: false,
       status: "in_progress",
       claimId: undefined,
@@ -465,6 +518,31 @@ describe("Twitch parsers", () => {
       isWatchBased: false,
       status: "claimable",
       claimId: "subscription-instance",
+    });
+  });
+
+  it("does not synthesize a claim id for subscription rewards", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          id: "user-id",
+          inventory: {
+            dropCampaignsInProgress: [{
+              id: "subscription-campaign",
+              timeBasedDrops: [{
+                id: "subscription",
+                requiredSubs: 1,
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      requirement: "subscription",
+      status: "locked",
+      claimId: undefined,
     });
   });
 
@@ -740,6 +818,68 @@ describe("Twitch parsers", () => {
     expect(merged[0].eligibility).toBe("completed");
   });
 
+  it("keeps a mixed campaign active when only its watch reward is claimed", () => {
+    const details = parseTwitchInventory([{
+      id: "mixed-campaign",
+      timeBasedDrops: [{
+        id: "watch",
+        requiredMinutesWatched: 30,
+      }, {
+        id: "subscription",
+        requiredSubs: 1,
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, [{
+      id: "mixed-campaign",
+      timeBasedDrops: [{
+        id: "watch",
+        requiredMinutesWatched: 30,
+        self: { currentMinutesWatched: 30, isClaimed: true },
+      }, {
+        id: "subscription",
+        requiredSubs: 1,
+      }],
+    }]);
+
+    expect(merged[0].status).toBe("active");
+    expect(merged[0].eligibility).toBe("eligible");
+    expect(merged[0].rewards).toMatchObject([
+      { requirement: "watch", status: "claimed" },
+      { requirement: "subscription", status: "locked" },
+    ]);
+  });
+
+  it("completes a mixed campaign when every tracked reward is claimed", () => {
+    const details = parseTwitchInventory([{
+      id: "mixed-campaign",
+      timeBasedDrops: [{
+        id: "watch",
+        requiredMinutesWatched: 30,
+      }, {
+        id: "subscription",
+        requiredSubs: 1,
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, [{
+      id: "mixed-campaign",
+      timeBasedDrops: [{
+        id: "watch",
+        requiredMinutesWatched: 30,
+        self: { currentMinutesWatched: 30, isClaimed: true },
+      }, {
+        id: "subscription",
+        requiredSubs: 1,
+        self: { isClaimed: true },
+      }],
+    }]);
+
+    expect(merged[0].status).toBe("completed");
+    expect(merged[0].eligibility).toBe("completed");
+    expect(merged[0].rewards.every((reward) => reward.status === "claimed")).toBe(true);
+  });
+
   it("evaluates Twitch reward preconditions from claimed prior drops", () => {
     const campaigns = parseTwitchInventory([{
       id: "campaign",
@@ -815,6 +955,18 @@ describe("Twitch parsers", () => {
     expect(expired.eligibilityReason).toBe("Campaign has ended");
     // original is untouched
     expect(campaign.status).toBe("active");
+  });
+
+  it("re-derives subscription eligibility with withCampaignStatus", () => {
+    const [campaign] = parseTwitchInventory([{
+      id: "subscription-campaign",
+      timeBasedDrops: [{ id: "subscription", requiredSubs: 1 }],
+    }]);
+
+    const active = withCampaignStatus(campaign, "active");
+
+    expect(active.eligibility).toBe("waiting_for_subscription");
+    expect(active.eligibilityReason).toBe("Waiting for a qualifying subscription");
   });
 
   it("detects claimable rewards with campaignHasClaimableReward", () => {
