@@ -1,8 +1,32 @@
 import { describe, expect, it, vi } from "vitest";
 import type { EngineEvent, FarmingStopReason } from "@lurkloot/shared/events";
+import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 import type { Logger } from "../src/logger";
 import { formatCliEvent, reportCliEvents } from "../src/events";
 import { createLogger } from "../src/logger";
+import { formatDiscoveredCampaign, subscriptionWaitKeys } from "../src/runtime/status";
+
+function dropReward(overrides: Partial<DropReward>): DropReward {
+  return {
+    id: "reward",
+    name: "Reward",
+    requiredMinutes: 0,
+    watchedMinutes: 0,
+    status: "locked",
+    ...overrides,
+  };
+}
+
+function dropCampaign(overrides: Partial<DropCampaign> = {}): DropCampaign {
+  return {
+    id: "arc-raiders-summer",
+    platform: "twitch",
+    name: "ARC Raiders Summer Drops",
+    status: "active",
+    rewards: [],
+    ...overrides,
+  };
+}
 
 function rewardEvent(
   code: "farming_started" | "farming_stopped" | "reward_claimed",
@@ -116,5 +140,57 @@ describe("CLI engine event reporting", () => {
       expect(formatCliEvent(rewardEvent("farming_stopped", "Reward", { reason })))
         .toContain(reason.replaceAll("_", " "));
     }
+  });
+});
+
+describe("CLI campaign status reporting", () => {
+  it("formats subscription requirements without inventing partial progress", () => {
+    const campaign = dropCampaign({
+      eligibility: "waiting_for_subscription",
+      rewards: [
+        dropReward({ id: "duffel", name: "Purple Duffel Bag", requirement: "subscription", requiredSubs: 1 }),
+        dropReward({ id: "mace", name: "Bastion Mace", requirement: "subscription", requiredSubs: 3 }),
+      ],
+    });
+
+    expect(formatDiscoveredCampaign(campaign)).toEqual([
+      "• ARC Raiders Summer Drops — waiting for subscription",
+      "  ◦ Purple Duffel Bag — requires 1 qualifying subscription; progress unavailable",
+      "  ◦ Bastion Mace — requires 3 qualifying subscriptions; progress unavailable",
+    ]);
+  });
+
+  it("labels claimed rewards as earned and preserves both requirement types in mixed campaigns", () => {
+    const campaign = dropCampaign({
+      name: "Mixed Drops",
+      rewards: [
+        dropReward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60, watchedMinutes: 30 }),
+        dropReward({ id: "sub", name: "Subscriber Cape", requirement: "subscription", requiredSubs: 2 }),
+        dropReward({ id: "earned", name: "Earned Badge", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
+      ],
+    });
+
+    expect(formatDiscoveredCampaign(campaign)).toEqual([
+      "• Mixed Drops",
+      "  ◦ Watch Crown — requires 60 minutes watched; progress 30/60 minutes",
+      "  ◦ Subscriber Cape — requires 2 qualifying subscriptions; progress unavailable",
+      "  ◦ Earned Badge — earned",
+    ]);
+  });
+
+  it("returns a stable message key for every unclaimed subscription reward", () => {
+    const campaign = dropCampaign({
+      rewards: [
+        dropReward({ id: "duffel", name: "Purple Duffel Bag", requiredSubs: 1 }),
+        dropReward({ id: "mace", name: "Bastion Mace", requirement: "subscription", requiredSubs: 3 }),
+        dropReward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60 }),
+        dropReward({ id: "earned", name: "Earned Badge", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
+      ],
+    });
+
+    expect([...subscriptionWaitKeys([campaign])]).toEqual([
+      ["twitch:arc-raiders-summer:duffel", "Waiting for 1 qualifying subscription: Purple Duffel Bag from ARC Raiders Summer Drops"],
+      ["twitch:arc-raiders-summer:mace", "Waiting for 3 qualifying subscriptions: Bastion Mace from ARC Raiders Summer Drops"],
+    ]);
   });
 });

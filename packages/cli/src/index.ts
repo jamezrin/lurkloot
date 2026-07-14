@@ -2,12 +2,13 @@
 import { dirname, join, resolve } from "node:path";
 import yargs, { type Argv, type ArgumentsCamelCase, type CommandModule } from "yargs";
 import { hideBin } from "yargs/helpers";
-import type { Platform } from "@lurkloot/shared/models";
+import type { DropCampaign, Platform } from "@lurkloot/shared/models";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
 import { loadConfig, TRANSPORTS, type CliConfig, type Transport } from "./config";
 import { forgetCredentials, hasKickAuth, hasTwitchAuth, loadCredentials } from "./authStore";
 import { createTransport, type EnabledPlatforms } from "./transport";
 import { runLoop } from "./runtime/run";
+import { formatDiscoveredCampaign } from "./runtime/status";
 import { importCredentials } from "./auth/importCredentials";
 import { twitchDeviceLogin } from "./auth/twitchDeviceFlow";
 import { kickDeviceLogin } from "./auth/kickDeviceFlow";
@@ -179,11 +180,13 @@ const authCommand: CommandModule = {
   handler: () => { /* a subcommand always runs; see demandCommand above */ },
 };
 
-async function discoverPlatform(platform: Platform, adapter: { discoverCampaigns(): Promise<{ name: string }[]> }, logger: ReturnType<typeof createLogger>): Promise<void> {
+async function discoverPlatform(platform: Platform, adapter: { discoverCampaigns(): Promise<DropCampaign[]> }, logger: ReturnType<typeof createLogger>): Promise<void> {
   try {
     const campaigns = await adapter.discoverCampaigns();
     logger.info(`discovered ${campaigns.length} campaign(s)`, platform);
-    for (const campaign of campaigns.slice(0, 20)) logger.info(`• ${campaign.name}`, platform);
+    for (const campaign of campaigns.slice(0, 20)) {
+      for (const line of formatDiscoveredCampaign(campaign)) logger.info(line, platform);
+    }
   } catch (error) {
     if (error instanceof KickWafBlockedError) {
       logger.warn(`Cloudflare WAF blocked the request (HTTP 403). Use the "impersonate" transport to reach Kick without a browser. (${error.message})`, platform);
