@@ -1,5 +1,5 @@
 import type { ChannelCandidate } from "@lurkloot/shared/models";
-import type { HeartbeatResult, TablessWatchController, WatchContext } from "../../core/tablessWatch";
+import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import type { PageFetcher } from "../adapter";
 
 // Tabless Kick farming: a viewer WebSocket that advances drop timers with no
@@ -40,7 +40,6 @@ export interface KickWatcherDeps {
   // Injectable for tests; defaults to the platform WebSocket. The socket is
   // opened from the background service worker — see the Origin caveat below.
   createWebSocket?: WebSocketFactory;
-  log?: (level: "info" | "warn" | "debug" | "error", message: string) => void;
   now?: () => number;
 }
 
@@ -67,18 +66,25 @@ export class KickWatcher implements TablessWatchController {
 
   private readonly fetcher: PageFetcher;
   private readonly createWebSocket: WebSocketFactory;
-  private readonly log: (level: "info" | "warn" | "debug" | "error", message: string) => void;
   private readonly now: () => number;
+  private readonly diagnostics = new PendingWatcherDiagnostics();
 
   constructor(deps: KickWatcherDeps) {
     this.fetcher = deps.fetcher;
     this.createWebSocket = deps.createWebSocket ?? ((url) => new WebSocket(url) as unknown as WebSocketLike);
-    this.log = deps.log ?? (() => undefined);
     this.now = deps.now ?? (() => Date.now());
   }
 
   get channelUrl(): string | undefined {
     return this.channel?.url;
+  }
+
+  drainEvents() {
+    return this.diagnostics.drain();
+  }
+
+  private log(level: "info" | "warn" | "debug" | "error", message: string): void {
+    this.diagnostics.push({ category: "diagnostic", platform: "kick", level, message });
   }
 
   async start(channel: ChannelCandidate, _context: WatchContext): Promise<void> {

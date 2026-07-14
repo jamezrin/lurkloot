@@ -339,23 +339,41 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       if (wantsTabless && session.channel && adapter.createTablessWatcher) {
         const watcher = existing ?? adapter.createTablessWatcher();
         if (!existing) tablessWatchers.set(platform, watcher);
+        drainWatcherEvents(watcher, emit);
         if (watcher.channelUrl !== session.channel.url) {
+          let startFailed = false;
+          let startError: unknown;
           try {
             await watcher.start(session.channel, tablessWatchContext());
           } catch (error) {
+            startFailed = true;
+            startError = error;
+          } finally {
+            drainWatcherEvents(watcher, emit);
+          }
+          if (startFailed) {
             emit({
               category: "diagnostic",
               platform,
               level: "warn",
-              message: error instanceof Error ? error.message : "Could not start the tabless watcher",
+              message: startError instanceof Error ? startError.message : "Could not start the tabless watcher",
             });
           }
         }
       } else if (existing) {
-        await existing.stop();
-        tablessWatchers.delete(platform);
+        drainWatcherEvents(existing, emit);
+        try {
+          await existing.stop();
+        } finally {
+          drainWatcherEvents(existing, emit);
+          tablessWatchers.delete(platform);
+        }
       }
     }
+  }
+
+  function drainWatcherEvents(watcher: TablessWatchController, emit: EventEmitter): void {
+    for (const event of watcher.drainEvents()) emit(event);
   }
 
   // Fired by the 1-minute watch alarm. Runs one heartbeat per active tabless
@@ -391,12 +409,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
         let ok = false;
         let message: string | undefined;
+        drainWatcherEvents(watcher, emit);
         try {
           const result = await watcher.tick(tablessWatchContext());
           ok = result.ok;
           message = result.message;
         } catch (error) {
           message = error instanceof Error ? error.message : "Tabless heartbeat failed";
+        } finally {
+          drainWatcherEvents(watcher, emit);
         }
 
         const previousChecks = session.heartbeatChecks ?? 0;

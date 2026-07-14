@@ -1,7 +1,7 @@
 import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import type { HeartbeatResult, TablessWatchController, WatchContext } from "../../core/tablessWatch";
+import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./watch";
@@ -623,11 +623,8 @@ export class TwitchAdapter implements PlatformAdapter {
   supportsTabless = true;
 
   createTablessWatcher(): TablessWatchController {
-    return new TwitchWatcher(
-      (operationName, sha256Hash, variables, query, credentials) =>
-        this.gql(operationName, sha256Hash, variables, query, credentials),
-      this.emit,
-    );
+    return new TwitchWatcher((operationName, sha256Hash, variables, query, credentials) =>
+      this.gql(operationName, sha256Hash, variables, query, credentials));
   }
 
   private async mergeCurrentSessionProgress(
@@ -796,11 +793,20 @@ class TwitchWatcher implements TablessWatchController {
   readonly platform = "twitch" as const;
   private channel?: ChannelCandidate;
   private viewerUserId?: string;
+  private readonly diagnostics = new PendingWatcherDiagnostics();
 
-  constructor(private readonly gql: TwitchGql, private readonly emit: EventEmitter) {}
+  constructor(private readonly gql: TwitchGql) {}
 
   get channelUrl(): string | undefined {
     return this.channel?.url;
+  }
+
+  drainEvents() {
+    return this.diagnostics.drain();
+  }
+
+  private log(level: LogLevel, message: string): void {
+    this.diagnostics.push({ category: "diagnostic", platform: "twitch", level, message });
   }
 
   async start(channel: ChannelCandidate, context: WatchContext): Promise<void> {
@@ -830,13 +836,13 @@ class TwitchWatcher implements TablessWatchController {
     const channelId = info.data?.user?.id ?? channel.channelId;
     const broadcastId = stream?.id ?? channel.broadcastId;
     if (!stream || !channelId || !broadcastId) {
-      diagnostic(this.emit, "debug", `Spade tick skipped for ${channel.username}: channel offline or missing a broadcast id`);
+      this.log("debug", `Spade tick skipped for ${channel.username}: channel offline or missing a broadcast id`);
       return { ok: false, live: false, message: "Twitch channel is offline or missing a broadcast id" };
     }
 
     const userId = await this.resolveUserId();
     if (!userId) return { ok: false, live: true, message: "Twitch did not return a logged-in user id" };
-    diagnostic(this.emit, "debug", `Spade tick for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`);
+    this.log("debug", `Spade tick for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`);
 
     const input = await buildSpadeInput({
       broadcastId,
@@ -854,7 +860,7 @@ class TwitchWatcher implements TablessWatchController {
     );
     const status = result.data?.sendSpadeEvents?.statusCode;
     const ok = status === 204;
-    diagnostic(this.emit, "debug", `Spade event for ${channel.username} returned status ${status ?? "unknown"}`);
+    this.log("debug", `Spade event for ${channel.username} returned status ${status ?? "unknown"}`);
     return { ok, live: true, message: ok ? undefined : `Twitch watch event returned status ${status ?? "unknown"}` };
   }
 
@@ -866,7 +872,7 @@ class TwitchWatcher implements TablessWatchController {
     } catch (error) {
       // Leave unresolved; tick() reports the missing-user case to the scheduler.
       const message = error instanceof Error ? error.message : String(error);
-      diagnostic(this.emit, "warn", `Could not resolve the Twitch viewer id for tabless watching: ${message}`);
+      this.log("warn", `Could not resolve the Twitch viewer id for tabless watching: ${message}`);
     }
     return this.viewerUserId;
   }

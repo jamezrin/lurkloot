@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
-import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
+import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
@@ -1223,6 +1223,7 @@ describe("background controller", () => {
         watcher.channelUrl = ch.url;
       }),
       tick: vi.fn(tick),
+      drainEvents: vi.fn<() => DiagnosticEvent[]>(() => []),
       stop: vi.fn(async () => {
         watcher.channelUrl = undefined;
       }),
@@ -1264,6 +1265,45 @@ describe("background controller", () => {
     expect(watcher.tick).toHaveBeenCalled();
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
     expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
+  });
+
+  it("publishes persistent watcher diagnostics once through the current operation batch", async () => {
+    const reported: EngineEvent[][] = [];
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      tablessMode: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
+      },
+    }, {
+      reportEvents: async (events) => { reported.push([...events]); },
+    });
+    const pending: DiagnosticEvent[] = [];
+    const watcher = fakeTablessWatcher(async () => {
+      pending.push({ category: "diagnostic", platform: "twitch", level: "debug", message: "heartbeat-detail" });
+      return { ok: true, live: true };
+    });
+    watcher.drainEvents.mockImplementation(() => pending.splice(0));
+    env.twitch.supportsTabless = true;
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+
+    await env.controller.tick();
+    pending.push({ category: "diagnostic", platform: "twitch", level: "info", message: "connected-after-start" });
+    expect(reported.flat().some((event) => event.category === "diagnostic" && event.message === "connected-after-start")).toBe(false);
+
+    await env.controller.runWatchHeartbeat();
+    expect(reported.at(-1)?.filter((event) =>
+      event.category === "diagnostic"
+      && (event.message === "connected-after-start" || event.message === "heartbeat-detail"))
+    ).toEqual([
+      expect.objectContaining({ message: "connected-after-start" }),
+      expect.objectContaining({ message: "heartbeat-detail" }),
+    ]);
+
+    await env.controller.runWatchHeartbeat();
+    expect(reported.flat().filter((event) => event.category === "diagnostic" && event.message === "connected-after-start")).toHaveLength(1);
   });
 
   it("falls back to a watch tab once the tabless heartbeat keeps failing", async () => {

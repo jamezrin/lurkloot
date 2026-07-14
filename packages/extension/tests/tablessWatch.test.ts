@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
 import { buildMinuteWatchedEvent, buildSpadeInput, gzipBase64 } from "@lurkloot/core/twitch/watch";
 import { KickWatcher, type WebSocketLike } from "@lurkloot/core/kick/watch";
+import { PendingWatcherDiagnostics } from "@lurkloot/core/tablessWatch";
 
 async function gunzipBase64(b64: string): Promise<string> {
   const binary = atob(b64);
@@ -127,7 +128,6 @@ describe("kick viewer watcher", () => {
 
   it("surfaces a one-shot info line when tabless farming becomes active", async () => {
     const socket = new FakeSocket();
-    const logs: Array<{ level: string; message: string }> = [];
     const fetchJson = vi.fn(async (url: string) => {
       if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
@@ -137,18 +137,59 @@ describe("kick viewer watcher", () => {
     const watcher = new KickWatcher({
       fetcher: { fetchJson: fetchJson as never },
       createWebSocket: () => socket,
-      log: (level, message) => logs.push({ level, message }),
       now: () => 1000,
     });
 
     await watcher.start(kickChannel, {});
+    watcher.drainEvents();
     socket.emit("open");
 
     // Exactly one info-level "farming active" line so launch-day verification is
     // legible without the verbose/debug filter.
-    const active = logs.filter((entry) => entry.level === "info" && /farming active/i.test(entry.message));
+    const active = watcher.drainEvents().filter((entry) => entry.level === "info" && /farming active/i.test(entry.message));
     expect(active).toHaveLength(1);
+    expect(watcher.drainEvents()).toEqual([]);
     await watcher.stop();
+  });
+
+  it("queues callback diagnostics for one causal drain", async () => {
+    const socket = new FakeSocket();
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      now: () => 1000,
+    });
+
+    await watcher.start(kickChannel, {});
+    watcher.drainEvents();
+    socket.emit("open");
+    const callbackEvents = watcher.drainEvents();
+
+    expect(callbackEvents.map((event) => event.message)).toEqual([
+      "Kick tabless farming active for creator — sending watch events every 60s",
+      "Kick tabless viewer connected for creator",
+    ]);
+    expect(watcher.drainEvents()).toEqual([]);
+
+    await watcher.stop();
+  });
+
+  it("caps pending diagnostics at 250 while preserving the newest causal order", () => {
+    const diagnostics = new PendingWatcherDiagnostics();
+    for (let index = 0; index < 260; index += 1) {
+      diagnostics.push({ category: "diagnostic", platform: "kick", level: "debug", message: `event-${index}` });
+    }
+
+    const drained = diagnostics.drain();
+    expect(drained).toHaveLength(250);
+    expect(drained[0]?.message).toBe("event-10");
+    expect(drained.at(-1)?.message).toBe("event-259");
+    expect(diagnostics.drain()).toEqual([]);
   });
 
   it("reports unhealthy when the viewer token cannot be obtained", async () => {
@@ -170,7 +211,6 @@ describe("kick viewer watcher", () => {
 
   it("logs a warning when the viewer WebSocket errors", async () => {
     const socket = new FakeSocket();
-    const logs: Array<{ level: string; message: string }> = [];
     const fetchJson = vi.fn(async (url: string) => {
       if (url.includes("/api/v2/channels/")) return { id: 1, livestream: { id: 2, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
@@ -180,14 +220,13 @@ describe("kick viewer watcher", () => {
     const watcher = new KickWatcher({
       fetcher: { fetchJson: fetchJson as never },
       createWebSocket: () => socket,
-      log: (level, message) => logs.push({ level, message }),
     });
 
     await watcher.start(kickChannel, {});
     socket.emit("open");
     socket.emit("error");
 
-    expect(logs.some((entry) => entry.level === "warn" && /WebSocket error/.test(entry.message))).toBe(true);
+    expect(watcher.drainEvents().some((entry) => entry.level === "warn" && /WebSocket error/.test(entry.message))).toBe(true);
     await expect(watcher.tick({})).resolves.toMatchObject({ ok: false });
     await watcher.stop();
   });

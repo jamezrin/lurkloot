@@ -296,7 +296,6 @@ export class KickAdapter implements PlatformAdapter {
     return new KickWatcher({
       fetcher: this.fetcher,
       createWebSocket: this.webSocketFactory,
-      log: (level, message) => diagnostic(this.emit, level, message),
     });
   }
 
