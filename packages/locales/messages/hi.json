@@ -680,5 +680,62 @@
   },
   "showDiagnosticLogs": {
     "message": "डायग्नोस्टिक दिखाएँ"
+  },
+  "compatibilityAutomatic": {
+    "message": "संगतता: Automatic"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "संगतता: Twitch compatibility profile"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "संगतता: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "संगतता: Kick compatibility profile"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "संगतता: Choose a bundled Kick profile or let Lurkloot select it automatically."
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "संगतता: Effective compatibility"
+  },
+  "compatibilityExpertShow": {
+    "message": "संगतता: Show expert compatibility controls"
+  },
+  "compatibilityExpertHide": {
+    "message": "संगतता: Hide expert compatibility controls"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "संगतता: Twitch heartbeat transport"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "संगतता: Override the bundled Twitch watch heartbeat."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "संगतता: Twitch inventory query"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "संगतता: Override the bundled Twitch inventory query."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "संगतता: Kick claim-link handling"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "संगतता: Override the bundled Kick account-link handling."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "संगतता: Recommended"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "संगतता: Legacy"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "संगतता: Experimental"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "संगतता: Manual compatibility overrides are active. They may stop working when platforms change."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "संगतता: Restore automatic compatibility"
   }
 }

@@ -680,5 +680,62 @@
   },
   "showDiagnosticLogs": {
     "message": "显示诊断信息"
+  },
+  "compatibilityAutomatic": {
+    "message": "兼容性: Automatic"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "兼容性: Twitch compatibility profile"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "兼容性: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "兼容性: Kick compatibility profile"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "兼容性: Choose a bundled Kick profile or let Lurkloot select it automatically."
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "兼容性: Effective compatibility"
+  },
+  "compatibilityExpertShow": {
+    "message": "兼容性: Show expert compatibility controls"
+  },
+  "compatibilityExpertHide": {
+    "message": "兼容性: Hide expert compatibility controls"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "兼容性: Twitch heartbeat transport"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "兼容性: Override the bundled Twitch watch heartbeat."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "兼容性: Twitch inventory query"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "兼容性: Override the bundled Twitch inventory query."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "兼容性: Kick claim-link handling"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "兼容性: Override the bundled Kick account-link handling."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "兼容性: Recommended"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "兼容性: Legacy"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "兼容性: Experimental"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "兼容性: Manual compatibility overrides are active. They may stop working when platforms change."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "兼容性: Restore automatic compatibility"
   }
 }

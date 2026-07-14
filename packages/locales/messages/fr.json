@@ -680,5 +680,62 @@
   },
   "showDiagnosticLogs": {
     "message": "Afficher les diagnostics"
+  },
+  "compatibilityAutomatic": {
+    "message": "Compatibilité: Automatic"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Compatibilité: Twitch compatibility profile"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "Compatibilité: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Compatibilité: Kick compatibility profile"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "Compatibilité: Choose a bundled Kick profile or let Lurkloot select it automatically."
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "Compatibilité: Effective compatibility"
+  },
+  "compatibilityExpertShow": {
+    "message": "Compatibilité: Show expert compatibility controls"
+  },
+  "compatibilityExpertHide": {
+    "message": "Compatibilité: Hide expert compatibility controls"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Compatibilité: Twitch heartbeat transport"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "Compatibilité: Override the bundled Twitch watch heartbeat."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Compatibilité: Twitch inventory query"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "Compatibilité: Override the bundled Twitch inventory query."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Compatibilité: Kick claim-link handling"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "Compatibilité: Override the bundled Kick account-link handling."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "Compatibilité: Recommended"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "Compatibilité: Legacy"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "Compatibilité: Experimental"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "Compatibilité: Manual compatibility overrides are active. They may stop working when platforms change."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "Compatibilité: Restore automatic compatibility"
   }
 }

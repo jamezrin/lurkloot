@@ -680,5 +680,62 @@
   },
   "showDiagnosticLogs": {
     "message": "Показать диагностику"
+  },
+  "compatibilityAutomatic": {
+    "message": "Совместимость: Automatic"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Совместимость: Twitch compatibility profile"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "Совместимость: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Совместимость: Kick compatibility profile"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "Совместимость: Choose a bundled Kick profile or let Lurkloot select it automatically."
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "Совместимость: Effective compatibility"
+  },
+  "compatibilityExpertShow": {
+    "message": "Совместимость: Show expert compatibility controls"
+  },
+  "compatibilityExpertHide": {
+    "message": "Совместимость: Hide expert compatibility controls"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Совместимость: Twitch heartbeat transport"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "Совместимость: Override the bundled Twitch watch heartbeat."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Совместимость: Twitch inventory query"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "Совместимость: Override the bundled Twitch inventory query."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Совместимость: Kick claim-link handling"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "Совместимость: Override the bundled Kick account-link handling."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "Совместимость: Recommended"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "Совместимость: Legacy"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "Совместимость: Experimental"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "Совместимость: Manual compatibility overrides are active. They may stop working when platforms change."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "Совместимость: Restore automatic compatibility"
   }
 }

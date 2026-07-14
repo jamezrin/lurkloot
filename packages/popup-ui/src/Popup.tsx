@@ -476,6 +476,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }
 
   const settings = mergeSettings(snapshot.settings);
+  const compatibilityResolution = adapter.resolveCompatibility?.(settings.compatibility);
   const excludedIds = new Set(settings.excludedCampaignIds);
   const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter((campaign) => isCampaignVisible(campaign, settings, excludedIds)), settings);
   const session = snapshot.state.sessions[platform];
@@ -567,7 +568,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} initialPlatform={platform} />
+                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} initialPlatform={platform} />
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>

@@ -1,5 +1,33 @@
 import type { CliCredentialBlob, RuntimeMessage } from "@lurkloot/shared/messages";
-import type { DropCampaign, Platform, RewardRequirementType, SupportedLocale } from "@lurkloot/shared/models";
+import type { CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale } from "@lurkloot/shared/models";
+
+export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
+export interface CompatibilityOptionMetadata {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly lifecycle: CompatibilityLifecycle;
+  readonly hosts: readonly string[];
+  readonly identities?: readonly string[];
+}
+export interface PopupCompatibilityRegistry {
+  readonly twitch: {
+    readonly profiles: Readonly<Record<string, CompatibilityOptionMetadata>>;
+    readonly heartbeat: Readonly<Record<string, CompatibilityOptionMetadata>>;
+    readonly inventory: Readonly<Record<string, CompatibilityOptionMetadata>>;
+  };
+  readonly kick: {
+    readonly profiles: Readonly<Record<string, CompatibilityOptionMetadata>>;
+    readonly claim: Readonly<Record<string, CompatibilityOptionMetadata>>;
+  };
+}
+export interface PopupCompatibilityResolution {
+  readonly compatibility: {
+    readonly twitch: { readonly profile: string; readonly heartbeat: string; readonly inventory: string };
+    readonly kick: { readonly profile: string; readonly claim: string };
+  };
+  readonly warnings: readonly unknown[];
+}
 
 export type PopupTab = "drops" | "watchQueue";
 export type GameItem = {
@@ -93,6 +121,8 @@ export interface PopupAdapter {
   // Optional: download/persist an exported credential blob for the headless CLI.
   // Only the live extension implements it (the demo omits it, hiding the action).
   exportCredentials?(blob: CliCredentialBlob): void;
+  compatibilityRegistry?: PopupCompatibilityRegistry;
+  resolveCompatibility?(settings: CompatibilitySettings): PopupCompatibilityResolution;
 }
 
 export interface PopupInitialState {

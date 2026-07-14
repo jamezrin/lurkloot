@@ -680,5 +680,62 @@
   },
   "showDiagnosticLogs": {
     "message": "Show diagnostics"
+  },
+  "compatibilityAutomatic": {
+    "message": "Automatic"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Twitch compatibility profile"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "Choose a bundled Twitch profile or let Lurkloot select it automatically."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Kick compatibility profile"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "Choose a bundled Kick profile or let Lurkloot select it automatically."
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "Effective compatibility"
+  },
+  "compatibilityExpertShow": {
+    "message": "Show expert compatibility controls"
+  },
+  "compatibilityExpertHide": {
+    "message": "Hide expert compatibility controls"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Twitch heartbeat transport"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "Override the bundled Twitch watch heartbeat."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Twitch inventory query"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "Override the bundled Twitch inventory query."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Kick claim-link handling"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "Override the bundled Kick account-link handling."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "Recommended"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "Legacy"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "Experimental"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "Manual compatibility overrides are active. They may stop working when platforms change."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "Restore automatic compatibility"
   }
 }

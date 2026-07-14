@@ -680,5 +680,62 @@
   },
   "showDiagnosticLogs": {
     "message": "عرض التشخيص"
+  },
+  "compatibilityAutomatic": {
+    "message": "التوافق: Automatic"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "التوافق: Twitch compatibility profile"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "التوافق: Choose a bundled Twitch profile or let Lurkloot select it automatically."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "التوافق: Kick compatibility profile"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "التوافق: Choose a bundled Kick profile or let Lurkloot select it automatically."
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "التوافق: Effective compatibility"
+  },
+  "compatibilityExpertShow": {
+    "message": "التوافق: Show expert compatibility controls"
+  },
+  "compatibilityExpertHide": {
+    "message": "التوافق: Hide expert compatibility controls"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "التوافق: Twitch heartbeat transport"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "التوافق: Override the bundled Twitch watch heartbeat."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "التوافق: Twitch inventory query"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "التوافق: Override the bundled Twitch inventory query."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "التوافق: Kick claim-link handling"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "التوافق: Override the bundled Kick account-link handling."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "التوافق: Recommended"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "التوافق: Legacy"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "التوافق: Experimental"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "التوافق: Manual compatibility overrides are active. They may stop working when platforms change."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "التوافق: Restore automatic compatibility"
   }
 }
