@@ -1,11 +1,48 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { defaultConfigJsonc, loadConfig, parseConfig } from "../src/config";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
 
 const CONFIG_PATH = "/tmp/lurkloot/config.json";
+const CLI_PACKAGE_DIR = fileURLToPath(new URL("..", import.meta.url));
+const CLI_PATH = join(CLI_PACKAGE_DIR, "dist/index.mjs");
+const LEGACY_WARNING = "settings.enabledLogLevels is deprecated and ignored; use --log debug|info|warn|error";
+
+beforeAll(() => {
+  execFileSync("pnpm", ["build"], { cwd: CLI_PACKAGE_DIR, stdio: "pipe" });
+});
+
+function runCli(configPath: string, args: string[]) {
+  return spawnSync(process.execPath, [CLI_PATH, ...args, "--config", configPath], {
+    cwd: CLI_PACKAGE_DIR,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      SA_TWITCH_AUTH_TOKEN: undefined,
+      SA_TWITCH_DEVICE_ID: undefined,
+      SA_KICK_SESSION_TOKEN: undefined,
+    },
+  });
+}
+
+function writeLegacyConfig(dir: string): string {
+  const path = join(dir, "config.json");
+  writeFileSync(path, JSON.stringify({
+    transport: "http",
+    settings: {
+      enabledLogLevels: ["error"],
+      platform: {
+        twitch: { enabled: false },
+        kick: { enabled: false },
+      },
+    },
+  }));
+  return path;
+}
 
 describe("parseConfig", () => {
   it("defaults to the impersonate transport and <configDir>/auth", () => {
@@ -123,6 +160,49 @@ describe("loadConfig", () => {
       const path = join(dir, "config.json");
       writeFileSync(path, defaultConfigJsonc());
       expect(loadConfig(path).settings).toEqual(DEFAULT_CLI_SETTINGS);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("CLI config warning integration", () => {
+  it.each([
+    ["validate-config", ["validate-config"]],
+    ["discover", ["discover"]],
+    ["run once", ["run", "--once"]],
+    ["auth status", ["auth", "status"]],
+  ])("emits the legacy warning exactly once for %s", (_name, args) => {
+    const dir = mkdtempSync(join(tmpdir(), "lurkloot-command-"));
+    try {
+      const result = runCli(writeLegacyConfig(dir), args);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stderr.split(LEGACY_WARNING)).toHaveLength(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("filters the legacy warning at --log error", () => {
+    const dir = mkdtempSync(join(tmpdir(), "lurkloot-command-"));
+    try {
+      const result = runCli(writeLegacyConfig(dir), ["validate-config", "--log", "error"]);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stderr).not.toContain(LEGACY_WARNING);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps validate-config stdout as valid JSON while warning on stderr", () => {
+    const dir = mkdtempSync(join(tmpdir(), "lurkloot-command-"));
+    try {
+      const result = runCli(writeLegacyConfig(dir), ["validate-config"]);
+      expect(result.status, result.stderr).toBe(0);
+      expect(() => JSON.parse(result.stdout)).not.toThrow();
+      expect(JSON.parse(result.stdout)).toMatchObject({ transport: "http" });
+      expect(result.stdout).not.toContain(LEGACY_WARNING);
+      expect(result.stderr).toContain(LEGACY_WARNING);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { EngineEvent, FarmingStopReason } from "@lurkloot/shared/events";
 import type { Logger } from "../src/logger";
 import { formatCliEvent, reportCliEvents } from "../src/events";
+import { createLogger } from "../src/logger";
 
 function rewardEvent(
   code: "farming_started" | "farming_stopped" | "reward_claimed",
@@ -51,6 +52,37 @@ describe("CLI engine event reporting", () => {
       "INFO [twitch] Stopped farming Reward A from Campaign: target changed",
       "INFO [twitch] Started farming Reward B from Campaign",
     ]);
+  });
+
+  it.each([
+    ["warn", ["WARN [kick] Farming interrupted: platform error (HTTP 503)"]],
+    ["error", []],
+  ] as const)("suppresses debug and info engine events at the %s logger threshold", async (level, expected) => {
+    const write = vi.spyOn(process.stderr, "write").mockImplementation((() => true) as typeof process.stderr.write);
+    try {
+      await reportCliEvents([
+        {
+          category: "diagnostic",
+          code: "request",
+          level: "debug",
+          platform: "twitch",
+          message: "request detail",
+        },
+        rewardEvent("farming_started", "Reward A"),
+        {
+          category: "activity",
+          code: "interruption",
+          level: "warn",
+          platform: "kick",
+          data: { reason: "platform_error", detail: "HTTP 503" },
+        },
+      ], createLogger(level));
+
+      const lines = write.mock.calls.map(([line]) => String(line).replace(/^\S+ /, "").trim());
+      expect(lines).toEqual(expected);
+    } finally {
+      write.mockRestore();
+    }
   });
 
   it("formats every activity variant and passes diagnostic prose through", () => {

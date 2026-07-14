@@ -47,8 +47,8 @@ const validateConfigCommand: CommandModule = {
   command: "validate-config",
   describe: "Load + normalize the config and print the effective settings",
   handler: (argv) => {
-    const config = loadConfig((argv.config as string | undefined) ?? "config.json");
-    for (const warning of config.warnings) process.stderr.write(`${warning}\n`);
+    const logger = loggerOf(argv);
+    const config = configOf(argv, logger);
     process.stdout.write(`${JSON.stringify({ transport: config.transport, authDir: config.authDir, settings: config.settings }, null, 2)}\n`);
   },
 };
