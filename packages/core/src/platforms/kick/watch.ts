@@ -164,6 +164,7 @@ export class KickWatcher implements TablessWatchController {
       const ws = this.createWebSocket(`wss://websockets.kick.com/viewer/v1/connect?token=${encodeURIComponent(token)}`);
       this.ws = ws;
       ws.addEventListener("open", () => {
+        if (ws !== this.ws) return;
         this.connected = true;
         this.sendHandshake();
         // Prime an immediate watch event so progress starts without a 60s wait.
@@ -172,11 +173,16 @@ export class KickWatcher implements TablessWatchController {
         this.log("info", `Kick tabless viewer connected for ${channel.username}`);
       });
       ws.addEventListener("close", () => {
-        this.connected = false;
+        if (ws !== this.ws) {
+          this.intentionallyClosedSockets.delete(ws);
+          return;
+        }
         if (this.intentionallyClosedSockets.delete(ws)) return;
+        this.connected = false;
         this.log("debug", `Kick viewer connection closed for ${channel.username}`);
       });
       ws.addEventListener("error", () => {
+        if (ws !== this.ws) return;
         this.connected = false;
         this.failed = true;
         this.failureMessage = "Kick viewer WebSocket error; falling back to a watch tab";
