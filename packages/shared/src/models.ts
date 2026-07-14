@@ -1,5 +1,3 @@
-import type { LogLevel } from "./logging";
-
 export type Platform = "twitch" | "kick";
 
 export type CampaignStatus = "active" | "upcoming" | "expired" | "completed";
@@ -99,6 +97,7 @@ export interface WatchSession {
   retryAfter?: string;
   status: "idle" | "watching" | "paused" | "error";
   message?: string;
+  reasonCode?: WatchReasonCode;
   playback?: PlaybackTelemetry;
   // How the current channel is being watched. "tabless" sends API watch
   // heartbeats with no tab (low-resource mode); "tab" is the classic visible
@@ -114,6 +113,29 @@ export interface WatchSession {
   lastHeartbeatOk?: boolean;
   heartbeatChecks?: number;
 }
+
+export type WatchReasonCode =
+  | "eligible_campaign"
+  | "watch_queue_selected"
+  | "no_eligible_channel"
+  | "no_existing_session"
+  | "manual_watch"
+  | "automation_disabled"
+  | "platform_disabled"
+  | "platform_backoff"
+  | "platform_error"
+  | "campaign_ineligible"
+  | "channel_excluded"
+  | "channel_offline"
+  | "channel_mismatch"
+  | "watch_unhealthy"
+  | "higher_priority_reward"
+  | "higher_priority_watch_queue"
+  | "keeping_current_watch"
+  | "keeping_watch_queue"
+  | "watch_requirement_completed"
+  | "runtime_restart"
+  | "target_changed";
 
 export interface ManagedWatchTab {
   platform: Platform;
@@ -211,7 +233,6 @@ export interface EngineSettings {
   excludedCampaignIds: string[];
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
-  enabledLogLevels: LogLevel[];
 }
 
 // The browser extension's full settings schema: the engine contract plus the
@@ -228,14 +249,9 @@ export interface ExtensionSettings extends EngineSettings {
   // Which campaign states are shown in the Drops list. See CampaignFilterKey.
   campaignVisibility: Record<CampaignFilterKey, boolean>;
   rateNudgeStatus: RateNudgeStatus;
-}
-
-export interface EventLogEntry {
-  id: string;
-  at: string;
-  platform?: Platform;
-  level: LogLevel;
-  message: string;
+  // Extension-only persistence policy. Normal farming activity is always
+  // recorded; this opt-in adds lower-level technical diagnostics.
+  diagnosticLogging: boolean;
 }
 
 export interface SchedulerState {
@@ -244,7 +260,6 @@ export interface SchedulerState {
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
   campaigns: Record<Platform, DropCampaign[]>;
-  events: EventLogEntry[];
   lastTickAt?: string;
   // ISO timestamp recorded once by the background on install; drives the
   // time-based rate/review nudge. Undefined means "unknown" (pre-feature state).
@@ -258,4 +273,5 @@ export interface WatchDecision {
   reward?: DropReward;
   channel?: ChannelCandidate;
   reason: string;
+  reasonCode: WatchReasonCode;
 }

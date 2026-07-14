@@ -1,5 +1,4 @@
 import type { AdFocusMode, CampaignFilterKey, CategorySelection, EngineSettings, ExtensionSettings, LanguageOverride, Platform, PlatformSettings, PriorityMode, RateNudgeStatus, SupportedLocale } from "./models";
-import { LOG_LEVELS, type LogLevel } from "./logging";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
@@ -45,7 +44,6 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   excludedCampaignIds: [],
   offlineRetryLimit: 3,
   pollIntervalMinutes: 1,
-  enabledLogLevels: ["info", "warn", "error"],
 };
 
 // The extension's full defaults: the engine contract plus the host-only knobs.
@@ -66,6 +64,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
     finished: true,
   },
   rateNudgeStatus: "pending",
+  diagnosticLogging: false,
 };
 
 // Normalizes the universal engine contract. The engine (packages/core) and any
@@ -106,13 +105,16 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_ENGINE_SETTINGS.offlineRetryLimit),
     // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_ENGINE_SETTINGS.pollIntervalMinutes),
-    enabledLogLevels: normalizeLogLevels(value),
   };
 }
 
 // Normalizes the extension's full settings: the engine contract plus the
 // host-only fields the engine never reads.
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
+  const legacyVerbose = (value as (Partial<ExtensionSettings> & { verboseLogging?: boolean }) | undefined)?.verboseLogging;
+  const diagnosticLogging = typeof value?.diagnosticLogging === "boolean"
+    ? value.diagnosticLogging
+    : legacyVerbose === true;
   return {
     ...mergeEngineSettings(value),
     muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_SETTINGS.muteFarmingTabs),
@@ -126,6 +128,7 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     rateNudgeStatus: RATE_NUDGE_STATUSES.includes(value?.rateNudgeStatus as RateNudgeStatus)
       ? (value!.rateNudgeStatus as RateNudgeStatus)
       : DEFAULT_SETTINGS.rateNudgeStatus,
+    diagnosticLogging,
   };
 }
 
@@ -153,21 +156,6 @@ export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPa
       ...patch.campaignVisibility,
     },
   });
-}
-
-export function normalizeLogLevels(value: Partial<EngineSettings> & { verboseLogging?: boolean } | undefined): LogLevel[] {
-  // No stored array -> migrate the legacy verboseLogging toggle (verbose meant
-  // debug entries were recorded on top of the info/warn/error baseline).
-  if (!Array.isArray(value?.enabledLogLevels)) {
-    return value?.verboseLogging
-      ? ["debug", ...DEFAULT_SETTINGS.enabledLogLevels]
-      : [...DEFAULT_SETTINGS.enabledLogLevels];
-  }
-  // Filter through LOG_LEVELS for canonical order + dedupe; error is always
-  // recorded so failures are never silently dropped.
-  const stored = value.enabledLogLevels;
-  const valid = LOG_LEVELS.filter((level) => stored.includes(level));
-  return valid.includes("error") ? valid : [...valid, "error"];
 }
 
 export function booleanOr(value: boolean | undefined, fallback: boolean): boolean {

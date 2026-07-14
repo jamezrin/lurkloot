@@ -20,7 +20,6 @@ import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import {
   CampaignFilterSettingRow,
   ForgetExcludedCampaignsRow,
-  LogLevelSettingRow,
   NumberSettingRow,
   SelectSettingRow,
   SettingRow,
@@ -148,7 +147,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
       </SettingsSection>
       <SettingsSection title={t("advancedTitle")} description={t("advancedDescription")} icon={SlidersHorizontal}>
         <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={pollIntervalSeconds} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
-        <LogLevelSettingRow value={settings.enabledLogLevels} onChange={(levels) => onSettingsChange({ enabledLogLevels: levels })} />
+        <SettingRow title={t("diagnosticLoggingTitle")} description={t("diagnosticLoggingDescription")} checked={settings.diagnosticLogging} onChange={set("diagnosticLogging")} />
       </SettingsSection>
       {onExportCredentials && (
         <SettingsSection title={t("cliExportTitle")} description={t("cliExportDescription")} icon={Terminal}>

@@ -13,6 +13,7 @@ describe("engine settings", () => {
     "languageOverride",
     "campaignVisibility",
     "rateNudgeStatus",
+    "diagnosticLogging",
   ] as const;
 
   it("normalizes the engine contract without the host-only fields", () => {
@@ -45,7 +46,7 @@ describe("settings", () => {
       languageOverride: "browser",
       watchQueueFallbackOnly: true,
       pollIntervalMinutes: 1,
-      enabledLogLevels: ["info", "warn", "error"],
+      diagnosticLogging: false,
       platform: {
         twitch: { excludedChannels: [], farmAllCategories: true, categories: [] },
         kick: { excludedChannels: [], farmAllCategories: true, categories: [] },
@@ -62,22 +63,16 @@ describe("settings", () => {
     expect(mergeSettings({ offlineRetryLimit: Number.NaN }).offlineRetryLimit).toBe(DEFAULT_SETTINGS.offlineRetryLimit);
   });
 
-  it("normalizes enabled log levels and always keeps error", () => {
-    // Defaults when nothing is stored.
-    expect(mergeSettings(undefined).enabledLogLevels).toEqual(["info", "warn", "error"]);
-    expect(mergeSettings({ enabledLogLevels: undefined }).enabledLogLevels).toEqual(["info", "warn", "error"]);
-    // Invalid/duplicate/out-of-order entries are filtered to canonical order.
-    expect(mergeSettings({ enabledLogLevels: ["warn", "debug", "warn", "bogus"] as never }).enabledLogLevels)
-      .toEqual(["debug", "warn", "error"]);
-    // Error is forced on even if omitted.
-    expect(mergeSettings({ enabledLogLevels: ["info"] }).enabledLogLevels).toEqual(["info", "error"]);
-    // An explicit empty array still records errors.
-    expect(mergeSettings({ enabledLogLevels: [] }).enabledLogLevels).toEqual(["error"]);
+  it("keeps diagnostic logging independent from the removed engine log-level setting", () => {
+    expect(mergeSettings(undefined).diagnosticLogging).toBe(false);
+    expect(mergeSettings({ diagnosticLogging: true }).diagnosticLogging).toBe(true);
+    expect(mergeSettings({ diagnosticLogging: false, enabledLogLevels: ["debug"] } as never).diagnosticLogging).toBe(false);
+    expect("enabledLogLevels" in mergeSettings({ enabledLogLevels: ["debug"] } as never)).toBe(false);
   });
 
   it("migrates the legacy verboseLogging flag", () => {
-    expect(mergeSettings({ verboseLogging: true } as never).enabledLogLevels).toEqual(["debug", "info", "warn", "error"]);
-    expect(mergeSettings({ verboseLogging: false } as never).enabledLogLevels).toEqual(["info", "warn", "error"]);
+    expect(mergeSettings({ verboseLogging: true } as never).diagnosticLogging).toBe(true);
+    expect(mergeSettings({ verboseLogging: false } as never).diagnosticLogging).toBe(false);
   });
 
   it("normalizes imported list, priority, mode, and boolean settings", () => {

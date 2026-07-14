@@ -566,5 +566,89 @@
   },
   "cliExportButton": {
     "message": "Esporta credenziali"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Includi registri diagnostici"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Registra dettagli tecnici aggiuntivi utili per diagnosticare i problemi. L’attività normale viene sempre conservata."
+  },
+  "activityFarmingStarted": {
+    "message": "Avviata la raccolta di $1 da $2."
+  },
+  "activityFarmingStopped": {
+    "message": "Interrotta la raccolta di $1 da $2: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "Riscattato $1 da $2."
+  },
+  "activityInterruption": {
+    "message": "Raccolta interrotta: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Raccolta interrotta: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "l’automazione è stata disattivata"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "la piattaforma è stata disattivata"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "la piattaforma è temporaneamente in attesa"
+  },
+  "activityReasonPlatformError": {
+    "message": "si è verificato un errore della piattaforma"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "la campagna non è più idonea"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "il canale è escluso"
+  },
+  "activityReasonChannelOffline": {
+    "message": "il canale è andato offline"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "il canale non corrisponde più"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "il controllo della riproduzione non è riuscito"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "è subentrata una ricompensa con priorità maggiore"
+  },
+  "activityReasonHigherPriorityWatchQueue": {
+    "message": "la coda di visione ha avuto la priorità"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "il requisito di visione è stato completato"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "l’estensione è stata riavviata"
+  },
+  "activityReasonTargetChanged": {
+    "message": "l’obiettivo di raccolta è cambiato"
+  },
+  "activityReasonManualWatch": {
+    "message": "è subentrata la visione manuale"
+  },
+  "hideDiagnosticLogs": {
+    "message": "Nascondi diagnostica"
+  },
+  "loadMoreActivity": {
+    "message": "Carica altro"
+  },
+  "clearActivityHistory": {
+    "message": "Cancella cronologia"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Conferma cancellazione"
+  },
+  "clearActivityFailed": {
+    "message": "Impossibile cancellare la cronologia. Riprova."
+  },
+  "showDiagnosticLogs": {
+    "message": "Mostra diagnostica"
   }
 }

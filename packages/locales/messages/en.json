@@ -566,5 +566,89 @@
   },
   "cliExportButton": {
     "message": "Export credentials"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Include diagnostic logs"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Record additional technical details that can help diagnose problems. Normal activity is always kept."
+  },
+  "activityFarmingStarted": {
+    "message": "Started farming $1 from $2."
+  },
+  "activityFarmingStopped": {
+    "message": "Stopped farming $1 from $2: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "Claimed $1 from $2."
+  },
+  "activityInterruption": {
+    "message": "Farming interrupted: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Farming interrupted: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "automation was disabled"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "the platform was disabled"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "the platform is temporarily backing off"
+  },
+  "activityReasonPlatformError": {
+    "message": "a platform error occurred"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "the campaign is no longer eligible"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "the channel is excluded"
+  },
+  "activityReasonChannelOffline": {
+    "message": "the channel went offline"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "the channel no longer matches"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "the watch health check failed"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "a higher-priority reward took over"
+  },
+  "activityReasonHigherPriorityWatchQueue": {
+    "message": "the Watch Queue took priority"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "the watch requirement was completed"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "the extension restarted"
+  },
+  "activityReasonTargetChanged": {
+    "message": "the farming target changed"
+  },
+  "activityReasonManualWatch": {
+    "message": "manual watching took over"
+  },
+  "hideDiagnosticLogs": {
+    "message": "Hide diagnostics"
+  },
+  "loadMoreActivity": {
+    "message": "Load more"
+  },
+  "clearActivityHistory": {
+    "message": "Clear history"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Confirm clear"
+  },
+  "clearActivityFailed": {
+    "message": "Could not clear activity history. Try again."
+  },
+  "showDiagnosticLogs": {
+    "message": "Show diagnostics"
   }
 }

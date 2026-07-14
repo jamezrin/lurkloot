@@ -21,9 +21,23 @@ import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
+import { appendActivityEvents, clearActivityEvents, loadActivityEvents } from "../src/core/activityStorage";
+import {
+  createActivityEventReporter,
+  createActivityMessageHandler,
+  createRuntimeMessageDispatcher,
+} from "../src/core/activityMessages";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
+const handleActivityMessage = createActivityMessageHandler({
+  load: loadActivityEvents,
+  clear: clearActivityEvents,
+});
+const reportEvents = createActivityEventReporter({
+  loadDiagnosticLogging: async () => (await loadSettings()).diagnosticLogging,
+  append: appendActivityEvents,
+});
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
@@ -45,31 +59,12 @@ async function translate(key: string, substitutions?: string | string[]): Promis
   return translateFromCatalogs(key, substitutions, active, fallback ?? {});
 }
 
-// Browser-backed watch-tab port shared by both adapters: binds the engine's
-// WatchTabPort to the extension's wxt/browser tab wrappers. The host owns the tab
-// policy (mute / keep-unmuted / auto-close), filling it from its own settings
-// before delegating — the engine never reads those fields.
-const watchTabPort: WatchTabPort = {
-  openPinnedMutedTab: async (channel, session, options) => {
-    const settings = await loadSettings();
-    return openPinnedMutedTab(channel, session, {
-      muted: settings.muteFarmingTabs,
-      keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
-      closeManagedTabs: settings.autoCloseFinishedDrops,
-      ...options,
-    });
-  },
-  stopWatchTab: async (session, options) => {
-    const settings = await loadSettings();
-    return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options });
-  },
-};
-
 const controller = createBackgroundController<ExtensionSettings>({
   loadSettings,
   saveSettings,
   loadState,
   saveState,
+  reportEvents,
   createAlarm: (name, options) => browser.alarms.create(name, options),
   closeManagedTabsByUrl: async (urls) => {
     for (const url of urls) {
@@ -89,28 +84,51 @@ const controller = createBackgroundController<ExtensionSettings>({
   },
   translate,
   applySettingsPatch,
-  applyAdFocus: async (platform, tabId, adActive) => {
+  applyAdFocus: async (platform, tabId, adActive, emit) => {
     const { adFocusMode } = await loadSettings();
-    await applyAdFocus(platform, tabId, adActive, adFocusMode);
+    await applyAdFocus(platform, tabId, adActive, adFocusMode, emit);
   },
   loadTabPlaybackPolicy: async () => ({ keepVideosUnmuted: (await loadSettings()).keepFarmingVideosUnmuted !== false }),
   loadTwitchIntegrity,
   saveTwitchIntegrity,
   stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
-  createAdapters: () => ({
-    twitch: new TwitchAdapter(
-      { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
-      ensureTwitchIntegrity,
-      watchTabPort,
-    ),
-    kick: new KickAdapter(
-      createKickFetcher({
-        background: (url, init) => fetchKickInBackground<unknown>(url, init),
-        pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
-      }),
-      watchTabPort,
-    ),
-  }),
+  createAdapters: (emit) => {
+    // The watch-tab port is operation-scoped so every browser diagnostic joins
+    // the same controller event batch as the adapter and scheduler events.
+    const watchTabPort: WatchTabPort = {
+      openPinnedMutedTab: async (channel, session, options) => {
+        const settings = await loadSettings();
+        return openPinnedMutedTab(channel, session, {
+          muted: settings.muteFarmingTabs,
+          keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
+          closeManagedTabs: settings.autoCloseFinishedDrops,
+          ...options,
+        }, emit);
+      },
+      stopWatchTab: async (session, options) => {
+        const settings = await loadSettings();
+        return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options }, emit);
+      },
+    };
+    return {
+      twitch: new TwitchAdapter(
+        { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
+        () => ensureTwitchIntegrity(emit),
+        watchTabPort,
+        {},
+        emit,
+      ),
+      kick: new KickAdapter(
+        createKickFetcher({
+          background: (url, init) => fetchKickInBackground<unknown>(url, init),
+          pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
+        }),
+        watchTabPort,
+        undefined,
+        emit,
+      ),
+    };
+  },
 });
 
 // Builds the CLI credential blob from the user's live session cookies: Twitch
@@ -132,6 +150,14 @@ async function buildCliCredentialBlob(): Promise<CliCredentialBlob> {
     },
   };
 }
+
+// Credential export reads the user's live session cookies, which only the
+// extension can do. Keep it ahead of activity routing and core delegation.
+const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
+  exportCliCredentials: buildCliCredentialBlob,
+  handleActivityMessage,
+  handleCoreMessage: (message, sender) => controller.handleMessage(message, sender),
+});
 
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async (details) => {
@@ -184,14 +210,7 @@ export default defineBackground(() => {
   );
 
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
-    // Credential export reads the user's live session cookies, which only the
-    // extension can do — handle it here rather than in the browser-free engine.
-    // The popup gates this behind an explicit confirm dialog.
-    if (message.type === "exportCliCredentials") {
-      void buildCliCredentialBlob().then(sendResponse);
-      return true;
-    }
-    void controller.handleMessage(message, sender).then(sendResponse);
+    void dispatchRuntimeMessage(message, sender).then(sendResponse);
     return true;
   });
 

@@ -26,7 +26,7 @@ Package-qualified paths below are written as `packages/<package>/...` when owner
 - `entrypoints/twitch.content.ts` and `entrypoints/kick.content.ts` start shared playback telemetry/control on platform pages.
 - `entrypoints/popup/` adapts WXT/browser APIs to the shared React popup UI in `packages/popup-ui`, which talks only to the background controller through runtime messages.
 
-State and normalized settings are loaded and saved through `packages/extension/src/core/storage.ts` in the extension and through `packages/cli/src/storage.ts` in the CLI. The scheduler stores independent `WatchSession`, campaign, diagnostics, event, manual-watch, and managed-tab state for `twitch` and `kick`. A short-lived Twitch Client-Integrity bundle is stored separately so claim mutations can replay page-issued Twitch headers while the token is valid.
+State and normalized settings are loaded and saved through `packages/extension/src/core/storage.ts` in the extension and through `packages/cli/src/storage.ts` in the CLI. The scheduler stores independent `WatchSession`, campaign, manual-watch, and managed-tab state for `twitch` and `kick`; diagnostics and activity events are emitted through the reporter outside `SchedulerState`. A short-lived Twitch Client-Integrity bundle is stored separately so claim mutations can replay page-issued Twitch headers while the token is valid.
 
 ## Runtime Messages
 
@@ -63,7 +63,7 @@ Each scheduler tick runs enabled platforms independently:
 6. Decide whether to keep the current target by checking channel liveness/category and recent playback or heartbeat telemetry.
 7. Use tabless watching when enabled and supported, or open, reuse, retarget, or stop the watch tab through the adapter.
 8. Claim channel points when enabled and supported by the adapter.
-9. Persist sessions, campaigns, managed-tab registrations, events, and backoff state.
+9. Persist sessions, campaigns, managed-tab registrations, and backoff state, then publish activity records through the host event sink.
 
 Campaign ordering is shared across platforms: explicit campaign priority, platform game priority, campaign priority field, optional lowest-availability mode, ending soonest, then campaign name. Per-platform excluded drop channels filter campaign candidates only; they do not suppress Watch Queue fallback channels.
 
@@ -142,3 +142,11 @@ Repeated offline, category mismatch, unhealthy playback checks, or unhealthy tab
 The popup is a controller UI, not a platform client. It requests snapshots and sends setting/action messages to the background controller. Manual reward claims are routed through the platform adapter so state updates, notifications, and event logging stay consistent with automated claims.
 
 The popup exposes platform-specific queues, excluded drop channels, game order, campaign priorities, notifications, and advanced playback settings. Changes that can affect the active scheduler target can request a targeted tick for the affected platform.
+
+## Activity and diagnostics
+
+The controller emits causally ordered batches of typed activity and diagnostic records through a host-provided reporter. Farming starts, stops with a stable reason, successful claims, and actionable interruptions are activity; request, playback, tab, and scheduler detail is diagnostic. Unchanged periodic decisions are not emitted repeatedly. Hosts format and retain these records at that reporter boundary rather than reconstructing prose from scheduler state.
+
+The extension stores activity in a bounded IndexedDB database owned by the background and queries it from the popup through runtime messages. Normal activity is always retained; diagnostic persistence is extension-only and opt-in. Activity database failures are isolated from farming state mutations.
+
+The CLI has no activity store. It formats each activity variant directly, passes diagnostic messages through, and routes each batch in its original order through the existing `--log`-filtered stderr logger. Retention belongs to Docker, systemd, Loki, or another external collector; `state.json` never contains new event data, and legacy event fields disappear after the state is loaded and saved.

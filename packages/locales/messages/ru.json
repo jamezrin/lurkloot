@@ -566,5 +566,89 @@
   },
   "cliExportButton": {
     "message": "Экспортировать учётные данные"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Включить диагностические журналы"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Записывает дополнительные технические сведения для диагностики проблем. Обычная активность сохраняется всегда."
+  },
+  "activityFarmingStarted": {
+    "message": "Начат сбор $1 из кампании $2."
+  },
+  "activityFarmingStopped": {
+    "message": "Сбор $1 из кампании $2 остановлен: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "Получено: $1 из кампании $2."
+  },
+  "activityInterruption": {
+    "message": "Сбор прерван: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Сбор прерван: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "автоматизация отключена"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "платформа отключена"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "платформа временно ожидает"
+  },
+  "activityReasonPlatformError": {
+    "message": "произошла ошибка платформы"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "кампания больше недоступна"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "канал исключён"
+  },
+  "activityReasonChannelOffline": {
+    "message": "канал отключился"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "канал больше не подходит"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "проверка воспроизведения не пройдена"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "выбрана награда с более высоким приоритетом"
+  },
+  "activityReasonHigherPriorityWatchQueue": {
+    "message": "очередь просмотра получила приоритет"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "требование по просмотру выполнено"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "расширение перезапущено"
+  },
+  "activityReasonTargetChanged": {
+    "message": "цель сбора изменилась"
+  },
+  "activityReasonManualWatch": {
+    "message": "включён ручной просмотр"
+  },
+  "hideDiagnosticLogs": {
+    "message": "Скрыть диагностику"
+  },
+  "loadMoreActivity": {
+    "message": "Загрузить ещё"
+  },
+  "clearActivityHistory": {
+    "message": "Очистить историю"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Подтвердить очистку"
+  },
+  "clearActivityFailed": {
+    "message": "Не удалось очистить историю. Повторите попытку."
+  },
+  "showDiagnosticLogs": {
+    "message": "Показать диагностику"
   }
 }

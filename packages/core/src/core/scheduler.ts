@@ -7,11 +7,13 @@ import type {
   Platform,
   SchedulerState,
   WatchDecision,
+  WatchReasonCode,
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
+import type { EngineEvent, EventEmitter, FarmingStopReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
-import { appendLog, shouldRecord, type LogLevel } from "@lurkloot/shared/logging";
+import type { LogLevel } from "@lurkloot/shared/logging";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -146,6 +148,7 @@ export async function chooseCampaignDecision(
         reward,
         channel,
         reason: "Eligible campaign selected",
+        reasonCode: "eligible_campaign",
       };
     }
   }
@@ -162,10 +165,11 @@ export async function chooseCampaignDecision(
       action: "fallback",
       channel: fallback,
       reason: `${noCampaignReason}; Watch Queue channel selected`,
+      reasonCode: "watch_queue_selected",
     };
   }
 
-  return { platform, action: "idle", reason: `${noCampaignReason} and no Watch Queue channels` };
+  return { platform, action: "idle", reason: `${noCampaignReason} and no Watch Queue channels`, reasonCode: "no_eligible_channel" };
 }
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
@@ -251,6 +255,7 @@ function sessionForDecision(
       tabId: undefined,
       tabManagedByExtension: undefined,
       message: decision.reason,
+      reasonCode: decision.reasonCode,
       playback: undefined,
       playbackChecks: 0,
       watchMode: undefined,
@@ -271,6 +276,7 @@ function sessionForDecision(
     rewardId: decision.reward?.id,
     startedAt: keepPlayback ? previous.startedAt : new Date().toISOString(),
     message: decision.reason,
+    reasonCode: decision.reasonCode,
     playback: keepPlayback ? previous.playback : undefined,
     playbackChecks: keepStatus?.playbackChecks ?? 0,
   };
@@ -279,6 +285,7 @@ function sessionForDecision(
 export interface SchedulerTickResult {
   state: SchedulerState;
   decisions: WatchDecision[];
+  events: EngineEvent[];
 }
 
 // Closing managed page-context tabs is browser-bound, so it is injected. The
@@ -293,6 +300,8 @@ export type StopPageContextTabs = (
 export interface SchedulerTickOptions {
   platforms?: Platform[];
   stopPageContextTabs?: StopPageContextTabs;
+  waitingClaimRewardIds?: Partial<Record<Platform, Set<string>>>;
+  emit?: EventEmitter;
 }
 
 export async function runSchedulerTick(
@@ -312,7 +321,11 @@ export async function runSchedulerTick(
     lastTickAt: new Date().toISOString(),
   };
   const decisions: WatchDecision[] = [];
-  const enabledLevels = settings.enabledLogLevels;
+  const events: EngineEvent[] = [];
+  const emit: EventEmitter = (event) => {
+    events.push(event);
+    options.emit?.(event);
+  };
 
   const platforms = options.platforms ?? PLATFORMS;
   for (const platform of platforms) {
@@ -321,7 +334,6 @@ export async function runSchedulerTick(
     const adapter = adapters[platform];
 
     try {
-      nextState = addTickEvent(nextState, platform, "debug", `Tick start (previous status: ${previous.status})`, enabledLevels);
       if (settings.pauseOnManualWatch && hasRecentManualWatch(nextState, platform)) {
         await adapter.stopWatchTab?.(previous);
         nextState.sessions[platform] = {
@@ -337,6 +349,7 @@ export async function runSchedulerTick(
           errorChecks: 0,
           retryAfter: undefined,
           message: "Manual watch detected",
+          reasonCode: "manual_watch",
           watchMode: undefined,
           tablessFallback: undefined,
           heartbeatChecks: 0,
@@ -345,7 +358,7 @@ export async function runSchedulerTick(
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
-        nextState = addTickEvent(nextState, platform, "info", "Manual watch detected; pausing farming for this platform", enabledLevels);
+        emitDiagnostic(emit, platform, "info", "Manual watch detected; pausing farming for this platform");
         continue;
       }
       if (!settings.running || !platformSettings.enabled) {
@@ -363,6 +376,7 @@ export async function runSchedulerTick(
           errorChecks: 0,
           retryAfter: undefined,
           message: "Automation disabled",
+          reasonCode: settings.running ? "platform_disabled" : "automation_disabled",
           watchMode: undefined,
           tablessFallback: undefined,
           heartbeatChecks: 0,
@@ -371,7 +385,7 @@ export async function runSchedulerTick(
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
-        nextState = addTickEvent(nextState, platform, "info", "Automation disabled", enabledLevels);
+        emitDiagnostic(emit, platform, "info", "Automation disabled");
         continue;
       }
 
@@ -381,8 +395,9 @@ export async function runSchedulerTick(
           status: "error",
           lastCheckedAt: new Date().toISOString(),
           message: `Waiting until ${previous.retryAfter} before retrying after platform errors`,
+          reasonCode: "platform_backoff",
         };
-        nextState = addTickEvent(nextState, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred", enabledLevels);
+        emitDiagnostic(emit, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred");
         continue;
       }
 
@@ -394,39 +409,55 @@ export async function runSchedulerTick(
         if (!hasWatchQueueChannels(settings, platform)) throw error;
         campaigns = [];
         const message = error instanceof Error ? error.message : "Drop discovery failed";
-        nextState = addTickEvent(nextState, platform, "warn", `${message}; checking Watch Queue fallback`, enabledLevels);
-        nextState = addTickEvent(nextState, platform, "debug", `Drop discovery error (Watch Queue fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`, enabledLevels);
+        emitDiagnostic(emit, platform, "warn", `${message}; checking Watch Queue fallback`);
+        emitDiagnostic(emit, platform, "debug", `Drop discovery error (Watch Queue fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
       }
       nextState.campaigns[platform] = campaigns;
-      nextState = addTickEvent(nextState, platform, "info", `Discovered ${campaigns.length} campaigns`, enabledLevels);
-      const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
-      nextState = addTickEvent(nextState, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`, enabledLevels);
+      if (campaignDiagnosticFingerprint(campaigns) !== campaignDiagnosticFingerprint(state.campaigns[platform])) {
+        emitDiagnostic(emit, platform, "debug", `Campaign inventory changed (${campaigns.length} discovered)`);
+        const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
+        emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
+      }
 
       if (settings.autoClaim) {
-        const claimResult = await claimReadyRewards(adapter, campaigns);
+        const claimResult = await claimReadyRewards(
+          adapter,
+          campaigns,
+          options.waitingClaimRewardIds?.[platform] ?? new Set<string>(),
+        );
         campaigns = claimResult.campaigns;
         nextState.campaigns[platform] = campaigns;
         for (const event of claimResult.events) {
-          nextState = addTickEvent(nextState, platform, event.level, event.message, enabledLevels);
+          if (event.claimed) {
+            emit({
+              category: "activity",
+              platform,
+              level: "info",
+              code: "reward_claimed",
+              data: {
+                campaignId: event.campaignId,
+                campaignName: event.campaignName,
+                rewardId: event.rewardId,
+                rewardName: event.rewardName,
+                method: "automatic",
+              },
+            });
+          } else {
+            emitDiagnostic(emit, platform, event.level, event.message);
+          }
         }
       }
 
       let decision = await chooseCampaignDecision(platform, campaigns, settings, adapter);
-      nextState = addTickEvent(
-        nextState,
-        platform,
-        "debug",
-        `Campaign decision: ${decision.action}${decision.channel ? ` → ${decision.channel.displayName ?? decision.channel.username}` : ""} (${decision.reason})`,
-        enabledLevels,
-      );
-      const shouldKeep = await shouldKeepWatching(previous, decision, settings, adapter);
-      nextState = addTickEvent(
-        nextState,
-        platform,
-        "debug",
-        `Keep-watching check: ${shouldKeep.keep ? "keep" : "switch"} (${shouldKeep.reason}); ${previous.watchMode === "tabless" ? "heartbeat" : "playback"} ${isSessionHealthy(previous) ? "healthy" : "unhealthy"}`,
-        enabledLevels,
-      );
+      const shouldKeep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter);
+      if (!shouldKeep.keep && previous.status === "watching") {
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Switching watch target (${shouldKeep.reason}); ${previous.watchMode === "tabless" ? "heartbeat" : "playback"} ${isSessionHealthy(previous) ? "healthy" : "unhealthy"}`,
+        );
+      }
       if (shouldKeep.keep && previous.channel) {
         decision = {
           platform,
@@ -437,16 +468,35 @@ export async function runSchedulerTick(
             ?.rewards.find((reward) => reward.id === previous.rewardId),
           channel: shouldKeep.channel ?? previous.channel,
           reason: shouldKeep.reason,
+          reasonCode: shouldKeep.reasonCode,
         };
       } else if (previous.status === "watching" && previous.channel && shouldKeep.reason !== "No existing watch session") {
         decision = {
           ...decision,
           reason: shouldKeep.reason,
+          reasonCode: shouldKeep.reasonCode,
         };
       }
 
+      const decisionChanged = previous.campaignId !== decision.campaign?.id
+        || previous.rewardId !== decision.reward?.id
+        || previous.channel?.url !== decision.channel?.url
+        || actionForSession(previous) !== decision.action
+        || normalizedPreviousReasonCode(previous, decision) !== decision.reasonCode;
+
       decisions.push(decision);
-      nextState = addTickEvent(nextState, platform, decision.action === "idle" ? "warn" : "info", decision.reason, enabledLevels);
+      if (decisionChanged) {
+        const decisionLevel = decision.action === "idle" || ["channel_offline", "watch_unhealthy", "platform_error"].includes(decision.reasonCode)
+          ? "warn"
+          : "debug";
+        emitDiagnostic(
+          emit,
+          platform,
+          decisionLevel,
+          `Campaign decision: ${decision.action}${decision.channel ? ` → ${decision.channel.displayName ?? decision.channel.username}` : ""} (${decision.reason})`,
+        );
+        emitDiagnostic(emit, platform, decisionLevel, decision.reason);
+      }
       if (decision.action === "idle") {
         await adapter.stopWatchTab?.(previous);
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
@@ -471,13 +521,9 @@ export async function runSchedulerTick(
           session.heartbeatChecks = sameChannel ? previous.heartbeatChecks ?? 0 : 0;
           session.lastHeartbeatAt = sameChannel ? previous.lastHeartbeatAt : undefined;
           session.lastHeartbeatOk = sameChannel ? previous.lastHeartbeatOk : undefined;
-          nextState = addTickEvent(
-            nextState,
-            platform,
-            "debug",
-            `Tabless watch armed for ${decision.channel.displayName ?? decision.channel.username}`,
-            enabledLevels,
-          );
+          if (!sameChannel || previous.watchMode !== "tabless") {
+            emitDiagnostic(emit, platform, "debug", `Tabless watch armed for ${decision.channel.displayName ?? decision.channel.username}`);
+          }
         } else {
           // Tab policy (mute / keep-unmuted / auto-close) is owned by the host's
           // injected WatchTabPort, not the engine; the scheduler only forwards the
@@ -492,13 +538,9 @@ export async function runSchedulerTick(
           // channel instead of flipping back to a failing tabless heartbeat.
           session.watchMode = "tab";
           session.tablessFallback = Boolean(settings.tablessMode && adapter.supportsTabless);
-          nextState = addTickEvent(
-            nextState,
-            platform,
-            "debug",
-            `Watch tab ready (tab ${prepared.tabId}, ${prepared.managedByExtension ? "extension-managed" : "user tab"}) for ${decision.channel.displayName ?? decision.channel.username}`,
-            enabledLevels,
-          );
+          if (!sameChannel || previous.watchMode !== "tab" || previous.tabId !== prepared.tabId) {
+            emitDiagnostic(emit, platform, "debug", `Watch tab ready (tab ${prepared.tabId}, ${prepared.managedByExtension ? "extension-managed" : "user tab"}) for ${decision.channel.displayName ?? decision.channel.username}`);
+          }
           if (prepared.managedByExtension) {
             nextState.managedWatchTabs = {
               ...nextState.managedWatchTabs,
@@ -518,15 +560,14 @@ export async function runSchedulerTick(
           try {
             const claimed = await adapter.claimChannelPoints(decision.channel);
             if (claimed) {
-              nextState = addTickEvent(nextState, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`, enabledLevels);
+              emitDiagnostic(emit, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`);
             }
           } catch (error) {
-            nextState = addTickEvent(
-              nextState,
+            emitDiagnostic(
+              emit,
               platform,
               "warn",
               error instanceof Error ? error.message : "Channel points claim failed",
-              enabledLevels,
             );
           }
         }
@@ -546,15 +587,16 @@ export async function runSchedulerTick(
         errorChecks,
         retryAfter: nextRetryAfter(errorChecks),
         message,
+        reasonCode: "platform_error",
       };
       nextState.managedPageContextTabs = currentManagedPageContextTabs();
-      nextState = addTickEvent(nextState, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`, enabledLevels);
-      nextState = addTickEvent(nextState, platform, "debug", `Tick failed from status "${previous.status}" (error #${errorChecks}); ${error instanceof Error && error.stack ? error.stack : message}`, enabledLevels);
+      emitDiagnostic(emit, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`);
+      emitDiagnostic(emit, platform, "debug", `Tick failed from status "${previous.status}" (error #${errorChecks}); ${error instanceof Error && error.stack ? error.stack : message}`);
     }
   }
 
   nextState.managedPageContextTabs = currentManagedPageContextTabs();
-  return { state: nextState, decisions };
+  return { state: nextState, decisions, events };
 }
 
 function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolean {
@@ -588,12 +630,28 @@ function nextRetryAfter(errorChecks: number): string {
   return new Date(Date.now() + minutes * 60 * 1000).toISOString();
 }
 
+type ClaimReadyRewardEvent = {
+  level: "info";
+  message: string;
+  claimed: true;
+  campaignId: string;
+  campaignName: string;
+  rewardId: string;
+  rewardName: string;
+} | {
+  level: "info" | "warn" | "error";
+  message: string;
+  claimed?: false;
+};
+
 async function claimReadyRewards(
   adapter: PlatformAdapter,
   campaigns: DropCampaign[],
-): Promise<{ campaigns: DropCampaign[]; events: Array<{ level: "info" | "warn" | "error"; message: string }> }> {
-  const events: Array<{ level: "info" | "warn" | "error"; message: string }> = [];
+  previouslyWaitingRewardIds: Set<string>,
+): Promise<{ campaigns: DropCampaign[]; events: ClaimReadyRewardEvent[] }> {
+  const events: ClaimReadyRewardEvent[] = [];
   const updated: DropCampaign[] = [];
+  const stillWaitingRewardIds = new Set<string>();
 
   for (const campaign of campaigns) {
     const rewards: DropReward[] = [];
@@ -604,21 +662,34 @@ async function claimReadyRewards(
           // yet (e.g. Twitch hasn't returned the drop-instance id). Defer; the
           // next tick re-checks once progress data catches up.
           rewards.push(reward);
-          events.push({
-            level: "info",
-            message: `${reward.name} watched-complete; waiting for ${campaign.name} claim to be released`,
-          });
+          stillWaitingRewardIds.add(reward.id);
+          if (!previouslyWaitingRewardIds.has(reward.id)) {
+            events.push({
+              level: "info",
+              message: `${reward.name} watched-complete; waiting for ${campaign.name} claim to be released`,
+            });
+          }
           continue;
         }
         try {
           const claimed = await adapter.claimReward(campaign, reward);
           rewards.push(claimed ? { ...reward, status: "claimed", watchedMinutes: reward.requiredMinutes } : reward);
-          events.push({
-            level: claimed ? "info" : "warn",
-            message: claimed
-              ? `Claimed ${reward.name} from ${campaign.name}`
-              : `Could not claim ${reward.name} from ${campaign.name}`,
-          });
+          if (claimed) {
+            events.push({
+              level: "info",
+              message: `Claimed ${reward.name} from ${campaign.name}`,
+              claimed: true,
+              campaignId: campaign.id,
+              campaignName: campaign.name,
+              rewardId: reward.id,
+              rewardName: reward.name,
+            });
+          } else {
+            events.push({
+              level: "warn",
+              message: `Could not claim ${reward.name} from ${campaign.name}`,
+            });
+          }
         } catch (error) {
           rewards.push(reward);
           events.push({
@@ -640,11 +711,18 @@ async function claimReadyRewards(
     });
   }
 
+  previouslyWaitingRewardIds.clear();
+  for (const rewardId of stillWaitingRewardIds) previouslyWaitingRewardIds.add(rewardId);
+
   return { campaigns: updated, events };
 }
 
 function isRewardRelevantNow(reward: DropReward): boolean {
   return canClaimReward(reward) || isRewardAvailableToEarn(reward);
+}
+
+function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): string {
+  return campaigns.map((campaign) => `${campaign.id}:${campaign.status}:${campaign.rewards.map((reward) => `${reward.id}:${reward.status}`).join(",")}`).join("|");
 }
 
 function isRewardAvailableToEarn(reward: DropReward): boolean {
@@ -667,20 +745,37 @@ function canClaimReward(reward: DropReward): boolean {
 async function shouldKeepWatching(
   previous: WatchSession,
   nextDecision: WatchDecision,
+  campaigns: readonly DropCampaign[],
   settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "checkChannel">,
-): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string; channel?: ChannelCandidate }> {
+): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string; reasonCode: WatchReasonCode; channel?: ChannelCandidate }> {
   if (!previous.channel || previous.status !== "watching") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session", reasonCode: "no_existing_session" };
+  }
+  const previousReward = campaigns
+    .find((campaign) => campaign.id === previous.campaignId)
+    ?.rewards.find((reward) => reward.id === previous.rewardId);
+  if (previousReward?.status === "claimable" || previousReward?.status === "claimed") {
+    return {
+      keep: false,
+      offlineChecks: 0,
+      playbackChecks: 0,
+      reason: "Current reward completed; switching farming target",
+      reasonCode: "watch_requirement_completed",
+    };
   }
   if (nextDecision.action === "idle") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason, reasonCode: nextDecision.reasonCode };
   }
   if (previous.campaignId && nextDecision.action !== "watch") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current campaign is no longer eligible" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current campaign is no longer eligible", reasonCode: "campaign_ineligible" };
   }
   if (previous.campaignId && settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current channel is excluded from drops" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current channel is excluded from drops", reasonCode: "channel_excluded" };
+  }
+  if (previous.rewardId && nextDecision.reward?.id !== previous.rewardId) {
+    const replacement = classifyRewardSwitch(nextDecision);
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, ...replacement };
   }
   // Tabless sessions have no playback telemetry; their health is the heartbeat,
   // which the controller tracks and falls back to a tab on. Here we only keep or
@@ -698,6 +793,7 @@ async function shouldKeepWatching(
           playbackChecks: fallbackPlaybackChecks,
           channel: channelFromCheck(previous.channel, fallbackCheck),
           reason: "Keeping current Watch Queue tab",
+          reasonCode: "keeping_watch_queue",
         };
       }
     }
@@ -708,7 +804,7 @@ async function shouldKeepWatching(
     && nextDecision.action === "watch"
     && nextDecision.campaign?.id !== previous.campaignId;
   if (differentCampaignAvailable) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority eligible campaign available" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority eligible campaign available", reasonCode: "higher_priority_reward" };
   }
 
   // When watching a Watch Queue fallback, a different selection means a
@@ -718,17 +814,17 @@ async function shouldKeepWatching(
     && nextDecision.action === "fallback"
     && !previous.campaignId;
   if (differentFallbackAvailable) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Watch Queue channel available" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Watch Queue channel available", reasonCode: "higher_priority_watch_queue" };
   }
 
   const check = await adapter.checkChannel(previous.channel);
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
   if (offlineChecks >= settings.offlineRetryLimit) {
-    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached" };
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached", reasonCode: "channel_offline" };
   }
 
   if (!check.categoryMatches) {
-    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel category no longer matches" };
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel category no longer matches", reasonCode: "channel_mismatch" };
   }
 
   const playbackChecks = isTabless || isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
@@ -738,6 +834,7 @@ async function shouldKeepWatching(
       offlineChecks,
       playbackChecks,
       reason: "Watch tab playback did not become active",
+      reasonCode: "watch_unhealthy",
     };
   }
 
@@ -747,6 +844,7 @@ async function shouldKeepWatching(
     playbackChecks,
     channel: channelFromCheck(previous.channel, check),
     reason: "Keeping current watch tab",
+    reasonCode: "keeping_current_watch",
   };
 }
 
@@ -776,15 +874,41 @@ function isHeartbeatHealthy(session: WatchSession): boolean {
   return Date.now() - at < 3 * 60 * 1000;
 }
 
-// Records a tick event only if its level is enabled in settings — debug detail
-// is opt-in so the rolling log stays readable by default.
-function addTickEvent(
-  state: SchedulerState,
+function classifyRewardSwitch(
+  nextDecision: WatchDecision,
+): { reason: string; reasonCode: FarmingStopReason } {
+  if (nextDecision.action !== "watch") {
+    return {
+      reason: "Current campaign is no longer eligible",
+      reasonCode: "campaign_ineligible",
+    };
+  }
+  return {
+    reason: "Higher priority eligible reward available",
+    reasonCode: "higher_priority_reward",
+  };
+}
+
+function actionForSession(session: WatchSession): WatchDecision["action"] {
+  if (session.status !== "watching") return "idle";
+  return session.campaignId ? "watch" : "fallback";
+}
+
+function normalizedPreviousReasonCode(previous: WatchSession, decision: WatchDecision): WatchReasonCode | undefined {
+  if (decision.reasonCode === "keeping_current_watch" && previous.reasonCode === "eligible_campaign") {
+    return "keeping_current_watch";
+  }
+  if (decision.reasonCode === "keeping_watch_queue" && previous.reasonCode === "watch_queue_selected") {
+    return "keeping_watch_queue";
+  }
+  return previous.reasonCode;
+}
+
+function emitDiagnostic(
+  emit: EventEmitter,
   platform: Platform,
   level: LogLevel,
   message: string,
-  enabledLevels: readonly LogLevel[],
-): SchedulerState {
-  if (!shouldRecord(level, enabledLevels)) return state;
-  return appendLog(state, { platform, level, message });
+): void {
+  emit({ category: "diagnostic", platform, level, message });
 }

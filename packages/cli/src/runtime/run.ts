@@ -1,10 +1,10 @@
 import { createBackgroundController } from "@lurkloot/core/controller";
-import { setActivityLogger } from "@lurkloot/core/activityLog";
 import type { SchedulerState } from "@lurkloot/shared/models";
 import { loadState, saveState } from "../storage";
 import { toEngineSettings, type CliSettings } from "../settings";
 import type { TransportHandle } from "../transport";
 import type { Logger } from "../logger";
+import { reportCliEvents } from "../events";
 
 export interface RunOptions {
   settings: CliSettings;
@@ -33,15 +33,12 @@ export async function runLoop(options: RunOptions): Promise<void> {
     saveSettings: async () => {},
     loadState: () => loadState(statePath),
     saveState: (state: SchedulerState) => saveState(statePath, state),
+    reportEvents: (events) => reportCliEvents(events, logger),
     // The CLI drives its own interval below, so alarm scheduling is a no-op.
     createAlarm: async () => {},
-    createAdapters: () => transport.adapters,
+    createAdapters: (emit) => transport.createAdapters(emit),
     createNotification: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
   });
-
-  // Route engine activity-log output to the CLI logger (the controller's own
-  // sink records into state events; here console visibility is what matters).
-  setActivityLogger((level, message, scope) => logger.log(level, message, scope));
 
   const tickOnce = async () => {
     try {

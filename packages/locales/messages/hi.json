@@ -566,5 +566,89 @@
   },
   "cliExportButton": {
     "message": "क्रेडेंशियल निर्यात करें"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "डायग्नोस्टिक लॉग शामिल करें"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "समस्याओं के निदान में मदद के लिए अतिरिक्त तकनीकी विवरण रिकॉर्ड करें। सामान्य गतिविधि हमेशा रखी जाती है।"
+  },
+  "activityFarmingStarted": {
+    "message": "$2 से $1 जुटाना शुरू किया गया।"
+  },
+  "activityFarmingStopped": {
+    "message": "$2 से $1 जुटाना रोका गया: $3।"
+  },
+  "activityRewardClaimed": {
+    "message": "$2 से $1 प्राप्त किया गया।"
+  },
+  "activityInterruption": {
+    "message": "ड्रॉप जुटाना रुका: $1।"
+  },
+  "activityInterruptionWithDetail": {
+    "message": "ड्रॉप जुटाना रुका: $1 ($2)।"
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "ऑटोमेशन बंद किया गया"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "प्लेटफ़ॉर्म बंद किया गया"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "प्लेटफ़ॉर्म कुछ समय के लिए प्रतीक्षा कर रहा है"
+  },
+  "activityReasonPlatformError": {
+    "message": "प्लेटफ़ॉर्म में त्रुटि हुई"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "कैंपेन अब योग्य नहीं है"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "चैनल को बाहर रखा गया है"
+  },
+  "activityReasonChannelOffline": {
+    "message": "चैनल ऑफ़लाइन हो गया"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "चैनल अब मेल नहीं खाता"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "प्लेबैक जाँच विफल हुई"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "अधिक प्राथमिकता वाला इनाम चुना गया"
+  },
+  "activityReasonHigherPriorityWatchQueue": {
+    "message": "वॉच क्यू को प्राथमिकता मिली"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "देखने की आवश्यकता पूरी हुई"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "एक्सटेंशन फिर से शुरू हुआ"
+  },
+  "activityReasonTargetChanged": {
+    "message": "ड्रॉप का लक्ष्य बदला"
+  },
+  "activityReasonManualWatch": {
+    "message": "मैन्युअल रूप से देखना शुरू हुआ"
+  },
+  "hideDiagnosticLogs": {
+    "message": "डायग्नोस्टिक छिपाएँ"
+  },
+  "loadMoreActivity": {
+    "message": "और लोड करें"
+  },
+  "clearActivityHistory": {
+    "message": "इतिहास साफ़ करें"
+  },
+  "confirmClearActivityHistory": {
+    "message": "साफ़ करने की पुष्टि करें"
+  },
+  "clearActivityFailed": {
+    "message": "गतिविधि इतिहास साफ़ नहीं हो सका। फिर कोशिश करें।"
+  },
+  "showDiagnosticLogs": {
+    "message": "डायग्नोस्टिक दिखाएँ"
   }
 }

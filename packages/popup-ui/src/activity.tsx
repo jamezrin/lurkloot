@@ -1,43 +1,57 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { Clock3 } from "lucide-react";
-import type { EventLogEntry, Platform } from "@lurkloot/shared/models";
-import { LOG_LEVELS, type LogLevel } from "@lurkloot/shared/logging";
+import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
+import type { Platform } from "@lurkloot/shared/models";
 import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { formatEventTime } from "./format";
+import { formatActivityEvent, mergeActivityPages } from "./activity.logic";
 
 export function ActivityLog({
-  events,
+  activityEvents,
+  diagnosticEvents,
   platform,
   lastTickAt,
-  enabledLogLevels,
+  diagnosticLogging,
+  showDiagnostics,
+  hasMore,
+  clearArmed,
+  clearFailed,
+  loadingMore,
+  clearing,
+  onShowDiagnosticsChange,
+  onLoadMore,
+  onClear,
 }: {
-  events: EventLogEntry[];
+  activityEvents: ActivityHistoryRecord[];
+  diagnosticEvents: ActivityHistoryRecord[];
   platform: Platform;
   lastTickAt?: string;
-  enabledLogLevels: LogLevel[];
+  diagnosticLogging: boolean;
+  showDiagnostics: boolean;
+  hasMore: boolean;
+  clearArmed: boolean;
+  clearFailed: boolean;
+  loadingMore: boolean;
+  clearing: boolean;
+  onShowDiagnosticsChange(show: boolean): void;
+  onLoadMore(): void;
+  onClear(): void;
 }): React.ReactElement {
   const t = useT();
-  const [activeLevels, setActiveLevels] = useState<Set<LogLevel>>(() => new Set(enabledLogLevels));
-  useEffect(() => {
-    setActiveLevels(new Set(enabledLogLevels));
-  }, [enabledLogLevels.join(",")]);
   const forPlatform = useMemo(
-    () => events.filter((event) => !event.platform || event.platform === platform),
-    [events, platform],
+    () => activityEvents.filter((event) => !event.platform || event.platform === platform),
+    [activityEvents, platform],
+  );
+  const diagnosticsForPlatform = useMemo(
+    () => diagnosticEvents.filter((event) => !event.platform || event.platform === platform),
+    [diagnosticEvents, platform],
   );
   const visible = useMemo(
-    () => forPlatform.filter((event) => activeLevels.has(event.level)).slice(-80).reverse(),
-    [forPlatform, activeLevels],
+    () => showDiagnostics ? mergeActivityPages(forPlatform, diagnosticsForPlatform) : forPlatform,
+    [diagnosticsForPlatform, forPlatform, showDiagnostics],
   );
   const errorCount = forPlatform.filter((event) => event.level === "error").length;
-  const toggleLevel = (level: LogLevel) =>
-    setActiveLevels((current) => {
-      const next = new Set(current);
-      if (next.has(level)) next.delete(level);
-      else next.add(level);
-      return next;
-    });
 
   return (
     <div className="space-y-2.5">
@@ -55,26 +69,29 @@ export function ActivityLog({
           {lastTickAt ? t("lastCheck", formatEventTime(lastTickAt)) : t("noChecksYet")}
         </span>
       </div>
-      <div className="flex flex-wrap items-center gap-1 px-0.5">
-        {LOG_LEVELS.map((level) => {
-          const active = activeLevels.has(level);
-          return (
-            <button
-              key={level}
-              type="button"
-              onClick={() => toggleLevel(level)}
-              className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold transition ${active
-                ? "border-transparent text-white"
-                : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
-              style={active ? { backgroundColor: EVENT_LEVEL_COLOR[level] } : undefined}
-              aria-pressed={active}
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "#ffffff" : EVENT_LEVEL_COLOR[level] }} />
-              {t(level)}
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {diagnosticLogging ? (
+          <button
+            type="button"
+            onClick={() => onShowDiagnosticsChange(!showDiagnostics)}
+            className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold transition ${showDiagnostics ? "border-transparent bg-zinc-600 text-white" : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
+            aria-pressed={showDiagnostics}
+          >
+            {t(showDiagnostics ? "hideDiagnosticLogs" : "showDiagnosticLogs")}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onClear}
+          disabled={clearing}
+          className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold transition disabled:opacity-50 ${clearArmed ? "border-red-300 bg-red-50 text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300" : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
+        >
+          {t(clearArmed ? "confirmClearActivityHistory" : "clearActivityHistory")}
+        </button>
       </div>
+      {clearFailed ? (
+        <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("clearActivityFailed")}</p>
+      ) : null}
       <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
         {visible.length === 0 ? (
           <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{t("noActivity")}</p>
@@ -84,12 +101,22 @@ export function ActivityLog({
               <li key={event.id} className="flex items-start gap-2 px-2.5 py-1.5 text-[11px] leading-snug">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }} />
                 <span className="shrink-0 font-mono text-[10px] text-zinc-400">{formatEventTime(event.at)}</span>
-                <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">{event.message}</span>
+                <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">{formatActivityEvent(event, t)}</span>
               </li>
             ))}
           </ul>
         )}
       </div>
+      {hasMore ? (
+        <button
+          type="button"
+          onClick={onLoadMore}
+          disabled={loadingMore}
+          className="w-full rounded-lg border border-zinc-200 px-2 py-1.5 text-[10px] font-semibold text-zinc-500 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        >
+          {t("loadMoreActivity")}
+        </button>
+      ) : null}
     </div>
   );
 }

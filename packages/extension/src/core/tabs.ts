@@ -1,5 +1,6 @@
 import { browser } from "wxt/browser";
 import type { AdFocusMode, ChannelCandidate, Platform, WatchSession } from "@lurkloot/shared/models";
+import type { EventEmitter } from "@lurkloot/shared/events";
 import {
   applyAdFocusWithBrowser,
   ensureTwitchIntegrityWithBrowser,
@@ -23,20 +24,20 @@ import type { PreparedWatchTab, WatchTabOptions } from "@lurkloot/core/adapter";
 // its own port implementations instead of these wrappers. New tab-bound logic
 // belongs in core's `*WithBrowser` function; only the `browser` binding lives here.
 
-export function openPinnedMutedTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab> {
-  return openPinnedMutedTabWithBrowser(browser as BrowserTabApi, channel, session, options);
+export function openPinnedMutedTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>, emit?: EventEmitter): Promise<PreparedWatchTab> {
+  return openPinnedMutedTabWithBrowser(browser as BrowserTabApi, channel, session, options, emit);
 }
 
-export function stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
-  return stopWatchTabWithBrowser(browser as BrowserTabApi, session, options);
+export function stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>, emit?: EventEmitter): Promise<void> {
+  return stopWatchTabWithBrowser(browser as BrowserTabApi, session, options, emit);
 }
 
-export function applyAdFocus(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode): Promise<void> {
-  return applyAdFocusWithBrowser(browser as BrowserTabApi, platform, tabId, adActive, mode);
+export function applyAdFocus(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode, emit?: EventEmitter): Promise<void> {
+  return applyAdFocusWithBrowser(browser as BrowserTabApi, platform, tabId, adActive, mode, emit);
 }
 
-export function ensureTwitchIntegrity(): Promise<boolean> {
-  return ensureTwitchIntegrityWithBrowser(browser as BrowserTabApi, TWITCH_PAGE_CONTEXT_URL);
+export function ensureTwitchIntegrity(emit?: EventEmitter): Promise<boolean> {
+  return ensureTwitchIntegrityWithBrowser(browser as BrowserTabApi, TWITCH_PAGE_CONTEXT_URL, undefined, emit);
 }
 
 export function fetchTwitchInBackground<T>(url: string, init?: RequestInit): Promise<T> {

@@ -566,5 +566,89 @@
   },
   "cliExportButton": {
     "message": "تصدير بيانات الاعتماد"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "تضمين سجلات التشخيص"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "يسجل تفاصيل تقنية إضافية للمساعدة في تشخيص المشكلات. يتم الاحتفاظ بالنشاط العادي دائمًا."
+  },
+  "activityFarmingStarted": {
+    "message": "بدأ جمع $1 من $2."
+  },
+  "activityFarmingStopped": {
+    "message": "توقف جمع $1 من $2: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "تم استلام $1 من $2."
+  },
+  "activityInterruption": {
+    "message": "توقف الجمع: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "توقف الجمع: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "تم تعطيل التشغيل التلقائي"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "تم تعطيل المنصة"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "المنصة في انتظار مؤقت"
+  },
+  "activityReasonPlatformError": {
+    "message": "حدث خطأ في المنصة"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "لم تعد الحملة مؤهلة"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "القناة مستبعدة"
+  },
+  "activityReasonChannelOffline": {
+    "message": "أصبحت القناة غير متصلة"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "لم تعد القناة مطابقة"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "فشل فحص التشغيل"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "تم الانتقال إلى مكافأة ذات أولوية أعلى"
+  },
+  "activityReasonHigherPriorityWatchQueue": {
+    "message": "أصبحت قائمة المشاهدة ذات أولوية"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "اكتمل شرط المشاهدة"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "أُعيد تشغيل الإضافة"
+  },
+  "activityReasonTargetChanged": {
+    "message": "تغيّر هدف الجمع"
+  },
+  "activityReasonManualWatch": {
+    "message": "تم الانتقال إلى المشاهدة اليدوية"
+  },
+  "hideDiagnosticLogs": {
+    "message": "إخفاء التشخيصات"
+  },
+  "loadMoreActivity": {
+    "message": "تحميل المزيد"
+  },
+  "clearActivityHistory": {
+    "message": "مسح السجل"
+  },
+  "confirmClearActivityHistory": {
+    "message": "تأكيد المسح"
+  },
+  "clearActivityFailed": {
+    "message": "تعذر مسح سجل النشاط. حاول مرة أخرى."
+  },
+  "showDiagnosticLogs": {
+    "message": "عرض التشخيص"
   }
 }

@@ -1,9 +1,8 @@
-import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { DropCampaign, DropReward, EngineSettings, EventLogEntry, Platform, PlaybackTelemetry, SchedulerState, WatchSession } from "@lurkloot/shared/models";
-import { appendLog, shouldRecord, type LogLevel } from "@lurkloot/shared/logging";
+import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { DropCampaign, DropReward, EngineSettings, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
-import { logActivity, setActivityLogger } from "../core/activityLog";
 import { setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
@@ -16,6 +15,23 @@ export const ALARM_NAME = "lurkloot.tick";
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
 export const WATCH_ALARM_NAME = "lurkloot.watch";
 const PLATFORMS: Platform[] = ["twitch", "kick"];
+const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
+  automation_disabled: true,
+  platform_disabled: true,
+  platform_backoff: true,
+  platform_error: true,
+  campaign_ineligible: true,
+  channel_excluded: true,
+  channel_offline: true,
+  channel_mismatch: true,
+  watch_unhealthy: true,
+  higher_priority_reward: true,
+  higher_priority_watch_queue: true,
+  watch_requirement_completed: true,
+  runtime_restart: true,
+  target_changed: true,
+  manual_watch: true,
+};
 const EN_RUNTIME_MESSAGES: Record<string, string> = {
   notificationRewardClaimed: "Reward claimed",
   notificationRewardEarned: "Reward earned",
@@ -23,6 +39,20 @@ const EN_RUNTIME_MESSAGES: Record<string, string> = {
   notificationRewardFromCampaign: "$1 from $2",
   notificationNoDropsLeftMessage: "$1 has no eligible drops to farm.",
 };
+
+function emitHostCallbackError(
+  emit: EventEmitter,
+  platform: Platform,
+  error: unknown,
+  fallbackMessage: string,
+): void {
+  emit({
+    category: "diagnostic",
+    platform,
+    level: "warn",
+    message: error instanceof Error ? error.message : fallbackMessage,
+  });
+}
 
 // One in-flight state mutation at a time. Each handler's load→modify→persist
 // runs inside this lock so a save built on a stale snapshot can't clobber
@@ -47,14 +77,15 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   saveSettings(settings: S): Promise<void>;
   loadState(): Promise<SchedulerState>;
   saveState(state: SchedulerState): Promise<void>;
+  reportEvents?: EventReporter;
   createAlarm(name: string, options: { periodInMinutes: number }): Promise<void>;
-  createAdapters(): Record<Platform, PlatformAdapter>;
+  createAdapters(emit: EventEmitter): Record<Platform, PlatformAdapter>;
   createNotification?(notification: { title: string; message: string }): Promise<void>;
   translate?(key: string, substitutions?: string | string[]): string | Promise<string>;
   closeManagedTabsByUrl?(urls: string[]): Promise<void>;
   // Tab-mode ad focus. The host (extension) owns the focus policy (adFocusMode),
   // so the engine only reports whether an ad is active for a given watch tab.
-  applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean): Promise<void>;
+  applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
   // Tab-mode playback policy the host supplies to managed watch tabs. Defaults to
   // keeping videos unmuted when the host does not provide it.
   loadTabPlaybackPolicy?(): Promise<{ keepVideosUnmuted: boolean }>;
@@ -70,19 +101,20 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
 }
 
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
-  // tabs.ts is a pure module with no access to scheduler state, so it reports
-  // lifecycle/ad-focus events through this sink. They are buffered and merged
-  // into the very state object being saved (see persist) to avoid a load/save
-  // race with an in-flight tick clobbering them.
-  const pendingTabEvents: Array<Omit<EventLogEntry, "id" | "at">> = [];
-  setActivityLogger((level, message, platform) => {
-    pendingTabEvents.push({ level, message, platform });
-  });
+  async function withEventCollector<T>(operation: (emit: EventEmitter, events: EngineEvent[]) => Promise<T>): Promise<T> {
+    const events: EngineEvent[] = [];
+    const emit: EventEmitter = (event) => events.push(event);
+    return operation(emit, events);
+  }
 
   // Persistent tabless watchers, one per platform, kept alive across discovery
   // ticks (the WebSocket-based Kick watcher in particular must not be recreated
   // each tick). Reconciled against the scheduler's per-platform session state.
   const tablessWatchers = new Map<Platform, TablessWatchController>();
+  const waitingClaimRewardIds: Record<Platform, Set<string>> = {
+    twitch: new Set<string>(),
+    kick: new Set<string>(),
+  };
   let settingsMutation: Promise<unknown> = Promise.resolve();
   let settingsPauseCount = 0;
 
@@ -105,11 +137,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } catch (error) {
       // A missing/corrupt stored token is non-fatal: fresh page traffic will
       // re-capture one, and claims simply stay best-effort until then.
-      pendingTabEvents.push({
+      await reportBestEffort([{
+        category: "diagnostic",
         level: "debug",
         platform: "twitch",
         message: `No stored Twitch integrity token to prime (${error instanceof Error ? error.message : String(error)})`,
-      });
+      }]);
     }
   }
 
@@ -120,42 +153,44 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined): Promise<void> {
     const integrity = integrityFromHeaders(headers);
     if (!integrity) return;
-    const isNew = integrity.integrity !== lastIntegrityToken;
-    setTwitchIntegrity(integrity, { isNew });
-    if (!isNew) return;
-    lastIntegrityToken = integrity.integrity;
-    await deps.saveTwitchIntegrity?.(integrity);
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      const isNew = integrity.integrity !== lastIntegrityToken;
+      setTwitchIntegrity(integrity, { isNew }, emit);
+      if (isNew) {
+        lastIntegrityToken = integrity.integrity;
+        await deps.saveTwitchIntegrity?.(integrity);
+      }
+      await reportBestEffort(events);
+    }));
   }
 
-  async function persist(state: SchedulerState): Promise<void> {
-    if (pendingTabEvents.length === 0) {
-      await deps.saveState(state);
-      return;
+  async function persistAndReport(state: SchedulerState, events: readonly EngineEvent[] = []): Promise<void> {
+    await saveOperationalState(state);
+    await reportBestEffort(events);
+  }
+
+  async function saveOperationalState(state: SchedulerState): Promise<void> {
+    const { events: _legacyEvents, ...operationalState } = state as SchedulerState & { events?: unknown };
+    await deps.saveState(operationalState);
+  }
+
+  async function reportBestEffort(events: readonly EngineEvent[]): Promise<void> {
+    if (events.length === 0 || !deps.reportEvents) return;
+    try {
+      await deps.reportEvents(events);
+    } catch {
+      // Host event persistence/output is best-effort.
     }
-    const enabledLevels = (await deps.loadSettings()).enabledLogLevels;
-    let next = state;
-    for (const entry of pendingTabEvents.splice(0)) {
-      next = withEvent(next, entry, enabledLevels);
-    }
-    await deps.saveState(next);
   }
 
-  // Appends an event only if its level is enabled in settings.
-  function withEvent(state: SchedulerState, entry: Omit<EventLogEntry, "id" | "at">, enabledLevels: readonly LogLevel[]): SchedulerState {
-    if (!shouldRecord(entry.level, enabledLevels)) return state;
-    return appendLog(state, entry);
-  }
-
-  function appendPlaybackEvents(
-    state: SchedulerState,
+  function playbackEvents(
     platform: Platform,
     previous: PlaybackTelemetry | undefined,
     telemetry: Omit<PlaybackTelemetry, "platform" | "checkedAt">,
-    enabledLevels: readonly LogLevel[],
-  ): SchedulerState {
-    let next = state;
-    const log = (level: EventLogEntry["level"], message: string) => {
-      next = withEvent(next, { platform, level, message }, enabledLevels);
+  ): DiagnosticEvent[] {
+    const events: DiagnosticEvent[] = [];
+    const log = (level: DiagnosticEvent["level"], message: string) => {
+      events.push({ category: "diagnostic", platform, level, message });
     };
 
     if (telemetry.adActive && !previous?.adActive) {
@@ -172,7 +207,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (telemetry.playingVideoCount !== (previous?.playingVideoCount ?? -1) || telemetry.videoCount !== (previous?.videoCount ?? -1)) {
       log("debug", `Playback telemetry: ${telemetry.playingVideoCount}/${telemetry.videoCount} videos playing${telemetry.documentHidden ? " (tab hidden)" : ""}`);
     }
-    return next;
+    return events;
   }
 
   async function ensureAlarm(): Promise<void> {
@@ -208,12 +243,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await deps.saveSettings(nextSettings);
     }
 
-    await persist(appendLog(cleanup.state, {
-      level: "info",
-      message: settings.running && settings.autoStartDropFarming
-        ? "Browser restart detected; cleared stale farming tabs before resuming"
-        : "Browser restart detected; paused farming and cleared stale farming tabs",
-    }));
+    const restartEvents = farmingLifecycleEvents(state, cleanup.state);
+    await persistAndReport(cleanup.state, restartEvents);
 
     if (nextSettings.running && nextSettings.autoStartDropFarming) {
       await tick();
@@ -246,33 +277,47 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function tick(platforms?: Platform[], options?: { forcePaused?: boolean }): Promise<void> {
-    await withStateLock(async () => {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
       const storedSettings = await deps.loadSettings();
       const settings: S = options?.forcePaused || settingsPauseCount > 0
         ? { ...storedSettings, running: false }
         : storedSettings;
       const state = await deps.loadState();
-      const enabledLevels = settings.enabledLogLevels;
-
+      const nextWaitingClaimRewardIds: Record<Platform, Set<string>> = {
+        twitch: new Set(waitingClaimRewardIds.twitch),
+        kick: new Set(waitingClaimRewardIds.kick),
+      };
+      let nextState: SchedulerState;
       try {
-        const adapters = deps.createAdapters();
+        const adapters = deps.createAdapters(emit);
         const result = await runSchedulerTick(state, settings, adapters, {
           ...(platforms ? { platforms } : {}),
           stopPageContextTabs: deps.stopPageContextTabs,
+          waitingClaimRewardIds: nextWaitingClaimRewardIds,
+          emit,
         });
+        const lifecycleEvents = farmingLifecycleEvents(state, result.state);
+        for (const event of lifecycleEvents) emit(event);
         await emitNotifications(settings, state, result.state);
-        await applyAdFocusForState(result.state);
-        await reconcileTablessWatchers(result.state, settings, adapters, platforms);
-        // The per-tick heartbeat is debug noise next to the richer per-platform
-        // entries the scheduler already records; the popup shows "last check" too.
-        await persist(withEvent(result.state, { level: "debug", message: "Scheduler tick completed" }, enabledLevels));
+        await applyAdFocusForState(result.state, emit);
+        await reconcileTablessWatchers(result.state, settings, adapters, emit, platforms);
+        nextState = result.state;
       } catch (error) {
-        await persist(withEvent(state, {
-          level: "error",
-          message: error instanceof Error ? error.message : "Scheduler tick failed",
-        }, enabledLevels));
+        events.length = 0;
+        const detail = error instanceof Error ? error.message : "Scheduler tick failed";
+        emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
+        emit({ category: "diagnostic", level: "error", message: detail });
+        await persistAndReport(state, events);
+        return;
       }
-    });
+      await persistAndReport(nextState, events);
+      for (const platform of PLATFORMS) {
+        waitingClaimRewardIds[platform].clear();
+        for (const rewardId of nextWaitingClaimRewardIds[platform]) {
+          waitingClaimRewardIds[platform].add(rewardId);
+        }
+      }
+    }));
   }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
@@ -281,20 +326,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // user can close a tab at any moment). The trailing tick() is deferred to
     // outside the lock because it re-acquires the lock itself — mirroring how
     // runWatchHeartbeat returns its fallback work and ticks afterwards.
-    const shouldRerunScheduler = await withStateLock(async () => {
+    const shouldRerunScheduler = await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const manualPlatforms = (["twitch", "kick"] as Platform[]).filter((platform) => state.manualWatch?.[platform]?.tabId === tabId);
+      let nextState = state;
       if (manualPlatforms.length > 0) {
         const manualWatch = { ...state.manualWatch };
         for (const platform of manualPlatforms) delete manualWatch[platform];
-        await persist({
+        nextState = {
           ...state,
           manualWatch,
-        });
+        };
       }
-      if (!settings.running) return false;
+      let shouldRerun = false;
 
-      for (const platform of ["twitch", "kick"] as Platform[]) {
+      for (const platform of settings.running ? ["twitch", "kick"] as Platform[] : []) {
         const session = state.sessions[platform];
         if (
           settings.platform[platform].enabled
@@ -302,12 +348,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           && session.tabManagedByExtension
           && session.tabId === tabId
         ) {
-          pendingTabEvents.push({ platform, level: "info", message: "Managed watch tab was closed; re-running scheduler" });
-          return true;
+          emit({ category: "diagnostic", platform, level: "info", message: "Managed watch tab was closed; re-running scheduler" });
+          shouldRerun = true;
+          break;
         }
       }
-      return false;
-    });
+      if (manualPlatforms.length > 0 || events.length > 0) await persistAndReport(nextState, events);
+      return shouldRerun;
+    }));
 
     if (shouldRerunScheduler) await tick();
   }
@@ -324,6 +372,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     state: SchedulerState,
     settings: EngineSettings,
     adapters: Record<Platform, PlatformAdapter>,
+    emit: EventEmitter,
     platforms?: Platform[],
   ): Promise<void> {
     const targets = platforms ?? PLATFORMS;
@@ -340,22 +389,43 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       if (wantsTabless && session.channel && adapter.createTablessWatcher) {
         const watcher = existing ?? adapter.createTablessWatcher();
         if (!existing) tablessWatchers.set(platform, watcher);
+        drainWatcherEvents(watcher, emit);
         if (watcher.channelUrl !== session.channel.url) {
+          let startFailed = false;
+          let startError: unknown;
           try {
             await watcher.start(session.channel, tablessWatchContext());
           } catch (error) {
-            pendingTabEvents.push({
+            startFailed = true;
+            startError = error;
+          } finally {
+            drainWatcherEvents(watcher, emit);
+          }
+          if (startFailed) {
+            emit({
+              category: "diagnostic",
               platform,
               level: "warn",
-              message: error instanceof Error ? error.message : "Could not start the tabless watcher",
+              message: startError instanceof Error ? startError.message : "Could not start the tabless watcher",
             });
           }
         }
       } else if (existing) {
-        await existing.stop();
-        tablessWatchers.delete(platform);
+        drainWatcherEvents(existing, emit);
+        try {
+          await existing.stop();
+        } catch (error) {
+          emitHostCallbackError(emit, platform, error, "Could not stop the tabless watcher");
+        } finally {
+          drainWatcherEvents(existing, emit);
+          tablessWatchers.delete(platform);
+        }
       }
     }
+  }
+
+  function drainWatcherEvents(watcher: TablessWatchController, emit: EventEmitter): void {
+    for (const event of watcher.drainEvents()) emit(event);
   }
 
   // Fired by the 1-minute watch alarm. Runs one heartbeat per active tabless
@@ -365,9 +435,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (settingsPauseCount > 0) return;
     const settings = await deps.loadSettings();
     if (!settings.running) return;
-    const enabledLevels = settings.enabledLogLevels;
-
-    const fallbackPlatforms = await withStateLock<Platform[]>(async () => {
+    const fallbackPlatforms = await withStateLock<Platform[]>(() => withEventCollector(async (emit, events) => {
       let nextState = await deps.loadState();
       // After a service-worker restart the in-memory watcher map is empty, so
       // rebuild it from persisted tabless sessions before the size check below.
@@ -378,8 +446,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       // both fire on a ~1-minute cadence). reconcileTablessWatchers only calls
       // watcher.start() on a fresh start/channel switch and never re-acquires the
       // lock, so holding it here is safe (no reentrancy).
-      await reconcileTablessWatchers(nextState, settings, deps.createAdapters());
-      if (tablessWatchers.size === 0) return [];
+      await reconcileTablessWatchers(nextState, settings, deps.createAdapters(emit), emit);
+      if (tablessWatchers.size === 0) {
+        await reportBestEffort(events);
+        return [];
+      }
 
       let changed = false;
       const fallbacks: Platform[] = [];
@@ -390,12 +461,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
         let ok = false;
         let message: string | undefined;
+        drainWatcherEvents(watcher, emit);
         try {
           const result = await watcher.tick(tablessWatchContext());
           ok = result.ok;
           message = result.message;
         } catch (error) {
           message = error instanceof Error ? error.message : "Tabless heartbeat failed";
+        } finally {
+          drainWatcherEvents(watcher, emit);
         }
 
         const previousChecks = session.heartbeatChecks ?? 0;
@@ -415,19 +489,20 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         changed = true;
 
         if (ok && previousChecks > 0) {
-          nextState = withEvent(nextState, { platform, level: "info", message: "Tabless watch heartbeat recovered" }, enabledLevels);
+          emit({ category: "diagnostic", platform, level: "info", message: "Tabless watch heartbeat recovered" });
         } else if (!ok && previousChecks === 0) {
-          nextState = withEvent(nextState, { platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" }, enabledLevels);
+          emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
         }
         if (!ok && heartbeatChecks >= settings.offlineRetryLimit && !fallbacks.includes(platform)) {
           fallbacks.push(platform);
-          nextState = withEvent(nextState, { platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" }, enabledLevels);
+          emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
         }
       }
 
-      if (changed) await persist(nextState);
+      if (changed) await persistAndReport(nextState, events);
+      else await reportBestEffort(events);
       return fallbacks;
-    });
+    }));
 
     // chooseTablessWatch now sees heartbeatChecks past the limit and opens a tab.
     // Run outside the lock: tick() acquires the lock itself.
@@ -449,10 +524,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function recordPlaybackTelemetry(
-    message: Extract<RuntimeMessage, { type: "playbackTelemetry" }>,
+    message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId?: number,
   ): Promise<void> {
-    await withStateLock(async () => {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const session = state.sessions[message.platform];
       const isManagedWatchTab = senderTabId != null
@@ -462,14 +537,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       if (!isManagedWatchTab) {
         if (senderTabId != null) {
-          await persist(recordManualWatchTelemetry(state, settings, message, senderTabId));
+          await persistAndReport(recordManualWatchTelemetry(state, settings, message, senderTabId), events);
         }
         return;
       }
 
       const previous = session.playback;
       const telemetry = message.telemetry;
-      const enabledLevels = settings.enabledLogLevels;
       let nextState: SchedulerState = {
         ...state,
         sessions: {
@@ -487,22 +561,28 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       // Only log transitions — telemetry arrives every few seconds, so logging the
       // raw stream would bury everything else.
-      if (session.status === "watching") {
-        nextState = appendPlaybackEvents(nextState, message.platform, previous, telemetry, enabledLevels);
-      }
+      const playbackDiagnostics = session.status === "watching"
+        ? playbackEvents(message.platform, previous, telemetry)
+        : [];
+      for (const event of playbackDiagnostics) emit(event);
 
-      await persist(nextState);
-
-      if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
-        await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive));
+      await saveOperationalState(nextState);
+      try {
+        if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
+          await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), emit);
+        }
+      } catch (error) {
+        emitHostCallbackError(emit, message.platform, error, "Could not apply ad focus");
+      } finally {
+        await reportBestEffort(events);
       }
-    });
+    }));
   }
 
   function recordManualWatchTelemetry(
     state: SchedulerState,
     settings: EngineSettings,
-    message: Extract<RuntimeMessage, { type: "playbackTelemetry" }>,
+    message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
   ): SchedulerState {
     const manualWatch = { ...state.manualWatch };
@@ -525,17 +605,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return { ...state, manualWatch };
   }
 
-  async function applyAdFocusForState(state: SchedulerState): Promise<void> {
+  async function applyAdFocusForState(state: SchedulerState, emit: EventEmitter): Promise<void> {
     if (!deps.applyAdFocus) return;
     for (const platform of ["twitch", "kick"] as Platform[]) {
       const session = state.sessions[platform];
       const watching = session.status === "watching" && session.tabId != null;
-      await deps.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive));
+      try {
+        await deps.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive), emit);
+      } catch (error) {
+        emitHostCallbackError(emit, platform, error, "Could not apply ad focus");
+      }
     }
   }
 
   async function getPlaybackControl(
-    message: Extract<RuntimeMessage, { type: "getPlaybackControl" }>,
+    message: Extract<CoreRuntimeMessage, { type: "getPlaybackControl" }>,
     senderTabId?: number,
   ): Promise<PlaybackControl> {
     const [policy, state] = await Promise.all([deps.loadTabPlaybackPolicy?.(), deps.loadState()]);
@@ -549,37 +633,42 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function claimRewardNow(
-    message: Extract<RuntimeMessage, { type: "claimReward" }>,
+    message: Extract<CoreRuntimeMessage, { type: "claimReward" }>,
   ): Promise<RuntimeSnapshot<S>> {
     // Hold the state lock across the whole load→persist so a concurrent tick or
     // telemetry write can't clobber the claimed-reward update. snapshot() runs
     // after the lock so it reflects the committed state.
-    await withStateLock(async () => {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
       const state = await deps.loadState();
       const campaigns = state.campaigns[message.platform];
       const campaign = campaigns.find((item) => item.id === message.campaignId);
       const reward = campaign?.rewards.find((item) => item.id === message.rewardId);
 
       if (!campaign || !reward) {
-        await persist(appendLog(state, {
+        emit({
+          category: "diagnostic",
           platform: message.platform,
           level: "warn",
           message: "Reward claim skipped because the campaign or reward is no longer available",
-        }));
+        });
+        await persistAndReport(state, events);
         return;
       }
 
       if (!canClaimReward(reward)) {
-        await persist(appendLog(state, {
+        emit({
+          category: "diagnostic",
           platform: message.platform,
           level: "warn",
           message: `${reward.name} is not ready to claim`,
-        }));
+        });
+        await persistAndReport(state, events);
         return;
       }
 
+      let stateWithCampaigns: SchedulerState;
       try {
-        const claimed = await deps.createAdapters()[message.platform].claimReward(campaign, reward);
+        const claimed = await deps.createAdapters(emit)[message.platform].claimReward(campaign, reward);
         const nextCampaigns = campaigns.map((item) => {
           if (item.id !== campaign.id) return item;
           const rewards = item.rewards.map((candidate) => candidate.id === reward.id && claimed
@@ -591,19 +680,34 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             status: rewards.every((candidate) => candidate.status === "claimed") ? "completed" as const : item.status,
           };
         });
-        const nextState = appendLog({
+        stateWithCampaigns = {
           ...state,
           campaigns: {
             ...state.campaigns,
             [message.platform]: nextCampaigns,
           },
-        }, {
-          platform: message.platform,
-          level: claimed ? "info" : "warn",
-          message: claimed
-            ? `Claimed ${reward.name} from ${campaign.name}`
-            : `Could not claim ${reward.name} from ${campaign.name}`,
-        });
+        };
+        const claimEvent: EngineEvent = claimed
+          ? {
+            category: "activity",
+            platform: message.platform,
+            level: "info",
+            code: "reward_claimed",
+            data: {
+              campaignId: campaign.id,
+              campaignName: campaign.name,
+              rewardId: reward.id,
+              rewardName: reward.name,
+              method: "manual",
+            },
+          }
+          : {
+            category: "diagnostic",
+            platform: message.platform,
+            level: "warn",
+            message: `Could not claim ${reward.name} from ${campaign.name}`,
+          };
+        emit(claimEvent);
         const settings = await deps.loadSettings();
         if (claimed && settings.notifyRewardEarned) {
           await safeNotify(
@@ -611,20 +715,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             await tr("notificationRewardFromCampaign", [reward.name, campaign.name]),
           );
         }
-        await persist(nextState);
       } catch (error) {
-        await persist(appendLog(state, {
+        events.length = 0;
+        emit({
+          category: "diagnostic",
           platform: message.platform,
           level: "error",
           message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,
-        }));
+        });
+        await persistAndReport(state, events);
+        return;
       }
-    });
+      await persistAndReport(stateWithCampaigns, events);
+    }));
     return snapshot();
   }
 
   async function handleMessage(
-    message: RuntimeMessage,
+    message: CoreRuntimeMessage,
     sender?: { tab?: { id?: number } },
   ): Promise<RuntimeSnapshot<S> | PlaybackControl | CategorySearchResult | void> {
     if (message.type === "getPlaybackControl") {
@@ -685,18 +793,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
 
     if (message.type === "searchCategories") {
-      // Read-only fetch from the platform adapter — no state lock needed. Always
-      // resolve (like every other handler): the Kick path can reject on a WAF
-      // block or network error, and a rejected handler would leave the message
-      // port hanging (no sendResponse). Log the failure so the activity log shows
-      // it (the popup just sees an empty result otherwise).
-      try {
-        const categories = await deps.createAdapters()[message.platform].searchCategories?.(message.query) ?? [];
+      return withEventCollector(async (emit, events) => {
+        let categories: CategorySearchResult["categories"] = [];
+        try {
+          categories = await deps.createAdapters(emit)[message.platform].searchCategories?.(message.query) ?? [];
+        } catch (error) {
+          emit({
+            category: "diagnostic",
+            level: "warn",
+            message: `Category search failed: ${error instanceof Error ? error.message : String(error)}`,
+            platform: message.platform,
+          });
+        }
+        await reportBestEffort(events);
         return { categories };
-      } catch (error) {
-        logActivity("warn", `Category search failed: ${error instanceof Error ? error.message : String(error)}`, message.platform);
-        return { categories: [] };
-      }
+      });
     }
 
     if (message.type === "tickNow") {
@@ -778,6 +889,97 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   };
 }
 
+function farmingLifecycleEvents(previous: SchedulerState, next: SchedulerState): ActivityEvent[] {
+  const events: ActivityEvent[] = [];
+  for (const platform of ["twitch", "kick"] as Platform[]) {
+    const before = farmingTarget(previous, platform);
+    const after = farmingTarget(next, platform);
+    const sameTarget = Boolean(
+      before
+      && after
+      && before.campaign.id === after.campaign.id
+      && before.reward.id === after.reward.id,
+    );
+    if (sameTarget) continue;
+
+    if (before) {
+      const updatedReward = next.campaigns[platform]
+        .find((campaign) => campaign.id === before.campaign.id)
+        ?.rewards.find((reward) => reward.id === before.reward.id);
+      const reason = updatedReward?.status === "claimed" || updatedReward?.status === "claimable"
+        ? "watch_requirement_completed"
+        : farmingStopReason(next.sessions[platform]);
+      events.push({
+        category: "activity",
+        platform,
+        level: next.sessions[platform].status === "error" ? "error" : "info",
+        code: "farming_stopped",
+        data: {
+          campaignId: before.campaign.id,
+          campaignName: before.campaign.name,
+          rewardId: before.reward.id,
+          rewardName: before.reward.name,
+          reason,
+        },
+      });
+    }
+    if (after) {
+      events.push({
+        category: "activity",
+        platform,
+        level: "info",
+        code: "farming_started",
+        data: {
+          campaignId: after.campaign.id,
+          campaignName: after.campaign.name,
+          rewardId: after.reward.id,
+          rewardName: after.reward.name,
+          ...(after.session.channel ? { channel: after.session.channel.displayName ?? after.session.channel.username } : {}),
+        },
+      });
+    } else if (!before) {
+      const session = next.sessions[platform];
+      const prior = previous.sessions[platform];
+      const changed = session.status !== prior.status || session.message !== prior.message;
+      const actionable = session.status === "error" || session.reasonCode === "manual_watch";
+      if (changed && actionable) {
+        const reason = farmingStopReason(session);
+        events.push({
+          category: "activity",
+          platform,
+          level: session.status === "error" ? "error" : "warn",
+          code: "interruption",
+          data: { reason, ...(session.message ? { detail: session.message } : {}) },
+        });
+      }
+    }
+  }
+  return events;
+}
+
+function farmingTarget(state: SchedulerState, platform: Platform): {
+  session: WatchSession;
+  campaign: DropCampaign;
+  reward: DropReward;
+} | undefined {
+  const session = state.sessions[platform];
+  if (session.status !== "watching" || !session.campaignId || !session.rewardId) return undefined;
+  const campaign = state.campaigns[platform].find((candidate) => candidate.id === session.campaignId);
+  const reward = campaign?.rewards.find((candidate) => candidate.id === session.rewardId);
+  return campaign && reward ? { session, campaign, reward } : undefined;
+}
+
+function farmingStopReason(session: WatchSession): FarmingStopReason {
+  const code = session.reasonCode;
+  return code && isFarmingStopReason(code)
+    ? code
+    : session.status === "error" ? "platform_error" : "target_changed";
+}
+
+function isFarmingStopReason(code: WatchReasonCode): code is FarmingStopReason {
+  return Object.prototype.hasOwnProperty.call(FARMING_STOP_REASON_CODES, code);
+}
+
 function staleStartupCleanup(state: SchedulerState): {
   hasStaleSession: boolean;
   managedUrls: string[];
@@ -827,6 +1029,7 @@ function pausedStartupSession(session: WatchSession): WatchSession {
     errorChecks: 0,
     retryAfter: undefined,
     message: "Browser restarted; farming paused",
+    reasonCode: "runtime_restart",
   };
 }
 

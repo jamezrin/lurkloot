@@ -1,5 +1,3 @@
-import type { EventLogEntry, SchedulerState } from "./models";
-
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 // Ordered low → high so the popup can filter "this level and above" and so debug
@@ -12,28 +10,3 @@ export const LOG_LEVEL_ORDER: Record<LogLevel, number> = {
   warn: 2,
   error: 3,
 };
-
-// The activity log is a rolling buffer. Debug entries fill it faster than the
-// old info/warn/error-only stream, so keep a deeper history than before.
-export const MAX_LOG_ENTRIES = 250;
-
-// Single source of truth for record-time gating: scheduler and controller both
-// consult this so an entry is written only if its level is enabled in settings.
-export function shouldRecord(level: LogLevel, enabledLevels: readonly LogLevel[]): boolean {
-  return enabledLevels.includes(level);
-}
-
-export function appendLog(
-  state: SchedulerState,
-  entry: Omit<EventLogEntry, "id" | "at">,
-): SchedulerState {
-  const fullEntry: EventLogEntry = {
-    ...entry,
-    id: `${Date.now()}-${entry.platform ?? "all"}-${Math.random().toString(16).slice(2)}`,
-    at: new Date().toISOString(),
-  };
-  return {
-    ...state,
-    events: [fullEntry, ...state.events].slice(0, MAX_LOG_ENTRIES),
-  };
-}

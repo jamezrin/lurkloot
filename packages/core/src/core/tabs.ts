@@ -1,13 +1,14 @@
 import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "@lurkloot/shared/models";
+import type { EventEmitter } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import { logActivity as logTab, setActivityLogger } from "./activityLog";
 import type { TwitchIntegrity } from "./twitchIntegrity";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 
-// tabs.ts is a pure module with no access to the scheduler state, so it reports
-// tab-lifecycle and ad-focus events through the shared activity-log sink (see
-// src/core/activityLog.ts). Re-exported here so existing importers keep working.
-export { setActivityLogger };
+const ignoreEvent: EventEmitter = () => {};
+
+function diagnostic(emit: EventEmitter, level: LogLevel, message: string, platform?: Platform): void {
+  emit({ category: "diagnostic", level, message, platform });
+}
 
 export interface BrowserTabApi {
   tabs: {
@@ -61,6 +62,7 @@ export async function openPinnedMutedTabWithBrowser(
   channel: ChannelCandidate,
   session?: WatchSession,
   options?: Partial<WatchTabOptions>,
+  emit: EventEmitter = ignoreEvent,
 ): Promise<PreparedWatchTab> {
   const tabOptions = { ...DEFAULT_WATCH_TAB_OPTIONS, ...options };
   const registered = tabOptions.managedTab ?? managedTabFromSession(session, channel.url);
@@ -74,9 +76,9 @@ export async function openPinnedMutedTabWithBrowser(
           await browserApi.tabs.update(tab.id, updateProperties);
         }
         if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
-          await primeTabPlayback(browserApi, tab.id, channel.platform);
+          await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
         }
-        logTab("debug", `Reusing managed watch tab ${tab.id} for ${channel.username}`, channel.platform);
+        diagnostic(emit, "debug", `Reusing managed watch tab ${tab.id} for ${channel.username}`, channel.platform);
         return {
           tabId: tab.id,
           managedByExtension: true,
@@ -85,7 +87,7 @@ export async function openPinnedMutedTabWithBrowser(
       }
     } catch {
       // The registered managed tab can go stale after browser restarts or manual tab closure.
-      logTab("debug", `Managed watch tab ${registered.tabId} is gone; opening a new one`, channel.platform);
+      diagnostic(emit, "debug", `Managed watch tab ${registered.tabId} is gone; opening a new one`, channel.platform);
     }
   } else if (session?.tabId && session.tabManagedByExtension === false) {
     try {
@@ -96,14 +98,14 @@ export async function openPinnedMutedTabWithBrowser(
           await browserApi.tabs.update(tab.id, updateProperties);
         }
         if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
-          await primeTabPlayback(browserApi, tab.id, channel.platform);
+          await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
         }
-        logTab("debug", `Reusing your tab ${tab.id} for ${channel.username}`, channel.platform);
+        diagnostic(emit, "debug", `Reusing your tab ${tab.id} for ${channel.username}`, channel.platform);
         return { tabId: tab.id, managedByExtension: false };
       }
     } catch {
       // Reused user tabs are best-effort only; if missing, create a managed tab.
-      logTab("debug", `Reused tab ${session.tabId} is gone; opening a managed one`, channel.platform);
+      diagnostic(emit, "debug", `Reused tab ${session.tabId} is gone; opening a managed one`, channel.platform);
     }
   }
 
@@ -114,7 +116,7 @@ export async function openPinnedMutedTabWithBrowser(
     if (!browserApi.tabs.remove) continue;
     try {
       await browserApi.tabs.remove(tabId);
-      logTab("debug", `Removed stale watch tab ${tabId}`, channel.platform);
+      diagnostic(emit, "debug", `Removed stale watch tab ${tabId}`, channel.platform);
     } catch {
       // Stale managed tab ids should not block creating the replacement.
     }
@@ -126,14 +128,14 @@ export async function openPinnedMutedTabWithBrowser(
     active: false,
   }) as { id?: number };
   if (tab.id == null) {
-    logTab("error", `Could not create ${channel.platform} watch tab for ${channel.username}`, channel.platform);
+    diagnostic(emit, "error", `Could not create ${channel.platform} watch tab for ${channel.username}`, channel.platform);
     throw new Error(`Could not create ${channel.platform} watch tab`);
   }
   await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
   if (tabOptions.keepVideosUnmuted) {
-    await primeTabPlayback(browserApi, tab.id, channel.platform);
+    await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
   }
-  logTab("info", `Opened watch tab ${tab.id} for ${channel.username}`, channel.platform);
+  diagnostic(emit, "info", `Opened watch tab ${tab.id} for ${channel.username}`, channel.platform);
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
 }
 
@@ -159,11 +161,11 @@ function shouldPrimePlayback(tab: BrowserTab, url: string, session?: WatchSessio
     || playback.playingVideoCount === 0;
 }
 
-async function primeTabPlayback(browserApi: BrowserTabApi, tabId: number, platform?: Platform): Promise<void> {
+async function primeTabPlayback(browserApi: BrowserTabApi, tabId: number, platform: Platform | undefined, emit: EventEmitter): Promise<void> {
   const [previousActive] = await browserApi.tabs.query({ active: true, currentWindow: true });
   const previousActiveId = previousActive?.id;
 
-  logTab("debug", `Priming playback on watch tab ${tabId}`, platform);
+  diagnostic(emit, "debug", `Priming playback on watch tab ${tabId}`, platform);
   await browserApi.tabs.update(tabId, { active: true });
   await wait(playbackPrimeRestoreDelayMs());
 
@@ -202,13 +204,13 @@ function managedTab(channel: ChannelCandidate, tabId: number): ManagedWatchTab {
   };
 }
 
-export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
+export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session: WatchSession, options?: Partial<WatchTabOptions>, emit: EventEmitter = ignoreEvent): Promise<void> {
   const tabOptions = { ...DEFAULT_WATCH_TAB_OPTIONS, ...options };
   if (!session.tabId) return;
   try {
     if (session.tabManagedByExtension && tabOptions.closeManagedTabs && browserApi.tabs.remove) {
       await browserApi.tabs.remove(session.tabId);
-      logTab("debug", `Closed managed watch tab ${session.tabId}`, session.platform);
+      diagnostic(emit, "debug", `Closed managed watch tab ${session.tabId}`, session.platform);
       return;
     }
     await browserApi.tabs.update(session.tabId, {
@@ -216,10 +218,10 @@ export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session
       pinned: false,
       active: false,
     });
-    logTab("debug", `Released your tab ${session.tabId} (unmuted, unpinned)`, session.platform);
+    diagnostic(emit, "debug", `Released your tab ${session.tabId} (unmuted, unpinned)`, session.platform);
   } catch {
     // The user may have closed the tab already.
-    logTab("debug", `Watch tab ${session.tabId} was already closed`, session.platform);
+    diagnostic(emit, "debug", `Watch tab ${session.tabId} was already closed`, session.platform);
   }
 }
 
@@ -238,9 +240,10 @@ export async function applyAdFocusWithBrowser(
   tabId: number | undefined,
   adActive: boolean,
   mode: AdFocusMode,
+  emit: EventEmitter = ignoreEvent,
 ): Promise<void> {
   if (mode === "none" || !adActive || tabId == null) {
-    await releaseAdFocus(browserApi, platform, tabId);
+    await releaseAdFocus(browserApi, platform, tabId, emit);
     return;
   }
 
@@ -259,11 +262,11 @@ export async function applyAdFocusWithBrowser(
     await browserApi.windows?.update(tab.windowId, { focused: true });
   }
   if (!alreadyHeld) {
-    logTab("debug", `Focusing watch tab ${tabId} for an ad`, platform);
+    diagnostic(emit, "debug", `Focusing watch tab ${tabId} for an ad`, platform);
   }
 }
 
-async function releaseAdFocus(browserApi: BrowserTabApi, platform: Platform, watchTabId: number | undefined): Promise<void> {
+async function releaseAdFocus(browserApi: BrowserTabApi, platform: Platform, watchTabId: number | undefined, emit: EventEmitter): Promise<void> {
   if (!adFocusHolds.delete(platform) || adFocusHolds.size > 0) return;
 
   const restore = previousFocus;
@@ -277,7 +280,7 @@ async function releaseAdFocus(browserApi: BrowserTabApi, platform: Platform, wat
     if (active?.id !== watchTabId) return;
   }
 
-  logTab("debug", `Restoring previous tab ${restore.tabId} after the ad`, platform);
+  diagnostic(emit, "debug", `Restoring previous tab ${restore.tabId} after the ad`, platform);
   await browserApi.tabs.update(restore.tabId, { active: true }).catch(() => undefined);
   if (restore.windowId != null) {
     await browserApi.windows?.update(restore.windowId, { focused: true }).catch(() => undefined);
@@ -332,11 +335,11 @@ export function hasValidTwitchIntegrity(now: number = Date.now()): boolean {
   return twitchIntegrity != null && twitchIntegrity.expiresAt > now + INTEGRITY_EXPIRY_SKEW_MS;
 }
 
-export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?: { isNew?: boolean }): void {
+export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?: { isNew?: boolean }, emit: EventEmitter = ignoreEvent): void {
   twitchIntegrity = value;
   if (value && options?.isNew) {
     const ttlSeconds = Math.max(0, Math.round((value.expiresAt - Date.now()) / 1000));
-    logTab("info", `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()}, in ${ttlSeconds}s)`, "twitch");
+    diagnostic(emit, "info", `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()}, in ${ttlSeconds}s)`, "twitch");
   }
   if (value != null && integrityWaiters.length > 0) {
     const waiters = integrityWaiters;
@@ -371,10 +374,11 @@ export async function ensureTwitchIntegrityWithBrowser(
   browserApi: BrowserTabApi,
   originUrl: string,
   timeoutMs: number = INTEGRITY_REFRESH_TIMEOUT_MS,
+  emit: EventEmitter = ignoreEvent,
 ): Promise<boolean> {
   if (hasValidTwitchIntegrity()) return true;
 
-  logTab("info", "No valid Twitch integrity token; opening a twitch.tv tab to capture one", "twitch");
+  diagnostic(emit, "info", "No valid Twitch integrity token; opening a twitch.tv tab to capture one", "twitch");
   const origin = new URL(originUrl).origin;
   let pageContext: PageContextTab | undefined;
   try {
@@ -385,12 +389,12 @@ export async function ensureTwitchIntegrityWithBrowser(
     // here we only surface the failure case so the log isn't doubled up.
     const captured = await waitForIntegrityCapture(timeoutMs);
     if (!captured) {
-      logTab("warn", `Timed out waiting for a Twitch integrity token after ${timeoutMs}ms (is twitch.tv logged in?)`, "twitch");
+      diagnostic(emit, "warn", `Timed out waiting for a Twitch integrity token after ${timeoutMs}ms (is twitch.tv logged in?)`, "twitch");
     }
     return captured;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logTab("warn", `Could not open a twitch.tv tab to capture an integrity token: ${message}`, "twitch");
+    diagnostic(emit, "warn", `Could not open a twitch.tv tab to capture an integrity token: ${message}`, "twitch");
     return false;
   } finally {
     if (pageContext) await releasePageContextTab(browserApi, origin, pageContext);

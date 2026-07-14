@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Ban, ChevronDown, type LucideIcon } from "lucide-react";
 import type { CampaignFilterKey } from "@lurkloot/shared/models";
-import { LOG_LEVELS, type LogLevel } from "@lurkloot/shared/logging";
 import {
   CAMPAIGN_FILTERS,
   COLLAPSED_SETTINGS_SECTIONS_KEY,
-  EVENT_LEVEL_COLOR,
 } from "./constants";
 import { usePopupRuntime, useT } from "./context";
 import { Toggle, cn } from "./primitives";
@@ -79,50 +77,6 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
       <Toggle checked={checked} onChange={onChange} label={title} disabled={disabled} />
-    </div>
-  );
-}
-
-// Per-level control over what gets recorded in the Activity log. Errors are
-// always kept so failures are never silently dropped, so that pill is locked on.
-export function LogLevelSettingRow({ value, onChange }: { value: LogLevel[]; onChange(levels: LogLevel[]): void | Promise<void> }) {
-  const t = useT();
-  const enabled = new Set(value);
-  const toggle = (level: LogLevel) => {
-    const next = new Set(enabled);
-    if (next.has(level)) next.delete(level);
-    else next.add(level);
-    next.add("error");
-    onChange(LOG_LEVELS.filter((l) => next.has(l)));
-  };
-  return (
-    <div className="py-2.5">
-      <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("activityLogLevelsTitle")}</div>
-      <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-        {t("activityLogLevelsDescription")}
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1">
-        {LOG_LEVELS.map((level) => {
-          const active = enabled.has(level) || level === "error";
-          const locked = level === "error";
-          return (
-            <button
-              key={level}
-              type="button"
-              disabled={locked}
-              onClick={locked ? undefined : () => toggle(level)}
-              className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold transition ${active
-                ? "border-transparent text-white"
-                : "border-zinc-200 text-zinc-400 dark:border-zinc-700"} ${locked ? "cursor-default opacity-90" : ""}`}
-              style={active ? { backgroundColor: EVENT_LEVEL_COLOR[level] } : undefined}
-              aria-pressed={active}
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "#ffffff" : EVENT_LEVEL_COLOR[level] }} />
-              {t(level)}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }

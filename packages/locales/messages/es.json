@@ -566,5 +566,89 @@
   },
   "cliExportButton": {
     "message": "Exportar credenciales"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Incluir registros de diagnóstico"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Registra detalles técnicos adicionales para ayudar a diagnosticar problemas. La actividad normal siempre se conserva."
+  },
+  "activityFarmingStarted": {
+    "message": "Se empezó a conseguir $1 de $2."
+  },
+  "activityFarmingStopped": {
+    "message": "Se dejó de conseguir $1 de $2: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "Se reclamó $1 de $2."
+  },
+  "activityInterruption": {
+    "message": "Obtención interrumpida: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Obtención interrumpida: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "se desactivó la automatización"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "se desactivó la plataforma"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "la plataforma está esperando temporalmente"
+  },
+  "activityReasonPlatformError": {
+    "message": "se produjo un error de la plataforma"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "la campaña ya no es apta"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "el canal está excluido"
+  },
+  "activityReasonChannelOffline": {
+    "message": "el canal se desconectó"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "el canal ya no coincide"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "falló la comprobación de reproducción"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "se priorizó una recompensa más importante"
+  },
+  "activityReasonHigherPriorityWatchQueue": {
+    "message": "se priorizó la cola de visualización"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "se completó el requisito de visualización"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "se reinició la extensión"
+  },
+  "activityReasonTargetChanged": {
+    "message": "cambió el objetivo de obtención"
+  },
+  "activityReasonManualWatch": {
+    "message": "se priorizó la visualización manual"
+  },
+  "hideDiagnosticLogs": {
+    "message": "Ocultar diagnósticos"
+  },
+  "loadMoreActivity": {
+    "message": "Cargar más"
+  },
+  "clearActivityHistory": {
+    "message": "Borrar historial"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Confirmar borrado"
+  },
+  "clearActivityFailed": {
+    "message": "No se pudo borrar el historial. Inténtalo de nuevo."
+  },
+  "showDiagnosticLogs": {
+    "message": "Mostrar diagnósticos"
   }
 }

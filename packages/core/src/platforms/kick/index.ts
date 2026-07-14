@@ -1,8 +1,8 @@
 import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
+import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
-import { logActivity } from "../../core/activityLog";
 import { KickWafBlockedError } from "../../core/tabs";
-import { unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
 
@@ -60,21 +60,21 @@ export function createKickFetcher(deps: {
 }): PageFetcher {
   const { background, pageFetch } = deps;
   const announced = new Map<string, "background" | "fallback">();
-  const report = (host: string, outcome: "background" | "fallback", detail: string): void => {
+  const report = (emit: EventEmitter, host: string, outcome: "background" | "fallback", detail: string): void => {
     const repeat = announced.get(host) === outcome;
     announced.set(host, outcome);
-    logActivity(repeat ? "debug" : "info", `Kick fetch ${host} ${detail}`, "kick");
+    diagnostic(emit, repeat ? "debug" : "info", `Kick fetch ${host} ${detail}`, "kick");
   };
   return {
-    fetchJson: async <T,>(url: string, init?: RequestInit): Promise<T> => {
+    fetchJson: async <T,>(url: string, init?: RequestInit, emit: EventEmitter = ignoreEvent): Promise<T> => {
       const host = safeHost(url);
       try {
         const result = await background(url, init);
-        report(host, "background", "→ service worker OK (tabless-capable)");
+        report(emit, host, "background", "→ service worker OK (tabless-capable)");
         return result as T;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        report(host, "fallback", error instanceof KickWafBlockedError
+        report(emit, host, "fallback", error instanceof KickWafBlockedError
           ? `→ WAF-blocked from service worker, using page tab (${message})`
           : `→ service worker error, using page tab (${message})`);
         return await pageFetch(url, init) as T;
@@ -130,14 +130,11 @@ export class KickAdapter implements PlatformAdapter {
     // headless runtime injects one that rides its impersonated session so the
     // handshake clears Kick's WAF.
     private readonly webSocketFactory?: WebSocketFactory,
+    private readonly emit: EventEmitter = ignoreEvent,
   ) {}
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
-    const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/campaigns");
-    // Debug-gated raw dump (only surfaces with verbose logging). On launch day
-    // this lets us confirm the live shape matched the parser — and patch
-    // kickParser.ts on the spot if a field drifted — instead of guessing.
-    logActivity("debug", `Kick /drops/campaigns raw: ${truncateJson(data)}`, "kick");
+    const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/campaigns", undefined, this.emit);
     return parseKickCampaigns(data as Parameters<typeof parseKickCampaigns>[0]);
   }
 
@@ -149,12 +146,11 @@ export class KickAdapter implements PlatformAdapter {
       // 131, 67). pageFetchJson adds the Bearer from session_token on top.
       const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/progress", {
         headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
-      });
-      logActivity("debug", `Kick /drops/progress raw: ${truncateJson(data)}`, "kick");
+      }, this.emit);
       return mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logActivity("warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
+      diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
       return campaigns;
     }
   }
@@ -168,7 +164,7 @@ export class KickAdapter implements PlatformAdapter {
     // a Typesense key; this one is plain and works from the SW/page fetcher.
     const url = new URL("https://kick.com/api/search");
     url.searchParams.set("searched_word", trimmed);
-    const data = await this.fetcher.fetchJson<unknown>(url.toString());
+    const data = await this.fetcher.fetchJson<unknown>(url.toString(), undefined, this.emit);
     return parseKickCategories(data);
   }
 
@@ -181,7 +177,7 @@ export class KickAdapter implements PlatformAdapter {
     url.searchParams.set("sort", "viewer_count_desc");
     if (campaign.categoryId) url.searchParams.set("category_id", campaign.categoryId);
 
-    const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString());
+    const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString(), undefined, this.emit);
     const streams = Array.isArray(response.data) ? response.data : response.data?.livestreams ?? [];
     return streams.map((stream): ChannelCandidate => {
       const username = stream.channel?.slug ?? stream.channel?.username ?? stream.slug ?? "";
@@ -205,6 +201,8 @@ export class KickAdapter implements PlatformAdapter {
     try {
       const data = await this.fetcher.fetchJson<KickChannelResponse>(
         `https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`,
+        undefined,
+        this.emit,
       );
       const livestream = data.livestream;
       // Kick now returns a `categories` array; keep `category` as a fallback.
@@ -255,8 +253,8 @@ export class KickAdapter implements PlatformAdapter {
             claim_id: reward.claimId,
           }),
         },
+        this.emit,
       );
-      logActivity("debug", `Kick /drops/claim raw (${reward.name}): ${truncateJson(response)}`, "kick");
       const claimed = isKickClaimSuccess(response);
       if (!claimed && campaign.accountLinked === false) this.warnAccountNotLinked(campaign, reward);
       return claimed;
@@ -275,7 +273,7 @@ export class KickAdapter implements PlatformAdapter {
 
   private warnAccountNotLinked(campaign: DropCampaign, reward: DropReward): void {
     const where = campaign.accountLinkUrl ? ` at ${campaign.accountLinkUrl}` : ` for ${campaign.name}`;
-    logActivity("warn", `Cannot claim "${reward.name}" yet — link your Kick account${where} to claim this campaign's drops.`, "kick");
+    diagnostic(this.emit, "warn", `Cannot claim "${reward.name}" yet — link your Kick account${where} to claim this campaign's drops.`, "kick");
   }
 
   prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>) {
@@ -294,7 +292,6 @@ export class KickAdapter implements PlatformAdapter {
     return new KickWatcher({
       fetcher: this.fetcher,
       createWebSocket: this.webSocketFactory,
-      log: (level, message) => logActivity(level, message, "kick"),
     });
   }
 
@@ -304,9 +301,9 @@ export class KickAdapter implements PlatformAdapter {
     originalError: unknown,
   ): Promise<ChannelCheck> {
     const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
-    logActivity("debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "kick");
+    diagnostic(this.emit, "debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "kick");
     try {
-      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url);
+      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, undefined, this.emit);
       const html = page.html ?? "";
       const live = parseBooleanField(html, ["is_live", "isLive", "live"]) ?? html.includes("livestream");
       const actualCategoryId = parseCategoryId(html);
@@ -329,19 +326,6 @@ export class KickAdapter implements PlatformAdapter {
       };
     }
   }
-}
-
-// Serializes a response for the debug log, capping length so a large payload
-// cannot bloat the rolling activity log. Falls back gracefully on cycles.
-function truncateJson(value: unknown, max = 1500): string {
-  let text: string;
-  try {
-    text = JSON.stringify(value);
-  } catch {
-    text = String(value);
-  }
-  if (text == null) return "undefined";
-  return text.length > max ? `${text.slice(0, max)}… (${text.length} chars)` : text;
 }
 
 function parseBooleanField(html: string, names: string[]): boolean | undefined {

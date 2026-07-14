@@ -1,5 +1,5 @@
 import type { ChannelCandidate } from "@lurkloot/shared/models";
-import type { HeartbeatResult, TablessWatchController, WatchContext } from "../../core/tablessWatch";
+import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import type { PageFetcher } from "../adapter";
 
 // Tabless Kick farming: a viewer WebSocket that advances drop timers with no
@@ -40,7 +40,6 @@ export interface KickWatcherDeps {
   // Injectable for tests; defaults to the platform WebSocket. The socket is
   // opened from the background service worker — see the Origin caveat below.
   createWebSocket?: WebSocketFactory;
-  log?: (level: "info" | "warn" | "debug" | "error", message: string) => void;
   now?: () => number;
 }
 
@@ -67,18 +66,26 @@ export class KickWatcher implements TablessWatchController {
 
   private readonly fetcher: PageFetcher;
   private readonly createWebSocket: WebSocketFactory;
-  private readonly log: (level: "info" | "warn" | "debug" | "error", message: string) => void;
   private readonly now: () => number;
+  private readonly diagnostics = new PendingWatcherDiagnostics();
+  private readonly intentionallyClosedSockets = new WeakSet<WebSocketLike>();
 
   constructor(deps: KickWatcherDeps) {
     this.fetcher = deps.fetcher;
     this.createWebSocket = deps.createWebSocket ?? ((url) => new WebSocket(url) as unknown as WebSocketLike);
-    this.log = deps.log ?? (() => undefined);
     this.now = deps.now ?? (() => Date.now());
   }
 
   get channelUrl(): string | undefined {
     return this.channel?.url;
+  }
+
+  drainEvents() {
+    return this.diagnostics.drain();
+  }
+
+  private log(level: "info" | "warn" | "debug" | "error", message: string): void {
+    this.diagnostics.push({ category: "diagnostic", platform: "kick", level, message });
   }
 
   async start(channel: ChannelCandidate, _context: WatchContext): Promise<void> {
@@ -122,8 +129,10 @@ export class KickWatcher implements TablessWatchController {
       this.handshakeTimer = undefined;
     }
     if (this.ws) {
+      const ws = this.ws;
+      this.intentionallyClosedSockets.add(ws);
       try {
-        this.ws.close();
+        ws.close();
       } catch {
         // The socket may already be closing; nothing to do.
       }
@@ -155,6 +164,7 @@ export class KickWatcher implements TablessWatchController {
       const ws = this.createWebSocket(`wss://websockets.kick.com/viewer/v1/connect?token=${encodeURIComponent(token)}`);
       this.ws = ws;
       ws.addEventListener("open", () => {
+        if (ws !== this.ws) return;
         this.connected = true;
         this.sendHandshake();
         // Prime an immediate watch event so progress starts without a 60s wait.
@@ -163,10 +173,16 @@ export class KickWatcher implements TablessWatchController {
         this.log("info", `Kick tabless viewer connected for ${channel.username}`);
       });
       ws.addEventListener("close", () => {
+        if (ws !== this.ws) {
+          this.intentionallyClosedSockets.delete(ws);
+          return;
+        }
+        if (this.intentionallyClosedSockets.delete(ws)) return;
         this.connected = false;
         this.log("debug", `Kick viewer connection closed for ${channel.username}`);
       });
       ws.addEventListener("error", () => {
+        if (ws !== this.ws) return;
         this.connected = false;
         this.failed = true;
         this.failureMessage = "Kick viewer WebSocket error; falling back to a watch tab";
@@ -257,6 +273,7 @@ export class KickWatcher implements TablessWatchController {
     const response = await this.fetcher.fetchJson<{ data?: { token?: string } }>(
       "https://websockets.kick.com/viewer/v1/token",
       { headers: { "X-Client-Token": KICK_CLIENT_TOKEN } },
+      this.diagnostics.emit,
     );
     const token = response?.data?.token;
     if (!token) throw new Error("Kick did not return a viewer token; refresh your Kick login");
@@ -280,7 +297,7 @@ export class KickWatcher implements TablessWatchController {
         category?: { id?: string | number };
         categories?: Array<{ id?: string | number }>;
       } | null;
-    }>(`https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`);
+    }>(`https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`, undefined, this.diagnostics.emit);
     const channelId = data.id == null ? channel.channelId : String(data.id);
     if (!channelId) throw new Error(`Could not resolve the Kick channel id for ${channel.username}`);
     const category = data.livestream?.categories?.[0] ?? data.livestream?.category;

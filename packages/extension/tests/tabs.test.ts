@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { EngineEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
 import {
   applyAdFocusWithBrowser,
@@ -11,11 +12,9 @@ import {
   KickWafBlockedError,
   openPinnedMutedTabWithBrowser,
   registerManagedPageContextTabs,
-  setActivityLogger,
   setTwitchIntegrity,
   stopWatchTabWithBrowser,
 } from "@lurkloot/core/tabs";
-import type { LogLevel } from "@lurkloot/shared/logging";
 
 const channel: ChannelCandidate = {
   platform: "twitch",
@@ -38,24 +37,32 @@ function browserMock() {
 describe("tab manager", () => {
   beforeEach(() => {
     registerManagedPageContextTabs({});
-    setActivityLogger(undefined);
   });
 
-  it("reports tab lifecycle events to a registered activity logger", async () => {
-    const events: Array<{ level: LogLevel; message: string; platform?: string }> = [];
-    setActivityLogger((level, message, platform) => events.push({ level, message, platform }));
+  it("reports tab lifecycle events to the supplied emitter", async () => {
+    const events: EngineEvent[] = [];
+    const emit = (event: EngineEvent) => events.push(event);
 
     const browser = browserMock();
-    await openPinnedMutedTabWithBrowser(browser, channel);
+    await openPinnedMutedTabWithBrowser(browser, channel, undefined, undefined, emit);
 
-    expect(events.some((event) => event.level === "info" && event.message.includes("Opened watch tab 9"))).toBe(true);
+    expect(events.some((event) => event.category === "diagnostic" && event.level === "info" && event.message.includes("Opened watch tab 9"))).toBe(true);
     expect(events.every((event) => event.platform === "twitch")).toBe(true);
 
     events.length = 0;
-    await stopWatchTabWithBrowser(browser, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true });
+    await stopWatchTabWithBrowser(browser, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true }, undefined, emit);
     expect(events.some((event) => event.level === "debug" && event.message.includes("Closed managed watch tab 9"))).toBe(true);
+  });
 
-    setActivityLogger(undefined);
+  it("keeps tab diagnostics scoped to the supplied emitter", async () => {
+    const first: EngineEvent[] = [];
+    const second: EngineEvent[] = [];
+    await openPinnedMutedTabWithBrowser(browserMock(), channel, undefined, { keepVideosUnmuted: false }, (event) => first.push(event));
+    await openPinnedMutedTabWithBrowser(browserMock(), channel, undefined, { keepVideosUnmuted: false }, (event) => second.push(event));
+
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(1);
+    expect(first[0]).not.toBe(second[0]);
   });
 
   it("reuses and repins an existing stored tab", async () => {
@@ -525,7 +532,6 @@ describe("tab manager", () => {
 describe("twitch integrity refresh", () => {
   beforeEach(() => {
     registerManagedPageContextTabs({});
-    setActivityLogger(undefined);
     setTwitchIntegrity(undefined);
   });
 
@@ -538,12 +544,12 @@ describe("twitch integrity refresh", () => {
 
   describe("setTwitchIntegrity capture logging", () => {
     it("logs an info entry only when the token is new", () => {
-      const events: Array<{ level: LogLevel; message: string }> = [];
-      setActivityLogger((level, message) => events.push({ level, message }));
+      const events: EngineEvent[] = [];
+      const emit = (event: EngineEvent) => events.push(event);
 
-      setTwitchIntegrity(fresh(), { isNew: true });
-      setTwitchIntegrity(fresh(), { isNew: false });
-      setTwitchIntegrity(fresh());
+      setTwitchIntegrity(fresh(), { isNew: true }, emit);
+      setTwitchIntegrity(fresh(), { isNew: false }, emit);
+      setTwitchIntegrity(fresh(), undefined, emit);
 
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({
@@ -622,10 +628,9 @@ describe("twitch integrity refresh", () => {
     it("resolves false and warns when no token is captured before the timeout", async () => {
       const browser = browserMock();
       browser.tabs.query.mockResolvedValue([{ id: 3 }]);
-      const events: Array<{ level: LogLevel; message: string }> = [];
-      setActivityLogger((level, message) => events.push({ level, message }));
+      const events: EngineEvent[] = [];
 
-      const ok = await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 50);
+      const ok = await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
 
       expect(ok).toBe(false);
       expect(events).toContainEqual(expect.objectContaining({

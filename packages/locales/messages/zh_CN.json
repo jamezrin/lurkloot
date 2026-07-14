@@ -566,5 +566,89 @@
   },
   "cliExportButton": {
     "message": "导出凭据"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "包含诊断日志"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "记录有助于诊断问题的其他技术详情。正常活动始终会保留。"
+  },
+  "activityFarmingStarted": {
+    "message": "已开始领取 $2 中的 $1。"
+  },
+  "activityFarmingStopped": {
+    "message": "已停止领取 $2 中的 $1：$3。"
+  },
+  "activityRewardClaimed": {
+    "message": "已领取 $2 中的 $1。"
+  },
+  "activityInterruption": {
+    "message": "领取已中断：$1。"
+  },
+  "activityInterruptionWithDetail": {
+    "message": "领取已中断：$1（$2）。"
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "自动化已停用"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "平台已停用"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "平台正在暂时等待"
+  },
+  "activityReasonPlatformError": {
+    "message": "平台发生错误"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "活动已不再符合条件"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "频道已被排除"
+  },
+  "activityReasonChannelOffline": {
+    "message": "频道已离线"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "频道已不再匹配"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "播放健康检查失败"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "已切换到更高优先级的奖励"
+  },
+  "activityReasonHigherPriorityWatchQueue": {
+    "message": "观看队列获得了优先级"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "观看要求已完成"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "扩展程序已重新启动"
+  },
+  "activityReasonTargetChanged": {
+    "message": "领取目标已更改"
+  },
+  "activityReasonManualWatch": {
+    "message": "已切换为手动观看"
+  },
+  "hideDiagnosticLogs": {
+    "message": "隐藏诊断信息"
+  },
+  "loadMoreActivity": {
+    "message": "加载更多"
+  },
+  "clearActivityHistory": {
+    "message": "清除历史记录"
+  },
+  "confirmClearActivityHistory": {
+    "message": "确认清除"
+  },
+  "clearActivityFailed": {
+    "message": "无法清除活动历史记录，请重试。"
+  },
+  "showDiagnosticLogs": {
+    "message": "显示诊断信息"
   }
 }

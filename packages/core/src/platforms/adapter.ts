@@ -8,7 +8,15 @@ import type {
   Platform,
   WatchSession,
 } from "@lurkloot/shared/models";
+import type { EventEmitter } from "@lurkloot/shared/events";
+import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TablessWatchController } from "../core/tablessWatch";
+
+export const ignoreEvent: EventEmitter = () => {};
+
+export function diagnostic(emit: EventEmitter, level: LogLevel, message: string, platform: Platform): void {
+  emit({ category: "diagnostic", level, message, platform });
+}
 
 export interface PreparedWatchTab {
   tabId: number;
@@ -48,7 +56,7 @@ export interface PlatformAdapter {
 }
 
 export interface PageFetcher {
-  fetchJson<T>(url: string, init?: RequestInit): Promise<T>;
+  fetchJson<T>(url: string, init?: RequestInit, emit?: EventEmitter): Promise<T>;
 }
 
 // Opens/closes the watch tab an adapter drives in tab-based (non-tabless) mode.

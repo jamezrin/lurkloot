@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformSettings } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformSettings, SchedulerState } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
@@ -318,6 +318,7 @@ describe("scheduler campaign selection", () => {
     expect(decision).toMatchObject({
       action: "idle",
       reason: "Only upcoming campaigns are available and no Watch Queue channels",
+      reasonCode: "no_eligible_channel",
     });
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
@@ -563,6 +564,136 @@ describe("scheduler campaign selection", () => {
 });
 
 describe("scheduler tick", () => {
+  const baseState: SchedulerState = {
+    sessions: {
+      twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+      kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+    },
+    campaigns: { twitch: [], kick: [] },
+  };
+
+  it("returns claim activity in the event batch without mutating scheduler state", async () => {
+    const ready = campaign("drops", { rewards: [reward("claimable")] });
+    const result = await runSchedulerTick(
+      baseState,
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch: adapter("twitch", [ready], []), kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state).not.toHaveProperty("events");
+    expect(result.events).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "reward_claimed",
+      data: expect.objectContaining({ method: "automatic" }),
+    }));
+  });
+
+  it("does not repeat diagnostics for an unchanged healthy target", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const tickSettings = settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } });
+    const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+    const first = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+    const second = await runSchedulerTick(first.state, tickSettings, tickAdapters);
+
+    expect(second.events.filter((event) => event.category === "diagnostic" && event.message.startsWith("Campaign decision:"))).toEqual([]);
+    expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("campaigns eligible"))).toEqual([]);
+  });
+
+  it("does not classify a missing replacement reward as completed", async () => {
+    const currentChannel = channel("creator");
+    const twitch = adapter("twitch", [campaign("drops")], [currentChannel]);
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            campaignId: "drops",
+            rewardId: "missing-reward",
+            channel: currentChannel,
+            offlineChecks: 0,
+            playback: {
+              platform: "twitch",
+              checkedAt: new Date().toISOString(),
+              videoCount: 1,
+              playingVideoCount: 1,
+              mutedVideoCount: 1,
+              unmutedVideoCount: 0,
+              blockedPlaybackCount: 0,
+              documentHidden: false,
+            },
+          },
+        },
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).not.toBe("watch_requirement_completed");
+  });
+
+  it("classifies a refreshed claimed reward as completed when the next decision is idle", async () => {
+    const currentChannel = channel("creator");
+    const completedReward = reward("claimed");
+    const twitch = adapter("twitch", [campaign("drops", { rewards: [completedReward] })], []);
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            campaignId: "drops",
+            rewardId: completedReward.id,
+            channel: currentChannel,
+            offlineChecks: 0,
+          },
+        },
+      },
+      settings({
+        autoClaim: false,
+        platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.decisions[0].action).toBe("idle");
+    expect(result.state.sessions.twitch.reasonCode).toBe("watch_requirement_completed");
+  });
+
+  it("classifies a refreshed claimable reward as completed when switching to Watch Queue fallback", async () => {
+    const currentChannel = channel("creator");
+    const completedReward = reward("claimable");
+    const twitch = adapter("twitch", [campaign("drops", { rewards: [completedReward] })], []);
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            campaignId: "drops",
+            rewardId: completedReward.id,
+            channel: currentChannel,
+            offlineChecks: 0,
+          },
+        },
+      },
+      settings({
+        autoClaim: false,
+        platform: { twitch: { enabled: true, watchQueueChannels: ["fallback"] }, kick: { enabled: false, watchQueueChannels: [] } },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.decisions[0].action).toBe("fallback");
+    expect(result.state.sessions.twitch.reasonCode).toBe("watch_requirement_completed");
+  });
+
   it("switches after offline retry threshold", async () => {
     const first = channel("old");
     const next = channel("new");
@@ -580,7 +711,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ offlineRetryLimit: 3, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -612,7 +742,6 @@ describe("scheduler tick", () => {
           twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date().toISOString() },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
@@ -621,6 +750,7 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch).toMatchObject({
       status: "paused",
       message: "Manual watch detected",
+      reasonCode: "manual_watch",
       tabId: undefined,
     });
     expect(twitch.stopWatchTab).toHaveBeenCalled();
@@ -642,7 +772,6 @@ describe("scheduler tick", () => {
           twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date(Date.now() - 60_000).toISOString() },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -652,24 +781,14 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalled();
   });
 
-  it("records debug events only when verbose logging is enabled", async () => {
+  it("returns diagnostics without host log filtering", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
-    const baseState = {
-      sessions: {
-        twitch: { platform: "twitch" as const, status: "idle" as const, offlineChecks: 0 },
-        kick: { platform: "kick" as const, status: "idle" as const, offlineChecks: 0 },
-      },
-      campaigns: { twitch: [], kick: [] },
-      events: [],
-    };
     const adapters = () => ({ twitch, kick: adapter("kick", [], []) });
 
-    const quiet = await runSchedulerTick(baseState, settings({ enabledLogLevels: ["info", "warn", "error"] }), adapters());
-    expect(quiet.state.events.some((event) => event.level === "debug")).toBe(false);
-    expect(quiet.state.events.some((event) => event.message.startsWith("Discovered"))).toBe(true);
-
-    const verbose = await runSchedulerTick(baseState, settings({ enabledLogLevels: ["debug", "info", "warn", "error"] }), adapters());
-    expect(verbose.state.events.some((event) => event.level === "debug")).toBe(true);
+    const quiet = await runSchedulerTick(baseState, settings(), adapters());
+    expect(quiet.events.some((event) => event.category === "diagnostic" && event.level === "debug")).toBe(true);
+    expect(quiet.events.some((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"))).toBe(true);
+    expect(quiet.events.some((event) => event.category === "diagnostic" && event.message.startsWith("Tick start"))).toBe(false);
   });
 
   it("switches on category mismatch", async () => {
@@ -689,7 +808,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -711,7 +829,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["xqc", "toonyx"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -741,7 +858,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -776,7 +892,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({
         platform: {
@@ -828,7 +943,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -869,7 +983,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -918,7 +1031,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -963,7 +1075,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({
         offlineRetryLimit: 3,
@@ -973,6 +1084,7 @@ describe("scheduler tick", () => {
     );
 
     expect(result.state.sessions.twitch.message).toBe("Watch tab playback did not become active");
+    expect(result.state.sessions.twitch.reasonCode).toBe("watch_unhealthy");
     expect(result.state.sessions.twitch.playback).toBeUndefined();
     expect(result.state.sessions.twitch.playbackChecks).toBe(3);
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
@@ -980,7 +1092,7 @@ describe("scheduler tick", () => {
       expect.objectContaining({ tabId: 7 }),
       {},
     );
-    expect(result.state.events.some((event) => event.message === "Watch tab playback did not become active")).toBe(true);
+    expect(result.events.some((event) => event.category === "diagnostic" && event.message === "Watch tab playback did not become active")).toBe(true);
   });
 
   it("switches from a campaign watch tab to fallback when the campaign becomes ineligible", async () => {
@@ -1004,7 +1116,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["fallback"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1030,7 +1141,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1060,7 +1170,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1082,7 +1191,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1090,11 +1198,73 @@ describe("scheduler tick", () => {
 
     expect(twitch.claimReward).not.toHaveBeenCalled();
     expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimable");
-    const claimEvents = result.state.events.filter((event) => event.message.includes("waiting for"));
+    const claimEvents = result.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"));
     expect(claimEvents).toHaveLength(1);
     expect(claimEvents[0].level).toBe("info");
     // No "Could not claim" warning or claim error is emitted while deferring.
-    expect(result.state.events.some((event) => /claim/i.test(event.message) && event.level !== "info")).toBe(false);
+    expect(result.events.some((event) => event.category === "diagnostic" && /claim/i.test(event.message) && event.level !== "info")).toBe(false);
+  });
+
+  it("reports an unreleased claim only when it first enters the waiting state", async () => {
+    const ready = campaign("drops", { rewards: [reward("claimable")] });
+    const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady: vi.fn(() => false) };
+    const waitingClaimRewardIds = { twitch: new Set<string>(), kick: new Set<string>() };
+    const options = { waitingClaimRewardIds };
+    const initialState: SchedulerState = {
+      sessions: {
+        twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+    };
+    const enabledSettings = settings({
+      platform: {
+        twitch: { enabled: true, watchQueueChannels: [] },
+        kick: { enabled: false, watchQueueChannels: [] },
+      },
+    });
+
+    const first = await runSchedulerTick(initialState, enabledSettings, { twitch, kick: adapter("kick", [], []) }, options);
+    const second = await runSchedulerTick(first.state, enabledSettings, { twitch, kick: adapter("kick", [], []) }, options);
+
+    expect(first.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(1);
+    expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(0);
+    expect(second.state.campaigns.twitch[0].rewards[0].status).toBe("claimable");
+    expect(twitch.claimReward).not.toHaveBeenCalled();
+  });
+
+  it("reports a reward again when it re-enters the unreleased-claim state", async () => {
+    const ready = campaign("drops", { rewards: [reward("claimable")] });
+    const isClaimReady = vi.fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(false);
+    const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady };
+    const waitingClaimRewardIds = { twitch: new Set<string>(), kick: new Set<string>() };
+    const options = { waitingClaimRewardIds };
+    const initialState: SchedulerState = {
+      sessions: {
+        twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+    };
+    const enabledSettings = settings({
+      platform: {
+        twitch: { enabled: true, watchQueueChannels: [] },
+        kick: { enabled: false, watchQueueChannels: [] },
+      },
+    });
+    const adapters = { twitch, kick: adapter("kick", [], []) };
+
+    const first = await runSchedulerTick(initialState, enabledSettings, adapters, options);
+    expect(waitingClaimRewardIds.twitch).toContain("reward-claimable");
+    const released = await runSchedulerTick(first.state, enabledSettings, adapters, options);
+    expect(waitingClaimRewardIds.twitch).not.toContain("reward-claimable");
+    const reentered = await runSchedulerTick(released.state, enabledSettings, adapters, options);
+
+    expect(first.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(1);
+    expect(reentered.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(1);
   });
 
   it("claims a ready reward once the adapter reports it is claim-ready", async () => {
@@ -1108,7 +1278,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1129,7 +1298,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1149,7 +1317,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({
         autoClaim: false,
@@ -1172,7 +1339,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1195,7 +1361,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
@@ -1219,7 +1384,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
@@ -1249,7 +1413,6 @@ describe("scheduler tick", () => {
         managedWatchTabs: {
           twitch: { platform: "twitch", tabId: 42, channelUrl: "https://www.twitch.tv/current", ownedByExtension: true },
         },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: true, watchQueueChannels: [] } } }),
       { twitch, kick },
@@ -1272,7 +1435,6 @@ describe("scheduler tick", () => {
         kick: { platform: "kick" as const, status: "idle" as const, offlineChecks: 0 },
       },
       campaigns: { twitch: [], kick: [] },
-      events: [],
     };
     const tickSettings = settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } });
 
@@ -1308,7 +1470,6 @@ describe("scheduler tick", () => {
           },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ running: false }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1330,7 +1491,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1352,14 +1512,17 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
     expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
-    expect(result.state.events.some((event) => event.message.includes("Claimed Reward"))).toBe(true);
+    expect(result.events).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "reward_claimed",
+      data: expect.objectContaining({ method: "automatic" }),
+    }));
   });
 
   it("isolates adapter failures per platform", async () => {
@@ -1375,7 +1538,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings(),
       { twitch, kick },
@@ -1385,7 +1547,7 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.errorChecks).toBe(1);
     expect(result.state.sessions.twitch.retryAfter).toBeDefined();
     expect(result.state.sessions.kick.status).toBe("watching");
-    expect(result.state.events.some((event) => event.platform === "twitch" && event.level === "error")).toBe(true);
+    expect(result.events.some((event) => event.platform === "twitch" && event.level === "error")).toBe(true);
   });
 
   it("uses Watch Queue fallback when drop discovery fails and watch queue channels exist", async () => {
@@ -1404,7 +1566,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["fallback"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1422,7 +1583,7 @@ describe("scheduler tick", () => {
       errorChecks: 0,
       retryAfter: undefined,
     });
-    expect(result.state.events.some((event) => event.level === "warn" && event.message.includes("checking Watch Queue fallback"))).toBe(true);
+    expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("checking Watch Queue fallback"))).toBe(true);
   });
 
   it("backs off failed platforms until their retry time", async () => {
@@ -1443,7 +1604,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1451,7 +1611,7 @@ describe("scheduler tick", () => {
 
     expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.retryAfter).toBe(retryAfter);
-    expect(result.state.events.some((event) => event.message.includes("Waiting until"))).toBe(true);
+    expect(result.events.some((event) => event.category === "diagnostic" && event.message.includes("Waiting until"))).toBe(true);
   });
 
   it("clears platform backoff after a successful retry", async () => {
@@ -1470,7 +1630,6 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1495,14 +1654,13 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
     expect(twitch.claimChannelPoints).toHaveBeenCalledWith(expect.objectContaining({ username: "allowed" }));
-    expect(result.state.events.some((event) => event.message.includes("Claimed channel points"))).toBe(true);
+    expect(result.events.some((event) => event.category === "diagnostic" && event.message.includes("Claimed channel points"))).toBe(true);
   });
 });
 
@@ -1521,7 +1679,6 @@ describe("scheduler tabless mode", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ tablessMode: true, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1556,7 +1713,6 @@ describe("scheduler tabless mode", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [campaign("drops")], kick: [] },
-        events: [],
       },
       settings({ offlineRetryLimit: 3, tablessMode: true, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1589,7 +1745,6 @@ describe("scheduler tabless mode", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [campaign("drops")], kick: [] },
-        events: [],
       },
       settings({ tablessMode: true, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
@@ -1609,7 +1764,6 @@ describe("scheduler tabless mode", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
-        events: [],
       },
       settings({ tablessMode: false, platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },

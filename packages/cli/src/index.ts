@@ -19,8 +19,10 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 function loggerOf(argv: ArgumentsCamelCase): ReturnType<typeof createLogger> {
   return createLogger((argv.log as LogLevel | undefined) ?? "info");
 }
-function configOf(argv: ArgumentsCamelCase): CliConfig {
-  return loadConfig((argv.config as string | undefined) ?? "config.json");
+function configOf(argv: ArgumentsCamelCase, logger: ReturnType<typeof createLogger>): CliConfig {
+  const config = loadConfig((argv.config as string | undefined) ?? "config.json");
+  for (const warning of config.warnings) logger.warn(warning, "config");
+  return config;
 }
 
 function resolveTransport(config: CliConfig, override?: string): Transport {
@@ -45,7 +47,8 @@ const validateConfigCommand: CommandModule = {
   command: "validate-config",
   describe: "Load + normalize the config and print the effective settings",
   handler: (argv) => {
-    const config = configOf(argv);
+    const logger = loggerOf(argv);
+    const config = configOf(argv, logger);
     process.stdout.write(`${JSON.stringify({ transport: config.transport, authDir: config.authDir, settings: config.settings }, null, 2)}\n`);
   },
 };
@@ -56,7 +59,7 @@ const discoverCommand: CommandModule = {
   builder: (y) => y.option("transport", { type: "string", choices: TRANSPORTS, describe: "Override the config transport" }),
   handler: async (argv) => {
     const logger = loggerOf(argv);
-    const config = configOf(argv);
+    const config = configOf(argv, logger);
     const transport = resolveTransport(config, argv.transport as string | undefined);
     const creds = loadCredentials(config.authDir);
     const enabled = enabledPlatforms(config);
@@ -84,7 +87,7 @@ const runCommand: CommandModule = {
     .option("once", { type: "boolean", default: false, describe: "Run a single tick, then exit" }),
   handler: async (argv) => {
     const logger = loggerOf(argv);
-    const config = configOf(argv);
+    const config = configOf(argv, logger);
     const transport = resolveTransport(config, argv.transport as string | undefined);
     const creds = loadCredentials(config.authDir);
     const handle = await createTransport(transport, creds, config.authDir, enabledPlatforms(config));
@@ -111,7 +114,7 @@ function platformAuthCommand(platform: "twitch" | "kick"): CommandModule {
         describe: loginBrief,
         handler: async (argv) => {
           const logger = loggerOf(argv);
-          const { authDir } = configOf(argv);
+          const { authDir } = configOf(argv, logger);
           if (platform === "twitch") await twitchDeviceLogin(authDir, logger);
           else await kickDeviceLogin(authDir, logger);
         },
@@ -121,7 +124,7 @@ function platformAuthCommand(platform: "twitch" | "kick"): CommandModule {
         describe: `Forget stored ${platform} credentials`,
         handler: (argv) => {
           const logger = loggerOf(argv);
-          const { authDir } = configOf(argv);
+          const { authDir } = configOf(argv, logger);
           const forgotten = forgetCredentials(authDir, platform);
           logger.info(forgotten ? `Forgot stored ${platform} credentials` : `No stored ${platform} credentials to forget`, "auth");
           // The on-disk store is gone, but loadCredentials still layers SA_* env
@@ -148,7 +151,7 @@ const authCommand: CommandModule = {
       builder: (yy) => yy.positional("file", { type: "string", describe: "Export file, or - to read stdin", demandOption: true }),
       handler: (argv) => {
         const logger = loggerOf(argv);
-        const { authDir } = configOf(argv);
+        const { authDir } = configOf(argv, logger);
         // yargs-parser renders a bare "-" positional as "" — restore the stdin sentinel.
         const file = argv.file === "" ? "-" : String(argv.file);
         const creds = importCredentials(authDir, file);
@@ -161,7 +164,8 @@ const authCommand: CommandModule = {
       command: "status",
       describe: "Report which credentials are available",
       handler: (argv) => {
-        const { authDir } = configOf(argv);
+        const logger = loggerOf(argv);
+        const { authDir } = configOf(argv, logger);
         const creds = loadCredentials(authDir);
         process.stdout.write(`${JSON.stringify({
           authDir,

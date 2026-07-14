@@ -566,5 +566,89 @@
   },
   "cliExportButton": {
     "message": "Exporter les identifiants"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Inclure les journaux de diagnostic"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Enregistre des détails techniques supplémentaires pour diagnostiquer les problèmes. L’activité normale est toujours conservée."
+  },
+  "activityFarmingStarted": {
+    "message": "Collecte de $1 dans $2 démarrée."
+  },
+  "activityFarmingStopped": {
+    "message": "Collecte de $1 dans $2 arrêtée : $3."
+  },
+  "activityRewardClaimed": {
+    "message": "$1 de $2 a été récupéré."
+  },
+  "activityInterruption": {
+    "message": "Collecte interrompue : $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Collecte interrompue : $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "l’automatisation a été désactivée"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "la plateforme a été désactivée"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "la plateforme est temporairement en attente"
+  },
+  "activityReasonPlatformError": {
+    "message": "une erreur de plateforme s’est produite"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "la campagne n’est plus éligible"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "la chaîne est exclue"
+  },
+  "activityReasonChannelOffline": {
+    "message": "la chaîne est passée hors ligne"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "la chaîne ne correspond plus"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "le contrôle de lecture a échoué"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "une récompense prioritaire a pris le relais"
+  },
+  "activityReasonHigherPriorityWatchQueue": {
+    "message": "la file de visionnage est devenue prioritaire"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "la durée de visionnage requise est atteinte"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "l’extension a redémarré"
+  },
+  "activityReasonTargetChanged": {
+    "message": "la cible de collecte a changé"
+  },
+  "activityReasonManualWatch": {
+    "message": "le visionnage manuel a pris le relais"
+  },
+  "hideDiagnosticLogs": {
+    "message": "Masquer les diagnostics"
+  },
+  "loadMoreActivity": {
+    "message": "Charger plus"
+  },
+  "clearActivityHistory": {
+    "message": "Effacer l’historique"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Confirmer l’effacement"
+  },
+  "clearActivityFailed": {
+    "message": "Impossible d’effacer l’historique. Réessayez."
+  },
+  "showDiagnosticLogs": {
+    "message": "Afficher les diagnostics"
   }
 }
