@@ -44,7 +44,9 @@ function campaign(id: string, rewards: DropReward[]): DropCampaign {
 const testMessages: Record<string, string> = {
   actionRequired: "Action required",
   earned: "Earned",
+  excluded: "Excluded",
   excludeFromFarming: "Exclude from farming",
+  farmingLabel: "Farming",
   notEarnableByWatching: "Not earnable by watching",
   qualifyingSubscriptionsRequired: "Requires $1 qualifying subscriptions",
   subscribedRefresh: "I've subscribed — refresh status",
@@ -143,7 +145,11 @@ describe("subscription drop popup views", () => {
     const source = campaign("subscription-only", [
       reward({ id: "subscribe", name: "Subscriber Sword", requirement: "subscription", requiredSubs: 3 }),
     ]);
-    const view = campaignViewFromCampaign(source, 0, idleSession, false);
+    const view: CampaignView = {
+      ...campaignViewFromCampaign(source, 0, idleSession, false),
+      excluded: true,
+      farmingChannel: { name: "stale-channel" },
+    };
     const markup = renderDrops([view]);
 
     expect(markup).toContain("Subscription required");
@@ -155,6 +161,8 @@ describe("subscription drop popup views", () => {
     expect(markup).not.toContain("0%");
     expect(markup).not.toContain("&lt;1m");
     expect(markup).not.toContain("Exclude from farming");
+    expect(markup).not.toContain("Farming");
+    expect(markup).not.toContain("Excluded");
   });
 
   it("keeps watch controls and every reward on mixed campaigns", () => {

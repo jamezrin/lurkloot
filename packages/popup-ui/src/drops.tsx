@@ -157,14 +157,14 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing,
               <Pill tone="accent">#{index + 1}</Pill>
               {campaign.hasSubscriptionRewards ? <Pill tone="outline"><Users size={9} /> {t("subscriptionRequired")}</Pill> : null}
               {stats.kind === "action" ? <Pill tone="outline"><AlertTriangle size={9} /> {t("actionRequired")}</Pill> : null}
-              {isFarming && <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill>}
+              {isFarming && campaign.hasWatchRewards ? <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill> : null}
               {lifecyclePill && (
                 <Pill tone={lifecyclePill.tone}>
                   <lifecyclePill.icon size={9} /> {lifecyclePill.label}
                 </Pill>
               )}
               {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
-              {campaign.excluded && <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill>}
+              {campaign.excluded && campaign.hasWatchRewards ? <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill> : null}
             </div>
             {showsWatchProgress ? <div className="mt-2"><ProgressBar value={stats.progress ?? 0} glow={emphasized} /></div> : null}
           </div>
