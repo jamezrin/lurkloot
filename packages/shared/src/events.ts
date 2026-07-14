@@ -40,6 +40,7 @@ export type DiagnosticEvent = {
   data?: Record<string, string | number | boolean | undefined>;
   compatibilityProfile?: string;
   compatibilityCapability?: string;
+  compatibilityCapabilities?: readonly string[];
   compatibilityVersion?: string;
 };
 

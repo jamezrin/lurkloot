@@ -108,24 +108,50 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
 
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
   const reportedCompatibility = new Map<Platform, string>();
+  const reportedCompatibilityWarnings = new Set<string>();
+
+  const warningFieldLabel = (platform: Platform, field: string): string => {
+    if (platform === "twitch") {
+      if (field === "profile") return "Twitch profile";
+      if (field === "heartbeatTransport") return "Twitch heartbeat";
+      return "Twitch inventory";
+    }
+    return field === "profile" ? "Kick profile" : "Kick claim";
+  };
 
   function createAdapters(settings: S, emit: EventEmitter): Record<Platform, PlatformAdapter> {
     const construction = deps.createAdapters(emit, settings);
+    for (const warning of construction.warnings) {
+      const key = `${warning.code}:${warning.platform}:${warning.field}:${warning.resolved}`;
+      if (reportedCompatibilityWarnings.has(key)) continue;
+      const reason = warning.code === "unknown_selection" ? "Unknown" : "Host-incompatible";
+      emit({
+        category: "diagnostic",
+        platform: warning.platform,
+        level: "warn",
+        message: `${reason} ${warningFieldLabel(warning.platform, warning.field)} compatibility selection; using ${warning.resolved}`,
+        compatibilityCapability: warning.resolved,
+        compatibilityVersion: warning.resolved,
+      });
+      reportedCompatibilityWarnings.add(key);
+    }
     for (const platform of PLATFORMS) {
       if (!settings.platform[platform].enabled) continue;
       const profile = construction.compatibility[platform].profile;
-      const capability = platform === "twitch"
-        ? construction.compatibility.twitch.heartbeat
-        : construction.compatibility.kick.claim;
-      const key = `${profile}:${capability}`;
+      const capabilities = platform === "twitch"
+        ? [construction.compatibility.twitch.heartbeat, construction.compatibility.twitch.inventory]
+        : [construction.compatibility.kick.claim];
+      const capability = capabilities[0];
+      const key = [profile, ...capabilities].join(":");
       if (reportedCompatibility.get(platform) === key) continue;
       emit({
         category: "diagnostic",
         platform,
         level: "info",
-        message: `Using compatibility profile ${profile} (${capability})`,
+        message: `Using compatibility profile ${profile} (${capabilities.join(", ")})`,
         compatibilityProfile: profile,
         compatibilityCapability: capability,
+        compatibilityCapabilities: capabilities,
         compatibilityVersion: capability,
       });
       reportedCompatibility.set(platform, key);

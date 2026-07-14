@@ -16,24 +16,28 @@ import { tablessWatchPort, type EnabledPlatforms, type TransportHandle } from ".
 export function createHttpTransport(creds: PlatformCredentials, _enabled: EnabledPlatforms): TransportHandle {
   const twitchApi = twitchCookieApi(creds);
   const kickApi = kickCookieApi(creds);
-  const createAdapters = (emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => ({
-    adapters: {
-      twitch: new TwitchAdapter(
-        { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchApi, url, init) },
-        async () => false,
-        tablessWatchPort,
-        twitchClientIdentity(creds),
-        emit,
-      ),
-      kick: new KickAdapter(
-        { fetchJson: (url, init) => fetchKickInBackgroundWith(kickApi, url, init) },
-        tablessWatchPort,
-        undefined,
-        emit,
-      ),
-    },
-    ...resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" }),
-  });
+  const createAdapters = (emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => {
+    const resolution = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" });
+    return {
+      adapters: {
+        twitch: new TwitchAdapter(
+          { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchApi, url, init) },
+          async () => false,
+          tablessWatchPort,
+          { ...twitchClientIdentity(creds), compatibility: resolution.compatibility.twitch },
+          emit,
+        ),
+        kick: new KickAdapter(
+          { fetchJson: (url, init) => fetchKickInBackgroundWith(kickApi, url, init) },
+          tablessWatchPort,
+          undefined,
+          emit,
+          { compatibility: resolution.compatibility.kick },
+        ),
+      },
+      ...resolution,
+    };
+  };
   return {
     adapters: createAdapters(undefined).adapters,
     createAdapters,

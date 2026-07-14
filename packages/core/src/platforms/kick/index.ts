@@ -5,6 +5,13 @@ import { KickWafBlockedError } from "../../core/tabs";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
+import type { ResolvedCompatibility } from "../../compatibility/types";
+
+export interface KickAdapterOptions {
+  // Resolved metadata is injected by the host. It is intentionally not used to
+  // switch request behavior until the versioned implementations land.
+  compatibility?: ResolvedCompatibility["kick"];
+}
 
 interface KickLivestreamsResponse {
   data?: Array<KickLivestream> | { livestreams?: KickLivestream[] };
@@ -120,6 +127,7 @@ function kickCategoryImage(banner: unknown): string | undefined {
 
 export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
+  readonly compatibility?: ResolvedCompatibility["kick"];
 
   constructor(
     private readonly fetcher: PageFetcher,
@@ -131,7 +139,10 @@ export class KickAdapter implements PlatformAdapter {
     // handshake clears Kick's WAF.
     private readonly webSocketFactory?: WebSocketFactory,
     private readonly emit: EventEmitter = ignoreEvent,
-  ) {}
+    options: KickAdapterOptions = {},
+  ) {
+    this.compatibility = options.compatibility;
+  }
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
     const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/campaigns", undefined, this.emit);

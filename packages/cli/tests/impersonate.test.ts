@@ -3,6 +3,7 @@ import { KickWafBlockedError } from "@lurkloot/core/tabs";
 import { createImpersonateTransport } from "../src/transport/impersonate";
 import { createTvLinkAuthenticator } from "../src/transport/cycle";
 import { CHROME_JA3 } from "../src/transport/common";
+import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 
 const ENABLED = { twitch: true, kick: true };
 
@@ -48,6 +49,17 @@ describe("impersonate transport", () => {
     const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
     expect(handle.adapters.twitch.platform).toBe("twitch");
     expect(handle.adapters.kick.platform).toBe("kick");
+    await handle.dispose();
+  });
+
+  it("injects resolved Android compatibility into both adapters", async () => {
+    const client = fakeClient(() => Promise.resolve({ status: 200, data: {} }));
+    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+
+    const construction = handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS);
+
+    expect(construction.adapters.twitch.compatibility).toEqual(construction.compatibility.twitch);
+    expect(construction.adapters.kick.compatibility).toEqual(construction.compatibility.kick);
     await handle.dispose();
   });
 });

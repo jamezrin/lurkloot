@@ -162,6 +162,77 @@ describe("background controller", () => {
     )).toHaveLength(1);
   });
 
+  it("reports an inventory-only effective compatibility change", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+
+    await env.controller.tick();
+    await env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { compatibility: { twitch: { inventoryQueryVersion: "twitch-inventory-v2" } } },
+      tickAfterSave: true,
+    });
+
+    const twitchCompatibility = env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
+      event.category === "diagnostic"
+      && "compatibilityProfile" in event
+      && event.platform === "twitch"
+    );
+    expect(twitchCompatibility).toHaveLength(2);
+    expect(twitchCompatibility.at(-1)).toMatchObject({
+      compatibilityCapabilities: ["twitch-heartbeat-spade-v1", "twitch-inventory-v2"],
+    });
+  });
+
+  it("emits credential-safe resolver warnings without echoing persisted selections", async () => {
+    const hostileSelection = "unknown-auth-token=secret-cookie";
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      compatibility: {
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_SETTINGS.compatibility.twitch,
+          heartbeatTransport: hostileSelection,
+        },
+      },
+    });
+
+    await env.controller.handleStartup();
+
+    const serialized = JSON.stringify(env.reportEvents.mock.calls.flatMap(([events]) => events));
+    expect(serialized).not.toContain(hostileSelection);
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      message: "Unknown Twitch heartbeat compatibility selection; using twitch-heartbeat-spade-v1",
+      compatibilityCapability: "twitch-heartbeat-spade-v1",
+    }));
+  });
+
+  it("emits a fixed host-incompatible warning with only the safe fallback identifier", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      compatibility: {
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_SETTINGS.compatibility.twitch,
+          heartbeatTransport: "twitch-heartbeat-trowel-v1",
+        },
+      },
+    });
+
+    await env.controller.handleStartup();
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      message: "Host-incompatible Twitch heartbeat compatibility selection; using twitch-heartbeat-spade-v1",
+    }));
+  });
+
   it("saves operational state before publishing the ordered batch", async () => {
     const calls: string[] = [];
     const env = harness({ ...DEFAULT_SETTINGS, running: true }, {

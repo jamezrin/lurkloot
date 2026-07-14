@@ -94,6 +94,7 @@ const controller = createBackgroundController<ExtensionSettings>({
   saveTwitchIntegrity,
   stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
   createAdapters: (emit, settings) => {
+    const resolution = resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" });
     // The watch-tab port is operation-scoped so every browser diagnostic joins
     // the same controller event batch as the adapter and scheduler events.
     const watchTabPort: WatchTabPort = {
@@ -117,7 +118,7 @@ const controller = createBackgroundController<ExtensionSettings>({
           { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
           () => ensureTwitchIntegrity(emit),
           watchTabPort,
-          {},
+          { compatibility: resolution.compatibility.twitch },
           emit,
         ),
         kick: new KickAdapter(
@@ -128,9 +129,10 @@ const controller = createBackgroundController<ExtensionSettings>({
           watchTabPort,
           undefined,
           emit,
+          { compatibility: resolution.compatibility.kick },
         ),
       },
-      ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
+      ...resolution,
     };
   },
 });

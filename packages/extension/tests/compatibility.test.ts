@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { CompatibilitySettings } from "@lurkloot/shared/models";
+import { readFileSync } from "node:fs";
 
 function settings(overrides: {
   twitch?: Partial<CompatibilitySettings["twitch"]>;
@@ -21,6 +22,15 @@ describe("compatibility registry", () => {
     expect(Object.isFrozen(COMPATIBILITY_REGISTRY)).toBe(true);
     expect(Object.isFrozen(COMPATIBILITY_REGISTRY.twitch.heartbeat)).toBe(true);
     expect(Object.isFrozen(COMPATIBILITY_REGISTRY.twitch.heartbeat["twitch-heartbeat-spade-v1"])).toBe(true);
+  });
+});
+
+describe("extension compatibility construction", () => {
+  it("injects the resolved web selection into both adapter option boundaries", () => {
+    const backgroundSource = readFileSync(new URL("../entrypoints/background.ts", import.meta.url), "utf8");
+
+    expect(backgroundSource).toContain("{ compatibility: resolution.compatibility.twitch }");
+    expect(backgroundSource).toContain("{ compatibility: resolution.compatibility.kick }");
   });
 });
 

@@ -26,24 +26,28 @@ export async function createImpersonateTransport(
   deps: ImpersonateDeps = {},
 ): Promise<TransportHandle> {
   const cycleTLS = await (deps.initClient ?? initCycle)();
-  const createAdapters = (emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => ({
-    adapters: {
-      twitch: new TwitchAdapter(
-        { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init) },
-        async () => false,
-        tablessWatchPort,
-        twitchClientIdentity(creds),
-        emit,
-      ),
-      kick: new KickAdapter(
-        createCycleKickFetcher(cycleTLS, creds),
-        tablessWatchPort,
-        createCycleKickWebSocketFactory(cycleTLS, creds),
-        emit,
-      ),
-    },
-    ...resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" }),
-  });
+  const createAdapters = (emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => {
+    const resolution = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" });
+    return {
+      adapters: {
+        twitch: new TwitchAdapter(
+          { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init) },
+          async () => false,
+          tablessWatchPort,
+          { ...twitchClientIdentity(creds), compatibility: resolution.compatibility.twitch },
+          emit,
+        ),
+        kick: new KickAdapter(
+          createCycleKickFetcher(cycleTLS, creds),
+          tablessWatchPort,
+          createCycleKickWebSocketFactory(cycleTLS, creds),
+          emit,
+          { compatibility: resolution.compatibility.kick },
+        ),
+      },
+      ...resolution,
+    };
+  };
 
   return {
     adapters: createAdapters(undefined).adapters,

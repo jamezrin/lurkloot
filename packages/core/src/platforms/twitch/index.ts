@@ -5,6 +5,7 @@ import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchContr
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./watch";
+import type { ResolvedCompatibility } from "../../compatibility/types";
 
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
@@ -21,6 +22,9 @@ export interface TwitchAdapterOptions {
   // User-Agent to send with GQL requests, matching the client id. Only set in
   // non-browser runtimes — browsers forbid overriding User-Agent on fetch.
   userAgent?: string;
+  // Resolved metadata is injected by the host. It is intentionally not used to
+  // switch request behavior until the versioned implementations land.
+  compatibility?: ResolvedCompatibility["twitch"];
 }
 
 const TWITCH_QUERIES = {
@@ -352,6 +356,7 @@ export function createTwitchGqlTransport(
 
 export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
+  readonly compatibility?: ResolvedCompatibility["twitch"];
 
   private readonly gqlTransport: TwitchGqlTransport;
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
@@ -376,6 +381,7 @@ export class TwitchAdapter implements PlatformAdapter {
     options: TwitchAdapterOptions = {},
     private readonly emit: EventEmitter = ignoreEvent,
   ) {
+    this.compatibility = options.compatibility;
     this.gqlTransport = createTwitchGqlTransport(fetcher, options);
   }
 
