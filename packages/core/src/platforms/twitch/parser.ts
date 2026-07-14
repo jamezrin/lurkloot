@@ -82,7 +82,9 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
     const slug = campaign.game?.slug;
     const startsAt = campaign.startAt;
     const endsAt = campaign.endAt;
-    const accountLinked = campaign.self?.isAccountConnected ?? campaign.accountLinkURL == null;
+    const accountLinkUrl = normalizeTwitchAccountLinkUrl(campaign.accountLinkURL);
+    const hasAccountLink = Boolean(accountLinkUrl);
+    const accountLinked = !hasAccountLink || campaign.self?.isAccountConnected !== false;
     const rawStatus = campaign.status?.toLowerCase();
     const status = startsAt && Date.parse(startsAt) > now
       ? "upcoming"
@@ -119,7 +121,7 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
       startsAt,
       endsAt,
       accountLinked,
-      accountLinkUrl: campaign.accountLinkURL ?? undefined,
+      accountLinkUrl,
       status: finalStatus,
       url: campaign.detailsURL ?? undefined,
       eligibility: eligibility(finalStatus, accountLinked, watchRewards.length),
@@ -134,6 +136,18 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
       rewards,
     };
   });
+}
+
+function normalizeTwitchAccountLinkUrl(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  try {
+    const hostname = new URL(trimmed).hostname.toLowerCase().replace(/^www\./, "");
+    if (hostname === "twitch.tv" || hostname.endsWith(".twitch.tv")) return undefined;
+  } catch {
+    // Preserve non-URL values for compatibility; Twitch normally returns an absolute URL.
+  }
+  return trimmed;
 }
 
 function parseTwitchReward(
