@@ -11,6 +11,16 @@ interface ActivityEventReporterDeps {
   append(events: readonly EngineEvent[]): Promise<void>;
 }
 
+interface RuntimeMessageSender {
+  tab?: { id?: number };
+}
+
+interface RuntimeMessageDispatcherDeps {
+  exportCliCredentials(): Promise<unknown>;
+  handleActivityMessage(message: RuntimeMessage): Promise<unknown>;
+  handleCoreMessage(message: RuntimeMessage, sender?: RuntimeMessageSender): Promise<unknown>;
+}
+
 export function createActivityMessageHandler(repository: ActivityMessageRepository) {
   return async (message: RuntimeMessage): Promise<ActivityPage | void | undefined> => {
     if (message.type === "getActivity") {
@@ -26,7 +36,26 @@ export function createActivityMessageHandler(repository: ActivityMessageReposito
 
 export function createActivityEventReporter(deps: ActivityEventReporterDeps) {
   return async (events: readonly EngineEvent[]): Promise<void> => {
-    const diagnosticLogging = await deps.loadDiagnosticLogging();
-    await deps.append(events.filter((event) => event.category === "activity" || diagnosticLogging));
+    let diagnosticLogging = false;
+    try {
+      diagnosticLogging = await deps.loadDiagnosticLogging();
+    } catch {
+      // A settings read must not prevent durable activity history. Treat a
+      // missing setting as diagnostics disabled and retain normal activity.
+    }
+    const accepted = diagnosticLogging
+      ? events
+      : events.filter((event) => event.category === "activity");
+    if (accepted.length > 0) await deps.append(accepted);
+  };
+}
+
+export function createRuntimeMessageDispatcher(deps: RuntimeMessageDispatcherDeps) {
+  return (message: RuntimeMessage, sender?: RuntimeMessageSender): Promise<unknown> => {
+    if (message.type === "exportCliCredentials") return deps.exportCliCredentials();
+    if (message.type === "getActivity" || message.type === "clearActivity") {
+      return deps.handleActivityMessage(message);
+    }
+    return deps.handleCoreMessage(message, sender);
   };
 }

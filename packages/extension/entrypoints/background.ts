@@ -22,7 +22,11 @@ import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
 import { appendActivityEvents, clearActivityEvents, loadActivityEvents } from "../src/core/activityStorage";
-import { createActivityEventReporter, createActivityMessageHandler } from "../src/core/activityMessages";
+import {
+  createActivityEventReporter,
+  createActivityMessageHandler,
+  createRuntimeMessageDispatcher,
+} from "../src/core/activityMessages";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -147,6 +151,14 @@ async function buildCliCredentialBlob(): Promise<CliCredentialBlob> {
   };
 }
 
+// Credential export reads the user's live session cookies, which only the
+// extension can do. Keep it ahead of activity routing and core delegation.
+const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
+  exportCliCredentials: buildCliCredentialBlob,
+  handleActivityMessage,
+  handleCoreMessage: (message, sender) => controller.handleMessage(message, sender),
+});
+
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async (details) => {
     await controller.ensureAlarm();
@@ -198,18 +210,7 @@ export default defineBackground(() => {
   );
 
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
-    // Credential export reads the user's live session cookies, which only the
-    // extension can do — handle it here rather than in the browser-free engine.
-    // The popup gates this behind an explicit confirm dialog.
-    if (message.type === "exportCliCredentials") {
-      void buildCliCredentialBlob().then(sendResponse);
-      return true;
-    }
-    if (message.type === "getActivity" || message.type === "clearActivity") {
-      void handleActivityMessage(message).then(sendResponse);
-      return true;
-    }
-    void controller.handleMessage(message, sender).then(sendResponse);
+    void dispatchRuntimeMessage(message, sender).then(sendResponse);
     return true;
   });
 
