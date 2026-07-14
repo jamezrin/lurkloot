@@ -44,6 +44,18 @@ describe("resolveCompatibility", () => {
       .toBe("twitch-heartbeat-trowel-v1");
   });
 
+  it.each([
+    { host: "extension", twitchIdentity: "android", expected: "twitch-heartbeat-gql-v1" },
+    { host: "cli", twitchIdentity: "web", expected: "twitch-heartbeat-spade-v1" },
+  ] as const)("resolves automatic $host/$twitchIdentity selection to a compatible heartbeat", (hostFacts) => {
+    const heartbeat = resolveCompatibility(settings(), hostFacts).compatibility.twitch.heartbeat;
+    const metadata = COMPATIBILITY_REGISTRY.twitch.heartbeat[heartbeat];
+
+    expect(heartbeat).toBe(hostFacts.expected);
+    expect(metadata.hosts).toContain(hostFacts.host);
+    expect(metadata.identities).toContain(hostFacts.twitchIdentity);
+  });
+
   it("accepts known compatible legacy and experimental overrides", () => {
     const result = resolveCompatibility(settings({
       twitch: {

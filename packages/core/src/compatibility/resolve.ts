@@ -28,6 +28,21 @@ function warning(
   return { code, platform, field, requested, resolved };
 }
 
+function resolveAutomaticHeartbeat(
+  preferred: TwitchHeartbeatId,
+  host: CompatibilityHostFacts,
+): TwitchHeartbeatId {
+  const candidates = [
+    COMPATIBILITY_REGISTRY.twitch.heartbeat[preferred],
+    ...Object.values(COMPATIBILITY_REGISTRY.twitch.heartbeat),
+  ];
+  const compatible = candidates.find((candidate) =>
+    candidate.hosts.includes(host.host) && candidate.identities.includes(host.twitchIdentity));
+
+  if (!compatible) throw new Error(`No compatible Twitch heartbeat for ${host.host}/${host.twitchIdentity}`);
+  return compatible.id;
+}
+
 export function resolveCompatibility(
   settings: CompatibilitySelections,
   host: CompatibilityHostFacts,
@@ -49,7 +64,7 @@ export function resolveCompatibility(
   }
 
   const twitchDefaults = COMPATIBILITY_REGISTRY.twitch.profiles[twitchProfile];
-  let heartbeat: TwitchHeartbeatId = twitchDefaults.heartbeatByIdentity[host.twitchIdentity];
+  let heartbeat = resolveAutomaticHeartbeat(twitchDefaults.heartbeatByIdentity[host.twitchIdentity], host);
   let inventory: TwitchInventoryId = twitchDefaults.inventory;
 
   if (settings.twitch.heartbeatTransport !== "auto") {
