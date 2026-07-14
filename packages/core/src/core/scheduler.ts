@@ -233,8 +233,11 @@ function onlyWaitingSubscriptionCampaigns(campaigns: DropCampaign[], settings: E
 
 function onlySubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSettings): boolean {
   const notExcluded = campaigns.filter((campaign) => !settings.excludedCampaignIds.includes(campaign.id));
-  return notExcluded.length > 0 && notExcluded.every((campaign) =>
-    campaign.rewards.length > 0 && campaign.rewards.every(isSubscriptionReward));
+  return notExcluded.length > 0 && notExcluded.every((campaign) => {
+    const remainingRewards = campaign.rewards.filter((reward) =>
+      reward.status !== "claimed" && reward.status !== "claimable");
+    return remainingRewards.length > 0 && remainingRewards.every(isSubscriptionReward);
+  });
 }
 
 async function firstValidCandidate(

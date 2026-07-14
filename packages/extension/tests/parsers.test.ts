@@ -1014,6 +1014,21 @@ describe("Twitch parsers", () => {
     expect(active.eligibilityReason).toBe("Waiting for a qualifying subscription");
   });
 
+  it("keeps an active-status fallback completed when every reward is claimed", () => {
+    const [campaign] = parseTwitchInventory([{
+      id: "claimed-mixed-campaign",
+      timeBasedDrops: [
+        { id: "watch", requiredMinutesWatched: 60, self: { isClaimed: true } },
+        { id: "subscription", requiredSubs: 1, self: { isClaimed: true } },
+      ],
+    }]);
+
+    const active = withCampaignStatus(campaign, "active");
+
+    expect(active.eligibility).toBe("completed");
+    expect(active.eligibilityReason).toBe("All rewards are claimed");
+  });
+
   it("detects claimable rewards with campaignHasClaimableReward", () => {
     const [inProgress] = parseTwitchInventory([{
       id: "in-progress",

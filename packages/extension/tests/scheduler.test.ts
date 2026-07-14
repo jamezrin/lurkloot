@@ -1251,6 +1251,48 @@ describe("scheduler tick", () => {
     });
   });
 
+  it.each(["claimed", "claimable"] as const)(
+    "does not start Watch Queue when a historical watch reward is %s and only a subscription reward remains",
+    async (watchStatus) => {
+      const waiting = campaign("mixed-drops", {
+        eligibility: "waiting_for_subscription",
+        rewards: [
+          { ...reward(watchStatus), requirement: "watch" },
+          {
+            ...reward("locked"),
+            id: "subscription-reward",
+            requiredMinutes: 0,
+            watchedMinutes: 0,
+            requirement: "subscription",
+            requiredSubs: 1,
+            isWatchBased: false,
+          },
+        ],
+      });
+      const checkChannel = vi.fn(async (candidate: ChannelCandidate) => ({
+        live: true,
+        categoryMatches: true,
+        candidate,
+      }));
+
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [waiting],
+        settings({ platform: { twitch: { watchQueueChannels: ["fallback"] } } }),
+        {
+          listCandidateChannels: vi.fn(async () => []),
+          checkChannel,
+        },
+      );
+
+      expect(checkChannel).not.toHaveBeenCalled();
+      expect(decision).toMatchObject({
+        action: "idle",
+        reasonCode: "campaign_ineligible",
+      });
+    },
+  );
+
   it("stops an existing Watch Queue fallback when only subscription campaigns remain", async () => {
     const waiting = campaign("subscription-drops", {
       eligibility: "waiting_for_subscription",

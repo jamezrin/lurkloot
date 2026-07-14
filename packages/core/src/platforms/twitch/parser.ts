@@ -296,9 +296,9 @@ function eligibility(
   if (status === "upcoming") return "upcoming";
   if (status === "expired") return "expired";
   if (status === "completed") return "completed";
+  if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")) return "completed";
   if (rewards.some(isWatchReward)) return "eligible";
   if (rewards.some(isWaitingSubscriptionReward)) return "waiting_for_subscription";
-  if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")) return "completed";
   return "no_rewards";
 }
 
@@ -307,9 +307,9 @@ function eligibilityReason(status: DropCampaign["status"], accountLinked: boolea
   if (status === "upcoming") return "Campaign has not started";
   if (status === "expired") return "Campaign has ended";
   if (status === "completed") return "All rewards are claimed";
+  if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")) return "All rewards are claimed";
   if (rewards.some(isWatchReward)) return "Eligible";
   if (rewards.some(isWaitingSubscriptionReward)) return "Waiting for a qualifying subscription";
-  if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")) return "All rewards are claimed";
   return "Campaign has no time-based rewards";
 }
 

@@ -58,7 +58,7 @@ describe("i18n", () => {
       fr: "Campagnes avec abonnement",
       hi: "सदस्यता अभियान",
       it: "Campagne con abbonamento",
-      pt_BR: "Campanhas de inscrição",
+      pt_BR: "Campanhas de assinatura",
       ru: "Кампании за подписку",
       zh_CN: "订阅活动",
     };
