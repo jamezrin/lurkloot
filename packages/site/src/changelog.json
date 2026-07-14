@@ -23,8 +23,20 @@
         "text": "What’s New is now shown as a notice in the popup after meaningful updates instead of opening a browser tab automatically."
       },
       {
+        "kind": "improved",
+        "text": "Activity now shows localized farming events separately from diagnostic logs, with paged history for easier review."
+      },
+      {
+        "kind": "improved",
+        "text": "Selected category lists now show category artwork when available."
+      },
+      {
         "kind": "fixed",
         "text": "Twitch now ignores subscription, purchase, and other non-watch rewards when choosing campaigns to farm."
+      },
+      {
+        "kind": "fixed",
+        "text": "Twitch campaigns no longer appear as “Not linked” when Twitch does not provide a genuine external account-link flow."
       },
       {
         "kind": "fixed",
