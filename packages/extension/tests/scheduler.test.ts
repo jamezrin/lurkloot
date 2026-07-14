@@ -1155,10 +1155,12 @@ describe("scheduler tick", () => {
       requiredMinutes: 0,
       watchedMinutes: 0,
       isWatchBased: false,
+      requirement: "subscription" as const,
+      requiredSubs: 1,
       claimId: "subscription-instance",
     };
     const ready = campaign("subscription-drops", {
-      eligibility: "no_rewards",
+      eligibility: "waiting_for_subscription",
       rewards: [actionReward],
     });
     const twitch = adapter("twitch", [ready], [channel("allowed")]);
@@ -1177,7 +1179,90 @@ describe("scheduler tick", () => {
 
     expect(twitch.claimReward).toHaveBeenCalledWith(ready, actionReward);
     expect(twitch.listCandidateChannels).not.toHaveBeenCalled();
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.status).toBe("idle");
+  });
+
+  it("keeps a locked subscription-only campaign idle", async () => {
+    const subscriptionReward = {
+      ...reward("locked"),
+      requiredMinutes: 0,
+      watchedMinutes: 0,
+      isWatchBased: false,
+      requirement: "subscription" as const,
+      requiredSubs: 1,
+    };
+    const waiting = campaign("subscription-drops", {
+      eligibility: "waiting_for_subscription",
+      rewards: [subscriptionReward],
+    });
+    const twitch = adapter("twitch", [waiting], [channel("allowed")]);
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.listCandidateChannels).not.toHaveBeenCalled();
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).toBe("idle");
+    expect(result.state.sessions.twitch.reasonCode).toBe("campaign_ineligible");
+    expect(result.state.sessions.twitch.message).toContain("Waiting for a qualifying subscription");
+  });
+
+  it("unlocks and selects a chained watch reward after claiming its subscription prerequisite", async () => {
+    const subscriptionReward: DropReward = {
+      ...reward("claimable"),
+      id: "subscription-reward",
+      requiredMinutes: 0,
+      watchedMinutes: 0,
+      isWatchBased: false,
+      requirement: "subscription",
+      requiredSubs: 1,
+      claimId: "subscription-instance",
+    };
+    const watchReward: DropReward = {
+      ...reward("locked"),
+      id: "watch-reward",
+      requirement: "watch",
+      preconditionRewardIds: [subscriptionReward.id],
+      preconditionsMet: false,
+    };
+    const chained = campaign("chained-drops", {
+      eligibility: "eligible",
+      rewards: [subscriptionReward, watchReward],
+    });
+    const twitch = adapter("twitch", [chained], [channel("allowed")]);
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.campaigns.twitch[0].rewards).toEqual([
+      expect.objectContaining({ id: subscriptionReward.id, status: "claimed" }),
+      expect.objectContaining({ id: watchReward.id, preconditionsMet: true }),
+    ]);
+    expect(result.state.sessions.twitch).toMatchObject({
+      status: "watching",
+      campaignId: chained.id,
+      rewardId: watchReward.id,
+    });
+    expect(twitch.prepareWatchTab).toHaveBeenCalled();
   });
 
   it("defers claiming a ready reward until the adapter reports it is claim-ready", async () => {

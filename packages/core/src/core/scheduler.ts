@@ -11,6 +11,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
+import { isSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
 import type { EngineEvent, EventEmitter, FarmingStopReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
@@ -126,6 +127,7 @@ export async function chooseCampaignDecision(
 ): Promise<WatchDecision> {
   const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
   const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
+  const waitingForSubscription = onlyWaitingSubscriptionCampaigns(campaigns, settings);
 
   for (const campaign of sorted) {
     const reward = activeReward(campaign);
@@ -169,7 +171,12 @@ export async function chooseCampaignDecision(
     };
   }
 
-  return { platform, action: "idle", reason: `${noCampaignReason} and no Watch Queue channels`, reasonCode: "no_eligible_channel" };
+  return {
+    platform,
+    action: "idle",
+    reason: `${noCampaignReason} and no Watch Queue channels`,
+    reasonCode: waitingForSubscription ? "campaign_ineligible" : "no_eligible_channel",
+  };
 }
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
@@ -184,6 +191,9 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   }
   if (notExcluded.every((campaign) => campaign.status === "completed" || campaign.eligibility === "completed")) {
     return "All campaigns are completed";
+  }
+  if (onlyWaitingSubscriptionCampaigns(campaigns, settings)) {
+    return "Waiting for a qualifying subscription";
   }
   if (notExcluded.every((campaign) => campaign.eligibility === "no_rewards" || campaign.rewards.length === 0)) {
     return "Campaigns have no time-based rewards";
@@ -201,6 +211,14 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
     return "No prioritized campaigns are eligible";
   }
   return "No eligible campaigns";
+}
+
+function onlyWaitingSubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSettings): boolean {
+  const notExcluded = campaigns.filter((campaign) => !settings.excludedCampaignIds.includes(campaign.id));
+  return notExcluded.length > 0 && notExcluded.every((campaign) =>
+    campaign.eligibility === "waiting_for_subscription"
+    && campaign.rewards.length > 0
+    && campaign.rewards.every(isSubscriptionReward));
 }
 
 async function firstValidCandidate(
@@ -701,13 +719,16 @@ async function claimReadyRewards(
         rewards.push(reward);
       }
     }
+    const claimedIds = new Set(rewards.filter((reward) => reward.status === "claimed").map((reward) => reward.id));
+    const unlockedRewards = rewards.map((reward) => ({
+      ...reward,
+      preconditionsMet: (reward.preconditionRewardIds ?? []).every((id) => claimedIds.has(id)),
+    }));
+    const completed = unlockedRewards.length > 0 && unlockedRewards.every((reward) => reward.status === "claimed");
     updated.push({
       ...campaign,
-      rewards,
-      status: rewards.some((reward) => reward.isWatchBased !== false)
-        && rewards.filter((reward) => reward.isWatchBased !== false).every((reward) => reward.status === "claimed")
-        ? "completed"
-        : campaign.status,
+      rewards: unlockedRewards,
+      status: completed ? "completed" : campaign.status,
     });
   }
 
@@ -726,7 +747,7 @@ function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): stri
 }
 
 function isRewardAvailableToEarn(reward: DropReward): boolean {
-  if (reward.isWatchBased === false) return false;
+  if (!isWatchReward(reward)) return false;
   const now = Date.now();
   const startsAt = reward.availableFrom ? Date.parse(reward.availableFrom) : undefined;
   const endsAt = reward.availableUntil ? Date.parse(reward.availableUntil) : undefined;
