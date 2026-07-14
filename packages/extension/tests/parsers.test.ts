@@ -369,6 +369,7 @@ describe("Twitch parsers", () => {
     const campaigns = parseTwitchInventory([{
       id: "unlinked-native",
       self: { isAccountConnected: false },
+      accountLinkURL: "https://example.test/connect",
       timeBasedDrops: [{
         id: "badge",
         requiredMinutesWatched: 30,

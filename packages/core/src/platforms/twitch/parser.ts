@@ -82,7 +82,7 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
     const slug = campaign.game?.slug;
     const startsAt = campaign.startAt;
     const endsAt = campaign.endAt;
-    const accountLinked = campaign.self?.isAccountConnected ?? campaign.accountLinkURL == null;
+    const accountLinked = campaign.accountLinkURL == null || campaign.self?.isAccountConnected !== false;
     const rawStatus = campaign.status?.toLowerCase();
     const status = startsAt && Date.parse(startsAt) > now
       ? "upcoming"
