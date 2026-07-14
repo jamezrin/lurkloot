@@ -155,6 +155,33 @@
   "subscriptionCampaigns": {
     "message": "Кампании за подписку"
   },
+  "subscriptionRequired": {
+    "message": "Требуется подписка"
+  },
+  "subscriptionRewards": {
+    "message": "Награды за подписку"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "Необходимое количество подходящих подписок: $1"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Данные о прогрессе недоступны"
+  },
+  "notEarnableByWatching": {
+    "message": "Нельзя получить за просмотр"
+  },
+  "subscribedRefresh": {
+    "message": "Подписка оформлена — обновить статус"
+  },
+  "waitingForSubscription": {
+    "message": "Ожидание подходящей подписки"
+  },
+  "actionRequired": {
+    "message": "Требуется действие"
+  },
+  "earned": {
+    "message": "Получено"
+  },
   "linkAccount": {
     "message": "Привязать аккаунт"
   },

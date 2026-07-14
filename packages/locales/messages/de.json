@@ -155,6 +155,33 @@
   "subscriptionCampaigns": {
     "message": "Abo-Kampagnen"
   },
+  "subscriptionRequired": {
+    "message": "Abonnement erforderlich"
+  },
+  "subscriptionRewards": {
+    "message": "Abonnement-Belohnungen"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "$1 qualifizierende Abonnements erforderlich"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Fortschritt nicht verfügbar"
+  },
+  "notEarnableByWatching": {
+    "message": "Nicht durch Zuschauen erhältlich"
+  },
+  "subscribedRefresh": {
+    "message": "Ich habe abonniert — Status aktualisieren"
+  },
+  "waitingForSubscription": {
+    "message": "Auf ein qualifizierendes Abonnement warten"
+  },
+  "actionRequired": {
+    "message": "Aktion erforderlich"
+  },
+  "earned": {
+    "message": "Verdient"
+  },
   "linkAccount": {
     "message": "Konto verknüpfen"
   },

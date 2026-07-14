@@ -155,6 +155,33 @@
   "subscriptionCampaigns": {
     "message": "Campanhas de inscrição"
   },
+  "subscriptionRequired": {
+    "message": "Inscrição obrigatória"
+  },
+  "subscriptionRewards": {
+    "message": "Recompensas por inscrição"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "$1 inscrições qualificadas necessárias"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Progresso indisponível"
+  },
+  "notEarnableByWatching": {
+    "message": "Não pode ser obtido assistindo"
+  },
+  "subscribedRefresh": {
+    "message": "Já me inscrevi — atualizar status"
+  },
+  "waitingForSubscription": {
+    "message": "Aguardando uma inscrição qualificada"
+  },
+  "actionRequired": {
+    "message": "Ação necessária"
+  },
+  "earned": {
+    "message": "Obtido"
+  },
   "linkAccount": {
     "message": "Vincule sua conta"
   },
