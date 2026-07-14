@@ -11,6 +11,7 @@
     "./settings": "./src/settings.ts",
     "./i18n": "./src/i18n.ts",
     "./logging": "./src/logging.ts",
+    "./rewards": "./src/rewards.ts",
     "./events": "./src/events.ts"
   },
   "scripts": {
