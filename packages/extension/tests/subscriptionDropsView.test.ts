@@ -181,6 +181,24 @@ describe("subscription drop popup views", () => {
     expect(markup).not.toContain("&lt;1m");
   });
 
+  it("shows unknown remaining work after mixed campaign watch minutes are complete", () => {
+    const source = campaign("mixed", [
+      reward({
+        id: "watch",
+        name: "Watch Crown",
+        requirement: "watch",
+        requiredMinutes: 60,
+        watchedMinutes: 60,
+        status: "claimed",
+      }),
+      reward({ id: "subscribe", name: "Subscriber Cape", requirement: "subscription", requiredSubs: 2 }),
+    ]);
+    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)]);
+
+    expect(markup).not.toContain("&lt;1m");
+    expect(markup.match(/Progress unavailable/g)).toHaveLength(2);
+  });
+
   it("labels obtained subscription rewards as earned", () => {
     const source = campaign("earned-subscription", [
       reward({ id: "subscribe", name: "Earned Subscriber Badge", requirement: "subscription", requiredSubs: 1, status: "claimed" }),

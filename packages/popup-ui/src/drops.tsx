@@ -214,7 +214,15 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing,
                   </div>
                   <div className="grid grid-cols-3 gap-1.5">
                     <MetaStat icon={Clock3} label={t("farmed")} value={formatHours(stats.totalFarmed)} />
-                    <MetaStat icon={RotateCcw} label={t("left")} value={stats.complete ? t("done") : formatMinutes(stats.remaining)} />
+                    <MetaStat
+                      icon={RotateCcw}
+                      label={t("left")}
+                      value={stats.complete
+                        ? t("done")
+                        : stats.nextReward?.requirement === "watch"
+                          ? formatMinutes(stats.remaining)
+                          : t("subscriptionProgressUnknown")}
+                    />
                     <MetaStat icon={Trophy} label={t("rewards")} value={`${stats.completed}/${stats.totalRewards}`} />
                   </div>
                 </>

@@ -2,7 +2,7 @@ import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, Runtime
 import type { DropCampaign, DropReward, EngineSettings, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { isWatchReward } from "@lurkloot/shared/rewards";
+import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
 import { setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
@@ -675,12 +675,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           const rewards = item.rewards.map((candidate) => candidate.id === reward.id && claimed
             ? { ...candidate, status: "claimed" as const, watchedMinutes: candidate.requiredMinutes }
             : candidate);
-          const completed = rewards.length > 0 && rewards.every((candidate) => candidate.status === "claimed");
-          return {
-            ...item,
-            rewards,
-            status: completed ? "completed" as const : item.status,
-          };
+          return reconcileCampaignAfterClaims(item, rewards);
         });
         stateWithCampaigns = {
           ...state,

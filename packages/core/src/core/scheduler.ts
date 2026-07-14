@@ -11,7 +11,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
-import { isSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
+import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import type { EngineEvent, EventEmitter, FarmingStopReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
@@ -128,6 +128,7 @@ export async function chooseCampaignDecision(
   const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
   const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
   const waitingForSubscription = onlyWaitingSubscriptionCampaigns(campaigns, settings);
+  const subscriptionOnly = onlySubscriptionCampaigns(campaigns, settings);
 
   for (const campaign of sorted) {
     const reward = activeReward(campaign);
@@ -153,6 +154,15 @@ export async function chooseCampaignDecision(
         reasonCode: "eligible_campaign",
       };
     }
+  }
+
+  if (subscriptionOnly) {
+    return {
+      platform,
+      action: "idle",
+      reason: noCampaignReason,
+      reasonCode: "campaign_ineligible",
+    };
   }
 
   const fallbackCandidates = settings.platform[platform].watchQueueChannels
@@ -219,6 +229,12 @@ function onlyWaitingSubscriptionCampaigns(campaigns: DropCampaign[], settings: E
     campaign.eligibility === "waiting_for_subscription"
     && campaign.rewards.length > 0
     && campaign.rewards.every(isSubscriptionReward));
+}
+
+function onlySubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSettings): boolean {
+  const notExcluded = campaigns.filter((campaign) => !settings.excludedCampaignIds.includes(campaign.id));
+  return notExcluded.length > 0 && notExcluded.every((campaign) =>
+    campaign.rewards.length > 0 && campaign.rewards.every(isSubscriptionReward));
 }
 
 async function firstValidCandidate(
@@ -719,17 +735,7 @@ async function claimReadyRewards(
         rewards.push(reward);
       }
     }
-    const claimedIds = new Set(rewards.filter((reward) => reward.status === "claimed").map((reward) => reward.id));
-    const unlockedRewards = rewards.map((reward) => ({
-      ...reward,
-      preconditionsMet: (reward.preconditionRewardIds ?? []).every((id) => claimedIds.has(id)),
-    }));
-    const completed = unlockedRewards.length > 0 && unlockedRewards.every((reward) => reward.status === "claimed");
-    updated.push({
-      ...campaign,
-      rewards: unlockedRewards,
-      status: completed ? "completed" : campaign.status,
-    });
+    updated.push(reconcileCampaignAfterClaims(campaign, rewards));
   }
 
   previouslyWaitingRewardIds.clear();

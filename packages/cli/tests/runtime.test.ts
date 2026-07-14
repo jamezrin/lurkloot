@@ -178,11 +178,12 @@ describe("CLI campaign status reporting", () => {
     ]);
   });
 
-  it("returns a stable message key for every unclaimed subscription reward", () => {
+  it("returns stable message keys for active subscription rewards that are genuinely waiting", () => {
     const campaign = dropCampaign({
+      eligibility: "waiting_for_subscription",
       rewards: [
         dropReward({ id: "duffel", name: "Purple Duffel Bag", requiredSubs: 1 }),
-        dropReward({ id: "mace", name: "Bastion Mace", requirement: "subscription", requiredSubs: 3 }),
+        dropReward({ id: "mace", name: "Bastion Mace", requirement: "subscription", requiredSubs: 3, status: "in_progress" }),
         dropReward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60 }),
         dropReward({ id: "earned", name: "Earned Badge", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
       ],
@@ -191,6 +192,54 @@ describe("CLI campaign status reporting", () => {
     expect([...subscriptionWaitKeys([campaign])]).toEqual([
       ["twitch:arc-raiders-summer:duffel", "Waiting for 1 qualifying subscription: Purple Duffel Bag from ARC Raiders Summer Drops"],
       ["twitch:arc-raiders-summer:mace", "Waiting for 3 qualifying subscriptions: Bastion Mace from ARC Raiders Summer Drops"],
+    ]);
+  });
+
+  it("excludes subscription rewards that are not currently waiting for the user", () => {
+    const waiting = dropCampaign({
+      eligibility: "waiting_for_subscription",
+      rewards: [
+        dropReward({ id: "claimable", requirement: "subscription", requiredSubs: 1, status: "claimable" }),
+        dropReward({ id: "claimed", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
+        dropReward({ id: "future", requirement: "subscription", requiredSubs: 1, availableFrom: "2999-01-01T00:00:00.000Z" }),
+        dropReward({ id: "ended", requirement: "subscription", requiredSubs: 1, availableUntil: "2000-01-01T00:00:00.000Z" }),
+        dropReward({ id: "prerequisite", requirement: "subscription", requiredSubs: 1, preconditionsMet: false }),
+      ],
+    });
+    const mixed = dropCampaign({
+      id: "mixed",
+      eligibility: "eligible",
+      rewards: [
+        dropReward({ id: "watch", requirement: "watch", requiredMinutes: 60 }),
+        dropReward({ id: "mixed-sub", name: "Mixed Subscription", requirement: "subscription", requiredSubs: 2 }),
+      ],
+    });
+    const upcoming = dropCampaign({
+      id: "upcoming",
+      status: "upcoming",
+      eligibility: "upcoming",
+      rewards: [dropReward({ id: "upcoming-sub", requirement: "subscription", requiredSubs: 1 })],
+    });
+    const expired = dropCampaign({
+      id: "expired",
+      status: "expired",
+      eligibility: "expired",
+      rewards: [dropReward({ id: "expired-sub", requirement: "subscription", requiredSubs: 1 })],
+    });
+    const unlinked = dropCampaign({
+      id: "unlinked",
+      eligibility: "account_not_linked",
+      accountLinked: false,
+      rewards: [dropReward({ id: "unlinked-sub", requirement: "subscription", requiredSubs: 1 })],
+    });
+    const eligibleSubscriptionOnly = dropCampaign({
+      id: "eligible-subscription-only",
+      eligibility: "eligible",
+      rewards: [dropReward({ id: "not-genuinely-waiting", requirement: "subscription", requiredSubs: 1 })],
+    });
+
+    expect([...subscriptionWaitKeys([waiting, mixed, upcoming, expired, unlinked, eligibleSubscriptionOnly])]).toEqual([
+      ["twitch:mixed:mixed-sub", "Waiting for 2 qualifying subscriptions: Mixed Subscription from ARC Raiders Summer Drops"],
     ]);
   });
 });

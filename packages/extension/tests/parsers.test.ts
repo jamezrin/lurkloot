@@ -521,6 +521,22 @@ describe("Twitch parsers", () => {
     });
   });
 
+  it("does not call a Twitch-confirmed claimable subscription reward waiting", () => {
+    const [campaign] = parseTwitchInventory([{
+      id: "claimable-subscription-campaign",
+      timeBasedDrops: [{
+        id: "subscription",
+        requiredSubs: 1,
+        self: { dropInstanceID: "subscription-instance" },
+      }],
+    }]);
+
+    expect(campaign.status).toBe("active");
+    expect(campaign.eligibility).toBe("no_rewards");
+    expect(campaign.eligibilityReason).not.toContain("Waiting");
+    expect(campaign.rewards[0].status).toBe("claimable");
+  });
+
   it("does not synthesize a claim id for subscription rewards", () => {
     const campaigns = parseTwitchInventory({
       data: {
@@ -816,6 +832,35 @@ describe("Twitch parsers", () => {
     expect(merged[0].rewards[0].watchedMinutes).toBe(120);
     expect(merged[0].status).toBe("completed");
     expect(merged[0].eligibility).toBe("completed");
+  });
+
+  it("does not treat an old owned benefit as the current campaign's subscription reward", () => {
+    const [campaign] = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{ id: "reused-benefit", lastAwardedAt: "2025-06-15T12:00:00.000Z" }],
+            dropCampaignsInProgress: [{
+              id: "current-subscription-campaign",
+              timeBasedDrops: [{
+                id: "current-subscription-drop",
+                requiredSubs: 1,
+                benefitEdges: [{ benefit: { id: "reused-benefit", name: "Returning Reward" } }],
+                self: { isClaimed: false },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaign.status).toBe("active");
+    expect(campaign.eligibility).toBe("waiting_for_subscription");
+    expect(campaign.rewards[0]).toMatchObject({
+      requirement: "subscription",
+      status: "locked",
+      watchedMinutes: 0,
+    });
   });
 
   it("keeps a mixed campaign active when only its watch reward is claimed", () => {

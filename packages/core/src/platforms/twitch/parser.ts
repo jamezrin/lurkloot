@@ -1,5 +1,5 @@
 import type { ChannelCandidate, DropCampaign, DropReward } from "@lurkloot/shared/models";
-import { isSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
+import { isWaitingSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
 
 interface TwitchInventory {
   data?: {
@@ -169,10 +169,12 @@ function parseTwitchReward(
   const benefits = (reward.benefitEdges ?? [])
     .map((edge) => edge.benefit)
     .filter((benefit): benefit is NonNullable<typeof benefit> => Boolean(benefit));
-  // A benefit already present in gameEventDrops means the user owns this reward,
-  // so the drop is effectively claimed even if Twitch still reports a self edge
-  // with isClaimed=false (e.g. a campaign re-running a reward you already earned).
-  const ownsBenefit = ownsRewardBenefit(benefits.map((benefit) => benefit.id), gameEventDrops);
+  // For watch rewards, a benefit already present in gameEventDrops means the
+  // user owns this reward even if Twitch still reports isClaimed=false. That
+  // inventory is campaign-agnostic, so subscription rewards must rely only on
+  // their campaign-specific self state / drop instance.
+  const ownsBenefit = isWatchBased
+    && ownsRewardBenefit(benefits.map((benefit) => benefit.id), gameEventDrops);
   const isClaimed = reward.self?.isClaimed === true || ownsBenefit;
   // Twitch's real dropInstanceID has the form `userID#campaignID#dropID` (see
   // TwitchDropsMiner inventory.py generate_claim and its inventory dump, which
@@ -241,10 +243,15 @@ export function mergeTwitchCampaignProgress(
     const rewards = campaign.rewards.map((reward) => {
       const progressReward = progress?.rewards.find((item) => item.id === reward.id);
       const merged = progressReward ? { ...reward, ...progressReward } : reward;
-      // A claimed campaign falls out of dropCampaignsInProgress, so the merge
-      // above can't update it. gameEventDrops is always returned, so cross-check
-      // ownership to detect rewards the user already has.
-      if (merged.status !== "claimed" && ownsRewardBenefit(merged.benefitIds ?? [], gameEventDrops)) {
+      // A claimed watch campaign falls out of dropCampaignsInProgress, so the
+      // merge above can't update it. gameEventDrops is always returned, so
+      // cross-check watch ownership without applying its campaign-agnostic
+      // benefit ids to subscription rewards.
+      if (
+        merged.status !== "claimed"
+        && isWatchReward(merged)
+        && ownsRewardBenefit(merged.benefitIds ?? [], gameEventDrops)
+      ) {
         return { ...merged, status: "claimed" as const, watchedMinutes: merged.requiredMinutes };
       }
       return merged;
@@ -290,7 +297,7 @@ function eligibility(
   if (status === "expired") return "expired";
   if (status === "completed") return "completed";
   if (rewards.some(isWatchReward)) return "eligible";
-  if (rewards.some((reward) => isSubscriptionReward(reward) && reward.status !== "claimed")) return "waiting_for_subscription";
+  if (rewards.some(isWaitingSubscriptionReward)) return "waiting_for_subscription";
   if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")) return "completed";
   return "no_rewards";
 }
@@ -301,7 +308,7 @@ function eligibilityReason(status: DropCampaign["status"], accountLinked: boolea
   if (status === "expired") return "Campaign has ended";
   if (status === "completed") return "All rewards are claimed";
   if (rewards.some(isWatchReward)) return "Eligible";
-  if (rewards.some((reward) => isSubscriptionReward(reward) && reward.status !== "claimed")) return "Waiting for a qualifying subscription";
+  if (rewards.some(isWaitingSubscriptionReward)) return "Waiting for a qualifying subscription";
   if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")) return "All rewards are claimed";
   return "Campaign has no time-based rewards";
 }

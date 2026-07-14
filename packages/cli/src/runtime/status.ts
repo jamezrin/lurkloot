@@ -1,5 +1,5 @@
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
-import { isSubscriptionReward, rewardRequirementType } from "@lurkloot/shared/rewards";
+import { campaignHasWatchRewards, isWaitingSubscriptionReward, rewardRequirementType } from "@lurkloot/shared/rewards";
 
 function subscriptionRequirement(required: number): string {
   return `${required} qualifying ${required === 1 ? "subscription" : "subscriptions"}`;
@@ -28,8 +28,9 @@ export function formatDiscoveredCampaign(campaign: DropCampaign): string[] {
 export function subscriptionWaitKeys(campaigns: DropCampaign[]): Map<string, string> {
   const waits = new Map<string, string>();
   for (const campaign of campaigns) {
+    if (!campaignCanWaitForSubscription(campaign)) continue;
     for (const reward of campaign.rewards) {
-      if (!isSubscriptionReward(reward) || reward.status === "claimed") continue;
+      if (!isWaitingSubscriptionReward(reward)) continue;
       const required = reward.requiredSubs ?? 1;
       waits.set(
         `${campaign.platform}:${campaign.id}:${reward.id}`,
@@ -38,4 +39,17 @@ export function subscriptionWaitKeys(campaigns: DropCampaign[]): Map<string, str
     }
   }
   return waits;
+}
+
+function campaignCanWaitForSubscription(campaign: DropCampaign): boolean {
+  if (campaign.status !== "active" || campaign.accountLinked === false) return false;
+  const genuinelyWaiting = campaign.eligibility === "waiting_for_subscription"
+    || (campaign.eligibility === "eligible" && campaignHasWatchRewards(campaign));
+  if (!genuinelyWaiting) return false;
+  const now = Date.now();
+  const startsAt = campaign.startsAt ? Date.parse(campaign.startsAt) : undefined;
+  const endsAt = campaign.endsAt ? Date.parse(campaign.endsAt) : undefined;
+  if (startsAt != null && !Number.isNaN(startsAt) && now < startsAt) return false;
+  if (endsAt != null && !Number.isNaN(endsAt) && now >= endsAt) return false;
+  return true;
 }

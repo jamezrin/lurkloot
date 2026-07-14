@@ -1276,6 +1276,51 @@ describe("background controller", () => {
     });
   });
 
+  it("unlocks a dependent watch reward immediately after a manual subscription claim", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: false });
+    const subscriptionReward: DropReward = {
+      ...reward("claimable"),
+      id: "subscription-reward",
+      requirement: "subscription",
+      requiredSubs: 1,
+      requiredMinutes: 0,
+      watchedMinutes: 0,
+      isWatchBased: false,
+    };
+    const twitchCampaign: DropCampaign = {
+      ...campaign("twitch"),
+      eligibility: "eligible",
+      rewards: [
+        subscriptionReward,
+        {
+          ...reward("locked"),
+          id: "watch-reward",
+          requirement: "watch",
+          preconditionRewardIds: [subscriptionReward.id],
+          preconditionsMet: false,
+        },
+      ],
+    };
+    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([twitchCampaign]);
+
+    await env.controller.tick();
+    const snapshot = asSnapshot(await env.controller.handleMessage({
+      type: "claimReward",
+      platform: "twitch",
+      campaignId: "twitch-campaign",
+      rewardId: subscriptionReward.id,
+    }));
+
+    expect(snapshot.state.campaigns.twitch[0]).toMatchObject({
+      status: "active",
+      eligibility: "eligible",
+      rewards: [
+        { id: subscriptionReward.id, status: "claimed" },
+        { id: "watch-reward", status: "locked", preconditionsMet: true },
+      ],
+    });
+  });
+
   it("does not publish manual-claim events when the corresponding state save fails", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: false }, {
       saveState: vi.fn().mockRejectedValueOnce(new Error("storage unavailable")),
