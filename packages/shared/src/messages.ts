@@ -4,7 +4,7 @@ import type { SettingsPatch } from "./settings";
 
 export const SETTINGS_SESSION_PORT = "lurkloot.settings-session";
 
-export type RuntimeMessage =
+export type CoreRuntimeMessage =
   | { type: "getSnapshot" }
   | { type: "getPlaybackControl"; platform: Platform }
   | { type: "setRunning"; running: boolean }
@@ -14,14 +14,17 @@ export type RuntimeMessage =
   | { type: "claimReward"; platform: Platform; campaignId: string; rewardId: string }
   | { type: "searchCategories"; platform: Platform; query: string }
   | { type: "tickNow" }
-  | ({ type: "getActivity" } & ActivityQuery)
-  | { type: "clearActivity" }
-  | { type: "exportCliCredentials" }
   | {
       type: "playbackTelemetry";
       platform: Platform;
       telemetry: Omit<PlaybackTelemetry, "platform" | "checkedAt">;
     };
+
+export type RuntimeMessage =
+  | CoreRuntimeMessage
+  | ({ type: "getActivity" } & ActivityQuery)
+  | { type: "clearActivity" }
+  | { type: "exportCliCredentials" };
 
 // Credential blob the popup exports for the headless CLI's `login --import`. It
 // carries only the session tokens the CLI transports replay — never anything the

@@ -18,6 +18,21 @@ export type ActivityRequestScope = {
   platform: Platform;
 };
 
+export type ActivityRefreshSequence = { latest: number };
+
+export function createActivityRefreshSequence(): ActivityRefreshSequence {
+  return { latest: 0 };
+}
+
+export function beginActivityRefresh(sequence: ActivityRefreshSequence): number {
+  sequence.latest += 1;
+  return sequence.latest;
+}
+
+export function isLatestActivityRefresh(sequence: ActivityRefreshSequence, request: number): boolean {
+  return sequence.latest === request;
+}
+
 export function createActivityStream(): ActivityStream {
   return { events: [], initialized: false };
 }
@@ -66,6 +81,19 @@ export function applyActivityPageForRequest(
 ): ActivityStream {
   return isActivityRequestCurrent(request, active)
     ? applyActivityPage(current, page, kind)
+    : current;
+}
+
+export function applyActivityRefreshForRequest(
+  current: ActivityStream,
+  page: ActivityPage,
+  request: ActivityRequestScope,
+  active: ActivityRequestScope,
+  sequence: ActivityRefreshSequence,
+  refreshRequest: number,
+): ActivityStream {
+  return isLatestActivityRefresh(sequence, refreshRequest)
+    ? applyActivityPageForRequest(current, page, "refresh", request, active)
     : current;
 }
 

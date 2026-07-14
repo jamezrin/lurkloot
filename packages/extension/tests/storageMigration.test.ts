@@ -68,4 +68,22 @@ describe("legacy activity migration", () => {
     })]);
     expect(mocks.values.schedulerState).not.toHaveProperty("events");
   });
+
+  it("serializes a concurrent save behind legacy import so newer scheduler state survives", async () => {
+    let finishImport!: () => void;
+    const importPending = new Promise<void>((resolve) => {
+      finishImport = resolve;
+    });
+    mocks.importLegacyActivityEvents.mockReturnValueOnce(importPending);
+    const newerState = { ...DEFAULT_STATE, lastTickAt: "2026-07-14T12:34:56.000Z" };
+
+    const loading = loadState();
+    await vi.waitFor(() => expect(mocks.importLegacyActivityEvents).toHaveBeenCalledOnce());
+    const saving = saveState(newerState);
+    finishImport();
+    await Promise.all([loading, saving]);
+
+    expect(mocks.values.schedulerState).toEqual(newerState);
+    expect(mocks.values.schedulerState).not.toHaveProperty("events");
+  });
 });

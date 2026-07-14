@@ -44,7 +44,10 @@ import { ActivityLog } from "./activity";
 import {
   advanceActivityRequestScope,
   applyActivityPageForRequest,
+  applyActivityRefreshForRequest,
+  beginActivityRefresh,
   createActivityRequestScope,
+  createActivityRefreshSequence,
   createActivityStream,
   isActivityRequestCurrent,
   type ActivityRequestScope,
@@ -92,6 +95,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const activityRequestScopeRef = useRef(createActivityRequestScope(platform));
+  const activityRefreshSequenceRef = useRef(createActivityRefreshSequence());
+  const diagnosticRefreshSequenceRef = useRef(createActivityRefreshSequence());
   const activityClearInFlightRef = useRef(false);
   const [activityRequestGeneration, setActivityRequestGeneration] = useState(0);
   const wasSettingsOpen = useRef(settingsOpen);
@@ -187,14 +192,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     const requestScope = activityRequestScopeRef.current;
     const refresh = () => {
       if (activityClearInFlightRef.current || !isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) return;
+      const refreshRequest = beginActivityRefresh(activityRefreshSequenceRef.current);
       void adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "activity", limit: 80 }).then((page) => {
-        if (!cancelled && isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) {
-          setActivityStream((current) => applyActivityPageForRequest(
+        if (!cancelled) {
+          setActivityStream((current) => applyActivityRefreshForRequest(
             current,
             page,
-            "refresh",
             requestScope,
             activityRequestScopeRef.current,
+            activityRefreshSequenceRef.current,
+            refreshRequest,
           ));
         }
       }).catch(() => undefined);
@@ -226,14 +233,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     const requestScope = activityRequestScopeRef.current;
     const refresh = () => {
       if (activityClearInFlightRef.current || !isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) return;
+      const refreshRequest = beginActivityRefresh(diagnosticRefreshSequenceRef.current);
       void adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "diagnostic", limit: 80 }).then((page) => {
-        if (!cancelled && isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) {
-          setDiagnosticStream((current) => applyActivityPageForRequest(
+        if (!cancelled) {
+          setDiagnosticStream((current) => applyActivityRefreshForRequest(
             current,
             page,
-            "refresh",
             requestScope,
             activityRequestScopeRef.current,
+            diagnosticRefreshSequenceRef.current,
+            refreshRequest,
           ));
         }
       }).catch(() => undefined);

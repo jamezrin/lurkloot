@@ -1,4 +1,4 @@
-import type { CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { DropCampaign, DropReward, EngineSettings, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
@@ -248,6 +248,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         ? { ...storedSettings, running: false }
         : storedSettings;
       const state = await deps.loadState();
+      let nextState: SchedulerState;
       try {
         const adapters = deps.createAdapters(emit);
         const result = await runSchedulerTick(state, settings, adapters, {
@@ -260,13 +261,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await emitNotifications(settings, state, result.state);
         await applyAdFocusForState(result.state, emit);
         await reconcileTablessWatchers(result.state, settings, adapters, emit, platforms);
-        await persistAndReport(result.state, events);
+        nextState = result.state;
       } catch (error) {
+        events.length = 0;
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
         emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
         emit({ category: "diagnostic", level: "error", message: detail });
         await persistAndReport(state, events);
+        return;
       }
+      await persistAndReport(nextState, events);
     }));
   }
 
@@ -472,7 +476,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function recordPlaybackTelemetry(
-    message: Extract<RuntimeMessage, { type: "playbackTelemetry" }>,
+    message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId?: number,
   ): Promise<void> {
     await withStateLock(() => withEventCollector(async (emit, events) => {
@@ -528,7 +532,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   function recordManualWatchTelemetry(
     state: SchedulerState,
     settings: EngineSettings,
-    message: Extract<RuntimeMessage, { type: "playbackTelemetry" }>,
+    message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
   ): SchedulerState {
     const manualWatch = { ...state.manualWatch };
@@ -561,7 +565,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function getPlaybackControl(
-    message: Extract<RuntimeMessage, { type: "getPlaybackControl" }>,
+    message: Extract<CoreRuntimeMessage, { type: "getPlaybackControl" }>,
     senderTabId?: number,
   ): Promise<PlaybackControl> {
     const [policy, state] = await Promise.all([deps.loadTabPlaybackPolicy?.(), deps.loadState()]);
@@ -575,7 +579,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function claimRewardNow(
-    message: Extract<RuntimeMessage, { type: "claimReward" }>,
+    message: Extract<CoreRuntimeMessage, { type: "claimReward" }>,
   ): Promise<RuntimeSnapshot<S>> {
     // Hold the state lock across the whole load→persist so a concurrent tick or
     // telemetry write can't clobber the claimed-reward update. snapshot() runs
@@ -608,6 +612,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         return;
       }
 
+      let stateWithCampaigns: SchedulerState;
       try {
         const claimed = await deps.createAdapters(emit)[message.platform].claimReward(campaign, reward);
         const nextCampaigns = campaigns.map((item) => {
@@ -621,7 +626,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             status: rewards.every((candidate) => candidate.status === "claimed") ? "completed" as const : item.status,
           };
         });
-        const stateWithCampaigns = {
+        stateWithCampaigns = {
           ...state,
           campaigns: {
             ...state.campaigns,
@@ -656,8 +661,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             await tr("notificationRewardFromCampaign", [reward.name, campaign.name]),
           );
         }
-        await persistAndReport(stateWithCampaigns, events);
       } catch (error) {
+        events.length = 0;
         emit({
           category: "diagnostic",
           platform: message.platform,
@@ -665,13 +670,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,
         });
         await persistAndReport(state, events);
+        return;
       }
+      await persistAndReport(stateWithCampaigns, events);
     }));
     return snapshot();
   }
 
   async function handleMessage(
-    message: RuntimeMessage,
+    message: CoreRuntimeMessage,
     sender?: { tab?: { id?: number } },
   ): Promise<RuntimeSnapshot<S> | PlaybackControl | CategorySearchResult | void> {
     if (message.type === "getPlaybackControl") {

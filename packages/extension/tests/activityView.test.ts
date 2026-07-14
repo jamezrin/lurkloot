@@ -2,12 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActivityHistoryRecord, FarmingStopReason } from "@lurkloot/shared/events";
 import {
   advanceActivityRequestScope,
+  beginActivityRefresh,
   applyActivityPage,
   applyActivityPageForRequest,
+  applyActivityRefreshForRequest,
   createActivityRequestScope,
+  createActivityRefreshSequence,
   createActivityStream,
   formatActivityEvent,
   isActivityRequestCurrent,
+  isLatestActivityRefresh,
   mergeActivityPages,
 } from "../../popup-ui/src/activity.logic";
 
@@ -178,6 +182,33 @@ describe("activity view model", () => {
     expect(isActivityRequestCurrent(twitch, kick)).toBe(false);
     expect(isActivityRequestCurrent(kick, afterClear)).toBe(false);
     expect(isActivityRequestCurrent(afterClear, afterClear)).toBe(true);
+  });
+
+  it("rejects an older refresh response after a newer refresh was issued", () => {
+    const sequence = createActivityRefreshSequence();
+    const scope = createActivityRequestScope("twitch");
+    const older = beginActivityRefresh(sequence);
+    const newer = beginActivityRefresh(sequence);
+    const current = applyActivityRefreshForRequest(
+      createActivityStream(),
+      { events: [event("newer")], nextCursor: "newer-cursor" },
+      scope,
+      scope,
+      sequence,
+      newer,
+    );
+
+    expect(isLatestActivityRefresh(sequence, older)).toBe(false);
+    expect(isLatestActivityRefresh(sequence, newer)).toBe(true);
+    expect(applyActivityRefreshForRequest(
+      current,
+      { events: [event("older")], nextCursor: "older-cursor" },
+      scope,
+      scope,
+      sequence,
+      older,
+    )).toBe(current);
+    expect(current.nextCursor).toBe("newer-cursor");
   });
 
   it("ignores stale platform pages and stale loading completions", () => {

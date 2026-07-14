@@ -1,5 +1,5 @@
 import type { EngineEvent } from "@lurkloot/shared/events";
-import type { ActivityPage, ActivityQuery, RuntimeMessage } from "@lurkloot/shared/messages";
+import type { ActivityPage, ActivityQuery, CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
 
 interface ActivityMessageRepository {
   load(query: ActivityQuery): Promise<ActivityPage>;
@@ -18,7 +18,7 @@ interface RuntimeMessageSender {
 interface RuntimeMessageDispatcherDeps {
   exportCliCredentials(): Promise<unknown>;
   handleActivityMessage(message: RuntimeMessage): Promise<unknown>;
-  handleCoreMessage(message: RuntimeMessage, sender?: RuntimeMessageSender): Promise<unknown>;
+  handleCoreMessage(message: CoreRuntimeMessage, sender?: RuntimeMessageSender): Promise<unknown>;
 }
 
 export function createActivityMessageHandler(repository: ActivityMessageRepository) {

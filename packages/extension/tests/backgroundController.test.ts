@@ -113,6 +113,17 @@ describe("background controller", () => {
     expect(calls).toEqual(["state", "events"]);
   });
 
+  it("does not publish tick events when the corresponding state save fails", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
+      saveState: vi.fn().mockRejectedValueOnce(new Error("storage unavailable")),
+    });
+
+    await expect(env.controller.tick()).rejects.toThrow("storage unavailable");
+
+    expect(env.deps.saveState).toHaveBeenCalledTimes(1);
+    expect(env.reportEvents).not.toHaveBeenCalled();
+  });
+
   it("never persists an event outbox in scheduler state", async () => {
     const env = harness();
 
@@ -1119,6 +1130,23 @@ describe("background controller", () => {
         data: expect.objectContaining({ method: "manual" }),
       }),
     ]));
+  });
+
+  it("does not publish manual-claim events when the corresponding state save fails", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: false }, {
+      saveState: vi.fn().mockRejectedValueOnce(new Error("storage unavailable")),
+    });
+    env.state.campaigns.twitch = [campaign("twitch", "claimable")];
+
+    await expect(env.controller.handleMessage({
+      type: "claimReward",
+      platform: "twitch",
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+    })).rejects.toThrow("storage unavailable");
+
+    expect(env.deps.saveState).toHaveBeenCalledTimes(1);
+    expect(env.reportEvents).not.toHaveBeenCalled();
   });
 
   it("records a warning when a manual claim target is stale", async () => {
