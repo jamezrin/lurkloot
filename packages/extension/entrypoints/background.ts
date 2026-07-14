@@ -21,10 +21,19 @@ import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
-import { appendActivityEvents } from "../src/core/activityStorage";
+import { appendActivityEvents, clearActivityEvents, loadActivityEvents } from "../src/core/activityStorage";
+import { createActivityEventReporter, createActivityMessageHandler } from "../src/core/activityMessages";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
+const handleActivityMessage = createActivityMessageHandler({
+  load: loadActivityEvents,
+  clear: clearActivityEvents,
+});
+const reportEvents = createActivityEventReporter({
+  loadDiagnosticLogging: async () => (await loadSettings()).diagnosticLogging,
+  append: appendActivityEvents,
+});
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
@@ -51,11 +60,7 @@ const controller = createBackgroundController<ExtensionSettings>({
   saveSettings,
   loadState,
   saveState,
-  reportEvents: async (events) => {
-    const { diagnosticLogging } = await loadSettings();
-    await appendActivityEvents(events
-      .filter((event) => event.category === "activity" || diagnosticLogging));
-  },
+  reportEvents,
   createAlarm: (name, options) => browser.alarms.create(name, options),
   closeManagedTabsByUrl: async (urls) => {
     for (const url of urls) {
@@ -198,6 +203,10 @@ export default defineBackground(() => {
     // The popup gates this behind an explicit confirm dialog.
     if (message.type === "exportCliCredentials") {
       void buildCliCredentialBlob().then(sendResponse);
+      return true;
+    }
+    if (message.type === "getActivity" || message.type === "clearActivity") {
+      void handleActivityMessage(message).then(sendResponse);
       return true;
     }
     void controller.handleMessage(message, sender).then(sendResponse);
