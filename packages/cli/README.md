@@ -113,7 +113,9 @@ Env-var overrides (useful for Docker secrets) take precedence over the store:
 - `validate-config` — load + normalize the config; print the effective settings.
 - `discover` — one discovery pass per enabled platform.
 - `run` — full farming loop (discovery + watch heartbeats) until SIGINT/SIGTERM,
-  persisting `state.json`. `--once` runs a single tick.
+  persisting `state.json`. `pnpm cli run --once` is the explicit refresh command:
+  it discovers campaigns, refreshes authoritative progress, claims eligible
+  rewards, persists state, and exits.
 - `auth import <file>` — import an extension credential export ("-" = stdin).
 - `auth twitch device-login` — Twitch device-code OAuth (no browser).
 - `auth kick device-login` — Kick smart-TV link flow (no browser).
@@ -138,6 +140,15 @@ go to stderr and are filtered only by `--log`; `state.json` contains scheduler
 state, never new event history. Use Docker logs, systemd/journald, Loki, or
 another external collector when retention is needed. Loading and saving an old
 state file also removes any legacy embedded `events` field.
+
+Subscription requirements are reported separately from watch progress. The CLI
+never tries to satisfy them by opening or farming a stream, and it reports
+partial subscription progress as unavailable when Twitch does not provide an
+authoritative count rather than inventing `0/N`. During the normal loop, a
+waiting requirement is logged only when it first appears; once Twitch confirms
+the reward, the next poll detects and claims it, with the existing reward-claimed
+engine event providing the notification. Run `pnpm cli run --once` whenever an
+immediate non-interactive refresh is needed.
 
 ## Docker
 

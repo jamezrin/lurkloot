@@ -54,6 +54,12 @@ describe("settings", () => {
     });
   });
 
+  it("defaults subscription campaigns to visible while preserving persisted choices", () => {
+    expect(DEFAULT_SETTINGS.campaignVisibility.subscription).toBe(true);
+    expect(mergeSettings({ campaignVisibility: { subscription: false } } as never).campaignVisibility.subscription).toBe(false);
+    expect(mergeSettings({ campaignVisibility: { expired: true } } as never).campaignVisibility.subscription).toBe(true);
+  });
+
   it("clamps persisted numeric settings to browser-safe ranges", () => {
     expect(mergeSettings({ pollIntervalMinutes: 0, offlineRetryLimit: 0 }).pollIntervalMinutes).toBe(1);
     expect(mergeSettings({ pollIntervalMinutes: 0.75 }).pollIntervalMinutes).toBe(1);

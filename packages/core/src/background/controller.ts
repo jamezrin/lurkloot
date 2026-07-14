@@ -2,6 +2,7 @@ import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, Runtime
 import type { DropCampaign, DropReward, EngineSettings, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
+import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
 import { setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
@@ -674,11 +675,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           const rewards = item.rewards.map((candidate) => candidate.id === reward.id && claimed
             ? { ...candidate, status: "claimed" as const, watchedMinutes: candidate.requiredMinutes }
             : candidate);
-          return {
-            ...item,
-            rewards,
-            status: rewards.every((candidate) => candidate.status === "claimed") ? "completed" as const : item.status,
-          };
+          return reconcileCampaignAfterClaims(item, rewards);
         });
         stateWithCampaigns = {
           ...state,
@@ -1069,7 +1066,7 @@ function hasEarnableReward(campaign: DropCampaign): boolean {
     && !hasCampaignEnded(campaign)
     && campaign.accountLinked !== false
     && (!campaign.eligibility || campaign.eligibility === "eligible")
-    && campaign.rewards.some((reward) => reward.isWatchBased !== false && reward.status !== "claimed" && reward.status !== "claimable" && reward.preconditionsMet !== false);
+    && campaign.rewards.some((reward) => isWatchReward(reward) && reward.status !== "claimed" && reward.status !== "claimable" && reward.preconditionsMet !== false);
 }
 
 function hasCampaignEnded(campaign: DropCampaign): boolean {

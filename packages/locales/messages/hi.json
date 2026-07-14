@@ -152,6 +152,36 @@
   "notLinked": {
     "message": "लिंक नहीं"
   },
+  "subscriptionCampaigns": {
+    "message": "सदस्यता अभियान"
+  },
+  "subscriptionRequired": {
+    "message": "सदस्यता आवश्यक है"
+  },
+  "subscriptionRewards": {
+    "message": "सदस्यता पुरस्कार"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "योग्य सदस्यताओं की आवश्यक संख्या: $1"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "प्रगति उपलब्ध नहीं है"
+  },
+  "notEarnableByWatching": {
+    "message": "देखकर अर्जित नहीं किया जा सकता"
+  },
+  "subscribedRefresh": {
+    "message": "मैंने सदस्यता ले ली है — स्थिति रीफ़्रेश करें"
+  },
+  "waitingForSubscription": {
+    "message": "योग्य सदस्यता की प्रतीक्षा है"
+  },
+  "actionRequired": {
+    "message": "कार्रवाई आवश्यक है"
+  },
+  "earned": {
+    "message": "अर्जित"
+  },
   "linkAccount": {
     "message": "अपना खाता लिंक करें"
   },

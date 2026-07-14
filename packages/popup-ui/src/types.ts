@@ -1,5 +1,5 @@
 import type { CliCredentialBlob, RuntimeMessage } from "@lurkloot/shared/messages";
-import type { DropCampaign, Platform, SupportedLocale } from "@lurkloot/shared/models";
+import type { DropCampaign, Platform, RewardRequirementType, SupportedLocale } from "@lurkloot/shared/models";
 
 export type PopupTab = "drops" | "watchQueue";
 export type GameItem = {
@@ -12,8 +12,31 @@ export type GameItem = {
 export type StreamerItem = { id: string; name: string; live: boolean; subtitle?: string; viewers?: number };
 export type FarmingChannelView = { name: string; category?: string; viewers?: number; url?: string };
 export type ChannelLink = { name: string; url: string };
-export type RewardView = { id: string; name: string; progress: number; requiredMinutes: number; obtained: boolean; art: string; tint: string; imageUrl?: string };
+export type RewardView = {
+  id: string;
+  name: string;
+  progress?: number;
+  requiredMinutes: number;
+  requiredSubs?: number;
+  requirement: RewardRequirementType;
+  obtained: boolean;
+  art: string;
+  tint: string;
+  imageUrl?: string;
+};
 export type CampaignLifecycleState = "upcoming" | "expired" | "finished";
+
+export type CampaignStats = {
+  kind: "watch" | "subscription" | "mixed" | "action";
+  totalRequired: number;
+  totalFarmed: number;
+  remaining: number;
+  progress?: number;
+  completed: number;
+  totalRewards: number;
+  nextReward?: RewardView;
+  complete: boolean;
+};
 
 export type CampaignView = {
   id: string;
@@ -38,6 +61,8 @@ export type CampaignView = {
   tint: string;
   imageUrl?: string;
   rewards: RewardView[];
+  hasWatchRewards: boolean;
+  hasSubscriptionRewards: boolean;
 };
 
 export type TFunction = (key: string, substitutions?: string | string[]) => string;

@@ -152,6 +152,36 @@
   "notLinked": {
     "message": "Non lié"
   },
+  "subscriptionCampaigns": {
+    "message": "Campagnes avec abonnement"
+  },
+  "subscriptionRequired": {
+    "message": "Abonnement requis"
+  },
+  "subscriptionRewards": {
+    "message": "Récompenses d’abonnement"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "$1 abonnements admissibles requis"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Progression indisponible"
+  },
+  "notEarnableByWatching": {
+    "message": "Impossible à obtenir en regardant"
+  },
+  "subscribedRefresh": {
+    "message": "Abonnement effectué — actualiser le statut"
+  },
+  "waitingForSubscription": {
+    "message": "En attente d’un abonnement admissible"
+  },
+  "actionRequired": {
+    "message": "Action requise"
+  },
+  "earned": {
+    "message": "Obtenu"
+  },
   "linkAccount": {
     "message": "Associez votre compte"
   },

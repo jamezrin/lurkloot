@@ -37,7 +37,7 @@ import {
   useDndSensors,
 } from "./primitives";
 
-export function DropsPanel({ campaigns, gameMap, focus, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
+export function DropsPanel({ campaigns, gameMap, focus, refreshing, onRefreshCampaign, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; refreshing: boolean; onRefreshCampaign(id: string): void | Promise<void>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
   const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -73,18 +73,18 @@ export function DropsPanel({ campaigns, gameMap, focus, onReorder, onToggleExclu
       <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
         <div ref={listRef} className="space-y-2">
           {campaigns.map((campaign, index) => (
-            <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onToggleExclude={onToggleExclude} />
+            <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
           ))}
         </div>
       </SortableContext>
       <DragOverlay dropAnimation={null}>
-        {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex, t)} expanded={false} onToggle={() => undefined} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
+        {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex, t)} expanded={false} refreshing={refreshing} onToggle={() => undefined} onRefreshCampaign={onRefreshCampaign} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
       </DragOverlay>
     </DndContext>
   );
 }
 
-function SortableCampaign(props: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; onToggle(): void; onToggleExclude(id: string): void | Promise<void> }) {
+function SortableCampaign(props: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.campaign.id });
   return (
     <div ref={setNodeRef} data-campaign-id={props.campaign.id} style={{ transform: CSS.Transform.toString(transform), transition }}>
@@ -93,7 +93,7 @@ function SortableCampaign(props: { campaign: CampaignView; index: number; anyFar
   );
 }
 
-function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, onToggleExclude, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; onToggle(): void; onToggleExclude?(id: string): void | Promise<void>; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
+function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing, onToggle, onRefreshCampaign, onToggleExclude, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude?(id: string): void | Promise<void>; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
   const t = useT();
   const stats = campaignStats(campaign);
   const isFarming = Boolean(campaign.farmingChannel);
@@ -103,6 +103,12 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
     ? t("startsIn", formatCountdown(campaign.starts, t))
     : t("endsIn", formatCountdown(campaign.ends, t));
   const lifecyclePill = campaignLifecyclePill(campaign.lifecycle, t);
+  const showsWatchProgress = stats.kind === "watch" || stats.kind === "mixed";
+  const headlineStatus = stats.kind === "subscription"
+    ? `${stats.completed}/${stats.totalRewards}`
+    : stats.kind === "action"
+      ? t("actionRequired")
+      : `${(stats.progress ?? 0).toFixed(0)}%`;
 
   return (
     <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-transparent" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized ? { boxShadow: isOverlay ? "0 20px 50px -12px rgba(0,0,0,0.5)" : "0 0 0 1.5px var(--accent-ring), 0 10px 30px -18px var(--accent-glow)" } : undefined}>
@@ -138,7 +144,9 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                <span className="text-[13px] font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>{stats.progress.toFixed(0)}%</span>
+                <span className="text-[13px] font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>
+                  {headlineStatus}
+                </span>
                 <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-zinc-400 dark:text-zinc-500"><ChevronDown size={16} /></motion.div>
               </div>
             </div>
@@ -147,16 +155,18 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
               <span className="truncate">{game.name}</span>
               <span className="shrink-0 text-zinc-300 dark:text-zinc-600">·</span>
               <Pill tone="accent">#{index + 1}</Pill>
-              {isFarming && <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill>}
+              {campaign.hasSubscriptionRewards ? <Pill tone="outline"><Users size={9} /> {t("subscriptionRequired")}</Pill> : null}
+              {stats.kind === "action" ? <Pill tone="outline"><AlertTriangle size={9} /> {t("actionRequired")}</Pill> : null}
+              {isFarming && campaign.hasWatchRewards ? <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill> : null}
               {lifecyclePill && (
                 <Pill tone={lifecyclePill.tone}>
                   <lifecyclePill.icon size={9} /> {lifecyclePill.label}
                 </Pill>
               )}
               {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
-              {campaign.excluded && <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill>}
+              {campaign.excluded && campaign.hasWatchRewards ? <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill> : null}
             </div>
-            <div className="mt-2"><ProgressBar value={stats.progress} glow={emphasized} /></div>
+            {showsWatchProgress ? <div className="mt-2"><ProgressBar value={stats.progress ?? 0} glow={emphasized} /></div> : null}
           </div>
         </div>
       </div>
@@ -164,22 +174,59 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
         {expanded && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
             <div className="space-y-2.5 p-2.5">
-              <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
-                <div className="flex items-end justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> {timingLabel}</div>
-                    {stats.complete
-                      ? <div className="mt-0.5 truncate text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>{t("complete")}</div>
-                      : <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">{t("nextReward", stats.nextReward?.name ?? "")}</div>}
+              {stats.kind === "subscription" ? (
+                <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> {timingLabel}</div>
+                      <div className="mt-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">{t("subscriptionRequired")}</div>
+                      <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">{t("notEarnableByWatching")}</div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-xs font-semibold tabular" style={{ color: "var(--accent-text)" }}>{stats.completed}/{stats.totalRewards}</div>
+                      <div className="mt-0.5 text-[9px] font-medium uppercase text-zinc-400 dark:text-zinc-500">{t("subscriptionRewards")}</div>
+                      <div className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">{stats.complete ? t("complete") : t("subscriptionProgressUnknown")}</div>
+                    </div>
                   </div>
-                  {!stats.complete && <div className="shrink-0 text-right text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.remaining)} {t("left").toLowerCase()}</div>}
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                <MetaStat icon={Clock3} label={t("farmed")} value={formatHours(stats.totalFarmed)} />
-                <MetaStat icon={RotateCcw} label={t("left")} value={stats.complete ? t("done") : formatMinutes(stats.remaining)} />
-                <MetaStat icon={Trophy} label={t("rewards")} value={`${stats.completed}/${stats.totalRewards}`} />
-              </div>
+              ) : stats.kind === "action" ? (
+                <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> {timingLabel}</div>
+                      <div className="mt-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">{t("actionRequired")}</div>
+                    </div>
+                    <div className="shrink-0 text-xs font-semibold tabular" style={{ color: "var(--accent-text)" }}>{stats.completed}/{stats.totalRewards}</div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+                    <div className="flex items-end justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> {timingLabel}</div>
+                        {stats.complete
+                          ? <div className="mt-0.5 truncate text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>{t("complete")}</div>
+                          : <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">{t("nextReward", stats.nextReward?.name ?? "")}</div>}
+                      </div>
+                      {!stats.complete && stats.nextReward?.requirement === "watch" ? <div className="shrink-0 text-right text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.remaining)} {t("left").toLowerCase()}</div> : null}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <MetaStat icon={Clock3} label={t("farmed")} value={formatHours(stats.totalFarmed)} />
+                    <MetaStat
+                      icon={RotateCcw}
+                      label={t("left")}
+                      value={stats.complete
+                        ? t("done")
+                        : stats.nextReward?.requirement === "watch"
+                          ? formatMinutes(stats.remaining)
+                          : t("subscriptionProgressUnknown")}
+                    />
+                    <MetaStat icon={Trophy} label={t("rewards")} value={`${stats.completed}/${stats.totalRewards}`} />
+                  </div>
+                </>
+              )}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} style={{ color: "var(--accent-text)" }} /> {t("rewards")}</span>
@@ -187,6 +234,17 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                 </div>
                 <RewardCarousel rewards={campaign.rewards} />
               </div>
+              {campaign.hasSubscriptionRewards ? (
+                <button
+                  type="button"
+                  onClick={() => void onRefreshCampaign(campaign.id)}
+                  disabled={refreshing}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--accent-ring)] py-1.5 text-[11px] font-medium text-[var(--accent-text)] transition-colors hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RotateCcw size={12} className={cn(refreshing && "animate-spin")} />
+                  {t("subscribedRefresh")}
+                </button>
+              ) : null}
               <div className="rounded-lg bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
                 <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                   <Users size={12} className="shrink-0" />
@@ -222,7 +280,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                   <ExternalLink size={11} className="ml-auto shrink-0 opacity-70" />
                 </a>
               )}
-              {onToggleExclude && (
+              {onToggleExclude && campaign.hasWatchRewards ? (
                 <button
                   type="button"
                   onClick={() => void onToggleExclude(campaign.id)}
@@ -235,7 +293,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                 >
                   <Ban size={12} /> {campaign.excluded ? t("includeInFarming") : t("excludeFromFarming")}
                 </button>
-              )}
+              ) : null}
             </div>
           </motion.div>
         )}
@@ -325,7 +383,8 @@ function campaignLifecyclePill(lifecycle: CampaignLifecycleState | undefined, t:
 }
 
 function RewardTile({ reward }: { reward: RewardView }) {
-  const done = reward.obtained || reward.progress >= 100;
+  const t = useT();
+  const done = reward.obtained || (reward.progress ?? 0) >= 100;
   return (
     <div className="w-[128px] shrink-0 rounded-xl border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-zinc-50 dark:bg-zinc-800/40">
@@ -337,11 +396,25 @@ function RewardTile({ reward }: { reward: RewardView }) {
         {done && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={11} strokeWidth={3} /></span>}
       </div>
       <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200" title={reward.name}>{reward.name}</div>
-      <ProgressBar value={reward.progress} size="sm" />
-      <div className="mt-1.5 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
-        <span className="font-semibold tabular" style={reward.progress > 0 ? { color: "var(--accent-text)" } : undefined}>{reward.progress.toFixed(0)}%</span>
-        <span className="tabular">{formatMinutes(reward.requiredMinutes)}</span>
-      </div>
+      {reward.requirement === "watch" ? (
+        <>
+          <ProgressBar value={reward.progress ?? 0} size="sm" />
+          <div className="mt-1.5 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
+            <span className="font-semibold tabular" style={(reward.progress ?? 0) > 0 ? { color: "var(--accent-text)" } : undefined}>
+              {reward.progress == null ? "—" : `${reward.progress.toFixed(0)}%`}
+            </span>
+            <span className="tabular">{formatMinutes(reward.requiredMinutes)}</span>
+          </div>
+        </>
+      ) : reward.requirement === "subscription" ? (
+        <div className="space-y-1 text-[10px] leading-tight text-zinc-500 dark:text-zinc-400">
+          <div className="font-semibold text-zinc-700 dark:text-zinc-200">{t("subscriptionRequired")}</div>
+          <div>{t("qualifyingSubscriptionsRequired", String(reward.requiredSubs ?? 1))}</div>
+          <div className={cn("font-medium", reward.obtained && "text-emerald-600 dark:text-emerald-400")}>{reward.obtained ? t("earned") : t("subscriptionProgressUnknown")}</div>
+        </div>
+      ) : (
+        <div className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">{t("actionRequired")}</div>
+      )}
     </div>
   );
 }

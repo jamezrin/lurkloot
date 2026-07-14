@@ -152,6 +152,36 @@
   "notLinked": {
     "message": "Não vinculado"
   },
+  "subscriptionCampaigns": {
+    "message": "Campanhas de assinatura"
+  },
+  "subscriptionRequired": {
+    "message": "Assinatura obrigatória"
+  },
+  "subscriptionRewards": {
+    "message": "Recompensas por assinatura"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "$1 assinaturas qualificadas necessárias"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Progresso indisponível"
+  },
+  "notEarnableByWatching": {
+    "message": "Não pode ser obtido assistindo"
+  },
+  "subscribedRefresh": {
+    "message": "Assinei — atualizar status"
+  },
+  "waitingForSubscription": {
+    "message": "Aguardando uma assinatura qualificada"
+  },
+  "actionRequired": {
+    "message": "Ação necessária"
+  },
+  "earned": {
+    "message": "Obtido"
+  },
   "linkAccount": {
     "message": "Vincule sua conta"
   },

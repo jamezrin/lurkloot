@@ -629,6 +629,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                         campaigns={campaigns}
                         gameMap={gameMap}
                         focus={campaignFocus}
+                        refreshing={refreshing}
+                        onRefreshCampaign={() => refreshNow()}
                         onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) })}
                         onToggleExclude={(id) => {
                           const next = new Set(settings.excludedCampaignIds);

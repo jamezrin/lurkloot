@@ -152,6 +152,36 @@
   "notLinked": {
     "message": "Non collegato"
   },
+  "subscriptionCampaigns": {
+    "message": "Campagne con abbonamento"
+  },
+  "subscriptionRequired": {
+    "message": "Abbonamento richiesto"
+  },
+  "subscriptionRewards": {
+    "message": "Ricompense per abbonamento"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "$1 abbonamenti validi richiesti"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Avanzamento non disponibile"
+  },
+  "notEarnableByWatching": {
+    "message": "Non ottenibile guardando"
+  },
+  "subscribedRefresh": {
+    "message": "Abbonamento effettuato — aggiorna lo stato"
+  },
+  "waitingForSubscription": {
+    "message": "In attesa di un abbonamento valido"
+  },
+  "actionRequired": {
+    "message": "Azione richiesta"
+  },
+  "earned": {
+    "message": "Ottenuto"
+  },
   "linkAccount": {
     "message": "Collega il tuo account"
   },

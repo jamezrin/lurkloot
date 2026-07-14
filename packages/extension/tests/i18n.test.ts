@@ -49,6 +49,53 @@ describe("i18n", () => {
     }
   });
 
+  it("localizes the subscription campaign filter in every catalog", () => {
+    const translations: Record<string, string> = {
+      ar: "حملات الاشتراك",
+      de: "Abo-Kampagnen",
+      en: "Subscription campaigns",
+      es: "Campañas de suscripción",
+      fr: "Campagnes avec abonnement",
+      hi: "सदस्यता अभियान",
+      it: "Campagne con abbonamento",
+      pt_BR: "Campanhas de assinatura",
+      ru: "Кампании за подписку",
+      zh_CN: "订阅活动",
+    };
+
+    for (const locale of localeCodes()) {
+      expect(readCatalog(locale).subscriptionCampaigns?.message, locale).toBe(translations[locale]);
+    }
+  });
+
+  it("defines subscription drop states with matching placeholders in every catalog", () => {
+    const englishMessages = {
+      subscriptionRequired: "Subscription required",
+      subscriptionRewards: "Subscription rewards",
+      qualifyingSubscriptionsRequired: "$1 qualifying subscriptions required",
+      subscriptionProgressUnknown: "Progress unavailable",
+      notEarnableByWatching: "Not earnable by watching",
+      subscribedRefresh: "I've subscribed — refresh status",
+      waitingForSubscription: "Waiting for a qualifying subscription",
+      actionRequired: "Action required",
+      earned: "Earned",
+    };
+    const placeholders = (message: string) => message.match(/\$\d+/g) ?? [];
+
+    const english = readCatalog("en");
+    for (const [key, message] of Object.entries(englishMessages)) {
+      expect(english[key]?.message, key).toBe(message);
+    }
+
+    for (const locale of localeCodes()) {
+      const catalog = readCatalog(locale);
+      for (const key of Object.keys(englishMessages)) {
+        expect(catalog[key]?.message, `${locale}:${key}`).toBeTypeOf("string");
+        expect(placeholders(catalog[key].message), `${locale}:${key}`).toEqual(placeholders(english[key].message));
+      }
+    }
+  });
+
   it("does not leave non-English catalogs as English except product/common terms", () => {
     const english = readCatalog("en");
     const allowedSameAsEnglish = new Set([

@@ -152,6 +152,36 @@
   "notLinked": {
     "message": "Not linked"
   },
+  "subscriptionCampaigns": {
+    "message": "Subscription campaigns"
+  },
+  "subscriptionRequired": {
+    "message": "Subscription required"
+  },
+  "subscriptionRewards": {
+    "message": "Subscription rewards"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "$1 qualifying subscriptions required"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Progress unavailable"
+  },
+  "notEarnableByWatching": {
+    "message": "Not earnable by watching"
+  },
+  "subscribedRefresh": {
+    "message": "I've subscribed — refresh status"
+  },
+  "waitingForSubscription": {
+    "message": "Waiting for a qualifying subscription"
+  },
+  "actionRequired": {
+    "message": "Action required"
+  },
+  "earned": {
+    "message": "Earned"
+  },
   "linkAccount": {
     "message": "Link your account"
   },

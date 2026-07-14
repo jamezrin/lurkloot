@@ -152,6 +152,36 @@
   "notLinked": {
     "message": "未关联"
   },
+  "subscriptionCampaigns": {
+    "message": "订阅活动"
+  },
+  "subscriptionRequired": {
+    "message": "需要订阅"
+  },
+  "subscriptionRewards": {
+    "message": "订阅奖励"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "需要 $1 个符合条件的订阅"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "无法获取进度"
+  },
+  "notEarnableByWatching": {
+    "message": "无法通过观看获得"
+  },
+  "subscribedRefresh": {
+    "message": "我已订阅——刷新状态"
+  },
+  "waitingForSubscription": {
+    "message": "正在等待符合条件的订阅"
+  },
+  "actionRequired": {
+    "message": "需要操作"
+  },
+  "earned": {
+    "message": "已获得"
+  },
   "linkAccount": {
     "message": "关联账号"
   },

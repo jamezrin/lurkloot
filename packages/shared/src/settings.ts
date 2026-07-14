@@ -2,7 +2,7 @@ import type { AdFocusMode, CampaignFilterKey, CategorySelection, EngineSettings,
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
-const CAMPAIGN_FILTER_KEYS: CampaignFilterKey[] = ["notLinked", "upcoming", "expired", "excluded", "finished"];
+const CAMPAIGN_FILTER_KEYS: CampaignFilterKey[] = ["notLinked", "subscription", "upcoming", "expired", "excluded", "finished"];
 const RATE_NUDGE_STATUSES: RateNudgeStatus[] = ["pending", "rated", "dismissed"];
 export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar"];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
@@ -58,6 +58,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   // finished campaigns; hide expired and excluded ones unless opted back in.
   campaignVisibility: {
     notLinked: true,
+    subscription: true,
     upcoming: true,
     expired: false,
     excluded: false,

@@ -152,6 +152,36 @@
   "notLinked": {
     "message": "غير مرتبط"
   },
+  "subscriptionCampaigns": {
+    "message": "حملات الاشتراك"
+  },
+  "subscriptionRequired": {
+    "message": "الاشتراك مطلوب"
+  },
+  "subscriptionRewards": {
+    "message": "مكافآت الاشتراك"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "عدد الاشتراكات المؤهلة المطلوبة: $1"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "التقدم غير متاح"
+  },
+  "notEarnableByWatching": {
+    "message": "لا يمكن كسبه بالمشاهدة"
+  },
+  "subscribedRefresh": {
+    "message": "لقد اشتركت — تحديث الحالة"
+  },
+  "waitingForSubscription": {
+    "message": "في انتظار اشتراك مؤهل"
+  },
+  "actionRequired": {
+    "message": "يلزم اتخاذ إجراء"
+  },
+  "earned": {
+    "message": "تم الحصول عليها"
+  },
   "linkAccount": {
     "message": "اربط حسابك"
   },

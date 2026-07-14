@@ -54,6 +54,7 @@ export const EVENT_LEVEL_COLOR: Record<LogLevel, string> = {
 
 export const CAMPAIGN_FILTERS: Array<{ key: CampaignFilterKey; label: string }> = [
   { key: "notLinked", label: "notLinked" },
+  { key: "subscription", label: "subscriptionCampaigns" },
   { key: "upcoming", label: "upcoming" },
   { key: "expired", label: "expired" },
   { key: "excluded", label: "excluded" },

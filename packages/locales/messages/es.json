@@ -152,6 +152,36 @@
   "notLinked": {
     "message": "No vinculado"
   },
+  "subscriptionCampaigns": {
+    "message": "Campañas de suscripción"
+  },
+  "subscriptionRequired": {
+    "message": "Suscripción obligatoria"
+  },
+  "subscriptionRewards": {
+    "message": "Recompensas por suscripción"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "Se requieren $1 suscripciones válidas"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Progreso no disponible"
+  },
+  "notEarnableByWatching": {
+    "message": "No se puede obtener viendo el canal"
+  },
+  "subscribedRefresh": {
+    "message": "Ya me he suscrito — actualizar el estado"
+  },
+  "waitingForSubscription": {
+    "message": "Esperando una suscripción válida"
+  },
+  "actionRequired": {
+    "message": "Acción necesaria"
+  },
+  "earned": {
+    "message": "Obtenido"
+  },
   "linkAccount": {
     "message": "Vincula tu cuenta"
   },

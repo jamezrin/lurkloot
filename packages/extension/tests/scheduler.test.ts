@@ -1155,10 +1155,12 @@ describe("scheduler tick", () => {
       requiredMinutes: 0,
       watchedMinutes: 0,
       isWatchBased: false,
+      requirement: "subscription" as const,
+      requiredSubs: 1,
       claimId: "subscription-instance",
     };
     const ready = campaign("subscription-drops", {
-      eligibility: "no_rewards",
+      eligibility: "waiting_for_subscription",
       rewards: [actionReward],
     });
     const twitch = adapter("twitch", [ready], [channel("allowed")]);
@@ -1177,7 +1179,209 @@ describe("scheduler tick", () => {
 
     expect(twitch.claimReward).toHaveBeenCalledWith(ready, actionReward);
     expect(twitch.listCandidateChannels).not.toHaveBeenCalled();
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.status).toBe("idle");
+  });
+
+  it("keeps a locked subscription-only campaign idle", async () => {
+    const subscriptionReward = {
+      ...reward("locked"),
+      requiredMinutes: 0,
+      watchedMinutes: 0,
+      isWatchBased: false,
+      requirement: "subscription" as const,
+      requiredSubs: 1,
+    };
+    const waiting = campaign("subscription-drops", {
+      eligibility: "waiting_for_subscription",
+      rewards: [subscriptionReward],
+    });
+    const twitch = adapter("twitch", [waiting], [channel("allowed")]);
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.listCandidateChannels).not.toHaveBeenCalled();
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).toBe("idle");
+    expect(result.state.sessions.twitch.reasonCode).toBe("campaign_ineligible");
+    expect(result.state.sessions.twitch.message).toContain("Waiting for a qualifying subscription");
+  });
+
+  it("does not start a live Watch Queue fallback for subscription-only campaigns", async () => {
+    const waiting = campaign("subscription-drops", {
+      eligibility: "waiting_for_subscription",
+      rewards: [{
+        ...reward("locked"),
+        requiredMinutes: 0,
+        watchedMinutes: 0,
+        requirement: "subscription",
+        requiredSubs: 1,
+        isWatchBased: false,
+      }],
+    });
+    const twitch = adapter("twitch", [waiting], []);
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["fallback"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.checkChannel).not.toHaveBeenCalled();
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch).toMatchObject({
+      status: "idle",
+      reasonCode: "campaign_ineligible",
+    });
+  });
+
+  it.each(["claimed", "claimable"] as const)(
+    "does not start Watch Queue when a historical watch reward is %s and only a subscription reward remains",
+    async (watchStatus) => {
+      const waiting = campaign("mixed-drops", {
+        eligibility: "waiting_for_subscription",
+        rewards: [
+          { ...reward(watchStatus), requirement: "watch" },
+          {
+            ...reward("locked"),
+            id: "subscription-reward",
+            requiredMinutes: 0,
+            watchedMinutes: 0,
+            requirement: "subscription",
+            requiredSubs: 1,
+            isWatchBased: false,
+          },
+        ],
+      });
+      const checkChannel = vi.fn(async (candidate: ChannelCandidate) => ({
+        live: true,
+        categoryMatches: true,
+        candidate,
+      }));
+
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [waiting],
+        settings({ platform: { twitch: { watchQueueChannels: ["fallback"] } } }),
+        {
+          listCandidateChannels: vi.fn(async () => []),
+          checkChannel,
+        },
+      );
+
+      expect(checkChannel).not.toHaveBeenCalled();
+      expect(decision).toMatchObject({
+        action: "idle",
+        reasonCode: "campaign_ineligible",
+      });
+    },
+  );
+
+  it("stops an existing Watch Queue fallback when only subscription campaigns remain", async () => {
+    const waiting = campaign("subscription-drops", {
+      eligibility: "waiting_for_subscription",
+      rewards: [{
+        ...reward("locked"),
+        requiredMinutes: 0,
+        watchedMinutes: 0,
+        requirement: "subscription",
+        requiredSubs: 1,
+        isWatchBased: false,
+      }],
+    });
+    const twitch = adapter("twitch", [waiting], []);
+    const fallback = channel("fallback");
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: fallback,
+            offlineChecks: 0,
+            tabId: 7,
+            tabManagedByExtension: true,
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: ["fallback"] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7 }));
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch).toMatchObject({
+      status: "idle",
+      reasonCode: "campaign_ineligible",
+    });
+    expect(result.state.sessions.twitch.channel).toBeUndefined();
+  });
+
+  it("unlocks and selects a chained watch reward after claiming its subscription prerequisite", async () => {
+    const subscriptionReward: DropReward = {
+      ...reward("claimable"),
+      id: "subscription-reward",
+      requiredMinutes: 0,
+      watchedMinutes: 0,
+      isWatchBased: false,
+      requirement: "subscription",
+      requiredSubs: 1,
+      claimId: "subscription-instance",
+    };
+    const watchReward: DropReward = {
+      ...reward("locked"),
+      id: "watch-reward",
+      requirement: "watch",
+      preconditionRewardIds: [subscriptionReward.id],
+      preconditionsMet: false,
+    };
+    const chained = campaign("chained-drops", {
+      eligibility: "eligible",
+      rewards: [subscriptionReward, watchReward],
+    });
+    const twitch = adapter("twitch", [chained], [channel("allowed")]);
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.campaigns.twitch[0].rewards).toEqual([
+      expect.objectContaining({ id: subscriptionReward.id, status: "claimed" }),
+      expect.objectContaining({ id: watchReward.id, preconditionsMet: true }),
+    ]);
+    expect(result.state.sessions.twitch).toMatchObject({
+      status: "watching",
+      campaignId: chained.id,
+      rewardId: watchReward.id,
+    });
+    expect(twitch.prepareWatchTab).toHaveBeenCalled();
   });
 
   it("defers claiming a ready reward until the adapter reports it is claim-ready", async () => {

@@ -4,6 +4,8 @@ export type CampaignStatus = "active" | "upcoming" | "expired" | "completed";
 
 export type RewardStatus = "locked" | "in_progress" | "claimable" | "claimed";
 
+export type RewardRequirementType = "watch" | "subscription" | "action";
+
 // Lifecycle of the one-time Chrome Web Store rate/review nudge. "pending" until
 // the user either rates or dismisses it, after which it never shows again.
 export type RateNudgeStatus = "pending" | "rated" | "dismissed";
@@ -17,6 +19,7 @@ export interface DropReward {
   requiredMinutes: number;
   requiredSubs?: number;
   isWatchBased?: boolean;
+  requirement?: RewardRequirementType;
   watchedMinutes: number;
   status: RewardStatus;
   claimId?: string;
@@ -45,7 +48,7 @@ export interface DropCampaign {
   isGeneralDrop?: boolean;
   accountLinked?: boolean;
   accountLinkUrl?: string;
-  eligibility?: "eligible" | "account_not_linked" | "upcoming" | "expired" | "completed" | "no_rewards";
+  eligibility?: "eligible" | "account_not_linked" | "waiting_for_subscription" | "upcoming" | "expired" | "completed" | "no_rewards";
   eligibilityReason?: string;
   priority?: number;
   url?: string;
@@ -163,7 +166,7 @@ export type PriorityMode = "ending_soonest" | "lowest_availability" | "priority_
 
 // Visibility categories for the Drops list. A campaign in one of these states is
 // only shown when its toggle is on; campaigns in none of them are always shown.
-export type CampaignFilterKey = "notLinked" | "upcoming" | "expired" | "excluded" | "finished";
+export type CampaignFilterKey = "notLinked" | "subscription" | "upcoming" | "expired" | "excluded" | "finished";
 
 export interface PlaybackTelemetry {
   platform: Platform;

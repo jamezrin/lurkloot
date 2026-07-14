@@ -1,4 +1,5 @@
 import type { ChannelCandidate, DropCampaign, DropReward } from "@lurkloot/shared/models";
+import { isWaitingSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
 
 interface TwitchInventory {
   data?: {
@@ -107,8 +108,7 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
       ),
     }));
 
-    const watchRewards = rewards.filter((reward) => reward.isWatchBased !== false);
-    const finalStatus = watchRewards.length > 0 && watchRewards.every((reward) => reward.status === "claimed") ? "completed" : status;
+    const finalStatus = rewards.length > 0 && rewards.every((reward) => reward.status === "claimed") ? "completed" : status;
 
     return {
       id: campaign.id,
@@ -124,8 +124,8 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
       accountLinkUrl,
       status: finalStatus,
       url: campaign.detailsURL ?? undefined,
-      eligibility: eligibility(finalStatus, accountLinked, watchRewards.length),
-      eligibilityReason: eligibilityReason(finalStatus, accountLinked, watchRewards.length),
+      eligibility: eligibility(finalStatus, accountLinked, rewards),
+      eligibilityReason: eligibilityReason(finalStatus, accountLinked, rewards),
       allowedChannels,
       connectionUrls: allowedChannels.length > 0
         ? allowedChannels.map((login) => `https://www.twitch.tv/${login}`)
@@ -160,16 +160,21 @@ function parseTwitchReward(
   const watchedMinutes = reward.self?.currentMinutesWatched ?? 0;
   const requiredMinutes = reward.requiredMinutesWatched ?? 0;
   const requiredSubs = reward.requiredSubs ?? 0;
-  // A reward that also requires subscriptions cannot be completed by watching
-  // alone. Keep it for ownership/claim tracking, but never let it drive farming.
-  const isWatchBased = requiredMinutes > 0 && requiredSubs <= 0;
+  const requirement = requiredSubs > 0
+    ? "subscription" as const
+    : requiredMinutes > 0
+      ? "watch" as const
+      : "action" as const;
+  const isWatchBased = requirement === "watch";
   const benefits = (reward.benefitEdges ?? [])
     .map((edge) => edge.benefit)
     .filter((benefit): benefit is NonNullable<typeof benefit> => Boolean(benefit));
-  // A benefit already present in gameEventDrops means the user owns this reward,
-  // so the drop is effectively claimed even if Twitch still reports a self edge
-  // with isClaimed=false (e.g. a campaign re-running a reward you already earned).
-  const ownsBenefit = ownsRewardBenefit(benefits.map((benefit) => benefit.id), gameEventDrops);
+  // For watch rewards, a benefit already present in gameEventDrops means the
+  // user owns this reward even if Twitch still reports isClaimed=false. That
+  // inventory is campaign-agnostic, so subscription rewards must rely only on
+  // their campaign-specific self state / drop instance.
+  const ownsBenefit = isWatchBased
+    && ownsRewardBenefit(benefits.map((benefit) => benefit.id), gameEventDrops);
   const isClaimed = reward.self?.isClaimed === true || ownsBenefit;
   // Twitch's real dropInstanceID has the form `userID#campaignID#dropID` (see
   // TwitchDropsMiner inventory.py generate_claim and its inventory dump, which
@@ -188,6 +193,7 @@ function parseTwitchReward(
     benefitType: benefits[0]?.distributionType,
     requiredMinutes,
     requiredSubs: reward.requiredSubs,
+    requirement,
     isWatchBased,
     watchedMinutes: isClaimed ? requiredMinutes : watchedMinutes,
     claimId,
@@ -237,18 +243,26 @@ export function mergeTwitchCampaignProgress(
     const rewards = campaign.rewards.map((reward) => {
       const progressReward = progress?.rewards.find((item) => item.id === reward.id);
       const merged = progressReward ? { ...reward, ...progressReward } : reward;
-      // A claimed campaign falls out of dropCampaignsInProgress, so the merge
-      // above can't update it. gameEventDrops is always returned, so cross-check
-      // ownership to detect rewards the user already has.
-      if (merged.status !== "claimed" && ownsRewardBenefit(merged.benefitIds ?? [], gameEventDrops)) {
+      // A claimed watch campaign falls out of dropCampaignsInProgress, so the
+      // merge above can't update it. gameEventDrops is always returned, so
+      // cross-check watch ownership without applying its campaign-agnostic
+      // benefit ids to subscription rewards.
+      if (
+        merged.status !== "claimed"
+        && isWatchReward(merged)
+        && ownsRewardBenefit(merged.benefitIds ?? [], gameEventDrops)
+      ) {
         return { ...merged, status: "claimed" as const, watchedMinutes: merged.requiredMinutes };
       }
       return merged;
     });
-    const watchRewards = rewards.filter((reward) => reward.isWatchBased !== false);
-    const allClaimed = watchRewards.length > 0 && watchRewards.every((reward) => reward.status === "claimed");
-    const next = { ...campaign, status: progress?.status ?? campaign.status, rewards };
-    return allClaimed ? withCampaignStatus(next, "completed") : next;
+    const allClaimed = rewards.length > 0 && rewards.every((reward) => reward.status === "claimed");
+    const status = allClaimed
+      ? "completed"
+      : progress?.status === "completed"
+        ? campaign.status
+        : progress?.status ?? campaign.status;
+    return withCampaignStatus({ ...campaign, rewards }, status);
   });
 }
 
@@ -276,23 +290,27 @@ function ownsRewardBenefit(benefitIds: (string | undefined)[], gameEventDrops: T
 function eligibility(
   status: DropCampaign["status"],
   accountLinked: boolean,
-  rewardCount: number,
+  rewards: DropReward[],
 ): DropCampaign["eligibility"] {
   if (!accountLinked) return "account_not_linked";
   if (status === "upcoming") return "upcoming";
   if (status === "expired") return "expired";
   if (status === "completed") return "completed";
-  if (rewardCount === 0) return "no_rewards";
-  return "eligible";
+  if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")) return "completed";
+  if (rewards.some(isWatchReward)) return "eligible";
+  if (rewards.some(isWaitingSubscriptionReward)) return "waiting_for_subscription";
+  return "no_rewards";
 }
 
-function eligibilityReason(status: DropCampaign["status"], accountLinked: boolean, rewardCount: number): string {
+function eligibilityReason(status: DropCampaign["status"], accountLinked: boolean, rewards: DropReward[]): string {
   if (!accountLinked) return "Account is not linked for this campaign";
   if (status === "upcoming") return "Campaign has not started";
   if (status === "expired") return "Campaign has ended";
   if (status === "completed") return "All rewards are claimed";
-  if (rewardCount === 0) return "Campaign has no time-based rewards";
-  return "Eligible";
+  if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")) return "All rewards are claimed";
+  if (rewards.some(isWatchReward)) return "Eligible";
+  if (rewards.some(isWaitingSubscriptionReward)) return "Waiting for a qualifying subscription";
+  return "Campaign has no time-based rewards";
 }
 
 // Returns a copy of the campaign with a new status and consistent eligibility
@@ -300,12 +318,11 @@ function eligibilityReason(status: DropCampaign["status"], accountLinked: boolea
 // longer lists the campaign as active) that the inventory payload can't convey.
 export function withCampaignStatus(campaign: DropCampaign, status: DropCampaign["status"]): DropCampaign {
   const accountLinked = campaign.accountLinked !== false;
-  const watchRewardCount = campaign.rewards.filter((reward) => reward.isWatchBased !== false).length;
   return {
     ...campaign,
     status,
-    eligibility: eligibility(status, accountLinked, watchRewardCount),
-    eligibilityReason: eligibilityReason(status, accountLinked, watchRewardCount),
+    eligibility: eligibility(status, accountLinked, campaign.rewards),
+    eligibilityReason: eligibilityReason(status, accountLinked, campaign.rewards),
   };
 }
 

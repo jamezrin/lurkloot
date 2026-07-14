@@ -1,10 +1,11 @@
 import { createBackgroundController } from "@lurkloot/core/controller";
-import type { SchedulerState } from "@lurkloot/shared/models";
+import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 import { loadState, saveState } from "../storage";
 import { toEngineSettings, type CliSettings } from "../settings";
 import type { TransportHandle } from "../transport";
 import type { Logger } from "../logger";
 import { reportCliEvents } from "../events";
+import { subscriptionWaitKeys } from "./status";
 
 export interface RunOptions {
   settings: CliSettings;
@@ -26,6 +27,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
   // The shared engine works on the EngineSettings contract; expand the CLI's
   // schema once, pinning the headless invariants (always running, always tabless).
   const engineSettings = toEngineSettings(settings);
+  const seenSubscriptionWaits = new Set<string>();
 
   const controller = createBackgroundController({
     loadSettings: async () => engineSettings,
@@ -43,6 +45,16 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const tickOnce = async () => {
     try {
       await controller.tick();
+      const state = await loadState(statePath);
+      const waits = subscriptionWaitKeys([...state.campaigns.twitch, ...state.campaigns.kick]);
+      for (const key of seenSubscriptionWaits) {
+        if (!waits.has(key)) seenSubscriptionWaits.delete(key);
+      }
+      for (const [key, message] of waits) {
+        if (seenSubscriptionWaits.has(key)) continue;
+        seenSubscriptionWaits.add(key);
+        logger.info(message, key.slice(0, key.indexOf(":")) as Platform);
+      }
     } catch (error) {
       logger.error(error instanceof Error ? error.message : String(error), "tick");
     }

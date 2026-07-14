@@ -1197,9 +1197,21 @@ describe("background controller", () => {
     });
   });
 
-  it("manually claims a claimable reward through the platform adapter", async () => {
+  it("completes a campaign after manually claiming its last subscription reward", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: false });
-    const twitchCampaign = campaign("twitch", "claimable");
+    const subscriptionReward: DropReward = {
+      ...reward("claimable"),
+      id: "subscription-reward",
+      requirement: "subscription",
+      requiredSubs: 1,
+      requiredMinutes: 0,
+      watchedMinutes: 0,
+      isWatchBased: false,
+    };
+    const twitchCampaign = {
+      ...campaign("twitch", "claimed"),
+      rewards: [reward("claimed"), subscriptionReward],
+    };
     vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([twitchCampaign]);
 
     await env.controller.tick();
@@ -1207,16 +1219,19 @@ describe("background controller", () => {
       type: "claimReward",
       platform: "twitch",
       campaignId: "twitch-campaign",
-      rewardId: "reward",
+      rewardId: "subscription-reward",
     }));
 
     expect(env.twitch.claimReward).toHaveBeenCalledWith(
       expect.objectContaining({ id: "twitch-campaign" }),
-      expect.objectContaining({ id: "reward", status: "claimable" }),
+      expect.objectContaining({ id: "subscription-reward", status: "claimable", requirement: "subscription" }),
     );
     expect(snapshot.state.campaigns.twitch[0]).toMatchObject({
       status: "completed",
-      rewards: [{ id: "reward", status: "claimed", watchedMinutes: 60 }],
+      rewards: [
+        { id: "reward", status: "claimed" },
+        { id: "subscription-reward", status: "claimed", watchedMinutes: 0 },
+      ],
     });
     expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
       expect.objectContaining({
@@ -1225,6 +1240,85 @@ describe("background controller", () => {
         data: expect.objectContaining({ method: "manual" }),
       }),
     ]));
+  });
+
+  it("keeps a mixed campaign active after manually claiming its subscription reward", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: false });
+    const subscriptionReward: DropReward = {
+      ...reward("claimable"),
+      id: "subscription-reward",
+      requirement: "subscription",
+      requiredSubs: 1,
+      requiredMinutes: 0,
+      watchedMinutes: 0,
+      isWatchBased: false,
+    };
+    const twitchCampaign = {
+      ...campaign("twitch"),
+      rewards: [subscriptionReward, { ...reward("locked"), id: "watch-reward", requirement: "watch" as const }],
+    };
+    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([twitchCampaign]);
+
+    await env.controller.tick();
+    const snapshot = asSnapshot(await env.controller.handleMessage({
+      type: "claimReward",
+      platform: "twitch",
+      campaignId: "twitch-campaign",
+      rewardId: "subscription-reward",
+    }));
+
+    expect(snapshot.state.campaigns.twitch[0]).toMatchObject({
+      status: "active",
+      rewards: [
+        { id: "subscription-reward", status: "claimed" },
+        { id: "watch-reward", status: "locked" },
+      ],
+    });
+  });
+
+  it("unlocks a dependent watch reward immediately after a manual subscription claim", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: false });
+    const subscriptionReward: DropReward = {
+      ...reward("claimable"),
+      id: "subscription-reward",
+      requirement: "subscription",
+      requiredSubs: 1,
+      requiredMinutes: 0,
+      watchedMinutes: 0,
+      isWatchBased: false,
+    };
+    const twitchCampaign: DropCampaign = {
+      ...campaign("twitch"),
+      eligibility: "eligible",
+      rewards: [
+        subscriptionReward,
+        {
+          ...reward("locked"),
+          id: "watch-reward",
+          requirement: "watch",
+          preconditionRewardIds: [subscriptionReward.id],
+          preconditionsMet: false,
+        },
+      ],
+    };
+    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([twitchCampaign]);
+
+    await env.controller.tick();
+    const snapshot = asSnapshot(await env.controller.handleMessage({
+      type: "claimReward",
+      platform: "twitch",
+      campaignId: "twitch-campaign",
+      rewardId: subscriptionReward.id,
+    }));
+
+    expect(snapshot.state.campaigns.twitch[0]).toMatchObject({
+      status: "active",
+      eligibility: "eligible",
+      rewards: [
+        { id: subscriptionReward.id, status: "claimed" },
+        { id: "watch-reward", status: "locked", preconditionsMet: true },
+      ],
+    });
   });
 
   it("does not publish manual-claim events when the corresponding state save fails", async () => {

@@ -177,12 +177,14 @@ export function kickRewardImageUrl(value: string | undefined): string | undefine
 function parseKickReward(reward: KickReward): DropReward {
   const requiredMinutes =
     reward.required_units ?? reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0;
+  const requirement = requiredMinutes > 0 ? "watch" as const : "action" as const;
   return {
     id: String(reward.id),
     name: reward.name ?? reward.title ?? `Reward ${reward.id}`,
     imageUrl: kickRewardImageUrl(reward.image_url ?? reward.image),
     requiredMinutes,
-    isWatchBased: requiredMinutes > 0,
+    requirement,
+    isWatchBased: requirement === "watch",
     watchedMinutes: 0,
     status: reward.claimed || reward.is_claimed ? "claimed" : "locked",
   };
