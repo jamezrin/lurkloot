@@ -623,8 +623,8 @@ export class TwitchAdapter implements PlatformAdapter {
   supportsTabless = true;
 
   createTablessWatcher(): TablessWatchController {
-    return new TwitchWatcher((operationName, sha256Hash, variables, query, credentials) =>
-      this.gql(operationName, sha256Hash, variables, query, credentials));
+    return new TwitchWatcher((operationName, sha256Hash, variables, query, credentials, emit) =>
+      this.gql(operationName, sha256Hash, variables, query, credentials, emit));
   }
 
   private async mergeCurrentSessionProgress(
@@ -677,6 +677,7 @@ export class TwitchAdapter implements PlatformAdapter {
     variables: Record<string, unknown>,
     query?: string,
     credentials?: RequestCredentials,
+    emit: EventEmitter = this.emit,
   ): Promise<TwitchGqlResponse<T>> {
     const buildRequest = (queryText?: string) => ({
       method: "POST",
@@ -705,7 +706,7 @@ export class TwitchAdapter implements PlatformAdapter {
     } satisfies RequestInit);
     const fetchOnce = async (queryText?: string): Promise<TwitchGqlResponse<T> | null> => {
       const request = buildRequest(queryText);
-      const raw = await this.fetcher.fetchJson<unknown>("https://gql.twitch.tv/gql", request);
+      const raw = await this.fetcher.fetchJson<unknown>("https://gql.twitch.tv/gql", request, emit);
       // The page fetcher reports failures as a serializable envelope (a rejection
       // would be swallowed at the executeScript boundary). Surface its diagnostic.
       const pageError = twitchPageFetchError(raw);
@@ -719,7 +720,7 @@ export class TwitchAdapter implements PlatformAdapter {
     }
     const fallbackQuery = !query ? TWITCH_INLINE_QUERIES[operationName] : undefined;
     if (fallbackQuery && hasPersistedQueryNotFound(response)) {
-      diagnostic(this.emit, "debug", `GQL ${operationName} persisted query not found; retrying with the inline query`);
+      diagnostic(emit, "debug", `GQL ${operationName} persisted query not found; retrying with the inline query`);
       activeQuery = fallbackQuery;
       response = await fetchOnce(activeQuery);
       if (!isTwitchGqlResponse<T>(response)) {
@@ -727,7 +728,7 @@ export class TwitchAdapter implements PlatformAdapter {
       }
     }
     if (response.errors?.some((error) => isTransientGqlError(error.message))) {
-      diagnostic(this.emit, "debug", `GQL ${operationName} returned a transient error; retrying once`);
+      diagnostic(emit, "debug", `GQL ${operationName} returned a transient error; retrying once`);
       response = await fetchOnce(activeQuery);
       if (!isTwitchGqlResponse<T>(response)) {
         throw new Error(`${operationName} ${activeQuery ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
@@ -750,7 +751,7 @@ export class TwitchAdapter implements PlatformAdapter {
     const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
     diagnostic(this.emit, "debug", `Channel GQL check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`);
     try {
-      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url);
+      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, undefined, this.emit);
       const html = page.html ?? "";
       const live = parseLiveState(html);
       if (!live) {
@@ -784,6 +785,7 @@ type TwitchGql = <T>(
   variables: Record<string, unknown>,
   query?: string,
   credentials?: RequestCredentials,
+  emit?: EventEmitter,
 ) => Promise<TwitchGqlResponse<T>>;
 
 // Sends one minute-watched spade event per tick (~once a minute), the tabless
@@ -831,6 +833,7 @@ class TwitchWatcher implements TablessWatchController {
       { channel: channel.username },
       STREAM_INFO_QUERY,
       "omit",
+      this.diagnostics.emit,
     );
     const stream = info.data?.user?.stream;
     const channelId = info.data?.user?.id ?? channel.channelId;
@@ -857,6 +860,8 @@ class TwitchWatcher implements TablessWatchController {
       "",
       { input },
       SEND_SPADE_EVENTS_MUTATION,
+      undefined,
+      this.diagnostics.emit,
     );
     const status = result.data?.sendSpadeEvents?.statusCode;
     const ok = status === 204;
@@ -867,7 +872,7 @@ class TwitchWatcher implements TablessWatchController {
   private async resolveUserId(): Promise<string | undefined> {
     if (this.viewerUserId) return this.viewerUserId;
     try {
-      const response = await this.gql<{ currentUser?: { id?: string } }>("CurrentUser", "", {}, CURRENT_USER_QUERY);
+      const response = await this.gql<{ currentUser?: { id?: string } }>("CurrentUser", "", {}, CURRENT_USER_QUERY, undefined, this.diagnostics.emit);
       this.viewerUserId = response.data?.currentUser?.id;
     } catch (error) {
       // Leave unresolved; tick() reports the missing-user case to the scheduler.

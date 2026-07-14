@@ -64,24 +64,24 @@ function isKickClaimSuccess(response: KickClaimResponse): boolean {
 export function createKickFetcher(deps: {
   background: (url: string, init?: RequestInit) => Promise<unknown>;
   pageFetch: (url: string, init?: RequestInit) => Promise<unknown>;
-}, emit: EventEmitter = ignoreEvent): PageFetcher {
+}): PageFetcher {
   const { background, pageFetch } = deps;
   const announced = new Map<string, "background" | "fallback">();
-  const report = (host: string, outcome: "background" | "fallback", detail: string): void => {
+  const report = (emit: EventEmitter, host: string, outcome: "background" | "fallback", detail: string): void => {
     const repeat = announced.get(host) === outcome;
     announced.set(host, outcome);
     diagnostic(emit, repeat ? "debug" : "info", `Kick fetch ${host} ${detail}`);
   };
   return {
-    fetchJson: async <T,>(url: string, init?: RequestInit): Promise<T> => {
+    fetchJson: async <T,>(url: string, init?: RequestInit, emit: EventEmitter = ignoreEvent): Promise<T> => {
       const host = safeHost(url);
       try {
         const result = await background(url, init);
-        report(host, "background", "→ service worker OK (tabless-capable)");
+        report(emit, host, "background", "→ service worker OK (tabless-capable)");
         return result as T;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        report(host, "fallback", error instanceof KickWafBlockedError
+        report(emit, host, "fallback", error instanceof KickWafBlockedError
           ? `→ WAF-blocked from service worker, using page tab (${message})`
           : `→ service worker error, using page tab (${message})`);
         return await pageFetch(url, init) as T;
@@ -141,7 +141,7 @@ export class KickAdapter implements PlatformAdapter {
   ) {}
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
-    const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/campaigns");
+    const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/campaigns", undefined, this.emit);
     return parseKickCampaigns(data as Parameters<typeof parseKickCampaigns>[0]);
   }
 
@@ -153,7 +153,7 @@ export class KickAdapter implements PlatformAdapter {
       // 131, 67). pageFetchJson adds the Bearer from session_token on top.
       const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/progress", {
         headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
-      });
+      }, this.emit);
       return mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -171,7 +171,7 @@ export class KickAdapter implements PlatformAdapter {
     // a Typesense key; this one is plain and works from the SW/page fetcher.
     const url = new URL("https://kick.com/api/search");
     url.searchParams.set("searched_word", trimmed);
-    const data = await this.fetcher.fetchJson<unknown>(url.toString());
+    const data = await this.fetcher.fetchJson<unknown>(url.toString(), undefined, this.emit);
     return parseKickCategories(data);
   }
 
@@ -184,7 +184,7 @@ export class KickAdapter implements PlatformAdapter {
     url.searchParams.set("sort", "viewer_count_desc");
     if (campaign.categoryId) url.searchParams.set("category_id", campaign.categoryId);
 
-    const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString());
+    const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString(), undefined, this.emit);
     const streams = Array.isArray(response.data) ? response.data : response.data?.livestreams ?? [];
     return streams.map((stream): ChannelCandidate => {
       const username = stream.channel?.slug ?? stream.channel?.username ?? stream.slug ?? "";
@@ -208,6 +208,8 @@ export class KickAdapter implements PlatformAdapter {
     try {
       const data = await this.fetcher.fetchJson<KickChannelResponse>(
         `https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`,
+        undefined,
+        this.emit,
       );
       const livestream = data.livestream;
       // Kick now returns a `categories` array; keep `category` as a fallback.
@@ -258,6 +260,7 @@ export class KickAdapter implements PlatformAdapter {
             claim_id: reward.claimId,
           }),
         },
+        this.emit,
       );
       const claimed = isKickClaimSuccess(response);
       if (!claimed && campaign.accountLinked === false) this.warnAccountNotLinked(campaign, reward);
@@ -307,7 +310,7 @@ export class KickAdapter implements PlatformAdapter {
     const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
     diagnostic(this.emit, "debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`);
     try {
-      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url);
+      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, undefined, this.emit);
       const html = page.html ?? "";
       const live = parseBooleanField(html, ["is_live", "isLive", "live"]) ?? html.includes("livestream");
       const actualCategoryId = parseCategoryId(html);

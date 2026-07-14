@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+import type { DiagnosticEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
 import { buildMinuteWatchedEvent, buildSpadeInput, gzipBase64 } from "@lurkloot/core/twitch/watch";
+import { TwitchAdapter } from "@lurkloot/core/twitch";
+import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
 import { KickWatcher, type WebSocketLike } from "@lurkloot/core/kick/watch";
 import { PendingWatcherDiagnostics } from "@lurkloot/core/tablessWatch";
 
@@ -89,6 +92,13 @@ class FakeSocket implements WebSocketLike {
   }
 }
 
+class AsyncCloseSocket extends FakeSocket {
+  override close(): void {
+    super.close();
+    queueMicrotask(() => this.emit("close"));
+  }
+}
+
 const kickChannel: ChannelCandidate = {
   platform: "kick",
   username: "creator",
@@ -96,6 +106,38 @@ const kickChannel: ChannelCandidate = {
 };
 
 describe("kick viewer watcher", () => {
+  it("routes later adapter-created watcher fetch diagnostics through its pending queue", async () => {
+    const socket = new FakeSocket();
+    const creationEvents: DiagnosticEvent[] = [];
+    const background = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } };
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } };
+      throw new Error(`unexpected url ${url}`);
+    });
+    const adapter = new KickAdapter(
+      createKickFetcher({ background, pageFetch: async () => { throw new Error("page fallback not expected"); } }),
+      undefined,
+      () => socket,
+      (event) => creationEvents.push(event as DiagnosticEvent),
+    );
+    const watcher = adapter.createTablessWatcher?.();
+    expect(watcher).toBeDefined();
+
+    await watcher?.start({ ...kickChannel, categoryId: "10" }, {});
+    watcher?.drainEvents();
+    socket.emit("open");
+    watcher?.drainEvents();
+    socket.emit("close");
+    await watcher?.tick({});
+
+    const reconnectEvents = watcher?.drainEvents() ?? [];
+    const refreshFetches = reconnectEvents.filter((event) => event.message.includes("Kick fetch kick.com"));
+    expect(refreshFetches).toHaveLength(1);
+    expect(reconnectEvents).toContainEqual(expect.objectContaining({ message: "Kick viewer connection closed for creator" }));
+    expect(creationEvents.filter((event) => event.message.includes("Kick fetch kick.com"))).toEqual([]);
+    await watcher?.stop();
+  });
+
   it("opens the viewer socket and sends a watch event on connect", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
@@ -190,6 +232,31 @@ describe("kick viewer watcher", () => {
     expect(drained[0]?.message).toBe("event-10");
     expect(drained.at(-1)?.message).toBe("event-259");
     expect(diagnostics.drain()).toEqual([]);
+  });
+
+  it("does not strand an expected close diagnostic after intentional stop", async () => {
+    const socket = new AsyncCloseSocket();
+    const adapter = new KickAdapter(
+      {
+        fetchJson: vi.fn(async (url: string) => {
+          if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as never;
+          if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as never;
+          throw new Error(`unexpected url ${url}`);
+        }),
+      },
+      undefined,
+      () => socket,
+    );
+    const watcher = adapter.createTablessWatcher?.();
+
+    await watcher?.start(kickChannel, {});
+    watcher?.drainEvents();
+    socket.emit("open");
+    watcher?.drainEvents();
+    await watcher?.stop();
+    await Promise.resolve();
+
+    expect(watcher?.drainEvents()).toEqual([]);
   });
 
   it("reports unhealthy when the viewer token cannot be obtained", async () => {
@@ -339,5 +406,38 @@ describe("kick viewer watcher", () => {
       livestream_id: 3,
     });
     await watcher.stop();
+  });
+});
+
+describe("adapter-created twitch watcher diagnostics", () => {
+  it("routes a later transient GQL retry through the watcher queue", async () => {
+    const creationEvents: DiagnosticEvent[] = [];
+    let streamCalls = 0;
+    const fetchJson = vi.fn(async (_url: string, init?: RequestInit) => {
+      const operationName = JSON.parse(String(init?.body)).operationName;
+      if (operationName === "StreamInfo") {
+        streamCalls += 1;
+        if (streamCalls === 1) return { errors: [{ message: "service unavailable" }] };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game", name: "Game" } } } } };
+      }
+      if (operationName === "SendEvents") return { data: { sendSpadeEvents: { statusCode: 204 } } };
+      throw new Error(`unexpected operation ${operationName}`);
+    });
+    const adapter = new TwitchAdapter(
+      { fetchJson: fetchJson as never },
+      undefined,
+      undefined,
+      undefined,
+      (event) => creationEvents.push(event as DiagnosticEvent),
+    );
+    const watcher = adapter.createTablessWatcher?.();
+
+    await watcher?.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
+    await watcher?.tick({ userId: "viewer-id" });
+
+    expect(watcher?.drainEvents()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: "GQL StreamInfo returned a transient error; retrying once" }),
+    ]));
+    expect(creationEvents.filter((event) => event.message.includes("GQL StreamInfo returned a transient error"))).toEqual([]);
   });
 });

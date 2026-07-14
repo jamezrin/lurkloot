@@ -125,7 +125,7 @@ const controller = createBackgroundController<ExtensionSettings>({
         createKickFetcher({
           background: (url, init) => fetchKickInBackground<unknown>(url, init),
           pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
-        }, emit),
+        }),
         watchTabPort,
         undefined,
         emit,

@@ -1,5 +1,5 @@
 import type { ChannelCandidate, Platform } from "@lurkloot/shared/models";
-import type { DiagnosticEvent } from "@lurkloot/shared/events";
+import type { DiagnosticEvent, EventEmitter } from "@lurkloot/shared/events";
 
 // Persistent sockets/timers can produce diagnostics between controller
 // operations. Keep a small bounded FIFO so those events are reported by the
@@ -8,6 +8,9 @@ export const MAX_PENDING_WATCHER_DIAGNOSTICS = 250;
 
 export class PendingWatcherDiagnostics {
   private readonly events: DiagnosticEvent[] = [];
+  readonly emit: EventEmitter = (event) => {
+    if (event.category === "diagnostic") this.push(event);
+  };
 
   push(event: DiagnosticEvent): void {
     if (this.events.length >= MAX_PENDING_WATCHER_DIAGNOSTICS) this.events.shift();

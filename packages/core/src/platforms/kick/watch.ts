@@ -68,6 +68,7 @@ export class KickWatcher implements TablessWatchController {
   private readonly createWebSocket: WebSocketFactory;
   private readonly now: () => number;
   private readonly diagnostics = new PendingWatcherDiagnostics();
+  private readonly intentionallyClosedSockets = new WeakSet<WebSocketLike>();
 
   constructor(deps: KickWatcherDeps) {
     this.fetcher = deps.fetcher;
@@ -128,8 +129,10 @@ export class KickWatcher implements TablessWatchController {
       this.handshakeTimer = undefined;
     }
     if (this.ws) {
+      const ws = this.ws;
+      this.intentionallyClosedSockets.add(ws);
       try {
-        this.ws.close();
+        ws.close();
       } catch {
         // The socket may already be closing; nothing to do.
       }
@@ -170,6 +173,7 @@ export class KickWatcher implements TablessWatchController {
       });
       ws.addEventListener("close", () => {
         this.connected = false;
+        if (this.intentionallyClosedSockets.delete(ws)) return;
         this.log("debug", `Kick viewer connection closed for ${channel.username}`);
       });
       ws.addEventListener("error", () => {
@@ -263,6 +267,7 @@ export class KickWatcher implements TablessWatchController {
     const response = await this.fetcher.fetchJson<{ data?: { token?: string } }>(
       "https://websockets.kick.com/viewer/v1/token",
       { headers: { "X-Client-Token": KICK_CLIENT_TOKEN } },
+      this.diagnostics.emit,
     );
     const token = response?.data?.token;
     if (!token) throw new Error("Kick did not return a viewer token; refresh your Kick login");
@@ -286,7 +291,7 @@ export class KickWatcher implements TablessWatchController {
         category?: { id?: string | number };
         categories?: Array<{ id?: string | number }>;
       } | null;
-    }>(`https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`);
+    }>(`https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`, undefined, this.diagnostics.emit);
     const channelId = data.id == null ? channel.channelId : String(data.id);
     if (!channelId) throw new Error(`Could not resolve the Kick channel id for ${channel.username}`);
     const category = data.livestream?.categories?.[0] ?? data.livestream?.category;
