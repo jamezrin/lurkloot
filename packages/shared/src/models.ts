@@ -213,6 +213,22 @@ export interface PlatformSettings {
   categories: CategorySelection[];
 }
 
+export interface TwitchCompatibilitySettings {
+  profile: string;
+  heartbeatTransport: string;
+  inventoryQueryVersion: string;
+}
+
+export interface KickCompatibilitySettings {
+  profile: string;
+  claimLinkHandling: string;
+}
+
+export interface CompatibilitySettings {
+  twitch: TwitchCompatibilitySettings;
+  kick: KickCompatibilitySettings;
+}
+
 // The universal settings contract the farming engine (packages/core) consumes.
 // Host-agnostic: every field here does something during a scheduler tick on any
 // host (extension or CLI). Host-only knobs (browser tab policy, popup UI) live on
@@ -232,6 +248,7 @@ export interface EngineSettings {
   watchQueueFallbackOnly: boolean;
   priorityMode: PriorityMode;
   platform: Record<Platform, PlatformSettings>;
+  compatibility: CompatibilitySettings;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
   offlineRetryLimit: number;
