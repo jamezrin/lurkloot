@@ -1,10 +1,17 @@
 import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
+import type { EventEmitter } from "@lurkloot/shared/events";
+import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TablessWatchController } from "../../core/tablessWatch";
-import { logActivity } from "../../core/activityLog";
 import { KickWafBlockedError } from "../../core/tabs";
 import { unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
+
+const ignoreEvent: EventEmitter = () => {};
+
+function diagnostic(emit: EventEmitter, level: LogLevel, message: string): void {
+  emit({ category: "diagnostic", level, message, platform: "kick" });
+}
 
 interface KickLivestreamsResponse {
   data?: Array<KickLivestream> | { livestreams?: KickLivestream[] };
@@ -57,13 +64,13 @@ function isKickClaimSuccess(response: KickClaimResponse): boolean {
 export function createKickFetcher(deps: {
   background: (url: string, init?: RequestInit) => Promise<unknown>;
   pageFetch: (url: string, init?: RequestInit) => Promise<unknown>;
-}): PageFetcher {
+}, emit: EventEmitter = ignoreEvent): PageFetcher {
   const { background, pageFetch } = deps;
   const announced = new Map<string, "background" | "fallback">();
   const report = (host: string, outcome: "background" | "fallback", detail: string): void => {
     const repeat = announced.get(host) === outcome;
     announced.set(host, outcome);
-    logActivity(repeat ? "debug" : "info", `Kick fetch ${host} ${detail}`, "kick");
+    diagnostic(emit, repeat ? "debug" : "info", `Kick fetch ${host} ${detail}`);
   };
   return {
     fetchJson: async <T,>(url: string, init?: RequestInit): Promise<T> => {
@@ -130,6 +137,7 @@ export class KickAdapter implements PlatformAdapter {
     // headless runtime injects one that rides its impersonated session so the
     // handshake clears Kick's WAF.
     private readonly webSocketFactory?: WebSocketFactory,
+    private readonly emit: EventEmitter = ignoreEvent,
   ) {}
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
@@ -149,7 +157,7 @@ export class KickAdapter implements PlatformAdapter {
       return mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logActivity("warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
+      diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`);
       return campaigns;
     }
   }
@@ -269,7 +277,7 @@ export class KickAdapter implements PlatformAdapter {
 
   private warnAccountNotLinked(campaign: DropCampaign, reward: DropReward): void {
     const where = campaign.accountLinkUrl ? ` at ${campaign.accountLinkUrl}` : ` for ${campaign.name}`;
-    logActivity("warn", `Cannot claim "${reward.name}" yet — link your Kick account${where} to claim this campaign's drops.`, "kick");
+    diagnostic(this.emit, "warn", `Cannot claim "${reward.name}" yet — link your Kick account${where} to claim this campaign's drops.`);
   }
 
   prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>) {
@@ -288,7 +296,7 @@ export class KickAdapter implements PlatformAdapter {
     return new KickWatcher({
       fetcher: this.fetcher,
       createWebSocket: this.webSocketFactory,
-      log: (level, message) => logActivity(level, message, "kick"),
+      log: (level, message) => diagnostic(this.emit, level, message),
     });
   }
 
@@ -298,7 +306,7 @@ export class KickAdapter implements PlatformAdapter {
     originalError: unknown,
   ): Promise<ChannelCheck> {
     const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
-    logActivity("debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "kick");
+    diagnostic(this.emit, "debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`);
     try {
       const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url);
       const html = page.html ?? "";

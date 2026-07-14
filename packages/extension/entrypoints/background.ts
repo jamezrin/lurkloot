@@ -57,26 +57,6 @@ async function translate(key: string, substitutions?: string | string[]): Promis
   return translateFromCatalogs(key, substitutions, active, fallback ?? {});
 }
 
-// Browser-backed watch-tab port shared by both adapters: binds the engine's
-// WatchTabPort to the extension's wxt/browser tab wrappers. The host owns the tab
-// policy (mute / keep-unmuted / auto-close), filling it from its own settings
-// before delegating — the engine never reads those fields.
-const watchTabPort: WatchTabPort = {
-  openPinnedMutedTab: async (channel, session, options) => {
-    const settings = await loadSettings();
-    return openPinnedMutedTab(channel, session, {
-      muted: settings.muteFarmingTabs,
-      keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
-      closeManagedTabs: settings.autoCloseFinishedDrops,
-      ...options,
-    });
-  },
-  stopWatchTab: async (session, options) => {
-    const settings = await loadSettings();
-    return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options });
-  },
-};
-
 const controller = createBackgroundController<ExtensionSettings>({
   loadSettings,
   saveSettings,
@@ -107,28 +87,51 @@ const controller = createBackgroundController<ExtensionSettings>({
   },
   translate,
   applySettingsPatch,
-  applyAdFocus: async (platform, tabId, adActive) => {
+  applyAdFocus: async (platform, tabId, adActive, emit) => {
     const { adFocusMode } = await loadSettings();
-    await applyAdFocus(platform, tabId, adActive, adFocusMode);
+    await applyAdFocus(platform, tabId, adActive, adFocusMode, emit);
   },
   loadTabPlaybackPolicy: async () => ({ keepVideosUnmuted: (await loadSettings()).keepFarmingVideosUnmuted !== false }),
   loadTwitchIntegrity,
   saveTwitchIntegrity,
   stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
-  createAdapters: (_emit) => ({
-    twitch: new TwitchAdapter(
-      { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
-      ensureTwitchIntegrity,
-      watchTabPort,
-    ),
-    kick: new KickAdapter(
-      createKickFetcher({
-        background: (url, init) => fetchKickInBackground<unknown>(url, init),
-        pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
-      }),
-      watchTabPort,
-    ),
-  }),
+  createAdapters: (emit) => {
+    // The watch-tab port is operation-scoped so every browser diagnostic joins
+    // the same controller event batch as the adapter and scheduler events.
+    const watchTabPort: WatchTabPort = {
+      openPinnedMutedTab: async (channel, session, options) => {
+        const settings = await loadSettings();
+        return openPinnedMutedTab(channel, session, {
+          muted: settings.muteFarmingTabs,
+          keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
+          closeManagedTabs: settings.autoCloseFinishedDrops,
+          ...options,
+        }, emit);
+      },
+      stopWatchTab: async (session, options) => {
+        const settings = await loadSettings();
+        return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options }, emit);
+      },
+    };
+    return {
+      twitch: new TwitchAdapter(
+        { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
+        () => ensureTwitchIntegrity(emit),
+        watchTabPort,
+        {},
+        emit,
+      ),
+      kick: new KickAdapter(
+        createKickFetcher({
+          background: (url, init) => fetchKickInBackground<unknown>(url, init),
+          pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
+        }, emit),
+        watchTabPort,
+        undefined,
+        emit,
+      ),
+    };
+  },
 });
 
 // Builds the CLI credential blob from the user's live session cookies: Twitch

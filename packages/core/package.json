@@ -8,7 +8,6 @@
     "./scheduler": "./src/core/scheduler.ts",
     "./tablessWatch": "./src/core/tablessWatch.ts",
     "./twitchIntegrity": "./src/core/twitchIntegrity.ts",
-    "./activityLog": "./src/core/activityLog.ts",
     "./tabs": "./src/core/tabs.ts",
     "./defaults": "./src/core/defaults.ts",
     "./adapter": "./src/platforms/adapter.ts",

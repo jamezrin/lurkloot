@@ -1,6 +1,7 @@
 import { fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
 import { KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
+import type { EventEmitter } from "@lurkloot/shared/events";
 import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
 import { twitchCookieApi } from "./cookieApi";
@@ -23,21 +24,25 @@ export async function createImpersonateTransport(
   deps: ImpersonateDeps = {},
 ): Promise<TransportHandle> {
   const cycleTLS = await (deps.initClient ?? initCycle)();
+  const createAdapters = (emit?: EventEmitter) => ({
+    twitch: new TwitchAdapter(
+      { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init) },
+      async () => false,
+      tablessWatchPort,
+      twitchClientIdentity(creds),
+      emit,
+    ),
+    kick: new KickAdapter(
+      createCycleKickFetcher(cycleTLS, creds),
+      tablessWatchPort,
+      createCycleKickWebSocketFactory(cycleTLS, creds),
+      emit,
+    ),
+  });
 
   return {
-    adapters: {
-      twitch: new TwitchAdapter(
-        { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init) },
-        async () => false,
-        tablessWatchPort,
-        twitchClientIdentity(creds),
-      ),
-      kick: new KickAdapter(
-        createCycleKickFetcher(cycleTLS, creds),
-        tablessWatchPort,
-        createCycleKickWebSocketFactory(cycleTLS, creds),
-      ),
-    },
+    adapters: createAdapters(),
+    createAdapters,
     async dispose() {
       await cycleTLS.exit();
     },

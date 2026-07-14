@@ -1,9 +1,16 @@
 import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
+import type { EventEmitter } from "@lurkloot/shared/events";
+import type { LogLevel } from "@lurkloot/shared/logging";
 import type { HeartbeatResult, TablessWatchController, WatchContext } from "../../core/tablessWatch";
-import { logActivity } from "../../core/activityLog";
 import { unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./watch";
+
+const ignoreEvent: EventEmitter = () => {};
+
+function diagnostic(emit: EventEmitter, level: LogLevel, message: string): void {
+  emit({ category: "diagnostic", level, message, platform: "twitch" });
+}
 
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
@@ -285,6 +292,7 @@ export class TwitchAdapter implements PlatformAdapter {
     // user agent (e.g. the Android app) so Twitch never gates it behind integrity
     // — the persisted-query hashes are client-agnostic, so claims work unchanged.
     options: TwitchAdapterOptions = {},
+    private readonly emit: EventEmitter = ignoreEvent,
   ) {
     this.clientId = options.clientId ?? TWITCH_CLIENT_ID;
     this.userAgent = options.userAgent;
@@ -478,7 +486,7 @@ export class TwitchAdapter implements PlatformAdapter {
       );
       const campaigns = response.data?.channel?.viewerDropCampaigns;
       if (!Array.isArray(campaigns)) {
-        logActivity("debug", `Twitch did not return available campaign data for ${channelLogin}; using live/category validation`, "twitch");
+        diagnostic(this.emit, "debug", `Twitch did not return available campaign data for ${channelLogin}; using live/category validation`);
         return undefined;
       }
 
@@ -492,7 +500,7 @@ export class TwitchAdapter implements PlatformAdapter {
       return campaignIds.has(campaignId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logActivity("debug", `Could not confirm available Twitch campaigns for ${channelLogin}; using live/category validation: ${message}`, "twitch");
+      diagnostic(this.emit, "debug", `Could not confirm available Twitch campaigns for ${channelLogin}; using live/category validation: ${message}`);
       return undefined;
     }
   }
@@ -547,7 +555,7 @@ export class TwitchAdapter implements PlatformAdapter {
   async claimReward(campaign: DropCampaign, reward: DropReward): Promise<boolean> {
     if (!reward.claimId) return false;
 
-    logActivity("debug", `Claiming ${reward.name} from ${campaign.name} (instance ${reward.claimId})`, "twitch");
+    diagnostic(this.emit, "debug", `Claiming ${reward.name} from ${campaign.name} (instance ${reward.claimId})`);
     // Claiming requires a valid Client-Integrity token, which we replay from the
     // live twitch.tv page (see src/core/twitchIntegrity.ts). Proactively ensure one
     // exists first so a tabless / no-tab session can still claim. This is a no-op
@@ -561,7 +569,7 @@ export class TwitchAdapter implements PlatformAdapter {
       // Only integrity rejections are worth a refresh + retry; everything else
       // (e.g. an unexpected status or a stale id) propagates unchanged.
       if (!/integrity/i.test(message)) throw error;
-      logActivity("warn", `Claim for ${reward.name} was rejected for integrity; refreshing the token and retrying once`, "twitch");
+      diagnostic(this.emit, "warn", `Claim for ${reward.name} was rejected for integrity; refreshing the token and retrying once`);
       // The captured token may have just expired or been anonymous; force one
       // refresh and retry exactly once. A second failure propagates.
       const refreshed = await this.ensureIntegrity();
@@ -615,8 +623,11 @@ export class TwitchAdapter implements PlatformAdapter {
   supportsTabless = true;
 
   createTablessWatcher(): TablessWatchController {
-    return new TwitchWatcher((operationName, sha256Hash, variables, query, credentials) =>
-      this.gql(operationName, sha256Hash, variables, query, credentials));
+    return new TwitchWatcher(
+      (operationName, sha256Hash, variables, query, credentials) =>
+        this.gql(operationName, sha256Hash, variables, query, credentials),
+      this.emit,
+    );
   }
 
   private async mergeCurrentSessionProgress(
@@ -658,7 +669,7 @@ export class TwitchAdapter implements PlatformAdapter {
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logActivity("warn", `Could not merge current session progress for ${channel.username}: ${message}`, "twitch");
+      diagnostic(this.emit, "warn", `Could not merge current session progress for ${channel.username}: ${message}`);
       return campaigns;
     }
   }
@@ -711,7 +722,7 @@ export class TwitchAdapter implements PlatformAdapter {
     }
     const fallbackQuery = !query ? TWITCH_INLINE_QUERIES[operationName] : undefined;
     if (fallbackQuery && hasPersistedQueryNotFound(response)) {
-      logActivity("debug", `GQL ${operationName} persisted query not found; retrying with the inline query`, "twitch");
+      diagnostic(this.emit, "debug", `GQL ${operationName} persisted query not found; retrying with the inline query`);
       activeQuery = fallbackQuery;
       response = await fetchOnce(activeQuery);
       if (!isTwitchGqlResponse<T>(response)) {
@@ -719,7 +730,7 @@ export class TwitchAdapter implements PlatformAdapter {
       }
     }
     if (response.errors?.some((error) => isTransientGqlError(error.message))) {
-      logActivity("debug", `GQL ${operationName} returned a transient error; retrying once`, "twitch");
+      diagnostic(this.emit, "debug", `GQL ${operationName} returned a transient error; retrying once`);
       response = await fetchOnce(activeQuery);
       if (!isTwitchGqlResponse<T>(response)) {
         throw new Error(`${operationName} ${activeQuery ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
@@ -740,13 +751,13 @@ export class TwitchAdapter implements PlatformAdapter {
     originalError: unknown,
   ): Promise<ChannelCheck> {
     const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
-    logActivity("debug", `Channel GQL check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "twitch");
+    diagnostic(this.emit, "debug", `Channel GQL check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`);
     try {
       const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url);
       const html = page.html ?? "";
       const live = parseLiveState(html);
       if (!live) {
-        logActivity("debug", `Channel page for ${channel.username} showed no live signal; treating as offline`, "twitch");
+        diagnostic(this.emit, "debug", `Channel page for ${channel.username} showed no live signal; treating as offline`);
       }
       const actualCategoryId = parseGameId(html);
       const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
@@ -786,7 +797,7 @@ class TwitchWatcher implements TablessWatchController {
   private channel?: ChannelCandidate;
   private viewerUserId?: string;
 
-  constructor(private readonly gql: TwitchGql) {}
+  constructor(private readonly gql: TwitchGql, private readonly emit: EventEmitter) {}
 
   get channelUrl(): string | undefined {
     return this.channel?.url;
@@ -819,13 +830,13 @@ class TwitchWatcher implements TablessWatchController {
     const channelId = info.data?.user?.id ?? channel.channelId;
     const broadcastId = stream?.id ?? channel.broadcastId;
     if (!stream || !channelId || !broadcastId) {
-      logActivity("debug", `Spade tick skipped for ${channel.username}: channel offline or missing a broadcast id`, "twitch");
+      diagnostic(this.emit, "debug", `Spade tick skipped for ${channel.username}: channel offline or missing a broadcast id`);
       return { ok: false, live: false, message: "Twitch channel is offline or missing a broadcast id" };
     }
 
     const userId = await this.resolveUserId();
     if (!userId) return { ok: false, live: true, message: "Twitch did not return a logged-in user id" };
-    logActivity("debug", `Spade tick for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`, "twitch");
+    diagnostic(this.emit, "debug", `Spade tick for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`);
 
     const input = await buildSpadeInput({
       broadcastId,
@@ -843,7 +854,7 @@ class TwitchWatcher implements TablessWatchController {
     );
     const status = result.data?.sendSpadeEvents?.statusCode;
     const ok = status === 204;
-    logActivity("debug", `Spade event for ${channel.username} returned status ${status ?? "unknown"}`, "twitch");
+    diagnostic(this.emit, "debug", `Spade event for ${channel.username} returned status ${status ?? "unknown"}`);
     return { ok, live: true, message: ok ? undefined : `Twitch watch event returned status ${status ?? "unknown"}` };
   }
 
@@ -855,7 +866,7 @@ class TwitchWatcher implements TablessWatchController {
     } catch (error) {
       // Leave unresolved; tick() reports the missing-user case to the scheduler.
       const message = error instanceof Error ? error.message : String(error);
-      logActivity("warn", `Could not resolve the Twitch viewer id for tabless watching: ${message}`, "twitch");
+      diagnostic(this.emit, "warn", `Could not resolve the Twitch viewer id for tabless watching: ${message}`);
     }
     return this.viewerUserId;
   }

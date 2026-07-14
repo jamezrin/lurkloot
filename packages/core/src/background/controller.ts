@@ -3,7 +3,6 @@ import type { DropCampaign, DropReward, EngineSettings, Platform, PlaybackTeleme
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
-import { logActivity, setActivityLogger } from "../core/activityLog";
 import { setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
@@ -55,7 +54,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   closeManagedTabsByUrl?(urls: string[]): Promise<void>;
   // Tab-mode ad focus. The host (extension) owns the focus policy (adFocusMode),
   // so the engine only reports whether an ad is active for a given watch tab.
-  applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean): Promise<void>;
+  applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
   // Tab-mode playback policy the host supplies to managed watch tabs. Defaults to
   // keeping videos unmuted when the host does not provide it.
   loadTabPlaybackPolicy?(): Promise<{ keepVideosUnmuted: boolean }>;
@@ -71,19 +70,10 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
 }
 
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
-  // Call only while holding the module-wide state lock: the temporary activity
-  // logger is process-global until Task 4 replaces it with scoped dependencies.
   async function withEventCollector<T>(operation: (emit: EventEmitter, events: EngineEvent[]) => Promise<T>): Promise<T> {
     const events: EngineEvent[] = [];
     const emit: EventEmitter = (event) => events.push(event);
-    const previousLogger = setActivityLogger((level, message, platform) => {
-      emit({ category: "diagnostic", level, message, platform });
-    });
-    try {
-      return await operation(emit, events);
-    } finally {
-      setActivityLogger(previousLogger);
-    }
+    return operation(emit, events);
   }
 
   // Persistent tabless watchers, one per platform, kept alive across discovery
@@ -128,9 +118,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined): Promise<void> {
     const integrity = integrityFromHeaders(headers);
     if (!integrity) return;
-    await withStateLock(() => withEventCollector(async (_emit, events) => {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
       const isNew = integrity.integrity !== lastIntegrityToken;
-      setTwitchIntegrity(integrity, { isNew });
+      setTwitchIntegrity(integrity, { isNew }, emit);
       if (isNew) {
         lastIntegrityToken = integrity.integrity;
         await deps.saveTwitchIntegrity?.(integrity);
@@ -268,7 +258,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         const lifecycleEvents = farmingLifecycleEvents(state, result.state);
         for (const event of lifecycleEvents) emit(event);
         await emitNotifications(settings, state, result.state);
-        await applyAdFocusForState(result.state);
+        await applyAdFocusForState(result.state, emit);
         await reconcileTablessWatchers(result.state, settings, adapters, emit, platforms);
         await persistAndReport(result.state, events);
       } catch (error) {
@@ -506,7 +496,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await saveOperationalState(nextState);
       try {
         if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
-          await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive));
+          await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), emit);
         }
       } finally {
         await reportBestEffort(events);
@@ -540,12 +530,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return { ...state, manualWatch };
   }
 
-  async function applyAdFocusForState(state: SchedulerState): Promise<void> {
+  async function applyAdFocusForState(state: SchedulerState, emit: EventEmitter): Promise<void> {
     if (!deps.applyAdFocus) return;
     for (const platform of ["twitch", "kick"] as Platform[]) {
       const session = state.sessions[platform];
       const watching = session.status === "watching" && session.tabId != null;
-      await deps.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive));
+      await deps.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive), emit);
     }
   }
 
@@ -721,18 +711,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
 
     if (message.type === "searchCategories") {
-      // The temporary global diagnostics bridge is operation-scoped, so this
-      // otherwise read-only adapter call shares the controller operation lock.
-      return withStateLock(() => withEventCollector(async (emit, events) => {
+      return withEventCollector(async (emit, events) => {
         let categories: CategorySearchResult["categories"] = [];
         try {
           categories = await deps.createAdapters(emit)[message.platform].searchCategories?.(message.query) ?? [];
         } catch (error) {
-          logActivity("warn", `Category search failed: ${error instanceof Error ? error.message : String(error)}`, message.platform);
+          emit({
+            category: "diagnostic",
+            level: "warn",
+            message: `Category search failed: ${error instanceof Error ? error.message : String(error)}`,
+            platform: message.platform,
+          });
         }
         await reportBestEffort(events);
         return { categories };
-      }));
+      });
     }
 
     if (message.type === "tickNow") {

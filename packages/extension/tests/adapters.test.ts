@@ -3,6 +3,7 @@ import type { PageFetcher } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
+import type { EngineEvent } from "@lurkloot/shared/events";
 import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shared/models";
 import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
@@ -23,6 +24,23 @@ function requestBody(init?: RequestInit): Record<string, unknown> {
 }
 
 describe("KickAdapter", () => {
+  it("keeps adapter diagnostics scoped to the supplied emitter", async () => {
+    const failingFetcher = jsonFetcher(() => {
+      throw new Error("progress unavailable");
+    });
+    const first: EngineEvent[] = [];
+    const second: EngineEvent[] = [];
+    const firstAdapter = new KickAdapter(failingFetcher, undefined, undefined, (event) => first.push(event));
+    const secondAdapter = new KickAdapter(failingFetcher, undefined, undefined, (event) => second.push(event));
+
+    await firstAdapter.readProgress([]);
+    await secondAdapter.readProgress([]);
+
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(1);
+    expect(first[0]).not.toBe(second[0]);
+  });
+
   it("discovers campaigns, merges nested progress, and lists category streams", async () => {
     const fetcher = jsonFetcher((url) => {
       if (url === "https://web.kick.com/api/v1/drops/campaigns") {

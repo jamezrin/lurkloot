@@ -1,4 +1,5 @@
 import type { Platform } from "@lurkloot/shared/models";
+import type { EventEmitter } from "@lurkloot/shared/events";
 import type { PlatformAdapter, WatchTabPort } from "@lurkloot/core/adapter";
 
 // A built set of platform adapters plus a teardown hook (e.g. to stop the
@@ -6,6 +7,7 @@ import type { PlatformAdapter, WatchTabPort } from "@lurkloot/core/adapter";
 // this shape so the commands can dispose uniformly.
 export interface TransportHandle {
   adapters: Record<Platform, PlatformAdapter>;
+  createAdapters(emit: EventEmitter): Record<Platform, PlatformAdapter>;
   dispose(): Promise<void>;
 }
 

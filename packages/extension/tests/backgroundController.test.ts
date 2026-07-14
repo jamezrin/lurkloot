@@ -7,7 +7,6 @@ import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings"
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
-import { logActivity } from "@lurkloot/core/activityLog";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: "reward",
@@ -78,7 +77,7 @@ function harness(
     createAlarm: vi.fn(async () => undefined),
     createNotification: vi.fn(async () => undefined),
     closeManagedTabsByUrl: vi.fn(async () => undefined),
-    applyAdFocus: vi.fn(async () => undefined),
+    applyAdFocus: vi.fn<(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => Promise<void>>(async () => undefined),
     // Host-owned tab policy + settings-patch application (see background.ts).
     loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false })),
     applySettingsPatch: vi.fn((current: ExtensionSettings, patch) => applySettingsPatch(current, patch)),
@@ -801,8 +800,8 @@ describe("background controller", () => {
     });
     await env.controller.handleMessage({ type: "setRunning", running: true });
     reported.length = 0;
-    env.deps.applyAdFocus.mockImplementation(async () => {
-      logActivity("info", "focus-adjusted", "twitch");
+    env.deps.applyAdFocus.mockImplementation(async (_platform, _tabId, _adActive, emit) => {
+      emit({ category: "diagnostic", level: "info", message: "focus-adjusted", platform: "twitch" });
     });
 
     await env.controller.handleMessage({
@@ -844,7 +843,7 @@ describe("background controller", () => {
       },
     }, { tab: { id: 10 } });
 
-    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, true);
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, true, expect.any(Function));
   });
 
   it("releases ad focus when telemetry reports no ad", async () => {
@@ -866,7 +865,7 @@ describe("background controller", () => {
       },
     }, { tab: { id: 10 } });
 
-    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false);
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false, expect.any(Function));
   });
 
   it("does not focus for telemetry from a tab that is not the watch tab", async () => {
@@ -954,8 +953,8 @@ describe("background controller", () => {
 
     await env.controller.handleMessage({ type: "tickNow" });
 
-    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false);
-    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("kick", 20, false);
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false, expect.any(Function));
+    expect(env.deps.applyAdFocus).toHaveBeenCalledWith("kick", 20, false, expect.any(Function));
   });
 
   it("allows playback control only for the current watch tab", async () => {
