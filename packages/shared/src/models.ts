@@ -1,5 +1,3 @@
-import type { LogLevel } from "./logging";
-
 export type Platform = "twitch" | "kick";
 
 export type CampaignStatus = "active" | "upcoming" | "expired" | "completed";
@@ -254,28 +252,6 @@ export interface ExtensionSettings extends EngineSettings {
   // Extension-only persistence policy. Normal farming activity is always
   // recorded; this opt-in adds lower-level technical diagnostics.
   diagnosticLogging: boolean;
-}
-
-/** @deprecated Legacy activity-history compatibility; use EventCategory from ./events. */
-export type EventCategory = "activity" | "diagnostic";
-
-/** @deprecated Legacy activity-history compatibility; use ActivityEvent from ./events. */
-export type ActivityEventCode =
-  | "farming_started"
-  | "farming_stopped"
-  | "reward_claimed"
-  | "interruption";
-
-/** @deprecated Legacy activity-history compatibility; use StoredEngineEvent from ./events. */
-export interface EventLogEntry {
-  id: string;
-  at: string;
-  platform?: Platform;
-  level: LogLevel;
-  message: string;
-  category?: EventCategory;
-  code?: ActivityEventCode | string;
-  data?: Record<string, string | number | boolean | undefined>;
 }
 
 export interface SchedulerState {

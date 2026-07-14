@@ -1,30 +1,56 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { Clock3 } from "lucide-react";
-import type { EventLogEntry, Platform } from "@lurkloot/shared/models";
+import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
+import type { Platform } from "@lurkloot/shared/models";
 import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { formatEventTime } from "./format";
+import { formatActivityEvent, mergeActivityPages } from "./activity.logic";
 
 export function ActivityLog({
-  events,
+  activityEvents,
+  diagnosticEvents,
   platform,
   lastTickAt,
   diagnosticLogging,
+  showDiagnostics,
+  hasMore,
+  clearArmed,
+  clearFailed,
+  loadingMore,
+  clearing,
+  onShowDiagnosticsChange,
+  onLoadMore,
+  onClear,
 }: {
-  events: EventLogEntry[];
+  activityEvents: ActivityHistoryRecord[];
+  diagnosticEvents: ActivityHistoryRecord[];
   platform: Platform;
   lastTickAt?: string;
   diagnosticLogging: boolean;
+  showDiagnostics: boolean;
+  hasMore: boolean;
+  clearArmed: boolean;
+  clearFailed: boolean;
+  loadingMore: boolean;
+  clearing: boolean;
+  onShowDiagnosticsChange(show: boolean): void;
+  onLoadMore(): void;
+  onClear(): void;
 }): React.ReactElement {
   const t = useT();
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const forPlatform = useMemo(
-    () => events.filter((event) => !event.platform || event.platform === platform),
-    [events, platform],
+    () => activityEvents.filter((event) => !event.platform || event.platform === platform),
+    [activityEvents, platform],
   );
-  const visible = useMemo(() => forPlatform
-    .filter((event) => showDiagnostics || (event.category ?? "diagnostic") === "activity")
-    .slice(0, 80), [forPlatform, showDiagnostics]);
+  const diagnosticsForPlatform = useMemo(
+    () => diagnosticEvents.filter((event) => !event.platform || event.platform === platform),
+    [diagnosticEvents, platform],
+  );
+  const visible = useMemo(
+    () => showDiagnostics ? mergeActivityPages(forPlatform, diagnosticsForPlatform) : forPlatform,
+    [diagnosticsForPlatform, forPlatform, showDiagnostics],
+  );
   const errorCount = forPlatform.filter((event) => event.level === "error").length;
 
   return (
@@ -43,15 +69,28 @@ export function ActivityLog({
           {lastTickAt ? t("lastCheck", formatEventTime(lastTickAt)) : t("noChecksYet")}
         </span>
       </div>
-      {diagnosticLogging ? (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {diagnosticLogging ? (
+          <button
+            type="button"
+            onClick={() => onShowDiagnosticsChange(!showDiagnostics)}
+            className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold transition ${showDiagnostics ? "border-transparent bg-zinc-600 text-white" : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
+            aria-pressed={showDiagnostics}
+          >
+            {t(showDiagnostics ? "hideDiagnosticLogs" : "showDiagnosticLogs")}
+          </button>
+        ) : null}
         <button
           type="button"
-          onClick={() => setShowDiagnostics((current) => !current)}
-          className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold transition ${showDiagnostics ? "border-transparent bg-zinc-600 text-white" : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
-          aria-pressed={showDiagnostics}
+          onClick={onClear}
+          disabled={clearing}
+          className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold transition disabled:opacity-50 ${clearArmed ? "border-red-300 bg-red-50 text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300" : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
         >
-          {t("showDiagnosticLogs")}
+          {t(clearArmed ? "confirmClearActivityHistory" : "clearActivityHistory")}
         </button>
+      </div>
+      {clearFailed ? (
+        <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("clearActivityFailed")}</p>
       ) : null}
       <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
         {visible.length === 0 ? (
@@ -62,12 +101,22 @@ export function ActivityLog({
               <li key={event.id} className="flex items-start gap-2 px-2.5 py-1.5 text-[11px] leading-snug">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }} />
                 <span className="shrink-0 font-mono text-[10px] text-zinc-400">{formatEventTime(event.at)}</span>
-                <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">{event.message}</span>
+                <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">{formatActivityEvent(event, t)}</span>
               </li>
             ))}
           </ul>
         )}
       </div>
+      {hasMore ? (
+        <button
+          type="button"
+          onClick={onLoadMore}
+          disabled={loadingMore}
+          className="w-full rounded-lg border border-zinc-200 px-2 py-1.5 text-[10px] font-semibold text-zinc-500 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        >
+          {t("loadMoreActivity")}
+        </button>
+      ) : null}
     </div>
   );
 }

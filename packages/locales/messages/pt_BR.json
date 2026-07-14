@@ -573,6 +573,81 @@
   "diagnosticLoggingDescription": {
     "message": "Registra detalhes técnicos adicionais para ajudar a diagnosticar problemas. A atividade normal é sempre mantida."
   },
+  "activityFarmingStarted": {
+    "message": "Coleta de $1 em $2 iniciada."
+  },
+  "activityFarmingStopped": {
+    "message": "Coleta de $1 em $2 interrompida: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "$1 de $2 foi resgatado."
+  },
+  "activityInterruption": {
+    "message": "Coleta interrompida: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Coleta interrompida: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "a automação foi desativada"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "a plataforma foi desativada"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "a plataforma está aguardando temporariamente"
+  },
+  "activityReasonPlatformError": {
+    "message": "ocorreu um erro na plataforma"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "a campanha não é mais elegível"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "o canal está excluído"
+  },
+  "activityReasonChannelOffline": {
+    "message": "o canal ficou offline"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "o canal não corresponde mais"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "a verificação da reprodução falhou"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "uma recompensa de maior prioridade assumiu"
+  },
+  "activityReasonHigherPriorityWatchQueue": {
+    "message": "a fila de exibição teve prioridade"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "o requisito de exibição foi concluído"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "a extensão foi reiniciada"
+  },
+  "activityReasonTargetChanged": {
+    "message": "o alvo da coleta mudou"
+  },
+  "activityReasonManualWatch": {
+    "message": "a exibição manual assumiu"
+  },
+  "hideDiagnosticLogs": {
+    "message": "Ocultar diagnósticos"
+  },
+  "loadMoreActivity": {
+    "message": "Carregar mais"
+  },
+  "clearActivityHistory": {
+    "message": "Limpar histórico"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Confirmar limpeza"
+  },
+  "clearActivityFailed": {
+    "message": "Não foi possível limpar o histórico. Tente novamente."
+  },
   "showDiagnosticLogs": {
     "message": "Mostrar diagnósticos"
   }

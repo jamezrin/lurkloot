@@ -573,6 +573,81 @@
   "diagnosticLoggingDescription": {
     "message": "Zeichnet zusätzliche technische Details zur Fehlerdiagnose auf. Normale Aktivitäten werden immer gespeichert."
   },
+  "activityFarmingStarted": {
+    "message": "$1 aus $2 wird jetzt gesammelt."
+  },
+  "activityFarmingStopped": {
+    "message": "$1 aus $2 wird nicht mehr gesammelt: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "$1 aus $2 wurde abgeholt."
+  },
+  "activityInterruption": {
+    "message": "Sammeln unterbrochen: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Sammeln unterbrochen: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "die Automatisierung wurde deaktiviert"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "die Plattform wurde deaktiviert"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "die Plattform wartet vorübergehend"
+  },
+  "activityReasonPlatformError": {
+    "message": "ein Plattformfehler ist aufgetreten"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "die Kampagne ist nicht mehr berechtigt"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "der Kanal ist ausgeschlossen"
+  },
+  "activityReasonChannelOffline": {
+    "message": "der Kanal ist offline gegangen"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "der Kanal passt nicht mehr"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "die Wiedergabeprüfung ist fehlgeschlagen"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "eine höher priorisierte Belohnung wurde übernommen"
+  },
+  "activityReasonHigherPriorityWatchQueue": {
+    "message": "die Wiedergabewarteschlange hatte Vorrang"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "die Wiedergabeanforderung wurde erfüllt"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "die Erweiterung wurde neu gestartet"
+  },
+  "activityReasonTargetChanged": {
+    "message": "das Sammelziel hat sich geändert"
+  },
+  "activityReasonManualWatch": {
+    "message": "manuelle Wiedergabe hatte Vorrang"
+  },
+  "hideDiagnosticLogs": {
+    "message": "Diagnosen ausblenden"
+  },
+  "loadMoreActivity": {
+    "message": "Mehr laden"
+  },
+  "clearActivityHistory": {
+    "message": "Verlauf löschen"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Löschen bestätigen"
+  },
+  "clearActivityFailed": {
+    "message": "Der Aktivitätsverlauf konnte nicht gelöscht werden. Erneut versuchen."
+  },
   "showDiagnosticLogs": {
     "message": "Diagnose anzeigen"
   }

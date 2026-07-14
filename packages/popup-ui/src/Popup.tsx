@@ -10,7 +10,8 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import type { ActivityPage, CategorySearchResult, CliCredentialBlob, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { CategorySelection, EventLogEntry, ExtensionSettings, Platform } from "@lurkloot/shared/models";
+import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
+import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
@@ -41,6 +42,7 @@ import {
 } from "./viewModels";
 import { IconButton, SubTabs, cn } from "./primitives";
 import { ActivityLog } from "./activity";
+import { mergeActivityPages } from "./activity.logic";
 import { AttributionFooter } from "./footer";
 import { RateNudge, shouldShowRateNudge } from "./rateNudge";
 import { UpdateNotice } from "./updateNotice";
@@ -56,6 +58,18 @@ function isPlatform(value: unknown): value is Platform {
   return value === "twitch" || value === "kick";
 }
 
+type ActivityStream = {
+  events: ActivityHistoryRecord[];
+  nextCursor?: string;
+};
+
+function mergeActivityStream(current: ActivityStream, page: ActivityPage, paging: boolean): ActivityStream {
+  return {
+    events: mergeActivityPages(current.events, page.events),
+    nextCursor: paging || current.events.length === 0 ? page.nextCursor : current.nextCursor,
+  };
+}
+
 export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initialState?: PopupInitialState }): React.ReactElement {
   const preview = initialState?.preview ?? false;
   const initialVariant = initialState?.variant ?? screenshotVariant("twitch-drops");
@@ -66,7 +80,13 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [tab, setTab] = useState<PopupTab>(preview && initialVariant.view === "watchQueue" ? "watchQueue" : "drops");
   const [settingsOpen, setSettingsOpen] = useState(preview && initialVariant.view === "settings");
   const [activityOpen, setActivityOpen] = useState(preview && initialVariant.view === "activity");
-  const [activityEvents, setActivityEvents] = useState<EventLogEntry[]>([]);
+  const [activityStream, setActivityStream] = useState<ActivityStream>({ events: [] });
+  const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>({ events: [] });
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [loadingMoreActivity, setLoadingMoreActivity] = useState(false);
+  const [clearActivityArmed, setClearActivityArmed] = useState(false);
+  const [clearingActivity, setClearingActivity] = useState(false);
+  const [clearActivityFailed, setClearActivityFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [resumingAutomation, setResumingAutomation] = useState(false);
   const [pendingChangelogVersion, setPendingChangelogVersion] = useState<string>();
@@ -159,8 +179,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     if (!activityOpen || preview) return;
     let cancelled = false;
     const refresh = () => void adapter.send<ActivityPage>({ type: "getActivity", platform, category: "activity", limit: 80 }).then((page) => {
-      if (!cancelled) setActivityEvents(page.events as EventLogEntry[]);
-    });
+      if (!cancelled) setActivityStream((current) => mergeActivityStream(current, page, false));
+    }).catch(() => undefined);
     refresh();
     const interval = setInterval(refresh, 5000);
     return () => {
@@ -168,6 +188,67 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       clearInterval(interval);
     };
   }, [activityOpen, adapter, platform, preview]);
+
+  useEffect(() => {
+    setActivityStream({ events: [] });
+    setDiagnosticStream({ events: [] });
+    setShowDiagnostics(false);
+    setClearActivityArmed(false);
+    setClearActivityFailed(false);
+  }, [platform]);
+
+  useEffect(() => {
+    if (!snapshot?.settings.diagnosticLogging) setShowDiagnostics(false);
+  }, [snapshot?.settings.diagnosticLogging]);
+
+  useEffect(() => {
+    if (!activityOpen || preview || !showDiagnostics || !snapshot?.settings.diagnosticLogging) return;
+    let cancelled = false;
+    const refresh = () => void adapter.send<ActivityPage>({ type: "getActivity", platform, category: "diagnostic", limit: 80 }).then((page) => {
+      if (!cancelled) setDiagnosticStream((current) => mergeActivityStream(current, page, false));
+    }).catch(() => undefined);
+    refresh();
+    const interval = setInterval(refresh, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activityOpen, adapter, platform, preview, showDiagnostics, snapshot?.settings.diagnosticLogging]);
+
+  function loadMoreActivity(): void {
+    const requests: Promise<void>[] = [];
+    if (activityStream.nextCursor) {
+      const cursor = activityStream.nextCursor;
+      requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform, category: "activity", cursor, limit: 80 })
+        .then((page) => setActivityStream((current) => mergeActivityStream(current, page, true))));
+    }
+    if (showDiagnostics && snapshot?.settings.diagnosticLogging && diagnosticStream.nextCursor) {
+      const cursor = diagnosticStream.nextCursor;
+      requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform, category: "diagnostic", cursor, limit: 80 })
+        .then((page) => setDiagnosticStream((current) => mergeActivityStream(current, page, true))));
+    }
+    if (requests.length === 0) return;
+    setLoadingMoreActivity(true);
+    void Promise.allSettled(requests).finally(() => setLoadingMoreActivity(false));
+  }
+
+  function clearActivityHistory(): void {
+    if (!clearActivityArmed) {
+      setClearActivityArmed(true);
+      setClearActivityFailed(false);
+      return;
+    }
+    setClearingActivity(true);
+    setClearActivityFailed(false);
+    void adapter.send<void>({ type: "clearActivity" }).then(() => {
+      setActivityStream({ events: [] });
+      setDiagnosticStream({ events: [] });
+      setClearActivityArmed(false);
+    }).catch(() => {
+      setClearActivityArmed(false);
+      setClearActivityFailed(true);
+    }).finally(() => setClearingActivity(false));
+  }
 
   function dismissUpdateNotice(): void {
     setPendingChangelogVersion(undefined);
@@ -407,7 +488,22 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
-                <ActivityLog events={activityEvents} platform={platform} lastTickAt={snapshot.state.lastTickAt} diagnosticLogging={settings.diagnosticLogging} />
+                <ActivityLog
+                  activityEvents={activityStream.events}
+                  diagnosticEvents={diagnosticStream.events}
+                  platform={platform}
+                  lastTickAt={snapshot.state.lastTickAt}
+                  diagnosticLogging={settings.diagnosticLogging}
+                  showDiagnostics={showDiagnostics}
+                  hasMore={Boolean(activityStream.nextCursor || (showDiagnostics && diagnosticStream.nextCursor))}
+                  clearArmed={clearActivityArmed}
+                  clearFailed={clearActivityFailed}
+                  loadingMore={loadingMoreActivity}
+                  clearing={clearingActivity}
+                  onShowDiagnosticsChange={setShowDiagnostics}
+                  onLoadMore={loadMoreActivity}
+                  onClear={clearActivityHistory}
+                />
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
