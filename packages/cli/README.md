@@ -30,6 +30,11 @@ error** that names the offender. `running` and `tablessMode` are gone — the CL
 always runs and is always tabless. **Credentials never go in the config** — they
 live in the auth store.
 
+Legacy `settings.enabledLogLevels` is accepted but ignored, with one actionable
+warning per command; use the global `--log debug|info|warn|error` option instead.
+`diagnosticLogging` is extension-only and is rejected because the CLI's `--log`
+option is its sole event filter.
+
 Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`,
 `campaignPriorities`, `excludedCampaignIds`, `watchQueueFallbackOnly`,
 `offlineRetryLimit`, `pollIntervalMinutes`,
@@ -39,7 +44,8 @@ Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`
 Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
 `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
 `adFocusMode`, `autoCloseFinishedDrops`, `autoStartDropFarming`,
-`campaignVisibility`, `languageOverride`, `rateNudgeStatus`.
+`campaignVisibility`, `languageOverride`, `rateNudgeStatus`,
+`diagnosticLogging`.
 
 ```jsonc
 {
@@ -122,6 +128,16 @@ are accepted everywhere. For shell autocomplete, source the generated script:
 ```bash
 pnpm cli completion >> ~/.bashrc   # or ~/.zshrc, then restart your shell
 ```
+
+## Event logging
+
+The farming engine reports typed activity and diagnostic batches directly to
+the CLI. The CLI preserves their causal order, formats activity records into
+human-readable lines, and passes diagnostic messages through unchanged. Lines
+go to stderr and are filtered only by `--log`; `state.json` contains scheduler
+state, never new event history. Use Docker logs, systemd/journald, Loki, or
+another external collector when retention is needed. Loading and saving an old
+state file also removes any legacy embedded `events` field.
 
 ## Docker
 

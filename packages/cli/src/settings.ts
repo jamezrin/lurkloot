@@ -65,7 +65,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "watchQueueFallbackOnly",
   "offlineRetryLimit",
   "pollIntervalMinutes",
-  // Accepted as a legacy no-op until Task 8 adds the CLI deprecation warning.
+  // Accepted only so config parsing can surface the deprecation warning.
   // Runtime log filtering belongs to the global --log option and process logger.
   "enabledLogLevels",
   "notifyRewardEarned",
@@ -91,6 +91,7 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "campaignVisibility",
   "languageOverride",
   "rateNudgeStatus",
+  "diagnosticLogging",
 ]);
 
 function describeOffender(key: string): string {

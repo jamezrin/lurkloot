@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadState, saveState } from "../src/storage";
@@ -36,5 +36,15 @@ describe("file-backed state", () => {
     // Missing slices are filled in from the defaults.
     expect(reloaded.sessions.kick).toBeDefined();
     expect(reloaded.campaigns).toEqual({ twitch: [], kick: [] });
+  });
+
+  it("never writes legacy events back to state.json", async () => {
+    const path = join(dir, "state.json");
+    const state = await loadState(join(dir, "missing.json"));
+    await writeFile(path, JSON.stringify({ ...state, events: [{ message: "legacy" }] }));
+
+    await saveState(path, await loadState(path));
+
+    expect(JSON.parse(await readFile(path, "utf8"))).not.toHaveProperty("events");
   });
 });

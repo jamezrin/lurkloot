@@ -12,7 +12,10 @@ export interface CliConfig {
   authDir: string;
   settings: CliSettings;
   configPath: string;
+  warnings: string[];
 }
+
+export const ENABLED_LOG_LEVELS_WARNING = "settings.enabledLogLevels is deprecated and ignored; use --log debug|info|warn|error";
 
 const CONFIG_KEYS = new Set<string>(["transport", "authDir", "settings"]);
 
@@ -96,11 +99,19 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
     throw new Error(`Unknown transport "${transport}"; expected one of: ${TRANSPORTS.join(", ")}`);
   }
   const authDir = resolve(dirname(configPath), (data.authDir as string | undefined) ?? "auth");
+  const rawSettings = data.settings;
+  const warnings = rawSettings !== null
+    && typeof rawSettings === "object"
+    && !Array.isArray(rawSettings)
+    && Object.hasOwn(rawSettings, "enabledLogLevels")
+    ? [ENABLED_LOG_LEVELS_WARNING]
+    : [];
   return {
     transport: transport as Transport,
     authDir,
     settings: parseCliSettings(data.settings),
     configPath,
+    warnings,
   };
 }
 

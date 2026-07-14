@@ -36,6 +36,7 @@ describe("parseCliSettings", () => {
     expect(() => parseCliSettings({ adFocusMode: "window" })).toThrow(/"adFocusMode" is an extension-only setting/);
     expect(() => parseCliSettings({ running: true })).toThrow(/"running" is an extension-only setting/);
     expect(() => parseCliSettings({ tablessMode: true })).toThrow(/"tablessMode" is an extension-only setting/);
+    expect(() => parseCliSettings({ diagnosticLogging: true })).toThrow(/"diagnosticLogging" is an extension-only setting/);
   });
 
   it("hard-errors on a truly unknown key", () => {

@@ -20,7 +20,7 @@
     "build:all": "pnpm -r build",
     "zip": "pnpm --filter @lurkloot/extension zip",
     "zip:firefox": "pnpm --filter @lurkloot/extension zip:firefox",
-    "test": "pnpm --filter @lurkloot/extension test",
+    "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r typecheck",
     "screenshot:store": "pnpm --filter @lurkloot/extension screenshot:store",
     "promo:store": "pnpm --filter @lurkloot/extension promo:store",

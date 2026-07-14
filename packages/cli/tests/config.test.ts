@@ -27,8 +27,23 @@ describe("parseConfig", () => {
     expect(config.settings.platform.twitch).toBeDefined();
   });
 
+  it("warns once when enabledLogLevels is present", () => {
+    const config = parseConfig({ settings: { enabledLogLevels: ["error"] } }, CONFIG_PATH);
+    expect(config.warnings).toEqual([
+      "settings.enabledLogLevels is deprecated and ignored; use --log debug|info|warn|error",
+    ]);
+  });
+
+  it("has no config warnings by default", () => {
+    expect(parseConfig({}, CONFIG_PATH).warnings).toEqual([]);
+  });
+
   it("rejects extension-only settings copied from the browser config", () => {
     expect(() => parseConfig({ settings: { adFocusMode: "window" } }, CONFIG_PATH)).toThrow(/extension-only/);
+  });
+
+  it("rejects diagnosticLogging as extension-only", () => {
+    expect(() => parseConfig({ settings: { diagnosticLogging: true } }, CONFIG_PATH)).toThrow(/extension-only/);
   });
 
   it("rejects an unknown top-level config key", () => {

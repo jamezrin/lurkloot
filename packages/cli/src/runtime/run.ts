@@ -4,16 +4,7 @@ import { loadState, saveState } from "../storage";
 import { toEngineSettings, type CliSettings } from "../settings";
 import type { TransportHandle } from "../transport";
 import type { Logger } from "../logger";
-import type { EngineEvent } from "@lurkloot/shared/events";
-
-function formatEvent(event: EngineEvent): string {
-  if (event.category === "diagnostic") return event.message;
-  const details = Object.entries(event.data)
-    .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}=${String(value)}`)
-    .join(" ");
-  return `${event.code}${details ? ` ${details}` : ""}`;
-}
+import { reportCliEvents } from "../events";
 
 export interface RunOptions {
   settings: CliSettings;
@@ -42,9 +33,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     saveSettings: async () => {},
     loadState: () => loadState(statePath),
     saveState: (state: SchedulerState) => saveState(statePath, state),
-    reportEvents: async (events) => {
-      for (const event of events) logger.log(event.level, formatEvent(event), event.platform ?? event.category);
-    },
+    reportEvents: (events) => reportCliEvents(events, logger),
     // The CLI drives its own interval below, so alarm scheduling is a no-op.
     createAlarm: async () => {},
     createAdapters: (emit) => transport.createAdapters(emit),
