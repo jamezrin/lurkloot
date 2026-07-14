@@ -4,8 +4,9 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
-import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./watch";
 import type { ResolvedCompatibility } from "../../compatibility/types";
+import { createTwitchGqlV1HeartbeatStrategy } from "./heartbeat/gql-v1";
+import type { TwitchHeartbeatStrategy } from "./heartbeat/types";
 
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
@@ -25,6 +26,7 @@ export interface TwitchAdapterOptions {
   // Resolved metadata is injected by the host. It is intentionally not used to
   // switch request behavior until the versioned implementations land.
   compatibility?: ResolvedCompatibility["twitch"];
+  heartbeatStrategy?: TwitchHeartbeatStrategy;
 }
 
 const TWITCH_QUERIES = {
@@ -378,7 +380,7 @@ export class TwitchAdapter implements PlatformAdapter {
     // extension uses). A headless runtime can pass a non-web client id + matching
     // user agent (e.g. the Android app) so Twitch never gates it behind integrity
     // — the persisted-query hashes are client-agnostic, so claims work unchanged.
-    options: TwitchAdapterOptions = {},
+    private readonly options: TwitchAdapterOptions = {},
     private readonly emit: EventEmitter = ignoreEvent,
   ) {
     this.compatibility = options.compatibility;
@@ -710,7 +712,7 @@ export class TwitchAdapter implements PlatformAdapter {
   supportsTabless = true;
 
   createTablessWatcher(): TablessWatchController {
-    return new TwitchWatcher(this.gqlTransport);
+    return new TwitchWatcher(this.gqlTransport, this.options.heartbeatStrategy);
   }
 
   private async mergeCurrentSessionProgress(
@@ -813,7 +815,18 @@ class TwitchWatcher implements TablessWatchController {
   private viewerUserId?: string;
   private readonly diagnostics = new PendingWatcherDiagnostics();
 
-  constructor(private readonly gql: TwitchGqlTransport) {}
+  private readonly heartbeatStrategy: TwitchHeartbeatStrategy;
+
+  constructor(
+    private readonly gql: TwitchGqlTransport,
+    heartbeatStrategy?: TwitchHeartbeatStrategy,
+  ) {
+    this.heartbeatStrategy = heartbeatStrategy ?? createTwitchGqlV1HeartbeatStrategy(
+      gql,
+      this.diagnostics.emit,
+      (level, message) => this.log(level, message),
+    );
+  }
 
   get channelUrl(): string | undefined {
     return this.channel?.url;
@@ -863,26 +876,14 @@ class TwitchWatcher implements TablessWatchController {
     if (!userId) return { ok: false, live: true, message: "Twitch did not return a logged-in user id" };
     this.log("debug", `Spade tick for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`);
 
-    const input = await buildSpadeInput({
+    return await this.heartbeatStrategy.tick({
+      channel,
       broadcastId,
       channelId,
-      channelLogin: channel.username,
       userId,
       gameId: stream.game?.id,
       gameName: stream.game?.name,
     });
-    const result = await this.gql<{ sendSpadeEvents?: { statusCode?: number } }>(
-      "SendEvents",
-      "",
-      { input },
-      SEND_SPADE_EVENTS_MUTATION,
-      undefined,
-      this.diagnostics.emit,
-    );
-    const status = result.data?.sendSpadeEvents?.statusCode;
-    const ok = status === 204;
-    this.log("debug", `Spade event for ${channel.username} returned status ${status ?? "unknown"}`);
-    return { ok, live: true, message: ok ? undefined : `Twitch watch event returned status ${status ?? "unknown"}` };
   }
 
   private async resolveUserId(): Promise<string | undefined> {
