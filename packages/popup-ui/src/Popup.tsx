@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Clock3,
   Gift,
-  Info,
   Play,
   RotateCcw,
   Settings as SettingsIcon,
@@ -59,6 +58,7 @@ import { DropsPanel } from "./drops";
 import { WatchQueuePanel } from "./watchQueue";
 import { AutomationHero, PlatformSwitcher } from "./automation";
 import { SettingsView } from "./settings";
+import { TipsBanner } from "./tips";
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
   return SCREENSHOT_VARIANTS[id ?? "twitch-drops"] ?? SCREENSHOT_VARIANTS["twitch-drops"];
 }
@@ -608,12 +608,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   ) : null}
                 </AnimatePresence>
                 <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={resumingAutomation ? t("resumingAutomation") : session.message} onChange={setAutomation} />
-                <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
-                  <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
-                  <p className="leading-snug text-zinc-600 dark:text-zinc-300">
-                    {t("priorityHint")}
-                  </p>
-                </div>
+                {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} /> : null}
                 <SubTabs
                   tabs={[
                     { id: "drops", label: t("dropsTab"), icon: Gift, count: campaigns.length },

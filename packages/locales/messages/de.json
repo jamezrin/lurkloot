@@ -119,9 +119,18 @@
   "watchingPausedHint": {
     "message": "Schauen pausiert. Schalter aktivieren, um Drop-Farming fortzusetzen."
   },
-  "priorityHint": {
-    "message": "Drops haben immer Vorrang vor der Warteschlange. Ziehe Kampagnen am Griff, um die Farming-Reihenfolge festzulegen."
-  },
+  "hideTipsTitle": { "message": "Tipps ausblenden" },
+  "hideTipsDescription": { "message": "Blendet hilfreiche Tipps im Hauptfenster aus." },
+  "tipCampaignPriority": { "message": "Drops haben Vorrang vor der Warteschlange. Ziehe Kampagnen am Griff, um sie zu ordnen." },
+  "tipMissingCampaigns": { "message": "Fehlt eine Kampagne? Prüfe das Drops-Inventar der Plattform und die Filter in den Einstellungen." },
+  "tipCategorySelection": { "message": "Nur bestimmte Spiele? Deaktiviere „Alle Kategorien farmen“ und wähle deine Kategorien." },
+  "tipWatchQueue": { "message": "Die Warteschlange farmt ausgewählte Kanäle, wenn keine geeigneten Drops verfügbar sind." },
+  "tipTablessMode": { "message": "Der tablose Modus spart Ressourcen und öffnet bei Bedarf einen stummgeschalteten Tab." },
+  "tipCli": { "message": "Lieber ohne Erweiterung? Lurkloot ist auch als Docker-CLI verfügbar." },
+  "tipCliAction": { "message": "CLI-Anleitung lesen" },
+  "tipFeedback": { "message": "Fehler gefunden oder eine Idee?" },
+  "tipFeedbackAction": { "message": "GitHub-Issue öffnen" },
+  "tipExcludedCampaigns": { "message": "Kampagne versehentlich ausgeschlossen? Stelle sie in den Drops-Einstellungen wieder her." },
   "noCampaigns": {
     "message": "Noch keine Kampagnen gefunden."
   },

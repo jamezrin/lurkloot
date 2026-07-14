@@ -252,6 +252,7 @@ export interface ExtensionSettings extends EngineSettings {
   // Which campaign states are shown in the Drops list. See CampaignFilterKey.
   campaignVisibility: Record<CampaignFilterKey, boolean>;
   rateNudgeStatus: RateNudgeStatus;
+  showTips: boolean;
   // Extension-only persistence policy. Normal farming activity is always
   // recorded; this opt-in adds lower-level technical diagnostics.
   diagnosticLogging: boolean;

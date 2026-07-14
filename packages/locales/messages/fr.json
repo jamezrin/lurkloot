@@ -119,9 +119,18 @@
   "watchingPausedHint": {
     "message": "Visionnage en pause. Activez le bouton pour reprendre le farm de drops."
   },
-  "priorityHint": {
-    "message": "Les drops ont toujours priorité sur la file de visionnage. Faites glisser les campagnes par la poignée pour définir l’ordre de farm."
-  },
+  "hideTipsTitle": { "message": "Masquer les astuces" },
+  "hideTipsDescription": { "message": "Masque les astuces de la fenêtre principale." },
+  "tipCampaignPriority": { "message": "Les drops ont priorité sur la file d’attente. Faites glisser les campagnes par la poignée pour les ordonner." },
+  "tipMissingCampaigns": { "message": "Une campagne manque ? Vérifiez l’inventaire Drops de la plateforme puis les filtres dans les paramètres." },
+  "tipCategorySelection": { "message": "Seulement certains jeux ? Désactivez « Farmer toutes les catégories » et choisissez vos catégories." },
+  "tipWatchQueue": { "message": "La file d’attente farme les chaînes choisies lorsqu’aucun drop éligible n’est disponible." },
+  "tipTablessMode": { "message": "Le mode sans onglet utilise moins de ressources et ouvre un onglet muet si nécessaire." },
+  "tipCli": { "message": "Vous préférez éviter l’extension ? Lurkloot existe aussi en CLI Docker." },
+  "tipCliAction": { "message": "Lire le guide CLI" },
+  "tipFeedback": { "message": "Un bug ou une idée ?" },
+  "tipFeedbackAction": { "message": "Ouvrir une issue GitHub" },
+  "tipExcludedCampaigns": { "message": "Campagne exclue par erreur ? Restaurez-la dans les paramètres des Drops." },
   "noCampaigns": {
     "message": "Aucune campagne découverte pour le moment."
   },

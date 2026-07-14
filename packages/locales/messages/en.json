@@ -119,9 +119,18 @@
   "watchingPausedHint": {
     "message": "Watching paused. Toggle to resume drop farming."
   },
-  "priorityHint": {
-    "message": "Drops always take priority over the Watch Queue. Drag campaigns by the grip to set farming order."
-  },
+  "hideTipsTitle": { "message": "Hide tips" },
+  "hideTipsDescription": { "message": "Remove helpful tips from the main popup." },
+  "tipCampaignPriority": { "message": "Drops take priority over the Watch Queue. Drag campaigns by the grip to set their farming order." },
+  "tipMissingCampaigns": { "message": "Missing a campaign? Check your platform's Drops inventory, then review campaign filters in Settings." },
+  "tipCategorySelection": { "message": "Only farming certain games? Turn off ‘Farm all categories’ in platform settings and choose your categories." },
+  "tipWatchQueue": { "message": "The Watch Queue farms selected channels when no eligible drops are available." },
+  "tipTablessMode": { "message": "Tabless mode uses fewer resources and falls back to a muted tab when needed." },
+  "tipCli": { "message": "Prefer running without an extension? Lurkloot is also available as a Docker-based CLI." },
+  "tipCliAction": { "message": "Read the CLI guide" },
+  "tipFeedback": { "message": "Found a bug or have an idea?" },
+  "tipFeedbackAction": { "message": "Open a GitHub issue" },
+  "tipExcludedCampaigns": { "message": "Excluded a campaign by mistake? Restore excluded campaigns from Drops settings." },
   "noCampaigns": {
     "message": "No campaigns discovered yet."
   },
