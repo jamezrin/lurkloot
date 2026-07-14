@@ -393,6 +393,35 @@ describe("Twitch parsers", () => {
     });
   });
 
+  it("treats an empty-link disconnected Twitch campaign as linked", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "empty-link-ewc-like",
+      self: { isAccountConnected: false },
+      accountLinkURL: "",
+      timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
+    }]);
+
+    expect(campaigns[0]).toMatchObject({
+      accountLinked: true,
+      eligibility: "eligible",
+    });
+  });
+
+  it("ignores Twitch-hosted account links for disconnected Twitch campaigns", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "twitch-link-ewc-like",
+      self: { isAccountConnected: false },
+      accountLinkURL: "https://www.twitch.tv/drops/inventory",
+      timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
+    }]);
+
+    expect(campaigns[0]).toMatchObject({
+      accountLinked: true,
+      accountLinkUrl: undefined,
+      eligibility: "eligible",
+    });
+  });
+
   it("keeps a genuine disconnected Twitch campaign unlinked when it provides a link URL", () => {
     const campaigns = parseTwitchInventory([{
       id: "genuine-unlinked",
