@@ -1,8 +1,14 @@
 import type { CampaignFilterKey, DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
 import { NO_CATEGORY_ID, categoryListIndex, isUncategorizedCampaign } from "@lurkloot/shared/categories";
+import {
+  campaignHasSubscriptionRewards,
+  campaignHasWatchRewards,
+  isWatchReward,
+  rewardRequirementType,
+} from "@lurkloot/shared/rewards";
 import { CAMPAIGN_TINTS, GAME_ACCENTS, NO_CATEGORY_ACCENT, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
-import type { CampaignLifecycleState, CampaignView, ChannelLink, FarmingChannelView, GameItem, StreamerItem, TFunction } from "./types";
+import type { CampaignLifecycleState, CampaignStats, CampaignView, ChannelLink, FarmingChannelView, GameItem, RewardView, StreamerItem, TFunction } from "./types";
 
 const KICK_ASSET_BASE = "https://ext.kick.com";
 
@@ -30,6 +36,7 @@ export function campaignFilterCategories(campaign: DropCampaign, excludedIds: Se
   const categories: CampaignFilterKey[] = [];
   if (excludedIds.has(campaign.id)) categories.push("excluded");
   if (campaign.accountLinked === false) categories.push("notLinked");
+  if (campaignHasSubscriptionRewards(campaign)) categories.push("subscription");
   if (isCampaignFinished(campaign)) categories.push("finished");
   else if (isCampaignExpired(campaign)) categories.push("expired");
   else if (campaign.status === "upcoming") categories.push("upcoming");
@@ -103,15 +110,24 @@ export function fallbackGame(campaign: DropCampaign | CampaignView, index: numbe
   return { id, name, short, accent: GAME_ACCENTS[Math.max(0, index) % GAME_ACCENTS.length] };
 }
 
-export function campaignStats(campaign: CampaignView) {
-  const totalRequired = campaign.rewards.reduce((sum, reward) => sum + reward.requiredMinutes, 0);
-  const totalFarmed = campaign.rewards.reduce((sum, reward) => sum + (reward.requiredMinutes * reward.progress) / 100, 0);
+export function campaignStats(campaign: CampaignView): CampaignStats {
+  const watchRewards = campaign.rewards.filter(isWatchReward);
+  const requirementKinds = new Set(campaign.rewards.map(rewardRequirementType));
+  const kind = requirementKinds.size > 1
+    ? "mixed"
+    : requirementKinds.values().next().value ?? "watch";
+  const totalRequired = watchRewards.reduce((sum, reward) => sum + reward.requiredMinutes, 0);
+  const totalFarmed = watchRewards.reduce((sum, reward) => sum + (reward.requiredMinutes * (reward.progress ?? 0)) / 100, 0);
   const remaining = Math.max(totalRequired - totalFarmed, 0);
-  const progress = totalRequired ? Math.min(100, (totalFarmed / totalRequired) * 100) : 0;
-  const completed = campaign.rewards.filter((reward) => reward.obtained || reward.progress >= 100).length;
-  const nextReward = campaign.rewards.find((reward) => !reward.obtained && reward.progress < 100) ?? campaign.rewards.at(-1);
-  const complete = campaign.rewards.length > 0 && progress >= 100;
-  return { totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, complete };
+  const progress = totalRequired ? Math.min(100, (totalFarmed / totalRequired) * 100) : undefined;
+  const completed = campaign.rewards.filter(rewardComplete).length;
+  const nextReward = campaign.rewards.find((reward) => !rewardComplete(reward)) ?? campaign.rewards.at(-1);
+  const complete = campaign.rewards.length > 0 && campaign.rewards.every((reward) => reward.obtained);
+  return { kind, totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, complete };
+}
+
+function rewardComplete(reward: RewardView): boolean {
+  return reward.obtained || (reward.progress ?? 0) >= 100;
 }
 
 export function campaignViewFromCampaign(campaign: DropCampaign, index: number, session: WatchSession, excluded: boolean): CampaignView {
@@ -132,21 +148,26 @@ export function campaignViewFromCampaign(campaign: DropCampaign, index: number, 
     thumbnail: initials(campaign.gameName ?? campaign.name),
     tint: CAMPAIGN_TINTS[index % CAMPAIGN_TINTS.length],
     imageUrl: campaign.gameImageUrl,
-    rewards: campaign.rewards.filter((reward) => reward.isWatchBased !== false).map((reward, rewardIndex) => {
-      const progress = reward.requiredMinutes > 0
+    rewards: campaign.rewards.map((reward, rewardIndex) => {
+      const requirement = rewardRequirementType(reward);
+      const progress = isWatchReward(reward) && reward.requiredMinutes > 0
         ? Math.min(100, (Math.min(reward.watchedMinutes, reward.requiredMinutes) / reward.requiredMinutes) * 100)
-        : reward.status === "claimed" ? 100 : 0;
+        : reward.status === "claimed" ? 100 : undefined;
       return {
         id: reward.id,
         name: reward.name,
         progress,
         requiredMinutes: reward.requiredMinutes,
+        requiredSubs: reward.requiredSubs,
+        requirement,
         obtained: reward.status === "claimed",
         art: initials(reward.name).slice(0, 8),
         tint: REWARD_TINTS[rewardIndex % REWARD_TINTS.length],
         imageUrl: campaign.platform === "kick" ? kickRewardImageUrl(reward.imageUrl) : reward.imageUrl,
       };
     }),
+    hasWatchRewards: campaignHasWatchRewards(campaign),
+    hasSubscriptionRewards: campaignHasSubscriptionRewards(campaign),
   };
 }
 

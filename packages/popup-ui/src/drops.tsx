@@ -138,7 +138,9 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                <span className="text-[13px] font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>{stats.progress.toFixed(0)}%</span>
+                <span className="text-[13px] font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>
+                  {stats.progress == null ? "—" : `${stats.progress.toFixed(0)}%`}
+                </span>
                 <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-zinc-400 dark:text-zinc-500"><ChevronDown size={16} /></motion.div>
               </div>
             </div>
@@ -156,7 +158,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, onToggle, o
               {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
               {campaign.excluded && <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill>}
             </div>
-            <div className="mt-2"><ProgressBar value={stats.progress} glow={emphasized} /></div>
+            <div className="mt-2"><ProgressBar value={stats.progress ?? 0} glow={emphasized} /></div>
           </div>
         </div>
       </div>
@@ -325,7 +327,7 @@ function campaignLifecyclePill(lifecycle: CampaignLifecycleState | undefined, t:
 }
 
 function RewardTile({ reward }: { reward: RewardView }) {
-  const done = reward.obtained || reward.progress >= 100;
+  const done = reward.obtained || (reward.progress ?? 0) >= 100;
   return (
     <div className="w-[128px] shrink-0 rounded-xl border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-zinc-50 dark:bg-zinc-800/40">
@@ -337,9 +339,11 @@ function RewardTile({ reward }: { reward: RewardView }) {
         {done && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={11} strokeWidth={3} /></span>}
       </div>
       <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200" title={reward.name}>{reward.name}</div>
-      <ProgressBar value={reward.progress} size="sm" />
+      <ProgressBar value={reward.progress ?? 0} size="sm" />
       <div className="mt-1.5 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
-        <span className="font-semibold tabular" style={reward.progress > 0 ? { color: "var(--accent-text)" } : undefined}>{reward.progress.toFixed(0)}%</span>
+        <span className="font-semibold tabular" style={(reward.progress ?? 0) > 0 ? { color: "var(--accent-text)" } : undefined}>
+          {reward.progress == null ? "—" : `${reward.progress.toFixed(0)}%`}
+        </span>
         <span className="tabular">{formatMinutes(reward.requiredMinutes)}</span>
       </div>
     </div>
