@@ -43,11 +43,10 @@ import { IconButton, SubTabs, cn } from "./primitives";
 import { ActivityLog } from "./activity";
 import {
   advanceActivityRequestScope,
-  applyActivityPageForRequest,
-  applyActivityRefreshForRequest,
-  beginActivityRefresh,
+  applyActivityMutationForRequest,
+  beginActivityMutation,
+  createActivityMutationSequence,
   createActivityRequestScope,
-  createActivityRefreshSequence,
   createActivityStream,
   isActivityRequestCurrent,
   type ActivityRequestScope,
@@ -95,8 +94,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const activityRequestScopeRef = useRef(createActivityRequestScope(platform));
-  const activityRefreshSequenceRef = useRef(createActivityRefreshSequence());
-  const diagnosticRefreshSequenceRef = useRef(createActivityRefreshSequence());
+  const activityMutationSequenceRef = useRef(createActivityMutationSequence());
+  const diagnosticMutationSequenceRef = useRef(createActivityMutationSequence());
   const activityClearInFlightRef = useRef(false);
   const [activityRequestGeneration, setActivityRequestGeneration] = useState(0);
   const wasSettingsOpen = useRef(settingsOpen);
@@ -192,15 +191,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     const requestScope = activityRequestScopeRef.current;
     const refresh = () => {
       if (activityClearInFlightRef.current || !isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) return;
-      const refreshRequest = beginActivityRefresh(activityRefreshSequenceRef.current);
+      const refreshRequest = beginActivityMutation(activityMutationSequenceRef.current);
       void adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "activity", limit: 80 }).then((page) => {
         if (!cancelled) {
-          setActivityStream((current) => applyActivityRefreshForRequest(
+          setActivityStream((current) => applyActivityMutationForRequest(
             current,
             page,
+            "refresh",
             requestScope,
             activityRequestScopeRef.current,
-            activityRefreshSequenceRef.current,
+            activityMutationSequenceRef.current,
             refreshRequest,
           ));
         }
@@ -233,15 +233,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     const requestScope = activityRequestScopeRef.current;
     const refresh = () => {
       if (activityClearInFlightRef.current || !isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) return;
-      const refreshRequest = beginActivityRefresh(diagnosticRefreshSequenceRef.current);
+      const refreshRequest = beginActivityMutation(diagnosticMutationSequenceRef.current);
       void adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "diagnostic", limit: 80 }).then((page) => {
         if (!cancelled) {
-          setDiagnosticStream((current) => applyActivityRefreshForRequest(
+          setDiagnosticStream((current) => applyActivityMutationForRequest(
             current,
             page,
+            "refresh",
             requestScope,
             activityRequestScopeRef.current,
-            diagnosticRefreshSequenceRef.current,
+            diagnosticMutationSequenceRef.current,
             refreshRequest,
           ));
         }
@@ -261,32 +262,34 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     const requests: Promise<void>[] = [];
     if (activityStream.nextCursor) {
       const cursor = activityStream.nextCursor;
+      const pageRequest = beginActivityMutation(activityMutationSequenceRef.current);
       requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "activity", cursor, limit: 80 })
         .then((page) => {
-          if (isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) {
-            setActivityStream((current) => applyActivityPageForRequest(
-              current,
-              page,
-              "page",
-              requestScope,
-              activityRequestScopeRef.current,
-            ));
-          }
+          setActivityStream((current) => applyActivityMutationForRequest(
+            current,
+            page,
+            "page",
+            requestScope,
+            activityRequestScopeRef.current,
+            activityMutationSequenceRef.current,
+            pageRequest,
+          ));
         }));
     }
     if (showDiagnostics && snapshot?.settings.diagnosticLogging && diagnosticStream.nextCursor) {
       const cursor = diagnosticStream.nextCursor;
+      const pageRequest = beginActivityMutation(diagnosticMutationSequenceRef.current);
       requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "diagnostic", cursor, limit: 80 })
         .then((page) => {
-          if (isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) {
-            setDiagnosticStream((current) => applyActivityPageForRequest(
-              current,
-              page,
-              "page",
-              requestScope,
-              activityRequestScopeRef.current,
-            ));
-          }
+          setDiagnosticStream((current) => applyActivityMutationForRequest(
+            current,
+            page,
+            "page",
+            requestScope,
+            activityRequestScopeRef.current,
+            diagnosticMutationSequenceRef.current,
+            pageRequest,
+          ));
         }));
     }
     if (requests.length === 0) return;

@@ -18,18 +18,18 @@ export type ActivityRequestScope = {
   platform: Platform;
 };
 
-export type ActivityRefreshSequence = { latest: number };
+export type ActivityMutationSequence = { latest: number };
 
-export function createActivityRefreshSequence(): ActivityRefreshSequence {
+export function createActivityMutationSequence(): ActivityMutationSequence {
   return { latest: 0 };
 }
 
-export function beginActivityRefresh(sequence: ActivityRefreshSequence): number {
+export function beginActivityMutation(sequence: ActivityMutationSequence): number {
   sequence.latest += 1;
   return sequence.latest;
 }
 
-export function isLatestActivityRefresh(sequence: ActivityRefreshSequence, request: number): boolean {
+export function isLatestActivityMutation(sequence: ActivityMutationSequence, request: number): boolean {
   return sequence.latest === request;
 }
 
@@ -84,16 +84,17 @@ export function applyActivityPageForRequest(
     : current;
 }
 
-export function applyActivityRefreshForRequest(
+export function applyActivityMutationForRequest(
   current: ActivityStream,
   page: ActivityPage,
+  kind: "refresh" | "page",
   request: ActivityRequestScope,
   active: ActivityRequestScope,
-  sequence: ActivityRefreshSequence,
-  refreshRequest: number,
+  sequence: ActivityMutationSequence,
+  mutationRequest: number,
 ): ActivityStream {
-  return isLatestActivityRefresh(sequence, refreshRequest)
-    ? applyActivityPageForRequest(current, page, "refresh", request, active)
+  return isLatestActivityMutation(sequence, mutationRequest)
+    ? applyActivityPageForRequest(current, page, kind, request, active)
     : current;
 }
 

@@ -2,16 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActivityHistoryRecord, FarmingStopReason } from "@lurkloot/shared/events";
 import {
   advanceActivityRequestScope,
-  beginActivityRefresh,
+  applyActivityMutationForRequest,
   applyActivityPage,
   applyActivityPageForRequest,
-  applyActivityRefreshForRequest,
+  beginActivityMutation,
+  createActivityMutationSequence,
   createActivityRequestScope,
-  createActivityRefreshSequence,
   createActivityStream,
   formatActivityEvent,
   isActivityRequestCurrent,
-  isLatestActivityRefresh,
+  isLatestActivityMutation,
   mergeActivityPages,
 } from "../../popup-ui/src/activity.logic";
 
@@ -185,30 +185,64 @@ describe("activity view model", () => {
   });
 
   it("rejects an older refresh response after a newer refresh was issued", () => {
-    const sequence = createActivityRefreshSequence();
+    const sequence = createActivityMutationSequence();
     const scope = createActivityRequestScope("twitch");
-    const older = beginActivityRefresh(sequence);
-    const newer = beginActivityRefresh(sequence);
-    const current = applyActivityRefreshForRequest(
+    const older = beginActivityMutation(sequence);
+    const newer = beginActivityMutation(sequence);
+    const current = applyActivityMutationForRequest(
       createActivityStream(),
       { events: [event("newer")], nextCursor: "newer-cursor" },
+      "refresh",
       scope,
       scope,
       sequence,
       newer,
     );
 
-    expect(isLatestActivityRefresh(sequence, older)).toBe(false);
-    expect(isLatestActivityRefresh(sequence, newer)).toBe(true);
-    expect(applyActivityRefreshForRequest(
+    expect(isLatestActivityMutation(sequence, older)).toBe(false);
+    expect(isLatestActivityMutation(sequence, newer)).toBe(true);
+    expect(applyActivityMutationForRequest(
       current,
       { events: [event("older")], nextCursor: "older-cursor" },
+      "refresh",
       scope,
       scope,
       sequence,
       older,
     )).toBe(current);
     expect(current.nextCursor).toBe("newer-cursor");
+  });
+
+  it("rejects an older page response after a newer disjoint refresh", () => {
+    const sequence = createActivityMutationSequence();
+    const scope = createActivityRequestScope("twitch");
+    const initial = applyActivityPage(
+      createActivityStream(),
+      { events: [event("covered")], nextCursor: "page-start" },
+      "refresh",
+    );
+    const pageRequest = beginActivityMutation(sequence);
+    const refreshRequest = beginActivityMutation(sequence);
+    const refreshed = applyActivityMutationForRequest(
+      initial,
+      { events: [event("new-2"), event("new-1")], nextCursor: "refresh-gap" },
+      "refresh",
+      scope,
+      scope,
+      sequence,
+      refreshRequest,
+    );
+
+    expect(applyActivityMutationForRequest(
+      refreshed,
+      { events: [event("old-page")], nextCursor: "skipped-gap" },
+      "page",
+      scope,
+      scope,
+      sequence,
+      pageRequest,
+    )).toBe(refreshed);
+    expect(refreshed.nextCursor).toBe("refresh-gap");
   });
 
   it("ignores stale platform pages and stale loading completions", () => {
