@@ -26,7 +26,7 @@ Package-qualified paths below are written as `packages/<package>/...` when owner
 - `entrypoints/twitch.content.ts` and `entrypoints/kick.content.ts` start shared playback telemetry/control on platform pages.
 - `entrypoints/popup/` adapts WXT/browser APIs to the shared React popup UI in `packages/popup-ui`, which talks only to the background controller through runtime messages.
 
-State and normalized settings are loaded and saved through `packages/extension/src/core/storage.ts` in the extension and through `packages/cli/src/storage.ts` in the CLI. The scheduler stores independent `WatchSession`, campaign, diagnostics, manual-watch, and managed-tab state for `twitch` and `kick`; activity events are reported outside `SchedulerState`. A short-lived Twitch Client-Integrity bundle is stored separately so claim mutations can replay page-issued Twitch headers while the token is valid.
+State and normalized settings are loaded and saved through `packages/extension/src/core/storage.ts` in the extension and through `packages/cli/src/storage.ts` in the CLI. The scheduler stores independent `WatchSession`, campaign, manual-watch, and managed-tab state for `twitch` and `kick`; diagnostics and activity events are emitted through the reporter outside `SchedulerState`. A short-lived Twitch Client-Integrity bundle is stored separately so claim mutations can replay page-issued Twitch headers while the token is valid.
 
 ## Runtime Messages
 

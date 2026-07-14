@@ -1205,6 +1205,68 @@ describe("scheduler tick", () => {
     expect(result.events.some((event) => event.category === "diagnostic" && /claim/i.test(event.message) && event.level !== "info")).toBe(false);
   });
 
+  it("reports an unreleased claim only when it first enters the waiting state", async () => {
+    const ready = campaign("drops", { rewards: [reward("claimable")] });
+    const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady: vi.fn(() => false) };
+    const waitingClaimRewardIds = { twitch: new Set<string>(), kick: new Set<string>() };
+    const options = { waitingClaimRewardIds };
+    const initialState: SchedulerState = {
+      sessions: {
+        twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+    };
+    const enabledSettings = settings({
+      platform: {
+        twitch: { enabled: true, watchQueueChannels: [] },
+        kick: { enabled: false, watchQueueChannels: [] },
+      },
+    });
+
+    const first = await runSchedulerTick(initialState, enabledSettings, { twitch, kick: adapter("kick", [], []) }, options);
+    const second = await runSchedulerTick(first.state, enabledSettings, { twitch, kick: adapter("kick", [], []) }, options);
+
+    expect(first.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(1);
+    expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(0);
+    expect(second.state.campaigns.twitch[0].rewards[0].status).toBe("claimable");
+    expect(twitch.claimReward).not.toHaveBeenCalled();
+  });
+
+  it("reports a reward again when it re-enters the unreleased-claim state", async () => {
+    const ready = campaign("drops", { rewards: [reward("claimable")] });
+    const isClaimReady = vi.fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(false);
+    const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady };
+    const waitingClaimRewardIds = { twitch: new Set<string>(), kick: new Set<string>() };
+    const options = { waitingClaimRewardIds };
+    const initialState: SchedulerState = {
+      sessions: {
+        twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+    };
+    const enabledSettings = settings({
+      platform: {
+        twitch: { enabled: true, watchQueueChannels: [] },
+        kick: { enabled: false, watchQueueChannels: [] },
+      },
+    });
+    const adapters = { twitch, kick: adapter("kick", [], []) };
+
+    const first = await runSchedulerTick(initialState, enabledSettings, adapters, options);
+    expect(waitingClaimRewardIds.twitch).toContain("reward-claimable");
+    const released = await runSchedulerTick(first.state, enabledSettings, adapters, options);
+    expect(waitingClaimRewardIds.twitch).not.toContain("reward-claimable");
+    const reentered = await runSchedulerTick(released.state, enabledSettings, adapters, options);
+
+    expect(first.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(1);
+    expect(reentered.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(1);
+  });
+
   it("claims a ready reward once the adapter reports it is claim-ready", async () => {
     const ready = campaign("drops", { rewards: [reward("claimable")] });
     const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady: vi.fn(() => true) };

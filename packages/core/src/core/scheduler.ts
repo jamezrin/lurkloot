@@ -300,6 +300,7 @@ export type StopPageContextTabs = (
 export interface SchedulerTickOptions {
   platforms?: Platform[];
   stopPageContextTabs?: StopPageContextTabs;
+  waitingClaimRewardIds?: Partial<Record<Platform, Set<string>>>;
   emit?: EventEmitter;
 }
 
@@ -419,7 +420,11 @@ export async function runSchedulerTick(
       }
 
       if (settings.autoClaim) {
-        const claimResult = await claimReadyRewards(adapter, campaigns);
+        const claimResult = await claimReadyRewards(
+          adapter,
+          campaigns,
+          options.waitingClaimRewardIds?.[platform] ?? new Set<string>(),
+        );
         campaigns = claimResult.campaigns;
         nextState.campaigns[platform] = campaigns;
         for (const event of claimResult.events) {
@@ -642,9 +647,11 @@ type ClaimReadyRewardEvent = {
 async function claimReadyRewards(
   adapter: PlatformAdapter,
   campaigns: DropCampaign[],
+  previouslyWaitingRewardIds: Set<string>,
 ): Promise<{ campaigns: DropCampaign[]; events: ClaimReadyRewardEvent[] }> {
   const events: ClaimReadyRewardEvent[] = [];
   const updated: DropCampaign[] = [];
+  const stillWaitingRewardIds = new Set<string>();
 
   for (const campaign of campaigns) {
     const rewards: DropReward[] = [];
@@ -655,10 +662,13 @@ async function claimReadyRewards(
           // yet (e.g. Twitch hasn't returned the drop-instance id). Defer; the
           // next tick re-checks once progress data catches up.
           rewards.push(reward);
-          events.push({
-            level: "info",
-            message: `${reward.name} watched-complete; waiting for ${campaign.name} claim to be released`,
-          });
+          stillWaitingRewardIds.add(reward.id);
+          if (!previouslyWaitingRewardIds.has(reward.id)) {
+            events.push({
+              level: "info",
+              message: `${reward.name} watched-complete; waiting for ${campaign.name} claim to be released`,
+            });
+          }
           continue;
         }
         try {
@@ -700,6 +710,9 @@ async function claimReadyRewards(
         : campaign.status,
     });
   }
+
+  previouslyWaitingRewardIds.clear();
+  for (const rewardId of stillWaitingRewardIds) previouslyWaitingRewardIds.add(rewardId);
 
   return { campaigns: updated, events };
 }

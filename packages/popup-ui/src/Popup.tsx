@@ -398,6 +398,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
 
   function closeActivityView(): void {
     if (activityOpen) invalidateActivityRequests();
+    setClearActivityArmed(false);
+    setClearActivityFailed(false);
     setActivityOpen(false);
   }
 

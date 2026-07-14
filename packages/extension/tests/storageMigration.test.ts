@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
     values,
     get: vi.fn(async (key: string) => ({ [key]: values[key] })),
     set: vi.fn(async (items: Record<string, unknown>) => Object.assign(values, items)),
+    clearActivityEvents: vi.fn(),
     importLegacyActivityEvents: vi.fn(),
   };
 });
@@ -17,11 +18,11 @@ vi.mock("wxt/browser", () => ({
 
 vi.mock("../src/core/activityStorage", () => ({
   appendActivityEvents: vi.fn(),
-  clearActivityEvents: vi.fn(),
+  clearActivityEvents: mocks.clearActivityEvents,
   importLegacyActivityEvents: mocks.importLegacyActivityEvents,
 }));
 
-import { DEFAULT_STATE, loadState, saveState } from "../src/core/storage";
+import { DEFAULT_STATE, loadState, resetStorage, saveState } from "../src/core/storage";
 
 const legacyEvents: LegacyEventLogEntry[] = [{
   id: "legacy-1",
@@ -36,6 +37,7 @@ describe("legacy activity migration", () => {
     for (const key of Object.keys(mocks.values)) delete mocks.values[key];
     mocks.get.mockClear();
     mocks.set.mockClear();
+    mocks.clearActivityEvents.mockReset();
     mocks.importLegacyActivityEvents.mockReset();
     mocks.values.schedulerState = { ...DEFAULT_STATE, events: legacyEvents };
   });
@@ -85,5 +87,34 @@ describe("legacy activity migration", () => {
 
     expect(mocks.values.schedulerState).toEqual(newerState);
     expect(mocks.values.schedulerState).not.toHaveProperty("events");
+  });
+
+  it("serializes reset behind an in-flight state migration", async () => {
+    let finishImport!: () => void;
+    const importPending = new Promise<void>((resolve) => {
+      finishImport = resolve;
+    });
+    mocks.importLegacyActivityEvents.mockReturnValueOnce(importPending);
+
+    const loading = loadState();
+    await vi.waitFor(() => expect(mocks.importLegacyActivityEvents).toHaveBeenCalledOnce());
+    const resetting = resetStorage();
+    await Promise.resolve();
+
+    expect(mocks.set).not.toHaveBeenCalled();
+
+    finishImport();
+    await Promise.all([loading, resetting]);
+
+    expect(mocks.values.schedulerState).toEqual(DEFAULT_STATE);
+    expect(mocks.clearActivityEvents).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a successful operational reset when activity storage is unavailable", async () => {
+    mocks.clearActivityEvents.mockRejectedValueOnce(new Error("IDB unavailable"));
+
+    await expect(resetStorage()).resolves.toBeUndefined();
+
+    expect(mocks.values.schedulerState).toEqual(DEFAULT_STATE);
   });
 });

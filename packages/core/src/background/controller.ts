@@ -15,6 +15,23 @@ export const ALARM_NAME = "lurkloot.tick";
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
 export const WATCH_ALARM_NAME = "lurkloot.watch";
 const PLATFORMS: Platform[] = ["twitch", "kick"];
+const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
+  automation_disabled: true,
+  platform_disabled: true,
+  platform_backoff: true,
+  platform_error: true,
+  campaign_ineligible: true,
+  channel_excluded: true,
+  channel_offline: true,
+  channel_mismatch: true,
+  watch_unhealthy: true,
+  higher_priority_reward: true,
+  higher_priority_watch_queue: true,
+  watch_requirement_completed: true,
+  runtime_restart: true,
+  target_changed: true,
+  manual_watch: true,
+};
 const EN_RUNTIME_MESSAGES: Record<string, string> = {
   notificationRewardClaimed: "Reward claimed",
   notificationRewardEarned: "Reward earned",
@@ -22,6 +39,20 @@ const EN_RUNTIME_MESSAGES: Record<string, string> = {
   notificationRewardFromCampaign: "$1 from $2",
   notificationNoDropsLeftMessage: "$1 has no eligible drops to farm.",
 };
+
+function emitHostCallbackError(
+  emit: EventEmitter,
+  platform: Platform,
+  error: unknown,
+  fallbackMessage: string,
+): void {
+  emit({
+    category: "diagnostic",
+    platform,
+    level: "warn",
+    message: error instanceof Error ? error.message : fallbackMessage,
+  });
+}
 
 // One in-flight state mutation at a time. Each handler's load→modify→persist
 // runs inside this lock so a save built on a stale snapshot can't clobber
@@ -80,6 +111,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // ticks (the WebSocket-based Kick watcher in particular must not be recreated
   // each tick). Reconciled against the scheduler's per-platform session state.
   const tablessWatchers = new Map<Platform, TablessWatchController>();
+  const waitingClaimRewardIds: Record<Platform, Set<string>> = {
+    twitch: new Set<string>(),
+    kick: new Set<string>(),
+  };
   let settingsMutation: Promise<unknown> = Promise.resolve();
   let settingsPauseCount = 0;
 
@@ -208,7 +243,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await deps.saveSettings(nextSettings);
     }
 
-    const restartEvents = runtimeRestartEvents(state);
+    const restartEvents = farmingLifecycleEvents(state, cleanup.state);
     await persistAndReport(cleanup.state, restartEvents);
 
     if (nextSettings.running && nextSettings.autoStartDropFarming) {
@@ -248,12 +283,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         ? { ...storedSettings, running: false }
         : storedSettings;
       const state = await deps.loadState();
+      const nextWaitingClaimRewardIds: Record<Platform, Set<string>> = {
+        twitch: new Set(waitingClaimRewardIds.twitch),
+        kick: new Set(waitingClaimRewardIds.kick),
+      };
       let nextState: SchedulerState;
       try {
         const adapters = deps.createAdapters(emit);
         const result = await runSchedulerTick(state, settings, adapters, {
           ...(platforms ? { platforms } : {}),
           stopPageContextTabs: deps.stopPageContextTabs,
+          waitingClaimRewardIds: nextWaitingClaimRewardIds,
           emit,
         });
         const lifecycleEvents = farmingLifecycleEvents(state, result.state);
@@ -271,6 +311,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         return;
       }
       await persistAndReport(nextState, events);
+      for (const platform of PLATFORMS) {
+        waitingClaimRewardIds[platform].clear();
+        for (const rewardId of nextWaitingClaimRewardIds[platform]) {
+          waitingClaimRewardIds[platform].add(rewardId);
+        }
+      }
     }));
   }
 
@@ -368,6 +414,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         drainWatcherEvents(existing, emit);
         try {
           await existing.stop();
+        } catch (error) {
+          emitHostCallbackError(emit, platform, error, "Could not stop the tabless watcher");
         } finally {
           drainWatcherEvents(existing, emit);
           tablessWatchers.delete(platform);
@@ -523,6 +571,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
           await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), emit);
         }
+      } catch (error) {
+        emitHostCallbackError(emit, message.platform, error, "Could not apply ad focus");
       } finally {
         await reportBestEffort(events);
       }
@@ -560,7 +610,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     for (const platform of ["twitch", "kick"] as Platform[]) {
       const session = state.sessions[platform];
       const watching = session.status === "watching" && session.tabId != null;
-      await deps.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive), emit);
+      try {
+        await deps.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive), emit);
+      } catch (error) {
+        emitHostCallbackError(emit, platform, error, "Could not apply ad focus");
+      }
     }
   }
 
@@ -840,7 +894,12 @@ function farmingLifecycleEvents(previous: SchedulerState, next: SchedulerState):
   for (const platform of ["twitch", "kick"] as Platform[]) {
     const before = farmingTarget(previous, platform);
     const after = farmingTarget(next, platform);
-    const sameTarget = before?.campaign.id === after?.campaign.id && before?.reward.id === after?.reward.id;
+    const sameTarget = Boolean(
+      before
+      && after
+      && before.campaign.id === after.campaign.id
+      && before.reward.id === after.reward.id,
+    );
     if (sameTarget) continue;
 
     if (before) {
@@ -898,28 +957,6 @@ function farmingLifecycleEvents(previous: SchedulerState, next: SchedulerState):
   return events;
 }
 
-function runtimeRestartEvents(state: SchedulerState): ActivityEvent[] {
-  const events: ActivityEvent[] = [];
-  for (const platform of ["twitch", "kick"] as Platform[]) {
-    const target = farmingTarget(state, platform);
-    if (!target) continue;
-    events.push({
-      category: "activity",
-      code: "farming_stopped",
-      level: "info",
-      platform,
-      data: {
-        campaignId: target.campaign.id,
-        campaignName: target.campaign.name,
-        rewardId: target.reward.id,
-        rewardName: target.reward.name,
-        reason: "runtime_restart",
-      },
-    });
-  }
-  return events;
-}
-
 function farmingTarget(state: SchedulerState, platform: Platform): {
   session: WatchSession;
   campaign: DropCampaign;
@@ -940,14 +977,7 @@ function farmingStopReason(session: WatchSession): FarmingStopReason {
 }
 
 function isFarmingStopReason(code: WatchReasonCode): code is FarmingStopReason {
-  return ![
-    "eligible_campaign",
-    "watch_queue_selected",
-    "no_eligible_channel",
-    "no_existing_session",
-    "keeping_current_watch",
-    "keeping_watch_queue",
-  ].includes(code);
+  return Object.prototype.hasOwnProperty.call(FARMING_STOP_REASON_CODES, code);
 }
 
 function staleStartupCleanup(state: SchedulerState): {

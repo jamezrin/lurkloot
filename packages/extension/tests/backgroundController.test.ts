@@ -195,6 +195,28 @@ describe("background controller", () => {
     expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
   });
 
+  it("does not commit pending-claim diagnostics when scheduler state persistence fails", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    });
+    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimable")]);
+    env.twitch.isClaimReady = vi.fn(() => false);
+    env.deps.saveState.mockRejectedValueOnce(new Error("state write failed"));
+
+    await expect(env.controller.tick()).rejects.toThrow("state write failed");
+    await env.controller.tick();
+
+    const waitingEvents = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"));
+    expect(waitingEvents).toHaveLength(1);
+  });
+
   it("publishes a farming stop reason when automation is disabled", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
@@ -215,6 +237,36 @@ describe("background controller", () => {
       data: expect.objectContaining({ reason: "automation_disabled" }),
     }));
     expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
+  });
+
+  it("publishes an interruption when an idle platform is paused by manual watch", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      pauseOnManualWatch: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    });
+    env.state.manualWatch = {
+      twitch: {
+        platform: "twitch",
+        tabId: 99,
+        checkedAt: new Date().toISOString(),
+        active: true,
+      },
+    };
+
+    await env.controller.tick();
+
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    expect(published).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "interruption",
+      platform: "twitch",
+      data: expect.objectContaining({ reason: "manual_watch" }),
+    }));
   });
 
   it("creates the scheduler alarm from persisted settings", async () => {
@@ -835,6 +887,34 @@ describe("background controller", () => {
     expect(focusDiagnostics).toHaveLength(1);
   });
 
+  it("keeps persisted playback telemetry when applying ad focus fails", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+    env.deps.applyAdFocus.mockRejectedValue(new Error("focus callback failed"));
+
+    await expect(env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+        adActive: true,
+      },
+    }, { tab: { id: 10 } })).resolves.toBeUndefined();
+
+    expect(env.state.sessions.twitch.playback?.adActive).toBe(true);
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      message: "focus callback failed",
+    }));
+  });
+
   it("focuses the watch tab when an ad is reported on the managed tab", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false, adFocusMode: "window" });
     await env.controller.handleMessage({ type: "setRunning", running: true });
@@ -966,6 +1046,21 @@ describe("background controller", () => {
 
     expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false, expect.any(Function));
     expect(env.deps.applyAdFocus).toHaveBeenCalledWith("kick", 20, false, expect.any(Function));
+  });
+
+  it("keeps successful scheduler state when re-applying ad focus fails", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.deps.applyAdFocus.mockRejectedValue(new Error("focus refresh failed"));
+
+    await env.controller.tick();
+
+    expect(env.state.sessions.twitch.status).toBe("watching");
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      message: "focus refresh failed",
+    }));
   });
 
   it("allows playback control only for the current watch tab", async () => {
@@ -1351,6 +1446,24 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.watchMode).toBe("tab");
     expect(env.state.sessions.twitch.tablessFallback).toBe(true);
     expect(watcher.stop).toHaveBeenCalled();
+  });
+
+  it("keeps successful scheduler state when stopping a tabless watcher fails", async () => {
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    await env.controller.tick();
+    watcher.stop.mockRejectedValue(new Error("watcher stop failed"));
+
+    await expect(env.controller.handleMessage({ type: "setRunning", running: false })).resolves.toBeDefined();
+
+    expect(env.state.sessions.twitch.status).toBe("paused");
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      message: "watcher stop failed",
+    }));
   });
 
   it("rebuilds tabless watchers from persisted sessions after a service-worker restart", async () => {

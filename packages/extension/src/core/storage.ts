@@ -80,9 +80,11 @@ export async function saveTwitchIntegrity(value: TwitchIntegrity): Promise<void>
 }
 
 export async function resetStorage(): Promise<void> {
-  await browser.storage.local.set({
-    [SETTINGS_KEY]: DEFAULT_SETTINGS,
-    [STATE_KEY]: DEFAULT_STATE,
+  await withStateStorageLock(async () => {
+    await browser.storage.local.set({
+      [SETTINGS_KEY]: DEFAULT_SETTINGS,
+      [STATE_KEY]: DEFAULT_STATE,
+    });
   });
   try {
     await clearActivityEvents();
