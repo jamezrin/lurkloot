@@ -64,7 +64,13 @@ export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction):
   const discovered = new Map<string, GameItem>();
   campaigns.forEach((campaign, index) => {
     const id = gameId(campaign);
-    if (discovered.has(id)) return;
+    const existing = discovered.get(id);
+    if (existing) {
+      if (id !== NO_CATEGORY_ID && !existing.imageUrl && campaign.gameImageUrl) {
+        discovered.set(id, { ...existing, imageUrl: campaign.gameImageUrl });
+      }
+      return;
+    }
     discovered.set(id, id === NO_CATEGORY_ID
       ? { id, name: t("noCategory"), short: "–", accent: NO_CATEGORY_ACCENT }
       : {
@@ -72,6 +78,7 @@ export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction):
         name: campaign.gameName ?? t("unknownGame"),
         short: initials(campaign.gameName ?? campaign.name),
         accent: GAME_ACCENTS[index % GAME_ACCENTS.length],
+        imageUrl: campaign.gameImageUrl,
       });
   });
   return [...discovered.values()].sort((left, right) => left.name.localeCompare(right.name));

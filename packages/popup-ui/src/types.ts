@@ -2,7 +2,13 @@ import type { CliCredentialBlob, RuntimeMessage } from "@lurkloot/shared/message
 import type { DropCampaign, Platform, SupportedLocale } from "@lurkloot/shared/models";
 
 export type PopupTab = "drops" | "watchQueue";
-export type GameItem = { id: string; name: string; short: string; accent: string };
+export type GameItem = {
+  id: string;
+  name: string;
+  short: string;
+  accent: string;
+  imageUrl?: string;
+};
 export type StreamerItem = { id: string; name: string; live: boolean; subtitle?: string; viewers?: number };
 export type FarmingChannelView = { name: string; category?: string; viewers?: number; url?: string };
 export type ChannelLink = { name: string; url: string };
