@@ -5,6 +5,7 @@
   "type": "module",
   "private": true,
   "exports": {
+    ".": "./src/index.ts",
     "./scheduler": "./src/core/scheduler.ts",
     "./tablessWatch": "./src/core/tablessWatch.ts",
     "./twitchIntegrity": "./src/core/twitchIntegrity.ts",
