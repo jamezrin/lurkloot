@@ -152,6 +152,9 @@
   "notLinked": {
     "message": "Non lié"
   },
+  "subscriptionCampaigns": {
+    "message": "Campagnes avec abonnement"
+  },
   "linkAccount": {
     "message": "Associez votre compte"
   },

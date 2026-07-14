@@ -152,6 +152,9 @@
   "notLinked": {
     "message": "غير مرتبط"
   },
+  "subscriptionCampaigns": {
+    "message": "حملات الاشتراك"
+  },
   "linkAccount": {
     "message": "اربط حسابك"
   },

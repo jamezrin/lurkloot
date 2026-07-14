@@ -49,6 +49,25 @@ describe("i18n", () => {
     }
   });
 
+  it("localizes the subscription campaign filter in every catalog", () => {
+    const translations: Record<string, string> = {
+      ar: "حملات الاشتراك",
+      de: "Abo-Kampagnen",
+      en: "Subscription campaigns",
+      es: "Campañas de suscripción",
+      fr: "Campagnes avec abonnement",
+      hi: "सदस्यता अभियान",
+      it: "Campagne con abbonamento",
+      pt_BR: "Campanhas de inscrição",
+      ru: "Кампании за подписку",
+      zh_CN: "订阅活动",
+    };
+
+    for (const locale of localeCodes()) {
+      expect(readCatalog(locale).subscriptionCampaigns?.message, locale).toBe(translations[locale]);
+    }
+  });
+
   it("does not leave non-English catalogs as English except product/common terms", () => {
     const english = readCatalog("en");
     const allowedSameAsEnglish = new Set([

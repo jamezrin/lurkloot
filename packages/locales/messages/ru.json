@@ -152,6 +152,9 @@
   "notLinked": {
     "message": "Не привязано"
   },
+  "subscriptionCampaigns": {
+    "message": "Кампании за подписку"
+  },
   "linkAccount": {
     "message": "Привязать аккаунт"
   },
