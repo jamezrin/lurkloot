@@ -10,7 +10,6 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import type { ActivityPage, CategorySearchResult, CliCredentialBlob, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
@@ -42,7 +41,15 @@ import {
 } from "./viewModels";
 import { IconButton, SubTabs, cn } from "./primitives";
 import { ActivityLog } from "./activity";
-import { mergeActivityPages } from "./activity.logic";
+import {
+  advanceActivityRequestScope,
+  applyActivityPageForRequest,
+  createActivityRequestScope,
+  createActivityStream,
+  isActivityRequestCurrent,
+  type ActivityRequestScope,
+  type ActivityStream,
+} from "./activity.logic";
 import { AttributionFooter } from "./footer";
 import { RateNudge, shouldShowRateNudge } from "./rateNudge";
 import { UpdateNotice } from "./updateNotice";
@@ -58,18 +65,6 @@ function isPlatform(value: unknown): value is Platform {
   return value === "twitch" || value === "kick";
 }
 
-type ActivityStream = {
-  events: ActivityHistoryRecord[];
-  nextCursor?: string;
-};
-
-function mergeActivityStream(current: ActivityStream, page: ActivityPage, paging: boolean): ActivityStream {
-  return {
-    events: mergeActivityPages(current.events, page.events),
-    nextCursor: paging || current.events.length === 0 ? page.nextCursor : current.nextCursor,
-  };
-}
-
 export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initialState?: PopupInitialState }): React.ReactElement {
   const preview = initialState?.preview ?? false;
   const initialVariant = initialState?.variant ?? screenshotVariant("twitch-drops");
@@ -80,8 +75,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [tab, setTab] = useState<PopupTab>(preview && initialVariant.view === "watchQueue" ? "watchQueue" : "drops");
   const [settingsOpen, setSettingsOpen] = useState(preview && initialVariant.view === "settings");
   const [activityOpen, setActivityOpen] = useState(preview && initialVariant.view === "activity");
-  const [activityStream, setActivityStream] = useState<ActivityStream>({ events: [] });
-  const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>({ events: [] });
+  const [activityStream, setActivityStream] = useState<ActivityStream>(createActivityStream);
+  const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>(createActivityStream);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [loadingMoreActivity, setLoadingMoreActivity] = useState(false);
   const [clearActivityArmed, setClearActivityArmed] = useState(false);
@@ -96,6 +91,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [campaignFocus, setCampaignFocus] = useState<{ id: string; seq: number } | null>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const activityRequestScopeRef = useRef(createActivityRequestScope(platform));
+  const activityClearInFlightRef = useRef(false);
+  const [activityRequestGeneration, setActivityRequestGeneration] = useState(0);
   const wasSettingsOpen = useRef(settingsOpen);
   const resumeRefreshRun = useRef(0);
   const languageOverride = initialState?.locale ?? snapshot?.settings.languageOverride ?? DEFAULT_SETTINGS.languageOverride;
@@ -109,6 +107,14 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     const message = translateFromCatalogs(key, substitutions, overrideCatalog, fallbackCatalog ?? overrideCatalog ?? {});
     return message === key ? adapter.getMessage(key, substitutions) || message : message;
   };
+
+  function invalidateActivityRequests(nextPlatform: Platform = activityRequestScopeRef.current.platform): ActivityRequestScope {
+    const nextScope = advanceActivityRequestScope(activityRequestScopeRef.current, nextPlatform);
+    activityRequestScopeRef.current = nextScope;
+    setActivityRequestGeneration(nextScope.generation);
+    setLoadingMoreActivity(false);
+    return nextScope;
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -176,22 +182,35 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }, [adapter, preview]);
 
   useEffect(() => {
-    if (!activityOpen || preview) return;
+    if (!activityOpen || preview || clearingActivity) return;
     let cancelled = false;
-    const refresh = () => void adapter.send<ActivityPage>({ type: "getActivity", platform, category: "activity", limit: 80 }).then((page) => {
-      if (!cancelled) setActivityStream((current) => mergeActivityStream(current, page, false));
-    }).catch(() => undefined);
+    const requestScope = activityRequestScopeRef.current;
+    const refresh = () => {
+      if (activityClearInFlightRef.current || !isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) return;
+      void adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "activity", limit: 80 }).then((page) => {
+        if (!cancelled && isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) {
+          setActivityStream((current) => applyActivityPageForRequest(
+            current,
+            page,
+            "refresh",
+            requestScope,
+            activityRequestScopeRef.current,
+          ));
+        }
+      }).catch(() => undefined);
+    };
     refresh();
     const interval = setInterval(refresh, 5000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [activityOpen, adapter, platform, preview]);
+  }, [activityOpen, activityRequestGeneration, adapter, clearingActivity, preview]);
 
   useEffect(() => {
-    setActivityStream({ events: [] });
-    setDiagnosticStream({ events: [] });
+    if (activityRequestScopeRef.current.platform !== platform) invalidateActivityRequests(platform);
+    setActivityStream(createActivityStream());
+    setDiagnosticStream(createActivityStream());
     setShowDiagnostics(false);
     setClearActivityArmed(false);
     setClearActivityFailed(false);
@@ -202,52 +221,96 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }, [snapshot?.settings.diagnosticLogging]);
 
   useEffect(() => {
-    if (!activityOpen || preview || !showDiagnostics || !snapshot?.settings.diagnosticLogging) return;
+    if (!activityOpen || preview || clearingActivity || !showDiagnostics || !snapshot?.settings.diagnosticLogging) return;
     let cancelled = false;
-    const refresh = () => void adapter.send<ActivityPage>({ type: "getActivity", platform, category: "diagnostic", limit: 80 }).then((page) => {
-      if (!cancelled) setDiagnosticStream((current) => mergeActivityStream(current, page, false));
-    }).catch(() => undefined);
+    const requestScope = activityRequestScopeRef.current;
+    const refresh = () => {
+      if (activityClearInFlightRef.current || !isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) return;
+      void adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "diagnostic", limit: 80 }).then((page) => {
+        if (!cancelled && isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) {
+          setDiagnosticStream((current) => applyActivityPageForRequest(
+            current,
+            page,
+            "refresh",
+            requestScope,
+            activityRequestScopeRef.current,
+          ));
+        }
+      }).catch(() => undefined);
+    };
     refresh();
     const interval = setInterval(refresh, 5000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [activityOpen, adapter, platform, preview, showDiagnostics, snapshot?.settings.diagnosticLogging]);
+  }, [activityOpen, activityRequestGeneration, adapter, clearingActivity, preview, showDiagnostics, snapshot?.settings.diagnosticLogging]);
 
   function loadMoreActivity(): void {
+    if (activityClearInFlightRef.current || clearingActivity || loadingMoreActivity) return;
+    const requestScope = activityRequestScopeRef.current;
     const requests: Promise<void>[] = [];
     if (activityStream.nextCursor) {
       const cursor = activityStream.nextCursor;
-      requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform, category: "activity", cursor, limit: 80 })
-        .then((page) => setActivityStream((current) => mergeActivityStream(current, page, true))));
+      requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "activity", cursor, limit: 80 })
+        .then((page) => {
+          if (isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) {
+            setActivityStream((current) => applyActivityPageForRequest(
+              current,
+              page,
+              "page",
+              requestScope,
+              activityRequestScopeRef.current,
+            ));
+          }
+        }));
     }
     if (showDiagnostics && snapshot?.settings.diagnosticLogging && diagnosticStream.nextCursor) {
       const cursor = diagnosticStream.nextCursor;
-      requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform, category: "diagnostic", cursor, limit: 80 })
-        .then((page) => setDiagnosticStream((current) => mergeActivityStream(current, page, true))));
+      requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "diagnostic", cursor, limit: 80 })
+        .then((page) => {
+          if (isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) {
+            setDiagnosticStream((current) => applyActivityPageForRequest(
+              current,
+              page,
+              "page",
+              requestScope,
+              activityRequestScopeRef.current,
+            ));
+          }
+        }));
     }
     if (requests.length === 0) return;
     setLoadingMoreActivity(true);
-    void Promise.allSettled(requests).finally(() => setLoadingMoreActivity(false));
+    void Promise.allSettled(requests).finally(() => {
+      if (isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) setLoadingMoreActivity(false);
+    });
   }
 
   function clearActivityHistory(): void {
+    if (activityClearInFlightRef.current) return;
     if (!clearActivityArmed) {
       setClearActivityArmed(true);
       setClearActivityFailed(false);
       return;
     }
+    activityClearInFlightRef.current = true;
+    invalidateActivityRequests();
     setClearingActivity(true);
     setClearActivityFailed(false);
     void adapter.send<void>({ type: "clearActivity" }).then(() => {
-      setActivityStream({ events: [] });
-      setDiagnosticStream({ events: [] });
+      activityClearInFlightRef.current = false;
+      invalidateActivityRequests();
+      setActivityStream(createActivityStream());
+      setDiagnosticStream(createActivityStream());
       setClearActivityArmed(false);
+      setClearingActivity(false);
     }).catch(() => {
+      activityClearInFlightRef.current = false;
       setClearActivityArmed(false);
       setClearActivityFailed(true);
-    }).finally(() => setClearingActivity(false));
+      setClearingActivity(false);
+    });
   }
 
   function dismissUpdateNotice(): void {
@@ -316,8 +379,14 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }, [adapter, preview]);
 
   function selectPlatform(nextPlatform: Platform): void {
+    if (nextPlatform !== activityRequestScopeRef.current.platform) invalidateActivityRequests(nextPlatform);
     setPlatform(nextPlatform);
     if (!preview) void adapter.setStorage({ [SELECTED_PLATFORM_KEY]: nextPlatform });
+  }
+
+  function closeActivityView(): void {
+    if (activityOpen) invalidateActivityRequests();
+    setActivityOpen(false);
   }
 
   async function updateSettings(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
@@ -451,7 +520,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             {settingsOpen || activityOpen ? (
               <IconButton
                 label={t("back")}
-                onClick={() => { setSettingsOpen(false); setActivityOpen(false); }}
+                onClick={() => { setSettingsOpen(false); closeActivityView(); }}
               >
                 <ArrowLeft size={16} />
               </IconButton>
@@ -463,7 +532,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                 <IconButton label={t("openActivity")} onClick={() => { setActivityOpen(true); setSettingsOpen(false); }}>
                   <Clock3 size={16} />
                 </IconButton>
-                <IconButton label={t("openSettings")} onClick={() => { setSettingsOpen(true); setActivityOpen(false); }}>
+                <IconButton label={t("openSettings")} onClick={() => { setSettingsOpen(true); closeActivityView(); }}>
                   <SettingsIcon size={16} />
                 </IconButton>
               </>

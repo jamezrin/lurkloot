@@ -3,7 +3,71 @@ import type {
   FarmingStopReason,
   StoredEngineEvent,
 } from "@lurkloot/shared/events";
+import type { ActivityPage } from "@lurkloot/shared/messages";
+import type { Platform } from "@lurkloot/shared/models";
 import type { TFunction } from "./types";
+
+export type ActivityStream = {
+  events: ActivityHistoryRecord[];
+  initialized: boolean;
+  nextCursor?: string;
+};
+
+export type ActivityRequestScope = {
+  generation: number;
+  platform: Platform;
+};
+
+export function createActivityStream(): ActivityStream {
+  return { events: [], initialized: false };
+}
+
+export function applyActivityPage(
+  current: ActivityStream,
+  page: ActivityPage,
+  kind: "refresh" | "page",
+): ActivityStream {
+  const currentIds = new Set(current.events.map((event) => event.id));
+  const refreshOverlapsCoverage = page.events.some((event) => currentIds.has(event.id));
+  const adoptRefreshCursor = !current.initialized
+    || Boolean(page.nextCursor && !refreshOverlapsCoverage);
+
+  return {
+    events: mergeActivityPages(current.events, page.events),
+    initialized: true,
+    nextCursor: kind === "page" || adoptRefreshCursor ? page.nextCursor : current.nextCursor,
+  };
+}
+
+export function createActivityRequestScope(platform: Platform): ActivityRequestScope {
+  return { generation: 0, platform };
+}
+
+export function advanceActivityRequestScope(
+  current: ActivityRequestScope,
+  platform: Platform = current.platform,
+): ActivityRequestScope {
+  return { generation: current.generation + 1, platform };
+}
+
+export function isActivityRequestCurrent(
+  request: ActivityRequestScope,
+  current: ActivityRequestScope,
+): boolean {
+  return request.generation === current.generation && request.platform === current.platform;
+}
+
+export function applyActivityPageForRequest(
+  current: ActivityStream,
+  page: ActivityPage,
+  kind: "refresh" | "page",
+  request: ActivityRequestScope,
+  active: ActivityRequestScope,
+): ActivityStream {
+  return isActivityRequestCurrent(request, active)
+    ? applyActivityPage(current, page, kind)
+    : current;
+}
 
 function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
   switch (reason) {
