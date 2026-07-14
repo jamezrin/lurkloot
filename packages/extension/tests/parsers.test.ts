@@ -379,6 +379,34 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].eligibility).toBe("account_not_linked");
   });
 
+  it("treats a URL-less disconnected Twitch campaign as linked", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "url-less-ewc-like",
+      self: { isAccountConnected: false },
+      timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
+    }]);
+
+    expect(campaigns[0]).toMatchObject({
+      accountLinked: true,
+      eligibility: "eligible",
+    });
+  });
+
+  it("keeps a genuine disconnected Twitch campaign unlinked when it provides a link URL", () => {
+    const campaigns = parseTwitchInventory([{
+      id: "genuine-unlinked",
+      self: { isAccountConnected: false },
+      accountLinkURL: "https://example.test/connect",
+      timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
+    }]);
+
+    expect(campaigns[0]).toMatchObject({
+      accountLinked: false,
+      accountLinkUrl: "https://example.test/connect",
+      eligibility: "account_not_linked",
+    });
+  });
+
   it("does not unlock a watch reward whose paid prerequisite was excluded", () => {
     const campaigns = parseTwitchInventory([{
       id: "paid-prerequisite-campaign",
