@@ -1,7 +1,9 @@
 import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
 import { KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
+import { resolveCompatibility } from "@lurkloot/core";
 import type { EventEmitter } from "@lurkloot/shared/events";
+import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
 import { kickCookieApi, twitchCookieApi } from "./cookieApi";
@@ -14,23 +16,26 @@ import { tablessWatchPort, type EnabledPlatforms, type TransportHandle } from ".
 export function createHttpTransport(creds: PlatformCredentials, _enabled: EnabledPlatforms): TransportHandle {
   const twitchApi = twitchCookieApi(creds);
   const kickApi = kickCookieApi(creds);
-  const createAdapters = (emit?: EventEmitter) => ({
-    twitch: new TwitchAdapter(
-      { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchApi, url, init) },
-      async () => false,
-      tablessWatchPort,
-      twitchClientIdentity(creds),
-      emit,
-    ),
-    kick: new KickAdapter(
-      { fetchJson: (url, init) => fetchKickInBackgroundWith(kickApi, url, init) },
-      tablessWatchPort,
-      undefined,
-      emit,
-    ),
+  const createAdapters = (emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => ({
+    adapters: {
+      twitch: new TwitchAdapter(
+        { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchApi, url, init) },
+        async () => false,
+        tablessWatchPort,
+        twitchClientIdentity(creds),
+        emit,
+      ),
+      kick: new KickAdapter(
+        { fetchJson: (url, init) => fetchKickInBackgroundWith(kickApi, url, init) },
+        tablessWatchPort,
+        undefined,
+        emit,
+      ),
+    },
+    ...resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" }),
   });
   return {
-    adapters: createAdapters(),
+    adapters: createAdapters(undefined).adapters,
     createAdapters,
     async dispose() {
       // The http transport holds no long-lived resources.

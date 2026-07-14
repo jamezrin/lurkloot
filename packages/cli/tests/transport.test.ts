@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createTransport } from "../src/transport";
 import { tablessWatchPort } from "../src/transport/common";
+import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 
 const ENABLED = { twitch: true, kick: true };
 
@@ -10,6 +11,15 @@ describe("createTransport", () => {
     expect(handle.adapters.twitch.platform).toBe("twitch");
     expect(handle.adapters.kick.platform).toBe("kick");
     await expect(handle.dispose()).resolves.toBeUndefined();
+  });
+
+  it("resolves CLI adapters with the Android Twitch identity", async () => {
+    const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+
+    const construction = handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS);
+
+    expect(construction.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-trowel-v1");
+    await handle.dispose();
   });
 
   // impersonate and browser are exercised by impersonate.test.ts / browser.test.ts

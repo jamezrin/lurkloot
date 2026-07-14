@@ -12,6 +12,7 @@ import {
   stopWatchTab,
 } from "../src/core/tabs";
 import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
+import { resolveCompatibility } from "@lurkloot/core";
 import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
@@ -92,7 +93,7 @@ const controller = createBackgroundController<ExtensionSettings>({
   loadTwitchIntegrity,
   saveTwitchIntegrity,
   stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
-  createAdapters: (emit) => {
+  createAdapters: (emit, settings) => {
     // The watch-tab port is operation-scoped so every browser diagnostic joins
     // the same controller event batch as the adapter and scheduler events.
     const watchTabPort: WatchTabPort = {
@@ -111,22 +112,25 @@ const controller = createBackgroundController<ExtensionSettings>({
       },
     };
     return {
-      twitch: new TwitchAdapter(
-        { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
-        () => ensureTwitchIntegrity(emit),
-        watchTabPort,
-        {},
-        emit,
-      ),
-      kick: new KickAdapter(
-        createKickFetcher({
-          background: (url, init) => fetchKickInBackground<unknown>(url, init),
-          pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
-        }),
-        watchTabPort,
-        undefined,
-        emit,
-      ),
+      adapters: {
+        twitch: new TwitchAdapter(
+          { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
+          () => ensureTwitchIntegrity(emit),
+          watchTabPort,
+          {},
+          emit,
+        ),
+        kick: new KickAdapter(
+          createKickFetcher({
+            background: (url, init) => fetchKickInBackground<unknown>(url, init),
+            pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
+          }),
+          watchTabPort,
+          undefined,
+          emit,
+        ),
+      },
+      ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
     };
   },
 });

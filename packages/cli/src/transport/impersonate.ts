@@ -1,7 +1,9 @@
 import { fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
 import { KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
+import { resolveCompatibility } from "@lurkloot/core";
 import type { EventEmitter } from "@lurkloot/shared/events";
+import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
 import { twitchCookieApi } from "./cookieApi";
@@ -24,24 +26,27 @@ export async function createImpersonateTransport(
   deps: ImpersonateDeps = {},
 ): Promise<TransportHandle> {
   const cycleTLS = await (deps.initClient ?? initCycle)();
-  const createAdapters = (emit?: EventEmitter) => ({
-    twitch: new TwitchAdapter(
-      { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init) },
-      async () => false,
-      tablessWatchPort,
-      twitchClientIdentity(creds),
-      emit,
-    ),
-    kick: new KickAdapter(
-      createCycleKickFetcher(cycleTLS, creds),
-      tablessWatchPort,
-      createCycleKickWebSocketFactory(cycleTLS, creds),
-      emit,
-    ),
+  const createAdapters = (emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => ({
+    adapters: {
+      twitch: new TwitchAdapter(
+        { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init) },
+        async () => false,
+        tablessWatchPort,
+        twitchClientIdentity(creds),
+        emit,
+      ),
+      kick: new KickAdapter(
+        createCycleKickFetcher(cycleTLS, creds),
+        tablessWatchPort,
+        createCycleKickWebSocketFactory(cycleTLS, creds),
+        emit,
+      ),
+    },
+    ...resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" }),
   });
 
   return {
-    adapters: createAdapters(),
+    adapters: createAdapters(undefined).adapters,
     createAdapters,
     async dispose() {
       await cycleTLS.exit();

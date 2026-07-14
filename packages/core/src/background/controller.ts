@@ -9,6 +9,7 @@ import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
+import type { CompatibilityResolution, ResolvedCompatibility } from "../compatibility/types";
 
 export const ALARM_NAME = "lurkloot.tick";
 // A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
@@ -80,7 +81,11 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   saveState(state: SchedulerState): Promise<void>;
   reportEvents?: EventReporter;
   createAlarm(name: string, options: { periodInMinutes: number }): Promise<void>;
-  createAdapters(emit: EventEmitter): Record<Platform, PlatformAdapter>;
+  createAdapters(emit: EventEmitter, settings: S): {
+    adapters: Record<Platform, PlatformAdapter>;
+    compatibility: ResolvedCompatibility;
+    warnings: CompatibilityResolution["warnings"];
+  };
   createNotification?(notification: { title: string; message: string }): Promise<void>;
   translate?(key: string, substitutions?: string | string[]): string | Promise<string>;
   closeManagedTabsByUrl?(urls: string[]): Promise<void>;
@@ -102,6 +107,32 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
 }
 
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
+  const reportedCompatibility = new Map<Platform, string>();
+
+  function createAdapters(settings: S, emit: EventEmitter): Record<Platform, PlatformAdapter> {
+    const construction = deps.createAdapters(emit, settings);
+    for (const platform of PLATFORMS) {
+      if (!settings.platform[platform].enabled) continue;
+      const profile = construction.compatibility[platform].profile;
+      const capability = platform === "twitch"
+        ? construction.compatibility.twitch.heartbeat
+        : construction.compatibility.kick.claim;
+      const key = `${profile}:${capability}`;
+      if (reportedCompatibility.get(platform) === key) continue;
+      emit({
+        category: "diagnostic",
+        platform,
+        level: "info",
+        message: `Using compatibility profile ${profile} (${capability})`,
+        compatibilityProfile: profile,
+        compatibilityCapability: capability,
+        compatibilityVersion: capability,
+      });
+      reportedCompatibility.set(platform, key);
+    }
+    return construction.adapters;
+  }
+
   async function withEventCollector<T>(operation: (emit: EventEmitter, events: EngineEvent[]) => Promise<T>): Promise<T> {
     const events: EngineEvent[] = [];
     const emit: EventEmitter = (event) => events.push(event);
@@ -222,6 +253,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    await withEventCollector(async (emit, events) => {
+      createAdapters(settings, emit);
+      await reportBestEffort(events);
+    });
     // A restart kills any in-memory watchers; start clean and let tick() rebuild.
     tablessWatchers.clear();
 
@@ -290,7 +325,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       };
       let nextState: SchedulerState;
       try {
-        const adapters = deps.createAdapters(emit);
+        const adapters = createAdapters(settings, emit);
         const result = await runSchedulerTick(state, settings, adapters, {
           ...(platforms ? { platforms } : {}),
           stopPageContextTabs: deps.stopPageContextTabs,
@@ -447,7 +482,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       // both fire on a ~1-minute cadence). reconcileTablessWatchers only calls
       // watcher.start() on a fresh start/channel switch and never re-acquires the
       // lock, so holding it here is safe (no reentrancy).
-      await reconcileTablessWatchers(nextState, settings, deps.createAdapters(emit), emit);
+      await reconcileTablessWatchers(nextState, settings, createAdapters(settings, emit), emit);
       if (tablessWatchers.size === 0) {
         await reportBestEffort(events);
         return [];
@@ -640,7 +675,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // telemetry write can't clobber the claimed-reward update. snapshot() runs
     // after the lock so it reflects the committed state.
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      const state = await deps.loadState();
+      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const campaigns = state.campaigns[message.platform];
       const campaign = campaigns.find((item) => item.id === message.campaignId);
       const reward = campaign?.rewards.find((item) => item.id === message.rewardId);
@@ -669,7 +704,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       let stateWithCampaigns: SchedulerState;
       try {
-        const claimed = await deps.createAdapters(emit)[message.platform].claimReward(campaign, reward);
+        const claimed = await createAdapters(settings, emit)[message.platform].claimReward(campaign, reward);
         const nextCampaigns = campaigns.map((item) => {
           if (item.id !== campaign.id) return item;
           const rewards = item.rewards.map((candidate) => candidate.id === reward.id && claimed
@@ -705,7 +740,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             message: `Could not claim ${reward.name} from ${campaign.name}`,
           };
         emit(claimEvent);
-        const settings = await deps.loadSettings();
         if (claimed && settings.notifyRewardEarned) {
           await safeNotify(
             await tr("notificationRewardClaimed"),
@@ -791,9 +825,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
     if (message.type === "searchCategories") {
       return withEventCollector(async (emit, events) => {
+        const settings = await deps.loadSettings();
         let categories: CategorySearchResult["categories"] = [];
         try {
-          categories = await deps.createAdapters(emit)[message.platform].searchCategories?.(message.query) ?? [];
+          categories = await createAdapters(settings, emit)[message.platform].searchCategories?.(message.query) ?? [];
         } catch (error) {
           emit({
             category: "diagnostic",
