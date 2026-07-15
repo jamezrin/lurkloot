@@ -29,7 +29,8 @@ describe("extension compatibility construction", () => {
   it("injects the resolved web selection into both adapter option boundaries", () => {
     const backgroundSource = readFileSync(new URL("../entrypoints/background.ts", import.meta.url), "utf8");
 
-    expect(backgroundSource).toContain("{ compatibility: resolution.compatibility.twitch }");
+    expect(backgroundSource).toContain("compatibility: resolution.compatibility.twitch,");
+    expect(backgroundSource).toContain("heartbeatIdentity: \"web\",");
     expect(backgroundSource).toContain("{ compatibility: resolution.compatibility.kick }");
   });
 });

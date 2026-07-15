@@ -4,9 +4,9 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
-import type { ResolvedCompatibility } from "../../compatibility/types";
-import { createTwitchGqlV1HeartbeatStrategy } from "./heartbeat/gql-v1";
-import type { TwitchHeartbeatStrategy } from "./heartbeat/types";
+import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
+import { createTwitchHeartbeat } from "./heartbeat/factory";
+import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
 
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
@@ -23,10 +23,12 @@ export interface TwitchAdapterOptions {
   // User-Agent to send with GQL requests, matching the client id. Only set in
   // non-browser runtimes — browsers forbid overriding User-Agent on fetch.
   userAgent?: string;
-  // Resolved metadata is injected by the host. It is intentionally not used to
-  // switch request behavior until the versioned implementations land.
+  // Resolved metadata selects the registered heartbeat and inventory versions.
   compatibility?: ResolvedCompatibility["twitch"];
   heartbeatStrategy?: TwitchHeartbeatStrategy;
+  heartbeatIdentity?: TwitchIdentity;
+  heartbeatFetchText?: TwitchHeartbeatFetchText;
+  heartbeatPost?: TwitchHeartbeatPost;
 }
 
 const TWITCH_QUERIES = {
@@ -712,7 +714,7 @@ export class TwitchAdapter implements PlatformAdapter {
   supportsTabless = true;
 
   createTablessWatcher(): TablessWatchController {
-    return new TwitchWatcher(this.gqlTransport, this.options.heartbeatStrategy);
+    return new TwitchWatcher(this.gqlTransport, this.options);
   }
 
   private async mergeCurrentSessionProgress(
@@ -819,12 +821,18 @@ class TwitchWatcher implements TablessWatchController {
 
   constructor(
     private readonly gql: TwitchGqlTransport,
-    heartbeatStrategy?: TwitchHeartbeatStrategy,
+    options: TwitchAdapterOptions,
   ) {
-    this.heartbeatStrategy = heartbeatStrategy ?? createTwitchGqlV1HeartbeatStrategy(
-      gql,
-      this.diagnostics.emit,
-      (level, message) => this.log(level, message),
+    this.heartbeatStrategy = options.heartbeatStrategy ?? createTwitchHeartbeat(
+      options.compatibility?.heartbeat ?? "twitch-heartbeat-gql-v1",
+      {
+        gql,
+        emit: this.diagnostics.emit,
+        log: (level, message) => this.log(level, message),
+        identity: options.heartbeatIdentity ?? "web",
+        fetchText: options.heartbeatFetchText,
+        post: options.heartbeatPost,
+      },
     );
   }
 

@@ -1,9 +1,80 @@
 import { describe, expect, it, vi } from "vitest";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import type { TwitchHeartbeatStrategy } from "@lurkloot/core/twitch/heartbeat";
-import { createSpadeHeartbeat, createTrowelHeartbeat, isAllowedTwitchUrl } from "@lurkloot/core/twitch/heartbeat";
+import {
+  createSpadeHeartbeat,
+  createTrowelHeartbeat,
+  createTwitchHeartbeat,
+  isAllowedTwitchUrl,
+} from "@lurkloot/core/twitch/heartbeat";
+import { resolveCompatibility } from "@lurkloot/core";
+import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 
 describe("Twitch heartbeat strategies", () => {
+  describe("compatibility selection", () => {
+    const gql = vi.fn(async () => ({ data: { sendSpadeEvents: { statusCode: 204 } } }));
+    const emit = vi.fn();
+    const log = vi.fn();
+
+    it("selects Spade for the extension automatic resolution", () => {
+      const resolution = resolveCompatibility(DEFAULT_SETTINGS.compatibility, { host: "extension", twitchIdentity: "web" });
+      const strategy = createTwitchHeartbeat(resolution.compatibility.twitch.heartbeat, {
+        gql: gql as never,
+        emit,
+        log,
+        identity: "web",
+        fetchText: vi.fn(),
+        post: vi.fn(),
+      });
+
+      expect(strategy.id).toBe("twitch-heartbeat-spade-v1");
+    });
+
+    it("selects Trowel for the CLI Android automatic resolution", () => {
+      const resolution = resolveCompatibility(DEFAULT_SETTINGS.compatibility, { host: "cli", twitchIdentity: "android" });
+      const strategy = createTwitchHeartbeat(resolution.compatibility.twitch.heartbeat, {
+        gql: gql as never,
+        emit,
+        log,
+        identity: "android",
+        post: vi.fn(),
+      });
+
+      expect(strategy.id).toBe("twitch-heartbeat-trowel-v1");
+    });
+
+    it("selects only legacy GQL for an explicit rollback", () => {
+      const resolution = resolveCompatibility({
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_SETTINGS.compatibility.twitch,
+          heartbeatTransport: "twitch-heartbeat-gql-v1",
+        },
+      }, { host: "extension", twitchIdentity: "web" });
+      const strategy = createTwitchHeartbeat(resolution.compatibility.twitch.heartbeat, {
+        gql: gql as never,
+        emit,
+        log,
+        identity: "web",
+      });
+
+      expect(strategy.id).toBe("twitch-heartbeat-gql-v1");
+    });
+
+    it("resolves unsupported identifiers before the exhaustive factory boundary", () => {
+      const resolution = resolveCompatibility({
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_SETTINGS.compatibility.twitch,
+          heartbeatTransport: "hostile-heartbeat" as never,
+        },
+      }, { host: "extension", twitchIdentity: "web" });
+
+      expect(resolution.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-spade-v1");
+      expect(resolution.warnings).toEqual([expect.objectContaining({ code: "unknown_selection" })]);
+    });
+  });
+
   it("delegates resolved stream and viewer identifiers to the injected strategy", async () => {
     const strategy: TwitchHeartbeatStrategy = {
       id: "test-heartbeat",

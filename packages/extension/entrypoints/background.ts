@@ -118,7 +118,19 @@ const controller = createBackgroundController<ExtensionSettings>({
           { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
           () => ensureTwitchIntegrity(emit),
           watchTabPort,
-          { compatibility: resolution.compatibility.twitch },
+          {
+            compatibility: resolution.compatibility.twitch,
+            heartbeatIdentity: "web",
+            heartbeatFetchText: async (url, init) => {
+              const response = await fetch(url, init);
+              if (!response.ok) throw new Error(`Twitch page request returned HTTP ${response.status}`);
+              return await response.text();
+            },
+            heartbeatPost: async (url, init) => {
+              const response = await fetch(url, init);
+              return { status: response.status };
+            },
+          },
           emit,
         ),
         kick: new KickAdapter(
