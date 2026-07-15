@@ -162,27 +162,6 @@ describe("background controller", () => {
     )).toHaveLength(1);
   });
 
-  it("reports an inventory-only effective compatibility change", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
-
-    await env.controller.tick();
-    await env.controller.handleMessage({
-      type: "saveSettings",
-      settingsPatch: { compatibility: { twitch: { inventoryQueryVersion: "twitch-inventory-v2" } } },
-      tickAfterSave: true,
-    });
-
-    const twitchCompatibility = env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
-      event.category === "diagnostic"
-      && "compatibilityProfile" in event
-      && event.platform === "twitch"
-    );
-    expect(twitchCompatibility).toHaveLength(2);
-    expect(twitchCompatibility.at(-1)).toMatchObject({
-      compatibilityCapabilities: ["twitch-heartbeat-spade-v1", "twitch-inventory-v2"],
-    });
-  });
-
   it("emits credential-safe resolver warnings without echoing persisted selections", async () => {
     const hostileSelection = "unknown-auth-token=secret-cookie";
     const env = harness({

@@ -17,7 +17,7 @@ function settings(overrides: {
 describe("compatibility registry", () => {
   it("publishes frozen lifecycle metadata for bundled profiles and capabilities", () => {
     expect(COMPATIBILITY_REGISTRY.twitch.profiles["twitch-2026-07"].lifecycle).toBe("recommended");
-    expect(COMPATIBILITY_REGISTRY.twitch.inventory["twitch-inventory-v2"].lifecycle).toBe("experimental");
+    expect(Object.keys(COMPATIBILITY_REGISTRY.twitch.inventory)).toEqual(["twitch-inventory-v1"]);
     expect(COMPATIBILITY_REGISTRY.kick.claim["kick-claim-v1"].lifecycle).toBe("legacy");
     expect(Object.isFrozen(COMPATIBILITY_REGISTRY)).toBe(true);
     expect(Object.isFrozen(COMPATIBILITY_REGISTRY.twitch.heartbeat)).toBe(true);
@@ -67,12 +67,12 @@ describe("resolveCompatibility", () => {
     expect(metadata.identities).toContain(hostFacts.twitchIdentity);
   });
 
-  it("accepts known compatible legacy and experimental overrides", () => {
+  it("accepts known compatible legacy overrides and rejects unverified inventory versions", () => {
     const result = resolveCompatibility(settings({
       twitch: {
         profile: "twitch-2026-07",
         heartbeatTransport: "twitch-heartbeat-gql-v1",
-        inventoryQueryVersion: "twitch-inventory-v2",
+        inventoryQueryVersion: "unverified-inventory-version",
       },
       kick: { profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" },
     }), { host: "extension", twitchIdentity: "web" });
@@ -81,11 +81,13 @@ describe("resolveCompatibility", () => {
       twitch: {
         profile: "twitch-2026-07",
         heartbeat: "twitch-heartbeat-gql-v1",
-        inventory: "twitch-inventory-v2",
+        inventory: "twitch-inventory-v1",
       },
       kick: { profile: "kick-2026-07", claim: "kick-claim-v1" },
     });
-    expect(result.warnings).toEqual([]);
+    expect(result.warnings).toEqual([
+      expect.objectContaining({ code: "unknown_selection", field: "inventoryQueryVersion", requested: "unverified-inventory-version", resolved: "twitch-inventory-v1" }),
+    ]);
   });
 
   it("warns and falls back for unknown profiles and overrides", () => {

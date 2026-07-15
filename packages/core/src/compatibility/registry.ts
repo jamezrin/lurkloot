@@ -60,14 +60,6 @@ const twitchInventory = frozen({
     hosts: ALL_HOSTS,
     identities: ALL_IDENTITIES,
   }),
-  "twitch-inventory-v2": frozen({
-    id: "twitch-inventory-v2",
-    title: "Inventory query v2",
-    description: "Experimental Twitch inventory query and parser contract.",
-    lifecycle: "experimental",
-    hosts: ALL_HOSTS,
-    identities: ALL_IDENTITIES,
-  }),
 });
 
 const kickProfiles = frozen({

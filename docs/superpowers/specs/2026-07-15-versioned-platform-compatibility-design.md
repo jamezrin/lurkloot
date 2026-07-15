@@ -155,9 +155,8 @@ An inventory capability bundles all mutually dependent details:
 Initial versions are:
 
 - `twitch-inventory-v1`: the current `d86775d0...` persisted hash and current LurkLoot parser.
-- `twitch-inventory-v2`: the observed `8337eb85...` persisted hash and its verified parser/schema contract.
 
-`v2` is not marked recommended merely because another project uses its hash. It becomes eligible for the recommended profile only after captured fixtures confirm its response under both relevant Twitch identities and LurkLoot's parser requirements.
+The unrelated TwitchDropsBot Postman hash is intentionally ignored. No additional inventory capability is bundled, selectable, or advertised until independent real response evidence verifies its schema under LurkLoot's parser requirements.
 
 A persisted-query miss may use the inline fallback belonging to the same capability version. It must not silently combine one version's hash with another version's parser or document. A response that violates the selected schema produces a versioned diagnostic and follows the existing discovery failure behavior.
 
@@ -256,8 +255,8 @@ The resolver never changes an explicit valid selection solely because a request 
 
 ### Inventory
 
-- Pair every persisted hash with its own variables, inline fallback, and fixtures.
-- Parse captured v1 and v2 responses under their matching capability versions.
+- Pair every bundled persisted hash with its own variables, inline fallback, and fixtures.
+- Parse the captured v1 response under its matching capability version; add another version only after independent real response evidence exists.
 - Reject or diagnose mismatched schemas without silently switching parser versions.
 - Verify inline fallback remains within the selected version.
 
@@ -283,7 +282,7 @@ Implementation is divided into independently reviewable slices:
 
 1. Compatibility registry, resolver, shared/CLI/extension settings, diagnostics metadata, and Advanced Settings UI.
 2. Twitch heartbeat capabilities and migration of the existing watcher to the resolved strategy. This is the urgent functional correction.
-3. Twitch inventory capability versions and Kick claim-link v2 behavior.
+3. Twitch inventory v1 capability and Kick claim-link v2 behavior.
 
 Each slice must retain passing workspace typechecks and focused tests. The final change should pass `pnpm verify`.
 

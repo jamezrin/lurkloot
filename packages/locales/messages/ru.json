@@ -753,9 +753,6 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "Запрос инвентаря v1"
   },
-  "compatibilityOptionTwitchInventoryV2": {
-    "message": "Запрос инвентаря v2"
-  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick, июль 2026"
   },

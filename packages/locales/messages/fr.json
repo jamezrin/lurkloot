@@ -753,9 +753,6 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "Requête d’inventaire v1"
   },
-  "compatibilityOptionTwitchInventoryV2": {
-    "message": "Requête d’inventaire v2"
-  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick juillet 2026"
   },

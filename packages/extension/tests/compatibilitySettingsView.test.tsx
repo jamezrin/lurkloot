@@ -33,7 +33,6 @@ const labels: Record<string, string> = {
   compatibilityOptionTwitchHeartbeatSpadeV1: "Spade heartbeat v1",
   compatibilityOptionTwitchHeartbeatTrowelV1: "Trowel heartbeat v1",
   compatibilityOptionTwitchInventoryV1: "Inventory query v1",
-  compatibilityOptionTwitchInventoryV2: "Inventory query v2",
   compatibilityOptionKickProfile202607: "Kick July 2026",
   compatibilityOptionKickClaimV1: "Claim handling v1",
   compatibilityOptionKickClaimV2: "Claim handling v2",
@@ -109,6 +108,8 @@ describe("extension compatibility settings", () => {
     const { container, onChange } = mount();
     expect(container.querySelectorAll('input[type="text"]')).toHaveLength(0);
     act(() => byText(container, "Show expert compatibility controls").click());
+
+    expect([...select(container, "Twitch inventory query").options].map((option) => option.value)).toEqual(["auto", "twitch-inventory-v1"]);
 
     const heartbeat = select(container, "Twitch heartbeat transport");
     expect(heartbeat.textContent).not.toContain("Trowel");

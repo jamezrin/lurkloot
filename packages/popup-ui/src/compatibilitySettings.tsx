@@ -26,7 +26,6 @@ const OPTION_TITLE_KEYS: Readonly<Record<string, string>> = Object.freeze({
   "twitch-heartbeat-spade-v1": "compatibilityOptionTwitchHeartbeatSpadeV1",
   "twitch-heartbeat-trowel-v1": "compatibilityOptionTwitchHeartbeatTrowelV1",
   "twitch-inventory-v1": "compatibilityOptionTwitchInventoryV1",
-  "twitch-inventory-v2": "compatibilityOptionTwitchInventoryV2",
   "kick-2026-07": "compatibilityOptionKickProfile202607",
   "kick-claim-v1": "compatibilityOptionKickClaimV1",
   "kick-claim-v2": "compatibilityOptionKickClaimV2",

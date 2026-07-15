@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { mergeKickProgress, parseKickCampaigns } from "@lurkloot/core/kick/parser";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, withCampaignStatus } from "@lurkloot/core/twitch/parser";
 
@@ -284,6 +285,38 @@ describe("Kick parsers", () => {
 });
 
 describe("Twitch parsers", () => {
+  it("normalizes the proven v1 inventory fixture", () => {
+    // Composed only from the canonical v1 shapes already covered below: nested
+    // inventory campaigns, gameEventDrops ownership, self-edge claim IDs,
+    // account linking, and nullable dates. This is not a network capture.
+    const fixture = JSON.parse(readFileSync(new URL("./fixtures/twitch-inventory-v1.json", import.meta.url), "utf8"));
+    const campaigns = parseTwitchInventory(fixture);
+
+    expect(campaigns).toHaveLength(2);
+    expect(campaigns[0]).toMatchObject({
+      id: "active-campaign",
+      startsAt: null,
+      endsAt: null,
+      accountLinked: false,
+      accountLinkUrl: "https://accounts.example.test/link",
+    });
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      id: "claimable-reward",
+      benefitIds: ["claimable-benefit"],
+      claimId: "sanitized-user#active-campaign#claimable-reward",
+      status: "claimable",
+      availableFrom: null,
+      availableUntil: null,
+    });
+    expect(campaigns[1]).toMatchObject({ id: "owned-campaign", accountLinked: true, status: "completed" });
+    expect(campaigns[1].rewards[0]).toMatchObject({
+      id: "owned-reward",
+      benefitIds: ["owned-benefit"],
+      status: "claimed",
+      watchedMinutes: 120,
+    });
+  });
+
   it("classifies subscription-only campaigns as waiting for a qualifying subscription", () => {
     const campaigns = parseTwitchInventory([{
       id: "subscription-campaign",

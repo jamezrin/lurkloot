@@ -38,7 +38,7 @@ describe("parseCliSettings", () => {
         twitch: {
           profile: "twitch-2026-07",
           heartbeatTransport: "twitch-heartbeat-trowel-v1",
-          inventoryQueryVersion: "twitch-inventory-v2",
+          inventoryQueryVersion: "twitch-inventory-v1",
         },
         kick: {
           profile: "kick-2026-07",
@@ -51,7 +51,7 @@ describe("parseCliSettings", () => {
       twitch: {
         profile: "twitch-2026-07",
         heartbeatTransport: "twitch-heartbeat-trowel-v1",
-        inventoryQueryVersion: "twitch-inventory-v2",
+        inventoryQueryVersion: "twitch-inventory-v1",
       },
       kick: {
         profile: "kick-2026-07",

@@ -753,9 +753,6 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "库存查询 v1"
   },
-  "compatibilityOptionTwitchInventoryV2": {
-    "message": "库存查询 v2"
-  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick 2026 年 7 月版"
   },

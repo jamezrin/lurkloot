@@ -753,9 +753,6 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "استعلام المخزون الإصدار 1"
   },
-  "compatibilityOptionTwitchInventoryV2": {
-    "message": "استعلام المخزون الإصدار 2"
-  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick يوليو 2026"
   },
