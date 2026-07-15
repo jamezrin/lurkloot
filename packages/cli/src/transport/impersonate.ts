@@ -40,6 +40,17 @@ export async function createImpersonateTransport(
             ...identity,
             compatibility: resolution.compatibility.twitch,
             heartbeatIdentity: twitchIdentity,
+            heartbeatFetchText: async (url, init) => {
+              const response = await cycleTLS(url, {
+                ja3: CHROME_JA3,
+                http2Fingerprint: CHROME_HTTP2,
+                userAgent: identity.userAgent,
+                headers: headersToObject(init?.headers),
+                body: typeof init?.body === "string" ? init.body : undefined,
+                disableRedirect: init?.redirect === "error" || init?.redirect === "manual",
+              }, (init?.method ?? "GET").toLowerCase() as "get" | "post");
+              return typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
+            },
             heartbeatPost: async (url, init) => {
               const response = await cycleTLS(url, {
                 ja3: CHROME_JA3,
@@ -47,6 +58,7 @@ export async function createImpersonateTransport(
                 userAgent: identity.userAgent,
                 headers: headersToObject(init.headers),
                 body: typeof init.body === "string" ? init.body : undefined,
+                disableRedirect: init.redirect === "error" || init.redirect === "manual",
               }, "post");
               return { status: response.status };
             },

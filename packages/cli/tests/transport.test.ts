@@ -41,6 +41,40 @@ describe("createTransport", () => {
     await handle.dispose();
   });
 
+  it("sends custom-client Spade page resolution and beacon through HTTP fetch", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes("gql.twitch.tv")) return new Response(JSON.stringify({
+        data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+      if (url === "https://www.twitch.tv/creator") {
+        return new Response('<script src="https://static.twitch.tv/config/settings.js"></script>');
+      }
+      if (url === "https://static.twitch.tv/config/settings.js") {
+        return new Response('{"spade_url":"https://spade.twitch.tv/track"}');
+      }
+      return new Response(null, { status: 204 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const handle = await createTransport("http", {
+      twitch: { authToken: "token", clientId: "custom-web-client" },
+    }, "/tmp/auth", ENABLED);
+    const watcher = handle.adapters.twitch.createTablessWatcher!();
+    await watcher.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
+
+    await expect(watcher.tick({})).resolves.toEqual({ ok: true, live: true });
+
+    expect(fetchMock).toHaveBeenCalledWith("https://www.twitch.tv/creator", expect.objectContaining({
+      credentials: "include",
+      redirect: "error",
+    }));
+    expect(fetchMock).toHaveBeenCalledWith("https://static.twitch.tv/config/settings.js", expect.objectContaining({
+      credentials: "include",
+      redirect: "error",
+    }));
+    expect(fetchMock).toHaveBeenCalledWith("https://spade.twitch.tv/track", expect.objectContaining({ method: "POST" }));
+    await handle.dispose();
+  });
+
   // impersonate and browser are exercised by impersonate.test.ts / browser.test.ts
   // (with cycletls/Playwright handled there, so no real subprocess spawns here).
 });

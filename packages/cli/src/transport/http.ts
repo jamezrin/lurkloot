@@ -30,6 +30,10 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
             ...identity,
             compatibility: resolution.compatibility.twitch,
             heartbeatIdentity: twitchIdentity,
+            heartbeatFetchText: async (url, init) => {
+              const response = await fetch(url, init);
+              return response.text();
+            },
             heartbeatPost: async (url, init) => {
               const response = await fetch(url, init);
               return { status: response.status };

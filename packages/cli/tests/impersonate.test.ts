@@ -9,7 +9,11 @@ const ENABLED = { twitch: true, kick: true };
 
 afterEach(() => vi.unstubAllGlobals());
 
-interface Captured { url: string; options: { ja3?: string; userAgent?: string; headers: Record<string, string> }; method: string }
+interface Captured {
+  url: string;
+  options: { ja3?: string; userAgent?: string; headers: Record<string, string>; disableRedirect?: boolean };
+  method: string;
+}
 
 function fakeClient(handler: (url: string, options: Captured["options"], method: string) => Promise<{ status: number; data: unknown; headers?: Record<string, unknown> }>) {
   const client: any = (url: string, options: Captured["options"], method: string) => handler(url, options, method);
@@ -84,6 +88,42 @@ describe("impersonate transport", () => {
       url: "https://trowel.twitch.tv/track",
       method: "post",
     })]));
+    await handle.dispose();
+  });
+
+  it("sends custom-client Spade page resolution and beacon through cycletls", async () => {
+    const calls: Captured[] = [];
+    const client = fakeClient((url, options, method) => {
+      calls.push({ url, options, method });
+      if (url === "https://www.twitch.tv/creator") {
+        return Promise.resolve({ status: 200, data: '<script src="https://static.twitch.tv/config/settings.js"></script>' });
+      }
+      if (url === "https://static.twitch.tv/config/settings.js") {
+        return Promise.resolve({ status: 200, data: '{"spade_url":"https://spade.twitch.tv/track"}' });
+      }
+      return Promise.resolve({ status: 204, data: "" });
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
+    }), { status: 200, headers: { "content-type": "application/json" } })));
+    const handle = await createImpersonateTransport({
+      twitch: { authToken: "token", clientId: "custom-web-client" },
+    }, ENABLED, { initClient: async () => client });
+    const watcher = handle.adapters.twitch.createTablessWatcher!();
+    await watcher.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
+
+    await expect(watcher.tick({})).resolves.toEqual({ ok: true, live: true });
+
+    expect(calls).toEqual(expect.arrayContaining([
+      expect.objectContaining({ url: "https://www.twitch.tv/creator", method: "get" }),
+      expect.objectContaining({ url: "https://static.twitch.tv/config/settings.js", method: "get" }),
+      expect.objectContaining({ url: "https://spade.twitch.tv/track", method: "post" }),
+    ]));
+    const page = calls.find((call) => call.url === "https://www.twitch.tv/creator");
+    expect(page?.options.disableRedirect).toBe(true);
+    const beacon = calls.find((call) => call.url === "https://spade.twitch.tv/track");
+    expect(beacon?.options.disableRedirect).toBe(true);
+    expect(beacon?.options.headers["Content-Type"]).toBe("application/x-www-form-urlencoded");
     await handle.dispose();
   });
 });
