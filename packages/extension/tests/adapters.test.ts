@@ -276,6 +276,67 @@ describe("KickAdapter", () => {
     expect(capability.classify({}, campaign)).toEqual({ kind: "not_claimed" });
   });
 
+  it("suppresses repeated link-required claims until refreshed progress explicitly confirms linking", async () => {
+    let claimPosts = 0;
+    let progress: unknown = { data: [{ campaign_id: "campaign" }] };
+    const events: EngineEvent[] = [];
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return { connect_url: "https://accounts.example/link" };
+      }
+      if (url === "https://web.kick.com/api/v1/drops/progress") return progress;
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const adapter = new KickAdapter(fetcher, undefined, undefined, (event) => events.push(event));
+    const campaign = {
+      id: "campaign",
+      platform: "kick",
+      name: "Campaign",
+      status: "active",
+      // Stale last-known metadata must not count as refreshed affirmative evidence.
+      accountLinked: true,
+      rewards: [{ id: "reward", name: "Reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 }],
+    } as DropCampaign;
+    const reward = campaign.rewards[0];
+
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+    expect(claimPosts).toBe(1);
+    expect(reward.claimGuidance).toEqual({ kind: "link_required", url: "https://accounts.example/link" });
+    expect(events.filter((event) => event.category === "diagnostic" && event.message.includes("https://accounts.example/link"))).toHaveLength(1);
+
+    const ambiguous = await adapter.readProgress([campaign]);
+    await expect(adapter.claimReward(ambiguous[0], ambiguous[0].rewards[0])).resolves.toBe(false);
+    expect(claimPosts).toBe(1);
+
+    progress = { data: [{ campaign_id: "campaign", user_app_connected: true }] };
+    const linked = await adapter.readProgress(ambiguous);
+    expect(linked[0].accountLinked).toBe(true);
+    expect(linked[0].claimGuidance).toBeUndefined();
+    expect(linked[0].rewards[0].claimGuidance).toBeUndefined();
+    await expect(adapter.claimReward(linked[0], linked[0].rewards[0])).resolves.toBe(false);
+    expect(claimPosts).toBe(2);
+  });
+
+  it("allows a new adapter process to retry a link-required claim once", async () => {
+    let claimPosts = 0;
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return { connectUrl: "https://accounts.example/link" };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const campaign = { id: "campaign" } as DropCampaign;
+    const reward = { id: "reward", name: "Reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+
+    await new KickAdapter(fetcher).claimReward(campaign, reward);
+    await new KickAdapter(fetcher).claimReward(campaign, reward);
+
+    expect(claimPosts).toBe(2);
+  });
+
   it("keeps Kick claim v1 limited to campaign account-link metadata", () => {
     const capability = createKickClaimCapability("kick-claim-v1");
 
@@ -287,19 +348,29 @@ describe("KickAdapter", () => {
       { message: "Reward not available" },
       { id: "campaign", accountLinked: false, accountLinkUrl: "https://accounts.example/from-campaign" } as DropCampaign,
     )).toEqual({ kind: "link_required", url: "https://accounts.example/from-campaign" });
+    expect(capability.classify(
+      { message: "Reward not available" },
+      { id: "campaign", accountLinked: false, accountLinkUrl: "javascript:alert(1)" } as DropCampaign,
+    )).toEqual({ kind: "not_claimed" });
   });
 
   it("guides the user to link instead of erroring when an unlinked Kick claim is rejected", async () => {
     const reward = { id: "reward", name: "Spray", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+    let rejectionPosts = 0;
     const rejecting = () => new KickAdapter(jsonFetcher((url) => {
-      if (url === "https://web.kick.com/api/v1/drops/claim") throw new Error("403 Forbidden");
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        rejectionPosts += 1;
+        throw new Error("403 Forbidden");
+      }
       throw new Error(`Unexpected URL ${url}`);
     }));
 
     // Unlinked campaign: the rejection is swallowed (no platform backoff) and reported as a non-claim.
-    await expect(
-      rejecting().claimReward({ id: "c", accountLinked: false, accountLinkUrl: "https://accounts.krafton.com/x" } as DropCampaign, reward),
-    ).resolves.toBe(false);
+    const unlinked = rejecting();
+    const unlinkedCampaign = { id: "c", accountLinked: false, accountLinkUrl: "https://accounts.krafton.com/x" } as DropCampaign;
+    await expect(unlinked.claimReward(unlinkedCampaign, reward)).resolves.toBe(false);
+    await expect(unlinked.claimReward(unlinkedCampaign, reward)).resolves.toBe(false);
+    expect(rejectionPosts).toBe(1);
 
     // Linked campaign: a genuine claim error still propagates for the scheduler to handle.
     await expect(

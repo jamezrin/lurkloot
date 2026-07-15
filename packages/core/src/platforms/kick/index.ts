@@ -6,6 +6,9 @@ import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, typ
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
 import type { ResolvedCompatibility } from "../../compatibility/types";
+import { createKickClaimCapability } from "./claim/factory";
+import type { KickClaimCapability } from "./claim/types";
+import { safeHttpsUrl } from "./claim/types";
 
 export { createKickClaimCapability } from "./claim/factory";
 export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
@@ -43,20 +46,10 @@ interface KickChannelResponse {
   } | null;
 }
 
-// Kick's /drops/claim returns `{ message: "Success", data: { id } }` on success
-// (see references/kickautodrops/core/kick.py); there is no top-level `success`
-// flag. Some failures still come back as HTTP 200 with a non-success body, so a
-// positive signal is required rather than treating any 200 as a claim.
 interface KickClaimResponse {
   success?: boolean;
   message?: string;
   data?: { id?: string | number } | null;
-}
-
-function isKickClaimSuccess(response: KickClaimResponse): boolean {
-  if (response.success === true) return true;
-  if (typeof response.message === "string" && /success/i.test(response.message)) return true;
-  return response.data?.id != null;
 }
 
 // Default Kick fetcher. Spike: try the service worker first (fully tabless) and
@@ -131,6 +124,7 @@ function kickCategoryImage(banner: unknown): string | undefined {
 export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
   readonly compatibility?: ResolvedCompatibility["kick"];
+  private readonly claimCapability: KickClaimCapability;
 
   constructor(
     private readonly fetcher: PageFetcher,
@@ -145,6 +139,9 @@ export class KickAdapter implements PlatformAdapter {
     options: KickAdapterOptions = {},
   ) {
     this.compatibility = options.compatibility;
+    // Compatibility-based selection is wired in Task 4. Until then, use the
+    // recommended response-aware policy rather than duplicating claim logic.
+    this.claimCapability = createKickClaimCapability("kick-claim-v2");
   }
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
@@ -161,7 +158,8 @@ export class KickAdapter implements PlatformAdapter {
       const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/progress", {
         headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
       }, this.emit);
-      return mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
+      const progress = mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
+      return this.claimCapability.reconcileProgress?.(progress, affirmativelyLinkedCampaignIds(data)) ?? progress;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
@@ -244,6 +242,7 @@ export class KickAdapter implements PlatformAdapter {
 
   async claimReward(campaign: DropCampaign, reward: DropReward): Promise<boolean> {
     if (!reward.claimId && reward.status !== "claimable") return false;
+    if (this.claimCapability.isSuppressed?.(campaign, reward)) return false;
     // JSON.stringify drops `undefined`, so when no claim id was carried by
     // /drops/progress this matches the reference's `{ campaign_id, reward_id }`
     // payload exactly (references/kickautodrops/core/kick.py:48-52); `claim_id`
@@ -269,24 +268,35 @@ export class KickAdapter implements PlatformAdapter {
         },
         this.emit,
       );
-      const claimed = isKickClaimSuccess(response);
-      if (!claimed && campaign.accountLinked === false) this.warnAccountNotLinked(campaign, reward);
-      return claimed;
+      const outcome = this.claimCapability.classify(response, campaign);
+      if (outcome.kind === "claimed") return true;
+      if (outcome.kind === "link_required") {
+        this.claimCapability.suppress?.(campaign, reward, outcome.url);
+        this.warnAccountNotLinked(campaign, reward, outcome.url);
+      }
+      return false;
     } catch (error) {
       // Kick accrues watch progress before the account is linked, but rejects
       // the claim until you connect the org account. Turn that into actionable
       // guidance instead of a raw error, and swallow it so the scheduler does
       // not back the whole platform off over an unlinked campaign.
       if (campaign.accountLinked === false) {
-        this.warnAccountNotLinked(campaign, reward);
+        const outcome = this.claimCapability.classify(undefined, campaign);
+        if (outcome.kind === "link_required") {
+          this.claimCapability.suppress?.(campaign, reward, outcome.url);
+          this.warnAccountNotLinked(campaign, reward, outcome.url);
+        } else {
+          this.warnAccountNotLinked(campaign, reward);
+        }
         return false;
       }
       throw error;
     }
   }
 
-  private warnAccountNotLinked(campaign: DropCampaign, reward: DropReward): void {
-    const where = campaign.accountLinkUrl ? ` at ${campaign.accountLinkUrl}` : ` for ${campaign.name}`;
+  private warnAccountNotLinked(campaign: DropCampaign, reward: DropReward, responseUrl?: string): void {
+    const url = responseUrl ?? safeHttpsUrl(campaign.accountLinkUrl);
+    const where = url ? ` at ${url}` : campaign.name ? ` for ${campaign.name}` : "";
     diagnostic(this.emit, "warn", `Cannot claim "${reward.name}" yet — link your Kick account${where} to claim this campaign's drops.`, "kick");
   }
 
@@ -340,6 +350,29 @@ export class KickAdapter implements PlatformAdapter {
       };
     }
   }
+}
+
+function affirmativelyLinkedCampaignIds(input: unknown): Set<string> {
+  const root = input != null && typeof input === "object" && !Array.isArray(input)
+    ? input as Record<string, unknown>
+    : {};
+  const buckets = [root.data, root.progress, root.campaigns, root.active, root.current, root.completed];
+  if (root.data != null && typeof root.data === "object" && !Array.isArray(root.data)) {
+    const data = root.data as Record<string, unknown>;
+    buckets.push(data.progress, data.campaigns, data.active, data.current, data.completed);
+  }
+  const ids = new Set<string>();
+  for (const bucket of buckets) {
+    if (!Array.isArray(bucket)) continue;
+    for (const entry of bucket) {
+      if (entry == null || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const progress = entry as Record<string, unknown>;
+      if (progress.user_app_connected !== true) continue;
+      const id = progress.campaign_id ?? progress.drop_campaign_id ?? progress.id;
+      if (id != null) ids.add(String(id));
+    }
+  }
+  return ids;
 }
 
 function parseBooleanField(html: string, names: string[]): boolean | undefined {

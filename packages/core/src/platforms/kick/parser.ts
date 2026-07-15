@@ -247,7 +247,11 @@ export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgress
     return {
       ...campaign,
       status,
-      accountLinked: campaignProgress?.user_app_connected === false && Boolean(linkUrl) ? false : campaign.accountLinked,
+      accountLinked: campaignProgress?.user_app_connected === true
+        ? true
+        : campaignProgress?.user_app_connected === false && Boolean(linkUrl)
+          ? false
+          : campaign.accountLinked,
       accountLinkUrl: linkUrl,
       gameName: campaignProgress?.category?.name ?? campaign.gameName,
       gameImageUrl: campaignProgress?.category?.image_url ?? campaign.gameImageUrl,

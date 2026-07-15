@@ -6,7 +6,8 @@ import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/share
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
-import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
+import { KickAdapter } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
@@ -329,6 +330,57 @@ describe("background controller", () => {
       .flatMap(([events]) => events)
       .filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"));
     expect(waitingEvents).toHaveLength(1);
+  });
+
+  it("publishes one actionable link-required diagnostic while repeated automatic claims are suppressed", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+      },
+    });
+    let claimPosts = 0;
+    const fetcher: PageFetcher = {
+      fetchJson: vi.fn(async (url: string) => {
+        if (url === "https://web.kick.com/api/v1/drops/claim") {
+          claimPosts += 1;
+          return { data: { connect_url: "https://accounts.example/link" } };
+        }
+        if (url === "https://web.kick.com/api/v1/drops/progress") {
+          return { data: [{ campaign_id: "kick-campaign" }] };
+        }
+        throw new Error(`Unexpected URL ${url}`);
+      }) as PageFetcher["fetchJson"],
+    };
+    let kick: KickAdapter | undefined;
+    env.deps.createAdapters.mockImplementation((emit, settings) => {
+      if (!kick) {
+        kick = new KickAdapter(fetcher, undefined, undefined, emit);
+        kick.discoverCampaigns = vi.fn(async () => [campaign("kick", "claimable")]);
+        kick.listCandidateChannels = vi.fn(async () => []);
+      }
+      return {
+        adapters: { twitch: env.twitch, kick },
+        ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
+      };
+    });
+
+    await env.controller.tick();
+    await env.controller.tick();
+
+    expect(claimPosts).toBe(1);
+    const events = env.reportEvents.mock.calls.flatMap(([batch]) => batch);
+    expect(events.filter((event) =>
+      event.category === "diagnostic"
+      && event.level === "warn"
+      && event.message.includes("https://accounts.example/link")
+    )).toHaveLength(1);
+    expect(env.state.campaigns.kick[0].rewards[0].claimGuidance).toEqual({
+      kind: "link_required",
+      url: "https://accounts.example/link",
+    });
   });
 
   it("publishes a farming stop reason when automation is disabled", async () => {
