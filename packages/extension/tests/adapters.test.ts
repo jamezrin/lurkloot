@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { readFileSync } from "node:fs";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shared/models";
@@ -926,22 +927,34 @@ describe("TwitchAdapter", () => {
     expect(contextAttempts).toBe(2);
   });
 
-  it("uses the TwitchDropsMiner-proven persisted hash for the Inventory query", async () => {
-    let inventoryHash: string | undefined;
+  it("keeps the v1 inventory hash, variables, inline fallback, and parser paired", async () => {
+    const fixture = JSON.parse(readFileSync(new URL("./fixtures/twitch-inventory-v1.json", import.meta.url), "utf8"));
+    const inventoryBodies: Record<string, unknown>[] = [];
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "Inventory") {
-        inventoryHash = (requestBody(init).extensions as { persistedQuery?: { sha256Hash?: string } })
-          ?.persistedQuery?.sha256Hash;
-        return { data: { currentUser: { id: "user-id", inventory: { dropCampaignsInProgress: [] } } } };
+        const body = requestBody(init);
+        inventoryBodies.push(body);
+        return inventoryBodies.length === 1
+          ? { errors: [{ message: "PersistedQueryNotFound" }] }
+          : fixture;
       }
       if (op === "ViewerDropsDashboard") return { data: { currentUser: { dropCampaigns: [] } } };
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await new TwitchAdapter(fetcher).discoverCampaigns();
+    const campaigns = await new TwitchAdapter(fetcher).discoverCampaigns();
 
-    expect(inventoryHash).toBe("d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b");
+    expect(inventoryBodies).toHaveLength(2);
+    expect(inventoryBodies[0]).toMatchObject({
+      variables: { fetchRewardCampaigns: false },
+      extensions: { persistedQuery: { sha256Hash: "d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b" } },
+    });
+    expect(inventoryBodies[1]).toMatchObject({
+      variables: { fetchRewardCampaigns: false },
+      query: expect.stringContaining("dropCampaignsInProgress"),
+    });
+    expect(campaigns.map((campaign) => campaign.id)).toEqual(["active-campaign", "owned-campaign"]);
   });
 
   it("surfaces Twitch's top-level {error,message} auth failures", async () => {

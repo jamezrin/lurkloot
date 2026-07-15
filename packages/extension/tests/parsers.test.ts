@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { mergeKickProgress, parseKickCampaigns } from "@lurkloot/core/kick/parser";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, withCampaignStatus } from "@lurkloot/core/twitch/parser";
+import { createTwitchInventory } from "@lurkloot/core/twitch";
 
 describe("Kick parsers", () => {
   it("normalizes campaigns and merges progress", () => {
@@ -285,6 +286,13 @@ describe("Kick parsers", () => {
 });
 
 describe("Twitch parsers", () => {
+  it("reports the selected inventory capability when its response schema is malformed", () => {
+    const capability = createTwitchInventory("twitch-inventory-v1");
+
+    expect(() => capability.parse({ data: { currentUser: { inventory: { dropCampaignsInProgress: {} } } } }))
+      .toThrow("twitch-inventory-v1 inventory response schema mismatch");
+  });
+
   it("normalizes the proven v1 inventory fixture", () => {
     // Composed only from the canonical v1 shapes already covered below: nested
     // inventory campaigns, gameEventDrops ownership, self-edge claim IDs,

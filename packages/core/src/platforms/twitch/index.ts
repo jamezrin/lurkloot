@@ -7,6 +7,11 @@ import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInv
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
 import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
+import { createTwitchInventory } from "./inventory/factory";
+import type { TwitchInventoryCapability } from "./inventory/types";
+
+export { createTwitchInventory } from "./inventory/factory";
+export type { TwitchInventoryCapability } from "./inventory/types";
 
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
@@ -32,11 +37,6 @@ export interface TwitchAdapterOptions {
 }
 
 const TWITCH_QUERIES = {
-  inventory: {
-    operationName: "Inventory",
-    sha256Hash: "d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b",
-    variables: { fetchRewardCampaigns: false },
-  },
   dashboard: {
     operationName: "ViewerDropsDashboard",
     sha256Hash: "5a4da2ab3d5b47c9f9ce864e727b2cb346af1e3ea8b897fe8f704a97ff017619",
@@ -98,16 +98,6 @@ const TWITCH_CAMPAIGN_FIELDS = `{
 }`;
 
 const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
-  Inventory: `query Inventory($fetchRewardCampaigns: Boolean!) {
-    currentUser {
-      id
-      inventory {
-        gameEventDrops { id benefit { id } lastAwardedAt }
-        dropCampaignsInProgress ${TWITCH_CAMPAIGN_FIELDS}
-        dropCampaigns @include(if: $fetchRewardCampaigns) ${TWITCH_CAMPAIGN_FIELDS}
-      }
-    }
-  }`,
   ViewerDropsDashboard: `query ViewerDropsDashboard($fetchRewardCampaigns: Boolean!) {
     currentUser {
       id
@@ -363,6 +353,7 @@ export class TwitchAdapter implements PlatformAdapter {
   readonly compatibility?: ResolvedCompatibility["twitch"];
 
   private readonly gqlTransport: TwitchGqlTransport;
+  private readonly inventoryCapability: TwitchInventoryCapability;
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
 
   constructor(
@@ -387,6 +378,7 @@ export class TwitchAdapter implements PlatformAdapter {
   ) {
     this.compatibility = options.compatibility;
     this.gqlTransport = createTwitchGqlTransport(fetcher, options);
+    this.inventoryCapability = createTwitchInventory("twitch-inventory-v1");
   }
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
@@ -396,7 +388,7 @@ export class TwitchAdapter implements PlatformAdapter {
       TWITCH_QUERIES.dashboard.sha256Hash,
       TWITCH_QUERIES.dashboard.variables,
     );
-    let inventoryCampaigns = parseTwitchInventory(inventory as Parameters<typeof parseTwitchInventory>[0]);
+    let inventoryCampaigns = this.inventoryCapability.parse(inventory);
     let dashboardCampaigns = twitchDashboardCampaigns(dashboard);
 
     if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
@@ -406,7 +398,7 @@ export class TwitchAdapter implements PlatformAdapter {
         TWITCH_QUERIES.dashboard.sha256Hash,
         { fetchRewardCampaigns: true },
       );
-      inventoryCampaigns = parseTwitchInventory(inventory as Parameters<typeof parseTwitchInventory>[0]);
+      inventoryCampaigns = this.inventoryCapability.parse(inventory);
       dashboardCampaigns = twitchDashboardCampaigns(dashboard);
     }
 
@@ -465,6 +457,7 @@ export class TwitchAdapter implements PlatformAdapter {
 
   async readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]> {
     const inventory = await this.fetchInventory();
+    this.inventoryCapability.parse(inventory);
     const inventoryProgress = mergeTwitchCampaignProgress(campaigns, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
     if (!session?.channel || session.status !== "watching") return inventoryProgress;
     return this.mergeCurrentSessionProgress(inventoryProgress, session.channel);
@@ -617,12 +610,14 @@ export class TwitchAdapter implements PlatformAdapter {
       .filter((category) => category.id && category.name);
   }
 
-  private async fetchInventory(variables: Record<string, unknown> = TWITCH_QUERIES.inventory.variables): Promise<unknown> {
-    return this.gql<unknown>(
-      TWITCH_QUERIES.inventory.operationName,
-      TWITCH_QUERIES.inventory.sha256Hash,
-      variables,
-    );
+  private async fetchInventory(variables: Record<string, unknown> = { ...this.inventoryCapability.variables }): Promise<unknown> {
+    try {
+      return await this.gql<unknown>("Inventory", this.inventoryCapability.hash, variables);
+    } catch (error) {
+      if (!(error instanceof Error) || !/PersistedQueryNotFound/i.test(error.message)) throw error;
+      diagnostic(this.emit, "debug", `GQL Inventory persisted query not found for ${this.inventoryCapability.id}; retrying with its inline query`, "twitch");
+      return this.gql<unknown>("Inventory", this.inventoryCapability.hash, variables, this.inventoryCapability.inlineQuery);
+    }
   }
 
   private async optionalGql<T>(
