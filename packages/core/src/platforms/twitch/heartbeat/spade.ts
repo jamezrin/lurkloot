@@ -13,7 +13,7 @@ export interface SpadeHeartbeatOptions {
   post: TwitchHeartbeatPost;
 }
 
-const AUTHENTICATED_GET: RequestInit = { credentials: "include" };
+const AUTHENTICATED_GET: RequestInit = { credentials: "include", redirect: "error" };
 
 function extractStringValue(source: string, keys: readonly string[]): string | undefined {
   for (const key of keys) {
@@ -79,6 +79,7 @@ export function createSpadeHeartbeat(options: SpadeHeartbeatOptions): TwitchHear
       const response = await options.post(destination, {
         method: "POST",
         credentials: "include",
+        redirect: "error",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: `data=${encodeURIComponent(encoded)}`,
       });

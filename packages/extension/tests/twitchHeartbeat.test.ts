@@ -119,6 +119,41 @@ describe("Twitch heartbeat strategies", () => {
       expect(post).toHaveBeenCalledWith("https://beacon.twitch.tv/collect", expect.anything());
     });
 
+    it("forbids redirects on authenticated page, settings, and beacon requests", async () => {
+      const fetchText = vi.fn(async (url: string) => url.includes("/settings.")
+        ? 'window.settings={"beacon_url":"https://beacon.twitch.tv/collect"}'
+        : '<script src="https://assets.twitch.tv/config/settings.abcd.js"></script>');
+      const post = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));
+      const strategy = createSpadeHeartbeat({ fetchText, post });
+
+      await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
+
+      expect(fetchText).toHaveBeenNthCalledWith(1, "https://www.twitch.tv/Creator", expect.objectContaining({
+        credentials: "include",
+        redirect: "error",
+      }));
+      expect(fetchText).toHaveBeenNthCalledWith(2, "https://assets.twitch.tv/config/settings.abcd.js", expect.objectContaining({
+        credentials: "include",
+        redirect: "error",
+      }));
+      expect(post).toHaveBeenCalledWith("https://beacon.twitch.tv/collect", expect.objectContaining({
+        credentials: "include",
+        redirect: "error",
+      }));
+    });
+
+    it("does not treat redirect errors as successful heartbeats", async () => {
+      const fetchText = vi.fn(async () => '{"spade_url":"https://spade.twitch.tv/redirect"}');
+      const post = vi.fn<(url: string, init: RequestInit) => Promise<{ status: number }>>()
+        .mockRejectedValue(new TypeError("redirect mode is set to error"));
+      const strategy = createSpadeHeartbeat({ fetchText, post });
+
+      await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false, live: true });
+
+      expect(post).toHaveBeenCalledTimes(2);
+      expect(fetchText).toHaveBeenCalledTimes(2);
+    });
+
     it("caches destinations per normalized channel login", async () => {
       const fetchText = vi.fn(async (url: string) => `{"spade_url":"https://spade.twitch.tv/${url.toLowerCase().includes("other") ? "other" : "creator"}"}`);
       const post = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));
