@@ -185,6 +185,12 @@
   "linkAccount": {
     "message": "اربط حسابك"
   },
+  "externalGameAccountRequired": {
+    "message": "يلزم حساب لعبة خارجي"
+  },
+  "linkExternalGameAccount": {
+    "message": "اربط حساب اللعبة الخارجي"
+  },
   "viewDropPage": {
     "message": "عرض صفحة الدروب"
   },

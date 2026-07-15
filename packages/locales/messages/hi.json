@@ -185,6 +185,12 @@
   "linkAccount": {
     "message": "अपना खाता लिंक करें"
   },
+  "externalGameAccountRequired": {
+    "message": "बाहरी गेम खाता आवश्यक है"
+  },
+  "linkExternalGameAccount": {
+    "message": "बाहरी गेम खाता लिंक करें"
+  },
   "viewDropPage": {
     "message": "ड्रॉप पेज देखें"
   },

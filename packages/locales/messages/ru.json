@@ -185,6 +185,12 @@
   "linkAccount": {
     "message": "Привязать аккаунт"
   },
+  "externalGameAccountRequired": {
+    "message": "Требуется внешняя игровая учётная запись"
+  },
+  "linkExternalGameAccount": {
+    "message": "Привязать внешнюю игровую учётную запись"
+  },
   "viewDropPage": {
     "message": "Открыть страницу дропа"
   },

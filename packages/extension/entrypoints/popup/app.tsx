@@ -45,6 +45,7 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     },
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),
     getUiLanguage: () => browser.i18n.getUILanguage(),
+    openLink: (url) => void browser.tabs.create({ url }),
     getPendingChangelogVersion: loadPendingChangelogVersion,
     dismissPendingChangelogVersion,
     changelogUrl,

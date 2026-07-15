@@ -82,6 +82,7 @@ export function createDemoPopupAdapter(options?: {
     connectSettingsSession: () => () => undefined,
     getMessage: () => "",
     getUiLanguage: () => options?.locale ?? "en",
+    openLink: (url) => window.open(url, "_blank", "noopener,noreferrer"),
   };
 }
 

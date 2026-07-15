@@ -21,7 +21,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { useT } from "./context";
+import { PopupRuntimeContext, useT } from "./context";
 import { formatCountdown, formatHours, formatMinutes } from "./format";
 import { campaignStats, fallbackGame } from "./viewModels";
 import type { CampaignLifecycleState, CampaignView, GameItem, RewardView, TFunction } from "./types";
@@ -95,6 +95,7 @@ function SortableCampaign(props: { campaign: CampaignView; index: number; anyFar
 
 function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing, onToggle, onRefreshCampaign, onToggleExclude, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude?(id: string): void | Promise<void>; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
   const t = useT();
+  const runtime = React.useContext(PopupRuntimeContext);
   const stats = campaignStats(campaign);
   const isFarming = Boolean(campaign.farmingChannel);
   const emphasized = isFarming || (!anyFarming && index === 0);
@@ -109,6 +110,7 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing,
     : stats.kind === "action"
       ? t("actionRequired")
       : `${(stats.progress ?? 0).toFixed(0)}%`;
+  const claimGuidance = campaign.rewards.find((reward) => reward.claimGuidance)?.claimGuidance;
 
   return (
     <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-transparent" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized ? { boxShadow: isOverlay ? "0 20px 50px -12px rgba(0,0,0,0.5)" : "0 0 0 1.5px var(--accent-ring), 0 10px 30px -18px var(--accent-glow)" } : undefined}>
@@ -234,6 +236,23 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing,
                 </div>
                 <RewardCarousel rewards={campaign.rewards} />
               </div>
+              {claimGuidance ? (
+                <div className="rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium">
+                    <Link2 size={12} className="shrink-0" />
+                    <span>{t("externalGameAccountRequired")}</span>
+                  </div>
+                  <button
+                    type="button"
+                    data-claim-link
+                    onClick={() => runtime?.adapter.openLink(claimGuidance.url)}
+                    className="mt-1 flex w-full items-center gap-1.5 rounded-md border border-amber-300/70 bg-white/60 px-2 py-1 text-[11px] font-medium outline-none transition-colors hover:border-amber-400 hover:bg-white focus-visible:ring-2 focus-visible:ring-amber-400 dark:border-amber-500/30 dark:bg-amber-950/20 dark:hover:bg-amber-950/40"
+                  >
+                    <span>{t("linkExternalGameAccount")}</span>
+                    <ExternalLink size={11} className="ml-auto shrink-0 opacity-70" />
+                  </button>
+                </div>
+              ) : null}
               {campaign.hasSubscriptionRewards ? (
                 <button
                   type="button"

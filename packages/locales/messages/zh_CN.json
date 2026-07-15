@@ -185,6 +185,12 @@
   "linkAccount": {
     "message": "关联账号"
   },
+  "externalGameAccountRequired": {
+    "message": "需要外部游戏账号"
+  },
+  "linkExternalGameAccount": {
+    "message": "关联外部游戏账号"
+  },
   "viewDropPage": {
     "message": "查看掉宝页面"
   },

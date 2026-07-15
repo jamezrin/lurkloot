@@ -185,6 +185,12 @@
   "linkAccount": {
     "message": "Vincula tu cuenta"
   },
+  "externalGameAccountRequired": {
+    "message": "Se requiere una cuenta externa del juego"
+  },
+  "linkExternalGameAccount": {
+    "message": "Vincular cuenta externa del juego"
+  },
   "viewDropPage": {
     "message": "Ver página del drop"
   },

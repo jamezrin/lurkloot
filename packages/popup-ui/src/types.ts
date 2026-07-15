@@ -1,5 +1,5 @@
 import type { CliCredentialBlob, RuntimeMessage } from "@lurkloot/shared/messages";
-import type { CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale } from "@lurkloot/shared/models";
+import type { ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale } from "@lurkloot/shared/models";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
 export interface CompatibilityOptionMetadata {
@@ -51,6 +51,7 @@ export type RewardView = {
   art: string;
   tint: string;
   imageUrl?: string;
+  claimGuidance?: ClaimGuidance;
 };
 export type CampaignLifecycleState = "upcoming" | "expired" | "finished";
 
@@ -113,6 +114,7 @@ export interface PopupAdapter {
   connectSettingsSession?(): () => void;
   getMessage(key: string, substitutions?: string | string[]): string;
   getUiLanguage(): string;
+  openLink(url: string): void;
   // Optional extension lifecycle hooks. Demo/site hosts omit these, which also
   // keeps update notices out of screenshots and the landing-page popup demo.
   getPendingChangelogVersion?(): Promise<string | undefined>;
