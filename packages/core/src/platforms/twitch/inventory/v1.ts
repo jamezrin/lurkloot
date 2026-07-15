@@ -44,6 +44,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function hasV1Schema(response: unknown): boolean {
   if (!isRecord(response) || !isRecord(response.data)) return false;
   const currentUser = response.data.currentUser;
+  if (currentUser === null) return true;
   if (!isRecord(currentUser) || !isRecord(currentUser.inventory)) return false;
   const inventory = currentUser.inventory;
   return ["dropCampaignsInProgress", "dropCampaigns", "gameEventDrops"]

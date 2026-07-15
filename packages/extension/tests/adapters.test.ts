@@ -967,6 +967,19 @@ describe("TwitchAdapter", () => {
       .rejects.toThrow("Unauthorized: invalid OAuth token");
   });
 
+  it("guides signed-out users when inventory returns a null current user", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory" || op === "ViewerDropsDashboard") {
+        return { data: { currentUser: null } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await expect(new TwitchAdapter(fetcher).discoverCampaigns())
+      .rejects.toThrow("Twitch did not return a logged-in current user; open twitch.tv and confirm you are signed in");
+  });
+
   it("reports unusable array-wrapped Twitch GQL responses as empty", async () => {
     for (const empty of [[], [null]] as const) {
       const adapter = new TwitchAdapter(jsonFetcher((_url, init) => {
