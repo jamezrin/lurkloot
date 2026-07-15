@@ -957,6 +957,48 @@ describe("TwitchAdapter", () => {
     expect(campaigns.map((campaign) => campaign.id)).toEqual(["active-campaign", "owned-campaign"]);
   });
 
+  it("constructs the resolved inventory capability once and reuses it for requests, fallback, and parsing", async () => {
+    const fixture = JSON.parse(readFileSync(new URL("./fixtures/twitch-inventory-v1.json", import.meta.url), "utf8"));
+    const events: EngineEvent[] = [];
+    let inventorySelectionReads = 0;
+    const compatibility = {
+      profile: "twitch-2026-07" as const,
+      heartbeat: "twitch-heartbeat-spade-v1" as const,
+      get inventory() {
+        inventorySelectionReads += 1;
+        return "twitch-inventory-v1" as const;
+      },
+    };
+    let inventoryAttempts = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        inventoryAttempts += 1;
+        return inventoryAttempts === 1
+          ? { errors: [{ message: "PersistedQueryNotFound" }] }
+          : fixture;
+      }
+      if (op === "ViewerDropsDashboard") return { data: { currentUser: { dropCampaigns: [] } } };
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    const adapter = new TwitchAdapter(
+      fetcher,
+      undefined,
+      undefined,
+      { compatibility },
+      (event) => events.push(event),
+    );
+    const campaigns = await adapter.discoverCampaigns();
+
+    expect(inventorySelectionReads).toBe(1);
+    expect(campaigns.map((campaign) => campaign.id)).toEqual(["active-campaign", "owned-campaign"]);
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      message: expect.stringContaining("twitch-inventory-v1"),
+    }));
+  });
+
   it("surfaces Twitch's top-level {error,message} auth failures", async () => {
     const fetcher = jsonFetcher((_url, init) => {
       if (operation(init) === "Inventory") return { error: "Unauthorized", message: "invalid OAuth token" };

@@ -378,7 +378,9 @@ export class TwitchAdapter implements PlatformAdapter {
   ) {
     this.compatibility = options.compatibility;
     this.gqlTransport = createTwitchGqlTransport(fetcher, options);
-    this.inventoryCapability = createTwitchInventory("twitch-inventory-v1");
+    this.inventoryCapability = createTwitchInventory(
+      options.compatibility?.inventory ?? "twitch-inventory-v1",
+    );
   }
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
