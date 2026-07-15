@@ -8,3 +8,4 @@ export type {
 export { createTwitchGqlV1HeartbeatStrategy } from "./gql-v1";
 export { isAllowedTwitchUrl } from "./hosts";
 export { createSpadeHeartbeat, type SpadeHeartbeatOptions } from "./spade";
+export { createTrowelHeartbeat, type TrowelHeartbeatOptions } from "./trowel";

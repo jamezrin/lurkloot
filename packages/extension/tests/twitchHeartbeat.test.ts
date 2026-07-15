@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import type { TwitchHeartbeatStrategy } from "@lurkloot/core/twitch/heartbeat";
-import { createSpadeHeartbeat, isAllowedTwitchUrl } from "@lurkloot/core/twitch/heartbeat";
+import { createSpadeHeartbeat, createTrowelHeartbeat, isAllowedTwitchUrl } from "@lurkloot/core/twitch/heartbeat";
 
 describe("Twitch heartbeat strategies", () => {
   it("delegates resolved stream and viewer identifiers to the injected strategy", async () => {
@@ -238,6 +238,57 @@ describe("Twitch heartbeat strategies", () => {
 
       expect(post).toHaveBeenCalledTimes(4);
       expect(fetchText).toHaveBeenCalledTimes(4);
+    });
+  });
+
+  describe("Trowel v1", () => {
+    const context = {
+      channel: { platform: "twitch" as const, username: "Creator", url: "https://www.twitch.tv/Creator" },
+      broadcastId: "broadcast-id",
+      channelId: "channel-id",
+      userId: "viewer-id",
+      gameId: "game-id",
+      gameName: "Game Name",
+    };
+
+    it("posts a standard-base64 event array as raw text/plain to the fixed endpoint", async () => {
+      const post = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 202 }));
+      const strategy = createTrowelHeartbeat({ identity: "android", post });
+
+      await expect(strategy.tick(context)).resolves.toEqual({ ok: true, live: true });
+
+      expect(post).toHaveBeenCalledOnce();
+      const [url, init] = post.mock.calls[0];
+      expect(url).toBe("https://trowel.twitch.tv/track");
+      expect(init).toMatchObject({ method: "POST", headers: { "Content-Type": "text/plain" } });
+      expect(String(init.body)).not.toMatch(/[\-_]/);
+      expect(JSON.parse(atob(String(init.body)))).toMatchObject([{
+        event: "minute-watched",
+        properties: { channel: "Creator", broadcast_id: "broadcast-id", user_id: "viewer-id" },
+      }]);
+    });
+
+    it.each([200, 204, 299])("accepts HTTP %s", async (status) => {
+      const strategy = createTrowelHeartbeat({ identity: "android", post: async () => ({ status }) });
+      await expect(strategy.tick(context)).resolves.toEqual({ ok: true, live: true });
+    });
+
+    it.each([199, 300, 500])("reports HTTP %s as unhealthy", async (status) => {
+      const strategy = createTrowelHeartbeat({ identity: "android", post: async () => ({ status }) });
+      await expect(strategy.tick(context)).resolves.toMatchObject({ ok: false, live: true });
+    });
+
+    it("reports transport rejection as unhealthy", async () => {
+      const strategy = createTrowelHeartbeat({
+        identity: "android",
+        post: async () => { throw new Error("proxy unavailable"); },
+      });
+      await expect(strategy.tick(context)).resolves.toMatchObject({ ok: false, live: true, message: "proxy unavailable" });
+    });
+
+    it("rejects construction for a non-Android identity", () => {
+      expect(() => createTrowelHeartbeat({ identity: "web", post: async () => ({ status: 204 }) }))
+        .toThrow(/Android identity/);
     });
   });
 });

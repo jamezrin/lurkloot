@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
 import { createImpersonateTransport } from "../src/transport/impersonate";
 import { createTvLinkAuthenticator } from "../src/transport/cycle";
@@ -6,6 +6,8 @@ import { CHROME_JA3 } from "../src/transport/common";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 
 const ENABLED = { twitch: true, kick: true };
+
+afterEach(() => vi.unstubAllGlobals());
 
 interface Captured { url: string; options: { ja3?: string; userAgent?: string; headers: Record<string, string> }; method: string }
 
@@ -60,6 +62,28 @@ describe("impersonate transport", () => {
 
     expect(construction.adapters.twitch.compatibility).toEqual(construction.compatibility.twitch);
     expect(construction.adapters.kick.compatibility).toEqual(construction.compatibility.kick);
+    await handle.dispose();
+  });
+
+  it("sends Trowel through the injected cycletls transport", async () => {
+    const calls: Captured[] = [];
+    const client = fakeClient((url, options, method) => {
+      calls.push({ url, options, method });
+      return Promise.resolve({ status: 204, data: "" });
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
+    }), { status: 200, headers: { "content-type": "application/json" } })));
+    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const watcher = handle.adapters.twitch.createTablessWatcher!();
+    await watcher.start({ platform: "twitch", username: "creator", url: "https://twitch.tv/creator" }, { userId: "viewer-id" });
+
+    await expect(watcher.tick({})).resolves.toEqual({ ok: true, live: true });
+
+    expect(calls).toEqual(expect.arrayContaining([expect.objectContaining({
+      url: "https://trowel.twitch.tv/track",
+      method: "post",
+    })]));
     await handle.dispose();
   });
 });

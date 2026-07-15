@@ -2,6 +2,7 @@ import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloo
 import { KickAdapter } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { resolveCompatibility } from "@lurkloot/core";
+import { createTrowelHeartbeat } from "@lurkloot/core/twitch/heartbeat";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformCredentials } from "../authStore";
@@ -17,14 +18,23 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
   const twitchApi = twitchCookieApi(creds);
   const kickApi = kickCookieApi(creds);
   const createAdapters = (emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => {
-    const resolution = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" });
+    const identity = twitchClientIdentity(creds);
+    const twitchIdentity = identity.userAgent ? "android" : "web";
+    const resolution = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity });
+    const heartbeatStrategy = twitchIdentity === "android" ? createTrowelHeartbeat({
+      identity: twitchIdentity,
+      post: async (url, init) => {
+        const response = await fetch(url, init);
+        return { status: response.status };
+      },
+    }) : undefined;
     return {
       adapters: {
         twitch: new TwitchAdapter(
           { fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchApi, url, init) },
           async () => false,
           tablessWatchPort,
-          { ...twitchClientIdentity(creds), compatibility: resolution.compatibility.twitch },
+          { ...identity, compatibility: resolution.compatibility.twitch, heartbeatStrategy },
           emit,
         ),
         kick: new KickAdapter(
