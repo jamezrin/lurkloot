@@ -7,6 +7,9 @@ import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } fro
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
 import type { ResolvedCompatibility } from "../../compatibility/types";
 
+export { createKickClaimCapability } from "./claim/factory";
+export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
+
 export interface KickAdapterOptions {
   // Resolved metadata is injected by the host. It is intentionally not used to
   // switch request behavior until the versioned implementations land.

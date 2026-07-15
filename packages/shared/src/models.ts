@@ -6,6 +6,11 @@ export type RewardStatus = "locked" | "in_progress" | "claimable" | "claimed";
 
 export type RewardRequirementType = "watch" | "subscription" | "action";
 
+export interface ClaimGuidance {
+  kind: "link_required";
+  url: string;
+}
+
 // Lifecycle of the one-time Chrome Web Store rate/review nudge. "pending" until
 // the user either rates or dismisses it, after which it never shows again.
 export type RateNudgeStatus = "pending" | "rated" | "dismissed";
@@ -29,6 +34,7 @@ export interface DropReward {
   preconditionRewardIds?: string[];
   preconditionsMet?: boolean;
   isCurrentReward?: boolean;
+  claimGuidance?: ClaimGuidance;
 }
 
 export interface DropCampaign {
@@ -48,6 +54,7 @@ export interface DropCampaign {
   isGeneralDrop?: boolean;
   accountLinked?: boolean;
   accountLinkUrl?: string;
+  claimGuidance?: ClaimGuidance;
   eligibility?: "eligible" | "account_not_linked" | "waiting_for_subscription" | "upcoming" | "expired" | "completed" | "no_rewards";
   eligibilityReason?: string;
   priority?: number;

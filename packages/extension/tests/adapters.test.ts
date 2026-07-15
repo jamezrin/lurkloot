@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher } from "@lurkloot/core/adapter";
-import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
+import { createKickClaimCapability, createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
@@ -235,6 +235,58 @@ describe("KickAdapter", () => {
     // HTTP 200 with a non-success body must not be reported as a claim.
     await expect(claimWith({ message: "Reward not available", data: null })).resolves.toBe(false);
     await expect(claimWith({})).resolves.toBe(false);
+  });
+
+  it("classifies Kick claim v2 link guidance from supported response fields", () => {
+    const capability = createKickClaimCapability("kick-claim-v2");
+    const campaign = { id: "campaign" } as DropCampaign;
+
+    expect(capability.classify({ connect_url: "https://accounts.example/link" }, campaign))
+      .toEqual({ kind: "link_required", url: "https://accounts.example/link" });
+    expect(capability.classify({ connectUrl: "https://accounts.example/camel" }, campaign))
+      .toEqual({ kind: "link_required", url: "https://accounts.example/camel" });
+    expect(capability.classify({ data: { connect_url: "https://accounts.example/nested" } }, campaign))
+      .toEqual({ kind: "link_required", url: "https://accounts.example/nested" });
+    expect(capability.classify({ data: { connectUrl: "https://accounts.example/nested-camel" } }, campaign))
+      .toEqual({ kind: "link_required", url: "https://accounts.example/nested-camel" });
+  });
+
+  it("rejects unsafe, malformed, and arbitrarily nested Kick claim v2 guidance", () => {
+    const capability = createKickClaimCapability("kick-claim-v2");
+    const campaign = { id: "campaign" } as DropCampaign;
+
+    for (const response of [
+      { connect_url: "not a URL" },
+      { connectUrl: "javascript:alert(1)" },
+      { data: { connect_url: "data:text/plain,hello" } },
+      { data: { connectUrl: 42 } },
+      { error: { connect_url: "https://accounts.example/too-deep" } },
+      { data: { error: { connectUrl: "https://accounts.example/too-deep" } } },
+    ]) {
+      expect(capability.classify(response, campaign)).toEqual({ kind: "not_claimed" });
+    }
+  });
+
+  it("classifies normal Kick claim success independently of link guidance", () => {
+    const capability = createKickClaimCapability("kick-claim-v2");
+    const campaign = { id: "campaign" } as DropCampaign;
+
+    expect(capability.classify({ message: "Success", data: { id: 1 } }, campaign)).toEqual({ kind: "claimed" });
+    expect(capability.classify({ success: true }, campaign)).toEqual({ kind: "claimed" });
+    expect(capability.classify({}, campaign)).toEqual({ kind: "not_claimed" });
+  });
+
+  it("keeps Kick claim v1 limited to campaign account-link metadata", () => {
+    const capability = createKickClaimCapability("kick-claim-v1");
+
+    expect(capability.classify(
+      { connect_url: "https://accounts.example/ignored" },
+      { id: "campaign", accountLinked: true } as DropCampaign,
+    )).toEqual({ kind: "not_claimed" });
+    expect(capability.classify(
+      { message: "Reward not available" },
+      { id: "campaign", accountLinked: false, accountLinkUrl: "https://accounts.example/from-campaign" } as DropCampaign,
+    )).toEqual({ kind: "link_required", url: "https://accounts.example/from-campaign" });
   });
 
   it("guides the user to link instead of erroring when an unlinked Kick claim is rejected", async () => {
