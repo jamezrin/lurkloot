@@ -18,7 +18,7 @@ import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lu
 import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, SupportedLocale } from "@lurkloot/shared/models";
 import type { WatchTabPort } from "@lurkloot/core/adapter";
-import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
+import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
@@ -39,6 +39,7 @@ const reportEvents = createActivityEventReporter({
   loadDiagnosticLogging: async () => (await loadSettings()).diagnosticLogging,
   append: appendActivityEvents,
 });
+const kickClaimState = new KickClaimState();
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
@@ -141,7 +142,7 @@ const controller = createBackgroundController<ExtensionSettings>({
           watchTabPort,
           undefined,
           emit,
-          { compatibility: resolution.compatibility.kick },
+          { compatibility: resolution.compatibility.kick, claimState: kickClaimState },
         ),
       },
       ...resolution,

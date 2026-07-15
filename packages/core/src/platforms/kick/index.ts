@@ -9,14 +9,17 @@ import type { ResolvedCompatibility } from "../../compatibility/types";
 import { createKickClaimCapability } from "./claim/factory";
 import type { KickClaimCapability } from "./claim/types";
 import { safeHttpsUrl } from "./claim/types";
+import { KickClaimState } from "./claim/v2";
 
 export { createKickClaimCapability } from "./claim/factory";
 export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
+export { KickClaimState } from "./claim/v2";
 
 export interface KickAdapterOptions {
   // Resolved metadata is injected by the host. It is intentionally not used to
   // switch request behavior until the versioned implementations land.
   compatibility?: ResolvedCompatibility["kick"];
+  claimState?: KickClaimState;
 }
 
 interface KickLivestreamsResponse {
@@ -141,7 +144,7 @@ export class KickAdapter implements PlatformAdapter {
     this.compatibility = options.compatibility;
     // Compatibility-based selection is wired in Task 4. Until then, use the
     // recommended response-aware policy rather than duplicating claim logic.
-    this.claimCapability = createKickClaimCapability("kick-claim-v2");
+    this.claimCapability = createKickClaimCapability("kick-claim-v2", options.claimState);
   }
 
   async discoverCampaigns(): Promise<DropCampaign[]> {

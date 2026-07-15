@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTransport } from "../src/transport";
 import { tablessWatchPort } from "../src/transport/common";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
+import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 
 const ENABLED = { twitch: true, kick: true };
 
@@ -23,6 +24,29 @@ describe("createTransport", () => {
     expect(construction.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-trowel-v1");
     expect(construction.adapters.twitch.compatibility).toEqual(construction.compatibility.twitch);
     expect(construction.adapters.kick.compatibility).toEqual(construction.compatibility.kick);
+    await handle.dispose();
+  });
+
+  it("shares Kick claim suppression across fresh HTTP adapter constructions", async () => {
+    let claimPosts = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return new Response(JSON.stringify({ connect_url: "https://accounts.example/link" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    }));
+    const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+    const campaign = { id: "campaign" } as DropCampaign;
+    const reward = { id: "reward", name: "Reward", status: "claimable" } as DropReward;
+
+    await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.kick.claimReward(campaign, reward);
+    await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.kick.claimReward(campaign, reward);
+
+    expect(claimPosts).toBe(1);
     await handle.dispose();
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher } from "@lurkloot/core/adapter";
-import { createKickClaimCapability, createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
+import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
@@ -319,7 +319,7 @@ describe("KickAdapter", () => {
     expect(claimPosts).toBe(2);
   });
 
-  it("allows a new adapter process to retry a link-required claim once", async () => {
+  it("shares link-required suppression across fresh adapters but lets a new host state retry", async () => {
     let claimPosts = 0;
     const fetcher = jsonFetcher((url) => {
       if (url === "https://web.kick.com/api/v1/drops/claim") {
@@ -331,8 +331,13 @@ describe("KickAdapter", () => {
     const campaign = { id: "campaign" } as DropCampaign;
     const reward = { id: "reward", name: "Reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
 
-    await new KickAdapter(fetcher).claimReward(campaign, reward);
-    await new KickAdapter(fetcher).claimReward(campaign, reward);
+    const state = new KickClaimState();
+    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
+    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
+
+    expect(claimPosts).toBe(1);
+
+    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: new KickClaimState() }).claimReward(campaign, reward);
 
     expect(claimPosts).toBe(2);
   });

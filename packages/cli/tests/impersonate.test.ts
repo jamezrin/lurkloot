@@ -4,6 +4,7 @@ import { createImpersonateTransport } from "../src/transport/impersonate";
 import { createTvLinkAuthenticator } from "../src/transport/cycle";
 import { CHROME_JA3 } from "../src/transport/common";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
+import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 
 const ENABLED = { twitch: true, kick: true };
 
@@ -66,6 +67,26 @@ describe("impersonate transport", () => {
 
     expect(construction.adapters.twitch.compatibility).toEqual(construction.compatibility.twitch);
     expect(construction.adapters.kick.compatibility).toEqual(construction.compatibility.kick);
+    await handle.dispose();
+  });
+
+  it("shares Kick claim suppression across fresh impersonated adapter constructions", async () => {
+    let claimPosts = 0;
+    const client = fakeClient((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return Promise.resolve({ status: 200, data: { connect_url: "https://accounts.example/link" } });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const campaign = { id: "campaign" } as DropCampaign;
+    const reward = { id: "reward", name: "Reward", status: "claimable" } as DropReward;
+
+    await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.kick.claimReward(campaign, reward);
+    await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.kick.claimReward(campaign, reward);
+
+    expect(claimPosts).toBe(1);
     await handle.dispose();
   });
 

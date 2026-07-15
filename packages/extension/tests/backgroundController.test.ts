@@ -7,7 +7,7 @@ import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
-import { KickAdapter } from "@lurkloot/core/kick";
+import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
@@ -342,6 +342,7 @@ describe("background controller", () => {
       },
     });
     let claimPosts = 0;
+    let affirmativelyLinked = false;
     const fetcher: PageFetcher = {
       fetchJson: vi.fn(async (url: string) => {
         if (url === "https://web.kick.com/api/v1/drops/claim") {
@@ -349,18 +350,16 @@ describe("background controller", () => {
           return { data: { connect_url: "https://accounts.example/link" } };
         }
         if (url === "https://web.kick.com/api/v1/drops/progress") {
-          return { data: [{ campaign_id: "kick-campaign" }] };
+          return { data: [{ campaign_id: "kick-campaign", ...(affirmativelyLinked ? { user_app_connected: true } : {}) }] };
         }
         throw new Error(`Unexpected URL ${url}`);
       }) as PageFetcher["fetchJson"],
     };
-    let kick: KickAdapter | undefined;
+    const claimState = new KickClaimState();
     env.deps.createAdapters.mockImplementation((emit, settings) => {
-      if (!kick) {
-        kick = new KickAdapter(fetcher, undefined, undefined, emit);
-        kick.discoverCampaigns = vi.fn(async () => [campaign("kick", "claimable")]);
-        kick.listCandidateChannels = vi.fn(async () => []);
-      }
+      const kick = new KickAdapter(fetcher, undefined, undefined, emit, { claimState });
+      kick.discoverCampaigns = vi.fn(async () => [campaign("kick", "claimable")]);
+      kick.listCandidateChannels = vi.fn(async () => []);
       return {
         adapters: { twitch: env.twitch, kick },
         ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
@@ -381,6 +380,15 @@ describe("background controller", () => {
       kind: "link_required",
       url: "https://accounts.example/link",
     });
+
+    affirmativelyLinked = true;
+    await env.controller.tick();
+    expect(claimPosts).toBe(2);
+
+    const separateState = new KickClaimState();
+    const separateAdapter = new KickAdapter(fetcher, undefined, undefined, () => {}, { claimState: separateState });
+    await separateAdapter.claimReward(campaign("kick", "claimable"), campaign("kick", "claimable").rewards[0]);
+    expect(claimPosts).toBe(3);
   });
 
   it("publishes a farming stop reason when automation is disabled", async () => {

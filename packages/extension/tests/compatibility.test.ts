@@ -31,7 +31,7 @@ describe("extension compatibility construction", () => {
 
     expect(backgroundSource).toContain("compatibility: resolution.compatibility.twitch,");
     expect(backgroundSource).toContain("heartbeatIdentity: \"web\",");
-    expect(backgroundSource).toContain("{ compatibility: resolution.compatibility.kick }");
+    expect(backgroundSource).toContain("{ compatibility: resolution.compatibility.kick, claimState: kickClaimState }");
   });
 });
 

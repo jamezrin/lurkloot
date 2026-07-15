@@ -1,5 +1,5 @@
 import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
-import { KickAdapter } from "@lurkloot/core/kick";
+import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { EventEmitter } from "@lurkloot/shared/events";
@@ -16,6 +16,7 @@ import { tablessWatchPort, type EnabledPlatforms, type TransportHandle } from ".
 export function createHttpTransport(creds: PlatformCredentials, _enabled: EnabledPlatforms): TransportHandle {
   const twitchApi = twitchCookieApi(creds);
   const kickApi = kickCookieApi(creds);
+  const kickClaimState = new KickClaimState();
   const createAdapters = (emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => {
     const identity = twitchClientIdentity(creds);
     const twitchIdentity = identity.userAgent ? "android" : "web";
@@ -46,7 +47,7 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
           tablessWatchPort,
           undefined,
           emit,
-          { compatibility: resolution.compatibility.kick },
+          { compatibility: resolution.compatibility.kick, claimState: kickClaimState },
         ),
       },
       ...resolution,
