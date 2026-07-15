@@ -139,7 +139,7 @@ export interface CompatibilityWarning {
 }
 ```
 
-Register `twitch-2026-07`, `kick-2026-07`, the three heartbeat IDs, `twitch-inventory-v1`, `twitch-inventory-v2` as experimental, `kick-claim-v1`, and `kick-claim-v2`. Freeze exported registry objects. Resolve profile defaults first, then compatible explicit overrides; never silently switch versions after runtime request failure.
+Register `twitch-2026-07`, `kick-2026-07`, the three heartbeat IDs, `twitch-inventory-v1`, `kick-claim-v1`, and `kick-claim-v2`. Defer later Twitch inventory versions until independent real response evidence verifies their parser contract. Freeze exported registry objects. Resolve profile defaults first, then compatible explicit overrides; never silently switch versions after runtime request failure.
 
 - [ ] **Step 4: Run resolver tests and core boundary test**
 
