@@ -14,3 +14,14 @@ export interface TwitchHeartbeatStrategy {
   readonly id: string;
   tick(context: TwitchHeartbeatContext): Promise<HeartbeatResult>;
 }
+
+export type TwitchHeartbeatFetchText = (url: string, init?: RequestInit) => Promise<string>;
+
+export interface TwitchHeartbeatResponse {
+  status: number;
+}
+
+export type TwitchHeartbeatPost = (
+  url: string,
+  init: RequestInit,
+) => Promise<TwitchHeartbeatResponse>;
