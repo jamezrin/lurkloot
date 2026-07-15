@@ -8,6 +8,7 @@ import type { EngineEvent } from "@lurkloot/shared/events";
 import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shared/models";
 import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { resolveCompatibility } from "@lurkloot/core";
 
 function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
   const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
@@ -25,6 +26,57 @@ function requestBody(init?: RequestInit): Record<string, unknown> {
 }
 
 describe("KickAdapter", () => {
+  it("uses the automatic Kick claim capability selected by compatibility resolution", async () => {
+    let claimPosts = 0;
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return { connect_url: "https://accounts.example/automatic" };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const compatibility = resolveCompatibility(DEFAULT_SETTINGS.compatibility, {
+      host: "extension",
+      twitchIdentity: "web",
+    }).compatibility.kick;
+    const adapter = new KickAdapter(fetcher, undefined, undefined, undefined, { compatibility });
+    const campaign = { id: "campaign" } as DropCampaign;
+    const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+
+    expect(compatibility.claim).toBe("kick-claim-v2");
+    expect(claimPosts).toBe(1);
+    expect(reward.claimGuidance).toEqual({ kind: "link_required", url: "https://accounts.example/automatic" });
+  });
+
+  it("keeps an explicit Kick claim v1 adapter campaign-only for its lifetime", async () => {
+    let claimPosts = 0;
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return { connect_url: "https://accounts.example/ignored" };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const compatibility = resolveCompatibility({
+      ...DEFAULT_SETTINGS.compatibility,
+      kick: { ...DEFAULT_SETTINGS.compatibility.kick, claimLinkHandling: "kick-claim-v1" },
+    }, { host: "extension", twitchIdentity: "web" }).compatibility.kick;
+    const adapter = new KickAdapter(fetcher, undefined, undefined, undefined, { compatibility });
+    const campaign = { id: "campaign", accountLinked: true } as DropCampaign;
+    const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+    compatibility.claim = "kick-claim-v2";
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+
+    expect(compatibility.claim).toBe("kick-claim-v2");
+    expect(claimPosts).toBe(2);
+    expect(reward.claimGuidance).toBeUndefined();
+  });
+
   it("keeps adapter diagnostics scoped to the supplied emitter", async () => {
     const failingFetcher = jsonFetcher(() => {
       throw new Error("progress unavailable");

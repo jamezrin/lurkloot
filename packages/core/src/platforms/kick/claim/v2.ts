@@ -4,7 +4,23 @@ import { isKickClaimSuccess, isRecord, safeHttpsUrl } from "./types";
 import { kickClaimV1 } from "./v1";
 
 export class KickClaimState {
-  readonly suppressions = new Map<string, string>();
+  readonly #suppressions = new Map<string, string>();
+
+  has(key: string): boolean {
+    return this.#suppressions.has(key);
+  }
+
+  get(key: string): string | undefined {
+    return this.#suppressions.get(key);
+  }
+
+  set(key: string, url: string): void {
+    this.#suppressions.set(key, url);
+  }
+
+  delete(key: string): void {
+    this.#suppressions.delete(key);
+  }
 }
 
 export class KickClaimV2 implements KickClaimCapability {
@@ -23,11 +39,11 @@ export class KickClaimV2 implements KickClaimCapability {
   }
 
   isSuppressed(campaign: DropCampaign, reward: DropReward): boolean {
-    return this.state.suppressions.has(this.key(campaign, reward));
+    return this.state.has(this.key(campaign, reward));
   }
 
   suppress(campaign: DropCampaign, reward: DropReward, url: string): void {
-    this.state.suppressions.set(this.key(campaign, reward), url);
+    this.state.set(this.key(campaign, reward), url);
     const guidance = { kind: "link_required" as const, url };
     campaign.claimGuidance = guidance;
     reward.claimGuidance = guidance;
@@ -38,19 +54,19 @@ export class KickClaimV2 implements KickClaimCapability {
       const suppressedRewards = campaign.rewards.filter((reward) => this.isSuppressed(campaign, reward));
       if (suppressedRewards.length === 0) return campaign;
       if (affirmativelyLinkedCampaignIds.has(campaign.id)) {
-        for (const reward of suppressedRewards) this.state.suppressions.delete(this.key(campaign, reward));
+        for (const reward of suppressedRewards) this.state.delete(this.key(campaign, reward));
         return {
           ...campaign,
           claimGuidance: undefined,
           rewards: campaign.rewards.map((reward) => ({ ...reward, claimGuidance: undefined })),
         };
       }
-      const campaignUrl = this.state.suppressions.get(this.key(campaign, suppressedRewards[0]));
+      const campaignUrl = this.state.get(this.key(campaign, suppressedRewards[0]));
       return {
         ...campaign,
         claimGuidance: campaignUrl ? { kind: "link_required", url: campaignUrl } : campaign.claimGuidance,
         rewards: campaign.rewards.map((reward) => {
-          const url = this.state.suppressions.get(this.key(campaign, reward));
+          const url = this.state.get(this.key(campaign, reward));
           return url ? { ...reward, claimGuidance: { kind: "link_required", url } } : reward;
         }),
       };

@@ -119,6 +119,13 @@ describe("background controller", () => {
       compatibilityProfile: "twitch-2026-07",
       compatibilityCapability: "twitch-heartbeat-spade-v1",
     }));
+    expect(published).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "kick",
+      compatibilityProfile: "kick-2026-07",
+      compatibilityCapability: "kick-claim-v2",
+      compatibilityCapabilities: ["kick-claim-v2"],
+    }));
     expect(published.filter((event) =>
       event.category === "diagnostic"
       && "compatibilityProfile" in event

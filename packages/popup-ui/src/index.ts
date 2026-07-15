@@ -4,6 +4,7 @@ export {
 } from "./Popup";
 export { PromoTile, StoreScreenshot } from "./marketing";
 export { createDemoPopupAdapter } from "./demo";
+export { openHttpsLink } from "./links";
 export {
   advanceActivityRequestScope,
   applyActivityMutationForRequest,

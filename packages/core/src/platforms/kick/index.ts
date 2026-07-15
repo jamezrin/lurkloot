@@ -16,8 +16,9 @@ export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
 export { KickClaimState } from "./claim/v2";
 
 export interface KickAdapterOptions {
-  // Resolved metadata is injected by the host. It is intentionally not used to
-  // switch request behavior until the versioned implementations land.
+  // Resolved metadata is injected by the host and fixed for this adapter's
+  // lifetime. Settings changes construct a fresh adapter rather than switching
+  // claim behavior after a request failure.
   compatibility?: ResolvedCompatibility["kick"];
   claimState?: KickClaimState;
 }
@@ -142,9 +143,10 @@ export class KickAdapter implements PlatformAdapter {
     options: KickAdapterOptions = {},
   ) {
     this.compatibility = options.compatibility;
-    // Compatibility-based selection is wired in Task 4. Until then, use the
-    // recommended response-aware policy rather than duplicating claim logic.
-    this.claimCapability = createKickClaimCapability("kick-claim-v2", options.claimState);
+    this.claimCapability = createKickClaimCapability(
+      options.compatibility?.claim ?? "kick-claim-v2",
+      options.claimState,
+    );
   }
 
   async discoverCampaigns(): Promise<DropCampaign[]> {

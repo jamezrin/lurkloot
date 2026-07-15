@@ -8,6 +8,7 @@ import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
 import { DropsPanel } from "../../popup-ui/src/drops";
 import type { PopupAdapter } from "../../popup-ui/src/types";
 import { campaignViewFromCampaign } from "../../popup-ui/src/viewModels";
+import { createDemoPopupAdapter } from "../../popup-ui/src/demo";
 
 const idleSession: WatchSession = {
   platform: "kick",
@@ -85,6 +86,19 @@ function mount(url?: string) {
 }
 
 describe("claim-time account link guidance", () => {
+  it("validates HTTPS again at the demo popup host boundary", () => {
+    const open = vi.fn();
+    vi.stubGlobal("window", { open });
+    const adapter = createDemoPopupAdapter();
+
+    adapter.openLink("javascript:alert(1)");
+    adapter.openLink("http://accounts.example/link");
+    adapter.openLink("https://accounts.example/link");
+
+    expect(open).toHaveBeenCalledOnce();
+    expect(open).toHaveBeenCalledWith("https://accounts.example/link", "_blank", "noopener,noreferrer");
+  });
+
   it("shows localized guidance and opens its safe link only after a user click", () => {
     const { container, openLink } = mount("https://accounts.example/link");
 
