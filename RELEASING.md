@@ -17,12 +17,13 @@ flowchart TD
     S --> P[Release pull request ready]
     P -->|Merge to main| L[Stable release]
     L --> O[CWS published<br/>GitHub release promoted<br/>Docker aliases updated<br/>Production site deployed]
+    O --> FM[Open main to develop synchronization PR]
 
     M[main] --> H[Hotfix pull request to main]
     H --> HC[Hotfix candidate]
     HC --> HR[CWS review and staging]
     HR -->|Merge| HL[Stable hotfix]
-    HL --> FM[Forward-merge main to develop]
+    HL --> FM
 ```
 
 A candidate is mutable until it is submitted to Chrome Web Store review. Submission freezes its source commit and artifacts. Cancelling review makes it mutable again. Merging the approved release PR is the irreversible stable-release boundary.
@@ -43,8 +44,8 @@ The version may jump beyond the originally expected patch, minor, or major relea
 ## Submit and review a candidate
 
 1. Inspect the preview site, GitHub prerelease assets, changelog, and CWS draft.
-2. Open **Actions → Submit candidate → Run workflow** and enter the version.
-3. The workflow verifies candidate provenance and submits CWS with `STAGED_PUBLISH`. Deferred publishing is enforced by the API; there is no automatic-publishing checkbox to remember.
+2. Open **Actions → Submit candidate → Run workflow**, enter the version, and approve the protected `cws-review` environment when prompted.
+3. The workflow rebuilds the unsigned extension in a credential-free job, verifies that the normalized Chrome ZIP has the recorded SHA-256, verifies candidate provenance, and submits CWS with `STAGED_PUBLISH`. Deferred publishing is enforced by the API; there is no automatic-publishing checkbox to remember.
 4. The release PR becomes ready for review and its `cws-release-ready` check remains pending.
 5. A scheduled workflow polls CWS. Use **Actions → Refresh CWS status** for an immediate check.
 
@@ -58,17 +59,18 @@ When CWS becomes staged, automation synchronizes package versions and dates the 
 
 ## Promote a normal release
 
-Approve and merge the `release/VERSION → main` PR after all required checks pass. The merge triggers promotion of the exact reviewed candidate:
+Approve and merge the `release/VERSION → main` PR after all required checks pass. The merge triggers promotion of the exact reviewed candidate; approve the protected `stable-releases` environment when GitHub requests final publication authorization:
 
 1. Verify the release PR, candidate source, tag, CWS version, and stored checksums.
 2. Publish the staged CWS revision.
 3. Promote the stored Docker digests to stable aliases.
 4. Convert the existing GitHub prerelease into the stable release.
 5. Deploy the site to production.
+6. Open a `main → develop` synchronization PR so the stable version/date metadata becomes the base of the next release.
 
 Promotion is idempotent. If an external service fails after CWS publication, rerun promotion for the same merged release PR. Never rebuild or force-move a stable release.
 
-After promotion, confirm CWS, GitHub Releases, Docker aliases, and the production changelog. Upload the Firefox ZIP and source ZIP from the GitHub release to AMO; AMO publication remains manual.
+After promotion, confirm CWS, GitHub Releases, Docker aliases, the production changelog, and the automatically opened synchronization PR. Merge that PR into `develop` before preparing the next normal release. Upload the Firefox ZIP and source ZIP from the GitHub release to AMO; AMO publication remains manual.
 
 ## Cancel, replace, or abandon a candidate
 
@@ -88,7 +90,7 @@ After cancellation, prepare the same version again or choose any higher valid ve
 5. Review, submit, and wait for CWS staging exactly as for a normal candidate.
 6. Merge the hotfix PR after `cws-release-ready` and the other required checks pass.
 
-Stable promotion publishes the reviewed hotfix without any `develop` commits. Afterward, automation opens a `main → develop` synchronization PR so the fix is carried into the next normal release. Resolve that PR manually if it conflicts.
+Stable promotion publishes the reviewed hotfix without any `develop` commits. As with a normal release, automation opens a `main → develop` synchronization PR so the fix and stable metadata are carried into the next normal release. Resolve that PR manually if it conflicts.
 
 ## Recovery rules
 
@@ -102,14 +104,16 @@ Stable promotion publishes the reviewed hotfix without any `develop` commits. Af
 
 ## Repository configuration
 
+For a new installation, create `develop` once from the current `main` head, apply the same validation protection, and direct feature and Renovate PRs to `develop`. During migration of this workflow itself, synchronize `main` back into `develop` immediately after the bootstrap PR merges so both branches contain the release automation before preparing the first candidate.
+
 The repository requires:
 
 - protected `main` and `develop` branches;
 - required validation and `cws-release-ready` checks on release and hotfix PRs;
 - `prereleases`, `cws-review`, `stable-releases`, `prerelease-site`, and `production-site` environments;
-- `CRX_PRIVATE_KEY`, `CWS_SERVICE_ACCOUNT_JSON`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID` secrets;
+- `CRX_PRIVATE_KEY`, `CWS_SERVICE_ACCOUNT_JSON`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID` secrets; candidate builds run in separate jobs that cannot access these credentials;
 - `CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID` variables;
-- optional `release/patch`, `release/minor`, and `release/major` labels.
+- optional `release/patch`, `release/minor`, and `release/major` labels, plus the automation-owned `release-forward-merge` label.
 
 The CWS service-account email must be a member of the publisher. Preserve the CRX private key permanently because replacing it changes the sideloaded extension identity. Pull requests from forks must never receive release credentials.
 

@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
+        description: Candidate semantic version
         type: string
         required: true
       disposition:
@@ -15,18 +16,27 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: cws-mutation
-  cancel-in-progress: false
-
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate version input
+        env:
+          VERSION: ${{ inputs.version }}
+        run: '[[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "version must be stable SemVer X.Y.Z" >&2; exit 1; }'
+
   cancel:
+    needs: validate
     runs-on: ubuntu-latest
     environment: cws-review
     permissions:
       checks: write
       contents: write
+      packages: write
       pull-requests: write
+    concurrency:
+      group: cws-mutation
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       VERSION: ${{ inputs.version }}
@@ -38,14 +48,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: v${{ inputs.version }}
-      - uses: actions/checkout@v7
-        with:
           ref: main
-          path: trusted-release-tools
       - run: gh release download "v$VERSION" --pattern candidate.json --dir candidate
-      - run: node trusted-release-tools/scripts/cws.mjs cancel-submission
-      - name: Update release PR
+      - name: Validate candidate metadata
+        run: |
+          node -e 'import("./scripts/release/model.mjs").then(({parseCandidateMetadata}) => parseCandidateMetadata(require("fs").readFileSync("candidate/candidate.json","utf8")))'
+          test "$(jq -r .version candidate/candidate.json)" = "$VERSION"
+      - name: Cancel active CWS submission
+        run: node scripts/cws.mjs cancel-submission
+      - name: Update release PR and mutable aliases
         run: |
           pr=$(jq -r .releasePr candidate/candidate.json)
           sha=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
@@ -55,8 +66,22 @@ jobs:
             summary="CWS review was cancelled; v$VERSION may be replaced."
           else
             gh pr close "$pr" --comment "Candidate v$VERSION was abandoned by @$GITHUB_ACTOR."
-            gh release edit "v$VERSION" --title "v$VERSION cancelled" --prerelease --latest=false
+            gh release edit "v$VERSION" --title "v$VERSION cancelled" --prerelease --latest=false --notes "Candidate v$VERSION was abandoned by @$GITHUB_ACTOR. Its tag and assets are retained for audit."
+            owner=${GITHUB_REPOSITORY_OWNER,,}
+            endpoint="users/$owner/packages/container/lurkloot-cli/versions"
+            versions=$(gh api "$endpoint?per_page=100" 2>/dev/null || true)
+            if [[ -z "$versions" ]]; then
+              endpoint="orgs/$owner/packages/container/lurkloot-cli/versions"
+              versions=$(gh api "$endpoint?per_page=100")
+            fi
+            package_id=$(jq -r --arg version "$VERSION" '[.[] | select((.metadata.container.tags | index($version)) and (.metadata.container.tags | all(. == $version or . == "next")))] | if length == 1 then .[0].id else empty end' <<<"$versions")
+            if [[ -n "$package_id" ]]; then
+              gh api -X DELETE "$endpoint/$package_id"
+            else
+              echo "Docker aliases were not deleted because they were not uniquely attributable to v$VERSION" >&2
+            fi
             title="Candidate abandoned"
             summary="v$VERSION will not be promoted."
           fi
           gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$sha" -f status=completed -f conclusion=cancelled -f output[title]="$title" -f output[summary]="$summary"
+          printf '## Candidate v%s cancelled\n\n- PR: #%s\n- Disposition: `%s`\n- Result: %s\n' "$VERSION" "$pr" "$DISPOSITION" "$summary" >> "$GITHUB_STEP_SUMMARY"

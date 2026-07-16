@@ -6,6 +6,10 @@ on:
       ref:
         type: string
         default: ""
+      version:
+        description: Optional release version to overlay before building
+        type: string
+        default: ""
       artifact_name:
         type: string
         default: extension-release-assets
@@ -33,10 +37,20 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - uses: actions/checkout@v7
+        if: inputs.version != ''
+        with:
+          ref: main
+          path: trusted-release-tools
+      - name: Apply release version
+        if: inputs.version != ''
+        run: |
+          node trusted-release-tools/scripts/release/cli.mjs prepare-workspace '${{ inputs.version }}'
+          rm -rf trusted-release-tools
       - run: pnpm install --frozen-lockfile
       - run: pnpm release:check
       - run: pnpm zip && pnpm zip:firefox
-      - name: Normalize ZIP names
+      - name: Normalize reproducible ZIP artifacts
         shell: bash
         run: |
           version=$(node -p "require('./package.json').version")
@@ -46,9 +60,37 @@ jobs:
           firefox_zip=$(find "$output" -maxdepth 1 -name "*-$version-firefox.zip" -print -quit)
           sources_zip=$(find "$output" -maxdepth 1 -name "*-$version-sources.zip" -print -quit)
           test -n "$chrome_zip" -a -n "$firefox_zip" -a -n "$sources_zip"
-          cp "$chrome_zip" "release-assets/lurkloot-$version-chrome.zip"
-          cp "$firefox_zip" "release-assets/lurkloot-$version-firefox.zip"
-          cp "$sources_zip" "release-assets/lurkloot-$version-firefox-sources.zip"
+          normalize_zip() {
+            source=$1
+            destination=$2
+            directory=$(mktemp -d)
+            unzip -q "$source" -d "$directory"
+            find "$directory" -exec touch -h -t 198001010000 {} +
+            (cd "$directory" && find . -type f -print0 | sort -z | xargs -0 zip -X -q "$GITHUB_WORKSPACE/$destination")
+            rm -rf "$directory"
+          }
+          normalize_zip "$chrome_zip" "release-assets/lurkloot-$version-chrome.zip"
+          normalize_zip "$firefox_zip" "release-assets/lurkloot-$version-firefox.zip"
+          normalize_zip "$sources_zip" "release-assets/lurkloot-$version-firefox-sources.zip"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_name }}-unsigned
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 1
+
+  finalize:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact_name }}-unsigned
+          path: release-assets
+      - uses: actions/setup-node@v7
+        if: inputs.sign_crx
+        with:
+          node-version: 24
       - name: Build signed CRX3
         if: inputs.sign_crx
         env:
@@ -56,8 +98,13 @@ jobs:
         run: |
           test -n "$CRX_PRIVATE_KEY" || { echo "CRX_PRIVATE_KEY is not configured" >&2; exit 1; }
           printf '%s' "$CRX_PRIVATE_KEY" > "$RUNNER_TEMP/lurkloot.pem"
-          version=$(node -p "require('./package.json').version")
-          pnpm dlx crx3@2.0.0 -p "$RUNNER_TEMP/lurkloot.pem" -o "release-assets/lurkloot-$version-chrome.crx" -- packages/extension/.output/chrome-mv3
+          chrome_zip=$(find release-assets -maxdepth 1 -name 'lurkloot-*-chrome.zip' -print -quit)
+          test -n "$chrome_zip"
+          version=${chrome_zip#release-assets/lurkloot-}
+          version=${version%-chrome.zip}
+          mkdir chrome-mv3
+          unzip -q "$chrome_zip" -d chrome-mv3
+          npx --yes crx3@2.0.0 -p "$RUNNER_TEMP/lurkloot.pem" -o "release-assets/lurkloot-$version-chrome.crx" -- chrome-mv3
           rm -f "$RUNNER_TEMP/lurkloot.pem"
       - name: Generate checksums
         working-directory: release-assets
@@ -68,3 +115,6 @@ jobs:
           path: release-assets/*
           if-no-files-found: error
           retention-days: 7
+      - name: Summarize extension artifacts
+        run: |
+          printf '## Extension artifacts\n\n- Artifact: `%s`\n- Signed CRX: `%s`\n- Chrome ZIP: `%s`\n' '${{ inputs.artifact_name }}' '${{ inputs.sign_crx }}' "$(find release-assets -maxdepth 1 -name 'lurkloot-*-chrome.zip' -printf '%f' -quit)" >> "$GITHUB_STEP_SUMMARY"

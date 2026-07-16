@@ -33,11 +33,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ inputs.channel == 'production' && 'production-site' || 'prerelease-site' }}
-      url: ${{ inputs.channel == 'production' && 'https://lurkloot.jamezrin.com' || 'https://next.lurkloot.pages.dev' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -53,9 +50,30 @@ jobs:
       - run: pnpm build:site
         env:
           SITE_DEPLOYMENT_CHANNEL: ${{ inputs.channel }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: packages/site/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.channel == 'production' && 'production-site' || 'prerelease-site' }}
+      url: ${{ inputs.channel == 'production' && 'https://lurkloot.jamezrin.com' || 'https://next.lurkloot.pages.dev' }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: site-artifact
       - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: packages/site
-          command: pages deploy dist --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || 'next' }}
+          workingDirectory: site-artifact
+          command: pages deploy . --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || 'next' }}
+      - name: Summarize deployment
+        run: |
+          printf '## Site deployed\n\n- Channel: `%s`\n- Source ref: `%s`\n- URL: %s\n' '${{ inputs.channel }}' '${{ inputs.ref }}' '${{ inputs.channel == 'production' && 'https://lurkloot.jamezrin.com' || 'https://next.lurkloot.pages.dev' }}' >> "$GITHUB_STEP_SUMMARY"
