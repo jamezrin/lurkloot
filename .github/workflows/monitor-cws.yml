@@ -43,14 +43,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+      # Copy the whole directory: a hand-maintained file list silently breaks at runtime the moment
+      # the release tooling grows an import, and nothing in CI would catch it.
       - name: Preserve trusted release tooling
         run: |
-          mkdir -p "$RUNNER_TEMP/release-tools/release"
-          cp scripts/cws.mjs "$RUNNER_TEMP/release-tools/cws.mjs"
-          cp scripts/release.mjs "$RUNNER_TEMP/release-tools/release.mjs"
-          cp scripts/release/cli.mjs "$RUNNER_TEMP/release-tools/release/cli.mjs"
-          cp scripts/release/metadata.mjs "$RUNNER_TEMP/release-tools/release/metadata.mjs"
-          cp scripts/release/model.mjs "$RUNNER_TEMP/release-tools/release/model.mjs"
+          mkdir -p "$RUNNER_TEMP/release-tools"
+          cp scripts/cws.mjs scripts/release.mjs "$RUNNER_TEMP/release-tools/"
+          cp -R scripts/release "$RUNNER_TEMP/release-tools/release"
       - name: Validate optional version input
         run: |
           [[ -z "$REQUESTED_VERSION" || "$REQUESTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "version must be blank or stable SemVer X.Y.Z" >&2; exit 1; }
@@ -59,6 +58,7 @@ jobs:
           CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
           CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
           CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          TOOLS: ${{ runner.temp }}/release-tools
         run: |
           if [[ -n "$REQUESTED_VERSION" ]]; then
             versions="$REQUESTED_VERSION"
@@ -67,80 +67,37 @@ jobs:
           fi
           while read -r version; do
             [[ -n "$version" ]] || continue
-            rm -rf candidate && mkdir candidate
+            rm -rf candidate report && mkdir candidate report
             gh release download "v$version" --pattern candidate.json --dir candidate
-            node -e 'import(process.env.RUNNER_TEMP + "/release-tools/release/model.mjs").then(({parseCandidateMetadata}) => parseCandidateMetadata(require("fs").readFileSync("candidate/candidate.json","utf8")))'
-            test "$(jq -r .version candidate/candidate.json)" = "$version" || { echo "candidate metadata version does not match v$version" >&2; exit 1; }
-            pr=$(jq -r .releasePr candidate/candidate.json)
-            initiator=$(jq -r .initiator candidate/candidate.json)
-            source_sha=$(jq -r .sourceSha candidate/candidate.json)
-            pr_state=$(gh pr view "$pr" --json state --jq .state)
-            [[ "$pr_state" == OPEN ]] || continue
+            GITHUB_OUTPUT=report/candidate node "$TOOLS/release/cli.mjs" candidate read --file candidate/candidate.json --version "$version"
+            pr=$(sed -n 's/^pr=//p' report/candidate)
+            [[ $(gh pr view "$pr" --json state --jq .state) == OPEN ]] || continue
             branch=$(gh pr view "$pr" --json headRefName --jq .headRefName)
             git fetch origin "$branch"
             git checkout -B "$branch" FETCH_HEAD
             head_sha=$(git rev-parse HEAD)
-            export CWS_VERSION="$version"
-            output=$(mktemp)
-            GITHUB_OUTPUT="$output" node "$RUNNER_TEMP/release-tools/cws.mjs" status
-            published_version=$(sed -n 's/^published_version=//p' "$output")
-            submitted_version=$(sed -n 's/^submitted_version=//p' "$output")
-            submitted_state=$(sed -n 's/^submitted_state=//p' "$output")
-            warned=$(sed -n 's/^warned=//p' "$output")
-            taken_down=$(sed -n 's/^taken_down=//p' "$output")
-            state=$submitted_state
-            if [[ "$warned" == true || "$taken_down" == true ]]; then state=POLICY_BLOCKED; fi
-            if [[ "$submitted_version" != "$version" && "$state" != none ]]; then state=VERSION_MISMATCH; fi
-            if [[ "$state" == PENDING_REVIEW && "$head_sha" != "$source_sha" ]]; then
-              state=CANDIDATE_CHANGED
-            fi
-            if [[ "$state" == STAGED ]]; then
-              metadata_valid=true
-              git merge-base --is-ancestor "$source_sha" "$head_sha" || metadata_valid=false
-              git diff --quiet "$source_sha" "$head_sha" -- . ':(exclude)package.json' ':(exclude)packages/*/package.json' ':(exclude)packages/site/src/changelog.json' || metadata_valid=false
-              if [[ "$head_sha" != "$source_sha" ]]; then
-                [[ $(git rev-list --count "$source_sha..$head_sha") == 1 ]] || metadata_valid=false
-                [[ $(git show -s --format=%ae "$head_sha") == 41898282+github-actions[bot]@users.noreply.github.com ]] || metadata_valid=false
-                [[ $(git show -s --format=%s "$head_sha") == "chore(release): finalize $version metadata" ]] || metadata_valid=false
-                node "$RUNNER_TEMP/release-tools/release/cli.mjs" check || metadata_valid=false
-              fi
-              if [[ "$metadata_valid" != true ]]; then state=CANDIDATE_CHANGED; fi
-            fi
-            if [[ "$state" == STAGED ]]; then
-              if [[ $(jq -r --arg version "$version" '.[] | select(.version==$version) | .date // empty' packages/site/src/changelog.json) == "" ]]; then
-                node "$RUNNER_TEMP/release-tools/release/cli.mjs" prepare-workspace "$version" --date "$(date -u +%F)"
-                git add package.json packages/*/package.json packages/site/src/changelog.json
-                git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "chore(release): finalize $version metadata"
-                git push origin "$branch"
-                head_sha=$(git rev-parse HEAD)
-                gh workflow run pr-validation.yml --ref "$branch"
-              fi
-              status=completed; conclusion=success; title="CWS candidate staged"; summary="v$version is approved and ready for final PR approval and merge."
-            elif [[ "$state" == PENDING_REVIEW ]]; then
-              status=in_progress; conclusion=""; title="CWS review pending"; summary="v$version remains frozen while Google reviews it."
-            elif [[ "$state" == none && "$published_version" == "$version" && "$RECOVERY" == true ]]; then
-              state=PUBLISHED
-              status=completed; conclusion=success; title="CWS candidate already published"; summary="v$version matches an explicitly requested partial-publication recovery. Rerun stable promotion for the merged PR."
-            else
-              status=completed; conclusion=failure; title="CWS candidate blocked"
-              case "$state" in
-                REJECTED) summary="v$version was rejected. Correct the issues in the CWS dashboard, cancel or abandon this candidate, then prepare and submit a replacement." ;;
-                CANCELLED) summary="v$version is cancelled. Return the PR to draft and run Prepare prerelease again, or abandon it before choosing a higher version." ;;
-                POLICY_BLOCKED) summary="CWS reports a warning or takedown. Resolve the policy action in the dashboard before any release operation." ;;
-                VERSION_MISMATCH) summary="CWS reports version $submitted_version instead of v$version. Stop and reconcile the active CWS submission before retrying." ;;
-                CANDIDATE_CHANGED) summary="Release PR #$pr no longer matches frozen source $source_sha. Cancel CWS review, restore or replace the candidate through Prepare prerelease, and do not merge this head." ;;
-                none) summary="CWS has no submitted v$version revision. Run Submit candidate again against the frozen GitHub prerelease." ;;
-                *) summary="v$version reported $state. Inspect the CWS dashboard and use Cancel candidate before replacing or abandoning it." ;;
-              esac
+            CWS_VERSION="$version" GITHUB_OUTPUT=report/cws node "$TOOLS/cws.mjs" status
+            gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate --jq '.[].body | @json' > report/comments
+            GITHUB_OUTPUT=report/outputs node "$TOOLS/release/cli.mjs" cws-report \
+              --candidate candidate/candidate.json --status report/cws --comments report/comments \
+              --head-sha "$head_sha" --version "$version" --recovery "$RECOVERY" --report-dir report
+            status=$(sed -n 's/^status=//p' report/outputs)
+            conclusion=$(sed -n 's/^conclusion=//p' report/outputs)
+            title=$(sed -n 's/^title=//p' report/outputs)
+            summary=$(sed -n 's/^summary=//p' report/outputs)
+            if [[ $(sed -n 's/^finalize=//p' report/outputs) == true ]]; then
+              node "$TOOLS/release/cli.mjs" prepare-workspace "$version" --date "$(date -u +%F)"
+              git add package.json packages/*/package.json packages/site/src/changelog.json
+              git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "chore(release): finalize $version metadata"
+              git push origin "$branch"
+              head_sha=$(git rev-parse HEAD)
+              gh workflow run pr-validation.yml --ref "$branch"
             fi
             args=(-f name=cws-release-ready -f head_sha="$head_sha" -f status="$status" -f output[title]="$title" -f output[summary]="$summary")
             [[ -z "$conclusion" ]] || args+=(-f conclusion="$conclusion")
             gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" "${args[@]}"
-            gh release edit "v$version" --prerelease --latest=false --notes "Candidate for release PR #$pr. Chrome Web Store version $version last reported $state. Source, tag, and downloadable assets remain frozen. $summary"
-            marker="<!-- lurkloot-release:$version:cws:$state -->"
-            if ! gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
-              gh pr comment "$pr" --body "$marker
-            @$initiator, candidate **v$version** is now **$state**. $summary"
+            gh release edit "v$version" --prerelease --latest=false --notes-file report/notes.md
+            if [[ $(sed -n 's/^should_comment=//p' report/outputs) == true ]]; then
+              gh pr comment "$pr" --body-file report/comment.md
             fi
-            printf '## CWS status for v%s\n\n- PR: #%s\n- State: `%s`\n- Check: `%s`\n- Guidance: %s\n' "$version" "$pr" "$state" "${conclusion:-pending}" "$summary" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$versions"

@@ -76,15 +76,15 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+      # Copy the whole directory: a hand-maintained file list silently breaks at runtime the moment
+      # the release tooling grows an import, and nothing in CI would catch it.
       - id: tooling
         name: Preserve trusted release tooling
         run: |
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          mkdir -p "$RUNNER_TEMP/release-tools/release"
-          cp scripts/release.mjs "$RUNNER_TEMP/release-tools/release.mjs"
-          cp scripts/release/cli.mjs "$RUNNER_TEMP/release-tools/release/cli.mjs"
-          cp scripts/release/metadata.mjs "$RUNNER_TEMP/release-tools/release/metadata.mjs"
-          cp scripts/release/model.mjs "$RUNNER_TEMP/release-tools/release/model.mjs"
+          mkdir -p "$RUNNER_TEMP/release-tools"
+          cp scripts/cws.mjs scripts/release.mjs "$RUNNER_TEMP/release-tools/"
+          cp -R scripts/release "$RUNNER_TEMP/release-tools/release"
       - name: Validate mutable store state
         id: cws
         env:
