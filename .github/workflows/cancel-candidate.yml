@@ -6,6 +6,7 @@ on:
       pr_number: { type: number, required: true }
       candidate_version: { type: string, required: true }
       expected_candidate_sha: { type: string, required: true }
+      expected_pr_state: { type: string, required: true }
       disposition: { type: string, required: true }
     outputs:
       cancelled:
@@ -52,6 +53,7 @@ jobs:
       PR: ${{ inputs.pr_number }}
       VERSION: ${{ inputs.candidate_version }}
       EXPECTED_SHA: ${{ inputs.expected_candidate_sha }}
+      EXPECTED_PR_STATE: ${{ inputs.expected_pr_state }}
       DISPOSITION: ${{ inputs.disposition }}
       CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
       CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
@@ -67,6 +69,7 @@ jobs:
         run: |
           [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
           [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_PR_STATE" == open || "$EXPECTED_PR_STATE" == closed-unmerged ]]
           [[ "$DISPOSITION" == retire || "$DISPOSITION" == replace ]]
           test "$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/main --jq .object.sha)" = "${{ needs.resolve-tools.outputs.main_sha }}"
           gh release download "v$VERSION" --pattern candidate.json --dir candidate
@@ -74,24 +77,22 @@ jobs:
           test "$(jq -r .schemaVersion candidate/candidate.json)" = 2
           test "$(jq -r .releasePr candidate/candidate.json)" = "$PR"
           test "$(jq -r .sourceSha candidate/candidate.json)" = "$EXPECTED_SHA"
-          live=$(gh pr view "$PR" --json headRefOid,isDraft,state,labels)
-          test "$(jq -r .state <<<"$live")" = OPEN
-          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_SHA"
           label=$(jq -r .label candidate/candidate.json)
-          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
-          recognized_count=$(jq 'length' <<<"$recognized_labels")
-          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
-          test "$recognized_count" = 1
-          test "$recognized_label" = "$label"
           revalidate() {
-            live=$(gh pr view "$PR" --json headRefOid,labels)
-            test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_SHA"
+            live=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
+            test "$(jq -r .head.sha <<<"$live")" = "$EXPECTED_SHA"
+            if [[ "$EXPECTED_PR_STATE" == open ]]; then
+              jq -e '.state == "open" and .merged_at == null' <<<"$live" >/dev/null
+            else
+              jq -e '.state == "closed" and .merged_at == null' <<<"$live" >/dev/null
+            fi
             recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
             recognized_count=$(jq 'length' <<<"$recognized_labels")
             recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
             test "$recognized_count" = 1
             test "$recognized_label" = "$label"
           }
+          revalidate
           test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true
           GITHUB_OUTPUT=before-status node scripts/cws.mjs status
           published=$(sed -n 's/^published_version=//p' before-status)
@@ -113,8 +114,8 @@ jobs:
           after_version=$(sed -n 's/^submitted_version=//p' after-status)
           after_state=$(sed -n 's/^submitted_state=//p' after-status)
           [[ "$after_version" == none || ( "$after_version" == "$VERSION" && "$after_state" == CANCELLED ) ]]
-          is_draft=$(jq -r .isDraft <<<"$(gh pr view "$PR" --json isDraft)")
-          if [[ "$is_draft" != true ]]; then
+          is_draft=$(jq -r .draft <<<"$live")
+          if [[ "$EXPECTED_PR_STATE" == open && "$is_draft" != true ]]; then
             revalidate
             gh pr ready "$PR" --undo
           fi
@@ -148,7 +149,7 @@ jobs:
             reason=confirmed-cancelled
             conclusion=success
             title="Candidate cancellation confirmed"
-            summary="v$VERSION is cancelled, retained for audit, and PR #$PR is draft."
+            summary="CWS cancellation for v$VERSION is confirmed and its GitHub prerelease is retained for audit."
           fi
           echo "cancelled=$cancelled" >> "$GITHUB_OUTPUT"
           echo "safe_to_replace=$safe" >> "$GITHUB_OUTPUT"

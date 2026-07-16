@@ -36,6 +36,7 @@ jobs:
       trusted_tools_ref: ${{ steps.inspect.outputs.trusted_tools_ref }}
       candidate_version: ${{ steps.inspect.outputs.candidate_version }}
       candidate_sha: ${{ steps.inspect.outputs.candidate_sha }}
+      closed: ${{ steps.inspect.outputs.closed }}
       milestone: ${{ steps.inspect.outputs.milestone }}
     env:
       GH_TOKEN: ${{ github.token }}
@@ -143,7 +144,7 @@ jobs:
             echo "pr_number=$PR"; echo "head_sha=$head"; echo "state=$controllerState"; echo "version=$version"; echo "kind=$kind"
             echo "release_label=$label"; echo "authorized_by=$authorizedBy"; echo "stable_sha=$stableSha"; echo "stable_version=$stableVersion"
             echo "develop_sha=$developSha"; echo "trusted_tools_ref=$trustedToolsRef"; echo "candidate_version=$candidateVersion"
-            echo "candidate_sha=$candidateSha"; echo "milestone=$milestone"
+            echo "candidate_sha=$candidateSha"; echo "closed=$closed"; echo "milestone=$milestone"
           } >> "$GITHUB_OUTPUT"
       - id: reconcile
         name: Derive reconciliation action
@@ -192,6 +193,7 @@ jobs:
       pr_number: ${{ fromJSON(needs.inspect.outputs.pr_number) }}
       candidate_version: ${{ needs.inspect.outputs.candidate_version }}
       expected_candidate_sha: ${{ needs.inspect.outputs.candidate_sha }}
+      expected_pr_state: ${{ needs.inspect.outputs.closed == 'true' && 'closed-unmerged' || 'open' }}
       disposition: ${{ needs.inspect.outputs.action == 'cancel-and-prepare' && 'replace' || 'retire' }}
     secrets: inherit
 
