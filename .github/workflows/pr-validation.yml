@@ -12,6 +12,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release-policy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate credential-free release ancestry policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABELS_JSON: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          labels=$LABELS_JSON
+          count=$(jq '[.[] | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")] | length' <<<"$labels")
+          test "$count" -le 1
+          [[ "$count" == 0 ]] && exit 0
+          test "${{ github.event.pull_request.base.ref }}" = main
+          test "${{ github.event.pull_request.head.repo.full_name }}" = "$GITHUB_REPOSITORY"
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main" "+refs/heads/develop:refs/remotes/origin/develop"
+          git merge-base --is-ancestor origin/main HEAD
+          label=$(jq -r '.[] | select(startswith("release/"))' <<<"$labels")
+          if [[ "$label" != release/hotfix ]]; then
+            git merge-base --is-ancestor origin/develop HEAD
+          else
+            comm -12 <(git rev-list origin/main..origin/develop | sort) <(git rev-list origin/main..HEAD | sort) | grep -q . && exit 1 || true
+          fi
+
   verify:
     runs-on: ubuntu-latest
     steps:
