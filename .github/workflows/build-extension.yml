@@ -83,6 +83,9 @@ jobs:
           normalize_zip "$chrome_zip" "release-assets/lurkloot-$version-chrome.zip"
           normalize_zip "$firefox_zip" "release-assets/lurkloot-$version-firefox.zip"
           normalize_zip "$sources_zip" "release-assets/lurkloot-$version-firefox-sources.zip"
+      - name: Checksum unsigned build output
+        working-directory: release-assets
+        run: sha256sum lurkloot-* > UNSIGNED_SHA256SUMS
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact_name }}-unsigned
@@ -93,6 +96,7 @@ jobs:
   finalize:
     needs: build
     runs-on: ubuntu-latest
+    environment: prereleases
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -102,6 +106,9 @@ jobs:
         if: inputs.sign_crx
         with:
           node-version: 24
+      - name: Verify unsigned build output
+        working-directory: release-assets
+        run: sha256sum -c UNSIGNED_SHA256SUMS
       - name: Build signed CRX3
         if: inputs.sign_crx
         env:
@@ -119,7 +126,9 @@ jobs:
           rm -f "$RUNNER_TEMP/lurkloot.pem"
       - name: Generate checksums
         working-directory: release-assets
-        run: sha256sum lurkloot-* > SHA256SUMS
+        run: |
+          rm UNSIGNED_SHA256SUMS
+          sha256sum lurkloot-* > SHA256SUMS
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact_name }}

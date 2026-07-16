@@ -19,6 +19,15 @@ on:
       ref:
         type: string
         required: true
+      pr_number:
+        type: string
+        default: ""
+      expected_head_sha:
+        type: string
+        default: ""
+      release_label:
+        type: string
+        default: ""
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
@@ -61,6 +70,10 @@ jobs:
       - run: pnpm build:site
         env:
           SITE_DEPLOYMENT_CHANNEL: ${{ inputs.channel }}
+      - name: Checksum static site artifact
+        run: |
+          cd packages/site/dist
+          find . -type f -print0 | sort -z | xargs -0 sha256sum > SITE_SHA256SUMS
       - uses: actions/upload-artifact@v7
         with:
           name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -71,6 +84,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     environment:
       name: ${{ inputs.channel == 'production' && 'production-site' || 'prerelease-site' }}
       url: ${{ inputs.channel == 'production' && 'https://lurkloot.jamezrin.com' || 'https://next.lurkloot.pages.dev' }}
@@ -79,6 +95,20 @@ jobs:
         with:
           name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: site-artifact
+      - name: Verify static site artifact
+        working-directory: site-artifact
+        run: sha256sum -c SITE_SHA256SUMS
+      - name: Revalidate candidate immediately before prerelease deployment
+        if: inputs.channel == 'prerelease'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          RELEASE_LABEL: ${{ inputs.release_label }}
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
       - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
