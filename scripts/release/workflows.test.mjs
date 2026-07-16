@@ -231,7 +231,7 @@ test("candidate preparation exposes the controller result contract", async () =>
 test("candidate cancellation is a reusable fail-closed replacement gate", async () => {
   const text = await workflow("cancel-candidate.yml");
   assert.match(text, /workflow_call:/);
-  for (const input of ["pr_number", "candidate_version", "expected_candidate_sha", "disposition"]) assert.match(text, new RegExp(`\\b${input}:`));
+  for (const input of ["pr_number", "candidate_version", "expected_candidate_sha", "expected_pr_state", "disposition"]) assert.match(text, new RegExp(`\\b${input}:`));
   for (const output of ["cancelled", "safe_to_replace", "reason"]) assert.match(text, new RegExp(`\\b${output}:`));
   assert.match(text, /group: cws-mutation/);
   assert.match(text, /schemaVersion candidate\/candidate\.json\)" = 2/);
@@ -241,14 +241,44 @@ test("candidate cancellation is a reusable fail-closed replacement gate", async 
   assert.match(text, /gh pr ready "\$PR" --undo/);
   assert.match(text, /safe_to_replace=false/);
   assert.match(text, /PUBLISHED/);
-  assert.match(text, /--json headRefOid,isDraft,state,labels/);
-  assert.match(text, /if \[\[ "\$is_draft" != true \]\]; then/);
+  assert.match(text, /EXPECTED_PR_STATE/);
+  assert.match(text, /\.state == "open"/);
+  assert.match(text, /\.state == "closed"/);
+  assert.match(text, /\.merged_at == null/);
+  assert.match(text, /repos\/\$GITHUB_REPOSITORY\/pulls\/\$PR/);
+  assert.match(text, /if \[\[ "\$EXPECTED_PR_STATE" == open[^\n]*"\$is_draft" != true \]\]; then/);
   assert.doesNotMatch(text, /jq -r \.releaseLabel/);
   assert.match(text, /jq -r \.label candidate\/candidate\.json/);
   assert.match(text, /if: always\(\)/);
   assert.match(text, /release-candidate/);
   assert.match(text, /reconciliation-blocked/);
   assert.match(text, /lur[k]?loot-release-pr:\$PR:status/);
+});
+
+test("controller declares whether cancellation expects an open or closed-unmerged PR", async () => {
+  const text = await workflow("reconcile-release-pr.yml");
+  assert.match(text, /expected_pr_state: \$\{\{ needs\.inspect\.outputs\.closed == 'true' && 'closed-unmerged' \|\| 'open' \}\}/);
+});
+
+test("closed-unmerged cancellation preserves identity checks and skips open-only draft conversion", async () => {
+  const text = await workflow("cancel-candidate.yml");
+  assert.match(text, /else\n\s+jq -e '\.state == "closed" and \.merged_at == null'/);
+  assert.match(text, /test "\$\(jq -r \.head\.sha <<<"\$live"\)" = "\$EXPECTED_SHA"/);
+  assert.match(text, /if \[\[ "\$EXPECTED_PR_STATE" == open[^\n]*\]\]; then\n\s+revalidate\n\s+gh pr ready/);
+});
+
+test("cancellation rejects merged PRs for both expected live states", async () => {
+  const text = await workflow("cancel-candidate.yml");
+  const statePredicates = text.match(/\.state == "(?:open|closed)" and \.merged_at == null/g) ?? [];
+  assert.deepEqual(statePredicates.sort(), [
+    '.state == "closed" and .merged_at == null',
+    '.state == "open" and .merged_at == null',
+  ]);
+});
+
+test("open cancellation still converts a ready matching PR back to draft", async () => {
+  const text = await workflow("cancel-candidate.yml");
+  assert.match(text, /if \[\[ "\$EXPECTED_PR_STATE" == open[^\n]*"\$is_draft" != true \]\]; then\n\s+revalidate\n\s+gh pr ready "\$PR" --undo/);
 });
 
 test("candidate submission is reusable, approval-gated, and revalidates live ownership", async () => {
