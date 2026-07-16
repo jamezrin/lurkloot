@@ -1,5 +1,62 @@
 const loginPattern = /^(?!-)[A-Za-z0-9-]{1,39}(?<!-)$/;
 
+function validatedUrl(value, name) {
+  if (value === undefined || value === null || value === "") return null;
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name} must be a valid URL`);
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error(`${name} must be an HTTP(S) URL`);
+  }
+  return value;
+}
+
+export function statusMarker(pr) {
+  return `<!-- lurkloot-release-pr:${pr}:status -->`;
+}
+
+export function milestoneMarker(version, milestone) {
+  return `<!-- lurkloot-release:${version}:milestone:${milestone} -->`;
+}
+
+export function renderReleaseStatus(status) {
+  const links = [
+    ["GitHub release", validatedUrl(status.releaseUrl, "releaseUrl")],
+    ["Preview", validatedUrl(status.previewUrl, "previewUrl")],
+    ["CWS", validatedUrl(status.cwsUrl, "cwsUrl")],
+    ["Workflow", validatedUrl(status.workflowUrl, "workflowUrl")],
+  ].filter(([, url]) => url);
+  const details = [
+    `- Candidate: \`v${status.version}\` (${status.kind})`,
+    `- Source: \`${status.sourceSha}\``,
+  ];
+  if (status.checksum) details.push(`- Chrome ZIP: \`${status.checksum}\``);
+  if (status.dockerTag) details.push(`- Docker: \`${status.dockerTag}\``);
+  if (links.length) details.push(`- Links: ${links.map(([label, url]) => `[${label}](${url})`).join(" · ")}`);
+  const sections = [
+    statusMarker(status.pr),
+    `## Release status: ${status.state.replaceAll("-", " ")}`,
+    "",
+    ...details,
+  ];
+  if (status.activity) sections.push("", `**Activity:** ${status.activity}`);
+  if (status.action) sections.push("", `**Next action:** ${status.action}`);
+  if (status.blocker) sections.push("", `**Blocker:** ${status.blocker}`);
+  if (status.recovery) sections.push("", `**Recovery:** ${status.recovery}`);
+  return sections.join("\n");
+}
+
+export function renderMilestone({ metadata, milestone, guidance }) {
+  if (!loginPattern.test(metadata.initiator ?? "")) throw new Error("candidate initiator must be a valid GitHub login");
+  return [
+    milestoneMarker(metadata.version, milestone),
+    `@${metadata.initiator}, candidate **v${metadata.version}** reached **${milestone}**. ${guidance}`,
+  ].join("\n");
+}
+
 export function commentMarker(version, state) {
   return `<!-- lurkloot-release:${version}:cws:${state} -->`;
 }
