@@ -8,6 +8,7 @@ import {
   checkConclusion,
   checkTitle,
   commentMarker,
+  lifecycleMilestoneGuidance,
   milestoneMarker,
   renderMilestone,
   renderReleaseComment,
@@ -75,6 +76,23 @@ test("renders staged and stable milestone snapshots", () => {
     "<!-- lurkloot-release:1.5.0:milestone:stable -->",
     "@jamezrin, candidate **v1.5.0** reached **stable**. Stable promotion is complete.",
   ].join("\n"));
+});
+
+test("renders automatic lifecycle milestone snapshots", () => {
+  const guidance = {
+    "candidate-rebuilding": "The old candidate is cancelled; replacement artifacts are rebuilding.",
+    "environment-approval": "Approve the cws-review environment after checking this exact SHA.",
+    "cws-pending": "Google is reviewing the frozen candidate with deferred publishing.",
+    "reconciliation-blocked": "CWS state is uncertain; reconcile it in the dashboard before retrying.",
+  };
+  for (const [milestone, text] of Object.entries(guidance)) {
+    assert.equal(lifecycleMilestoneGuidance(milestone), text);
+    assert.equal(renderMilestone({ metadata, milestone, guidance: text }), [
+      `<!-- lurkloot-release:1.5.0:milestone:${milestone} -->`,
+      `@jamezrin, candidate **v1.5.0** reached **${milestone}**. ${text}`,
+    ].join("\n"));
+  }
+  assert.throws(() => lifecycleMilestoneGuidance("typo"), /unknown automatic lifecycle milestone/);
 });
 
 test("validates lifecycle notification links and mention logins", () => {
