@@ -12,16 +12,32 @@ permissions:
   contents: read
 
 jobs:
+  resolve-tools:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    outputs:
+      trusted_tools_ref: ${{ steps.main.outputs.sha }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - id: main
+        run: |
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          test "$sha" = "${{ inputs.trusted_tools_ref }}"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
   rebuild:
+    needs: resolve-tools
     uses: ./.github/workflows/build-extension.yml
     with:
       ref: ${{ inputs.expected_head_sha }}
+      version: ${{ inputs.version }}
       artifact_name: extension-submission-verification-${{ inputs.version }}
       sign_crx: false
-      trusted_tools_ref: ${{ inputs.trusted_tools_ref }}
+      trusted_tools_ref: ${{ needs.resolve-tools.outputs.trusted_tools_ref }}
 
   verify:
-    needs: rebuild
+    needs: [resolve-tools, rebuild]
     runs-on: ubuntu-latest
     permissions: { contents: read, pull-requests: read }
     env:
@@ -55,12 +71,30 @@ jobs:
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_SHA"
           test "$(jq -r .state <<<"$live")" = OPEN
           test "$(jq -r .isDraft <<<"$live")" = false
-          label=$(jq -r .releaseLabel candidate/candidate.json)
+          label=$(jq -r .label candidate/candidate.json)
           jq -e --arg label "$label" '.labels | any(.name == $label)' <<<"$live" >/dev/null
           test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true
           test "$(git ls-remote origin "refs/tags/v$VERSION" | cut -f1)" = "$EXPECTED_SHA"
           fresh=$(sha256sum "fresh-build/lurkloot-$VERSION-chrome.zip" | cut -d' ' -f1)
           test "$fresh" = "$(jq -r .chromeZipSha256 candidate/candidate.json)"
+      - name: Seal exact pre-approval verification evidence
+        run: |
+          mkdir verification
+          cp -a candidate verification/candidate
+          sha256sum candidate/* | sort > verification/release-assets.sha256
+          fresh=$(sha256sum "fresh-build/lurkloot-$VERSION-chrome.zip" | cut -d' ' -f1)
+          label=$(jq -r .label candidate/candidate.json)
+          jq -n --arg version "$VERSION" --arg source "$EXPECTED_SHA" --arg head "$EXPECTED_SHA" \
+            --arg label "$label" --arg tools "${{ inputs.trusted_tools_ref }}" --arg fresh "$fresh" \
+            '{schemaVersion:1,version:$version,sourceSha:$source,headSha:$head,label:$label,trustedToolsSha:$tools,freshChromeSha256:$fresh}' \
+            > verification/evidence.json
+          (cd verification && sha256sum evidence.json release-assets.sha256 candidate/* | sort) > verification/SEALED_SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: extension-submission-evidence-${{ inputs.version }}
+          path: verification
+          if-no-files-found: error
+          retention-days: 1
 
   submit:
     needs: verify
@@ -81,10 +115,20 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.trusted_tools_ref }}
-      - run: gh release download "v$VERSION" --pattern candidate.json --dir candidate
-      - name: Revalidate after cws-review approval and submit
+      - uses: actions/download-artifact@v8
+        with:
+          name: extension-submission-evidence-${{ inputs.version }}
+          path: verification
+      - name: Download frozen release assets again
+        run: gh release download "v$VERSION" --dir candidate
+      - id: mutation
+        name: Revalidate after cws-review approval and submit
+        continue-on-error: true
         run: |
           test "$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/main --jq .object.sha)" = "${{ inputs.trusted_tools_ref }}"
+          (cd verification && sha256sum -c SEALED_SHA256SUMS)
+          sha256sum -c verification/release-assets.sha256
+          node scripts/release/cli.mjs metadata verify candidate/candidate.json candidate
           node scripts/release/cli.mjs candidate read --file candidate/candidate.json --version "$VERSION" >/dev/null
           test "$(jq -r .schemaVersion candidate/candidate.json)" = 2
           test "$(jq -r .releasePr candidate/candidate.json)" = "$PR"
@@ -93,12 +137,67 @@ jobs:
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_SHA"
           test "$(jq -r .state <<<"$live")" = OPEN
           test "$(jq -r .isDraft <<<"$live")" = false
-          label=$(jq -r .releaseLabel candidate/candidate.json)
+          label=$(jq -r .label candidate/candidate.json)
+          test "$(jq -r .version verification/evidence.json)" = "$VERSION"
+          test "$(jq -r .sourceSha verification/evidence.json)" = "$EXPECTED_SHA"
+          test "$(jq -r .headSha verification/evidence.json)" = "$(jq -r .headRefOid <<<"$live")"
+          test "$(jq -r .label verification/evidence.json)" = "$label"
+          test "$label" = "$(jq -r .label verification/candidate/candidate.json)"
+          test "$(jq -r .trustedToolsSha verification/evidence.json)" = "${{ inputs.trusted_tools_ref }}"
+          test "$(jq -r .freshChromeSha256 verification/evidence.json)" = "$(jq -r .chromeZipSha256 candidate/candidate.json)"
           jq -e --arg label "$label" '.labels | any(.name == $label)' <<<"$live" >/dev/null
           test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true
           test "$(git ls-remote origin "refs/tags/v$VERSION" | cut -f1)" = "$EXPECTED_SHA"
           node scripts/cws.mjs submit-staged
+          check=$(node -e 'import("./scripts/release/github.mjs").then(({submitCandidateCheck}) => process.stdout.write(JSON.stringify(submitCandidateCheck("submitted", process.env.VERSION))))')
+          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$EXPECTED_SHA" \
+            -f status=in_progress -f output[title]="$(jq -r .title <<<"$check")" -f output[summary]="$(jq -r .summary <<<"$check")"
+          notes="Candidate for release PR #$PR. Chrome Web Store version $VERSION is PENDING_REVIEW with deferred publishing. Source, tag, and downloadable assets remain frozen."
+          gh release edit "v$VERSION" --prerelease --latest=false --notes "$notes"
+          status_marker="<!-- lurkloot-release-pr:$PR:status -->"
+          status_body="$status_marker
+          ## Release status: cws pending
+
+          - Candidate: \`v$VERSION\`
+          - Source: \`$EXPECTED_SHA\`
+          - Chrome ZIP: \`$(jq -r .chromeZipSha256 candidate/candidate.json)\`
+
+          **Activity:** Submitted to CWS with staged publishing.
+
+          **Next action:** Wait for Google review; the cws-release-ready check remains pending."
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$status_marker\")) | .id" | head -1)
+          if [[ -n "$comment_id" ]]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$status_body" >/dev/null
+          else
+            gh pr comment "$PR" --body "$status_body"
+          fi
           marker="<!-- lurkloot-release:$VERSION:milestone:cws-pending -->"
           bodies=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[].body')
           grep -Fq "$marker" <<<"$bodies" || gh pr comment "$PR" --body "$marker
           Candidate **v$VERSION** reached **cws-pending**. Google is reviewing the frozen candidate with deferred publishing."
+      - if: always() && steps.mutation.outcome != 'success'
+        name: Publish actionable submission failure
+        run: |
+          summary="Submission did not complete from the sealed candidate evidence. Reconcile GitHub and CWS state before retrying."
+          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready \
+            -f head_sha="$EXPECTED_SHA" -f status=completed -f conclusion=failure \
+            -f output[title]="CWS submission blocked" -f output[summary]="$summary"
+          marker="<!-- lurkloot-release-pr:$PR:status -->"
+          body="$marker
+          ## Release status: blocked
+
+          - Candidate: \`v$VERSION\`
+          - Source: \`$EXPECTED_SHA\`
+
+          **Recovery:** $summary"
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -1)
+          if [[ -n "$comment_id" ]]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
+          else
+            gh pr comment "$PR" --body "$body"
+          fi
+          blocked="<!-- lurkloot-release:$VERSION:milestone:reconciliation-blocked -->"
+          bodies=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[].body')
+          grep -Fq "$blocked" <<<"$bodies" || gh pr comment "$PR" --body "$blocked
+          Candidate **v$VERSION** reached **reconciliation-blocked**. CWS state is uncertain; reconcile it in the dashboard before retrying."
+          exit 1
