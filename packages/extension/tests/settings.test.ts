@@ -84,6 +84,7 @@ describe("settings", () => {
       notifyRewardEarned: true,
       notifyNoDropsLeft: true,
       autoStartDropFarming: true,
+      showTips: true,
       languageOverride: "browser",
       watchQueueFallbackOnly: true,
       pollIntervalMinutes: 1,
@@ -93,6 +94,12 @@ describe("settings", () => {
         kick: { excludedChannels: [], farmAllCategories: true, categories: [] },
       },
     });
+  });
+
+  it("shows popup tips by default and preserves an explicit hidden preference", () => {
+    expect(mergeSettings(undefined).showTips).toBe(true);
+    expect(mergeSettings({ showTips: false }).showTips).toBe(false);
+    expect(mergeSettings({ showTips: "no" } as never).showTips).toBe(true);
   });
 
   it("defaults subscription campaigns to visible while preserving persisted choices", () => {

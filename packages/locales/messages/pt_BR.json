@@ -119,9 +119,18 @@
   "watchingPausedHint": {
     "message": "Visualização pausada. Ative para retomar o farming de drops."
   },
-  "priorityHint": {
-    "message": "Drops sempre têm prioridade sobre a fila de visualização. Arraste campanhas pela alça para definir a ordem de farming."
-  },
+  "hideTipsTitle": { "message": "Ocultar dicas" },
+  "hideTipsDescription": { "message": "Oculta as dicas úteis da janela principal." },
+  "tipCampaignPriority": { "message": "Drops têm prioridade sobre a fila. Arraste as campanhas pela alça para definir a ordem." },
+  "tipMissingCampaigns": { "message": "Não encontrou uma campanha? Confira o inventário de Drops da plataforma e os filtros nas configurações." },
+  "tipCategorySelection": { "message": "Quer apenas certos jogos? Desative “Farmar todas as categorias” e escolha as categorias." },
+  "tipWatchQueue": { "message": "A fila farma os canais escolhidos quando não há Drops elegíveis." },
+  "tipTablessMode": { "message": "O modo sem abas usa menos recursos e abre uma aba silenciada quando necessário." },
+  "tipCli": { "message": "Prefere não usar uma extensão? O Lurkloot também oferece uma CLI para Docker." },
+  "tipCliAction": { "message": "Ler o guia da CLI" },
+  "tipFeedback": { "message": "Encontrou um bug ou tem uma ideia?" },
+  "tipFeedbackAction": { "message": "Abrir uma issue no GitHub" },
+  "tipExcludedCampaigns": { "message": "Excluiu uma campanha por engano? Restaure-a nas configurações de Drops." },
   "noCampaigns": {
     "message": "Nenhuma campanha descoberta ainda."
   },

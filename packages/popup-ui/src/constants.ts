@@ -17,6 +17,8 @@ export const CHROME_WEB_STORE_URL = `https://chromewebstore.google.com/detail/${
 export const CHROME_WEB_STORE_REVIEW_URL = `${CHROME_WEB_STORE_URL}/reviews`;
 // Canonical marketing/landing site for the extension.
 export const SITE_URL = "https://lurkloot.jamezrin.com";
+export const CLI_DOCS_URL = "https://github.com/jamezrin/lurkloot/tree/main/packages/cli#readme";
+export const GITHUB_NEW_ISSUE_URL = "https://github.com/jamezrin/lurkloot/issues/new/choose";
 // How long after install before the one-time "rate it" nudge appears.
 export const RATE_NUDGE_MIN_DAYS = 3;
 

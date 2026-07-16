@@ -80,6 +80,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
     finished: true,
   },
   rateNudgeStatus: "pending",
+  showTips: true,
   diagnosticLogging: false,
 };
 
@@ -156,6 +157,7 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     rateNudgeStatus: RATE_NUDGE_STATUSES.includes(value?.rateNudgeStatus as RateNudgeStatus)
       ? (value!.rateNudgeStatus as RateNudgeStatus)
       : DEFAULT_SETTINGS.rateNudgeStatus,
+    showTips: booleanOr(value?.showTips, DEFAULT_SETTINGS.showTips),
     diagnosticLogging,
   };
 }

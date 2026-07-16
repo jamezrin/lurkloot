@@ -119,9 +119,18 @@
   "watchingPausedHint": {
     "message": "观看已暂停。切换开关以继续刷掉宝。"
   },
-  "priorityHint": {
-    "message": "Drops 始终优先于观看队列。拖动活动把手来设置刷取顺序。"
-  },
+  "hideTipsTitle": { "message": "隐藏提示" },
+  "hideTipsDescription": { "message": "在主弹窗中隐藏实用提示。" },
+  "tipCampaignPriority": { "message": "Drops 优先于观看队列。拖动活动把手即可设置刷取顺序。" },
+  "tipMissingCampaigns": { "message": "找不到活动？请检查平台的 Drops 库存，然后查看设置中的活动筛选器。" },
+  "tipCategorySelection": { "message": "只刷特定游戏？关闭平台设置中的“刷取所有类别”，然后选择类别。" },
+  "tipWatchQueue": { "message": "没有符合条件的 Drops 时，观看队列会刷取所选频道。" },
+  "tipTablessMode": { "message": "无标签页模式占用更少资源，并在需要时回退到静音标签页。" },
+  "tipCli": { "message": "不想使用扩展？Lurkloot 也提供基于 Docker 的 CLI。" },
+  "tipCliAction": { "message": "阅读 CLI 指南" },
+  "tipFeedback": { "message": "发现错误或有建议？" },
+  "tipFeedbackAction": { "message": "提交 GitHub issue" },
+  "tipExcludedCampaigns": { "message": "误排除了活动？可在 Drops 设置中恢复。" },
   "noCampaigns": {
     "message": "尚未发现活动。"
   },

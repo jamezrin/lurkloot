@@ -119,9 +119,18 @@
   "watchingPausedHint": {
     "message": "المشاهدة متوقفة مؤقتًا. فعّل المفتاح لاستئناف فارم Drops."
   },
-  "priorityHint": {
-    "message": "تأخذ Drops الأولوية دائمًا على قائمة المشاهدة. اسحب الحملات من المقبض لتحديد ترتيب الفارم."
-  },
+  "hideTipsTitle": { "message": "إخفاء النصائح" },
+  "hideTipsDescription": { "message": "يخفي النصائح المفيدة من النافذة الرئيسية." },
+  "tipCampaignPriority": { "message": "تأخذ Drops الأولوية على قائمة المشاهدة. اسحب الحملات من المقبض لترتيب الفارم." },
+  "tipMissingCampaigns": { "message": "هل هناك حملة مفقودة؟ تحقق من مخزون Drops في المنصة ثم من عوامل التصفية في الإعدادات." },
+  "tipCategorySelection": { "message": "تريد ألعابًا محددة فقط؟ عطّل «فارم كل الفئات» واختر فئاتك." },
+  "tipWatchQueue": { "message": "تفارم قائمة المشاهدة القنوات المختارة عند عدم توفر Drops مؤهلة." },
+  "tipTablessMode": { "message": "يستهلك الوضع بلا تبويبات موارد أقل ويفتح تبويبًا مكتومًا عند الحاجة." },
+  "tipCli": { "message": "تفضّل العمل بلا إضافة؟ يتوفر Lurkloot أيضًا كواجهة CLI عبر Docker." },
+  "tipCliAction": { "message": "اقرأ دليل CLI" },
+  "tipFeedback": { "message": "وجدت خطأ أو لديك فكرة؟" },
+  "tipFeedbackAction": { "message": "افتح issue على GitHub" },
+  "tipExcludedCampaigns": { "message": "استبعدت حملة بالخطأ؟ استعدها من إعدادات Drops." },
   "noCampaigns": {
     "message": "لم يتم اكتشاف أي حملات بعد."
   },
