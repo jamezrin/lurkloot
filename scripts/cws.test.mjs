@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cancelAction, ChromeWebStoreClient, normalizeStatus, prereleaseAction, revisionVersion, stableAction, submitAction, waitForCancellation } from "./cws.mjs";
+import { cancelAction, ChromeWebStoreClient, normalizeStatus, prereleaseAction, revisionVersion, stableAction, submitAction, submittedAction, waitForCancellation } from "./cws.mjs";
 
 const revision = (state, version) => ({ state, distributionChannels: [{ deployPercentage: 100, crxVersion: version }] });
 const status = ({ published = "1.3.0", submitted, warned = false, takenDown = false } = {}) => ({
@@ -12,6 +12,12 @@ const status = ({ published = "1.3.0", submitted, warned = false, takenDown = fa
 
 test("revisionVersion reads the submitted package version", () => {
   assert.equal(revisionVersion(revision("STAGED", "1.4.0")), "1.4.0");
+});
+
+test("reports a completed submission separately from staged retry state", () => {
+  assert.equal(submittedAction("submit"), "submitted");
+  assert.equal(submittedAction("already-staged"), "already-staged");
+  assert.equal(submittedAction("already-submitted"), "already-submitted");
 });
 
 test("normalizes store status for workflow decisions", () => {

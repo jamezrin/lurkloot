@@ -229,6 +229,15 @@ test("candidate submission is reusable, approval-gated, and revalidates live own
   assert.match(text, /schemaVersion candidate\/candidate\.json\)" = 2/);
   assert.ok((text.match(/gh pr view "\$PR" --json headRefOid,isDraft,state,labels/g) ?? []).length >= 2);
   assert.match(text, /submit-staged/);
+  assert.match(text, /GITHUB_OUTPUT="\$submission_output" node scripts\/cws\.mjs submit-staged/);
+  assert.match(text, /action=\$\(sed -n 's\/\^action=\/\/p' "\$submission_output"\)/);
+  assert.match(text, /test "\$action" = submitted \|\| test "\$action" = already-submitted \|\| test "\$action" = already-staged/);
+  assert.match(text, /submitCandidateCheck\(process\.env\.ACTION, process\.env\.VERSION\)/);
+  assert.match(text, /if \[\[ "\$action" == already-staged \]\]; then/);
+  assert.match(text, /Chrome Web Store version \$VERSION is STAGED and awaits monitor finalization/);
+  assert.match(text, /status_state="staged validation pending"/);
+  assert.match(text, /CWS already reports staged publishing approval/);
+  assert.match(text, /Monitor finalization and release metadata validation remain pending/);
   assert.match(text, /cws-pending/);
   assert.match(text, /ref: \$\{\{ inputs\.trusted_tools_ref \}\}/);
   assert.match(text, /version: \$\{\{ inputs\.version \}\}/);
