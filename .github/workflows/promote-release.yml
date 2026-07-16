@@ -1,0 +1,122 @@
+name: Promote reviewed release
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    if: github.event.pull_request.merged == true && (startsWith(github.event.pull_request.head.ref, 'release/') || startsWith(github.event.pull_request.head.ref, 'hotfix/'))
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      kind: ${{ steps.release.outputs.kind }}
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+      - id: release
+        run: |
+          version=$(node -p "require('./package.json').version")
+          mkdir release-assets
+          gh release download "v$version" --dir release-assets
+          node -e 'import("./scripts/release/model.mjs").then(({parseCandidateMetadata}) => parseCandidateMetadata(require("fs").readFileSync("release-assets/candidate.json","utf8")))'
+          test "$(jq -r .releasePr release-assets/candidate.json)" = "$PR"
+          source_sha=$(jq -r .sourceSha release-assets/candidate.json)
+          git fetch origin "pull/$PR/head"
+          test "$(git rev-parse FETCH_HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          git merge-base --is-ancestor "$source_sha" "${{ github.event.pull_request.head.sha }}"
+          git diff --quiet "$source_sha" "${{ github.event.pull_request.head.sha }}" -- . ':(exclude)package.json' ':(exclude)packages/*/package.json' ':(exclude)packages/site/src/changelog.json'
+          git diff --quiet "${{ github.event.pull_request.head.sha }}" "${{ github.event.pull_request.merge_commit_sha }}"
+          (cd release-assets && sha256sum --check SHA256SUMS)
+          test "$(sha256sum "release-assets/lurkloot-$version-chrome.zip" | cut -d' ' -f1)" = "$(jq -r .chromeZipSha256 release-assets/candidate.json)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "kind=$(jq -r .kind release-assets/candidate.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: stable-release-assets-${{ steps.release.outputs.version }}
+          path: release-assets
+
+  publish:
+    needs: candidate
+    runs-on: ubuntu-latest
+    environment: stable-releases
+    permissions:
+      contents: write
+      packages: write
+    concurrency:
+      group: cws-mutation
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.candidate.outputs.version }}
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
+      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_VERSION: ${{ needs.candidate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: stable-release-assets-${{ needs.candidate.outputs.version }}
+          path: release-assets
+      - name: Publish approved staged revision
+        run: node scripts/cws.mjs publish-stable
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Promote stored Docker digests
+        run: |
+          mapfile -t digests < <(jq -r .dockerDigests[] release-assets/candidate.json)
+          ((${#digests[@]} == 2)) || { echo "expected two Docker digests" >&2; exit 1; }
+          args=()
+          for digest in "${digests[@]}"; do args+=("$IMAGE_NAME@$digest"); done
+          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" --tag "$IMAGE_NAME:${VERSION%.*}" --tag "$IMAGE_NAME:${VERSION%%.*}" --tag "$IMAGE_NAME:latest" "${args[@]}"
+      - name: Promote immutable GitHub release
+        run: |
+          test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true || {
+            test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = false
+            exit 0
+          }
+          gh release edit "v$VERSION" --title "v$VERSION" --latest --prerelease=false --notes "Stable release v$VERSION from reviewed candidate."
+
+  site:
+    needs: [candidate, publish]
+    uses: ./.github/workflows/site-deploy.yml
+    with:
+      channel: production
+      ref: main
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  forward-hotfix:
+    needs: [candidate, site]
+    if: needs.candidate.outputs.kind == 'hotfix'
+    uses: ./.github/workflows/forward-hotfix.yml
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    with:
+      version: ${{ needs.candidate.outputs.version }}

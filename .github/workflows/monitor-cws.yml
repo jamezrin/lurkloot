@@ -1,0 +1,89 @@
+name: Monitor CWS review
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Optional candidate version; blank checks all active prereleases
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cws-monitor
+  cancel-in-progress: true
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REQUESTED_VERSION: ${{ inputs.version }}
+      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Refresh active candidates
+        run: |
+          if [[ -n "$REQUESTED_VERSION" ]]; then
+            versions="$REQUESTED_VERSION"
+          else
+            versions=$(gh release list --limit 100 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName | sub("^v";"")')
+          fi
+          while read -r version; do
+            [[ -n "$version" ]] || continue
+            rm -rf candidate && mkdir candidate
+            gh release download "v$version" --pattern candidate.json --dir candidate
+            pr=$(jq -r .releasePr candidate/candidate.json)
+            initiator=$(jq -r .initiator candidate/candidate.json)
+            export CWS_VERSION="$version"
+            output=$(mktemp)
+            GITHUB_OUTPUT="$output" node scripts/cws.mjs status
+            source "$output"
+            state=$submitted_state
+            if [[ "$warned" == true || "$taken_down" == true ]]; then state=POLICY_BLOCKED; fi
+            if [[ "$submitted_version" != "$version" && "$state" != none ]]; then state=VERSION_MISMATCH; fi
+            head_sha=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
+            if [[ "$state" == STAGED ]]; then
+              branch=$(gh pr view "$pr" --json headRefName --jq .headRefName)
+              git fetch origin "$branch"
+              git checkout -B "$branch" FETCH_HEAD
+              if [[ $(jq -r --arg version "$version" '.[] | select(.version==$version) | .date // empty' packages/site/src/changelog.json) == "" ]]; then
+                node scripts/release.mjs prepare "$version" --date "$(date -u +%F)"
+                git add package.json packages/*/package.json packages/site/src/changelog.json
+                git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "chore(release): finalize $version metadata"
+                git push origin "$branch"
+                head_sha=$(git rev-parse HEAD)
+              fi
+              status=completed; conclusion=success; title="CWS candidate staged"; summary="v$version is approved and ready for final PR approval and merge."
+            elif [[ "$state" == PENDING_REVIEW ]]; then
+              status=in_progress; conclusion=""; title="CWS review pending"; summary="v$version remains frozen while Google reviews it."
+            else
+              status=completed; conclusion=failure; title="CWS candidate blocked"; summary="v$version reported $state; resolve it before merging."
+            fi
+            args=(-f name=cws-release-ready -f head_sha="$head_sha" -f status="$status" -f output[title]="$title" -f output[summary]="$summary")
+            [[ -z "$conclusion" ]] || args+=(-f conclusion="$conclusion")
+            gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" "${args[@]}"
+            marker="<!-- lurkloot-release:$version:cws:$state -->"
+            if ! gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
+              gh pr comment "$pr" --body "$marker
+            @$initiator, candidate **v$version** is now **$state**. $summary"
+            fi
+          done <<< "$versions"

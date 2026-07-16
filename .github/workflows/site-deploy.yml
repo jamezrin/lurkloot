@@ -1,12 +1,24 @@
 name: Deploy site
 
-# Build the Astro landing site and deploy the declared release channel to the
-# matching Cloudflare Pages branch. The release workflow calls this only after
-# publication succeeds; workflow_dispatch allows manual redeploys.
-
 on:
   workflow_dispatch:
+    inputs:
+      channel:
+        type: choice
+        options: [prerelease, production]
+        required: true
+      ref:
+        type: string
+        default: main
+        required: true
   workflow_call:
+    inputs:
+      channel:
+        type: string
+        required: true
+      ref:
+        type: string
+        required: true
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
@@ -17,78 +29,33 @@ permissions:
   contents: read
 
 concurrency:
-  group: site-deploy-${{ github.ref }}
+  group: site-deploy-${{ inputs.channel }}
   cancel-in-progress: true
 
 jobs:
-  gate:
-    runs-on: ubuntu-latest
-    outputs:
-      branch: ${{ steps.target.outputs.branch }}
-      channel: ${{ steps.target.outputs.channel }}
-      environment: ${{ steps.target.outputs.environment }}
-      url: ${{ steps.target.outputs.url }}
-    steps:
-      - name: Require the main branch
-        run: test "$GITHUB_REF" = refs/heads/main
-      - uses: actions/checkout@v7
-      - id: target
-        name: Select deployment target
-        run: |
-          channel=$(node -p "require('./package.json').release.channel")
-          case "$channel" in
-            prerelease)
-              echo "branch=next" >> "$GITHUB_OUTPUT"
-              echo "channel=prerelease" >> "$GITHUB_OUTPUT"
-              echo "environment=prerelease-site" >> "$GITHUB_OUTPUT"
-              echo "url=https://next.lurkloot.pages.dev" >> "$GITHUB_OUTPUT"
-              ;;
-            stable)
-              echo "branch=main" >> "$GITHUB_OUTPUT"
-              echo "channel=production" >> "$GITHUB_OUTPUT"
-              echo "environment=production-site" >> "$GITHUB_OUTPUT"
-              echo "url=https://lurkloot.jamezrin.com" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "Unsupported release channel: $channel" >&2
-              exit 1
-              ;;
-          esac
-
   deploy:
-    needs: gate
-    name: Build & deploy
     runs-on: ubuntu-latest
     environment:
-      name: ${{ needs.gate.outputs.environment }}
-      url: ${{ needs.gate.outputs.url }}
+      name: ${{ inputs.channel == 'production' && 'production-site' || 'prerelease-site' }}
+      url: ${{ inputs.channel == 'production' && 'https://lurkloot.jamezrin.com' || 'https://next.lurkloot.pages.dev' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: pnpm/action-setup@v6
         with:
           version: 11.9.0
-
-      - name: Set up Node
-        uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build site
-        run: pnpm build:site
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:site
         env:
-          SITE_DEPLOYMENT_CHANNEL: ${{ needs.gate.outputs.channel }}
-
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v4
+          SITE_DEPLOYMENT_CHANNEL: ${{ inputs.channel }}
+      - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: packages/site
-          command: pages deploy dist --project-name=lurkloot --branch=${{ needs.gate.outputs.branch }}
+          command: pages deploy dist --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || 'next' }}
