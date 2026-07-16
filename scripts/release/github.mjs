@@ -2,14 +2,17 @@ const loginPattern = /^(?!-)[A-Za-z0-9-]{1,39}(?<!-)$/;
 
 function validatedUrl(value, name) {
   if (value === undefined || value === null || value === "") return null;
+  if (/[\x00-\x20\x7f[\]()]|[<>]/.test(value)) {
+    throw new Error(`${name} must be a Markdown-safe URL`);
+  }
   let url;
   try {
     url = new URL(value);
   } catch {
     throw new Error(`${name} must be a valid URL`);
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new Error(`${name} must be an HTTP(S) URL`);
+  if (url.protocol !== "https:") {
+    throw new Error(`${name} must be an HTTPS URL`);
   }
   return value;
 }

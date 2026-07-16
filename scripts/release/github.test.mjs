@@ -87,6 +87,27 @@ test("validates lifecycle notification links and mention logins", () => {
   }), /login/);
 });
 
+test("rejects Markdown-unsafe and non-HTTPS lifecycle notification links", () => {
+  const status = {
+    pr: 42, version: "1.5.0", kind: "normal", state: "stable", sourceSha: "a".repeat(40),
+  };
+  for (const releaseUrl of [
+    "https://good.test/foo) [click me](https://evil.test",
+    "https://good.test/path with space",
+    "https://good.test/path\nnext",
+    "http://good.test/release",
+  ]) {
+    assert.throws(() => renderReleaseStatus({ ...status, releaseUrl }), /URL/);
+  }
+});
+
+test("preserves encoded Markdown delimiters in safe HTTPS lifecycle links", () => {
+  assert.match(renderReleaseStatus({
+    pr: 42, version: "1.5.0", kind: "normal", state: "stable", sourceSha: "a".repeat(40),
+    releaseUrl: "https://good.test/foo%29%20%5Bclick%20me%5D%28safe%29",
+  }), /\[GitHub release\]\(https:\/\/good\.test\/foo%29%20%5Bclick%20me%5D%28safe%29\)/);
+});
+
 test("CLI renders status JSON to the requested file", () => {
   const directory = mkdtempSync(join(tmpdir(), "lurkloot-status-"));
   try {
