@@ -80,6 +80,17 @@ test("site deployment uses explicit channel input", async () => {
   assert.doesNotMatch(yaml, /release\.channel/);
 });
 
+test("site deployment fails closed on an unknown channel", async () => {
+  const yaml = await workflow("site-deploy.yml");
+  // workflow_call takes a plain string, so the dispatch `choice` enum constrains nothing here and
+  // an unrecognized channel would fall through the ternaries straight to prerelease.
+  assert.match(yaml, /prerelease\|production\) ;;/);
+  assert.match(yaml, /Unsupported release channel: \$CHANNEL" >&2; exit 1/);
+  const build = yaml.match(/build:\n[\s\S]*?\n  deploy:/)?.[0] ?? "";
+  assert.match(build, /Validate deployment channel/);
+  assert.ok(build.indexOf("Validate deployment channel") < build.indexOf("actions/checkout"));
+});
+
 test("candidate builds cannot access signing or deployment credentials", async () => {
   const extension = await workflow("build-extension.yml");
   const site = await workflow("site-deploy.yml");

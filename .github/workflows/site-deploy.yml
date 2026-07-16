@@ -36,6 +36,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # workflow_call cannot constrain inputs to the dispatch choice list, so an unknown channel
+      # would otherwise fall through the deploy ternaries and silently ship to prerelease.
+      - name: Validate deployment channel
+        env:
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          case "$CHANNEL" in
+            prerelease|production) ;;
+            *) echo "Unsupported release channel: $CHANNEL" >&2; exit 1 ;;
+          esac
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
