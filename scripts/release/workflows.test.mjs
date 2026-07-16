@@ -350,6 +350,24 @@ test("label and unlabel reconciliation requires an administrator event actor", a
   assert.match(controller, /action=block/);
 });
 
+test("label snapshot authorization is bot-owned, exact, durable, and stale-safe", async () => {
+  const controller = await workflow("reconcile-release-pr.yml");
+  assert.match(controller, /lurkloot-release-label-authorization:/);
+  assert.match(controller, /\.user\.login == "github-actions\[bot\]" and \.user\.type == "Bot"/);
+  assert.match(controller, /\.schema == 1 and \.pr == \$pr and \.headSha == \$head and \.labels == \$labels/);
+  assert.match(controller, /latestLabelActor.*EVENT_ACTOR/);
+  assert.match(controller, /gh api -X PATCH "repos\/\$GITHUB_REPOSITORY\/issues\/comments\/\$authorizationCommentId"/);
+  assert.match(controller, /labelSnapshotAuthorized=false/);
+  assert.match(controller, /label snapshot lacks current administrator authorization/);
+});
+
+test("controller discovery ignores cancelled audit history and rejects active ambiguity", async () => {
+  const controller = await workflow("reconcile-release-pr.yml");
+  assert.match(controller, /releaseName" == "v\$foundVersion cancelled"/);
+  assert.match(controller, /multiple active candidates claim PR/);
+  assert.match(controller, /\.version == \$version/);
+});
+
 test("promotion ignores explicitly cancelled audit candidates but rejects multiple active claims", async () => {
   const text = await workflow("promote-release.yml");
   assert.match(text, /"\$release_name" != "v\$version cancelled"/);
