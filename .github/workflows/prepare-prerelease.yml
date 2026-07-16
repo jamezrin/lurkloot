@@ -3,180 +3,149 @@ name: Prepare prerelease
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: Stable semantic version to prepare
-        type: string
-        required: true
-      source_ref:
-        description: Normal release source branch or commit
-        type: string
-        default: develop
-        required: true
-      release_kind:
-        description: Candidate source type
-        type: choice
-        options: [normal, hotfix]
-        default: normal
-        required: true
       pr_number:
-        description: Existing hotfix PR number; required for hotfixes
+        description: Existing release PR to recover
         type: string
-        default: ""
+        required: true
+  workflow_call:
+    inputs:
+      pr_number: { type: string, required: true }
+      expected_head_sha: { type: string, required: true }
+      version: { type: string, required: true }
+      kind: { type: string, required: true }
+      release_label: { type: string, required: true }
+      authorized_by: { type: string, required: true }
+      stable_sha: { type: string, required: true }
+      stable_version: { type: string, required: false, default: "" }
+      develop_sha: { type: string, required: false, default: "" }
+      trusted_tools_ref: { type: string, required: true }
+    outputs:
+      candidate_sha:
+        value: ${{ jobs.publish.outputs.candidate_sha }}
+      release_url:
+        value: ${{ jobs.publish.outputs.release_url }}
+      preview_url:
+        value: ${{ jobs.publish.outputs.preview_url }}
+      chrome_zip_sha256:
+        value: ${{ jobs.publish.outputs.chrome_zip_sha256 }}
+      docker_tag:
+        value: ${{ jobs.publish.outputs.docker_tag }}
+    secrets:
+      CRX_PRIVATE_KEY: { required: true }
+      CLOUDFLARE_API_TOKEN: { required: true }
+      CLOUDFLARE_ACCOUNT_ID: { required: true }
+      CWS_SERVICE_ACCOUNT_JSON: { required: true }
 
 permissions:
   contents: read
 
 concurrency:
-  group: prepare-candidate-${{ inputs.version }}
+  group: prepare-candidate-pr-${{ inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
-  validate:
+  resolve:
     runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ inputs.version }}
-      KIND: ${{ inputs.release_kind }}
-      SOURCE_REF: ${{ inputs.source_ref }}
-      HOTFIX_PR: ${{ inputs.pr_number }}
-    steps:
-      - name: Validate dispatch inputs
-        run: |
-          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "version must be stable SemVer X.Y.Z" >&2; exit 1; }
-          [[ "$SOURCE_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || { echo "source_ref contains unsafe characters" >&2; exit 1; }
-          if [[ "$KIND" == hotfix ]]; then
-            [[ "$HOTFIX_PR" =~ ^[1-9][0-9]*$ ]] || { echo "hotfix pr_number is required" >&2; exit 1; }
-          else
-            [[ -z "$HOTFIX_PR" ]] || { echo "pr_number is only valid for hotfix candidates" >&2; exit 1; }
-          fi
-
-  prepare:
-    needs: validate
-    runs-on: ubuntu-latest
-    environment: prereleases
     permissions:
       contents: read
       pull-requests: read
     outputs:
-      ref: ${{ steps.release.outputs.ref }}
-      branch: ${{ steps.release.outputs.branch }}
-      pr: ${{ steps.release.outputs.pr }}
-      remote_sha: ${{ steps.release.outputs.remote_sha }}
-      trusted_tools_ref: ${{ steps.tooling.outputs.sha }}
+      pr: ${{ steps.resolve.outputs.pr }}
+      candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}
+      version: ${{ steps.resolve.outputs.version }}
+      kind: ${{ steps.resolve.outputs.kind }}
+      release_label: ${{ steps.resolve.outputs.release_label }}
+      authorized_by: ${{ steps.resolve.outputs.authorized_by }}
+      stable_sha: ${{ steps.resolve.outputs.stable_sha }}
+      stable_version: ${{ steps.resolve.outputs.stable_version }}
+      develop_sha: ${{ steps.resolve.outputs.develop_sha }}
+      trusted_tools_ref: ${{ steps.resolve.outputs.trusted_tools_ref }}
     env:
-      VERSION: ${{ inputs.version }}
-      KIND: ${{ inputs.release_kind }}
-      SOURCE_REF: ${{ inputs.source_ref }}
-      HOTFIX_PR: ${{ inputs.pr_number }}
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ inputs.pr_number }}
+      CALL_SHA: ${{ inputs.expected_head_sha }}
+      CALL_VERSION: ${{ inputs.version }}
+      CALL_KIND: ${{ inputs.kind }}
+      CALL_LABEL: ${{ inputs.release_label }}
+      CALL_AUTHORIZED_BY: ${{ inputs.authorized_by }}
+      CALL_STABLE_SHA: ${{ inputs.stable_sha }}
+      CALL_STABLE_VERSION: ${{ inputs.stable_version }}
+      CALL_DEVELOP_SHA: ${{ inputs.develop_sha }}
+      CALL_TRUSTED_TOOLS: ${{ inputs.trusted_tools_ref }}
     steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: main
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-      # Copy the whole directory: a hand-maintained file list silently breaks at runtime the moment
-      # the release tooling grows an import, and nothing in CI would catch it.
-      - id: tooling
-        name: Preserve trusted release tooling
+      - id: resolve
+        name: Resolve controller inputs or recovery metadata
         run: |
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          mkdir -p "$RUNNER_TEMP/release-tools"
-          cp scripts/cws.mjs scripts/release.mjs "$RUNNER_TEMP/release-tools/"
-          cp -R scripts/release "$RUNNER_TEMP/release-tools/release"
-      - name: Validate mutable store state
-        id: cws
-        env:
-          CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
-          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
-          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
-          CWS_VERSION: ${{ inputs.version }}
-        run: node scripts/cws.mjs status
-      - name: Refuse frozen candidates
-        env:
-          SUBMITTED_STATE: ${{ steps.cws.outputs.submitted_state }}
-          SUBMITTED_VERSION: ${{ steps.cws.outputs.submitted_version }}
-        run: |
-          if [[ "$SUBMITTED_STATE" == PENDING_REVIEW || "$SUBMITTED_STATE" == STAGED ]]; then
-            echo "CWS $SUBMITTED_VERSION is $SUBMITTED_STATE; cancel it before replacing a candidate" >&2
-            exit 1
-          fi
-      - id: release
-        name: Create or update release PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          active_versions=$(gh release list --limit 100 --json tagName,isPrerelease,name --jq '[.[] | select(.isPrerelease and ((.name // "") | endswith("cancelled") | not)) | .tagName | sub("^v";"")]')
-          node scripts/release/cli.mjs candidate validate-version --version "$VERSION" --active-versions "$active_versions" --replacing-version "$VERSION"
-          if gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease 2>/dev/null | grep -qx false; then
-            echo "v$VERSION is already stable and immutable" >&2
-            exit 1
-          fi
-          if [[ "$KIND" == normal ]]; then
-            [[ "$SOURCE_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || { echo "source_ref contains unsafe characters" >&2; exit 1; }
-            git fetch origin -- develop
-            git fetch origin -- "$SOURCE_REF"
-            source_sha=$(git rev-parse FETCH_HEAD)
-            git merge-base --is-ancestor "$source_sha" origin/develop || { echo "normal release source must already be on develop" >&2; exit 1; }
-            git checkout --detach FETCH_HEAD
-            branch="release/$VERSION"
+          [[ "$PR" =~ ^[1-9][0-9]*$ ]] || { echo "pr_number must be positive" >&2; exit 1; }
+          if [[ -n "$CALL_SHA" ]]; then
+            stableVersion=$CALL_STABLE_VERSION
+            if [[ -z "$stableVersion" ]]; then
+              encoded=$(gh api "repos/$GITHUB_REPOSITORY/contents/package.json?ref=$CALL_STABLE_SHA" --jq .content)
+              stableVersion=$(base64 --decode <<<"$encoded" | jq -r .version)
+            fi
+            values=$(jq -n --arg sha "$CALL_SHA" --arg version "$CALL_VERSION" --arg kind "$CALL_KIND" --arg label "$CALL_LABEL" --arg authorizedBy "$CALL_AUTHORIZED_BY" --arg stableSha "$CALL_STABLE_SHA" --arg stableVersion "$stableVersion" --arg developSha "$CALL_DEVELOP_SHA" --arg tools "$CALL_TRUSTED_TOOLS" '{sha:$sha,version:$version,kind:$kind,label:$label,authorizedBy:$authorizedBy,stableSha:$stableSha,stableVersion:$stableVersion,developSha:$developSha,tools:$tools}')
           else
-            [[ "$HOTFIX_PR" =~ ^[1-9][0-9]*$ ]] || { echo "hotfix pr_number is required" >&2; exit 1; }
-            pr_json=$(gh pr view "$HOTFIX_PR" --json baseRefName,headRefName,headRepositoryOwner,isCrossRepository,state)
-            [[ $(jq -r .baseRefName <<<"$pr_json") == main && $(jq -r .state <<<"$pr_json") == OPEN ]] || { echo "hotfix PR must be open against main" >&2; exit 1; }
-            [[ $(jq -r .isCrossRepository <<<"$pr_json") == false ]] || { echo "release automation cannot mutate a fork hotfix branch" >&2; exit 1; }
-            branch=$(jq -r .headRefName <<<"$pr_json")
-            git fetch origin -- main
-            git fetch origin -- develop
-            git fetch origin -- "$branch"
-            main_ancestor=false
-            if git merge-base --is-ancestor origin/main FETCH_HEAD; then main_ancestor=true; fi
-            git rev-list origin/develop ^origin/main > "$RUNNER_TEMP/develop-commits"
-            git rev-list FETCH_HEAD ^origin/main > "$RUNNER_TEMP/candidate-commits"
-            node scripts/release/cli.mjs verify-hotfix \
-              --main-ancestor "$main_ancestor" \
-              --develop-commits "$RUNNER_TEMP/develop-commits" \
-              --candidate-commits "$RUNNER_TEMP/candidate-commits"
-            git checkout -B "$branch" FETCH_HEAD
+            mkdir recovery
+            found=""
+            while read -r tag; do
+              rm -f recovery/candidate.json
+              gh release download "$tag" --pattern candidate.json --dir recovery >/dev/null 2>&1 || continue
+              if [[ $(jq -r .schemaVersion recovery/candidate.json) == 2 && $(jq -r .releasePr recovery/candidate.json) == "$PR" ]]; then found=recovery/candidate.json; break; fi
+            done < <(gh release list --limit 100 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName')
+            test -n "$found" || { echo "No schema v2 candidate found for PR #$PR" >&2; exit 1; }
+            values=$(jq '{sha:.sourceSha,version,kind,label,authorizedBy,stableSha,stableVersion,developSha:(.developSha // ""),tools:.trustedToolsSha}' "$found")
           fi
-          remote_sha=$(git ls-remote --heads origin "refs/heads/$branch" | cut -f1)
-          if [[ "$KIND" == normal ]]; then
-            pr=$(gh pr list --state open --head "$branch" --base main --json number --jq '.[0].number')
-          else
-            pr=$HOTFIX_PR
-          fi
-          echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
-          echo "pr=$pr" >> "$GITHUB_OUTPUT"
-          echo "remote_sha=$remote_sha" >> "$GITHUB_OUTPUT"
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"$values" >> "$GITHUB_OUTPUT"
+          echo "pr=$PR" >> "$GITHUB_OUTPUT"
 
-  verify:
-    needs: prepare
+  validate:
+    needs: resolve
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ needs.resolve.outputs.pr }}
+      EXPECTED_HEAD_SHA: ${{ needs.resolve.outputs.candidate_sha }}
+      RELEASE_LABEL: ${{ needs.resolve.outputs.release_label }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      KIND: ${{ needs.resolve.outputs.kind }}
+      TRUSTED_TOOLS_REF: ${{ needs.resolve.outputs.trusted_tools_ref }}
+    steps:
+      - name: Validate exact authorized PR state before builds
+        run: |
+          [[ "$EXPECTED_HEAD_SHA" =~ ^[0-9a-f]{40}$ && "$TRUSTED_TOOLS_REF" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || exit 1
+          case "$KIND:$RELEASE_LABEL" in normal:release/patch|normal:release/minor|normal:release/major|hotfix:release/hotfix) ;; *) exit 1 ;; esac
+          live=$(gh pr view "$PR" --json state,isDraft,baseRefName,headRefOid,labels,isCrossRepository)
+          test "$(jq -r .state <<<"$live")" = OPEN
+          test "$(jq -r .baseRefName <<<"$live")" = main
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq -r .isCrossRepository <<<"$live")" = false
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+
+  verify:
+    needs: [resolve, validate]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.ref }}
+          ref: ${{ needs.resolve.outputs.candidate_sha }}
           persist-credentials: false
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.trusted_tools_ref }}
+          ref: ${{ needs.resolve.outputs.trusted_tools_ref }}
           path: trusted-release-tools
           persist-credentials: false
       - uses: pnpm/action-setup@v6
-        with:
-          version: 11.9.0
+        with: { version: 11.9.0 }
       - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
+        with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - env:
-          VERSION: ${{ inputs.version }}
-          TRUSTED_TOOLS_REF: ${{ needs.prepare.outputs.trusted_tools_ref }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          TRUSTED_TOOLS_REF: ${{ needs.resolve.outputs.trusted_tools_ref }}
         run: |
           test "$(git -C trusted-release-tools rev-parse HEAD)" = "$TRUSTED_TOOLS_REF"
           node trusted-release-tools/scripts/release/cli.mjs prepare-workspace "$VERSION"
@@ -184,196 +153,146 @@ jobs:
       - run: pnpm check
 
   extension:
-    needs: [prepare, verify]
+    needs: [resolve, verify]
     uses: ./.github/workflows/build-extension.yml
     with:
-      ref: ${{ needs.prepare.outputs.ref }}
-      version: ${{ inputs.version }}
-      trusted_tools_ref: ${{ needs.prepare.outputs.trusted_tools_ref }}
-      artifact_name: extension-candidate-${{ inputs.version }}
+      ref: ${{ needs.resolve.outputs.candidate_sha }}
+      version: ${{ needs.resolve.outputs.version }}
+      trusted_tools_ref: ${{ needs.resolve.outputs.trusted_tools_ref }}
+      artifact_name: extension-candidate-${{ needs.resolve.outputs.version }}
       sign_crx: true
     secrets:
       CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
 
   docker:
-    needs: [prepare, verify]
+    needs: [resolve, verify]
     permissions:
       contents: read
       packages: write
     uses: ./.github/workflows/build-docker.yml
     with:
-      ref: ${{ needs.prepare.outputs.ref }}
-      version: ${{ inputs.version }}
-      trusted_tools_ref: ${{ needs.prepare.outputs.trusted_tools_ref }}
-      artifact_prefix: docker-candidate-${{ inputs.version }}
+      ref: ${{ needs.resolve.outputs.candidate_sha }}
+      version: ${{ needs.resolve.outputs.version }}
+      trusted_tools_ref: ${{ needs.resolve.outputs.trusted_tools_ref }}
+      artifact_prefix: docker-candidate-${{ needs.resolve.outputs.version }}
       push: true
-
-  publish:
-    needs: [prepare, extension, docker]
-    runs-on: ubuntu-latest
-    environment: prereleases
-    permissions:
-      actions: write
-      checks: write
-      contents: write
-      packages: write
-      pull-requests: write
-    outputs:
-      ref: ${{ steps.release.outputs.ref }}
-      sha: ${{ steps.release.outputs.sha }}
-      pr: ${{ steps.release.outputs.pr }}
-    concurrency:
-      group: cws-mutation
-      cancel-in-progress: false
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      VERSION: ${{ inputs.version }}
-      KIND: ${{ inputs.release_kind }}
-      BRANCH: ${{ needs.prepare.outputs.branch }}
-      EXISTING_PR: ${{ needs.prepare.outputs.pr }}
-      EXPECTED_REMOTE_SHA: ${{ needs.prepare.outputs.remote_sha }}
-      INITIATOR: ${{ github.actor }}
-      CHECKSUMS_PATH: release-assets/SHA256SUMS
-      DIGESTS_DIR: docker-digests
-      PREVIEW_URL: https://next.lurkloot.pages.dev
-      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
-      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
-      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
-      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
-      CWS_VERSION: ${{ inputs.version }}
-      CWS_PACKAGE_PATH: release-assets/lurkloot-${{ inputs.version }}-chrome.zip
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.prepare.outputs.ref }}
-          persist-credentials: false
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.prepare.outputs.trusted_tools_ref }}
-          path: trusted-release-tools
-          persist-credentials: false
-      - name: Verify pinned trusted tooling
-        env:
-          TRUSTED_TOOLS_REF: ${{ needs.prepare.outputs.trusted_tools_ref }}
-        run: test "$(git -C trusted-release-tools rev-parse HEAD)" = "$TRUSTED_TOOLS_REF"
-      - uses: actions/download-artifact@v8
-        with:
-          name: extension-candidate-${{ inputs.version }}
-          path: release-assets
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: docker-candidate-${{ inputs.version }}-*
-          path: docker-digests
-          merge-multiple: true
-      - name: Revalidate candidate version slot
-        run: |
-          active_versions=$(gh release list --limit 100 --json tagName,isPrerelease,name --jq '[.[] | select(.isPrerelease and ((.name // "") | endswith("cancelled") | not)) | .tagName | sub("^v";"")]')
-          node trusted-release-tools/scripts/release/cli.mjs candidate validate-version --version "$VERSION" --active-versions "$active_versions" --replacing-version "$VERSION"
-          if gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease 2>/dev/null | grep -qx false; then
-            echo "v$VERSION became stable while the candidate was building" >&2
-            exit 1
-          fi
-      - name: Upload CWS draft
-        run: node trusted-release-tools/scripts/cws.mjs upload-candidate
-      - id: release
-        name: Advance canonical release PR
-        run: |
-          node trusted-release-tools/scripts/release/cli.mjs prepare-workspace "$VERSION"
-          git switch -C "$BRANCH"
-          git add package.json packages/*/package.json packages/site/src/changelog.json
-          if ! git diff --cached --quiet; then
-            git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "chore(release): bump version to $VERSION"
-          fi
-          git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
-          if [[ -n "$EXPECTED_REMOTE_SHA" ]]; then
-            git push --force-with-lease="refs/heads/$BRANCH:$EXPECTED_REMOTE_SHA" origin "$BRANCH"
-          else
-            git push origin "$BRANCH"
-          fi
-          sha=$(git rev-parse HEAD)
-          pr=$EXISTING_PR
-          if [[ "$KIND" == normal && -z "$pr" ]]; then
-            pr=$(gh pr create --draft --base main --head "$BRANCH" --title "chore(release): prepare $VERSION" --body "## Summary
-
-          Release candidate for v$VERSION. Merge only after the cws-release-ready check passes.
-
-          ## Testing
-
-          Automated candidate verification and artifact builds.
-
-          ## Linked issues
-
-          N/A" | sed 's#.*/##')
-          fi
-          echo "SOURCE_SHA=$sha" >> "$GITHUB_ENV"
-          echo "RELEASE_PR=$pr" >> "$GITHUB_ENV"
-          echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "pr=$pr" >> "$GITHUB_OUTPUT"
-          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$sha" -f status=in_progress -f output[title]="Waiting for CWS submission" -f output[summary]="Candidate v$VERSION is mutable and has not been submitted for review."
-          gh workflow run pr-validation.yml --ref "$BRANCH"
-      - name: Create candidate metadata
-        run: node trusted-release-tools/scripts/release/cli.mjs metadata create > candidate.json
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish candidate Docker aliases
-        run: |
-          mapfile -t digests < <(jq -r .dockerDigests[] candidate.json)
-          ((${#digests[@]} == 2)) || { echo "expected two Docker digests" >&2; exit 1; }
-          args=()
-          for digest in "${digests[@]}"; do args+=("$IMAGE_NAME@$digest"); done
-          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" --tag "$IMAGE_NAME:next" "${args[@]}"
-      - name: Replace mutable prerelease
-        run: |
-          git tag --force "v$VERSION" "$SOURCE_SHA"
-          git push --force origin "refs/tags/v$VERSION"
-          if gh release view "v$VERSION" >/dev/null 2>&1; then
-            gh release edit "v$VERSION" --title "v$VERSION prerelease" --prerelease --latest=false --notes "Mutable candidate from $SOURCE_SHA; release PR #$RELEASE_PR."
-          else
-            gh release create "v$VERSION" --verify-tag --title "v$VERSION prerelease" --prerelease --latest=false --notes "Mutable candidate from $SOURCE_SHA; release PR #$RELEASE_PR."
-          fi
-          gh release upload "v$VERSION" --clobber release-assets/* candidate.json
-      - name: Mark older mutable candidates as superseded
-        run: |
-          gh release list --limit 100 --json tagName,isPrerelease,name --jq '.[] | select(.isPrerelease and ((.name // "") | endswith("cancelled") | not)) | .tagName | sub("^v";"")' | while read -r old_version; do
-            [[ "$old_version" != "$VERSION" ]] || continue
-            node trusted-release-tools/scripts/release/cli.mjs version less-than "$old_version" "$VERSION" || continue
-            rm -rf superseded && mkdir superseded
-            if gh release download "v$old_version" --pattern candidate.json --dir superseded; then
-              old_pr=$(jq -r .releasePr superseded/candidate.json)
-              gh pr close "$old_pr" --comment "Candidate v$old_version was superseded by v$VERSION." || true
-            fi
-            gh release edit "v$old_version" --title "v$old_version cancelled" --prerelease --latest=false --notes "Candidate v$old_version was superseded by mutable candidate v$VERSION. Its tag and assets remain as an audit record."
-            owner=${GITHUB_REPOSITORY_OWNER,,}
-            endpoint="users/$owner/packages/container/lurkloot-cli/versions"
-            package_versions=$(gh api "$endpoint?per_page=100" 2>/dev/null || true)
-            if [[ -z "$package_versions" ]]; then
-              endpoint="orgs/$owner/packages/container/lurkloot-cli/versions"
-              package_versions=$(gh api "$endpoint?per_page=100")
-            fi
-            package_id=$(jq -r --arg old "$old_version" '[.[] | select((.metadata.container.tags | index($old)) and (.metadata.container.tags | all(. == $old or . == "next")))] | if length == 1 then .[0].id else empty end' <<<"$package_versions")
-            if [[ -n "$package_id" ]]; then gh api -X DELETE "$endpoint/$package_id"; fi
-          done
-          gh pr comment "$RELEASE_PR" --body "<!-- lurkloot-release:$VERSION:candidate -->
-          @$INITIATOR, **v$VERSION** is uploaded and ready to inspect before CWS review.
-
-          Source: \`$SOURCE_SHA\`
-          Chrome ZIP SHA-256: \`$(jq -r .chromeZipSha256 candidate.json)\`
-          [GitHub prerelease]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$VERSION) · [Preview](https://next.lurkloot.pages.dev) · [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-
-          When review is complete, run [Submit candidate]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/submit-candidate.yml) with version \`$VERSION\`."
-          printf '## Candidate v%s prepared\n\n- PR: #%s\n- Source: `%s`\n- Chrome ZIP: `%s`\n- Preview: %s\n- CWS state: `DRAFT`\n' "$VERSION" "$RELEASE_PR" "$SOURCE_SHA" "$(jq -r .chromeZipSha256 candidate.json)" "$PREVIEW_URL" >> "$GITHUB_STEP_SUMMARY"
+      pr_number: ${{ needs.resolve.outputs.pr }}
+      expected_head_sha: ${{ needs.resolve.outputs.candidate_sha }}
+      release_label: ${{ needs.resolve.outputs.release_label }}
 
   site:
-    needs: publish
+    needs: [resolve, verify]
     uses: ./.github/workflows/site-deploy.yml
     with:
       channel: prerelease
-      ref: ${{ needs.publish.outputs.ref }}
+      ref: ${{ needs.resolve.outputs.candidate_sha }}
+      pr_number: ${{ needs.resolve.outputs.pr }}
+      expected_head_sha: ${{ needs.resolve.outputs.candidate_sha }}
+      release_label: ${{ needs.resolve.outputs.release_label }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  publish:
+    needs: [resolve, extension, docker, site]
+    runs-on: ubuntu-latest
+    environment: prereleases
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      candidate_sha: ${{ steps.outputs.outputs.candidate_sha }}
+      release_url: ${{ steps.outputs.outputs.release_url }}
+      preview_url: ${{ steps.outputs.outputs.preview_url }}
+      chrome_zip_sha256: ${{ steps.outputs.outputs.chrome_zip_sha256 }}
+      docker_tag: ${{ steps.outputs.outputs.docker_tag }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ needs.resolve.outputs.pr }}
+      EXPECTED_HEAD_SHA: ${{ needs.resolve.outputs.candidate_sha }}
+      RELEASE_LABEL: ${{ needs.resolve.outputs.release_label }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      KIND: ${{ needs.resolve.outputs.kind }}
+      AUTHORIZED_BY: ${{ needs.resolve.outputs.authorized_by }}
+      STABLE_SHA: ${{ needs.resolve.outputs.stable_sha }}
+      STABLE_VERSION: ${{ needs.resolve.outputs.stable_version }}
+      DEVELOP_SHA: ${{ needs.resolve.outputs.develop_sha }}
+      TRUSTED_TOOLS_SHA: ${{ needs.resolve.outputs.trusted_tools_ref }}
+      SOURCE_SHA: ${{ needs.resolve.outputs.candidate_sha }}
+      AUTHORIZED_SHA: ${{ needs.resolve.outputs.candidate_sha }}
+      RELEASE_PR: ${{ needs.resolve.outputs.pr }}
+      INITIATOR: ${{ github.actor }}
+      PREVIEW_URL: https://next.lurkloot.pages.dev
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
+      CHECKSUMS_PATH: release-assets/SHA256SUMS
+      DIGESTS_DIR: docker-digests
+      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_VERSION: ${{ needs.resolve.outputs.version }}
+      CWS_PACKAGE_PATH: release-assets/lurkloot-${{ needs.resolve.outputs.version }}-chrome.zip
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.trusted_tools_ref }}
+          path: trusted-release-tools
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: extension-candidate-${{ needs.resolve.outputs.version }}
+          path: release-assets
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: docker-candidate-${{ needs.resolve.outputs.version }}-digest-*
+          path: docker-digests
+          merge-multiple: true
+      - name: Verify all publication inputs
+        run: |
+          (cd release-assets && sha256sum -c SHA256SUMS)
+          test "$(find docker-digests -type f | wc -l)" = 2
+          find docker-digests -type f -printf '%f\n' | grep -Ex '[0-9a-f]{64}' >/dev/null
+          live=$(gh pr view "$PR" --json state,isDraft,baseRefName,headRefOid,labels,isCrossRepository)
+          test "$(jq -r .state <<<"$live")" = OPEN
+          test "$(jq -r .baseRefName <<<"$live")" = main
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq -r .isCrossRepository <<<"$live")" = false
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - id: metadata
+        name: Create schemaVersion 2 candidate metadata
+        run: |
+          export CREATED_AT="$(date -u +%FT%TZ)" RECONCILED_AT="$(date -u +%FT%TZ)"
+          node trusted-release-tools/scripts/release/cli.mjs metadata create > candidate.json
+          test "$(jq -r .schemaVersion candidate.json)" = 2
+      - name: Revalidate immediately before release mutation
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - name: Upload verified Chrome package as CWS draft
+        run: node trusted-release-tools/scripts/cws.mjs upload-candidate
+      - name: Revalidate after CWS upload and before GitHub mutation
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - id: outputs
+        name: Replace mutable candidate release
+        run: |
+          tag="v$VERSION"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" -F force=true >/dev/null
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" >/dev/null
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA."
+          else
+            gh release create "$tag" --verify-tag --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA."
+          fi
+          gh release upload "$tag" --clobber release-assets/* candidate.json
+          checksum=$(sha256sum "release-assets/lurkloot-$VERSION-chrome.zip" | cut -d' ' -f1)
+          echo "candidate_sha=$EXPECTED_HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "release_url=https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag" >> "$GITHUB_OUTPUT"
+          echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+          echo "chrome_zip_sha256=$checksum" >> "$GITHUB_OUTPUT"
+          echo "docker_tag=$IMAGE_NAME:$VERSION" >> "$GITHUB_OUTPUT"

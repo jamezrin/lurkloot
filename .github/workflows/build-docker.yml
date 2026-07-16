@@ -20,6 +20,12 @@ on:
       push:
         type: boolean
         default: false
+      pr_number: { type: string, default: "" }
+      expected_head_sha: { type: string, default: "" }
+      release_label: { type: string, default: "" }
+    outputs:
+      image_tag:
+        value: ${{ jobs.publish.outputs.image_tag }}
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
@@ -63,12 +69,6 @@ jobs:
           node trusted-release-tools/scripts/release/cli.mjs prepare-workspace "$VERSION"
           rm -rf trusted-release-tools
       - uses: docker/setup-buildx-action@v4
-      - if: inputs.push
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - id: build
         uses: docker/build-push-action@v7
         with:
@@ -77,19 +77,16 @@ jobs:
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
-          push: ${{ inputs.push }}
-          outputs: ${{ inputs.push && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE_NAME) || 'type=cacheonly' }}
-      - if: inputs.push
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
-        run: |
-          mkdir -p /tmp/digests
-          touch "/tmp/digests/${DIGEST#sha256:}"
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:${{ inputs.version }}-${{ matrix.arch }}
+          outputs: type=oci,dest=/tmp/image-${{ matrix.arch }}.tar
+      - name: Checksum OCI artifact
+        run: sha256sum /tmp/image-${{ matrix.arch }}.tar > /tmp/image-${{ matrix.arch }}.tar.sha256
       - if: inputs.push
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.artifact_prefix }}-${{ matrix.arch }}
-          path: /tmp/digests/*
+          name: ${{ inputs.artifact_prefix }}-oci-${{ matrix.arch }}
+          path: /tmp/image-${{ matrix.arch }}.tar*
           retention-days: 1
       - name: Summarize Docker build
         env:
@@ -97,4 +94,60 @@ jobs:
           PUSHED: ${{ inputs.push }}
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          printf '## Docker build\n\n- Platform: `%s`\n- Pushed: `%s`\n- Digest: `%s`\n' "$PLATFORM" "$PUSHED" "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+          printf '## Docker build\n\n- Platform: `%s`\n- Publication requested: `%s`\n' "$PLATFORM" "$PUSHED" >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    if: inputs.push
+    needs: build
+    runs-on: ubuntu-latest
+    environment: prereleases
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: read
+    outputs:
+      image_tag: ${{ steps.publish.outputs.image_tag }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: ${{ inputs.artifact_prefix }}-oci-*
+          path: images
+          merge-multiple: true
+      - name: Verify OCI artifacts
+        working-directory: images
+        run: sha256sum -c image-amd64.tar.sha256 && sha256sum -c image-arm64.tar.sha256
+      - name: Revalidate candidate immediately before registry mutation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          RELEASE_LABEL: ${{ inputs.release_label }}
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: publish
+        name: Publish verified OCI artifacts
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          mkdir digests
+          for arch in amd64 arm64; do
+            docker load --input "images/image-$arch.tar"
+            docker push "$IMAGE_NAME:$VERSION-$arch"
+            digest=$(docker image inspect "$IMAGE_NAME:$VERSION-$arch" --format '{{index .RepoDigests 0}}' | sed 's/.*@sha256://')
+            [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || exit 1
+            touch "digests/$digest"
+          done
+          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" --tag "$IMAGE_NAME:next" "$IMAGE_NAME:$VERSION-amd64" "$IMAGE_NAME:$VERSION-arm64"
+          echo "image_tag=$IMAGE_NAME:$VERSION" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-digest-published
+          path: digests/*
+          retention-days: 1
