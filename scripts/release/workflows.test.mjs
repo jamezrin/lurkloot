@@ -209,6 +209,14 @@ test("candidate cancellation is a reusable fail-closed replacement gate", async 
   assert.match(text, /gh pr ready "\$PR" --undo/);
   assert.match(text, /safe_to_replace=false/);
   assert.match(text, /PUBLISHED/);
+  assert.match(text, /--json headRefOid,isDraft,state,labels/);
+  assert.match(text, /if \[\[ "\$is_draft" != true \]\]; then/);
+  assert.doesNotMatch(text, /jq -r \.releaseLabel/);
+  assert.match(text, /jq -r \.label candidate\/candidate\.json/);
+  assert.match(text, /if: always\(\)/);
+  assert.match(text, /release-candidate/);
+  assert.match(text, /reconciliation-blocked/);
+  assert.match(text, /lur[k]?loot-release-pr:\$PR:status/);
 });
 
 test("candidate submission is reusable, approval-gated, and revalidates live ownership", async () => {
@@ -223,4 +231,19 @@ test("candidate submission is reusable, approval-gated, and revalidates live own
   assert.match(text, /submit-staged/);
   assert.match(text, /cws-pending/);
   assert.match(text, /ref: \$\{\{ inputs\.trusted_tools_ref \}\}/);
+  assert.match(text, /version: \$\{\{ inputs\.version \}\}/);
+  assert.doesNotMatch(text, /jq -r \.releaseLabel/);
+  assert.ok((text.match(/jq -r \.label candidate\/candidate\.json/g) ?? []).length >= 2);
+  assert.match(text, /actions\/upload-artifact@v7/);
+  assert.match(text, /name: extension-submission-evidence-\$\{\{ inputs\.version \}\}/);
+  assert.match(text, /actions\/download-artifact@v8[\s\S]*extension-submission-evidence/);
+  assert.match(text, /sha256sum candidate\/\*.*verification\/release-assets\.sha256/s);
+  assert.match(text, /sha256sum -c verification\/release-assets\.sha256/);
+  for (const field of ["version", "sourceSha", "headSha", "label", "trustedToolsSha", "freshChromeSha256"]) {
+    assert.match(text, new RegExp(`jq -r \\.${field} verification/evidence\\.json`));
+  }
+  assert.match(text, /metadata verify candidate\/candidate\.json candidate/);
+  assert.match(text, /cws-release-ready/);
+  assert.match(text, /lur[k]?loot-release-pr:\$PR:status/);
+  assert.match(text, /gh release edit "v\$VERSION"/);
 });
