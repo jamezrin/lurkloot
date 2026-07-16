@@ -600,6 +600,12 @@
   "cliExportConfirm": {
     "message": "Dies lädt deine Twitch- und Kick-Sitzungstokens in eine Datei herunter. Wer diese Datei besitzt, kann auf diesen Seiten in deinem Namen handeln. Fortfahren?"
   },
+  "cliExportCancel": {
+    "message": "Abbrechen"
+  },
+  "cliExportConfirmButton": {
+    "message": "Export bestätigen"
+  },
   "cliExportButton": {
     "message": "Anmeldedaten exportieren"
   },

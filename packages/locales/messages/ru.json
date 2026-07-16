@@ -600,6 +600,12 @@
   "cliExportConfirm": {
     "message": "Это сохранит токены сессий Twitch и Kick в файл. Любой, у кого есть этот файл, сможет действовать от вашего имени на этих сайтах. Продолжить?"
   },
+  "cliExportCancel": {
+    "message": "Отмена"
+  },
+  "cliExportConfirmButton": {
+    "message": "Подтвердить экспорт"
+  },
   "cliExportButton": {
     "message": "Экспортировать учётные данные"
   },

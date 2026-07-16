@@ -45,6 +45,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   const t = useT();
   const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
   const [compatibilityExpertExpanded, setCompatibilityExpertExpanded] = useState(false);
+  const [exportArmed, setExportArmed] = useState(false);
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as SettingsPatch);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
   const tabPlaybackDisabled = settings.tablessMode;
@@ -156,18 +157,43 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
       </SettingsSection>
       {onExportCredentials && (
         <SettingsSection title={t("cliExportTitle")} description={t("cliExportDescription")} icon={Terminal}>
-          <div className="flex items-center justify-between gap-3 px-1 py-1">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("cliExportHint")}</p>
-            <button
-              type="button"
-              className="shrink-0 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)]"
-              onClick={() => {
-                if (window.confirm(t("cliExportConfirm"))) void onExportCredentials();
-              }}
-            >
-              {t("cliExportButton")}
-            </button>
-          </div>
+          {exportArmed ? (
+            <div className="space-y-2 px-1 py-1">
+              <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+                {t("cliExportConfirm")}
+              </p>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  onClick={() => setExportArmed(false)}
+                >
+                  {t("cliExportCancel")}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                  onClick={() => {
+                    setExportArmed(false);
+                    void onExportCredentials();
+                  }}
+                >
+                  {t("cliExportConfirmButton")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3 px-1 py-1">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("cliExportHint")}</p>
+              <button
+                type="button"
+                className="shrink-0 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                onClick={() => setExportArmed(true)}
+              >
+                {t("cliExportButton")}
+              </button>
+            </div>
+          )}
         </SettingsSection>
       )}
     </div>

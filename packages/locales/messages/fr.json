@@ -600,6 +600,12 @@
   "cliExportConfirm": {
     "message": "Ceci télécharge vos jetons de session Twitch et Kick dans un fichier. Quiconque possède ce fichier peut agir en votre nom sur ces sites. Continuer ?"
   },
+  "cliExportCancel": {
+    "message": "Annuler"
+  },
+  "cliExportConfirmButton": {
+    "message": "Confirmer l’exportation"
+  },
   "cliExportButton": {
     "message": "Exporter les identifiants"
   },

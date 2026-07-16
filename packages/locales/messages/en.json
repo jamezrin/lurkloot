@@ -600,6 +600,12 @@
   "cliExportConfirm": {
     "message": "This downloads your Twitch and Kick session tokens to a file. Anyone with that file can act as you on those sites. Continue?"
   },
+  "cliExportCancel": {
+    "message": "Cancel"
+  },
+  "cliExportConfirmButton": {
+    "message": "Confirm export"
+  },
   "cliExportButton": {
     "message": "Export credentials"
   },

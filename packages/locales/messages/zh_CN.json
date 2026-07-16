@@ -600,6 +600,12 @@
   "cliExportConfirm": {
     "message": "这会将你的 Twitch 和 Kick 会话令牌下载为一个文件。任何拥有该文件的人都能在这些网站上以你的身份操作。是否继续？"
   },
+  "cliExportCancel": {
+    "message": "取消"
+  },
+  "cliExportConfirmButton": {
+    "message": "确认导出"
+  },
   "cliExportButton": {
     "message": "导出凭据"
   },
