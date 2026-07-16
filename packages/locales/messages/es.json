@@ -609,6 +609,12 @@
   "cliExportConfirm": {
     "message": "Esto descargará tus tokens de sesión de Twitch y Kick a un archivo. Cualquiera que tenga ese archivo podrá actuar como tú en esos sitios. ¿Continuar?"
   },
+  "cliExportCancel": {
+    "message": "Cancelar"
+  },
+  "cliExportConfirmButton": {
+    "message": "Confirmar exportación"
+  },
   "cliExportButton": {
     "message": "Exportar credenciales"
   },
