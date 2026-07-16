@@ -25,6 +25,7 @@ export function prereleaseAction(status, version) {
     if (publishedVersion === version) throw new Error(`${version} is already published and cannot be replaced as a pre-release draft`);
     return "upload";
   }
+  if (submitted.state === "CANCELLED") return "upload";
   if (submittedVersion !== version) {
     throw new Error(`Chrome Web Store has ${submittedVersion ?? "an unknown version"} in state ${submitted.state}; expected ${version}`);
   }

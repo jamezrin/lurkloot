@@ -34,12 +34,16 @@ jobs:
         with:
           ref: v${{ inputs.version }}
           fetch-depth: 0
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          path: trusted-release-tools
       - name: Download frozen candidate record
         run: gh release download "v$VERSION" --dir candidate
       - name: Verify provenance
         id: candidate
         run: |
-          node -e 'import("./scripts/release/model.mjs").then(({parseCandidateMetadata}) => parseCandidateMetadata(require("fs").readFileSync("candidate/candidate.json","utf8")))'
+          node -e 'import("./trusted-release-tools/scripts/release/model.mjs").then(({parseCandidateMetadata}) => parseCandidateMetadata(require("fs").readFileSync("candidate/candidate.json","utf8")))'
           (cd candidate && sha256sum --check SHA256SUMS)
           source_sha=$(jq -r .sourceSha candidate/candidate.json)
           test "$(git rev-parse HEAD)" = "$source_sha"
@@ -48,7 +52,7 @@ jobs:
           echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
           echo "pr=$pr" >> "$GITHUB_OUTPUT"
       - name: Submit with deferred publishing
-        run: node scripts/cws.mjs submit-staged
+        run: node trusted-release-tools/scripts/cws.mjs submit-staged
       - name: Mark PR ready and notify releaser
         env:
           PR: ${{ steps.candidate.outputs.pr }}

@@ -27,9 +27,6 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REQUESTED_VERSION: ${{ inputs.version }}
-      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
-      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
-      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -40,12 +37,22 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+      - name: Preserve trusted release tooling
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-tools/release"
+          cp scripts/cws.mjs "$RUNNER_TEMP/release-tools/cws.mjs"
+          cp scripts/release.mjs "$RUNNER_TEMP/release-tools/release.mjs"
+          cp scripts/release/model.mjs "$RUNNER_TEMP/release-tools/release/model.mjs"
       - name: Refresh active candidates
+        env:
+          CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
         run: |
           if [[ -n "$REQUESTED_VERSION" ]]; then
             versions="$REQUESTED_VERSION"
           else
-            versions=$(gh release list --limit 100 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName | sub("^v";"")')
+            versions=$(gh release list --limit 100 --json tagName,isPrerelease,name --jq '.[] | select(.isPrerelease and (.name | endswith("cancelled") | not)) | .tagName | sub("^v";"")')
           fi
           while read -r version; do
             [[ -n "$version" ]] || continue
@@ -55,7 +62,7 @@ jobs:
             initiator=$(jq -r .initiator candidate/candidate.json)
             export CWS_VERSION="$version"
             output=$(mktemp)
-            GITHUB_OUTPUT="$output" node scripts/cws.mjs status
+            GITHUB_OUTPUT="$output" node "$RUNNER_TEMP/release-tools/cws.mjs" status
             source "$output"
             state=$submitted_state
             if [[ "$warned" == true || "$taken_down" == true ]]; then state=POLICY_BLOCKED; fi
@@ -66,7 +73,7 @@ jobs:
               git fetch origin "$branch"
               git checkout -B "$branch" FETCH_HEAD
               if [[ $(jq -r --arg version "$version" '.[] | select(.version==$version) | .date // empty' packages/site/src/changelog.json) == "" ]]; then
-                node scripts/release.mjs prepare "$version" --date "$(date -u +%F)"
+                node "$RUNNER_TEMP/release-tools/release.mjs" prepare "$version" --date "$(date -u +%F)"
                 git add package.json packages/*/package.json packages/site/src/changelog.json
                 git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "chore(release): finalize $version metadata"
                 git push origin "$branch"

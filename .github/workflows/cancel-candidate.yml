@@ -39,8 +39,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: v${{ inputs.version }}
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          path: trusted-release-tools
       - run: gh release download "v$VERSION" --pattern candidate.json --dir candidate
-      - run: node scripts/cws.mjs cancel-submission
+      - run: node trusted-release-tools/scripts/cws.mjs cancel-submission
       - name: Update release PR
         run: |
           pr=$(jq -r .releasePr candidate/candidate.json)

@@ -23,6 +23,11 @@ test("pre-release upload freezes during review and staging", () => {
   assert.equal(prereleaseAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"), "frozen");
 });
 
+test("pre-release upload resumes after cancellation", () => {
+  assert.equal(prereleaseAction(status({ submitted: revision("CANCELLED", "1.4.0") }), "1.4.0"), "upload");
+  assert.equal(prereleaseAction(status({ submitted: revision("CANCELLED", "1.4.0") }), "1.5.0"), "upload");
+});
+
 test("pre-release rejects conflicting or unhealthy store state", () => {
   assert.throws(() => prereleaseAction(status({ submitted: revision("STAGED", "1.3.1") }), "1.4.0"), /expected 1.4.0/);
   assert.throws(() => prereleaseAction(status({ submitted: revision("REJECTED", "1.4.0") }), "1.4.0"), /REJECTED/);
