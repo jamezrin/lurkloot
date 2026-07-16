@@ -269,6 +269,8 @@ test("stable promotion selects schema-v2 candidates by PR identity, never branch
     assert.match(text, new RegExp(`s/\\^${field}=//p`));
   }
   assert.match(text, /No matching authorized staged candidate; no release action was performed/);
+  assert.match(text, /recognized release PR #\$PR has no matching candidate/);
+  assert.match(text, /merged PR release labels no longer exactly match candidate metadata/);
   assert.match(text, /--json headRefOid,mergeCommit,mergedAt,state,labels,statusCheckRollup/);
   assert.match(text, /cws-release-ready/);
   assert.match(text, /metadata verify release-assets\/candidate\.json release-assets/);
@@ -282,6 +284,13 @@ test("promotion and forward merge use trusted live-main tooling and revalidate b
   assert.match(promote, /trusted_tools_ref/);
   assert.ok((promote.match(/gh pr view "\$PR" --json/g) ?? []).length >= 3);
   assert.match(promote, /stable-release-\$\{\{ github\.repository \}\}/);
+  assert.match(promote, /gh api --paginate --slurp "repos\/\$GITHUB_REPOSITORY\/releases\?per_page=100"/);
+  assert.doesNotMatch(promote, /gh release list --limit 100/);
+  assert.match(promote, /published_version/);
+  assert.match(promote, /submitted_state.*STAGED[\s\S]*submitted_state.*PUBLISHED/);
+  assert.match(promote, /EXPECTED_MERGE_SHA/);
+  assert.ok((promote.match(/recognized_count/g) ?? []).length >= 3, "exact label invariant is repeated at privileged mutation boundaries");
+  assert.ok((promote.match(/cws-release-ready/g) ?? []).length >= 3, "required checks are repeated at privileged mutation boundaries");
 
   const forward = await workflow("forward-hotfix.yml");
   assert.match(forward, /expected_main_sha/);

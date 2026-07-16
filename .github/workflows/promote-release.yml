@@ -74,6 +74,14 @@ jobs:
         run: |
           live_main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
           test "$live_main" = "$TRUSTED_TOOLS_REF" || { echo "trusted_tools_ref no longer matches live main" >&2; exit 1; }
+          initial_live=$(gh pr view "$PR" --json labels)
+          initial_recognized_count=$(jq '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")] | length' <<<"$initial_live")
+          if [[ "$initial_recognized_count" == 0 ]]; then
+            echo "active=false" >> "$GITHUB_OUTPUT"
+            echo "No matching authorized staged candidate; no release action was performed" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          test "$initial_recognized_count" = 1 || { echo "merged PR must have exactly one recognized release label" >&2; exit 1; }
           mkdir release-assets
           found=
           while read -r tag; do
@@ -84,11 +92,10 @@ jobs:
               found="$tag"
               cp probe/candidate.json release-assets/candidate.json
             fi
-          done < <(gh release list --limit 100 --json tagName --jq '.[].tagName' | sort -V)
+          done < <(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[][] | .tag_name' | sort -V)
           if [[ -z "$found" ]]; then
-            echo "active=false" >> "$GITHUB_OUTPUT"
-            echo "No matching authorized staged candidate; no release action was performed" >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+            echo "recognized release PR #$PR has no matching candidate" >&2
+            exit 1
           fi
           version=${found#v}
           rm -rf release-assets && mkdir release-assets
@@ -115,9 +122,8 @@ jobs:
           head_sha=$(jq -r .headRefOid <<<"$live")
           merge_sha=$(jq -r .mergeCommit.oid <<<"$live")
           if [[ $(jq --arg label "$label" '[.labels[].name | select(. == $label)] | length' <<<"$live") != 1 || $(jq '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")] | length' <<<"$live") != 1 ]]; then
-            echo "active=false" >> "$GITHUB_OUTPUT"
-            echo "No matching authorized staged candidate; no release action was performed" >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+            echo "merged PR release labels no longer exactly match candidate metadata" >&2
+            exit 1
           fi
           jq -e '.statusCheckRollup | any(.name == "cws-release-ready" and .conclusion == "SUCCESS")' <<<"$live" >/dev/null
           jq -e '.statusCheckRollup | all((.status == "COMPLETED") and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED"))' <<<"$live" >/dev/null
@@ -159,6 +165,7 @@ jobs:
       PR: ${{ needs.resolve.outputs.pr }}
       VERSION: ${{ needs.candidate.outputs.version }}
       EXPECTED_HEAD_SHA: ${{ needs.candidate.outputs.head_sha }}
+      EXPECTED_MERGE_SHA: ${{ needs.candidate.outputs.merge_sha }}
       RELEASE_LABEL: ${{ needs.candidate.outputs.label }}
       IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
       CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
@@ -174,19 +181,38 @@ jobs:
         with:
           name: stable-release-assets-${{ needs.candidate.outputs.version }}
           path: release-assets
-      - name: Revalidate before CWS publication
+      - name: Revalidate and publish approved staged revision
         run: |
           live=$(gh pr view "$PR" --json headRefOid,mergeCommit,mergedAt,state,labels,statusCheckRollup)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq -r .mergeCommit.oid <<<"$live")" = "$EXPECTED_MERGE_SHA"
           test "$(jq -r .state <<<"$live")" = MERGED
+          test "$(jq -r .mergedAt <<<"$live")" != null
+          recognized_count=$(jq '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")] | length' <<<"$live")
+          test "$recognized_count" = 1
           test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name | select(. == $label)] | length' <<<"$live")" = 1
+          jq -e '.statusCheckRollup | any(.name == "cws-release-ready" and .conclusion == "SUCCESS")' <<<"$live" >/dev/null
+          jq -e '.statusCheckRollup | all((.status == "COMPLETED") and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED"))' <<<"$live" >/dev/null
           node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets
+          source_sha=$(jq -r .sourceSha release-assets/candidate.json)
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" --jq .object.sha)" = "$source_sha"
+          rm -rf live-release-assets && mkdir live-release-assets
+          gh release download "v$VERSION" --dir live-release-assets
+          node trusted-release-tools/scripts/release/cli.mjs metadata verify live-release-assets/candidate.json live-release-assets
+          cmp release-assets/candidate.json live-release-assets/candidate.json
           status=$(mktemp)
           GITHUB_OUTPUT="$status" node trusted-release-tools/scripts/cws.mjs status
-          test "$(sed -n 's/^submitted_version=//p' "$status")" = "$VERSION"
-          test "$(sed -n 's/^submitted_state=//p' "$status")" = STAGED
-      - name: Publish approved staged revision
-        run: node trusted-release-tools/scripts/cws.mjs publish-stable
+          submitted_version=$(sed -n 's/^submitted_version=//p' "$status")
+          submitted_state=$(sed -n 's/^submitted_state=//p' "$status")
+          published_version=$(sed -n 's/^published_version=//p' "$status")
+          if [[ "$submitted_state" == STAGED && "$submitted_version" == "$VERSION" ]]; then
+            node trusted-release-tools/scripts/cws.mjs publish-stable
+          elif [[ "$submitted_state" == PUBLISHED && "$published_version" == "$VERSION" ]]; then
+            echo "CWS v$VERSION is already published; continuing idempotent stable recovery"
+          else
+            echo "CWS state/version does not match candidate v$VERSION" >&2
+            exit 1
+          fi
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -197,7 +223,15 @@ jobs:
         run: |
           live=$(gh pr view "$PR" --json headRefOid,mergeCommit,mergedAt,state,labels,statusCheckRollup)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq -r .mergeCommit.oid <<<"$live")" = "$EXPECTED_MERGE_SHA"
+          test "$(jq -r .state <<<"$live")" = MERGED
+          test "$(jq -r .mergedAt <<<"$live")" != null
+          recognized_count=$(jq '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")] | length' <<<"$live")
+          test "$recognized_count" = 1
           test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name | select(. == $label)] | length' <<<"$live")" = 1
+          jq -e '.statusCheckRollup | any(.name == "cws-release-ready" and .conclusion == "SUCCESS")' <<<"$live" >/dev/null
+          jq -e '.statusCheckRollup | all((.status == "COMPLETED") and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED"))' <<<"$live" >/dev/null
+          node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets
           mapfile -t digests < <(jq -r '.dockerDigests[]' release-assets/candidate.json | sort)
           ((${#digests[@]} == 2))
           args=(); for digest in "${digests[@]}"; do args+=("$IMAGE_NAME@$digest"); done
@@ -206,7 +240,15 @@ jobs:
         run: |
           live=$(gh pr view "$PR" --json headRefOid,mergeCommit,mergedAt,state,labels,statusCheckRollup)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq -r .mergeCommit.oid <<<"$live")" = "$EXPECTED_MERGE_SHA"
+          test "$(jq -r .state <<<"$live")" = MERGED
+          test "$(jq -r .mergedAt <<<"$live")" != null
+          recognized_count=$(jq '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")] | length' <<<"$live")
+          test "$recognized_count" = 1
           test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name | select(. == $label)] | length' <<<"$live")" = 1
+          jq -e '.statusCheckRollup | any(.name == "cws-release-ready" and .conclusion == "SUCCESS")' <<<"$live" >/dev/null
+          jq -e '.statusCheckRollup | all((.status == "COMPLETED") and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED"))' <<<"$live" >/dev/null
+          node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets
           state=$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)
           if [[ "$state" == true ]]; then
             gh release edit "v$VERSION" --title "v$VERSION" --latest --prerelease=false --notes "Stable release v$VERSION from reviewed candidate."
