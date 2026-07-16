@@ -354,11 +354,24 @@ test("label snapshot authorization is bot-owned, exact, durable, and stale-safe"
   const controller = await workflow("reconcile-release-pr.yml");
   assert.match(controller, /lurkloot-release-label-authorization:/);
   assert.match(controller, /\.user\.login == "github-actions\[bot\]" and \.user\.type == "Bot"/);
-  assert.match(controller, /\.schema == 1 and \.pr == \$pr and \.headSha == \$head and \.labels == \$labels/);
+  assert.match(controller, /\.schema == 2 and \.pr == \$pr and \.headSha == \$head and \.labels == \$labels/);
   assert.match(controller, /latestLabelActor.*EVENT_ACTOR/);
   assert.match(controller, /gh api -X PATCH "repos\/\$GITHUB_REPOSITORY\/issues\/comments\/\$authorizationCommentId"/);
   assert.match(controller, /labelSnapshotAuthorized=false/);
   assert.match(controller, /label snapshot lacks current administrator authorization/);
+  assert.match(controller, /latestRelevantLabelEventId/);
+  assert.match(controller, /\.eventId == \$eventId/);
+  assert.match(controller, /\.eventAction == \$eventAction and \.eventLabel == \$eventLabel/);
+  assert.ok((controller.match(/issues\/\$PR\/events\?per_page=100/g) ?? []).length >= 2,
+    "authorization and replay validation must independently paginate label history");
+  assert.match(controller, /\.label\.name \| test\("\^release\/\(patch\|minor\|major\|hotfix\)/);
+});
+
+test("same-head A-to-B-to-A replay requires the newest immutable label event", async () => {
+  const controller = await workflow("reconcile-release-pr.yml");
+  assert.match(controller, /--argjson eventId "\$latestRelevantLabelEventId"/);
+  assert.match(controller, /--argjson eventId "\$currentRelevantLabelEventId"/);
+  assert.match(controller, /currentRelevantLabelEventId.*eventId/);
 });
 
 test("controller discovery ignores cancelled audit history and rejects active ambiguity", async () => {
