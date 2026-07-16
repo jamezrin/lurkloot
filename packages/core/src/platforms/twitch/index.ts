@@ -872,13 +872,13 @@ class TwitchWatcher implements TablessWatchController {
     const channelId = info.data?.user?.id ?? channel.channelId;
     const broadcastId = stream?.id ?? channel.broadcastId;
     if (!stream || !channelId || !broadcastId) {
-      this.log("debug", `Spade tick skipped for ${channel.username}: channel offline or missing a broadcast id`);
+      this.log("debug", `Heartbeat skipped for ${channel.username}: channel offline or missing a broadcast id`);
       return { ok: false, live: false, message: "Twitch channel is offline or missing a broadcast id" };
     }
 
     const userId = await this.resolveUserId();
     if (!userId) return { ok: false, live: true, message: "Twitch did not return a logged-in user id" };
-    this.log("debug", `Spade tick for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`);
+    this.log("debug", `Heartbeat for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`);
 
     return await this.heartbeatStrategy.tick({
       channel,

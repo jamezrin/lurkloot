@@ -125,10 +125,15 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
     ? [ENABLED_LOG_LEVELS_WARNING]
     : [];
   const settings = parseCliSettings(data.settings);
-  warnings.push(...resolveCompatibility(settings.compatibility, {
-    host: "cli",
-    twitchIdentity: "android",
-  }).warnings.map(formatCompatibilityWarning));
+  const webWarnings = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "web" }).warnings;
+  const androidWarnings = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" }).warnings;
+  warnings.push(...webWarnings.filter((candidate) => androidWarnings.some((warning) =>
+    warning.code === candidate.code
+    && warning.platform === candidate.platform
+    && warning.field === candidate.field
+    && warning.requested === candidate.requested
+    && warning.resolved === candidate.resolved
+  )).map(formatCompatibilityWarning));
   return {
     transport: transport as Transport,
     authDir,

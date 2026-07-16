@@ -86,6 +86,14 @@ describe("parseConfig", () => {
     expect(config.warnings.join(" ")).not.toContain("secret-unknown-profile");
   });
 
+  it("defers identity-specific Twitch compatibility warnings until credentials are loaded", () => {
+    const config = parseConfig({
+      settings: { compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-trowel-v1" } } },
+    }, CONFIG_PATH);
+
+    expect(config.warnings).toEqual([]);
+  });
+
   it("rejects extension-only settings copied from the browser config", () => {
     expect(() => parseConfig({ settings: { adFocusMode: "window" } }, CONFIG_PATH)).toThrow(/extension-only/);
   });
