@@ -19,6 +19,7 @@ jobs:
       actions: read
       contents: read
       pull-requests: read
+      issues: write
     outputs:
       action: ${{ steps.reconcile.outputs.action }}
       convert_to_draft: ${{ steps.reconcile.outputs.convert_to_draft }}
@@ -36,10 +37,12 @@ jobs:
       trusted_tools_ref: ${{ steps.inspect.outputs.trusted_tools_ref }}
       candidate_version: ${{ steps.inspect.outputs.candidate_version }}
       candidate_sha: ${{ steps.inspect.outputs.candidate_sha }}
+      candidate_label: ${{ steps.inspect.outputs.candidate_label }}
       desired_release_labels: ${{ steps.inspect.outputs.desired_release_labels }}
       closed: ${{ steps.inspect.outputs.closed }}
       milestone: ${{ steps.inspect.outputs.milestone }}
       unauthorized_label_transition: ${{ steps.inspect.outputs.unauthorized_label_transition }}
+      label_snapshot_authorized: ${{ steps.inspect.outputs.label_snapshot_authorized }}
     env:
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number }}
@@ -80,33 +83,52 @@ jobs:
           sameRepository=$(jq -r --arg repo "$GITHUB_REPOSITORY" '.headRepository.nameWithOwner == $repo' <<<"$live")
 
           mkdir -p candidates
-          while IFS=$'\t' read -r tag asset; do
+          while IFS=$'\t' read -r tag releaseName asset; do
             file="candidates/${tag//\//-}.json"
             gh api "$asset" -H "Accept: application/octet-stream" > "$file" || rm -f "$file"
-          done < <(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[][] | select(.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$")) | .tag_name as $tag | .assets[] | select(.name == "candidate.json") | [$tag,.url] | @tsv')
+            foundVersion=${tag#v}
+            if [[ "$releaseName" == "v$foundVersion cancelled" ]]; then rm -f "$file"; continue; fi
+            test "$(jq -r --arg version "$foundVersion" '.version == $version' "$file" 2>/dev/null)" = true || rm -f "$file"
+          done < <(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[][] | select(.draft == false and .prerelease == true and (.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))) | .tag_name as $tag | .name as $name | .assets[] | select(.name == "candidate.json") | [$tag,$name,.url] | @tsv')
           candidate=""
-          candidateVersionSeen=""
           for file in candidates/*.json; do
             [[ -f "$file" ]] || continue
             if [[ $(jq -r '.schemaVersion == 2 and .releasePr == ($pr | tonumber)' --arg pr "$PR" "$file" 2>/dev/null) == true ]]; then
-              foundVersion=$(jq -r .version "$file")
-              if [[ -z "$candidateVersionSeen" ]] || node scripts/release/cli.mjs version less-than "$candidateVersionSeen" "$foundVersion"; then
-                candidate=$file
-                candidateVersionSeen=$foundVersion
-              fi
+              [[ -z "$candidate" ]] || { echo "multiple active candidates claim PR #$PR" >&2; exit 1; }
+              candidate=$file
             fi
           done
 
           recognizedLabels=$(printf '%s\n' "${labels[@]}" | jq -Rsc '[split("\n")[] | select(test("^release/(patch|minor|major|hotfix)$"))] | sort' -c)
           unauthorizedLabelTransition=false
+          labelSnapshotAuthorized=false
           authorizedBy=""; authorizedSha=""; recoveredLabel=""; permission=none
           if [[ "$EVENT_ACTION" == labeled || "$EVENT_ACTION" == unlabeled ]]; then
             eventPermission=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$EVENT_ACTOR/permission" --jq .permission)
             if [[ "$eventPermission" != admin ]]; then
               unauthorizedLabelTransition=true
-            elif [[ "$EVENT_ACTION" == labeled && "$EVENT_LABEL" =~ ^release/(patch|minor|major|hotfix)$ ]]; then
-              authorizedBy=$EVENT_ACTOR
-              permission=admin
+            else
+              latestLabelEvent=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR/events?per_page=100" | jq -c '[.[][] | select(.event == "labeled" or .event == "unlabeled")] | last')
+              latestLabelActor=$(jq -r '.actor.login // empty' <<<"$latestLabelEvent")
+              latestLabelAction=$(jq -r '.event // empty' <<<"$latestLabelEvent")
+              latestLabelName=$(jq -r '.label.name // empty' <<<"$latestLabelEvent")
+              if [[ "$latestLabelActor" != "$EVENT_ACTOR" || "$latestLabelAction" != "$EVENT_ACTION" || "$latestLabelName" != "$EVENT_LABEL" ]]; then
+                unauthorizedLabelTransition=true
+              else
+                authorization=$(jq -cn --argjson pr "$PR" --arg headSha "$head" --argjson labels "$recognizedLabels" --arg authorizedBy "$EVENT_ACTOR" --arg createdAt "$(date -u +%FT%TZ)" '{schema:1,pr:$pr,headSha:$headSha,labels:$labels,authorizedBy:$authorizedBy,createdAt:$createdAt}')
+                encoded=$(printf %s "$authorization" | base64 -w0)
+                marker="<!-- lurkloot-release-label-authorization:"
+                body="$marker$encoded -->"
+                authorizationCommentId=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[] | select(.user.login == "github-actions[bot]" and .user.type == "Bot" and (.body | startswith("<!-- lurkloot-release-label-authorization:"))) | .id' | head -1)
+                if [[ -n "$authorizationCommentId" ]]; then
+                  gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$authorizationCommentId" -f body="$body" >/dev/null
+                else
+                  gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
+                fi
+                authorizedBy=$EVENT_ACTOR
+                permission=admin
+                labelSnapshotAuthorized=true
+              fi
             fi
           elif [[ -n "$candidate" ]]; then
             metadataOutput=$(mktemp)
@@ -116,11 +138,16 @@ jobs:
             recoveredLabel=$(sed -n 's/^label=//p' "$metadataOutput")
             if printf '%s\n' "${labels[@]}" | grep -Fxq "$recoveredLabel"; then permission=admin; fi
           fi
-          if [[ "$permission" == none && $(jq length <<<"$recognizedLabels") == 1 && "$unauthorizedLabelTransition" == false ]]; then
-            activeLabel=$(jq -r '.[0]' <<<"$recognizedLabels")
-            authorizedBy=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR/events?per_page=100" | jq -r --arg label "$activeLabel" '[.[][] | select(.event == "labeled" and .label.name == $label)] | last | .actor.login // empty')
-            if [[ -n "$authorizedBy" ]]; then
-              permission=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$authorizedBy/permission" --jq .permission)
+          if [[ "$EVENT_ACTION" != labeled && "$EVENT_ACTION" != unlabeled && "$permission" == none ]]; then
+            record=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate | jq -r '[.[] | select(.user.login == "github-actions[bot]" and .user.type == "Bot" and (.body | startswith("<!-- lurkloot-release-label-authorization:")))] | last | .body // empty')
+            encoded=${record#<!-- lurkloot-release-label-authorization:}; encoded=${encoded% -->}
+            authorization=""; [[ -z "$record" ]] || authorization=$(printf %s "$encoded" | base64 -d 2>/dev/null || true)
+            if [[ $(jq -r --argjson pr "$PR" --arg head "$head" --argjson labels "$recognizedLabels" '.schema == 1 and .pr == $pr and .headSha == $head and .labels == $labels' <<<"${authorization:-null}" 2>/dev/null) == true ]]; then
+              authorizedBy=$(jq -r .authorizedBy <<<"$authorization")
+              if [[ $(gh api "repos/$GITHUB_REPOSITORY/collaborators/$authorizedBy/permission" --jq .permission) == admin ]]; then
+                permission=admin
+                labelSnapshotAuthorized=true
+              fi
             fi
           fi
           printf '%s\n' "${labels[@]}" | jq -Rsc 'split("\n") | map(select(length > 0))' > labels.json
@@ -144,12 +171,13 @@ jobs:
           fi
           jq -n --arg state "$policyState" --arg kind "$kind" --arg label "$label" --arg version "$version" --arg authorizedSha "$policySha" --arg reason "$policyReason" \
             '{state:$state,kind:$kind,label:$label,version:$version,authorizedSha:$authorizedSha,reason:$reason}' > policy.json
-          candidateJson=null; cwsState=none; candidateVersion=""; candidateSha=""
+          candidateJson=null; cwsState=none; candidateVersion=""; candidateSha=""; candidateLabel=""
           if [[ -n "$candidate" ]]; then
             candidateJson=$(jq '{version,label,sourceSha,state:.cwsState}' "$candidate")
             cwsState=$(jq -r .cwsState "$candidate")
             candidateVersion=$(jq -r .version "$candidate")
             candidateSha=$(jq -r .sourceSha "$candidate")
+            candidateLabel=$(jq -r .label "$candidate")
           fi
           closed=false; [[ "$state" == CLOSED || "$state" == MERGED ]] && closed=true
           jq -n --slurpfile policy policy.json --argjson draft "$draft" --argjson closed "$closed" --argjson merged "$merged" \
@@ -159,8 +187,9 @@ jobs:
             echo "pr_number=$PR"; echo "head_sha=$head"; echo "state=$controllerState"; echo "version=$version"; echo "kind=$kind"
             echo "release_label=$label"; echo "authorized_by=$authorizedBy"; echo "stable_sha=$stableSha"; echo "stable_version=$stableVersion"
             echo "develop_sha=$developSha"; echo "trusted_tools_ref=$trustedToolsRef"; echo "candidate_version=$candidateVersion"
-            echo "candidate_sha=$candidateSha"; echo "closed=$closed"; echo "milestone=$milestone"
+            echo "candidate_sha=$candidateSha"; echo "candidate_label=$candidateLabel"; echo "closed=$closed"; echo "milestone=$milestone"
             echo "desired_release_labels=$recognizedLabels"; echo "unauthorized_label_transition=$unauthorizedLabelTransition"
+            echo "label_snapshot_authorized=$labelSnapshotAuthorized"
           } >> "$GITHUB_OUTPUT"
       - id: reconcile
         name: Derive reconciliation action
@@ -176,6 +205,12 @@ jobs:
             echo "action=block" >> "$GITHUB_OUTPUT"
             echo "convert_to_draft=false" >> "$GITHUB_OUTPUT"
             echo "reason=release label transition actor is not an administrator" >> "$GITHUB_OUTPUT"
+          fi
+          candidateLabelSnapshot=$(jq -cn --arg label "${{ steps.inspect.outputs.candidate_label }}" 'if $label == "" then [] else [$label] end')
+          if [[ "${{ steps.inspect.outputs.label_snapshot_authorized }}" != true && -n "${{ steps.inspect.outputs.candidate_sha }}" && "${{ steps.inspect.outputs.desired_release_labels }}" != "$candidateLabelSnapshot" ]]; then
+            echo "action=block" >> "$GITHUB_OUTPUT"
+            echo "convert_to_draft=false" >> "$GITHUB_OUTPUT"
+            echo "reason=label snapshot lacks current administrator authorization" >> "$GITHUB_OUTPUT"
           fi
 
   prepare:
