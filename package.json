@@ -1,9 +1,6 @@
 {
   "name": "lurkloot",
   "version": "1.4.0",
-  "release": {
-    "channel": "stable"
-  },
   "description": "Cross-browser Twitch and Kick drops farming WebExtension using visible muted tabs.",
   "license": "Apache-2.0",
   "type": "module",
@@ -26,9 +23,8 @@
     "promo:store": "pnpm --filter @lurkloot/extension promo:store",
     "kick:inspect": "pnpm --filter @lurkloot/extension kick:inspect",
     "privacy:gist": "scripts/update-privacy-gist.sh",
-    "release:prepare": "node scripts/release.mjs prepare",
     "release:check": "node scripts/release.mjs check",
-    "release:test": "node --test scripts/release.test.mjs",
+    "release:test": "node --test scripts/release.test.mjs scripts/release/*.test.mjs",
     "cws:test": "node --test scripts/cws.test.mjs",
     "check": "pnpm cws:test && pnpm release:test && pnpm -r typecheck && pnpm test && pnpm build:site",
     "verify": "pnpm check && pnpm build && pnpm build:firefox"

@@ -1,0 +1,179 @@
+name: Promote reviewed release
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    if: github.event.pull_request.merged == true && (startsWith(github.event.pull_request.head.ref, 'release/') || startsWith(github.event.pull_request.head.ref, 'hotfix/'))
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      kind: ${{ steps.release.outputs.kind }}
+      initiator: ${{ steps.release.outputs.initiator }}
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted-release-tools
+      - id: release
+        run: |
+          version=$(node -p "require('./package.json').version")
+          mkdir release-assets
+          gh release download "v$version" --dir release-assets
+          node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets
+          test "$(jq -r .version release-assets/candidate.json)" = "$version"
+          test "$(jq -r .releasePr release-assets/candidate.json)" = "$PR"
+          source_sha=$(jq -r .sourceSha release-assets/candidate.json)
+          git fetch --force origin "refs/tags/v$version:refs/tags/v$version"
+          test "$(git rev-parse "refs/tags/v$version^{commit}")" = "$source_sha"
+          git fetch origin "pull/$PR/head"
+          test "$(git rev-parse FETCH_HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          git merge-base --is-ancestor "$source_sha" "${{ github.event.pull_request.head.sha }}"
+          git diff --quiet "$source_sha" "${{ github.event.pull_request.head.sha }}" -- . ':(exclude)package.json' ':(exclude)packages/*/package.json' ':(exclude)packages/site/src/changelog.json'
+          git diff --quiet "${{ github.event.pull_request.head.sha }}" "${{ github.event.pull_request.merge_commit_sha }}"
+          release_state=$(gh release view "v$version" --json isPrerelease --jq 'if .isPrerelease then "prerelease" else "stable-recovery" end')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "kind=$(jq -r .kind release-assets/candidate.json)" >> "$GITHUB_OUTPUT"
+          echo "initiator=$(jq -r .initiator release-assets/candidate.json)" >> "$GITHUB_OUTPUT"
+          printf '## Stable promotion verified\n\n- Version: `%s`\n- PR: #%s\n- Candidate source: `%s`\n- GitHub release state: `%s`\n' "$version" "$PR" "$source_sha" "$release_state" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: stable-release-assets-${{ steps.release.outputs.version }}
+          path: release-assets
+
+  publish:
+    needs: candidate
+    runs-on: ubuntu-latest
+    environment: stable-releases
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+    concurrency:
+      group: cws-mutation
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.candidate.outputs.version }}
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
+      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_VERSION: ${{ needs.candidate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted-release-tools
+      - uses: actions/download-artifact@v8
+        with:
+          name: stable-release-assets-${{ needs.candidate.outputs.version }}
+          path: release-assets
+      - name: Revalidate frozen release assets
+        run: node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets
+      - id: cws
+        name: Publish approved staged revision
+        run: node trusted-release-tools/scripts/cws.mjs publish-stable
+      - name: Notify releaser when CWS is not publishable
+        if: failure() && steps.cws.outcome == 'failure'
+        run: |
+          output=$(mktemp)
+          GITHUB_OUTPUT="$output" node trusted-release-tools/scripts/cws.mjs status || true
+          submitted_state=$(sed -n 's/^submitted_state=//p' "$output")
+          submitted_version=$(sed -n 's/^submitted_version=//p' "$output")
+          initiator=$(jq -r .initiator release-assets/candidate.json)
+          pr=$(jq -r .releasePr release-assets/candidate.json)
+          marker="<!-- lurkloot-release:$VERSION:promotion-blocked -->"
+          body="$marker
+          @$initiator, stable promotion stopped because CWS reported version \`${submitted_version:-none}\` in state \`${submitted_state:-none}\`, not the expected staged v$VERSION revision. Inspect the CWS dashboard and rerun promotion only after reconciling that exact version."
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n1)
+          if [[ -n "$comment_id" ]]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
+          else
+            gh pr comment "$pr" --body "$body"
+          fi
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Promote stored Docker digests
+        run: |
+          mapfile -t digests < <(jq -r .dockerDigests[] release-assets/candidate.json)
+          ((${#digests[@]} == 2)) || { echo "expected two Docker digests" >&2; exit 1; }
+          args=()
+          for digest in "${digests[@]}"; do args+=("$IMAGE_NAME@$digest"); done
+          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" --tag "$IMAGE_NAME:${VERSION%.*}" --tag "$IMAGE_NAME:${VERSION%%.*}" --tag "$IMAGE_NAME:latest" "${args[@]}"
+      - name: Promote immutable GitHub release
+        run: |
+          test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true || {
+            test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = false
+            exit 0
+          }
+          gh release edit "v$VERSION" --title "v$VERSION" --latest --prerelease=false --notes "Stable release v$VERSION from reviewed candidate."
+          printf '## Stable v%s published\n\n- CWS: published or matching idempotent recovery\n- Docker: version, minor, major, and latest aliases promoted\n- GitHub release: stable\n' "$VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+  site:
+    needs: [candidate, publish]
+    uses: ./.github/workflows/site-deploy.yml
+    with:
+      channel: production
+      ref: ${{ github.event.pull_request.merge_commit_sha }}
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  forward-release:
+    needs: [candidate, site]
+    uses: ./.github/workflows/forward-hotfix.yml
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    with:
+      version: ${{ needs.candidate.outputs.version }}
+      kind: ${{ needs.candidate.outputs.kind }}
+
+  notify:
+    needs: [candidate, site, forward-release]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.candidate.outputs.version }}
+      INITIATOR: ${{ needs.candidate.outputs.initiator }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Announce stable publication
+        run: |
+          marker="<!-- lurkloot-release:$VERSION:stable -->"
+          body="$marker
+          @$INITIATOR, **v$VERSION** is now stable. CWS is published, the GitHub release and Docker aliases are promoted, production is deployed, and the main-to-develop synchronization has been opened or reported for manual resolution."
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n1)
+          if [[ -n "$comment_id" ]]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
+          else
+            gh pr comment "$PR" --body "$body"
+          fi
+          printf '## Stable v%s complete\n\nNotified @%s on PR #%s.\n' "$VERSION" "$INITIATOR" "$PR" >> "$GITHUB_STEP_SUMMARY"

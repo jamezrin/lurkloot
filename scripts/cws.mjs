@@ -16,7 +16,7 @@ function assertHealthy(status) {
   if (status.warned) throw new Error("Chrome Web Store item has an unresolved policy warning");
 }
 
-export function prereleaseAction(status, version) {
+export function uploadAction(status, version) {
   assertHealthy(status);
   const publishedVersion = revisionVersion(status.publishedItemRevisionStatus);
   const submitted = status.submittedItemRevisionStatus;
@@ -25,11 +25,24 @@ export function prereleaseAction(status, version) {
     if (publishedVersion === version) throw new Error(`${version} is already published and cannot be replaced as a pre-release draft`);
     return "upload";
   }
+  if (submitted.state === "CANCELLED") return "upload";
   if (submittedVersion !== version) {
     throw new Error(`Chrome Web Store has ${submittedVersion ?? "an unknown version"} in state ${submitted.state}; expected ${version}`);
   }
   if (submitted.state === "PENDING_REVIEW" || submitted.state === "STAGED") return "frozen";
   throw new Error(`Chrome Web Store submitted revision is ${submitted.state}; resolve it in the Developer Dashboard`);
+}
+
+export const prereleaseAction = uploadAction;
+
+export function normalizeStatus(status) {
+  return {
+    publishedVersion: revisionVersion(status.publishedItemRevisionStatus),
+    submittedVersion: revisionVersion(status.submittedItemRevisionStatus),
+    submittedState: status.submittedItemRevisionStatus?.state,
+    warned: Boolean(status.warned),
+    takenDown: Boolean(status.takenDown),
+  };
 }
 
 export function stableAction(status, version) {
@@ -46,6 +59,35 @@ export function stableAction(status, version) {
   }
   if (submitted.state === "STAGED") return "publish";
   throw new Error(`Chrome Web Store revision ${version} is ${submitted.state}; expected STAGED`);
+}
+
+export function submitAction(status, version) {
+  assertHealthy(status);
+  if (revisionVersion(status.publishedItemRevisionStatus) === version) {
+    throw new Error(`${version} is already published`);
+  }
+  const submitted = status.submittedItemRevisionStatus;
+  if (!submitted) return "submit";
+  const submittedVersion = revisionVersion(submitted);
+  if (submittedVersion !== version) {
+    throw new Error(`Chrome Web Store has ${submittedVersion ?? "an unknown version"} in state ${submitted.state}; expected ${version}`);
+  }
+  if (submitted.state === "PENDING_REVIEW") return "already-submitted";
+  if (submitted.state === "STAGED") return "already-staged";
+  throw new Error(`Chrome Web Store revision ${version} is ${submitted.state}; resolve it before submission`);
+}
+
+export function cancelAction(status, version) {
+  assertHealthy(status);
+  const submitted = status.submittedItemRevisionStatus;
+  if (!submitted) return "already-cancelled";
+  const submittedVersion = revisionVersion(submitted);
+  if (submittedVersion !== version) {
+    throw new Error(`Chrome Web Store has ${submittedVersion ?? "an unknown version"} in state ${submitted.state}; expected ${version}`);
+  }
+  if (submitted.state === "PENDING_REVIEW" || submitted.state === "STAGED") return "cancel";
+  if (submitted.state === "CANCELLED") return "already-cancelled";
+  throw new Error(`Chrome Web Store revision ${version} is ${submitted.state}; resolve it before cancellation`);
 }
 
 function encode(value) {
@@ -86,8 +128,19 @@ export class ChromeWebStoreClient {
       ...init,
       headers: { authorization: `Bearer ${this.accessToken}`, ...init.headers },
     });
-    const body = await response.json();
-    if (!response.ok) throw new Error(`Chrome Web Store API failed (${response.status}): ${body.error?.message ?? "unknown error"}`);
+    const text = typeof response.text === "function" ? await response.text() : undefined;
+    let body;
+    if (text === undefined) {
+      body = await response.json();
+    } else if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        if (response.ok) throw new Error("Chrome Web Store API returned invalid JSON");
+        body = { error: { message: text } };
+      }
+    }
+    if (!response.ok) throw new Error(`Chrome Web Store API failed (${response.status}): ${body?.error?.message ?? "unknown error"}`);
     return body;
   }
 
@@ -114,6 +167,20 @@ export class ChromeWebStoreClient {
       body: JSON.stringify({ publishType: "STAGED_PUBLISH", blockOnWarnings: true }),
     });
   }
+
+  submitStaged() {
+    return this.request(`/v2/${this.item}:publish`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ publishType: "STAGED_PUBLISH", blockOnWarnings: true }),
+    });
+  }
+
+  cancelSubmission() {
+    return this.request(`/v2/${this.item}:cancelSubmission`, {
+      method: "POST",
+    });
+  }
 }
 
 async function waitForUpload(client, initial) {
@@ -127,6 +194,19 @@ async function waitForUpload(client, initial) {
     if (state && state !== "UPLOAD_IN_PROGRESS" && state !== "IN_PROGRESS") return { ...initial, uploadState: state };
   }
   throw new Error("Chrome Web Store upload was still in progress after 60 seconds");
+}
+
+export async function waitForCancellation(client, version, { attempts = 30, delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)) } = {}) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const status = await client.status();
+    const submitted = status.submittedItemRevisionStatus;
+    if (!submitted) return "cancelled";
+    const submittedVersion = revisionVersion(submitted);
+    if (submittedVersion !== version) throw new Error(`Chrome Web Store switched to ${submittedVersion ?? "an unknown version"} while cancelling ${version}`);
+    if (submitted.state === "CANCELLED") return "cancelled";
+    await delay(2000);
+  }
+  throw new Error(`Chrome Web Store did not cancel ${version} within 60 seconds`);
 }
 
 function required(name) {
@@ -145,8 +225,8 @@ async function output(values) {
 
 async function main() {
   const command = process.argv[2];
-  if (!command || !["status", "upload-prerelease", "publish-stable"].includes(command)) {
-    throw new Error("usage: cws.mjs <status | upload-prerelease | publish-stable>");
+  if (!command || !["status", "upload-candidate", "submit-staged", "cancel-submission", "publish-stable"].includes(command)) {
+    throw new Error("usage: cws.mjs <status | upload-candidate | submit-staged | cancel-submission | publish-stable>");
   }
   const credentials = JSON.parse(required("CWS_SERVICE_ACCOUNT_JSON"));
   const accessToken = await serviceAccountToken(credentials);
@@ -162,14 +242,15 @@ async function main() {
       published_version: revisionVersion(status.publishedItemRevisionStatus) ?? "none",
       submitted_version: revisionVersion(status.submittedItemRevisionStatus) ?? "none",
       submitted_state: status.submittedItemRevisionStatus?.state ?? "none",
+      warned: String(Boolean(status.warned)),
+      taken_down: String(Boolean(status.takenDown)),
     });
     return;
   }
-  if (command === "upload-prerelease") {
-    const action = prereleaseAction(status, version);
+  if (command === "upload-candidate") {
+    const action = uploadAction(status, version);
     if (action === "frozen") {
-      await output({ action, candidate: "false" });
-      return;
+      throw new Error(`Chrome Web Store revision ${version} became ${status.submittedItemRevisionStatus.state} before upload. Cancel review before replacing the candidate`);
     }
     const packagePath = required("CWS_PACKAGE_PATH");
     const result = await waitForUpload(client, await client.upload(await readFile(packagePath), packagePath.split("/").at(-1)));
@@ -178,8 +259,34 @@ async function main() {
     }
     if (result.crxVersion && result.crxVersion !== version) throw new Error(`Chrome Web Store accepted ${result.crxVersion}; expected ${version}`);
     const after = await client.status();
-    if (after.submittedItemRevisionStatus) throw new Error("Draft upload unexpectedly created a submitted revision");
+    if (after.submittedItemRevisionStatus && after.submittedItemRevisionStatus.state !== "CANCELLED") {
+      throw new Error(`Draft upload unexpectedly found submitted state ${after.submittedItemRevisionStatus.state}`);
+    }
     await output({ action: "uploaded", candidate: "true" });
+    return;
+  }
+  if (command === "submit-staged") {
+    const action = submitAction(status, version);
+    if (action === "submit") {
+      const result = await client.submitStaged();
+      if (result.state !== "PENDING_REVIEW" && result.state !== "STAGED") {
+        throw new Error(`Chrome Web Store submission returned ${result.state}; expected PENDING_REVIEW or STAGED`);
+      }
+    }
+    await output({ action });
+    return;
+  }
+  if (command === "cancel-submission") {
+    const action = cancelAction(status, version);
+    if (action === "cancel") {
+      try {
+        await client.cancelSubmission();
+      } catch (error) {
+        throw new Error(`Chrome Web Store could not cancel ${version} from ${status.submittedItemRevisionStatus.state}. Use the Developer Dashboard to resolve it before replacing or abandoning this candidate: ${error.message}`);
+      }
+      await waitForCancellation(client, version);
+    }
+    await output({ action });
     return;
   }
   const action = stableAction(status, version);
