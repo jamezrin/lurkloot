@@ -81,14 +81,23 @@ test("each external mutation has an adjacent live candidate revalidation", async
   }
 });
 
-test("candidate publication stages immutable run identities before canonical commit and defines rollback", async () => {
+test("candidate publication uses one repository-wide non-cancelling transaction lock", async () => {
+  const prepare = await workflow("prepare-prerelease.yml");
+  assert.match(prepare, /concurrency:\n  group: candidate-publication-\$\{\{ github\.repository \}\}\n  cancel-in-progress: false/);
+  assert.doesNotMatch(prepare, /prepare-candidate-pr-|cancel-in-progress: true/);
+});
+
+test("candidate publication stages immutable run identities and rolls back partial commits", async () => {
   const prepare = await workflow("prepare-prerelease.yml");
   assert.match(prepare, /STAGING_ID: candidate-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/);
-  assert.match(prepare, /name: Commit canonical candidate references/);
+  for (const id of ["github_tag", "github_release", "github_assets", "docker_version", "docker_next", "cws_candidate", "site_next"]) {
+    assert.match(prepare, new RegExp(`- id: ${id}\\n`));
+  }
   assert.match(prepare, /name: Roll back canonical candidate references/);
-  assert.match(prepare, /if: failure\(\) && steps\.commit\.outcome == 'success'/);
+  assert.match(prepare, /if: always\(\) && steps\.transaction_started\.outputs\.started == 'true' && failure\(\)/);
+  assert.doesNotMatch(prepare, /steps\.commit\.outcome == 'success'/);
   const stage = prepare.indexOf("name: Stage");
-  const commit = prepare.indexOf("name: Commit canonical candidate references");
+  const commit = prepare.indexOf("id: github_tag");
   assert.ok(stage >= 0 && stage < commit);
 
   const docker = await workflow("build-docker.yml");
@@ -98,6 +107,53 @@ test("candidate publication stages immutable run identities before canonical com
   const site = await workflow("site-deploy.yml");
   assert.match(site, /format\('candidate-\{0\}-\{1\}', github\.run_id, github\.run_attempt\)/);
   assert.ok(site.indexOf("Stage immutable site deployment") < site.indexOf("Promote staged site to mutable channel"));
+});
+
+test("rollback snapshots complete canonical state and restores only run-owned mutations", async () => {
+  const prepare = await workflow("prepare-prerelease.yml");
+  for (const marker of [
+    "prior-release.json", "prior-release-notes.md", "prior-assets.json", "rollback-assets",
+    "prior-docker-version-digest", "prior-docker-next-digest", "prior-cws-package",
+  ]) assert.match(prepare, new RegExp(marker.replaceAll(".", "\\.")));
+  for (const field of [".prerelease", ".draft", ".name", ".body", ".tag_name", "prior-release-is-latest"]) {
+    assert.match(prepare, new RegExp(field.replace(".", "\\.")));
+  }
+  assert.match(prepare, /gh api .*releases\/assets.*-X DELETE/);
+  assert.match(prepare, /--notes-file prior-release-notes\.md/);
+  assert.match(prepare, /--prerelease=\"\$priorPrerelease\"/);
+  assert.match(prepare, /--latest=\"\$priorLatest\"/);
+  assert.ok((prepare.match(/current=.*imagetools inspect/g) ?? []).length >= 2, "both OCI aliases compare ownership before restore");
+  assert.ok((prepare.match(/test \"\$current\" = \"\$stagedDigest\"/g) ?? []).length >= 2, "OCI rollback is ownership guarded");
+  assert.match(prepare, /currentTag=.*git\/ref\/tags/);
+  assert.match(prepare, /\"\$currentTag\" == \"\$EXPECTED_HEAD_SHA\"/);
+  assert.match(prepare, /\.sourceSha \"\$currentOwner\/candidate\.json\"/);
+});
+
+test("CWS mutation is restorable or fails closed without claiming success", async () => {
+  const prepare = await workflow("prepare-prerelease.yml");
+  assert.match(prepare, /prior-cws-existed/);
+  assert.match(prepare, /prior-cws-package/);
+  assert.match(prepare, /CWS_PACKAGE_PATH=prior-cws-package/);
+  assert.match(prepare, /CWS_RECONCILIATION_BLOCKED/);
+  assert.match(prepare, /exit 1/);
+  assert.ok(prepare.indexOf("id: cws_candidate") > prepare.indexOf("Back up prior canonical"));
+});
+
+test("site is the last fallible canonical mutation and outputs are prepared beforehand", async () => {
+  const prepare = await workflow("prepare-prerelease.yml");
+  const outputs = prepare.indexOf("id: outputs");
+  const site = prepare.indexOf("id: site_next");
+  const rollback = prepare.indexOf("name: Roll back canonical candidate references");
+  assert.ok(outputs >= 0 && outputs < site && site < rollback);
+  assert.doesNotMatch(prepare.slice(site, rollback), /\n      - (?:name|uses|id):/);
+});
+
+test("CRX key is confined to a literal network namespace with guaranteed cleanup", async () => {
+  const extension = await workflow("build-extension.yml");
+  const keyStep = extension.match(/- name: Build signed CRX3\n([\s\S]*?)(?=\n      - name:|\n      - uses:)/)?.[1] ?? "";
+  assert.match(keyStep, /unshare --net/);
+  assert.match(keyStep, /trap .*lurkloot\.pem.*EXIT/);
+  assert.doesNotMatch(keyStep, /docker pull|podman pull|pnpm|npm|curl|wget/);
 });
 
 test("privileged artifact jobs are protected and never check out candidate code", async () => {

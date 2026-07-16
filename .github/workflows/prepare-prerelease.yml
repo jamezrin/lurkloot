@@ -40,8 +40,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: prepare-candidate-pr-${{ inputs.pr_number }}
-  cancel-in-progress: true
+  group: candidate-publication-${{ github.repository }}
+  cancel-in-progress: false
 
 jobs:
   resolve:
@@ -294,77 +294,100 @@ jobs:
           test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
       - name: Stage all new artifacts and metadata under immutable run identity
         run: gh release upload "$STAGING_ID" release-assets/* candidate.json
-      - name: Upload verified Chrome package as CWS draft
-        run: |
-          live=$(gh pr view "$PR" --json headRefOid,labels)
-          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
-          node trusted-release-tools/scripts/cws.mjs upload-candidate
       - name: Back up prior canonical references
         run: |
           tag="v$VERSION"
           mkdir -p rollback-assets
           prior=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null || true)
           echo "$prior" > prior-tag-sha
-          if gh release view "$tag" >/dev/null 2>&1; then
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" > prior-release.json 2>/dev/null; then
             echo true > prior-release
-            gh release download "$tag" --dir rollback-assets || true
+            jq -r .body prior-release.json > prior-release-notes.md
+            jq '.assets | map({id,name})' prior-release.json > prior-assets.json
+            gh release download "$tag" --dir rollback-assets
+            priorCandidate=$(jq -r '.assets[] | select(.name == "candidate.json") | .name' prior-release.json)
+            if [[ "$priorCandidate" == candidate.json ]]; then
+              cp rollback-assets/candidate.json prior-candidate.json
+              priorChrome=$(jq -r .chromeZipSha256 prior-candidate.json)
+              find rollback-assets -maxdepth 1 -name "lurkloot-*-chrome.zip" -exec cp {} prior-cws-package \;
+              test "$(sha256sum prior-cws-package | cut -d' ' -f1)" = "$priorChrome"
+            fi
           else
             echo false > prior-release
+            jq -n '[]' > prior-assets.json
           fi
-          docker buildx imagetools inspect "$IMAGE_NAME:next" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' > prior-docker-digest || true
+          GITHUB_OUTPUT=prior-cws-status node trusted-release-tools/scripts/cws.mjs status
+          priorCwsVersion=$(sed -n 's/^submitted_version=//p' prior-cws-status)
+          if [[ -s prior-cws-package ]]; then
+            echo true > prior-cws-existed
+            priorPackageVersion=$(jq -r .version prior-candidate.json)
+            if [[ "$priorCwsVersion" != none && "$priorCwsVersion" != "$priorPackageVersion" ]]; then
+              echo "Canonical package does not own the existing CWS revision" >&2
+              exit 1
+            fi
+          else
+            echo false > prior-cws-existed
+          fi
+          latestTag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)
+          test "$latestTag" = "$tag" && echo true > prior-release-is-latest || echo false > prior-release-is-latest
+          docker buildx imagetools inspect "$IMAGE_NAME:$VERSION" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' > prior-docker-version-digest || true
+          docker buildx imagetools inspect "$IMAGE_NAME:next" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' > prior-docker-next-digest || true
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - id: commit
-        name: Commit canonical candidate references
-        run: |
-          revalidate() {
-            live=$(gh pr view "$PR" --json headRefOid,labels)
-            test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-            test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
-          }
-          tag="v$VERSION"
-          revalidate
-          prior=$(cat prior-tag-sha)
-          if [[ -n "$prior" ]]; then gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" -F force=true >/dev/null; else gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" >/dev/null; fi
-          revalidate
-          if [[ $(cat prior-release) == true ]]; then gh release edit "$tag" --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA (staged as $STAGING_ID)."; else gh release create "$tag" --verify-tag --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA (staged as $STAGING_ID)."; fi
-          revalidate
-          gh release upload "$tag" --clobber release-assets/* candidate.json
-          revalidate
-          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" "$IMAGE_NAME:$STAGING_ID"
-          revalidate
-          docker buildx imagetools create --tag "$IMAGE_NAME:next" "$IMAGE_NAME:$STAGING_ID"
-      - name: Revalidate immediately before next site mutation
+      - id: transaction_started
+        name: Begin canonical candidate transaction
+        run: echo "started=true" >> "$GITHUB_OUTPUT"
+      - id: cws_candidate
+        name: Commit CWS candidate draft
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
           test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
-      - name: Commit canonical site next reference
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: site-artifact
-          command: pages deploy . --project-name=lurkloot --branch=next
-      - name: Roll back canonical candidate references
-        if: failure() && steps.commit.outcome == 'success'
+          node trusted-release-tools/scripts/cws.mjs upload-candidate
+      - id: github_tag
+        name: Commit canonical GitHub tag
         run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
           tag="v$VERSION"
           prior=$(cat prior-tag-sha)
-          if [[ -n "$prior" ]]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$prior" -F force=true >/dev/null
-            if [[ $(cat prior-release) == true && -n $(find rollback-assets -type f -print -quit) ]]; then gh release upload "$tag" --clobber rollback-assets/*; fi
-          else
-            gh release delete "$tag" --yes --cleanup-tag || true
-          fi
-          priorDocker=$(cat prior-docker-digest)
-          if [[ -n "$priorDocker" ]]; then docker buildx imagetools create --tag "$IMAGE_NAME:next" "$IMAGE_NAME@$priorDocker"; fi
+          if [[ -n "$prior" ]]; then gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" -F force=true >/dev/null; else gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" >/dev/null; fi
+      - id: github_release
+        name: Commit canonical GitHub release metadata
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          tag="v$VERSION"
+          if [[ $(cat prior-release) == true ]]; then gh release edit "$tag" --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA (staged as $STAGING_ID)."; else gh release create "$tag" --verify-tag --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA (staged as $STAGING_ID)."; fi
+      - id: github_assets
+        name: Commit canonical GitHub release assets
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          tag="v$VERSION"
+          gh release upload "$tag" --clobber release-assets/* candidate.json
+      - id: docker_version
+        name: Commit canonical Docker version alias
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" "$IMAGE_NAME:$STAGING_ID"
+      - id: docker_next
+        name: Commit canonical Docker next alias
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          docker buildx imagetools create --tag "$IMAGE_NAME:next" "$IMAGE_NAME:$STAGING_ID"
       - id: outputs
-        name: Record committed candidate outputs
+        name: Record committed candidate outputs before final mutation
         run: |
           tag="v$VERSION"
           checksum=$(sha256sum "release-assets/lurkloot-$VERSION-chrome.zip" | cut -d' ' -f1)
@@ -373,3 +396,69 @@ jobs:
           echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
           echo "chrome_zip_sha256=$checksum" >> "$GITHUB_OUTPUT"
           echo "docker_tag=$IMAGE_NAME:$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Revalidate immediately before final site mutation
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - id: site_next
+        name: Commit canonical site next reference
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: site-artifact
+          command: pages deploy . --project-name=lurkloot --branch=next
+        env:
+          # The action invocation is the final non-rollbackable mutation. It performs
+          # its own upload atomically; all fallible local output work is already done.
+          EXPECTED_HEAD_SHA: ${{ needs.resolve.outputs.candidate_sha }}
+      - name: Roll back canonical candidate references
+        if: always() && steps.transaction_started.outputs.started == 'true' && failure()
+        run: |
+          set +e
+          rollbackFailed=false
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          tag="v$VERSION"
+          currentTag=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null)
+          currentOwner=$(mktemp -d)
+          gh release download "$tag" --pattern candidate.json --dir "$currentOwner" >/dev/null 2>&1
+          owner=$(jq -r .sourceSha "$currentOwner/candidate.json" 2>/dev/null)
+          currentBody=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq .body 2>/dev/null)
+          if [[ "$currentTag" == "$EXPECTED_HEAD_SHA" ]]; then
+            prior=$(cat prior-tag-sha)
+            if [[ "$owner" == "$EXPECTED_HEAD_SHA" || "$currentBody" == *"$STAGING_ID"* ]]; then
+              if [[ $(cat prior-release) == true ]]; then
+              releaseId=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq .id)
+              gh api "repos/$GITHUB_REPOSITORY/releases/$releaseId/assets" --paginate --jq '.[].id' | while read -r assetId; do gh api "repos/$GITHUB_REPOSITORY/releases/assets/$assetId" -X DELETE; done
+              priorPrerelease=$(jq -r .prerelease prior-release.json)
+              priorDraft=$(jq -r .draft prior-release.json)
+              priorLatest=$(cat prior-release-is-latest)
+              gh release edit "$tag" --title "$(jq -r .name prior-release.json)" --notes-file prior-release-notes.md --prerelease="$priorPrerelease" --draft="$priorDraft" --latest="$priorLatest" || rollbackFailed=true
+              gh release upload "$tag" rollback-assets/* || rollbackFailed=true
+              else
+                gh release delete "$tag" --yes || rollbackFailed=true
+              fi
+            fi
+            if [[ -n "$prior" ]]; then gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$prior" -F force=true >/dev/null || rollbackFailed=true; else gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" || rollbackFailed=true; fi
+          fi
+          stagedDigest=$(docker buildx imagetools inspect "$IMAGE_NAME:$STAGING_ID" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"')
+          current=$(docker buildx imagetools inspect "$IMAGE_NAME:$VERSION" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"')
+          if test "$current" = "$stagedDigest"; then priorDocker=$(cat prior-docker-version-digest); test -z "$priorDocker" || docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" "$IMAGE_NAME@$priorDocker" || rollbackFailed=true; fi
+          current=$(docker buildx imagetools inspect "$IMAGE_NAME:next" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"')
+          if test "$current" = "$stagedDigest"; then priorDocker=$(cat prior-docker-next-digest); test -z "$priorDocker" || docker buildx imagetools create --tag "$IMAGE_NAME:next" "$IMAGE_NAME@$priorDocker" || rollbackFailed=true; fi
+          if [[ "${{ steps.cws_candidate.outcome }}" != skipped ]]; then
+            GITHUB_OUTPUT=current-cws-status node trusted-release-tools/scripts/cws.mjs status
+            currentCws=$(sed -n 's/^submitted_version=//p' current-cws-status)
+            if [[ "$currentCws" == none || "$currentCws" == "$VERSION" ]]; then
+              if [[ $(cat prior-cws-existed) == true && -s prior-cws-package ]]; then
+                CWS_PACKAGE_PATH=prior-cws-package CWS_VERSION="$(jq -r .version prior-candidate.json)" node trusted-release-tools/scripts/cws.mjs upload-candidate || rollbackFailed=true
+              else
+              echo "CWS_RECONCILIATION_BLOCKED: no exact prior draft package can be restored" >&2
+              rollbackFailed=true
+              fi
+            else
+              echo "CWS ownership changed to $currentCws; refusing stale rollback" >&2
+            fi
+          fi
+          [[ "$rollbackFailed" == false ]] || exit 1
