@@ -443,10 +443,35 @@ jobs:
             if [[ -n "$prior" ]]; then gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$prior" -F force=true >/dev/null || rollbackFailed=true; else gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" || rollbackFailed=true; fi
           fi
           stagedDigest=$(docker buildx imagetools inspect "$IMAGE_NAME:$STAGING_ID" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"')
+          dockerAliasesToDelete=()
           current=$(docker buildx imagetools inspect "$IMAGE_NAME:$VERSION" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"')
-          if test "$current" = "$stagedDigest"; then priorDocker=$(cat prior-docker-version-digest); test -z "$priorDocker" || docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" "$IMAGE_NAME@$priorDocker" || rollbackFailed=true; fi
+          if test "$current" = "$stagedDigest"; then
+            priorDocker=$(cat prior-docker-version-digest)
+            if [[ -n "$priorDocker" ]]; then docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" "$IMAGE_NAME@$priorDocker" || rollbackFailed=true; else dockerAliasesToDelete+=("$VERSION"); fi
+          fi
           current=$(docker buildx imagetools inspect "$IMAGE_NAME:next" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"')
-          if test "$current" = "$stagedDigest"; then priorDocker=$(cat prior-docker-next-digest); test -z "$priorDocker" || docker buildx imagetools create --tag "$IMAGE_NAME:next" "$IMAGE_NAME@$priorDocker" || rollbackFailed=true; fi
+          if test "$current" = "$stagedDigest"; then
+            priorDocker=$(cat prior-docker-next-digest)
+            if [[ -n "$priorDocker" ]]; then docker buildx imagetools create --tag "$IMAGE_NAME:next" "$IMAGE_NAME@$priorDocker" || rollbackFailed=true; else dockerAliasesToDelete+=(next); fi
+          fi
+          if (( ${#dockerAliasesToDelete[@]} )); then
+            owner=${GITHUB_REPOSITORY_OWNER,,}
+            endpoint="users/$owner/packages/container/lurkloot-cli/versions"
+            versions=$(gh api --paginate --slurp "$endpoint?per_page=100" 2>/dev/null | jq 'add' 2>/dev/null)
+            if [[ -z "$versions" ]]; then
+              endpoint="orgs/$owner/packages/container/lurkloot-cli/versions"
+              versions=$(gh api --paginate --slurp "$endpoint?per_page=100" 2>/dev/null | jq 'add' 2>/dev/null)
+            fi
+            aliases=$(printf '%s\n' "${dockerAliasesToDelete[@]}" | jq -R . | jq -s .)
+            matches=$(jq --arg digest "$stagedDigest" --arg version "$VERSION" --arg staging "$STAGING_ID" --argjson aliases "$aliases" '[.[] | select(.name == $digest) | select(.metadata.container.tags as $tags | ($tags | index($staging)) != null and ($tags | all(. == $version or . == "next" or . == $staging)) and ($aliases | all(. as $alias | ($tags | index($alias)) != null)))]' <<<"${versions:-[]}" 2>/dev/null)
+            packageId=$(jq -r 'if length == 1 then .[0].id else empty end' <<<"${matches:-[]}")
+            if [[ -n "$packageId" ]]; then
+              gh api -X DELETE "$endpoint/$packageId" || rollbackFailed=true
+            else
+              echo "GHCR_RECONCILIATION_BLOCKED: run-owned aliases ${dockerAliasesToDelete[*]} cannot be safely removed; the exact staged package version is missing, ambiguous, or has unrelated tags" >&2
+              rollbackFailed=true
+            fi
+          fi
           if [[ "${{ steps.cws_candidate.outcome }}" != skipped ]]; then
             GITHUB_OUTPUT=current-cws-status node trusted-release-tools/scripts/cws.mjs status
             currentCws=$(sed -n 's/^submitted_version=//p' current-cws-status)

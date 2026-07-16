@@ -124,6 +124,17 @@ test("rollback snapshots complete canonical state and restores only run-owned mu
   assert.match(prepare, /--latest=\"\$priorLatest\"/);
   assert.ok((prepare.match(/current=.*imagetools inspect/g) ?? []).length >= 2, "both OCI aliases compare ownership before restore");
   assert.ok((prepare.match(/test \"\$current\" = \"\$stagedDigest\"/g) ?? []).length >= 2, "OCI rollback is ownership guarded");
+  assert.doesNotMatch(prepare, /test -z \"\$priorDocker\" \|\| docker buildx/, "an empty prior alias must not become a rollback no-op");
+  assert.match(prepare, /dockerAliasesToDelete=\(\)/);
+  assert.match(prepare, /dockerAliasesToDelete\+=\(\"\$VERSION\"\)/);
+  assert.match(prepare, /dockerAliasesToDelete\+=\(next\)/);
+  assert.match(prepare, /users\/\$owner\/packages\/container\/lurkloot-cli\/versions/);
+  assert.match(prepare, /orgs\/\$owner\/packages\/container\/lurkloot-cli\/versions/);
+  assert.match(prepare, /select\(\.name == \$digest\)/, "the package version lookup is pinned to the run-owned digest");
+  assert.match(prepare, /index\(\$staging\)/, "the immutable run staging tag proves package-version ownership");
+  assert.match(prepare, /all\(\. == \$version or \. == \"next\" or \. == \$staging\)/, "package deletion rejects unrelated attached tags");
+  assert.equal((prepare.match(/gh api -X DELETE \"\$endpoint\/\$packageId\"/g) ?? []).length, 1, "both empty aliases share one package-version deletion");
+  assert.match(prepare, /GHCR_RECONCILIATION_BLOCKED/);
   assert.match(prepare, /currentTag=.*git\/ref\/tags/);
   assert.match(prepare, /\"\$currentTag\" == \"\$EXPECTED_HEAD_SHA\"/);
   assert.match(prepare, /\.sourceSha \"\$currentOwner\/candidate\.json\"/);
