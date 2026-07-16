@@ -86,7 +86,13 @@ function validateMetadata(value) {
   invariant(loginPattern.test(value.initiator), "initiator must be a GitHub login");
   invariant(sha256Pattern.test(value.chromeZipSha256), "chromeZipSha256 must be a SHA-256 value");
   validateChecksums(value.artifactChecksums);
-  invariant(Array.isArray(value.dockerDigests) && value.dockerDigests.every((item) => digestPattern.test(item)), "dockerDigests must contain SHA-256 digests");
+  invariant(
+    Array.isArray(value.dockerDigests)
+      && value.dockerDigests.length === 2
+      && new Set(value.dockerDigests).size === 2
+      && value.dockerDigests.every((item) => digestPattern.test(item)),
+    "dockerDigests must contain two distinct SHA-256 digests",
+  );
   invariant(cwsStates.has(value.cwsState), "cwsState is unsupported");
   const previewUrl = new URL(value.previewUrl);
   invariant(previewUrl.protocol === "https:", "previewUrl must use HTTPS");

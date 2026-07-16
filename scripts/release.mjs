@@ -43,7 +43,7 @@ export async function checkWorkspace() {
   if (!entry) {
     console.error(`release: changelog has no ${root.version} entry`);
     failed = true;
-  } else if (entry.date && !validDate(entry.date)) {
+  } else if (Object.hasOwn(entry, "date") && !validDate(entry.date)) {
     console.error(`release: ${root.version} has invalid changelog date ${entry.date}`);
     failed = true;
   }

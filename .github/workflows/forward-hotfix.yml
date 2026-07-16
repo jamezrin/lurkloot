@@ -32,6 +32,11 @@ jobs:
           [[ "$KIND" == normal || "$KIND" == hotfix ]] || { echo "kind must be normal or hotfix" >&2; exit 1; }
           branch="chore/forward-release-$VERSION"
           git fetch origin -- main develop
+          existing_pr=$(gh pr list --state open --head "$branch" --base develop --json number --jq '.[0].number')
+          if [[ -n "$existing_pr" ]] || git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+            printf '## Release v%s forward merge\n\nSynchronization branch already exists%s; leaving it unchanged.\n' "$VERSION" "${existing_pr:+ as PR #$existing_pr}" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           git switch -C "$branch" origin/develop
           if ! git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com merge --no-ff origin/main -m "chore: forward hotfix $VERSION"; then
             git merge --abort
@@ -39,12 +44,7 @@ jobs:
             printf '## Release v%s needs manual forward merge\n\nAutomatic merge conflicted. Follow %s before the next normal release.\n' "$VERSION" "$issue" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          remote_sha=$(git ls-remote --heads origin "refs/heads/$branch" | cut -f1)
-          if [[ -n "$remote_sha" ]]; then
-            git push --force-with-lease="refs/heads/$branch:$remote_sha" origin "$branch"
-          else
-            git push origin "$branch"
-          fi
+          git push origin "$branch"
           pr=$(gh pr list --state open --head "$branch" --base develop --json number --jq '.[0].number')
           if [[ -z "$pr" ]]; then
             pr=$(gh pr create --base develop --head "$branch" --label release-forward-merge --title "chore: forward release $VERSION" --body "Carries stable $KIND release v$VERSION metadata and any production-only fixes from main into develop." | sed 's#.*/##')

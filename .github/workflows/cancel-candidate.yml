@@ -54,12 +54,17 @@ jobs:
         run: |
           node -e 'import("./scripts/release/model.mjs").then(({parseCandidateMetadata}) => parseCandidateMetadata(require("fs").readFileSync("candidate/candidate.json","utf8")))'
           test "$(jq -r .version candidate/candidate.json)" = "$VERSION"
+          test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true || { echo "v$VERSION is not an active prerelease" >&2; exit 1; }
+          pr=$(jq -r .releasePr candidate/candidate.json)
+          test "$(gh pr view "$pr" --json state --jq .state)" = OPEN || { echo "release PR #$pr is not open" >&2; exit 1; }
+          source_sha=$(jq -r .sourceSha candidate/candidate.json)
+          test "$(gh pr view "$pr" --json headRefOid --jq .headRefOid)" = "$source_sha" || { echo "release PR #$pr no longer matches frozen source $source_sha" >&2; exit 1; }
       - name: Cancel active CWS submission
         run: node scripts/cws.mjs cancel-submission
       - name: Update release PR and mutable aliases
         run: |
           pr=$(jq -r .releasePr candidate/candidate.json)
-          sha=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
+          sha=$(jq -r .sourceSha candidate/candidate.json)
           if [[ "$DISPOSITION" == keep-mutable ]]; then
             gh pr ready "$pr" --undo || true
             title="Waiting for replacement candidate"
