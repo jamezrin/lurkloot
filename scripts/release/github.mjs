@@ -127,7 +127,7 @@ export function stateGuidance(state, { version, pr, sourceSha, submittedVersion,
     return `Release PR #${pr} no longer matches frozen source ${sourceSha}. Cancel CWS review, restore or replace the candidate through Prepare prerelease, and do not merge this head.`;
   }
   if (state === "none") {
-    return `CWS has no submitted v${version} revision. Run Submit candidate again against the frozen GitHub prerelease.`;
+    return `CWS has no submitted v${version} revision. Convert PR #${pr} to draft, verify the frozen GitHub prerelease, then mark it ready to reconcile submission.`;
   }
   return `v${version} reported ${state}. Inspect the CWS dashboard and use Cancel candidate before replacing or abandoning it.`;
 }

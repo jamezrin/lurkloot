@@ -32,9 +32,9 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 
 ## Cutting a Release
 
-Releases are operated through GitHub pull requests and Actions; do not prepare them with local version-bump commands or create/move tags manually. Normal releases include everything on `develop` at the release cut. Hotfixes branch from `main`, target `main`, and are forward-merged to `develop` after publication. Use the explicit version in the GitHub workflow; release labels are advisory.
+Releases are driven by draft pull requests to `main`; do not prepare them with local version-bump commands or create/move tags manually. Normal release heads start from `develop`, while hotfix heads start from `main` and exclude unreleased `develop` commits. A repository administrator activates the lifecycle by applying exactly one of `release/patch`, `release/minor`, `release/major`, or `release/hotfix`. Automation derives the version from that label, refreshes draft candidates after pushes, submits when the PR becomes ready, promotes after a staged candidate is merged, and opens the `main` to `develop` synchronization PR. Branch names are never release authorization.
 
-Follow [RELEASING.md](RELEASING.md) for candidate updates, CWS staged review, cancellation, promotion, hotfixes, recovery, credentials, and required repository configuration.
+Follow [RELEASING.md](RELEASING.md) for administrator/SHA approvals, exact labels and checks, automatic reconciliation, CWS staged review, PR-number recovery, promotion, hotfixes, credentials, and required repository configuration.
 
 ## Coding Style & Naming Conventions
 
