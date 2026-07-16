@@ -77,6 +77,10 @@ export function submitAction(status, version) {
   throw new Error(`Chrome Web Store revision ${version} is ${submitted.state}; resolve it before submission`);
 }
 
+export function submittedAction(action) {
+  return action === "submit" ? "submitted" : action;
+}
+
 export function cancelAction(status, version) {
   assertHealthy(status);
   const submitted = status.submittedItemRevisionStatus;
@@ -273,7 +277,7 @@ async function main() {
         throw new Error(`Chrome Web Store submission returned ${result.state}; expected PENDING_REVIEW or STAGED`);
       }
     }
-    await output({ action });
+    await output({ action: submittedAction(action) });
     return;
   }
   if (command === "cancel-submission") {

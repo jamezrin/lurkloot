@@ -42,3 +42,18 @@
 - `pnpm release:test`: 97 passed.
 - `go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7`: passed against all workflows.
 - `git diff --check`: passed.
+
+## Staged-retry review fix
+
+- `scripts/cws.mjs submit-staged` now reports the completed external action as `submitted`, while preserving `already-submitted` and `already-staged` retry outcomes.
+- Submission captures that action and passes it to `submitCandidateCheck`; `cws-release-ready` remains `in_progress` until monitor finalization.
+- An `already-staged` retry now renders staged-validation-specific check output, prerelease notes, sticky status, next action, and milestone instead of regressing to `PENDING_REVIEW` messaging.
+- Added unit and workflow-contract coverage for the action mapping and staged retry path.
+
+## Staged-retry verification
+
+- `pnpm cws:test`: 16 passed.
+- `pnpm release:test`: 97 passed.
+- `go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7`: passed.
+- `git diff --check`: passed.
+- `pnpm dlx actionlint@1.7.7` was unavailable because the npm package has no matching version; the pinned upstream Go command was used.
