@@ -56,6 +56,13 @@ test("accepts a higher candidate version", () => {
   );
 });
 
+test("rejects a candidate below a newer active version", () => {
+  assert.throws(
+    () => assertCandidateVersion({ version: "1.5.0", stableVersion: "1.4.0", activeVersions: ["1.6.0"] }),
+    /cannot supersede newer active candidate/,
+  );
+});
+
 test("allows replacement only before CWS submission", () => {
   assert.equal(candidateAction({ exists: false, stable: false }), "create");
   assert.equal(candidateAction({ exists: true, stable: false }), "replace");

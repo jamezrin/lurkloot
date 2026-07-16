@@ -38,7 +38,7 @@ A candidate is mutable until it is submitted to Chrome Web Store review. Submiss
 
 Running **Prepare prerelease** again with the same version replaces the candidate from the current selected `develop` commit, but only while the CWS revision remains an unsubmitted draft.
 
-The version may jump beyond the originally expected patch, minor, or major release. It must be greater than the newest stable version and must not conflict with another active candidate. Release labels can document the expected bump, but the explicit workflow version is authoritative.
+The version may jump beyond the originally expected patch, minor, or major release. It must be greater than the newest stable version and any other active candidate. After the higher candidate upload succeeds, automation closes the older release PR and retains its GitHub prerelease as a cancelled audit record. Release labels can document the expected bump, but the explicit workflow version is authoritative.
 
 ## Submit and review a candidate
 

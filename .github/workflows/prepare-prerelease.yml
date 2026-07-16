@@ -43,29 +43,30 @@ jobs:
       sha: ${{ steps.release.outputs.sha }}
       pr: ${{ steps.release.outputs.pr }}
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       VERSION: ${{ inputs.version }}
       KIND: ${{ inputs.release_kind }}
       SOURCE_REF: ${{ inputs.source_ref }}
       HOTFIX_PR: ${{ inputs.pr_number }}
-      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
-      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
-      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
-      CWS_VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.9.0
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Preserve trusted release tooling
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-tools/release"
+          cp scripts/release.mjs "$RUNNER_TEMP/release-tools/release.mjs"
+          cp scripts/release/model.mjs "$RUNNER_TEMP/release-tools/release/model.mjs"
       - name: Validate mutable store state
         id: cws
+        env:
+          CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          CWS_VERSION: ${{ inputs.version }}
         run: node scripts/cws.mjs status
       - name: Refuse frozen candidates
         env:
@@ -78,14 +79,21 @@ jobs:
           fi
       - id: release
         name: Create or update release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node -e 'import("./scripts/release/model.mjs").then(({assertCandidateVersion}) => assertCandidateVersion({ version: process.env.VERSION, stableVersion: require("./package.json").version, activeVersions: [], replacingVersion: process.env.VERSION }))'
+          active_versions=$(gh release list --limit 100 --json tagName,isPrerelease,name --jq '[.[] | select(.isPrerelease and (.name | endswith("cancelled") | not)) | .tagName | sub("^v";"")]')
+          ACTIVE_VERSIONS="$active_versions" node -e 'import("./scripts/release/model.mjs").then(({assertCandidateVersion}) => assertCandidateVersion({ version: process.env.VERSION, stableVersion: require("./package.json").version, activeVersions: JSON.parse(process.env.ACTIVE_VERSIONS), replacingVersion: process.env.VERSION }))'
           if gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease 2>/dev/null | grep -qx false; then
             echo "v$VERSION is already stable and immutable" >&2
             exit 1
           fi
           if [[ "$KIND" == normal ]]; then
-            git fetch origin "$SOURCE_REF"
+            [[ "$SOURCE_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || { echo "source_ref contains unsafe characters" >&2; exit 1; }
+            git fetch origin -- develop
+            git fetch origin -- "$SOURCE_REF"
+            source_sha=$(git rev-parse FETCH_HEAD)
+            git merge-base --is-ancestor "$source_sha" origin/develop || { echo "normal release source must already be on develop" >&2; exit 1; }
             git checkout --detach FETCH_HEAD
             branch="release/$VERSION"
           else
@@ -94,13 +102,18 @@ jobs:
             [[ $(jq -r .baseRefName <<<"$pr_json") == main && $(jq -r .state <<<"$pr_json") == OPEN ]] || { echo "hotfix PR must be open against main" >&2; exit 1; }
             [[ $(jq -r .isCrossRepository <<<"$pr_json") == false ]] || { echo "release automation cannot mutate a fork hotfix branch" >&2; exit 1; }
             branch=$(jq -r .headRefName <<<"$pr_json")
-            git fetch origin "$branch"
+            git fetch origin -- main
+            git fetch origin -- "$branch"
+            git merge-base --is-ancestor origin/main FETCH_HEAD || { echo "hotfix branch must descend from main" >&2; exit 1; }
             git checkout -B "$branch" FETCH_HEAD
           fi
-          node scripts/release.mjs prepare "$VERSION"
+          node "$RUNNER_TEMP/release-tools/release.mjs" prepare "$VERSION"
           git switch -C "$branch"
           git add package.json packages/*/package.json packages/site/src/changelog.json
-          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "chore(release): prepare $VERSION" || true
+          if ! git diff --cached --quiet; then
+            git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "chore(release): prepare $VERSION"
+          fi
+          git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
           git push --force-with-lease origin "$branch"
           sha=$(git rev-parse HEAD)
           if [[ "$KIND" == normal ]]; then
@@ -115,10 +128,28 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "pr=$pr" >> "$GITHUB_OUTPUT"
           gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$sha" -f status=in_progress -f output[title]="Waiting for CWS submission" -f output[summary]="Candidate v$VERSION is mutable and has not been submitted for review."
+
+  verify:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm check
 
   extension:
-    needs: prepare
+    needs: [prepare, verify]
     uses: ./.github/workflows/build-extension.yml
     with:
       ref: ${{ needs.prepare.outputs.ref }}
@@ -128,7 +159,7 @@ jobs:
       CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
 
   docker:
-    needs: prepare
+    needs: [prepare, verify]
     permissions:
       contents: read
       packages: write
@@ -159,6 +190,7 @@ jobs:
       CHECKSUMS_PATH: release-assets/SHA256SUMS
       DIGESTS_DIR: docker-digests
       PREVIEW_URL: https://next.lurkloot.pages.dev
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
       CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
       CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
       CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
@@ -168,6 +200,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.ref }}
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          path: trusted-release-tools
       - uses: actions/download-artifact@v8
         with:
           name: extension-candidate-${{ inputs.version }}
@@ -178,9 +214,22 @@ jobs:
           path: docker-digests
           merge-multiple: true
       - name: Upload CWS draft
-        run: node scripts/cws.mjs upload-candidate
+        run: node trusted-release-tools/scripts/cws.mjs upload-candidate
       - name: Create candidate metadata
-        run: node scripts/release/metadata.mjs > candidate.json
+        run: node trusted-release-tools/scripts/release/metadata.mjs > candidate.json
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish candidate Docker aliases
+        run: |
+          mapfile -t digests < <(jq -r .dockerDigests[] candidate.json)
+          ((${#digests[@]} == 2)) || { echo "expected two Docker digests" >&2; exit 1; }
+          args=()
+          for digest in "${digests[@]}"; do args+=("$IMAGE_NAME@$digest"); done
+          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" --tag "$IMAGE_NAME:next" "${args[@]}"
       - name: Replace mutable prerelease
         run: |
           git tag --force "v$VERSION" "$SOURCE_SHA"
@@ -192,6 +241,18 @@ jobs:
             gh release create "v$VERSION" --verify-tag --title "v$VERSION prerelease" --prerelease --latest=false --notes "Mutable candidate from $SOURCE_SHA; release PR #$RELEASE_PR."
           fi
           gh release upload "v$VERSION" release-assets/* candidate.json
+      - name: Mark older mutable candidates as superseded
+        run: |
+          gh release list --limit 100 --json tagName,isPrerelease,name --jq '.[] | select(.isPrerelease and (.name | endswith("cancelled") | not)) | .tagName | sub("^v";"")' | while read -r old_version; do
+            [[ "$old_version" != "$VERSION" ]] || continue
+            OLD_VERSION="$old_version" node -e 'import("./trusted-release-tools/scripts/release/model.mjs").then(({compareVersions}) => process.exit(compareVersions(process.env.OLD_VERSION, process.env.VERSION) < 0 ? 0 : 1))' || continue
+            rm -rf superseded && mkdir superseded
+            if gh release download "v$old_version" --pattern candidate.json --dir superseded; then
+              old_pr=$(jq -r .releasePr superseded/candidate.json)
+              gh pr close "$old_pr" --comment "Candidate v$old_version was superseded by v$VERSION." || true
+            fi
+            gh release edit "v$old_version" --title "v$old_version cancelled" --prerelease --latest=false
+          done
           gh pr comment "$RELEASE_PR" --body "<!-- lurkloot-release:$VERSION:candidate -->
           @$INITIATOR, **v$VERSION** is uploaded and ready to inspect before CWS review.
 

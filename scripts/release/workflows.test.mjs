@@ -9,18 +9,20 @@ test("prepare workflow exposes controlled candidate inputs", async () => {
   for (const input of ["version:", "source_ref:", "release_kind:", "pr_number:"]) assert.match(yaml, new RegExp(`\\n      ${input}`));
   assert.match(yaml, /environment: prereleases/);
   assert.match(yaml, /group: prepare-candidate-/);
-  assert.match(yaml, /node scripts\/cws\.mjs upload-candidate/);
+  assert.match(yaml, /node trusted-release-tools\/scripts\/cws\.mjs upload-candidate/);
   assert.match(yaml, /candidate\.json/);
+  assert.match(yaml, /imagetools create --tag "\$IMAGE_NAME:\$VERSION" --tag "\$IMAGE_NAME:next"/);
+  assert.match(yaml, /Mark older mutable candidates as superseded/);
 });
 
 test("review workflows submit staged, cancel, and poll", async () => {
   const submit = await workflow("submit-candidate.yml");
   const cancel = await workflow("cancel-candidate.yml");
   const monitor = await workflow("monitor-cws.yml");
-  assert.match(submit, /node scripts\/cws\.mjs submit-staged/);
+  assert.match(submit, /node trusted-release-tools\/scripts\/cws\.mjs submit-staged/);
   assert.match(submit, /environment: cws-review/);
   assert.match(submit, /cd candidate && sha256sum --check SHA256SUMS/);
-  assert.match(cancel, /node scripts\/cws\.mjs cancel-submission/);
+  assert.match(cancel, /node trusted-release-tools\/scripts\/cws\.mjs cancel-submission/);
   assert.match(cancel, /environment: cws-review/);
   assert.match(monitor, /cron: ['"]\*\/30 \* \* \* \*['"]/);
   assert.match(monitor, /cws-release-ready/);
@@ -46,7 +48,7 @@ test("site deployment uses explicit channel input", async () => {
 });
 
 test("legacy publisher and candidate tag are gone", async () => {
-  const release = await workflow("release.yml");
-  assert.doesNotMatch(release, /branches: \[main\]/);
-  assert.doesNotMatch(release, /cws-v.*-candidate|release\.channel/);
+  await assert.rejects(workflow("release.yml"), /ENOENT/);
+  const workflows = await Promise.all(["prepare-prerelease.yml", "submit-candidate.yml", "cancel-candidate.yml", "monitor-cws.yml", "promote-release.yml"].map(workflow));
+  assert.doesNotMatch(workflows.join("\n"), /cws-v.*-candidate|release\.channel/);
 });

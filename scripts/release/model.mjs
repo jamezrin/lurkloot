@@ -53,6 +53,10 @@ export function assertCandidateVersion({ version, stableVersion, activeVersions,
     !activeVersions.includes(version) || replacingVersion === version,
     `${version} already has an active candidate`,
   );
+  const newerActiveVersion = activeVersions.find(
+    (activeVersion) => activeVersion !== replacingVersion && compareVersions(activeVersion, version) > 0,
+  );
+  invariant(!newerActiveVersion, `${version} cannot supersede newer active candidate ${newerActiveVersion}`);
   return version;
 }
 
