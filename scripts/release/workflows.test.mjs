@@ -4,6 +4,38 @@ import test from "node:test";
 
 const workflow = (name) => readFile(`.github/workflows/${name}`, "utf8");
 
+test("controller uses trusted pull_request_target events", async () => {
+  const text = await workflow("reconcile-release-pr.yml");
+  assert.match(text, /pull_request_target:/);
+  for (const type of ["opened", "reopened", "synchronize", "labeled", "unlabeled", "converted_to_draft", "ready_for_review", "closed"]) {
+    assert.match(text, new RegExp(`\\b${type}\\b`));
+  }
+  assert.match(text, /permissions:\n  contents: read/);
+  assert.match(text, /group: release-pr-\$\{\{ github\.event\.pull_request\.number \}\}/);
+  assert.match(text, /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
+  assert.doesNotMatch(text, /actions\/checkout[^\n]*\n(?:.*\n){0,5}.*ref:.*head\.sha/);
+  for (const job of ["inspect", "prepare", "cancel", "cancel-and-prepare", "submit", "notify"]) {
+    assert.match(text, new RegExp(`\\n  ${job}:\\n[\\s\\S]*?permissions:`));
+  }
+});
+
+test("controller recovers authorization and calls only policy-selected mutations", async () => {
+  const text = await workflow("reconcile-release-pr.yml");
+  assert.match(text, /permission.*admin|admin.*permission/is);
+  assert.match(text, /metadata read/);
+  for (const field of ["authorized_by", "authorized_sha", "label"]) assert.match(text, new RegExp(`\\b${field}\\b`));
+  assert.match(text, /awaiting-approval/);
+  assert.match(text, /jq -r \.state policy\.json\) == blocked/);
+  assert.match(text, /needs\.cancel\.outputs\.safe_to_replace == 'true'/);
+  for (const reusable of ["prepare-prerelease.yml", "cancel-candidate.yml", "submit-candidate.yml"]) {
+    assert.match(text, new RegExp(`uses: \\.\\/\\.github\\/workflows\\/${reusable.replace(".", "\\.")}`));
+  }
+  assert.doesNotMatch(text.match(/\n  inspect:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/)?.[1] ?? "", /secrets\./);
+  assert.match(text, /lur[k]?loot-release-pr:\$PR:status/);
+  assert.match(text, /milestone/);
+  assert.doesNotMatch(text, /uses: \.\/\.github\/workflows\/promote-release\.yml/);
+});
+
 test("candidate preparation is reusable and recovery accepts only a PR number", async () => {
   const text = await workflow("prepare-prerelease.yml");
   assert.match(text, /workflow_call:/);
