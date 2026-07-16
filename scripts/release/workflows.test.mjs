@@ -13,6 +13,7 @@ test("prepare workflow exposes controlled candidate inputs", async () => {
   assert.match(yaml, /candidate\.json/);
   assert.match(yaml, /imagetools create --tag "\$IMAGE_NAME:\$VERSION" --tag "\$IMAGE_NAME:next"/);
   assert.match(yaml, /Mark older mutable candidates as superseded/);
+  assert.match(yaml, /--force-with-lease="refs\/heads\/\$branch:\$remote_sha"/);
 });
 
 test("review workflows submit staged, cancel, and poll", async () => {
