@@ -21,6 +21,8 @@ import {
 import { buildCandidateMetadata, parseChecksums } from "./metadata.mjs";
 import { assertCandidateVersion, compareVersions, parseCandidateMetadata, renderCandidateMetadata } from "./model.mjs";
 import { deriveCwsState, parseStatusOutputs } from "./monitor.mjs";
+import { deriveReleasePolicy } from "./policy.mjs";
+import { deriveReconciliation } from "./reconcile.mjs";
 
 const botEmail = "41898282+github-actions[bot]@users.noreply.github.com";
 
@@ -30,8 +32,12 @@ function required(name) {
   return value;
 }
 
-async function emitOutputs(values) {
-  const lines = Object.entries(values).map(([key, value]) => `${key}=${value}`);
+export async function emitOutputs(values) {
+  const lines = Object.entries(values).map(([key, value]) => {
+    const normalized = value == null ? "" : String(value);
+    if (/\r|\n/.test(normalized)) throw new Error(`workflow output ${key} contains a line break`);
+    return `${key}=${normalized}`;
+  });
   for (const line of lines) console.log(line);
   if (!process.env.GITHUB_OUTPUT) return;
   await appendFile(process.env.GITHUB_OUTPUT, `${lines.join("\n")}\n`);
@@ -152,6 +158,35 @@ async function candidateRead({ file, version }) {
   });
 }
 
+function metadataOutputs(metadata) {
+  return {
+    schema_version: metadata.schemaVersion,
+    version: metadata.version,
+    kind: metadata.kind,
+    label: metadata.label,
+    stable_version: metadata.stableVersion,
+    stable_sha: metadata.stableSha,
+    develop_sha: metadata.developSha,
+    source_sha: metadata.sourceSha,
+    authorized_sha: metadata.authorizedSha,
+    release_pr: metadata.releasePr,
+    initiator: metadata.initiator,
+    authorized_by: metadata.authorizedBy,
+    trusted_tools_sha: metadata.trustedToolsSha,
+    created_at: metadata.createdAt,
+    reconciled_at: metadata.reconciledAt,
+    chrome_zip_sha256: metadata.chromeZipSha256,
+    artifact_checksums: JSON.stringify(metadata.artifactChecksums),
+    docker_digests: JSON.stringify(metadata.dockerDigests),
+    cws_state: metadata.cwsState,
+    preview_url: metadata.previewUrl,
+  };
+}
+
+async function metadataRead({ file, version }) {
+  await emitOutputs(metadataOutputs(await readCandidate(file, version)));
+}
+
 async function cwsReport(values) {
   const metadata = await readCandidate(values.candidate, values.version);
   const { version, sourceSha, releasePr: pr } = metadata;
@@ -218,6 +253,12 @@ const commands = {
     positionals: 2,
     run: async ({ positionals }) => { await verifyCandidateAssets(positionals[0], positionals[1]); },
   },
+  "metadata read": {
+    usage: "metadata read --file CANDIDATE_JSON [--version VERSION]",
+    options: { file: { type: "string" }, version: { type: "string" } },
+    requires: ["file"],
+    run: ({ values }) => metadataRead(values),
+  },
   "candidate read": {
     usage: "candidate read --file CANDIDATE_JSON [--version VERSION]",
     options: { file: { type: "string" }, version: { type: "string" } },
@@ -239,6 +280,35 @@ const commands = {
         stableVersion: manifest.version,
         activeVersions: JSON.parse(values["active-versions"]),
         replacingVersion: values["replacing-version"],
+      });
+    },
+  },
+  "policy": {
+    usage: "policy --input INPUT_JSON",
+    options: { input: { type: "string" } },
+    requires: ["input"],
+    run: async ({ values }) => {
+      const policy = deriveReleasePolicy(JSON.parse(await readFile(values.input, "utf8")));
+      await emitOutputs({
+        state: policy.state,
+        kind: policy.kind,
+        label: policy.label,
+        version: policy.version,
+        authorized_sha: policy.authorizedSha,
+        reason: policy.reason,
+      });
+    },
+  },
+  "reconcile": {
+    usage: "reconcile --input INPUT_JSON",
+    options: { input: { type: "string" } },
+    requires: ["input"],
+    run: async ({ values }) => {
+      const reconciliation = deriveReconciliation(JSON.parse(await readFile(values.input, "utf8")));
+      await emitOutputs({
+        action: reconciliation.action,
+        convert_to_draft: reconciliation.convertToDraft,
+        reason: reconciliation.reason,
       });
     },
   },
