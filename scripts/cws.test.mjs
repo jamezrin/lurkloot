@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cancelAction, ChromeWebStoreClient, prereleaseAction, revisionVersion, stableAction, submitAction, waitForCancellation } from "./cws.mjs";
+import { cancelAction, ChromeWebStoreClient, normalizeStatus, prereleaseAction, revisionVersion, stableAction, submitAction, waitForCancellation } from "./cws.mjs";
 
 const revision = (state, version) => ({ state, distributionChannels: [{ deployPercentage: 100, crxVersion: version }] });
 const status = ({ published = "1.3.0", submitted, warned = false, takenDown = false } = {}) => ({
@@ -12,6 +12,16 @@ const status = ({ published = "1.3.0", submitted, warned = false, takenDown = fa
 
 test("revisionVersion reads the submitted package version", () => {
   assert.equal(revisionVersion(revision("STAGED", "1.4.0")), "1.4.0");
+});
+
+test("normalizes store status for workflow decisions", () => {
+  assert.deepEqual(normalizeStatus(status({ submitted: revision("PENDING_REVIEW", "1.5.0"), published: "1.4.0", warned: true })), {
+    publishedVersion: "1.4.0",
+    submittedVersion: "1.5.0",
+    submittedState: "PENDING_REVIEW",
+    warned: true,
+    takenDown: false,
+  });
 });
 
 test("pre-release uploads replace an unsubmitted draft", () => {

@@ -1,9 +1,12 @@
-name: Forward hotfix to develop
+name: Forward stable release to develop
 
 on:
   workflow_call:
     inputs:
       version:
+        type: string
+        required: true
+      kind:
         type: string
         required: true
 
@@ -18,6 +21,7 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       VERSION: ${{ inputs.version }}
+      KIND: ${{ inputs.kind }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -25,12 +29,24 @@ jobs:
           fetch-depth: 0
       - name: Open synchronization PR
         run: |
-          branch="chore/forward-hotfix-$VERSION"
+          [[ "$KIND" == normal || "$KIND" == hotfix ]] || { echo "kind must be normal or hotfix" >&2; exit 1; }
+          branch="chore/forward-release-$VERSION"
+          git fetch origin -- main develop
           git switch -C "$branch" origin/develop
           if ! git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com merge --no-ff origin/main -m "chore: forward hotfix $VERSION"; then
             git merge --abort
-            gh issue create --title "chore: forward hotfix $VERSION to develop" --body "Automatic main → develop synchronization conflicted after v$VERSION. Resolve it manually before the next normal release."
+            issue=$(gh issue create --label release-forward-merge --title "chore: forward release $VERSION to develop" --body "Automatic main → develop synchronization conflicted after $KIND release v$VERSION. Create a branch from develop, merge main into it, resolve the conflicts without changing main, and open a PR back to develop before the next normal release.")
+            printf '## Release v%s needs manual forward merge\n\nAutomatic merge conflicted. Follow %s before the next normal release.\n' "$VERSION" "$issue" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          git push --force-with-lease origin "$branch"
-          gh pr list --state open --head "$branch" --base develop --json number --jq '.[0].number' | grep -q . || gh pr create --base develop --head "$branch" --title "chore: forward hotfix $VERSION" --body "Carries stable hotfix v$VERSION from main into develop."
+          remote_sha=$(git ls-remote --heads origin "refs/heads/$branch" | cut -f1)
+          if [[ -n "$remote_sha" ]]; then
+            git push --force-with-lease="refs/heads/$branch:$remote_sha" origin "$branch"
+          else
+            git push origin "$branch"
+          fi
+          pr=$(gh pr list --state open --head "$branch" --base develop --json number --jq '.[0].number')
+          if [[ -z "$pr" ]]; then
+            pr=$(gh pr create --base develop --head "$branch" --label release-forward-merge --title "chore: forward release $VERSION" --body "Carries stable $KIND release v$VERSION metadata and any production-only fixes from main into develop." | sed 's#.*/##')
+          fi
+          printf '## Release v%s forward merge\n\nOpened or refreshed PR #%s from main into develop.\n' "$VERSION" "$pr" >> "$GITHUB_STEP_SUMMARY"

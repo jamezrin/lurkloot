@@ -16,7 +16,7 @@ function assertHealthy(status) {
   if (status.warned) throw new Error("Chrome Web Store item has an unresolved policy warning");
 }
 
-export function prereleaseAction(status, version) {
+export function uploadAction(status, version) {
   assertHealthy(status);
   const publishedVersion = revisionVersion(status.publishedItemRevisionStatus);
   const submitted = status.submittedItemRevisionStatus;
@@ -31,6 +31,18 @@ export function prereleaseAction(status, version) {
   }
   if (submitted.state === "PENDING_REVIEW" || submitted.state === "STAGED") return "frozen";
   throw new Error(`Chrome Web Store submitted revision is ${submitted.state}; resolve it in the Developer Dashboard`);
+}
+
+export const prereleaseAction = uploadAction;
+
+export function normalizeStatus(status) {
+  return {
+    publishedVersion: revisionVersion(status.publishedItemRevisionStatus),
+    submittedVersion: revisionVersion(status.submittedItemRevisionStatus),
+    submittedState: status.submittedItemRevisionStatus?.state,
+    warned: Boolean(status.warned),
+    takenDown: Boolean(status.takenDown),
+  };
 }
 
 export function stableAction(status, version) {
@@ -226,10 +238,9 @@ async function main() {
     return;
   }
   if (command === "upload-candidate") {
-    const action = prereleaseAction(status, version);
+    const action = uploadAction(status, version);
     if (action === "frozen") {
-      await output({ action, candidate: "false" });
-      return;
+      throw new Error(`Chrome Web Store revision ${version} became ${status.submittedItemRevisionStatus.state} before upload. Cancel review before replacing the candidate`);
     }
     const packagePath = required("CWS_PACKAGE_PATH");
     const result = await waitForUpload(client, await client.upload(await readFile(packagePath), packagePath.split("/").at(-1)));
@@ -238,7 +249,9 @@ async function main() {
     }
     if (result.crxVersion && result.crxVersion !== version) throw new Error(`Chrome Web Store accepted ${result.crxVersion}; expected ${version}`);
     const after = await client.status();
-    if (after.submittedItemRevisionStatus) throw new Error("Draft upload unexpectedly created a submitted revision");
+    if (after.submittedItemRevisionStatus && after.submittedItemRevisionStatus.state !== "CANCELLED") {
+      throw new Error(`Draft upload unexpectedly found submitted state ${after.submittedItemRevisionStatus.state}`);
+    }
     await output({ action: "uploaded", candidate: "true" });
     return;
   }
@@ -256,7 +269,11 @@ async function main() {
   if (command === "cancel-submission") {
     const action = cancelAction(status, version);
     if (action === "cancel") {
-      await client.cancelSubmission();
+      try {
+        await client.cancelSubmission();
+      } catch (error) {
+        throw new Error(`Chrome Web Store could not cancel ${version} from ${status.submittedItemRevisionStatus.state}. Use the Developer Dashboard to resolve it before replacing or abandoning this candidate: ${error.message}`);
+      }
       await waitForCancellation(client, version);
     }
     await output({ action });
