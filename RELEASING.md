@@ -77,7 +77,7 @@ Open **Actions → Cancel candidate → Run workflow**, enter the version, and c
 - **Keep mutable** cancels an active CWS review, returns the release PR to draft, and permits another candidate upload for the same version.
 - **Abandon** cancels review when possible, closes the release PR, and marks the GitHub prerelease as cancelled while retaining its audit trail.
 
-After cancellation, prepare the same version again or choose any higher valid version. A staged candidate cannot be silently overwritten; follow the workflow's CWS guidance if Google no longer permits API cancellation in that state.
+After cancellation, prepare the same version again or choose any higher valid version. A staged candidate is cancelled explicitly through the CWS API before it can be replaced; it is never silently overwritten.
 
 ## Release a hotfix
 

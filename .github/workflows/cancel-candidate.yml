@@ -1,0 +1,58 @@
+name: Cancel candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        required: true
+      disposition:
+        type: choice
+        options: [keep-mutable, abandon]
+        default: keep-mutable
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cws-mutation
+  cancel-in-progress: false
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    environment: cws-review
+    permissions:
+      checks: write
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ inputs.version }}
+      DISPOSITION: ${{ inputs.disposition }}
+      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: v${{ inputs.version }}
+      - run: gh release download "v$VERSION" --pattern candidate.json --dir candidate
+      - run: node scripts/cws.mjs cancel-submission
+      - name: Update release PR
+        run: |
+          pr=$(jq -r .releasePr candidate/candidate.json)
+          sha=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
+          if [[ "$DISPOSITION" == keep-mutable ]]; then
+            gh pr ready "$pr" --undo || true
+            title="Waiting for replacement candidate"
+            summary="CWS review was cancelled; v$VERSION may be replaced."
+          else
+            gh pr close "$pr" --comment "Candidate v$VERSION was abandoned by @$GITHUB_ACTOR."
+            gh release edit "v$VERSION" --title "v$VERSION cancelled" --prerelease --latest=false
+            title="Candidate abandoned"
+            summary="v$VERSION will not be promoted."
+          fi
+          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$sha" -f status=completed -f conclusion=cancelled -f output[title]="$title" -f output[summary]="$summary"

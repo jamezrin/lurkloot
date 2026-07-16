@@ -1,0 +1,210 @@
+name: Prepare prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable semantic version to prepare
+        type: string
+        required: true
+      source_ref:
+        description: Normal release source branch or commit
+        type: string
+        default: develop
+        required: true
+      release_kind:
+        description: Candidate source type
+        type: choice
+        options: [normal, hotfix]
+        default: normal
+        required: true
+      pr_number:
+        description: Existing hotfix PR number; required for hotfixes
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-candidate-${{ inputs.version }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    environment: prereleases
+    permissions:
+      checks: write
+      contents: write
+      pull-requests: write
+    outputs:
+      ref: ${{ steps.release.outputs.ref }}
+      sha: ${{ steps.release.outputs.sha }}
+      pr: ${{ steps.release.outputs.pr }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ inputs.version }}
+      KIND: ${{ inputs.release_kind }}
+      SOURCE_REF: ${{ inputs.source_ref }}
+      HOTFIX_PR: ${{ inputs.pr_number }}
+      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate mutable store state
+        id: cws
+        run: node scripts/cws.mjs status
+      - name: Refuse frozen candidates
+        env:
+          SUBMITTED_STATE: ${{ steps.cws.outputs.submitted_state }}
+          SUBMITTED_VERSION: ${{ steps.cws.outputs.submitted_version }}
+        run: |
+          if [[ "$SUBMITTED_STATE" == PENDING_REVIEW || "$SUBMITTED_STATE" == STAGED ]]; then
+            echo "CWS $SUBMITTED_VERSION is $SUBMITTED_STATE; cancel it before replacing a candidate" >&2
+            exit 1
+          fi
+      - id: release
+        name: Create or update release PR
+        run: |
+          node -e 'import("./scripts/release/model.mjs").then(({assertCandidateVersion}) => assertCandidateVersion({ version: process.env.VERSION, stableVersion: require("./package.json").version, activeVersions: [], replacingVersion: process.env.VERSION }))'
+          if gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease 2>/dev/null | grep -qx false; then
+            echo "v$VERSION is already stable and immutable" >&2
+            exit 1
+          fi
+          if [[ "$KIND" == normal ]]; then
+            git fetch origin "$SOURCE_REF"
+            git checkout --detach FETCH_HEAD
+            branch="release/$VERSION"
+          else
+            [[ "$HOTFIX_PR" =~ ^[1-9][0-9]*$ ]] || { echo "hotfix pr_number is required" >&2; exit 1; }
+            pr_json=$(gh pr view "$HOTFIX_PR" --json baseRefName,headRefName,headRepositoryOwner,isCrossRepository,state)
+            [[ $(jq -r .baseRefName <<<"$pr_json") == main && $(jq -r .state <<<"$pr_json") == OPEN ]] || { echo "hotfix PR must be open against main" >&2; exit 1; }
+            [[ $(jq -r .isCrossRepository <<<"$pr_json") == false ]] || { echo "release automation cannot mutate a fork hotfix branch" >&2; exit 1; }
+            branch=$(jq -r .headRefName <<<"$pr_json")
+            git fetch origin "$branch"
+            git checkout -B "$branch" FETCH_HEAD
+          fi
+          node scripts/release.mjs prepare "$VERSION"
+          git switch -C "$branch"
+          git add package.json packages/*/package.json packages/site/src/changelog.json
+          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "chore(release): prepare $VERSION" || true
+          git push --force-with-lease origin "$branch"
+          sha=$(git rev-parse HEAD)
+          if [[ "$KIND" == normal ]]; then
+            pr=$(gh pr list --state open --head "$branch" --base main --json number --jq '.[0].number')
+            if [[ -z "$pr" ]]; then
+              pr=$(gh pr create --draft --base main --head "$branch" --title "chore(release): prepare $VERSION" --body "Release candidate for v$VERSION. Merge only after the cws-release-ready check passes." | sed 's#.*/##')
+            fi
+          else
+            pr=$HOTFIX_PR
+          fi
+          echo "ref=$branch" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$sha" -f status=in_progress -f output[title]="Waiting for CWS submission" -f output[summary]="Candidate v$VERSION is mutable and has not been submitted for review."
+      - run: pnpm check
+
+  extension:
+    needs: prepare
+    uses: ./.github/workflows/build-extension.yml
+    with:
+      ref: ${{ needs.prepare.outputs.ref }}
+      artifact_name: extension-candidate-${{ inputs.version }}
+      sign_crx: true
+    secrets:
+      CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+
+  docker:
+    needs: prepare
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      ref: ${{ needs.prepare.outputs.ref }}
+      artifact_prefix: docker-candidate-${{ inputs.version }}
+      push: true
+
+  publish:
+    needs: [prepare, extension, docker]
+    runs-on: ubuntu-latest
+    environment: prereleases
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+    concurrency:
+      group: cws-mutation
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ inputs.version }}
+      KIND: ${{ inputs.release_kind }}
+      SOURCE_SHA: ${{ needs.prepare.outputs.sha }}
+      RELEASE_PR: ${{ needs.prepare.outputs.pr }}
+      INITIATOR: ${{ github.actor }}
+      CHECKSUMS_PATH: release-assets/SHA256SUMS
+      DIGESTS_DIR: docker-digests
+      PREVIEW_URL: https://next.lurkloot.pages.dev
+      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_VERSION: ${{ inputs.version }}
+      CWS_PACKAGE_PATH: release-assets/lurkloot-${{ inputs.version }}-chrome.zip
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: extension-candidate-${{ inputs.version }}
+          path: release-assets
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: docker-candidate-${{ inputs.version }}-*
+          path: docker-digests
+          merge-multiple: true
+      - name: Upload CWS draft
+        run: node scripts/cws.mjs upload-candidate
+      - name: Create candidate metadata
+        run: node scripts/release/metadata.mjs > candidate.json
+      - name: Replace mutable prerelease
+        run: |
+          git tag --force "v$VERSION" "$SOURCE_SHA"
+          git push --force origin "refs/tags/v$VERSION"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            gh release view "v$VERSION" --json assets --jq '.assets[].name' | while read -r asset; do gh release delete-asset "v$VERSION" "$asset" --yes; done
+            gh release edit "v$VERSION" --title "v$VERSION prerelease" --prerelease --latest=false --notes "Mutable candidate from $SOURCE_SHA; release PR #$RELEASE_PR."
+          else
+            gh release create "v$VERSION" --verify-tag --title "v$VERSION prerelease" --prerelease --latest=false --notes "Mutable candidate from $SOURCE_SHA; release PR #$RELEASE_PR."
+          fi
+          gh release upload "v$VERSION" release-assets/* candidate.json
+          gh pr comment "$RELEASE_PR" --body "<!-- lurkloot-release:$VERSION:candidate -->
+          @$INITIATOR, **v$VERSION** is uploaded and ready to inspect before CWS review.
+
+          Source: \`$SOURCE_SHA\`
+          Chrome ZIP SHA-256: \`$(jq -r .chromeZipSha256 candidate.json)\`
+          Preview: https://next.lurkloot.pages.dev"
+
+  site:
+    needs: [prepare, publish]
+    uses: ./.github/workflows/site-deploy.yml
+    with:
+      channel: prerelease
+      ref: ${{ needs.prepare.outputs.ref }}
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

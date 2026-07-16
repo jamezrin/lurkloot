@@ -1,0 +1,36 @@
+name: Forward hotfix to develop
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  forward:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: develop
+          fetch-depth: 0
+      - name: Open synchronization PR
+        run: |
+          branch="chore/forward-hotfix-$VERSION"
+          git switch -C "$branch" origin/develop
+          if ! git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com merge --no-ff origin/main -m "chore: forward hotfix $VERSION"; then
+            git merge --abort
+            gh issue create --title "chore: forward hotfix $VERSION to develop" --body "Automatic main → develop synchronization conflicted after v$VERSION. Resolve it manually before the next normal release."
+            exit 0
+          fi
+          git push --force-with-lease origin "$branch"
+          gh pr list --state open --head "$branch" --base develop --json number --jq '.[0].number' | grep -q . || gh pr create --base develop --head "$branch" --title "chore: forward hotfix $VERSION" --body "Carries stable hotfix v$VERSION from main into develop."

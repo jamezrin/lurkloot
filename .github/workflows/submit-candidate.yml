@@ -1,0 +1,64 @@
+name: Submit candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cws-mutation
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    environment: cws-review
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ inputs.version }}
+      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: v${{ inputs.version }}
+          fetch-depth: 0
+      - name: Download frozen candidate record
+        run: gh release download "v$VERSION" --dir candidate
+      - name: Verify provenance
+        id: candidate
+        run: |
+          node -e 'import("./scripts/release/model.mjs").then(({parseCandidateMetadata}) => parseCandidateMetadata(require("fs").readFileSync("candidate/candidate.json","utf8")))'
+          (cd candidate && sha256sum --check SHA256SUMS)
+          source_sha=$(jq -r .sourceSha candidate/candidate.json)
+          test "$(git rev-parse HEAD)" = "$source_sha"
+          pr=$(jq -r .releasePr candidate/candidate.json)
+          test "$(gh pr view "$pr" --json headRefOid --jq .headRefOid)" = "$source_sha"
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+      - name: Submit with deferred publishing
+        run: node scripts/cws.mjs submit-staged
+      - name: Mark PR ready and notify releaser
+        env:
+          PR: ${{ steps.candidate.outputs.pr }}
+          SHA: ${{ steps.candidate.outputs.sha }}
+        run: |
+          gh pr ready "$PR" || true
+          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$SHA" -f status=in_progress -f output[title]="CWS review pending" -f output[summary]="v$VERSION is frozen and submitted with staged publishing."
+          initiator=$(jq -r .initiator candidate/candidate.json)
+          marker="<!-- lurkloot-release:$VERSION:cws:PENDING_REVIEW -->"
+          if ! gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
+            gh pr comment "$PR" --body "$marker
+          @$initiator, **v$VERSION** was submitted to CWS with deferred publishing and is pending review."
+          fi

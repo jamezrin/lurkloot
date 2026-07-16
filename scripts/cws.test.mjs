@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cancelAction, ChromeWebStoreClient, prereleaseAction, revisionVersion, stableAction, submitAction } from "./cws.mjs";
+import { cancelAction, ChromeWebStoreClient, prereleaseAction, revisionVersion, stableAction, submitAction, waitForCancellation } from "./cws.mjs";
 
 const revision = (state, version) => ({ state, distributionChannels: [{ deployPercentage: 100, crxVersion: version }] });
 const status = ({ published = "1.3.0", submitted, warned = false, takenDown = false } = {}) => ({
@@ -51,7 +51,7 @@ test("cancels only an active matching review", () => {
   assert.equal(cancelAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"), "cancel");
   assert.equal(cancelAction(status(), "1.4.0"), "already-cancelled");
   assert.equal(cancelAction(status({ submitted: revision("CANCELLED", "1.4.0") }), "1.4.0"), "already-cancelled");
-  assert.throws(() => cancelAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"), /staged/i);
+  assert.equal(cancelAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"), "cancel");
 });
 
 test("uses staged publishing and cancellation API methods", async () => {
@@ -70,4 +70,20 @@ test("uses staged publishing and cancellation API methods", async () => {
   assert.deepEqual(JSON.parse(requests[0].init.body), { publishType: "STAGED_PUBLISH", blockOnWarnings: true });
   assert.match(requests[0].url, /:publish$/);
   assert.match(requests[1].url, /:cancelSubmission$/);
+});
+
+test("accepts the empty cancellation response required by CWS v2", async () => {
+  const client = new ChromeWebStoreClient({
+    publisherId: "publisher",
+    extensionId: "extension",
+    accessToken: "token",
+    fetchImpl: async () => ({ ok: true, status: 200, text: async () => "" }),
+  });
+  assert.equal(await client.cancelSubmission(), undefined);
+});
+
+test("waits until CWS reports a cancelled submission", async () => {
+  const states = [status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), status({ submitted: revision("CANCELLED", "1.4.0") })];
+  const result = await waitForCancellation({ status: async () => states.shift() }, "1.4.0", { attempts: 2, delay: async () => {} });
+  assert.equal(result, "cancelled");
 });

@@ -72,9 +72,8 @@ export function cancelAction(status, version) {
   if (submittedVersion !== version) {
     throw new Error(`Chrome Web Store has ${submittedVersion ?? "an unknown version"} in state ${submitted.state}; expected ${version}`);
   }
-  if (submitted.state === "PENDING_REVIEW") return "cancel";
+  if (submitted.state === "PENDING_REVIEW" || submitted.state === "STAGED") return "cancel";
   if (submitted.state === "CANCELLED") return "already-cancelled";
-  if (submitted.state === "STAGED") throw new Error(`Chrome Web Store revision ${version} is staged and cannot be replaced silently`);
   throw new Error(`Chrome Web Store revision ${version} is ${submitted.state}; resolve it before cancellation`);
 }
 
@@ -116,8 +115,9 @@ export class ChromeWebStoreClient {
       ...init,
       headers: { authorization: `Bearer ${this.accessToken}`, ...init.headers },
     });
-    const body = await response.json();
-    if (!response.ok) throw new Error(`Chrome Web Store API failed (${response.status}): ${body.error?.message ?? "unknown error"}`);
+    const text = typeof response.text === "function" ? await response.text() : undefined;
+    const body = text === undefined ? await response.json() : text ? JSON.parse(text) : undefined;
+    if (!response.ok) throw new Error(`Chrome Web Store API failed (${response.status}): ${body?.error?.message ?? "unknown error"}`);
     return body;
   }
 
@@ -175,6 +175,17 @@ async function waitForUpload(client, initial) {
   throw new Error("Chrome Web Store upload was still in progress after 60 seconds");
 }
 
+export async function waitForCancellation(client, version, { attempts = 30, delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)) } = {}) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const status = await client.status();
+    const submitted = status.submittedItemRevisionStatus;
+    if (!submitted || submitted.state === "CANCELLED") return "cancelled";
+    if (revisionVersion(submitted) !== version) throw new Error(`Chrome Web Store switched to ${revisionVersion(submitted) ?? "an unknown version"} while cancelling ${version}`);
+    await delay(2000);
+  }
+  throw new Error(`Chrome Web Store did not cancel ${version} within 60 seconds`);
+}
+
 function required(name) {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);
@@ -191,7 +202,7 @@ async function output(values) {
 
 async function main() {
   const command = process.argv[2];
-  if (!command || !["status", "upload-candidate", "upload-prerelease", "submit-staged", "cancel-submission", "publish-stable"].includes(command)) {
+  if (!command || !["status", "upload-candidate", "submit-staged", "cancel-submission", "publish-stable"].includes(command)) {
     throw new Error("usage: cws.mjs <status | upload-candidate | submit-staged | cancel-submission | publish-stable>");
   }
   const credentials = JSON.parse(required("CWS_SERVICE_ACCOUNT_JSON"));
@@ -213,7 +224,7 @@ async function main() {
     });
     return;
   }
-  if (command === "upload-prerelease" || command === "upload-candidate") {
+  if (command === "upload-candidate") {
     const action = prereleaseAction(status, version);
     if (action === "frozen") {
       await output({ action, candidate: "false" });
@@ -243,7 +254,10 @@ async function main() {
   }
   if (command === "cancel-submission") {
     const action = cancelAction(status, version);
-    if (action === "cancel") await client.cancelSubmission();
+    if (action === "cancel") {
+      await client.cancelSubmission();
+      await waitForCancellation(client, version);
+    }
     await output({ action });
     return;
   }
