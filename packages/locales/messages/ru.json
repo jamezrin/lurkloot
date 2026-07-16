@@ -185,6 +185,12 @@
   "linkAccount": {
     "message": "Привязать аккаунт"
   },
+  "externalGameAccountRequired": {
+    "message": "Требуется внешняя игровая учётная запись"
+  },
+  "linkExternalGameAccount": {
+    "message": "Привязать внешнюю игровую учётную запись"
+  },
   "viewDropPage": {
     "message": "Открыть страницу дропа"
   },
@@ -680,5 +686,86 @@
   },
   "showDiagnosticLogs": {
     "message": "Показать диагностику"
+  },
+  "compatibilityAutomatic": {
+    "message": "Автоматически"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Профиль совместимости Twitch"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "Выберите встроенный профиль Twitch или разрешите Lurkloot выбрать его автоматически."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Профиль совместимости Kick"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "Выберите встроенный профиль Kick или разрешите Lurkloot выбрать его автоматически."
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "Активная совместимость"
+  },
+  "compatibilityExpertShow": {
+    "message": "Показать расширенные настройки"
+  },
+  "compatibilityExpertHide": {
+    "message": "Скрыть расширенные настройки"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Передача пульса Twitch"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "Переопределить встроенный пульс Twitch."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Запрос инвентаря Twitch"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "Переопределить встроенный запрос инвентаря Twitch."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Обработка ссылок Kick"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "Переопределить встроенную обработку ссылок Kick."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "Рекомендуется"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "Устаревшее"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "Экспериментальное"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "Включены ручные настройки. Они могут перестать работать после изменений платформ."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "Восстановить автоматическую совместимость"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch, июль 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "Пульс GraphQL v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Пульс Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Пульс Trowel v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Запрос инвентаря v1"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick, июль 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Обработка ссылок v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Обработка ссылок v2"
   }
 }

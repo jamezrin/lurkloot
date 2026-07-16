@@ -12,12 +12,13 @@ import {
   stopWatchTab,
 } from "../src/core/tabs";
 import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
+import { resolveCompatibility } from "@lurkloot/core";
 import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, SupportedLocale } from "@lurkloot/shared/models";
 import type { WatchTabPort } from "@lurkloot/core/adapter";
-import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
+import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
@@ -38,6 +39,7 @@ const reportEvents = createActivityEventReporter({
   loadDiagnosticLogging: async () => (await loadSettings()).diagnosticLogging,
   append: appendActivityEvents,
 });
+const kickClaimState = new KickClaimState();
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
@@ -92,7 +94,8 @@ const controller = createBackgroundController<ExtensionSettings>({
   loadTwitchIntegrity,
   saveTwitchIntegrity,
   stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
-  createAdapters: (emit) => {
+  createAdapters: (emit, settings) => {
+    const resolution = resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" });
     // The watch-tab port is operation-scoped so every browser diagnostic joins
     // the same controller event batch as the adapter and scheduler events.
     const watchTabPort: WatchTabPort = {
@@ -111,22 +114,38 @@ const controller = createBackgroundController<ExtensionSettings>({
       },
     };
     return {
-      twitch: new TwitchAdapter(
-        { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
-        () => ensureTwitchIntegrity(emit),
-        watchTabPort,
-        {},
-        emit,
-      ),
-      kick: new KickAdapter(
-        createKickFetcher({
-          background: (url, init) => fetchKickInBackground<unknown>(url, init),
-          pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
-        }),
-        watchTabPort,
-        undefined,
-        emit,
-      ),
+      adapters: {
+        twitch: new TwitchAdapter(
+          { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
+          () => ensureTwitchIntegrity(emit),
+          watchTabPort,
+          {
+            compatibility: resolution.compatibility.twitch,
+            heartbeatIdentity: "web",
+            heartbeatFetchText: async (url, init) => {
+              const response = await fetch(url, init);
+              if (!response.ok) throw new Error(`Twitch page request returned HTTP ${response.status}`);
+              return await response.text();
+            },
+            heartbeatPost: async (url, init) => {
+              const response = await fetch(url, init);
+              return { status: response.status };
+            },
+          },
+          emit,
+        ),
+        kick: new KickAdapter(
+          createKickFetcher({
+            background: (url, init) => fetchKickInBackground<unknown>(url, init),
+            pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
+          }),
+          watchTabPort,
+          undefined,
+          emit,
+          { compatibility: resolution.compatibility.kick, claimState: kickClaimState },
+        ),
+      },
+      ...resolution,
     };
   },
 });

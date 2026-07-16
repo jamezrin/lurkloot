@@ -75,6 +75,25 @@ describe("parseConfig", () => {
     expect(parseConfig({}, CONFIG_PATH).warnings).toEqual([]);
   });
 
+  it("surfaces credential-safe compatibility resolver warnings", () => {
+    const config = parseConfig({
+      settings: { compatibility: { twitch: { profile: "secret-unknown-profile" } } },
+    }, CONFIG_PATH);
+
+    expect(config.warnings).toEqual([
+      "Unknown Twitch profile compatibility selection; using twitch-2026-07",
+    ]);
+    expect(config.warnings.join(" ")).not.toContain("secret-unknown-profile");
+  });
+
+  it("defers identity-specific Twitch compatibility warnings until credentials are loaded", () => {
+    const config = parseConfig({
+      settings: { compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-trowel-v1" } } },
+    }, CONFIG_PATH);
+
+    expect(config.warnings).toEqual([]);
+  });
+
   it("rejects extension-only settings copied from the browser config", () => {
     expect(() => parseConfig({ settings: { adFocusMode: "window" } }, CONFIG_PATH)).toThrow(/extension-only/);
   });
@@ -117,6 +136,11 @@ describe("loadConfig", () => {
 
       expect(generated).toContain("// Credentials are stored separately");
       expect(generated).toContain('"transport": "impersonate"');
+      expect(generated).toContain("Compatibility identifiers are bundled");
+      expect(generated).toContain("Raw destinations and hashes cannot be supplied");
+      expect(generated).toContain('"heartbeatTransport": "auto"');
+      expect(generated).toContain('"inventoryQueryVersion": "auto"');
+      expect(generated).toContain('"claimLinkHandling": "auto"');
       expect(config.transport).toBe("impersonate");
       expect(config.authDir).toBe(join(dir, "nested", "auth"));
       expect(config.settings).toEqual(DEFAULT_CLI_SETTINGS);

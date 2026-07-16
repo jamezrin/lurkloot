@@ -9,6 +9,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
+import type { ResolvedCompatibility } from "../compatibility/types";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TablessWatchController } from "../core/tablessWatch";
 
@@ -33,6 +34,7 @@ export interface WatchTabOptions {
 
 export interface PlatformAdapter {
   platform: Platform;
+  readonly compatibility?: ResolvedCompatibility[Platform];
   discoverCampaigns(): Promise<DropCampaign[]>;
   readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]>;
   listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]>;

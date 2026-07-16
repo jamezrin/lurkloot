@@ -185,6 +185,12 @@
   "linkAccount": {
     "message": "Vincula tu cuenta"
   },
+  "externalGameAccountRequired": {
+    "message": "Se requiere una cuenta externa del juego"
+  },
+  "linkExternalGameAccount": {
+    "message": "Vincular cuenta externa del juego"
+  },
   "viewDropPage": {
     "message": "Ver página del drop"
   },
@@ -680,5 +686,86 @@
   },
   "showDiagnosticLogs": {
     "message": "Mostrar diagnósticos"
+  },
+  "compatibilityAutomatic": {
+    "message": "Automático"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Perfil de compatibilidad de Twitch"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "Elige un perfil de Twitch incluido o deja que Lurkloot lo seleccione automáticamente."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Perfil de compatibilidad de Kick"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "Elige un perfil de Kick incluido o deja que Lurkloot lo seleccione automáticamente."
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "Compatibilidad activa"
+  },
+  "compatibilityExpertShow": {
+    "message": "Mostrar controles avanzados"
+  },
+  "compatibilityExpertHide": {
+    "message": "Ocultar controles avanzados"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Transporte de pulsos de Twitch"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "Reemplaza el pulso de visualización de Twitch incluido."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Consulta del inventario de Twitch"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "Reemplaza la consulta del inventario de Twitch incluida."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Gestión de enlaces de Kick"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "Reemplaza la gestión incluida de enlaces de cuenta de Kick."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "Recomendado"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "Anterior"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "En pruebas"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "Hay ajustes manuales de compatibilidad activos. Podrían dejar de funcionar cuando cambien las plataformas."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "Restaurar compatibilidad automática"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch julio de 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "Pulso GraphQL v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Pulso Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Pulso Trowel v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Consulta de inventario v1"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick julio de 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Gestión de enlaces v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Gestión de enlaces v2"
   }
 }

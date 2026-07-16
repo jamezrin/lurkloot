@@ -4,7 +4,14 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
-import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./watch";
+import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
+import { createTwitchHeartbeat } from "./heartbeat/factory";
+import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
+import { createTwitchInventory } from "./inventory/factory";
+import type { TwitchInventoryCapability } from "./inventory/types";
+
+export { createTwitchInventory } from "./inventory/factory";
+export type { TwitchInventoryCapability } from "./inventory/types";
 
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
@@ -21,14 +28,15 @@ export interface TwitchAdapterOptions {
   // User-Agent to send with GQL requests, matching the client id. Only set in
   // non-browser runtimes — browsers forbid overriding User-Agent on fetch.
   userAgent?: string;
+  // Resolved metadata selects the registered heartbeat and inventory versions.
+  compatibility?: ResolvedCompatibility["twitch"];
+  heartbeatStrategy?: TwitchHeartbeatStrategy;
+  heartbeatIdentity?: TwitchIdentity;
+  heartbeatFetchText?: TwitchHeartbeatFetchText;
+  heartbeatPost?: TwitchHeartbeatPost;
 }
 
 const TWITCH_QUERIES = {
-  inventory: {
-    operationName: "Inventory",
-    sha256Hash: "d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b",
-    variables: { fetchRewardCampaigns: false },
-  },
   dashboard: {
     operationName: "ViewerDropsDashboard",
     sha256Hash: "5a4da2ab3d5b47c9f9ce864e727b2cb346af1e3ea8b897fe8f704a97ff017619",
@@ -90,16 +98,6 @@ const TWITCH_CAMPAIGN_FIELDS = `{
 }`;
 
 const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
-  Inventory: `query Inventory($fetchRewardCampaigns: Boolean!) {
-    currentUser {
-      id
-      inventory {
-        gameEventDrops { id benefit { id } lastAwardedAt }
-        dropCampaignsInProgress ${TWITCH_CAMPAIGN_FIELDS}
-        dropCampaigns @include(if: $fetchRewardCampaigns) ${TWITCH_CAMPAIGN_FIELDS}
-      }
-    }
-  }`,
   ViewerDropsDashboard: `query ViewerDropsDashboard($fetchRewardCampaigns: Boolean!) {
     currentUser {
       id
@@ -352,8 +350,10 @@ export function createTwitchGqlTransport(
 
 export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
+  readonly compatibility?: ResolvedCompatibility["twitch"];
 
   private readonly gqlTransport: TwitchGqlTransport;
+  private readonly inventoryCapability: TwitchInventoryCapability;
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
 
   constructor(
@@ -373,10 +373,14 @@ export class TwitchAdapter implements PlatformAdapter {
     // extension uses). A headless runtime can pass a non-web client id + matching
     // user agent (e.g. the Android app) so Twitch never gates it behind integrity
     // — the persisted-query hashes are client-agnostic, so claims work unchanged.
-    options: TwitchAdapterOptions = {},
+    private readonly options: TwitchAdapterOptions = {},
     private readonly emit: EventEmitter = ignoreEvent,
   ) {
+    this.compatibility = options.compatibility;
     this.gqlTransport = createTwitchGqlTransport(fetcher, options);
+    this.inventoryCapability = createTwitchInventory(
+      options.compatibility?.inventory ?? "twitch-inventory-v1",
+    );
   }
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
@@ -386,7 +390,7 @@ export class TwitchAdapter implements PlatformAdapter {
       TWITCH_QUERIES.dashboard.sha256Hash,
       TWITCH_QUERIES.dashboard.variables,
     );
-    let inventoryCampaigns = parseTwitchInventory(inventory as Parameters<typeof parseTwitchInventory>[0]);
+    let inventoryCampaigns = this.inventoryCapability.parse(inventory);
     let dashboardCampaigns = twitchDashboardCampaigns(dashboard);
 
     if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
@@ -396,7 +400,7 @@ export class TwitchAdapter implements PlatformAdapter {
         TWITCH_QUERIES.dashboard.sha256Hash,
         { fetchRewardCampaigns: true },
       );
-      inventoryCampaigns = parseTwitchInventory(inventory as Parameters<typeof parseTwitchInventory>[0]);
+      inventoryCampaigns = this.inventoryCapability.parse(inventory);
       dashboardCampaigns = twitchDashboardCampaigns(dashboard);
     }
 
@@ -455,7 +459,7 @@ export class TwitchAdapter implements PlatformAdapter {
 
   async readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]> {
     const inventory = await this.fetchInventory();
-    const inventoryProgress = mergeTwitchCampaignProgress(campaigns, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
+    const inventoryProgress = this.inventoryCapability.reconcileProgress(campaigns, inventory);
     if (!session?.channel || session.status !== "watching") return inventoryProgress;
     return this.mergeCurrentSessionProgress(inventoryProgress, session.channel);
   }
@@ -607,12 +611,14 @@ export class TwitchAdapter implements PlatformAdapter {
       .filter((category) => category.id && category.name);
   }
 
-  private async fetchInventory(variables: Record<string, unknown> = TWITCH_QUERIES.inventory.variables): Promise<unknown> {
-    return this.gql<unknown>(
-      TWITCH_QUERIES.inventory.operationName,
-      TWITCH_QUERIES.inventory.sha256Hash,
-      variables,
-    );
+  private async fetchInventory(variables: Record<string, unknown> = { ...this.inventoryCapability.variables }): Promise<unknown> {
+    try {
+      return await this.gql<unknown>("Inventory", this.inventoryCapability.hash, variables);
+    } catch (error) {
+      if (!(error instanceof Error) || !/PersistedQueryNotFound/i.test(error.message)) throw error;
+      diagnostic(this.emit, "debug", `GQL Inventory persisted query not found for ${this.inventoryCapability.id}; retrying with its inline query`, "twitch");
+      return this.gql<unknown>("Inventory", this.inventoryCapability.hash, variables, this.inventoryCapability.inlineQuery);
+    }
   }
 
   private async optionalGql<T>(
@@ -704,7 +710,7 @@ export class TwitchAdapter implements PlatformAdapter {
   supportsTabless = true;
 
   createTablessWatcher(): TablessWatchController {
-    return new TwitchWatcher(this.gqlTransport);
+    return new TwitchWatcher(this.gqlTransport, this.options);
   }
 
   private async mergeCurrentSessionProgress(
@@ -807,7 +813,24 @@ class TwitchWatcher implements TablessWatchController {
   private viewerUserId?: string;
   private readonly diagnostics = new PendingWatcherDiagnostics();
 
-  constructor(private readonly gql: TwitchGqlTransport) {}
+  private readonly heartbeatStrategy: TwitchHeartbeatStrategy;
+
+  constructor(
+    private readonly gql: TwitchGqlTransport,
+    options: TwitchAdapterOptions,
+  ) {
+    this.heartbeatStrategy = options.heartbeatStrategy ?? createTwitchHeartbeat(
+      options.compatibility?.heartbeat ?? "twitch-heartbeat-gql-v1",
+      {
+        gql,
+        emit: this.diagnostics.emit,
+        log: (level, message) => this.log(level, message),
+        identity: options.heartbeatIdentity ?? "web",
+        fetchText: options.heartbeatFetchText,
+        post: options.heartbeatPost,
+      },
+    );
+  }
 
   get channelUrl(): string | undefined {
     return this.channel?.url;
@@ -849,34 +872,22 @@ class TwitchWatcher implements TablessWatchController {
     const channelId = info.data?.user?.id ?? channel.channelId;
     const broadcastId = stream?.id ?? channel.broadcastId;
     if (!stream || !channelId || !broadcastId) {
-      this.log("debug", `Spade tick skipped for ${channel.username}: channel offline or missing a broadcast id`);
+      this.log("debug", `Heartbeat skipped for ${channel.username}: channel offline or missing a broadcast id`);
       return { ok: false, live: false, message: "Twitch channel is offline or missing a broadcast id" };
     }
 
     const userId = await this.resolveUserId();
     if (!userId) return { ok: false, live: true, message: "Twitch did not return a logged-in user id" };
-    this.log("debug", `Spade tick for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`);
+    this.log("debug", `Heartbeat for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`);
 
-    const input = await buildSpadeInput({
+    return await this.heartbeatStrategy.tick({
+      channel,
       broadcastId,
       channelId,
-      channelLogin: channel.username,
       userId,
       gameId: stream.game?.id,
       gameName: stream.game?.name,
     });
-    const result = await this.gql<{ sendSpadeEvents?: { statusCode?: number } }>(
-      "SendEvents",
-      "",
-      { input },
-      SEND_SPADE_EVENTS_MUTATION,
-      undefined,
-      this.diagnostics.emit,
-    );
-    const status = result.data?.sendSpadeEvents?.statusCode;
-    const ok = status === 204;
-    this.log("debug", `Spade event for ${channel.username} returned status ${status ?? "unknown"}`);
-    return { ok, live: true, message: ok ? undefined : `Twitch watch event returned status ${status ?? "unknown"}` };
   }
 
   private async resolveUserId(): Promise<string | undefined> {

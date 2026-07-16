@@ -1,13 +1,16 @@
-import type { Platform } from "@lurkloot/shared/models";
+import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { PlatformAdapter, WatchTabPort } from "@lurkloot/core/adapter";
+import type { CompatibilityResolution } from "@lurkloot/core";
 
 // A built set of platform adapters plus a teardown hook (e.g. to stop the
 // cycletls subprocess the impersonate transport owns). Every transport returns
 // this shape so the commands can dispose uniformly.
 export interface TransportHandle {
   adapters: Record<Platform, PlatformAdapter>;
-  createAdapters(emit: EventEmitter): Record<Platform, PlatformAdapter>;
+  createAdapters(emit: EventEmitter, settings: EngineSettings): {
+    adapters: Record<Platform, PlatformAdapter>;
+  } & CompatibilityResolution;
   dispose(): Promise<void>;
 }
 
@@ -16,6 +19,35 @@ export interface TransportHandle {
 export interface EnabledPlatforms {
   twitch: boolean;
   kick: boolean;
+}
+
+export const HEARTBEAT_REQUEST_TIMEOUT_MS = 15_000;
+
+export async function withHeartbeatTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  callerSignal?: AbortSignal | null,
+  timeoutMs = HEARTBEAT_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) abortFromCaller();
+  else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeout = setTimeout(() => {
+    controller.abort(new Error(`Twitch heartbeat request timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+
+  const aborted = new Promise<never>((_resolve, reject) => {
+    const rejectAbort = () => reject(controller.signal.reason);
+    if (controller.signal.aborted) rejectAbort();
+    else controller.signal.addEventListener("abort", rejectAbort, { once: true });
+  });
+
+  try {
+    return await Promise.race([operation(controller.signal), aborted]);
+  } finally {
+    clearTimeout(timeout);
+    callerSignal?.removeEventListener("abort", abortFromCaller);
+  }
 }
 
 // Watch port for the headless transports, which never open a tab: opening fails

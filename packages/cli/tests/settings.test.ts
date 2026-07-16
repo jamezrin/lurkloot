@@ -32,6 +32,52 @@ describe("parseCliSettings", () => {
     expect(parseCliSettings({ offlineRetryLimit: 99 }).offlineRetryLimit).toBe(10);
   });
 
+  it("round-trips compatibility profile and expert selections", () => {
+    const settings = parseCliSettings({
+      compatibility: {
+        twitch: {
+          profile: "twitch-2026-07",
+          heartbeatTransport: "twitch-heartbeat-trowel-v1",
+          inventoryQueryVersion: "twitch-inventory-v1",
+        },
+        kick: {
+          profile: "kick-2026-07",
+          claimLinkHandling: "kick-claim-v2",
+        },
+      },
+    });
+
+    expect(settings.compatibility).toEqual({
+      twitch: {
+        profile: "twitch-2026-07",
+        heartbeatTransport: "twitch-heartbeat-trowel-v1",
+        inventoryQueryVersion: "twitch-inventory-v1",
+      },
+      kick: {
+        profile: "kick-2026-07",
+        claimLinkHandling: "kick-claim-v2",
+      },
+    });
+  });
+
+  it("normalizes blank and non-string compatibility selections to auto", () => {
+    const settings = parseCliSettings({
+      compatibility: {
+        twitch: { profile: "  ", heartbeatTransport: 42 },
+        kick: { claimLinkHandling: null },
+      },
+    });
+
+    expect(settings.compatibility).toEqual(DEFAULT_CLI_SETTINGS.compatibility);
+  });
+
+  it("hard-errors on unknown compatibility keys", () => {
+    expect(() => parseCliSettings({ compatibility: { twitch: { endpoint: "https://example.test" } } }))
+      .toThrow(/unknown setting "endpoint" under compatibility.twitch/);
+    expect(() => parseCliSettings({ compatibility: { youtube: {} } }))
+      .toThrow(/unknown compatibility platform "youtube"/);
+  });
+
   it("hard-errors on extension-only keys, naming them", () => {
     expect(() => parseCliSettings({ adFocusMode: "window" })).toThrow(/"adFocusMode" is an extension-only setting/);
     expect(() => parseCliSettings({ running: true })).toThrow(/"running" is an extension-only setting/);
@@ -86,5 +132,6 @@ describe("toEngineSettings", () => {
     expect(engine.priorityMode).toBe("lowest_availability");
     expect(engine.pollIntervalMinutes).toBe(4);
     expect(engine.platform.kick.enabled).toBe(false);
+    expect(engine.compatibility).toEqual(cli.compatibility);
   });
 });

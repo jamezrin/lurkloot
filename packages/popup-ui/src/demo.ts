@@ -2,6 +2,7 @@ import type { ActivityPage, CategorySearchResult, PlaybackControl, RuntimeMessag
 import type { DropCampaign, SupportedLocale } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import type { PopupAdapter } from "./types";
+import { openHttpsLink } from "./links";
 
 function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackControl | CategorySearchResult | ActivityPage | undefined {
   switch (message.type) {
@@ -82,6 +83,7 @@ export function createDemoPopupAdapter(options?: {
     connectSettingsSession: () => () => undefined,
     getMessage: () => "",
     getUiLanguage: () => options?.locale ?? "en",
+    openLink: (url) => openHttpsLink(url, (safeUrl) => window.open(safeUrl, "_blank", "noopener,noreferrer")),
   };
 }
 

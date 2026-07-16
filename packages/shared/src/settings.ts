@@ -1,4 +1,4 @@
-import type { AdFocusMode, CampaignFilterKey, CategorySelection, EngineSettings, ExtensionSettings, LanguageOverride, Platform, PlatformSettings, PriorityMode, RateNudgeStatus, SupportedLocale } from "./models";
+import type { AdFocusMode, CampaignFilterKey, CategorySelection, CompatibilitySettings, EngineSettings, ExtensionSettings, LanguageOverride, Platform, PlatformSettings, PriorityMode, RateNudgeStatus, SupportedLocale } from "./models";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
@@ -7,8 +7,12 @@ const RATE_NUDGE_STATUSES: RateNudgeStatus[] = ["pending", "rated", "dismissed"]
 export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar"];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 
-export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "campaignVisibility">> & {
+export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "campaignVisibility">> & {
   platform?: Partial<Record<Platform, Partial<PlatformSettings>>>;
+  compatibility?: {
+    twitch?: Partial<CompatibilitySettings["twitch"]>;
+    kick?: Partial<CompatibilitySettings["kick"]>;
+  };
   campaignVisibility?: Partial<ExtensionSettings["campaignVisibility"]>;
 };
 
@@ -38,6 +42,17 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       excludedChannels: [],
       farmAllCategories: true,
       categories: [],
+    },
+  },
+  compatibility: {
+    twitch: {
+      profile: "auto",
+      heartbeatTransport: "auto",
+      inventoryQueryVersion: "auto",
+    },
+    kick: {
+      profile: "auto",
+      claimLinkHandling: "auto",
     },
   },
   campaignPriorities: {},
@@ -72,6 +87,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
 // non-extension host (CLI) merge through this; host-only fields are not touched.
 export function mergeEngineSettings(value: Partial<EngineSettings> | undefined): EngineSettings {
   const platform = value?.platform;
+  const compatibility = value?.compatibility;
   return {
     running: booleanOr(value?.running, DEFAULT_ENGINE_SETTINGS.running),
     autoClaim: booleanOr(value?.autoClaim, DEFAULT_ENGINE_SETTINGS.autoClaim),
@@ -99,6 +115,17 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         farmAllCategories: booleanOr(platform?.kick?.farmAllCategories, DEFAULT_ENGINE_SETTINGS.platform.kick.farmAllCategories),
         categories: normalizeCategorySelections(platform?.kick?.categories),
+      },
+    },
+    compatibility: {
+      twitch: {
+        profile: compatibilitySelectionOrAuto(compatibility?.twitch?.profile),
+        heartbeatTransport: compatibilitySelectionOrAuto(compatibility?.twitch?.heartbeatTransport),
+        inventoryQueryVersion: compatibilitySelectionOrAuto(compatibility?.twitch?.inventoryQueryVersion),
+      },
+      kick: {
+        profile: compatibilitySelectionOrAuto(compatibility?.kick?.profile),
+        claimLinkHandling: compatibilitySelectionOrAuto(compatibility?.kick?.claimLinkHandling),
       },
     },
     campaignPriorities: normalizePriorities(value?.campaignPriorities),
@@ -152,11 +179,25 @@ export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPa
         ...patch.platform?.kick,
       },
     },
+    compatibility: {
+      twitch: {
+        ...current.compatibility.twitch,
+        ...patch.compatibility?.twitch,
+      },
+      kick: {
+        ...current.compatibility.kick,
+        ...patch.compatibility?.kick,
+      },
+    },
     campaignVisibility: {
       ...current.campaignVisibility,
       ...patch.campaignVisibility,
     },
   });
+}
+
+function compatibilitySelectionOrAuto(value: unknown): string {
+  return typeof value === "string" && value.trim() ? value.trim() : "auto";
 }
 
 export function booleanOr(value: boolean | undefined, fallback: boolean): boolean {

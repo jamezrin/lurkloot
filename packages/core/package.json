@@ -5,6 +5,7 @@
   "type": "module",
   "private": true,
   "exports": {
+    ".": "./src/index.ts",
     "./scheduler": "./src/core/scheduler.ts",
     "./tablessWatch": "./src/core/tablessWatch.ts",
     "./twitchIntegrity": "./src/core/twitchIntegrity.ts",
@@ -14,6 +15,7 @@
     "./twitch": "./src/platforms/twitch/index.ts",
     "./twitch/parser": "./src/platforms/twitch/parser.ts",
     "./twitch/watch": "./src/platforms/twitch/watch.ts",
+    "./twitch/heartbeat": "./src/platforms/twitch/heartbeat/index.ts",
     "./kick": "./src/platforms/kick/index.ts",
     "./kick/parser": "./src/platforms/kick/parser.ts",
     "./kick/watch": "./src/platforms/kick/watch.ts",

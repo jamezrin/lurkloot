@@ -38,6 +38,10 @@ export type DiagnosticEvent = {
   message: string;
   code?: string;
   data?: Record<string, string | number | boolean | undefined>;
+  compatibilityProfile?: string;
+  compatibilityCapability?: string;
+  compatibilityCapabilities?: readonly string[];
+  compatibilityVersion?: string;
 };
 
 export type EventCategory = EngineEvent["category"];

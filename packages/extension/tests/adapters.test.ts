@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher } from "@lurkloot/core/adapter";
-import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
+import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { readFileSync } from "node:fs";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shared/models";
 import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { resolveCompatibility } from "@lurkloot/core";
 
 function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
   const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
@@ -24,6 +26,57 @@ function requestBody(init?: RequestInit): Record<string, unknown> {
 }
 
 describe("KickAdapter", () => {
+  it("uses the automatic Kick claim capability selected by compatibility resolution", async () => {
+    let claimPosts = 0;
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return { connect_url: "https://accounts.example/automatic" };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const compatibility = resolveCompatibility(DEFAULT_SETTINGS.compatibility, {
+      host: "extension",
+      twitchIdentity: "web",
+    }).compatibility.kick;
+    const adapter = new KickAdapter(fetcher, undefined, undefined, undefined, { compatibility });
+    const campaign = { id: "campaign" } as DropCampaign;
+    const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+
+    expect(compatibility.claim).toBe("kick-claim-v2");
+    expect(claimPosts).toBe(1);
+    expect(reward.claimGuidance).toEqual({ kind: "link_required", url: "https://accounts.example/automatic" });
+  });
+
+  it("keeps an explicit Kick claim v1 adapter campaign-only for its lifetime", async () => {
+    let claimPosts = 0;
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return { connect_url: "https://accounts.example/ignored" };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const compatibility = resolveCompatibility({
+      ...DEFAULT_SETTINGS.compatibility,
+      kick: { ...DEFAULT_SETTINGS.compatibility.kick, claimLinkHandling: "kick-claim-v1" },
+    }, { host: "extension", twitchIdentity: "web" }).compatibility.kick;
+    const adapter = new KickAdapter(fetcher, undefined, undefined, undefined, { compatibility });
+    const campaign = { id: "campaign", accountLinked: true } as DropCampaign;
+    const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+    compatibility.claim = "kick-claim-v2";
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+
+    expect(compatibility.claim).toBe("kick-claim-v2");
+    expect(claimPosts).toBe(2);
+    expect(reward.claimGuidance).toBeUndefined();
+  });
+
   it("keeps adapter diagnostics scoped to the supplied emitter", async () => {
     const failingFetcher = jsonFetcher(() => {
       throw new Error("progress unavailable");
@@ -236,21 +289,202 @@ describe("KickAdapter", () => {
     await expect(claimWith({})).resolves.toBe(false);
   });
 
+  it("classifies Kick claim v2 link guidance from supported response fields", () => {
+    const capability = createKickClaimCapability("kick-claim-v2");
+    const campaign = { id: "campaign" } as DropCampaign;
+
+    expect(capability.classify({ connect_url: "https://accounts.example/link" }, campaign))
+      .toEqual({ kind: "link_required", url: "https://accounts.example/link" });
+    expect(capability.classify({ connectUrl: "https://accounts.example/camel" }, campaign))
+      .toEqual({ kind: "link_required", url: "https://accounts.example/camel" });
+    expect(capability.classify({ data: { connect_url: "https://accounts.example/nested" } }, campaign))
+      .toEqual({ kind: "link_required", url: "https://accounts.example/nested" });
+    expect(capability.classify({ data: { connectUrl: "https://accounts.example/nested-camel" } }, campaign))
+      .toEqual({ kind: "link_required", url: "https://accounts.example/nested-camel" });
+  });
+
+  it("rejects unsafe, malformed, and arbitrarily nested Kick claim v2 guidance", () => {
+    const capability = createKickClaimCapability("kick-claim-v2");
+    const campaign = { id: "campaign" } as DropCampaign;
+
+    for (const response of [
+      { connect_url: "not a URL" },
+      { connect_url: "https://user:pass@accounts.example/link" },
+      { connectUrl: "javascript:alert(1)" },
+      { data: { connect_url: "data:text/plain,hello" } },
+      { data: { connectUrl: 42 } },
+      { error: { connect_url: "https://accounts.example/too-deep" } },
+      { data: { error: { connectUrl: "https://accounts.example/too-deep" } } },
+    ]) {
+      expect(capability.classify(response, campaign)).toEqual({ kind: "not_claimed" });
+    }
+  });
+
+  it("classifies normal Kick claim success independently of link guidance", () => {
+    const capability = createKickClaimCapability("kick-claim-v2");
+    const campaign = { id: "campaign" } as DropCampaign;
+
+    expect(capability.classify({ message: "Success", data: { id: 1 } }, campaign)).toEqual({ kind: "claimed" });
+    expect(capability.classify({ success: true }, campaign)).toEqual({ kind: "claimed" });
+    expect(capability.classify({}, campaign)).toEqual({ kind: "not_claimed" });
+  });
+
+  it("suppresses repeated link-required claims until refreshed progress explicitly confirms linking", async () => {
+    let claimPosts = 0;
+    let progress: unknown = { data: [{ campaign_id: "campaign" }] };
+    const events: EngineEvent[] = [];
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return { connect_url: "https://accounts.example/link?state=opaque-secret#fragment" };
+      }
+      if (url === "https://web.kick.com/api/v1/drops/progress") return progress;
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const adapter = new KickAdapter(fetcher, undefined, undefined, (event) => events.push(event));
+    const campaign = {
+      id: "campaign",
+      platform: "kick",
+      name: "Campaign",
+      status: "active",
+      // Stale last-known metadata must not count as refreshed affirmative evidence.
+      accountLinked: true,
+      rewards: [{ id: "reward", name: "Reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 }],
+    } as DropCampaign;
+    const reward = campaign.rewards[0];
+
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+    expect(claimPosts).toBe(1);
+    expect(reward.claimGuidance).toEqual({
+      kind: "link_required",
+      url: "https://accounts.example/link?state=opaque-secret#fragment",
+    });
+    const serializedEvents = JSON.stringify(events);
+    expect(serializedEvents).not.toContain("opaque-secret");
+    expect(serializedEvents).not.toContain("/link");
+
+    const ambiguous = await adapter.readProgress([campaign]);
+    await expect(adapter.claimReward(ambiguous[0], ambiguous[0].rewards[0])).resolves.toBe(false);
+    expect(claimPosts).toBe(1);
+
+    progress = { data: [{ campaign_id: "campaign", user_app_connected: true }] };
+    const linked = await adapter.readProgress(ambiguous);
+    expect(linked[0].accountLinked).toBe(true);
+    expect(linked[0].claimGuidance).toBeUndefined();
+    expect(linked[0].rewards[0].claimGuidance).toBeUndefined();
+    await expect(adapter.claimReward(linked[0], linked[0].rewards[0])).resolves.toBe(false);
+    expect(claimPosts).toBe(2);
+  });
+
+  it("cleans all campaign suppressions after affirmative linking, including absent rewards", () => {
+    const capability = createKickClaimCapability("kick-claim-v2");
+    const campaign = {
+      id: "campaign",
+      rewards: [
+        { id: "present", status: "claimable" },
+        { id: "removed", status: "claimable" },
+      ],
+    } as DropCampaign;
+    capability.suppress?.(campaign, campaign.rewards[0], "https://accounts.example/present");
+    capability.suppress?.(campaign, campaign.rewards[1], "https://accounts.example/removed");
+
+    const refreshed = [{ ...campaign, rewards: [campaign.rewards[0]] }];
+    capability.reconcileProgress?.(refreshed, new Set(["campaign"]));
+
+    expect(capability.isSuppressed?.(campaign, campaign.rewards[0])).toBe(false);
+    expect(capability.isSuppressed?.(campaign, campaign.rewards[1])).toBe(false);
+  });
+
+  it("clears v2 suppression from a bare-array affirmative progress response", async () => {
+    let claimPosts = 0;
+    let progress: unknown = [{ campaign_id: "campaign" }];
+    const adapter = new KickAdapter(jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return { connect_url: "https://accounts.example/link" };
+      }
+      if (url === "https://web.kick.com/api/v1/drops/progress") return progress;
+      throw new Error(`Unexpected URL ${url}`);
+    }));
+    const campaign = {
+      id: "campaign",
+      rewards: [{ id: "reward", status: "claimable" }],
+    } as DropCampaign;
+
+    await adapter.claimReward(campaign, campaign.rewards[0]);
+    progress = [{ campaign_id: "campaign", user_app_connected: true }];
+    const refreshed = await adapter.readProgress([campaign]);
+    await adapter.claimReward(refreshed[0], refreshed[0].rewards[0]);
+
+    expect(claimPosts).toBe(2);
+  });
+
+  it("shares link-required suppression across fresh adapters but lets a new host state retry", async () => {
+    let claimPosts = 0;
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return { connectUrl: "https://accounts.example/link" };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const campaign = { id: "campaign" } as DropCampaign;
+    const reward = { id: "reward", name: "Reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+
+    const state = new KickClaimState();
+    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
+    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
+
+    expect(claimPosts).toBe(1);
+
+    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: new KickClaimState() }).claimReward(campaign, reward);
+
+    expect(claimPosts).toBe(2);
+  });
+
+  it("keeps Kick claim v1 limited to campaign account-link metadata", () => {
+    const capability = createKickClaimCapability("kick-claim-v1");
+
+    expect(capability.classify(
+      { connect_url: "https://accounts.example/ignored" },
+      { id: "campaign", accountLinked: true } as DropCampaign,
+    )).toEqual({ kind: "not_claimed" });
+    expect(capability.classify(
+      { message: "Reward not available" },
+      { id: "campaign", accountLinked: false, accountLinkUrl: "https://accounts.example/from-campaign" } as DropCampaign,
+    )).toEqual({ kind: "link_required", url: "https://accounts.example/from-campaign" });
+    expect(capability.classify(
+      { message: "Reward not available" },
+      { id: "campaign", accountLinked: false, accountLinkUrl: "javascript:alert(1)" } as DropCampaign,
+    )).toEqual({ kind: "not_claimed" });
+  });
+
   it("guides the user to link instead of erroring when an unlinked Kick claim is rejected", async () => {
     const reward = { id: "reward", name: "Spray", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+    let rejectionPosts = 0;
     const rejecting = () => new KickAdapter(jsonFetcher((url) => {
-      if (url === "https://web.kick.com/api/v1/drops/claim") throw new Error("403 Forbidden");
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        rejectionPosts += 1;
+        throw new Error("403 Forbidden");
+      }
       throw new Error(`Unexpected URL ${url}`);
     }));
 
     // Unlinked campaign: the rejection is swallowed (no platform backoff) and reported as a non-claim.
-    await expect(
-      rejecting().claimReward({ id: "c", accountLinked: false, accountLinkUrl: "https://accounts.krafton.com/x" } as DropCampaign, reward),
-    ).resolves.toBe(false);
+    const unlinked = rejecting();
+    const unlinkedCampaign = { id: "c", accountLinked: false, accountLinkUrl: "https://accounts.krafton.com/x" } as DropCampaign;
+    await expect(unlinked.claimReward(unlinkedCampaign, reward)).resolves.toBe(false);
+    await expect(unlinked.claimReward(unlinkedCampaign, reward)).resolves.toBe(false);
+    expect(rejectionPosts).toBe(1);
 
     // Linked campaign: a genuine claim error still propagates for the scheduler to handle.
     await expect(
       rejecting().claimReward({ id: "c", accountLinked: true } as DropCampaign, reward),
+    ).rejects.toThrow("403");
+
+    await expect(
+      rejecting().claimReward({ id: "c", accountLinked: false, accountLinkUrl: "https://user:pass@accounts.example/x" } as DropCampaign, reward),
     ).rejects.toThrow("403");
   });
 
@@ -926,22 +1160,76 @@ describe("TwitchAdapter", () => {
     expect(contextAttempts).toBe(2);
   });
 
-  it("uses the TwitchDropsMiner-proven persisted hash for the Inventory query", async () => {
-    let inventoryHash: string | undefined;
+  it("keeps the v1 inventory hash, variables, inline fallback, and parser paired", async () => {
+    const fixture = JSON.parse(readFileSync(new URL("./fixtures/twitch-inventory-v1.json", import.meta.url), "utf8"));
+    const inventoryBodies: Record<string, unknown>[] = [];
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "Inventory") {
-        inventoryHash = (requestBody(init).extensions as { persistedQuery?: { sha256Hash?: string } })
-          ?.persistedQuery?.sha256Hash;
-        return { data: { currentUser: { id: "user-id", inventory: { dropCampaignsInProgress: [] } } } };
+        const body = requestBody(init);
+        inventoryBodies.push(body);
+        return inventoryBodies.length === 1
+          ? { errors: [{ message: "PersistedQueryNotFound" }] }
+          : fixture;
       }
       if (op === "ViewerDropsDashboard") return { data: { currentUser: { dropCampaigns: [] } } };
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await new TwitchAdapter(fetcher).discoverCampaigns();
+    const campaigns = await new TwitchAdapter(fetcher).discoverCampaigns();
 
-    expect(inventoryHash).toBe("d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b");
+    expect(inventoryBodies).toHaveLength(2);
+    expect(inventoryBodies[0]).toMatchObject({
+      variables: { fetchRewardCampaigns: false },
+      extensions: { persistedQuery: { sha256Hash: "d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b" } },
+    });
+    expect(inventoryBodies[1]).toMatchObject({
+      variables: { fetchRewardCampaigns: false },
+      query: expect.stringContaining("dropCampaignsInProgress"),
+    });
+    expect(campaigns.map((campaign) => campaign.id)).toEqual(["active-campaign", "owned-campaign"]);
+  });
+
+  it("constructs the resolved inventory capability once and reuses it for requests, fallback, and parsing", async () => {
+    const fixture = JSON.parse(readFileSync(new URL("./fixtures/twitch-inventory-v1.json", import.meta.url), "utf8"));
+    const events: EngineEvent[] = [];
+    let inventorySelectionReads = 0;
+    const compatibility = {
+      profile: "twitch-2026-07" as const,
+      heartbeat: "twitch-heartbeat-spade-v1" as const,
+      get inventory() {
+        inventorySelectionReads += 1;
+        return "twitch-inventory-v1" as const;
+      },
+    };
+    let inventoryAttempts = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        inventoryAttempts += 1;
+        return inventoryAttempts === 1
+          ? { errors: [{ message: "PersistedQueryNotFound" }] }
+          : fixture;
+      }
+      if (op === "ViewerDropsDashboard") return { data: { currentUser: { dropCampaigns: [] } } };
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    const adapter = new TwitchAdapter(
+      fetcher,
+      undefined,
+      undefined,
+      { compatibility },
+      (event) => events.push(event),
+    );
+    const campaigns = await adapter.discoverCampaigns();
+
+    expect(inventorySelectionReads).toBe(1);
+    expect(campaigns.map((campaign) => campaign.id)).toEqual(["active-campaign", "owned-campaign"]);
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      message: expect.stringContaining("twitch-inventory-v1"),
+    }));
   });
 
   it("surfaces Twitch's top-level {error,message} auth failures", async () => {
@@ -952,6 +1240,19 @@ describe("TwitchAdapter", () => {
 
     await expect(new TwitchAdapter(fetcher).discoverCampaigns())
       .rejects.toThrow("Unauthorized: invalid OAuth token");
+  });
+
+  it("guides signed-out users when inventory returns a null current user", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory" || op === "ViewerDropsDashboard") {
+        return { data: { currentUser: null } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await expect(new TwitchAdapter(fetcher).discoverCampaigns())
+      .rejects.toThrow("Twitch did not return a logged-in current user; open twitch.tv and confirm you are signed in");
   });
 
   it("reports unusable array-wrapped Twitch GQL responses as empty", async () => {

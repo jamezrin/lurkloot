@@ -185,6 +185,12 @@
   "linkAccount": {
     "message": "अपना खाता लिंक करें"
   },
+  "externalGameAccountRequired": {
+    "message": "बाहरी गेम खाता आवश्यक है"
+  },
+  "linkExternalGameAccount": {
+    "message": "बाहरी गेम खाता लिंक करें"
+  },
   "viewDropPage": {
     "message": "ड्रॉप पेज देखें"
   },
@@ -680,5 +686,86 @@
   },
   "showDiagnosticLogs": {
     "message": "डायग्नोस्टिक दिखाएँ"
+  },
+  "compatibilityAutomatic": {
+    "message": "स्वचालित"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Twitch संगतता प्रोफ़ाइल"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "शामिल Twitch प्रोफ़ाइल चुनें या Lurkloot को अपने आप चुनने दें।"
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Kick संगतता प्रोफ़ाइल"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "शामिल Kick प्रोफ़ाइल चुनें या Lurkloot को अपने आप चुनने दें।"
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "प्रभावी संगतता"
+  },
+  "compatibilityExpertShow": {
+    "message": "विशेषज्ञ नियंत्रण दिखाएँ"
+  },
+  "compatibilityExpertHide": {
+    "message": "विशेषज्ञ नियंत्रण छिपाएँ"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Twitch हार्टबीट ट्रांसपोर्ट"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "शामिल Twitch हार्टबीट बदलें।"
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Twitch इन्वेंट्री क्वेरी"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "शामिल Twitch इन्वेंट्री क्वेरी बदलें।"
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Kick लिंक प्रबंधन"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "शामिल Kick खाता-लिंक प्रबंधन बदलें।"
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "अनुशंसित"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "पुराना"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "प्रायोगिक"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "मैन्युअल संगतता बदलाव सक्रिय हैं। प्लेटफ़ॉर्म बदलने पर वे काम करना बंद कर सकते हैं।"
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "स्वचालित संगतता बहाल करें"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch जुलाई 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "GraphQL हार्टबीट v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Spade हार्टबीट v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Trowel हार्टबीट v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "इन्वेंट्री क्वेरी v1"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick जुलाई 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "लिंक प्रबंधन v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "लिंक प्रबंधन v2"
   }
 }

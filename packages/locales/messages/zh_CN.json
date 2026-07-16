@@ -185,6 +185,12 @@
   "linkAccount": {
     "message": "关联账号"
   },
+  "externalGameAccountRequired": {
+    "message": "需要外部游戏账号"
+  },
+  "linkExternalGameAccount": {
+    "message": "关联外部游戏账号"
+  },
   "viewDropPage": {
     "message": "查看掉宝页面"
   },
@@ -680,5 +686,86 @@
   },
   "showDiagnosticLogs": {
     "message": "显示诊断信息"
+  },
+  "compatibilityAutomatic": {
+    "message": "自动"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Twitch 兼容性配置文件"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "选择内置的 Twitch 配置文件，或让 Lurkloot 自动选择。"
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Kick 兼容性配置文件"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "选择内置的 Kick 配置文件，或让 Lurkloot 自动选择。"
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "当前兼容性"
+  },
+  "compatibilityExpertShow": {
+    "message": "显示专家控件"
+  },
+  "compatibilityExpertHide": {
+    "message": "隐藏专家控件"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Twitch 心跳传输"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "覆盖内置的 Twitch 观看心跳。"
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Twitch 库存查询"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "覆盖内置的 Twitch 库存查询。"
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Kick 链接处理"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "覆盖内置的 Kick 账户链接处理。"
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "推荐"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "旧版"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "实验性"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "手动兼容性覆盖已启用。平台变化时可能会失效。"
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "恢复自动兼容性"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch 2026 年 7 月版"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "GraphQL 心跳 v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Spade 心跳 v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Trowel 心跳 v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "库存查询 v1"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick 2026 年 7 月版"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "链接处理 v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "链接处理 v2"
   }
 }

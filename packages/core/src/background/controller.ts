@@ -2,6 +2,7 @@ import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, Runtime
 import type { DropCampaign, DropReward, EngineSettings, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
+import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
 import { setTwitchIntegrity } from "../core/tabs";
@@ -80,7 +81,11 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   saveState(state: SchedulerState): Promise<void>;
   reportEvents?: EventReporter;
   createAlarm(name: string, options: { periodInMinutes: number }): Promise<void>;
-  createAdapters(emit: EventEmitter): Record<Platform, PlatformAdapter>;
+  createAdapters(emit: EventEmitter, settings: S): {
+    adapters: Record<Platform, PlatformAdapter>;
+    compatibility: ResolvedCompatibility;
+    warnings: CompatibilityResolution["warnings"];
+  };
   createNotification?(notification: { title: string; message: string }): Promise<void>;
   translate?(key: string, substitutions?: string | string[]): string | Promise<string>;
   closeManagedTabsByUrl?(urls: string[]): Promise<void>;
@@ -102,10 +107,80 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
 }
 
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
+  const reportedCompatibility = new Map<Platform, string>();
+  const reportedCompatibilityWarnings = new Set<string>();
+
+  const selectionFingerprint = (value: string): string => {
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0");
+  };
+
+  const warningFieldLabel = (platform: Platform, field: string): string => {
+    if (platform === "twitch") {
+      if (field === "profile") return "Twitch profile";
+      if (field === "heartbeatTransport") return "Twitch heartbeat";
+      return "Twitch inventory";
+    }
+    return field === "profile" ? "Kick profile" : "Kick claim";
+  };
+
+  function createAdapters(settings: S, emit: EventEmitter): Record<Platform, PlatformAdapter> {
+    const construction = deps.createAdapters(emit, settings);
+    for (const warning of construction.warnings) {
+      if (!settings.platform[warning.platform].enabled) continue;
+      const key = `${warning.code}:${warning.platform}:${warning.field}:${warning.resolved}:${selectionFingerprint(warning.requested)}`;
+      if (reportedCompatibilityWarnings.has(key)) continue;
+      const reason = warning.code === "unknown_selection" ? "Unknown" : "Host-incompatible";
+      emit({
+        category: "diagnostic",
+        platform: warning.platform,
+        level: "warn",
+        message: `${reason} ${warningFieldLabel(warning.platform, warning.field)} compatibility selection; using ${warning.resolved}`,
+        ...(warning.field === "profile"
+          ? { compatibilityProfile: warning.resolved }
+          : { compatibilityCapability: warning.resolved, compatibilityVersion: warning.resolved }),
+      });
+      reportedCompatibilityWarnings.add(key);
+    }
+    for (const platform of PLATFORMS) {
+      if (!settings.platform[platform].enabled) continue;
+      const profile = construction.compatibility[platform].profile;
+      const capabilities = platform === "twitch"
+        ? [construction.compatibility.twitch.heartbeat, construction.compatibility.twitch.inventory]
+        : [construction.compatibility.kick.claim];
+      const capability = capabilities[0];
+      const key = [profile, ...capabilities].join(":");
+      if (reportedCompatibility.get(platform) === key) continue;
+      emit({
+        category: "diagnostic",
+        platform,
+        level: "info",
+        message: `Using compatibility profile ${profile} (${capabilities.join(", ")})`,
+        compatibilityProfile: profile,
+        compatibilityCapability: capability,
+        compatibilityCapabilities: capabilities,
+        compatibilityVersion: capability,
+      });
+      reportedCompatibility.set(platform, key);
+    }
+    return construction.adapters;
+  }
+
   async function withEventCollector<T>(operation: (emit: EventEmitter, events: EngineEvent[]) => Promise<T>): Promise<T> {
     const events: EngineEvent[] = [];
     const emit: EventEmitter = (event) => events.push(event);
     return operation(emit, events);
+  }
+
+  function clearOperationalEvents(events: EngineEvent[]): void {
+    const compatibilityEvents = events.filter((event) =>
+      event.category === "diagnostic"
+      && (event.compatibilityProfile !== undefined || event.compatibilityCapability !== undefined));
+    events.splice(0, events.length, ...compatibilityEvents);
   }
 
   // Persistent tabless watchers, one per platform, kept alive across discovery
@@ -222,6 +297,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    await withEventCollector(async (emit, events) => {
+      createAdapters(settings, emit);
+      await reportBestEffort(events);
+    });
     // A restart kills any in-memory watchers; start clean and let tick() rebuild.
     tablessWatchers.clear();
 
@@ -290,7 +369,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       };
       let nextState: SchedulerState;
       try {
-        const adapters = deps.createAdapters(emit);
+        const adapters = createAdapters(settings, emit);
         const result = await runSchedulerTick(state, settings, adapters, {
           ...(platforms ? { platforms } : {}),
           stopPageContextTabs: deps.stopPageContextTabs,
@@ -304,7 +383,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await reconcileTablessWatchers(result.state, settings, adapters, emit, platforms);
         nextState = result.state;
       } catch (error) {
-        events.length = 0;
+        clearOperationalEvents(events);
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
         emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
         emit({ category: "diagnostic", level: "error", message: detail });
@@ -447,7 +526,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       // both fire on a ~1-minute cadence). reconcileTablessWatchers only calls
       // watcher.start() on a fresh start/channel switch and never re-acquires the
       // lock, so holding it here is safe (no reentrancy).
-      await reconcileTablessWatchers(nextState, settings, deps.createAdapters(emit), emit);
+      await reconcileTablessWatchers(nextState, settings, createAdapters(settings, emit), emit);
       if (tablessWatchers.size === 0) {
         await reportBestEffort(events);
         return [];
@@ -640,7 +719,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // telemetry write can't clobber the claimed-reward update. snapshot() runs
     // after the lock so it reflects the committed state.
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      const state = await deps.loadState();
+      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const campaigns = state.campaigns[message.platform];
       const campaign = campaigns.find((item) => item.id === message.campaignId);
       const reward = campaign?.rewards.find((item) => item.id === message.rewardId);
@@ -669,7 +748,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       let stateWithCampaigns: SchedulerState;
       try {
-        const claimed = await deps.createAdapters(emit)[message.platform].claimReward(campaign, reward);
+        const claimed = await createAdapters(settings, emit)[message.platform].claimReward(campaign, reward);
         const nextCampaigns = campaigns.map((item) => {
           if (item.id !== campaign.id) return item;
           const rewards = item.rewards.map((candidate) => candidate.id === reward.id && claimed
@@ -705,7 +784,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             message: `Could not claim ${reward.name} from ${campaign.name}`,
           };
         emit(claimEvent);
-        const settings = await deps.loadSettings();
         if (claimed && settings.notifyRewardEarned) {
           await safeNotify(
             await tr("notificationRewardClaimed"),
@@ -713,7 +791,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           );
         }
       } catch (error) {
-        events.length = 0;
+        clearOperationalEvents(events);
         emit({
           category: "diagnostic",
           platform: message.platform,
@@ -791,9 +869,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
     if (message.type === "searchCategories") {
       return withEventCollector(async (emit, events) => {
+        const settings = await deps.loadSettings();
         let categories: CategorySearchResult["categories"] = [];
         try {
-          categories = await deps.createAdapters(emit)[message.platform].searchCategories?.(message.query) ?? [];
+          categories = await createAdapters(settings, emit)[message.platform].searchCategories?.(message.query) ?? [];
         } catch (error) {
           emit({
             category: "diagnostic",
