@@ -7,9 +7,18 @@ const metadataFields = new Set([
   "schemaVersion",
   "version",
   "kind",
+  "label",
+  "stableVersion",
+  "stableSha",
+  "developSha",
   "sourceSha",
+  "authorizedSha",
   "releasePr",
   "initiator",
+  "authorizedBy",
+  "trustedToolsSha",
+  "createdAt",
+  "reconciledAt",
   "chromeZipSha256",
   "artifactChecksums",
   "dockerDigests",
@@ -17,6 +26,7 @@ const metadataFields = new Set([
   "previewUrl",
 ]);
 const candidateKinds = new Set(["normal", "hotfix"]);
+const normalLabels = new Set(["release/patch", "release/minor", "release/major"]);
 const cwsStates = new Set([
   "DRAFT",
   "PENDING_REVIEW",
@@ -74,11 +84,11 @@ function validateChecksums(value) {
   }
 }
 
-function validateMetadata(value) {
+function validateCommonMetadata(value, fields, schemaVersion) {
   invariant(value && typeof value === "object" && !Array.isArray(value), "candidate metadata must be an object");
-  for (const field of Object.keys(value)) invariant(metadataFields.has(field), `unexpected field ${field}`);
-  for (const field of metadataFields) invariant(Object.hasOwn(value, field), `missing field ${field}`);
-  invariant(value.schemaVersion === 1, "schemaVersion must be 1");
+  invariant(value.schemaVersion === schemaVersion, `schemaVersion must be ${schemaVersion}`);
+  for (const field of Object.keys(value)) invariant(fields.has(field), `unexpected field ${field}`);
+  for (const field of fields) invariant(Object.hasOwn(value, field), `missing field ${field}`);
   parseVersion(value.version);
   invariant(candidateKinds.has(value.kind), "kind must be normal or hotfix");
   invariant(shaPattern.test(value.sourceSha), "sourceSha must be a lowercase 40-character commit SHA");
@@ -96,8 +106,35 @@ function validateMetadata(value) {
   invariant(cwsStates.has(value.cwsState), "cwsState is unsupported");
   const previewUrl = new URL(value.previewUrl);
   invariant(previewUrl.protocol === "https:", "previewUrl must use HTTPS");
+}
+
+function validateMetadata(value) {
+  validateCommonMetadata(value, metadataFields, 2);
+  parseVersion(value.stableVersion);
+  invariant(shaPattern.test(value.stableSha), "stableSha must be a lowercase 40-character commit SHA");
+  invariant(
+    (value.kind === "normal" && shaPattern.test(value.developSha))
+      || (value.kind === "hotfix" && value.developSha === null),
+    "developSha must be a commit SHA for normal candidates and null for hotfix candidates",
+  );
+  invariant(
+    (value.kind === "normal" && normalLabels.has(value.label))
+      || (value.kind === "hotfix" && value.label === "release/hotfix"),
+    "label does not match candidate kind",
+  );
+  invariant(shaPattern.test(value.authorizedSha), "authorizedSha must be a lowercase 40-character commit SHA");
+  invariant(value.sourceSha === value.authorizedSha, "sourceSha must equal authorizedSha");
+  invariant(loginPattern.test(value.authorizedBy), "authorizedBy must be a GitHub login");
+  invariant(shaPattern.test(value.trustedToolsSha), "trustedToolsSha must be a lowercase 40-character commit SHA");
+  invariant(typeof value.createdAt === "string" && !Number.isNaN(Date.parse(value.createdAt)), "createdAt must be a timestamp");
+  invariant(typeof value.reconciledAt === "string" && !Number.isNaN(Date.parse(value.reconciledAt)), "reconciledAt must be a timestamp");
   return value;
 }
+
+const legacyMetadataFields = new Set([
+  "schemaVersion", "version", "kind", "sourceSha", "releasePr", "initiator",
+  "chromeZipSha256", "artifactChecksums", "dockerDigests", "cwsState", "previewUrl",
+]);
 
 export function renderCandidateMetadata(metadata) {
   validateMetadata(metadata);
@@ -106,4 +143,10 @@ export function renderCandidateMetadata(metadata) {
 
 export function parseCandidateMetadata(json) {
   return validateMetadata(JSON.parse(json));
+}
+
+export function parseLegacyCandidateMetadata(json) {
+  const value = JSON.parse(json);
+  validateCommonMetadata(value, legacyMetadataFields, 1);
+  return value;
 }
