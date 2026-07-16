@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prereleaseAction, revisionVersion, stableAction } from "./cws.mjs";
+import { cancelAction, ChromeWebStoreClient, prereleaseAction, revisionVersion, stableAction, submitAction } from "./cws.mjs";
 
 const revision = (state, version) => ({ state, distributionChannels: [{ deployPercentage: 100, crxVersion: version }] });
 const status = ({ published = "1.3.0", submitted, warned = false, takenDown = false } = {}) => ({
@@ -38,4 +38,36 @@ test("stable promotion publishes only a matching staged revision", () => {
 
 test("stable promotion is idempotent after CWS publication", () => {
   assert.equal(stableAction(status({ published: "1.4.0" }), "1.4.0"), "already-published");
+});
+
+test("submits only an unsubmitted matching draft", () => {
+  assert.equal(submitAction(status(), "1.4.0"), "submit");
+  assert.equal(submitAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"), "already-submitted");
+  assert.equal(submitAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"), "already-staged");
+  assert.throws(() => submitAction(status({ submitted: revision("PENDING_REVIEW", "1.5.0") }), "1.4.0"), /expected 1.4.0/);
+});
+
+test("cancels only an active matching review", () => {
+  assert.equal(cancelAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"), "cancel");
+  assert.equal(cancelAction(status(), "1.4.0"), "already-cancelled");
+  assert.equal(cancelAction(status({ submitted: revision("CANCELLED", "1.4.0") }), "1.4.0"), "already-cancelled");
+  assert.throws(() => cancelAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"), /staged/i);
+});
+
+test("uses staged publishing and cancellation API methods", async () => {
+  const requests = [];
+  const client = new ChromeWebStoreClient({
+    publisherId: "publisher",
+    extensionId: "extension",
+    accessToken: "token",
+    fetchImpl: async (url, init) => {
+      requests.push({ url, init });
+      return { ok: true, json: async () => ({ state: "PENDING_REVIEW" }) };
+    },
+  });
+  await client.submitStaged();
+  await client.cancelSubmission();
+  assert.deepEqual(JSON.parse(requests[0].init.body), { publishType: "STAGED_PUBLISH", blockOnWarnings: true });
+  assert.match(requests[0].url, /:publish$/);
+  assert.match(requests[1].url, /:cancelSubmission$/);
 });
