@@ -10,6 +10,7 @@ import { parseCandidateHeadEvidence } from "./evidence.mjs";
 import {
   checkConclusion,
   checkTitle,
+  renderReleaseStatus,
   renderReleaseComment,
   renderReleaseNotes,
   renderStepSummary,
@@ -267,6 +268,15 @@ const commands = {
     options: { action: { type: "string" }, version: { type: "string" } },
     requires: ["action", "version"],
     run: ({ values }) => emitOutputs(submitCandidateCheck(values.action, values.version)),
+  },
+  "render-status": {
+    usage: "render-status --input STATUS_JSON --output FILE",
+    options: { input: { type: "string" }, output: { type: "string" } },
+    requires: ["input", "output"],
+    run: async ({ values }) => {
+      const status = JSON.parse(await readFile(values.input, "utf8"));
+      await writeFile(values.output, `${renderReleaseStatus(status)}\n`);
+    },
   },
   "cws-report": {
     usage: "cws-report --candidate CANDIDATE_JSON --status STATUS_FILE --head-sha SHA --head-evidence JSON_FILE --version VERSION --report-dir DIR [--recovery true|false] [--comments FILE]",

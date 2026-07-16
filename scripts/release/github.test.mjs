@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import {
   checkConclusion,
   checkTitle,
   commentMarker,
+  milestoneMarker,
+  renderMilestone,
   renderReleaseComment,
   renderReleaseNotes,
+  renderReleaseStatus,
   renderStepSummary,
   shouldComment,
   stateGuidance,
@@ -14,6 +21,94 @@ import {
 
 const metadata = { version: "1.5.0", initiator: "jamezrin", sourceSha: "a".repeat(40), releasePr: 42 };
 const context = { version: "1.5.0", pr: 42, sourceSha: metadata.sourceSha, submittedVersion: "1.6.0" };
+
+test("renders one sticky actionable status", () => {
+  assert.equal(renderReleaseStatus({
+    pr: 42, version: "1.5.0", kind: "normal", state: "awaiting-approval",
+    sourceSha: "a".repeat(40), action: "Approve the prereleases environment for this SHA.",
+    releaseUrl: "https://github.test/releases/v1.5.0", previewUrl: "https://next.test",
+    cwsUrl: "https://cws.test", checksum: "b".repeat(64), dockerTag: "ghcr.io/test/lurkloot-cli:next",
+  }), `<!-- lurkloot-release-pr:42:status -->
+## Release status: awaiting approval
+
+- Candidate: \`v1.5.0\` (normal)
+- Source: \`${"a".repeat(40)}\`
+- Chrome ZIP: \`${"b".repeat(64)}\`
+- Docker: \`ghcr.io/test/lurkloot-cli:next\`
+- Links: [GitHub release](https://github.test/releases/v1.5.0) · [Preview](https://next.test) · [CWS](https://cws.test)
+
+**Next action:** Approve the prereleases environment for this SHA.`);
+});
+
+test("renders blocked and cancelled status snapshots without absent optional fields", () => {
+  assert.equal(renderReleaseStatus({
+    pr: 42, version: "1.5.0", kind: "hotfix", state: "blocked", sourceSha: "a".repeat(40),
+    blocker: "CWS reports a policy warning.", recovery: "Resolve the warning in the CWS dashboard.",
+  }), `<!-- lurkloot-release-pr:42:status -->
+## Release status: blocked
+
+- Candidate: \`v1.5.0\` (hotfix)
+- Source: \`${"a".repeat(40)}\`
+
+**Blocker:** CWS reports a policy warning.
+
+**Recovery:** Resolve the warning in the CWS dashboard.`);
+  assert.equal(renderReleaseStatus({
+    pr: 42, version: "1.5.0", kind: "normal", state: "cancelled", sourceSha: "a".repeat(40),
+    action: "Choose a new release label when ready.",
+  }), `<!-- lurkloot-release-pr:42:status -->
+## Release status: cancelled
+
+- Candidate: \`v1.5.0\` (normal)
+- Source: \`${"a".repeat(40)}\`
+
+**Next action:** Choose a new release label when ready.`);
+});
+
+test("renders staged and stable milestone snapshots", () => {
+  assert.equal(milestoneMarker("1.5.0", "cws-staged"), "<!-- lurkloot-release:1.5.0:milestone:cws-staged -->");
+  assert.equal(renderMilestone({ metadata, milestone: "cws-staged", guidance: "The candidate is staged; merge PR #42 to promote it." }), [
+    "<!-- lurkloot-release:1.5.0:milestone:cws-staged -->",
+    "@jamezrin, candidate **v1.5.0** reached **cws-staged**. The candidate is staged; merge PR #42 to promote it.",
+  ].join("\n"));
+  assert.equal(renderMilestone({ metadata, milestone: "stable", guidance: "Stable promotion is complete." }), [
+    "<!-- lurkloot-release:1.5.0:milestone:stable -->",
+    "@jamezrin, candidate **v1.5.0** reached **stable**. Stable promotion is complete.",
+  ].join("\n"));
+});
+
+test("validates lifecycle notification links and mention logins", () => {
+  assert.throws(() => renderReleaseStatus({
+    pr: 42, version: "1.5.0", kind: "normal", state: "stable", sourceSha: "a".repeat(40),
+    releaseUrl: "javascript:alert(1)",
+  }), /URL/);
+  assert.throws(() => renderMilestone({
+    metadata: { ...metadata, initiator: "user @all" }, milestone: "stable", guidance: "Done.",
+  }), /login/);
+});
+
+test("CLI renders status JSON to the requested file", () => {
+  const directory = mkdtempSync(join(tmpdir(), "lurkloot-status-"));
+  try {
+    const input = join(directory, "status.json");
+    const output = join(directory, "status.md");
+    writeFileSync(input, JSON.stringify({
+      pr: 42, version: "1.5.0", kind: "normal", state: "stable", sourceSha: "a".repeat(40),
+    }));
+    const result = spawnSync(process.execPath, [new URL("./cli.mjs", import.meta.url).pathname, "render-status", "--input", input, "--output", output], {
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(readFileSync(output, "utf8"), `<!-- lurkloot-release-pr:42:status -->
+## Release status: stable
+
+- Candidate: \`v1.5.0\` (normal)
+- Source: \`${"a".repeat(40)}\`
+`);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test("maps CWS states to required-check outcomes", () => {
   assert.deepEqual(checkConclusion("PENDING_REVIEW"), { status: "in_progress" });
