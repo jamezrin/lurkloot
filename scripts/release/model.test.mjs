@@ -6,7 +6,10 @@ import {
   compareVersions,
   parseLegacyCandidateMetadata,
   parseCandidateMetadata,
+  promotionCwsAction,
   renderCandidateMetadata,
+  selectPromotionCandidate,
+  validatePromotionPullRequest,
 } from "./model.mjs";
 
 const fixtureMetadata = {
@@ -134,4 +137,42 @@ test("parses schema v1 metadata only through the recovery parser", () => {
   };
   assert.deepEqual(parseLegacyCandidateMetadata(JSON.stringify(legacy)), legacy);
   assert.throws(() => parseCandidateMetadata(JSON.stringify(legacy)), /schemaVersion/);
+});
+
+test("published stable recovery continues only for the exact candidate version", () => {
+  assert.equal(promotionCwsAction({ version: "1.5.0", submittedVersion: "1.5.0", submittedState: "STAGED" }), "publish");
+  assert.equal(promotionCwsAction({ version: "1.5.0", publishedVersion: "1.5.0", submittedState: "PUBLISHED" }), "continue");
+  assert.throws(
+    () => promotionCwsAction({ version: "1.5.0", publishedVersion: "1.4.0", submittedState: "PUBLISHED" }),
+    /exact candidate version/,
+  );
+});
+
+test("promotion rejects a second release label after approval", () => {
+  assert.throws(
+    () => validatePromotionPullRequest({
+      expectedHeadSha: "1".repeat(40), expectedMergeSha: "2".repeat(40), expectedLabel: "release/minor",
+      headSha: "1".repeat(40), mergeSha: "2".repeat(40), state: "MERGED", mergedAt: "2026-07-16T20:00:00Z",
+      labels: ["release/minor", "release/hotfix"], checks: [{ name: "cws-release-ready", status: "COMPLETED", conclusion: "SUCCESS" }],
+    }),
+    /exactly one recognized release label/,
+  );
+});
+
+test("promotion rejects changed merge identity and required checks", () => {
+  const base = {
+    expectedHeadSha: "1".repeat(40), expectedMergeSha: "2".repeat(40), expectedLabel: "release/minor",
+    headSha: "1".repeat(40), mergeSha: "2".repeat(40), state: "MERGED", mergedAt: "2026-07-16T20:00:00Z",
+    labels: ["release/minor"], checks: [{ name: "cws-release-ready", status: "COMPLETED", conclusion: "SUCCESS" }],
+  };
+  assert.throws(() => validatePromotionPullRequest({ ...base, mergeSha: "3".repeat(40) }), /merge identity/);
+  assert.throws(() => validatePromotionPullRequest({ ...base, checks: [{ name: "cws-release-ready", status: "COMPLETED", conclusion: "FAILURE" }] }), /required checks/);
+});
+
+test("candidate lookup examines candidates beyond 100 and rejects ambiguity", () => {
+  const releases = Array.from({ length: 101 }, (_, index) => ({ tag: `v0.0.${index + 1}`, releasePr: index + 1000, schemaVersion: 2 }));
+  releases[100] = { tag: "v1.5.0", releasePr: 42, schemaVersion: 2 };
+  assert.equal(selectPromotionCandidate(releases, 42).tag, "v1.5.0");
+  assert.throws(() => selectPromotionCandidate(releases, 43), /no candidate/);
+  assert.throws(() => selectPromotionCandidate([...releases, { tag: "v1.5.1", releasePr: 42, schemaVersion: 2 }], 42), /multiple candidates/);
 });

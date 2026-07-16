@@ -76,6 +76,35 @@ export function candidateAction({ exists, stable, submittedState }) {
   return exists ? "replace" : "create";
 }
 
+const recognizedReleaseLabels = new Set(["release/patch", "release/minor", "release/major", "release/hotfix"]);
+
+export function promotionCwsAction({ version, submittedVersion, submittedState, publishedVersion }) {
+  if (submittedState === "STAGED" && submittedVersion === version) return "publish";
+  if (submittedState === "PUBLISHED" && publishedVersion === version) return "continue";
+  throw new Error("CWS state and version must identify the exact candidate version");
+}
+
+export function validatePromotionPullRequest(value) {
+  invariant(value.state === "MERGED" && value.mergedAt, "pull request must remain merged");
+  invariant(value.headSha === value.expectedHeadSha, "candidate head identity changed");
+  invariant(value.mergeSha === value.expectedMergeSha, "candidate merge identity changed");
+  const releaseLabels = value.labels.filter((label) => recognizedReleaseLabels.has(label));
+  invariant(releaseLabels.length === 1 && releaseLabels[0] === value.expectedLabel, "pull request must have exactly one recognized release label");
+  invariant(
+    value.checks.some((check) => check.name === "cws-release-ready" && check.conclusion === "SUCCESS")
+      && value.checks.every((check) => check.status === "COMPLETED" && ["SUCCESS", "NEUTRAL", "SKIPPED"].includes(check.conclusion)),
+    "required checks must remain successful",
+  );
+  return value;
+}
+
+export function selectPromotionCandidate(releases, releasePr) {
+  const matches = releases.filter((release) => release.schemaVersion === 2 && release.releasePr === releasePr);
+  invariant(matches.length > 0, `no candidate claims PR #${releasePr}`);
+  invariant(matches.length === 1, `multiple candidates claim PR #${releasePr}`);
+  return matches[0];
+}
+
 function validateChecksums(value) {
   invariant(value && typeof value === "object" && !Array.isArray(value), "artifactChecksums must be an object");
   for (const [name, checksum] of Object.entries(value)) {
