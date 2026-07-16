@@ -52,8 +52,7 @@ jobs:
       - run: gh release download "v$VERSION" --pattern candidate.json --dir candidate
       - name: Validate candidate metadata
         run: |
-          node -e 'import("./scripts/release/model.mjs").then(({parseCandidateMetadata}) => parseCandidateMetadata(require("fs").readFileSync("candidate/candidate.json","utf8")))'
-          test "$(jq -r .version candidate/candidate.json)" = "$VERSION"
+          node scripts/release/cli.mjs candidate read --file candidate/candidate.json --version "$VERSION" >/dev/null
           test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true || { echo "v$VERSION is not an active prerelease" >&2; exit 1; }
           pr=$(jq -r .releasePr candidate/candidate.json)
           test "$(gh pr view "$pr" --json state --jq .state)" = OPEN || { echo "release PR #$pr is not open" >&2; exit 1; }

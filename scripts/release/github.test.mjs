@@ -9,6 +9,7 @@ import {
   renderStepSummary,
   shouldComment,
   stateGuidance,
+  submitCandidateCheck,
 } from "./github.mjs";
 
 const metadata = { version: "1.5.0", initiator: "jamezrin", sourceSha: "a".repeat(40), releasePr: 42 };
@@ -25,6 +26,19 @@ test("maps CWS states to required-check outcomes", () => {
   assert.deepEqual(checkConclusion("none"), { status: "completed", conclusion: "failure" });
   assert.deepEqual(checkConclusion("PUBLISHED", { recovery: true }), { status: "completed", conclusion: "success" });
   assert.deepEqual(checkConclusion("PUBLISHED"), { status: "completed", conclusion: "failure" });
+});
+
+test("submit candidate never completes the release-ready check", () => {
+  assert.deepEqual(submitCandidateCheck("already-staged", "1.5.0"), {
+    status: "in_progress",
+    title: "CWS candidate staged; validation pending",
+    summary: "v1.5.0 is staged in CWS and awaits monitor finalization and release metadata validation.",
+  });
+  assert.deepEqual(submitCandidateCheck("submitted", "1.5.0"), {
+    status: "in_progress",
+    title: "CWS review pending",
+    summary: "v1.5.0 is frozen and submitted with staged publishing.",
+  });
 });
 
 test("titles the check run by state", () => {

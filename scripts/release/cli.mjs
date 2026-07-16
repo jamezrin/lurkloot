@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFile, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 import { parseArgs } from "node:util";
 import { changelogPath, checkWorkspace, prepareWorkspace } from "../release.mjs";
+import { parseCandidateHeadEvidence } from "./evidence.mjs";
 import {
   checkConclusion,
   checkTitle,
@@ -15,9 +15,10 @@ import {
   renderStepSummary,
   shouldComment,
   stateGuidance,
+  submitCandidateCheck,
 } from "./github.mjs";
 import { buildCandidateMetadata, parseChecksums } from "./metadata.mjs";
-import { parseCandidateMetadata, renderCandidateMetadata } from "./model.mjs";
+import { assertCandidateVersion, compareVersions, parseCandidateMetadata, renderCandidateMetadata } from "./model.mjs";
 import { deriveCwsState, parseStatusOutputs } from "./monitor.mjs";
 
 const botEmail = "41898282+github-actions[bot]@users.noreply.github.com";
@@ -28,26 +29,6 @@ function required(name) {
   return value;
 }
 
-function run(command, args, { cwd = process.cwd(), allowFailure = false } = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => { stdout += chunk; });
-    child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0 || allowFailure) resolve({ code, stdout: stdout.trim(), stderr: stderr.trim() });
-      else reject(new Error(`${command} ${args.join(" ")} failed: ${stderr.trim() || `exit ${code}`}`));
-    });
-  });
-}
-
-async function gitLines(cwd, args) {
-  const result = await run("git", args, { cwd });
-  return result.stdout ? result.stdout.split("\n") : [];
-}
-
 async function emitOutputs(values) {
   const lines = Object.entries(values).map(([key, value]) => `${key}=${value}`);
   for (const line of lines) console.log(line);
@@ -55,16 +36,11 @@ async function emitOutputs(values) {
   await appendFile(process.env.GITHUB_OUTPUT, `${lines.join("\n")}\n`);
 }
 
-export async function verifyHotfixHistory({ cwd = process.cwd(), mainRef, developRef, candidateRef }) {
-  const ancestry = await run("git", ["merge-base", "--is-ancestor", mainRef, candidateRef], { cwd, allowFailure: true });
-  if (ancestry.code !== 0) throw new Error(`${candidateRef} must descend from ${mainRef}`);
-  const [developOnly, candidateOnly] = await Promise.all([
-    gitLines(cwd, ["rev-list", developRef, `^${mainRef}`]),
-    gitLines(cwd, ["rev-list", candidateRef, `^${mainRef}`]),
-  ]);
-  const candidateCommits = new Set(candidateOnly);
-  const leakedCommit = developOnly.find((commit) => candidateCommits.has(commit));
-  if (leakedCommit) throw new Error(`${candidateRef} contains unreleased develop commit ${leakedCommit}`);
+export async function verifyHotfixHistory({ mainAncestor, developCommits, candidateCommits }) {
+  if (!mainAncestor) throw new Error("hotfix candidate must descend from main");
+  const candidateSet = new Set(candidateCommits);
+  const leakedCommit = developCommits.find((commit) => candidateSet.has(commit));
+  if (leakedCommit) throw new Error(`hotfix candidate contains unreleased develop commit ${leakedCommit}`);
 }
 
 export async function verifyCandidateAssets(metadataInput, assetDirectory) {
@@ -92,39 +68,37 @@ export async function verifyCandidateAssets(metadataInput, assetDirectory) {
 // A staged candidate may only carry the finalize commit this workflow pushes itself; anything else
 // means the reviewed head drifted away from the frozen candidate source.
 export async function verifyCandidateHead({
-  cwd = process.cwd(),
   version,
   sourceSha,
   headSha,
+  descendsFromSource,
+  metadataOnly,
+  commitCount,
+  authorEmail,
+  subject,
   verifyWorkspace = checkWorkspace,
 }) {
-  const ancestry = await run("git", ["merge-base", "--is-ancestor", sourceSha, headSha], { cwd, allowFailure: true });
-  if (ancestry.code !== 0) return false;
-  const drift = await run("git", [
-    "diff",
-    "--quiet",
-    sourceSha,
-    headSha,
-    "--",
-    ".",
-    ":(exclude)package.json",
-    ":(exclude)packages/*/package.json",
-    `:(exclude)${changelogPath}`,
-  ], { cwd, allowFailure: true });
-  if (drift.code !== 0) return false;
+  if (!descendsFromSource || !metadataOnly) return false;
   if (headSha === sourceSha) return true;
-  const count = await run("git", ["rev-list", "--count", `${sourceSha}..${headSha}`], { cwd });
-  if (count.stdout !== "1") return false;
-  const author = await run("git", ["show", "-s", "--format=%ae", headSha], { cwd });
-  if (author.stdout !== botEmail) return false;
-  const subject = await run("git", ["show", "-s", "--format=%s", headSha], { cwd });
-  if (subject.stdout !== `chore(release): finalize ${version} metadata`) return false;
+  if (commitCount !== 1) return false;
+  if (authorEmail !== botEmail) return false;
+  if (subject !== `chore(release): finalize ${version} metadata`) return false;
   try {
     await verifyWorkspace();
   } catch {
     return false;
   }
   return true;
+}
+
+function parseBooleanEvidence(value, name) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`--${name} must be true or false`);
+}
+
+function parseCommitList(text) {
+  return text.split("\n").map((line) => line.trim()).filter(Boolean);
 }
 
 async function changelogHasDate(version) {
@@ -175,8 +149,14 @@ async function cwsReport(values) {
   const headSha = values["head-sha"];
   const recoveryRequested = values.recovery === "true";
   const probe = deriveCwsState({ status, version, sourceSha, headSha, recoveryRequested });
+  const headEvidence = parseCandidateHeadEvidence(await readFile(values["head-evidence"], "utf8"));
   const candidateHeadValid = probe.state === "STAGED"
-    ? await verifyCandidateHead({ version, sourceSha, headSha })
+    ? await verifyCandidateHead({
+      version,
+      sourceSha,
+      headSha,
+      ...headEvidence,
+    })
     : true;
   const { state, recovery } = deriveCwsState({ status, version, sourceSha, headSha, recoveryRequested, candidateHeadValid });
   const summary = stateGuidance(state, { version, pr, sourceSha, submittedVersion: status.submittedVersion, recovery });
@@ -234,28 +214,71 @@ const commands = {
     requires: ["file"],
     run: ({ values }) => candidateRead(values),
   },
+  "candidate validate-version": {
+    usage: "candidate validate-version --version VERSION --active-versions JSON [--replacing-version VERSION]",
+    options: {
+      version: { type: "string" },
+      "active-versions": { type: "string" },
+      "replacing-version": { type: "string" },
+    },
+    requires: ["version", "active-versions"],
+    run: async ({ values }) => {
+      const manifest = JSON.parse(await readFile("package.json", "utf8"));
+      assertCandidateVersion({
+        version: values.version,
+        stableVersion: manifest.version,
+        activeVersions: JSON.parse(values["active-versions"]),
+        replacingVersion: values["replacing-version"],
+      });
+    },
+  },
+  "version less-than": {
+    usage: "version less-than VERSION VERSION",
+    positionals: 2,
+    run: ({ positionals }) => {
+      if (compareVersions(positionals[0], positionals[1]) >= 0) process.exitCode = 1;
+    },
+  },
   "verify-hotfix": {
-    usage: "verify-hotfix --main REF --develop REF --candidate REF",
-    options: { main: { type: "string" }, develop: { type: "string" }, candidate: { type: "string" } },
-    requires: ["main", "develop", "candidate"],
-    run: ({ values }) => verifyHotfixHistory({
-      mainRef: values.main,
-      developRef: values.develop,
-      candidateRef: values.candidate,
+    usage: "verify-hotfix --main-ancestor true|false --develop-commits FILE --candidate-commits FILE",
+    options: {
+      "main-ancestor": { type: "string" },
+      "develop-commits": { type: "string" },
+      "candidate-commits": { type: "string" },
+    },
+    requires: ["main-ancestor", "develop-commits", "candidate-commits"],
+    run: async ({ values }) => verifyHotfixHistory({
+      mainAncestor: parseBooleanEvidence(values["main-ancestor"], "main-ancestor"),
+      developCommits: parseCommitList(await readFile(values["develop-commits"], "utf8")),
+      candidateCommits: parseCommitList(await readFile(values["candidate-commits"], "utf8")),
     }),
   },
+  "submit-check": {
+    usage: "submit-check --action ACTION --version VERSION",
+    options: { action: { type: "string" }, version: { type: "string" } },
+    requires: ["action", "version"],
+    run: ({ values }) => emitOutputs(submitCandidateCheck(values.action, values.version)),
+  },
   "cws-report": {
-    usage: "cws-report --candidate CANDIDATE_JSON --status STATUS_FILE --head-sha SHA --version VERSION --report-dir DIR [--recovery true|false] [--comments FILE]",
+    usage: "cws-report --candidate CANDIDATE_JSON --status STATUS_FILE --head-sha SHA --head-evidence JSON_FILE --version VERSION --report-dir DIR [--recovery true|false] [--comments FILE]",
     options: {
       candidate: { type: "string" },
       status: { type: "string" },
       "head-sha": { type: "string" },
+      "head-evidence": { type: "string" },
       version: { type: "string" },
       "report-dir": { type: "string" },
       recovery: { type: "string", default: "false" },
       comments: { type: "string" },
     },
-    requires: ["candidate", "status", "head-sha", "version", "report-dir"],
+    requires: [
+      "candidate",
+      "status",
+      "head-sha",
+      "head-evidence",
+      "version",
+      "report-dir",
+    ],
     run: ({ values }) => cwsReport(values),
   },
 };
