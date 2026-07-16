@@ -48,6 +48,16 @@ jobs:
           ref: ${{ inputs.trusted_tools_ref }}
           path: trusted-release-tools
           persist-credentials: false
+      - name: Install and verify pinned signer from trusted main lockfile without credentials
+        if: inputs.sign_crx && inputs.version != ''
+        run: |
+          pnpm --dir trusted-release-tools install --frozen-lockfile --ignore-scripts
+          mkdir trusted-release-tools/signer
+          printf '{"private":true,"dependencies":{"crx3":"2.0.0"}}\n' > trusted-release-tools/signer/package.json
+          pnpm --dir trusted-release-tools/signer install --offline --ignore-scripts --prod --lockfile=false
+          test "$(node -p "require('./trusted-release-tools/signer/node_modules/crx3/package.json').version")" = 2.0.0
+          tar -C trusted-release-tools -czf signer.tar.gz signer
+          sha256sum signer.tar.gz > SIGNER_SHA256
       - name: Apply release version
         if: inputs.version != ''
         env:
@@ -59,6 +69,20 @@ jobs:
           node trusted-release-tools/scripts/release/cli.mjs prepare-workspace "$RELEASE_VERSION"
           rm -rf trusted-release-tools
       - run: pnpm install --frozen-lockfile
+      - name: Verify trusted signer bundle exists before credentialed job
+        if: inputs.sign_crx
+        run: |
+          test -s signer.tar.gz
+          sha256sum -c SIGNER_SHA256
+      - uses: actions/upload-artifact@v7
+        if: inputs.sign_crx
+        with:
+          name: ${{ inputs.artifact_name }}-signer
+          path: |
+            signer.tar.gz
+            SIGNER_SHA256
+          if-no-files-found: error
+          retention-days: 1
       - run: pnpm release:check
       - run: pnpm zip && pnpm zip:firefox
       - name: Normalize reproducible ZIP artifacts
@@ -106,6 +130,18 @@ jobs:
         if: inputs.sign_crx
         with:
           node-version: 24
+      - uses: actions/download-artifact@v8
+        if: inputs.sign_crx
+        with:
+          name: ${{ inputs.artifact_name }}-signer
+          path: signer-artifact
+      - name: Verify and unpack pinned local signer
+        if: inputs.sign_crx
+        working-directory: signer-artifact
+        run: |
+          sha256sum -c SIGNER_SHA256
+          tar -xzf signer.tar.gz -C "$GITHUB_WORKSPACE"
+          test "$(node -p "require('./signer/node_modules/crx3/package.json').version")" = 2.0.0
       - name: Verify unsigned build output
         working-directory: release-assets
         run: sha256sum -c UNSIGNED_SHA256SUMS
@@ -122,7 +158,7 @@ jobs:
           version=${version%-chrome.zip}
           mkdir chrome-mv3
           unzip -q "$chrome_zip" -d chrome-mv3
-          npx --yes crx3@2.0.0 -p "$RUNNER_TEMP/lurkloot.pem" -o "release-assets/lurkloot-$version-chrome.crx" -- chrome-mv3
+          node signer/node_modules/crx3/bin/crx3.js -p "$RUNNER_TEMP/lurkloot.pem" -o "release-assets/lurkloot-$version-chrome.crx" -- chrome-mv3
           rm -f "$RUNNER_TEMP/lurkloot.pem"
       - name: Generate checksums
         working-directory: release-assets

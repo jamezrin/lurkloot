@@ -77,13 +77,16 @@ jobs:
         name: Resolve controller inputs or recovery metadata
         run: |
           [[ "$PR" =~ ^[1-9][0-9]*$ ]] || { echo "pr_number must be positive" >&2; exit 1; }
+          trustedMain=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          [[ "$trustedMain" =~ ^[0-9a-f]{40}$ ]] || exit 1
           if [[ -n "$CALL_SHA" ]]; then
+            test "$CALL_TRUSTED_TOOLS" = "$trustedMain" || { echo "trusted_tools_ref does not match independently resolved main" >&2; exit 1; }
             stableVersion=$CALL_STABLE_VERSION
             if [[ -z "$stableVersion" ]]; then
               encoded=$(gh api "repos/$GITHUB_REPOSITORY/contents/package.json?ref=$CALL_STABLE_SHA" --jq .content)
               stableVersion=$(base64 --decode <<<"$encoded" | jq -r .version)
             fi
-            values=$(jq -n --arg sha "$CALL_SHA" --arg version "$CALL_VERSION" --arg kind "$CALL_KIND" --arg label "$CALL_LABEL" --arg authorizedBy "$CALL_AUTHORIZED_BY" --arg stableSha "$CALL_STABLE_SHA" --arg stableVersion "$stableVersion" --arg developSha "$CALL_DEVELOP_SHA" --arg tools "$CALL_TRUSTED_TOOLS" '{sha:$sha,version:$version,kind:$kind,label:$label,authorizedBy:$authorizedBy,stableSha:$stableSha,stableVersion:$stableVersion,developSha:$developSha,tools:$tools}')
+            values=$(jq -n --arg sha "$CALL_SHA" --arg version "$CALL_VERSION" --arg kind "$CALL_KIND" --arg label "$CALL_LABEL" --arg authorizedBy "$CALL_AUTHORIZED_BY" --arg stableSha "$CALL_STABLE_SHA" --arg stableVersion "$stableVersion" --arg developSha "$CALL_DEVELOP_SHA" --arg tools "$trustedMain" '{sha:$sha,version:$version,kind:$kind,label:$label,authorizedBy:$authorizedBy,stableSha:$stableSha,stableVersion:$stableVersion,developSha:$developSha,tools:$tools}')
           else
             mkdir recovery
             found=""
@@ -93,7 +96,7 @@ jobs:
               if [[ $(jq -r .schemaVersion recovery/candidate.json) == 2 && $(jq -r .releasePr recovery/candidate.json) == "$PR" ]]; then found=recovery/candidate.json; break; fi
             done < <(gh release list --limit 100 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName')
             test -n "$found" || { echo "No schema v2 candidate found for PR #$PR" >&2; exit 1; }
-            values=$(jq '{sha:.sourceSha,version,kind,label,authorizedBy,stableSha,stableVersion,developSha:(.developSha // ""),tools:.trustedToolsSha}' "$found")
+            values=$(jq --arg tools "$trustedMain" '{sha:.sourceSha,version,kind,label,authorizedBy,stableSha,stableVersion,developSha:(.developSha // ""),tools:$tools}' "$found")
           fi
           jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"$values" >> "$GITHUB_OUTPUT"
           echo "pr=$PR" >> "$GITHUB_OUTPUT"
@@ -189,6 +192,7 @@ jobs:
       pr_number: ${{ needs.resolve.outputs.pr }}
       expected_head_sha: ${{ needs.resolve.outputs.candidate_sha }}
       release_label: ${{ needs.resolve.outputs.release_label }}
+      promote: false
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -199,6 +203,7 @@ jobs:
     environment: prereleases
     permissions:
       contents: write
+      packages: write
       pull-requests: read
     outputs:
       candidate_sha: ${{ steps.outputs.outputs.candidate_sha }}
@@ -223,6 +228,7 @@ jobs:
       RELEASE_PR: ${{ needs.resolve.outputs.pr }}
       INITIATOR: ${{ github.actor }}
       PREVIEW_URL: https://next.lurkloot.pages.dev
+      STAGING_ID: candidate-${{ github.run_id }}-${{ github.run_attempt }}
       IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
       CHECKSUMS_PATH: release-assets/SHA256SUMS
       DIGESTS_DIR: docker-digests
@@ -246,10 +252,14 @@ jobs:
           pattern: docker-candidate-${{ needs.resolve.outputs.version }}-digest-*
           path: docker-digests
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: site-prerelease-${{ github.run_id }}-${{ github.run_attempt }}
+          path: site-artifact
       - name: Verify all publication inputs
         run: |
           (cd release-assets && sha256sum -c SHA256SUMS)
-          test "$(find docker-digests -type f | wc -l)" = 2
+          test "$(find docker-digests -type f | wc -l)" = 1
           find docker-digests -type f -printf '%f\n' | grep -Ex '[0-9a-f]{64}' >/dev/null
           live=$(gh pr view "$PR" --json state,isDraft,baseRefName,headRefOid,labels,isCrossRepository)
           test "$(jq -r .state <<<"$live")" = OPEN
@@ -263,33 +273,100 @@ jobs:
           export CREATED_AT="$(date -u +%FT%TZ)" RECONCILED_AT="$(date -u +%FT%TZ)"
           node trusted-release-tools/scripts/release/cli.mjs metadata create > candidate.json
           test "$(jq -r .schemaVersion candidate.json)" = 2
-      - name: Revalidate immediately before release mutation
+      - name: Revalidate immediately before immutable staging tag mutation
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
           test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - name: Stage immutable GitHub tag
+        run: gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$STAGING_ID" -f sha="$EXPECTED_HEAD_SHA" >/dev/null
+      - name: Revalidate immediately before immutable staging release mutation
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - name: Stage immutable GitHub release
+        run: gh release create "$STAGING_ID" --verify-tag --title "$STAGING_ID" --prerelease --latest=false --notes "Immutable staging candidate for v$VERSION from run $GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT."
+      - name: Revalidate immediately before immutable staging asset mutation
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - name: Stage all new artifacts and metadata under immutable run identity
+        run: gh release upload "$STAGING_ID" release-assets/* candidate.json
       - name: Upload verified Chrome package as CWS draft
-        run: node trusted-release-tools/scripts/cws.mjs upload-candidate
-      - name: Revalidate after CWS upload and before GitHub mutation
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
           test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
-      - id: outputs
-        name: Replace mutable candidate release
+          node trusted-release-tools/scripts/cws.mjs upload-candidate
+      - name: Back up prior canonical references
         run: |
           tag="v$VERSION"
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" -F force=true >/dev/null
-          else
-            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" >/dev/null
-          fi
+          mkdir -p rollback-assets
+          prior=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null || true)
+          echo "$prior" > prior-tag-sha
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release edit "$tag" --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA."
+            echo true > prior-release
+            gh release download "$tag" --dir rollback-assets || true
           else
-            gh release create "$tag" --verify-tag --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA."
+            echo false > prior-release
           fi
+          docker buildx imagetools inspect "$IMAGE_NAME:next" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' > prior-docker-digest || true
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: commit
+        name: Commit canonical candidate references
+        run: |
+          revalidate() {
+            live=$(gh pr view "$PR" --json headRefOid,labels)
+            test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+            test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          }
+          tag="v$VERSION"
+          revalidate
+          prior=$(cat prior-tag-sha)
+          if [[ -n "$prior" ]]; then gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" -F force=true >/dev/null; else gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" >/dev/null; fi
+          revalidate
+          if [[ $(cat prior-release) == true ]]; then gh release edit "$tag" --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA (staged as $STAGING_ID)."; else gh release create "$tag" --verify-tag --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA (staged as $STAGING_ID)."; fi
+          revalidate
           gh release upload "$tag" --clobber release-assets/* candidate.json
+          revalidate
+          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" "$IMAGE_NAME:$STAGING_ID"
+          revalidate
+          docker buildx imagetools create --tag "$IMAGE_NAME:next" "$IMAGE_NAME:$STAGING_ID"
+      - name: Revalidate immediately before next site mutation
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - name: Commit canonical site next reference
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: site-artifact
+          command: pages deploy . --project-name=lurkloot --branch=next
+      - name: Roll back canonical candidate references
+        if: failure() && steps.commit.outcome == 'success'
+        run: |
+          tag="v$VERSION"
+          prior=$(cat prior-tag-sha)
+          if [[ -n "$prior" ]]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$prior" -F force=true >/dev/null
+            if [[ $(cat prior-release) == true && -n $(find rollback-assets -type f -print -quit) ]]; then gh release upload "$tag" --clobber rollback-assets/*; fi
+          else
+            gh release delete "$tag" --yes --cleanup-tag || true
+          fi
+          priorDocker=$(cat prior-docker-digest)
+          if [[ -n "$priorDocker" ]]; then docker buildx imagetools create --tag "$IMAGE_NAME:next" "$IMAGE_NAME@$priorDocker"; fi
+      - id: outputs
+        name: Record committed candidate outputs
+        run: |
+          tag="v$VERSION"
           checksum=$(sha256sum "release-assets/lurkloot-$VERSION-chrome.zip" | cut -d' ' -f1)
           echo "candidate_sha=$EXPECTED_HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "release_url=https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag" >> "$GITHUB_OUTPUT"

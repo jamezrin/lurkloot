@@ -32,6 +32,9 @@ env:
 
 jobs:
   build:
+    permissions:
+      contents: read
+      packages: none
     strategy:
       fail-fast: false
       matrix:
@@ -116,7 +119,7 @@ jobs:
       - name: Verify OCI artifacts
         working-directory: images
         run: sha256sum -c image-amd64.tar.sha256 && sha256sum -c image-arm64.tar.sha256
-      - name: Revalidate candidate immediately before registry mutation
+      - name: Revalidate candidate immediately before amd64 registry mutation
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ inputs.pr_number }}
@@ -131,21 +134,60 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Stage immutable OCI amd64
+        env:
+          VERSION: ${{ inputs.version }}
+          PR: ${{ inputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          RELEASE_LABEL: ${{ inputs.release_label }}
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          staging="candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker load --input images/image-amd64.tar
+          docker tag "$IMAGE_NAME:$VERSION-amd64" "$IMAGE_NAME:$staging-amd64"
+          docker push "$IMAGE_NAME:$staging-amd64"
+      - name: Revalidate candidate immediately before arm64 registry mutation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          RELEASE_LABEL: ${{ inputs.release_label }}
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - name: Stage immutable OCI arm64
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          staging="candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker load --input images/image-arm64.tar
+          docker tag "$IMAGE_NAME:$VERSION-arm64" "$IMAGE_NAME:$staging-arm64"
+          docker push "$IMAGE_NAME:$staging-arm64"
+      - name: Revalidate candidate immediately before immutable manifest mutation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          RELEASE_LABEL: ${{ inputs.release_label }}
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
       - id: publish
-        name: Publish verified OCI artifacts
+        name: Stage immutable OCI manifest
         env:
           VERSION: ${{ inputs.version }}
         run: |
           mkdir digests
-          for arch in amd64 arm64; do
-            docker load --input "images/image-$arch.tar"
-            docker push "$IMAGE_NAME:$VERSION-$arch"
-            digest=$(docker image inspect "$IMAGE_NAME:$VERSION-$arch" --format '{{index .RepoDigests 0}}' | sed 's/.*@sha256://')
-            [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || exit 1
-            touch "digests/$digest"
-          done
-          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" --tag "$IMAGE_NAME:next" "$IMAGE_NAME:$VERSION-amd64" "$IMAGE_NAME:$VERSION-arm64"
-          echo "image_tag=$IMAGE_NAME:$VERSION" >> "$GITHUB_OUTPUT"
+          staging="candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker buildx imagetools create --tag "$IMAGE_NAME:$staging" "$IMAGE_NAME:$staging-amd64" "$IMAGE_NAME:$staging-arm64"
+          digest=$(docker buildx imagetools inspect "$IMAGE_NAME:$staging" --format '{{json .Manifest.Digest}}' | tr -d '"' | sed 's/^sha256://')
+          [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || exit 1
+          touch "digests/$digest"
+          echo "image_tag=$IMAGE_NAME:$staging" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact_prefix }}-digest-published

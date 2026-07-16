@@ -35,6 +35,71 @@ test("candidate builders isolate credentials from candidate code", async () => {
   }
 });
 
+test("CRX signing executes only a locally verified pinned signer with the key", async () => {
+  const extension = await workflow("build-extension.yml");
+  const build = extension.match(/\n  build:\n([\s\S]*?)(?=\n  finalize:\n)/)?.[1] ?? "";
+  assert.match(build, /pnpm --dir trusted-release-tools install --frozen-lockfile --ignore-scripts/);
+  assert.match(build, /pnpm --dir trusted-release-tools\/signer install --offline --ignore-scripts/);
+  const finalize = extension.match(/\n  finalize:\n([\s\S]*)/)?.[1] ?? "";
+  assert.doesNotMatch(finalize, /\bnpx\b|npm (?:install|exec)|pnpm (?:add|dlx|install)|curl|wget/);
+  assert.match(finalize, /SIGNER_SHA256/);
+  assert.match(finalize, /sha256sum -c/);
+  assert.match(finalize, /node signer\/node_modules\/crx3\/bin\/crx3\.js/);
+  const keyStep = finalize.match(/- name: Build signed CRX3\n([\s\S]*?)(?=\n      - name:|\n      - uses:)/)?.[1] ?? "";
+  assert.match(keyStep, /CRX_PRIVATE_KEY/);
+  assert.doesNotMatch(keyStep, /actions\/|\bnpx\b|pnpm|npm|curl|wget/);
+});
+
+test("candidate Docker builds explicitly deny inherited package permissions", async () => {
+  const docker = await workflow("build-docker.yml");
+  const build = docker.match(/\n  build:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n|$)/)?.[1] ?? "";
+  assert.match(build, /permissions:\n\s+contents: read\n\s+packages: none/);
+  const publish = docker.match(/\n  publish:\n([\s\S]*?)$/)?.[1] ?? "";
+  assert.match(publish, /permissions:\n\s+contents: read\n\s+packages: write/);
+});
+
+test("trusted tooling is derived from and matched to the live main ref, including recovery", async () => {
+  const prepare = await workflow("prepare-prerelease.yml");
+  assert.match(prepare, /git\/ref\/heads\/main/);
+  assert.match(prepare, /CALL_TRUSTED_TOOLS/);
+  assert.match(prepare, /trusted_tools_ref does not match independently resolved main/);
+  assert.doesNotMatch(prepare, /tools:\.trustedToolsSha/);
+  const validate = prepare.indexOf("Validate exact authorized PR state before builds");
+  const extension = prepare.indexOf("\n  extension:");
+  assert.ok(validate >= 0 && validate < extension, "trusted main mismatch fails before privileged work");
+});
+
+test("each external mutation has an adjacent live candidate revalidation", async () => {
+  for (const name of ["prepare-prerelease.yml", "build-docker.yml", "site-deploy.yml"]) {
+    const fullText = await workflow(name);
+    const text = fullText.split("- name: Roll back canonical candidate references")[0];
+    const mutations = [...text.matchAll(/(?:gh api -X (?:POST|PATCH|DELETE)|gh release (?:create|edit|upload|delete)|docker (?:push|buildx imagetools create)|pages deploy|upload-candidate)/g)];
+    for (const mutation of mutations) {
+      const before = text.slice(Math.max(0, mutation.index - 900), mutation.index);
+      assert.match(before, /(?:gh pr view "\$PR" --json headRefOid,labels|\brevalidate\s*)/, `${name}: ${mutation[0]} must immediately revalidate`);
+    }
+  }
+});
+
+test("candidate publication stages immutable run identities before canonical commit and defines rollback", async () => {
+  const prepare = await workflow("prepare-prerelease.yml");
+  assert.match(prepare, /STAGING_ID: candidate-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/);
+  assert.match(prepare, /name: Commit canonical candidate references/);
+  assert.match(prepare, /name: Roll back canonical candidate references/);
+  assert.match(prepare, /if: failure\(\) && steps\.commit\.outcome == 'success'/);
+  const stage = prepare.indexOf("name: Stage");
+  const commit = prepare.indexOf("name: Commit canonical candidate references");
+  assert.ok(stage >= 0 && stage < commit);
+
+  const docker = await workflow("build-docker.yml");
+  assert.match(docker, /candidate-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}/);
+  assert.ok(docker.indexOf("Stage immutable OCI amd64") < docker.indexOf("Stage immutable OCI manifest"));
+
+  const site = await workflow("site-deploy.yml");
+  assert.match(site, /format\('candidate-\{0\}-\{1\}', github\.run_id, github\.run_attempt\)/);
+  assert.ok(site.indexOf("Stage immutable site deployment") < site.indexOf("Promote staged site to mutable channel"));
+});
+
 test("privileged artifact jobs are protected and never check out candidate code", async () => {
   const extension = await workflow("build-extension.yml");
   const finalize = extension.match(/\n  finalize:\n([\s\S]*)/)?.[1] ?? "";
