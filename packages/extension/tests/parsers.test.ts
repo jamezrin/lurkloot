@@ -316,6 +316,17 @@ describe("Twitch parsers", () => {
       .toThrow("twitch-inventory-v1 inventory response schema mismatch");
   });
 
+  it.each([
+    { data: { currentUser: { inventory: { dropCampaignsInProgress: [null] } } } },
+    { data: { currentUser: { inventory: { dropCampaigns: [{ id: "campaign", timeBasedDrops: [null] }] } } } },
+    { data: { currentUser: { inventory: { gameEventDrops: ["owned-benefit"] } } } },
+  ])("rejects malformed entries inside v1 inventory arrays", (response) => {
+    const capability = createTwitchInventory("twitch-inventory-v1");
+
+    expect(() => capability.parse(response))
+      .toThrow("twitch-inventory-v1 inventory response schema mismatch");
+  });
+
   it("normalizes the proven v1 inventory fixture", () => {
     // Composed only from the canonical v1 shapes already covered below: nested
     // inventory campaigns, gameEventDrops ownership, self-edge claim IDs,
@@ -346,6 +357,26 @@ describe("Twitch parsers", () => {
       status: "claimed",
       watchedMinutes: 120,
     });
+  });
+
+  it("owns v1 progress reconciliation behind the inventory capability", () => {
+    const capability = createTwitchInventory("twitch-inventory-v1");
+    const campaigns = [{
+      id: "campaign",
+      platform: "twitch" as const,
+      name: "Campaign",
+      status: "active" as const,
+      rewards: [{ id: "reward", name: "Reward", requiredMinutes: 60, watchedMinutes: 0, status: "locked" as const }],
+    }];
+    const response = {
+      data: { currentUser: { inventory: { dropCampaignsInProgress: [{
+        id: "campaign",
+        timeBasedDrops: [{ id: "reward", requiredMinutesWatched: 60, self: { currentMinutesWatched: 25 } }],
+      }] } } },
+    };
+
+    expect(capability.reconcileProgress(campaigns, response)[0].rewards[0])
+      .toMatchObject({ watchedMinutes: 25, status: "in_progress" });
   });
 
   it("classifies subscription-only campaigns as waiting for a qualifying subscription", () => {

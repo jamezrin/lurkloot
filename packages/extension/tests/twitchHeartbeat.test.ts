@@ -190,6 +190,22 @@ describe("Twitch heartbeat strategies", () => {
       expect(post).toHaveBeenCalledWith("https://beacon.twitch.tv/collect", expect.anything());
     });
 
+    it("continues to a valid settings bundle when an inline destination is unsafe", async () => {
+      const fetchText = vi.fn(async (url: string) => url.includes("/settings.")
+        ? 'window.settings={"beacon_url":"https://beacon.twitch.tv/collect"}'
+        : [
+            '<script>window.__twilightSettings={"spade_url":"https://evil.example/collect"}</script>',
+            '<script src="https://assets.twitch.tv/config/settings.abcd.js"></script>',
+          ].join(""));
+      const post = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));
+      const strategy = createSpadeHeartbeat({ fetchText, post });
+
+      await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
+
+      expect(fetchText).toHaveBeenCalledTimes(2);
+      expect(post).toHaveBeenCalledWith("https://beacon.twitch.tv/collect", expect.anything());
+    });
+
     it("forbids redirects on authenticated page, settings, and beacon requests", async () => {
       const fetchText = vi.fn(async (url: string) => url.includes("/settings.")
         ? 'window.settings={"beacon_url":"https://beacon.twitch.tv/collect"}'

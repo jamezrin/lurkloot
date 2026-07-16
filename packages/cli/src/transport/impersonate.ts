@@ -8,7 +8,7 @@ import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
 import { twitchCookieApi } from "./cookieApi";
 import { createCycleKickFetcher, createCycleKickWebSocketFactory, initCycle, type CycleTLSClient } from "./cycle";
-import { CHROME_HTTP2, CHROME_JA3, headersToObject, tablessWatchPort, type EnabledPlatforms, type TransportHandle } from "./common";
+import { CHROME_HTTP2, CHROME_JA3, headersToObject, tablessWatchPort, withHeartbeatTimeout, type EnabledPlatforms, type TransportHandle } from "./common";
 
 export interface ImpersonateDeps {
   // Injectable for tests; defaults to spawning the real cycletls subprocess.
@@ -42,25 +42,25 @@ export async function createImpersonateTransport(
             compatibility: resolution.compatibility.twitch,
             heartbeatIdentity: twitchIdentity,
             heartbeatFetchText: async (url, init) => {
-              const response = await cycleTLS(url, {
+              const response = await withHeartbeatTimeout(() => cycleTLS(url, {
                 ja3: CHROME_JA3,
                 http2Fingerprint: CHROME_HTTP2,
                 userAgent: identity.userAgent,
                 headers: headersToObject(init?.headers),
                 body: typeof init?.body === "string" ? init.body : undefined,
                 disableRedirect: init?.redirect === "error" || init?.redirect === "manual",
-              }, (init?.method ?? "GET").toLowerCase() as "get" | "post");
+              }, (init?.method ?? "GET").toLowerCase() as "get" | "post"), init?.signal);
               return typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
             },
             heartbeatPost: async (url, init) => {
-              const response = await cycleTLS(url, {
+              const response = await withHeartbeatTimeout(() => cycleTLS(url, {
                 ja3: CHROME_JA3,
                 http2Fingerprint: CHROME_HTTP2,
                 userAgent: identity.userAgent,
                 headers: headersToObject(init.headers),
                 body: typeof init.body === "string" ? init.body : undefined,
                 disableRedirect: init.redirect === "error" || init.redirect === "manual",
-              }, "post");
+              }, "post"), init.signal);
               return { status: response.status };
             },
           },

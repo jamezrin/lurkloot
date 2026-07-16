@@ -309,6 +309,7 @@ describe("KickAdapter", () => {
 
     for (const response of [
       { connect_url: "not a URL" },
+      { connect_url: "https://user:pass@accounts.example/link" },
       { connectUrl: "javascript:alert(1)" },
       { data: { connect_url: "data:text/plain,hello" } },
       { data: { connectUrl: 42 } },
@@ -335,7 +336,7 @@ describe("KickAdapter", () => {
     const fetcher = jsonFetcher((url) => {
       if (url === "https://web.kick.com/api/v1/drops/claim") {
         claimPosts += 1;
-        return { connect_url: "https://user:pass@accounts.example/link?state=opaque-secret#fragment" };
+        return { connect_url: "https://accounts.example/link?state=opaque-secret#fragment" };
       }
       if (url === "https://web.kick.com/api/v1/drops/progress") return progress;
       throw new Error(`Unexpected URL ${url}`);
@@ -357,11 +358,10 @@ describe("KickAdapter", () => {
     expect(claimPosts).toBe(1);
     expect(reward.claimGuidance).toEqual({
       kind: "link_required",
-      url: "https://user:pass@accounts.example/link?state=opaque-secret#fragment",
+      url: "https://accounts.example/link?state=opaque-secret#fragment",
     });
     const serializedEvents = JSON.stringify(events);
     expect(serializedEvents).not.toContain("opaque-secret");
-    expect(serializedEvents).not.toContain("user:pass");
     expect(serializedEvents).not.toContain("/link");
 
     const ambiguous = await adapter.readProgress([campaign]);
@@ -374,6 +374,49 @@ describe("KickAdapter", () => {
     expect(linked[0].claimGuidance).toBeUndefined();
     expect(linked[0].rewards[0].claimGuidance).toBeUndefined();
     await expect(adapter.claimReward(linked[0], linked[0].rewards[0])).resolves.toBe(false);
+    expect(claimPosts).toBe(2);
+  });
+
+  it("cleans all campaign suppressions after affirmative linking, including absent rewards", () => {
+    const capability = createKickClaimCapability("kick-claim-v2");
+    const campaign = {
+      id: "campaign",
+      rewards: [
+        { id: "present", status: "claimable" },
+        { id: "removed", status: "claimable" },
+      ],
+    } as DropCampaign;
+    capability.suppress?.(campaign, campaign.rewards[0], "https://accounts.example/present");
+    capability.suppress?.(campaign, campaign.rewards[1], "https://accounts.example/removed");
+
+    const refreshed = [{ ...campaign, rewards: [campaign.rewards[0]] }];
+    capability.reconcileProgress?.(refreshed, new Set(["campaign"]));
+
+    expect(capability.isSuppressed?.(campaign, campaign.rewards[0])).toBe(false);
+    expect(capability.isSuppressed?.(campaign, campaign.rewards[1])).toBe(false);
+  });
+
+  it("clears v2 suppression from a bare-array affirmative progress response", async () => {
+    let claimPosts = 0;
+    let progress: unknown = [{ campaign_id: "campaign" }];
+    const adapter = new KickAdapter(jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/drops/claim") {
+        claimPosts += 1;
+        return { connect_url: "https://accounts.example/link" };
+      }
+      if (url === "https://web.kick.com/api/v1/drops/progress") return progress;
+      throw new Error(`Unexpected URL ${url}`);
+    }));
+    const campaign = {
+      id: "campaign",
+      rewards: [{ id: "reward", status: "claimable" }],
+    } as DropCampaign;
+
+    await adapter.claimReward(campaign, campaign.rewards[0]);
+    progress = [{ campaign_id: "campaign", user_app_connected: true }];
+    const refreshed = await adapter.readProgress([campaign]);
+    await adapter.claimReward(refreshed[0], refreshed[0].rewards[0]);
+
     expect(claimPosts).toBe(2);
   });
 
@@ -438,6 +481,10 @@ describe("KickAdapter", () => {
     // Linked campaign: a genuine claim error still propagates for the scheduler to handle.
     await expect(
       rejecting().claimReward({ id: "c", accountLinked: true } as DropCampaign, reward),
+    ).rejects.toThrow("403");
+
+    await expect(
+      rejecting().claimReward({ id: "c", accountLinked: false, accountLinkUrl: "https://user:pass@accounts.example/x" } as DropCampaign, reward),
     ).rejects.toThrow("403");
   });
 

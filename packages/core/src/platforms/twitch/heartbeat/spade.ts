@@ -55,7 +55,7 @@ export function createSpadeHeartbeat(options: SpadeHeartbeatOptions): TwitchHear
     if (!isAllowedTwitchUrl(context.channel.url)) return undefined;
     const page = await options.fetchText(context.channel.url, AUTHENTICATED_GET);
     const inline = extractStringValue(page, ["spade_url", "beacon_url"]);
-    if (inline !== undefined) return isAllowedTwitchUrl(inline) ? inline : undefined;
+    if (inline !== undefined && isAllowedTwitchUrl(inline)) return inline;
 
     const bundleUrl = extractSettingsBundle(page);
     if (!bundleUrl || !isAllowedTwitchUrl(bundleUrl)) return undefined;

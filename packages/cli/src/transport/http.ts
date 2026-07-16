@@ -7,7 +7,7 @@ import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
 import { kickCookieApi, twitchCookieApi } from "./cookieApi";
-import { tablessWatchPort, type EnabledPlatforms, type TransportHandle } from "./common";
+import { tablessWatchPort, withHeartbeatTimeout, type EnabledPlatforms, type TransportHandle } from "./common";
 
 // Plain Node fetch transport. Twitch GQL works (no WAF). Kick's Cloudflare WAF
 // fingerprints the TLS/HTTP-2 stack, so pure-Node requests get HTTP 403 — that
@@ -32,11 +32,17 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
             compatibility: resolution.compatibility.twitch,
             heartbeatIdentity: twitchIdentity,
             heartbeatFetchText: async (url, init) => {
-              const response = await fetch(url, init);
+              const response = await withHeartbeatTimeout(
+                (signal) => fetch(url, { ...init, signal }),
+                init?.signal,
+              );
               return response.text();
             },
             heartbeatPost: async (url, init) => {
-              const response = await fetch(url, init);
+              const response = await withHeartbeatTimeout(
+                (signal) => fetch(url, { ...init, signal }),
+                init.signal,
+              );
               return { status: response.status };
             },
           },

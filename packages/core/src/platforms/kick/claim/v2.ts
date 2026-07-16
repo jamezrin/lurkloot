@@ -21,6 +21,12 @@ export class KickClaimState {
   delete(key: string): void {
     this.#suppressions.delete(key);
   }
+
+  deletePrefix(prefix: string): void {
+    for (const key of this.#suppressions.keys()) {
+      if (key.startsWith(prefix)) this.#suppressions.delete(key);
+    }
+  }
 }
 
 export class KickClaimV2 implements KickClaimCapability {
@@ -51,16 +57,16 @@ export class KickClaimV2 implements KickClaimCapability {
 
   reconcileProgress(campaigns: DropCampaign[], affirmativelyLinkedCampaignIds: ReadonlySet<string>): DropCampaign[] {
     return campaigns.map((campaign) => {
-      const suppressedRewards = campaign.rewards.filter((reward) => this.isSuppressed(campaign, reward));
-      if (suppressedRewards.length === 0) return campaign;
       if (affirmativelyLinkedCampaignIds.has(campaign.id)) {
-        for (const reward of suppressedRewards) this.state.delete(this.key(campaign, reward));
+        this.state.deletePrefix(`${campaign.id}:`);
         return {
           ...campaign,
           claimGuidance: undefined,
           rewards: campaign.rewards.map((reward) => ({ ...reward, claimGuidance: undefined })),
         };
       }
+      const suppressedRewards = campaign.rewards.filter((reward) => this.isSuppressed(campaign, reward));
+      if (suppressedRewards.length === 0) return campaign;
       const campaignUrl = this.state.get(this.key(campaign, suppressedRewards[0]));
       return {
         ...campaign,

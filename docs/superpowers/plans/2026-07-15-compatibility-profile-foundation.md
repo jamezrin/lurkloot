@@ -210,8 +210,8 @@ git commit -m "feat(core): report effective compatibility versions"
 **Files:**
 - Modify: `packages/cli/src/settings.ts`
 - Modify: `packages/cli/src/config.ts`
-- Test: `packages/cli/src/settings.test.ts`
-- Test: `packages/cli/src/config.test.ts`
+- Test: `packages/cli/tests/settings.test.ts`
+- Test: `packages/cli/tests/config.test.ts`
 
 **Interfaces:**
 - Consumes shared compatibility settings and registry-valid string selections.
@@ -240,7 +240,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/cli/src/settings.ts packages/cli/src/config.ts packages/cli/src/settings.test.ts packages/cli/src/config.test.ts
+git add packages/cli/src/settings.ts packages/cli/src/config.ts packages/cli/tests/settings.test.ts packages/cli/tests/config.test.ts
 git commit -m "feat(cli): configure compatibility profiles"
 ```
 

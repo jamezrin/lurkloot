@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTransport } from "../src/transport";
-import { tablessWatchPort } from "../src/transport/common";
+import { tablessWatchPort, withHeartbeatTimeout } from "../src/transport/common";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 
@@ -111,5 +111,28 @@ describe("tablessWatchPort", () => {
 
   it("treats stopping as a harmless no-op", async () => {
     await expect(tablessWatchPort.stopWatchTab({ platform: "twitch", status: "idle", offlineChecks: 0 })).resolves.toBeUndefined();
+  });
+});
+
+describe("heartbeat request bounds", () => {
+  it("rejects a stalled request after the configured timeout", async () => {
+    vi.useFakeTimers();
+    const request = withHeartbeatTimeout(() => new Promise<never>(() => {}), undefined, 25);
+    const rejection = expect(request).rejects.toThrow("Twitch heartbeat request timed out after 25ms");
+
+    await vi.advanceTimersByTimeAsync(25);
+
+    await rejection;
+    vi.useRealTimers();
+  });
+
+  it("preserves caller cancellation and its reason", async () => {
+    const caller = new AbortController();
+    const reason = new Error("caller stopped");
+    const request = withHeartbeatTimeout(() => new Promise<never>(() => {}), caller.signal, 10_000);
+
+    caller.abort(reason);
+
+    await expect(request).rejects.toBe(reason);
   });
 });

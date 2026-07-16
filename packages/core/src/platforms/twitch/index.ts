@@ -459,8 +459,7 @@ export class TwitchAdapter implements PlatformAdapter {
 
   async readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]> {
     const inventory = await this.fetchInventory();
-    this.inventoryCapability.parse(inventory);
-    const inventoryProgress = mergeTwitchCampaignProgress(campaigns, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
+    const inventoryProgress = this.inventoryCapability.reconcileProgress(campaigns, inventory);
     if (!session?.channel || session.status !== "watching") return inventoryProgress;
     return this.mergeCurrentSessionProgress(inventoryProgress, session.channel);
   }

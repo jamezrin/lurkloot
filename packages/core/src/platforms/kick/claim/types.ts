@@ -23,7 +23,7 @@ export function safeHttpsUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" ? value : undefined;
+    return url.protocol === "https:" && !url.username && !url.password ? value : undefined;
   } catch {
     return undefined;
   }

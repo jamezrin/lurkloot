@@ -21,6 +21,35 @@ export interface EnabledPlatforms {
   kick: boolean;
 }
 
+export const HEARTBEAT_REQUEST_TIMEOUT_MS = 15_000;
+
+export async function withHeartbeatTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  callerSignal?: AbortSignal | null,
+  timeoutMs = HEARTBEAT_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) abortFromCaller();
+  else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeout = setTimeout(() => {
+    controller.abort(new Error(`Twitch heartbeat request timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+
+  const aborted = new Promise<never>((_resolve, reject) => {
+    const rejectAbort = () => reject(controller.signal.reason);
+    if (controller.signal.aborted) rejectAbort();
+    else controller.signal.addEventListener("abort", rejectAbort, { once: true });
+  });
+
+  try {
+    return await Promise.race([operation(controller.signal), aborted]);
+  } finally {
+    clearTimeout(timeout);
+    callerSignal?.removeEventListener("abort", abortFromCaller);
+  }
+}
+
 // Watch port for the headless transports, which never open a tab: opening fails
 // clearly (the CLI farms tabless only — keep tablessMode on), while stopping is
 // a harmless no-op (nothing to stop without a tab, but the scheduler still calls

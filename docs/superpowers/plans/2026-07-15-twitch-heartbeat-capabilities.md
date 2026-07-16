@@ -121,7 +121,7 @@ git commit -m "fix(twitch): add secure Spade heartbeats"
 - Modify: `packages/cli/src/transport/http.ts`
 - Modify: `packages/cli/src/transport/impersonate.ts`
 - Test: `packages/extension/tests/twitchHeartbeat.test.ts`
-- Test: `packages/cli/src/transport/transport.test.ts`
+- Test: `packages/cli/tests/transport.test.ts`
 
 **Interfaces:**
 - Produces: `createTrowelHeartbeat(options): TwitchHeartbeatStrategy`.
@@ -150,7 +150,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/core/src/platforms/twitch/heartbeat/trowel.ts packages/cli/src/transport packages/extension/tests/twitchHeartbeat.test.ts packages/cli/src/transport/transport.test.ts
+git add packages/core/src/platforms/twitch/heartbeat/trowel.ts packages/cli/src/transport packages/extension/tests/twitchHeartbeat.test.ts packages/cli/tests/transport.test.ts
 git commit -m "fix(twitch): add Android Trowel heartbeats"
 ```
 

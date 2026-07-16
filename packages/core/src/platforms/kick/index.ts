@@ -291,7 +291,7 @@ export class KickAdapter implements PlatformAdapter {
           this.claimCapability.suppress?.(campaign, reward, outcome.url);
           this.warnAccountNotLinked(campaign, reward, outcome.url);
         } else {
-          this.warnAccountNotLinked(campaign, reward);
+          throw error;
         }
         return false;
       }
@@ -361,7 +361,7 @@ function affirmativelyLinkedCampaignIds(input: unknown): Set<string> {
   const root = input != null && typeof input === "object" && !Array.isArray(input)
     ? input as Record<string, unknown>
     : {};
-  const buckets = [root.data, root.progress, root.campaigns, root.active, root.current, root.completed];
+  const buckets = [Array.isArray(input) ? input : undefined, root.data, root.progress, root.campaigns, root.active, root.current, root.completed];
   if (root.data != null && typeof root.data === "object" && !Array.isArray(root.data)) {
     const data = root.data as Record<string, unknown>;
     buckets.push(data.progress, data.campaigns, data.active, data.current, data.completed);

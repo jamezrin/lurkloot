@@ -6,4 +6,5 @@ export interface TwitchInventoryCapability {
   readonly variables: Readonly<Record<string, unknown>>;
   readonly inlineQuery: string;
   parse(response: unknown): DropCampaign[];
+  reconcileProgress(campaigns: DropCampaign[], response: unknown): DropCampaign[];
 }

@@ -65,6 +65,8 @@ describe("impersonate transport", () => {
 
     const construction = handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS);
 
+    expect(construction.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-trowel-v1");
+    expect(construction.compatibility.twitch.profile).toBe("twitch-2026-07");
     expect(construction.adapters.twitch.compatibility).toEqual(construction.compatibility.twitch);
     expect(construction.adapters.kick.compatibility).toEqual(construction.compatibility.kick);
     await handle.dispose();
