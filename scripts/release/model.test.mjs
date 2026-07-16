@@ -4,17 +4,27 @@ import {
   assertCandidateVersion,
   candidateAction,
   compareVersions,
+  parseLegacyCandidateMetadata,
   parseCandidateMetadata,
   renderCandidateMetadata,
 } from "./model.mjs";
 
 const fixtureMetadata = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   version: "1.5.0",
   kind: "normal",
-  sourceSha: "a".repeat(40),
-  releasePr: 113,
+  label: "release/minor",
+  stableVersion: "1.4.0",
+  stableSha: "1".repeat(40),
+  developSha: "2".repeat(40),
+  sourceSha: "3".repeat(40),
+  authorizedSha: "3".repeat(40),
+  releasePr: 42,
   initiator: "jamezrin",
+  authorizedBy: "release-admin",
+  trustedToolsSha: "4".repeat(40),
+  createdAt: "2026-07-16T18:00:00.000Z",
+  reconciledAt: "2026-07-16T18:00:00.000Z",
   chromeZipSha256: "b".repeat(64),
   artifactChecksums: {
     "lurkloot-1.5.0-chrome.zip": "b".repeat(64),
@@ -78,7 +88,7 @@ test("round trips schema-versioned candidate metadata", () => {
 
 test("rejects unsafe candidate metadata", () => {
   assert.throws(
-    () => parseCandidateMetadata(JSON.stringify({ ...fixtureMetadata, schemaVersion: 2 })),
+    () => parseCandidateMetadata(JSON.stringify({ ...fixtureMetadata, schemaVersion: 1 })),
     /schemaVersion/,
   );
   assert.throws(
@@ -90,7 +100,38 @@ test("rejects unsafe candidate metadata", () => {
     /unexpected field/,
   );
   assert.throws(
+    () => parseCandidateMetadata(JSON.stringify({ ...fixtureMetadata, authorizedSha: "5".repeat(40) })),
+    /authorizedSha/,
+  );
+  assert.throws(
+    () => parseCandidateMetadata(JSON.stringify({ ...fixtureMetadata, label: "release/hotfix" })),
+    /label/,
+  );
+  assert.throws(
     () => parseCandidateMetadata(JSON.stringify({ ...fixtureMetadata, dockerDigests: [fixtureMetadata.dockerDigests[0], fixtureMetadata.dockerDigests[0]] })),
     /two distinct/,
   );
+});
+
+test("accepts null develop provenance for hotfix candidates", () => {
+  const hotfix = { ...fixtureMetadata, kind: "hotfix", label: "release/hotfix", developSha: null };
+  assert.deepEqual(parseCandidateMetadata(renderCandidateMetadata(hotfix)), hotfix);
+});
+
+test("parses schema v1 metadata only through the recovery parser", () => {
+  const legacy = {
+    schemaVersion: 1,
+    version: fixtureMetadata.version,
+    kind: fixtureMetadata.kind,
+    sourceSha: fixtureMetadata.sourceSha,
+    releasePr: fixtureMetadata.releasePr,
+    initiator: fixtureMetadata.initiator,
+    chromeZipSha256: fixtureMetadata.chromeZipSha256,
+    artifactChecksums: fixtureMetadata.artifactChecksums,
+    dockerDigests: fixtureMetadata.dockerDigests,
+    cwsState: fixtureMetadata.cwsState,
+    previewUrl: fixtureMetadata.previewUrl,
+  };
+  assert.deepEqual(parseLegacyCandidateMetadata(JSON.stringify(legacy)), legacy);
+  assert.throws(() => parseCandidateMetadata(JSON.stringify(legacy)), /schemaVersion/);
 });
