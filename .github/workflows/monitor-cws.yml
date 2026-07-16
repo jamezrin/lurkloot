@@ -1,4 +1,4 @@
-name: Monitor CWS review
+name: Refresh CWS status
 
 on:
   schedule:

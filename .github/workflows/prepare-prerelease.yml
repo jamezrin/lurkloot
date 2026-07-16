@@ -107,6 +107,7 @@ jobs:
             git merge-base --is-ancestor origin/main FETCH_HEAD || { echo "hotfix branch must descend from main" >&2; exit 1; }
             git checkout -B "$branch" FETCH_HEAD
           fi
+          remote_sha=$(git ls-remote --heads origin "refs/heads/$branch" | cut -f1)
           node "$RUNNER_TEMP/release-tools/release.mjs" prepare "$VERSION"
           git switch -C "$branch"
           git add package.json packages/*/package.json packages/site/src/changelog.json
@@ -114,7 +115,11 @@ jobs:
             git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "chore(release): prepare $VERSION"
           fi
           git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
-          git push --force-with-lease origin "$branch"
+          if [[ -n "$remote_sha" ]]; then
+            git push --force-with-lease="refs/heads/$branch:$remote_sha" origin "$branch"
+          else
+            git push origin "$branch"
+          fi
           sha=$(git rev-parse HEAD)
           if [[ "$KIND" == normal ]]; then
             pr=$(gh pr list --state open --head "$branch" --base main --json number --jq '.[0].number')
