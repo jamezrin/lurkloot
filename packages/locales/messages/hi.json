@@ -609,6 +609,12 @@
   "cliExportConfirm": {
     "message": "यह आपके Twitch और Kick सत्र टोकन को एक फ़ाइल में डाउनलोड करेगा। उस फ़ाइल वाला कोई भी व्यक्ति उन साइटों पर आपके रूप में कार्य कर सकता है। जारी रखें?"
   },
+  "cliExportCancel": {
+    "message": "रद्द करें"
+  },
+  "cliExportConfirmButton": {
+    "message": "निर्यात की पुष्टि करें"
+  },
   "cliExportButton": {
     "message": "क्रेडेंशियल निर्यात करें"
   },
