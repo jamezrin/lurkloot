@@ -19,6 +19,7 @@ jobs:
     outputs:
       version: ${{ steps.release.outputs.version }}
       kind: ${{ steps.release.outputs.kind }}
+      initiator: ${{ steps.release.outputs.initiator }}
     permissions:
       contents: read
     env:
@@ -52,6 +53,7 @@ jobs:
           release_state=$(gh release view "v$version" --json isPrerelease --jq 'if .isPrerelease then "prerelease" else "stable-recovery" end')
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "kind=$(jq -r .kind release-assets/candidate.json)" >> "$GITHUB_OUTPUT"
+          echo "initiator=$(jq -r .initiator release-assets/candidate.json)" >> "$GITHUB_OUTPUT"
           printf '## Stable promotion verified\n\n- Version: `%s`\n- PR: #%s\n- Candidate source: `%s`\n- GitHub release state: `%s`\n' "$version" "$PR" "$source_sha" "$release_state" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
@@ -65,6 +67,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      pull-requests: write
     concurrency:
       group: cws-mutation
       cancel-in-progress: false
@@ -85,10 +88,22 @@ jobs:
         with:
           name: stable-release-assets-${{ needs.candidate.outputs.version }}
           path: release-assets
-      - name: Publish approved staged revision
+      - name: Revalidate frozen release assets
+        run: node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets
+      - id: cws
+        name: Publish approved staged revision
+        run: node trusted-release-tools/scripts/cws.mjs publish-stable
+      - name: Notify releaser when CWS is not publishable
+        if: failure() && steps.cws.outcome == 'failure'
         run: |
-          node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets
-          node trusted-release-tools/scripts/cws.mjs publish-stable
+          output=$(mktemp)
+          GITHUB_OUTPUT="$output" node trusted-release-tools/scripts/cws.mjs status || true
+          submitted_state=$(sed -n 's/^submitted_state=//p' "$output")
+          submitted_version=$(sed -n 's/^submitted_version=//p' "$output")
+          initiator=$(jq -r .initiator release-assets/candidate.json)
+          pr=$(jq -r .releasePr release-assets/candidate.json)
+          gh pr comment "$pr" --body "<!-- lurkloot-release:$VERSION:promotion-blocked -->
+          @$initiator, stable promotion stopped because CWS reported version \`${submitted_version:-none}\` in state \`${submitted_state:-none}\`, not the expected staged v$VERSION revision. Inspect the CWS dashboard and rerun promotion only after reconciling that exact version."
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -131,3 +146,20 @@ jobs:
     with:
       version: ${{ needs.candidate.outputs.version }}
       kind: ${{ needs.candidate.outputs.kind }}
+
+  notify:
+    needs: [candidate, site, forward-release]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.candidate.outputs.version }}
+      INITIATOR: ${{ needs.candidate.outputs.initiator }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Announce stable publication
+        run: |
+          gh pr comment "$PR" --body "<!-- lurkloot-release:$VERSION:stable -->
+          @$INITIATOR, **v$VERSION** is now stable. CWS is published, the GitHub release and Docker aliases are promoted, production is deployed, and the main-to-develop synchronization has been opened or reported for manual resolution."
+          printf '## Stable v%s complete\n\nNotified @%s on PR #%s.\n' "$VERSION" "$INITIATOR" "$PR" >> "$GITHUB_STEP_SUMMARY"

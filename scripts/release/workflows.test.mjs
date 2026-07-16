@@ -49,6 +49,8 @@ test("promotion consumes stored artifacts without rebuilding", async () => {
   assert.match(yaml, /refs\/tags\/v\$version/);
   assert.match(yaml, /trusted-release-tools\/scripts\/cws\.mjs publish-stable/);
   assert.match(yaml, /node trusted-release-tools\/scripts\/cws\.mjs publish-stable/);
+  assert.match(yaml, /Notify releaser when CWS is not publishable/);
+  assert.match(yaml, /Announce stable publication/);
   assert.doesNotMatch(yaml, /build-extension\.yml|build-docker\.yml|pnpm zip|docker\/build-push-action/);
   assert.doesNotMatch(yaml, /git tag --force|git push --force/);
   assert.match(yaml, /channel: production\n      ref: \$\{\{ github\.event\.pull_request\.merge_commit_sha \}\}/);
