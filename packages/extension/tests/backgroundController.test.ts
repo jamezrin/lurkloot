@@ -197,6 +197,55 @@ describe("background controller", () => {
     }));
   });
 
+  it("does not emit resolver warnings for a disabled platform", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+      },
+      compatibility: {
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: { ...DEFAULT_SETTINGS.compatibility.twitch, heartbeatTransport: "invalid-secret" },
+      },
+    });
+
+    await env.controller.handleStartup();
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
+      event.category === "diagnostic" && event.platform === "twitch" && event.level === "warn"
+    )).toEqual([]);
+  });
+
+  it("emits a fresh warning when a different invalid selection resolves identically", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      compatibility: {
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: { ...DEFAULT_SETTINGS.compatibility.twitch, heartbeatTransport: "first-secret" },
+      },
+    });
+
+    await env.controller.handleStartup();
+    await env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { compatibility: { twitch: { heartbeatTransport: "second-secret" } } },
+      tickAfterSave: true,
+    });
+
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    expect(published.filter((event) =>
+      event.category === "diagnostic"
+      && event.platform === "twitch"
+      && event.level === "warn"
+      && event.message === "Unknown Twitch heartbeat compatibility selection; using twitch-heartbeat-spade-v1"
+    )).toHaveLength(2);
+    expect(JSON.stringify(published)).not.toContain("first-secret");
+    expect(JSON.stringify(published)).not.toContain("second-secret");
+  });
+
   it("emits a fixed host-incompatible warning with only the safe fallback identifier", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
@@ -381,8 +430,9 @@ describe("background controller", () => {
     expect(events.filter((event) =>
       event.category === "diagnostic"
       && event.level === "warn"
-      && event.message.includes("https://accounts.example/link")
+      && event.message.includes("using the account-link action")
     )).toHaveLength(1);
+    expect(JSON.stringify(events)).not.toContain("https://accounts.example/link");
     expect(env.state.campaigns.kick[0].rewards[0].claimGuidance).toEqual({
       kind: "link_required",
       url: "https://accounts.example/link",

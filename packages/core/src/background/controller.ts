@@ -110,6 +110,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   const reportedCompatibility = new Map<Platform, string>();
   const reportedCompatibilityWarnings = new Set<string>();
 
+  const selectionFingerprint = (value: string): string => {
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0");
+  };
+
   const warningFieldLabel = (platform: Platform, field: string): string => {
     if (platform === "twitch") {
       if (field === "profile") return "Twitch profile";
@@ -122,7 +131,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   function createAdapters(settings: S, emit: EventEmitter): Record<Platform, PlatformAdapter> {
     const construction = deps.createAdapters(emit, settings);
     for (const warning of construction.warnings) {
-      const key = `${warning.code}:${warning.platform}:${warning.field}:${warning.resolved}`;
+      if (!settings.platform[warning.platform].enabled) continue;
+      const key = `${warning.code}:${warning.platform}:${warning.field}:${warning.resolved}:${selectionFingerprint(warning.requested)}`;
       if (reportedCompatibilityWarnings.has(key)) continue;
       const reason = warning.code === "unknown_selection" ? "Unknown" : "Host-incompatible";
       emit({

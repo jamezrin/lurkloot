@@ -286,6 +286,29 @@ describe("Kick parsers", () => {
 });
 
 describe("Twitch parsers", () => {
+  it.each([
+    { data: { currentUser: { inventory: {} } } },
+    { data: { currentUser: { inventory: { unrelated: [] } } } },
+    { data: { currentUser: { inventory: { dropCampaigns: undefined } } } },
+    { data: { currentUser: { inventory: { gameEventDrops: {} } } } },
+  ])("rejects v1 inventory responses without a proven queried field", (response) => {
+    const capability = createTwitchInventory("twitch-inventory-v1");
+
+    expect(() => capability.parse(response))
+      .toThrow("twitch-inventory-v1 inventory response schema mismatch");
+  });
+
+  it.each([
+    { data: { currentUser: null } },
+    { data: { currentUser: { inventory: { dropCampaignsInProgress: null } } } },
+    { data: { currentUser: { inventory: { dropCampaigns: [] } } } },
+    { data: { currentUser: { inventory: { gameEventDrops: null } } } },
+  ])("accepts supported nullable or array v1 inventory shapes", (response) => {
+    const capability = createTwitchInventory("twitch-inventory-v1");
+
+    expect(() => capability.parse(response)).not.toThrow();
+  });
+
   it("reports the selected inventory capability when its response schema is malformed", () => {
     const capability = createTwitchInventory("twitch-inventory-v1");
 

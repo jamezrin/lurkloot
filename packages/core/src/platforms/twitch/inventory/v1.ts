@@ -47,8 +47,10 @@ function hasV1Schema(response: unknown): boolean {
   if (currentUser === null) return true;
   if (!isRecord(currentUser) || !isRecord(currentUser.inventory)) return false;
   const inventory = currentUser.inventory;
-  return ["dropCampaignsInProgress", "dropCampaigns", "gameEventDrops"]
-    .every((field) => inventory[field] === undefined || Array.isArray(inventory[field]));
+  const fields = ["dropCampaignsInProgress", "dropCampaigns", "gameEventDrops"];
+  const presentFields = fields.filter((field) => Object.prototype.hasOwnProperty.call(inventory, field));
+  return presentFields.length > 0
+    && presentFields.every((field) => inventory[field] === null || Array.isArray(inventory[field]));
 }
 
 export const twitchInventoryV1: TwitchInventoryCapability = {

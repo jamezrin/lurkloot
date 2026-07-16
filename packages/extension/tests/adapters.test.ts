@@ -335,7 +335,7 @@ describe("KickAdapter", () => {
     const fetcher = jsonFetcher((url) => {
       if (url === "https://web.kick.com/api/v1/drops/claim") {
         claimPosts += 1;
-        return { connect_url: "https://accounts.example/link" };
+        return { connect_url: "https://user:pass@accounts.example/link?state=opaque-secret#fragment" };
       }
       if (url === "https://web.kick.com/api/v1/drops/progress") return progress;
       throw new Error(`Unexpected URL ${url}`);
@@ -355,8 +355,14 @@ describe("KickAdapter", () => {
     await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
     await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
     expect(claimPosts).toBe(1);
-    expect(reward.claimGuidance).toEqual({ kind: "link_required", url: "https://accounts.example/link" });
-    expect(events.filter((event) => event.category === "diagnostic" && event.message.includes("https://accounts.example/link"))).toHaveLength(1);
+    expect(reward.claimGuidance).toEqual({
+      kind: "link_required",
+      url: "https://user:pass@accounts.example/link?state=opaque-secret#fragment",
+    });
+    const serializedEvents = JSON.stringify(events);
+    expect(serializedEvents).not.toContain("opaque-secret");
+    expect(serializedEvents).not.toContain("user:pass");
+    expect(serializedEvents).not.toContain("/link");
 
     const ambiguous = await adapter.readProgress([campaign]);
     await expect(adapter.claimReward(ambiguous[0], ambiguous[0].rewards[0])).resolves.toBe(false);

@@ -301,7 +301,7 @@ export class KickAdapter implements PlatformAdapter {
 
   private warnAccountNotLinked(campaign: DropCampaign, reward: DropReward, responseUrl?: string): void {
     const url = responseUrl ?? safeHttpsUrl(campaign.accountLinkUrl);
-    const where = url ? ` at ${url}` : campaign.name ? ` for ${campaign.name}` : "";
+    const where = url ? " using the account-link action" : campaign.name ? ` for ${campaign.name}` : "";
     diagnostic(this.emit, "warn", `Cannot claim "${reward.name}" yet — link your Kick account${where} to claim this campaign's drops.`, "kick");
   }
 
