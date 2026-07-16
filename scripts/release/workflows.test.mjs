@@ -263,7 +263,7 @@ test("controller declares whether cancellation expects an open or closed-unmerge
 test("closed-unmerged cancellation preserves identity checks and skips open-only draft conversion", async () => {
   const text = await workflow("cancel-candidate.yml");
   assert.match(text, /else\n\s+jq -e '\.state == "closed" and \.merged_at == null'/);
-  assert.match(text, /test "\$\(jq -r \.head\.sha <<<"\$live"\)" = "\$EXPECTED_SHA"/);
+  assert.match(text, /test "\$\(jq -r \.head\.sha <<<"\$live"\)" = "\$EXPECTED_LIVE_HEAD_SHA"/);
   assert.match(text, /if \[\[ "\$EXPECTED_PR_STATE" == open[^\n]*\]\]; then\n\s+revalidate\n\s+gh pr ready/);
 });
 
@@ -319,9 +319,47 @@ test("candidate submission is reusable, approval-gated, and revalidates live own
   assert.match(text, /gh release edit "v\$VERSION"/);
 });
 
+test("push reconciliation carries label intent to the live SHA and renews authorization after approval", async () => {
+  const controller = await workflow("reconcile-release-pr.yml");
+  const prepare = await workflow("prepare-prerelease.yml");
+  assert.doesNotMatch(controller, /policySha=\$authorizedSha/);
+  assert.match(controller, /controllerState=awaiting-approval/);
+  assert.match(controller, /expected_head_sha: \$\{\{ needs\.inspect\.outputs\.head_sha \}\}/);
+  assert.match(prepare, /environment: prereleases/);
+  assert.match(prepare, /actions\/runs\/\$GITHUB_RUN_ID\/approvals/);
+  assert.match(prepare, /collaborators\/\$approver\/permission/);
+  assert.match(prepare, /AUTHORIZED_SHA: \$\{\{ needs\.resolve\.outputs\.candidate_sha \}\}/);
+});
+
+test("cancellation seals the desired recognized-label snapshot for transition validation", async () => {
+  const controller = await workflow("reconcile-release-pr.yml");
+  const cancel = await workflow("cancel-candidate.yml");
+  assert.match(controller, /desired_release_labels:/);
+  assert.match(controller, /desired_release_labels: \$\{\{ needs\.inspect\.outputs\.desired_release_labels \}\}/);
+  assert.match(cancel, /desired_release_labels: \{ type: string, required: true \}/);
+  assert.match(cancel, /EXPECTED_DESIRED_LABELS/);
+  assert.match(cancel, /test "\$recognized_labels" = "\$EXPECTED_DESIRED_LABELS"/);
+  assert.doesNotMatch(cancel, /test "\$recognized_count" = 1[\s\S]{0,100}test "\$recognized_label" = "\$label"/);
+});
+
+test("label and unlabel reconciliation requires an administrator event actor", async () => {
+  const controller = await workflow("reconcile-release-pr.yml");
+  assert.match(controller, /\[\[ "\$EVENT_ACTION" == labeled \|\| "\$EVENT_ACTION" == unlabeled \]\]/);
+  assert.match(controller, /collaborators\/\$EVENT_ACTOR\/permission/);
+  assert.match(controller, /unauthorizedLabelTransition=true/);
+  assert.match(controller, /action=block/);
+});
+
+test("promotion ignores explicitly cancelled audit candidates but rejects multiple active claims", async () => {
+  const text = await workflow("promote-release.yml");
+  assert.match(text, /"\$release_name" != "v\$version cancelled"/);
+  assert.match(text, /multiple active candidates claim PR/);
+  assert.match(text, /\.version == \$version and \.label == \$label/);
+});
+
 test("privileged candidate boundaries require exactly the expected recognized release label", async () => {
   const recognized = /select\(\. == "release\/patch" or \. == "release\/minor" or \. == "release\/major" or \. == "release\/hotfix"\)/;
-  for (const name of ["prepare-prerelease.yml", "submit-candidate.yml", "cancel-candidate.yml"]) {
+  for (const name of ["prepare-prerelease.yml", "submit-candidate.yml"]) {
     const text = await workflow(name);
     assert.match(text, recognized, `${name} must filter the complete recognized label set`);
     assert.match(text, /recognized_labels=.*jq/, `${name} must filter recognized labels from live PR data`);
@@ -329,6 +367,10 @@ test("privileged candidate boundaries require exactly the expected recognized re
     assert.match(text, /test "\$recognized_count" = 1/, `${name} must reject zero or multiple recognized labels`);
     assert.match(text, /test "\$recognized_label" = "\$(?:RELEASE_LABEL|label)"/, `${name} must match the expected metadata or input label`);
   }
+
+  const cancellation = await workflow("cancel-candidate.yml");
+  assert.match(cancellation, recognized);
+  assert.match(cancellation, /test "\$recognized_labels" = "\$EXPECTED_DESIRED_LABELS"/);
 
   const prepare = await workflow("prepare-prerelease.yml");
   for (const marker of ["id: cws_candidate", "id: github_tag", "id: github_release", "id: github_assets", "id: docker_version", "id: docker_next"]) {
@@ -344,7 +386,7 @@ test("privileged candidate boundaries require exactly the expected recognized re
   assert.match(submit.slice(Math.max(0, submitMutation - 1800), submitMutation), /test "\$recognized_count" = 1/);
   const cancel = await workflow("cancel-candidate.yml");
   const cancelMutation = cancel.indexOf("cancel-submission");
-  assert.match(cancel.slice(Math.max(0, cancelMutation - 1800), cancelMutation), /test "\$recognized_count" = 1/);
+  assert.match(cancel.slice(Math.max(0, cancelMutation - 1800), cancelMutation), /test "\$recognized_labels" = "\$EXPECTED_DESIRED_LABELS"/);
 });
 
 test("manual PR validation skips payload-dependent release policy while normal verification runs", async () => {

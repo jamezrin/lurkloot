@@ -82,17 +82,20 @@ jobs:
             exit 0
           fi
           test "$initial_recognized_count" = 1 || { echo "merged PR must have exactly one recognized release label" >&2; exit 1; }
+          desired_label=$(jq -r '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")][0]' <<<"$initial_live")
           mkdir release-assets
           found=
-          while read -r tag; do
+          while IFS=$'\t' read -r tag release_name; do
             rm -rf probe && mkdir probe
             gh release download "$tag" --pattern candidate.json --dir probe 2>/dev/null || continue
-            if [[ $(jq -r '.schemaVersion // 0' probe/candidate.json) == 2 && $(jq -r .releasePr probe/candidate.json) == "$PR" ]]; then
-              [[ -z "$found" ]] || { echo "multiple candidates claim PR #$PR" >&2; exit 1; }
+            version=${tag#v}
+            label=$(jq -r '.label // empty' probe/candidate.json)
+            if [[ $(jq -r --arg version "$version" --arg label "$desired_label" '.schemaVersion == 2 and .releasePr == ($pr | tonumber) and .version == $version and .label == $label' --arg pr "$PR" probe/candidate.json 2>/dev/null) == true && "$release_name" != "v$version cancelled" ]]; then
+              [[ -z "$found" ]] || { echo "multiple active candidates claim PR #$PR" >&2; exit 1; }
               found="$tag"
               cp probe/candidate.json release-assets/candidate.json
             fi
-          done < <(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[][] | .tag_name' | sort -V)
+          done < <(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[][] | select(.draft == false and .prerelease == true) | [.tag_name,.name] | @tsv' | sort -V)
           if [[ -z "$found" ]]; then
             echo "recognized release PR #$PR has no matching candidate" >&2
             exit 1
