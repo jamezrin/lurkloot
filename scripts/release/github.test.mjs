@@ -214,7 +214,7 @@ test("gives every state its own operator guidance", () => {
   );
   assert.equal(
     stateGuidance("none", context),
-    "CWS has no submitted v1.5.0 revision. Run Submit candidate again against the frozen GitHub prerelease.",
+    "CWS has no submitted v1.5.0 revision. Convert PR #42 to draft, verify the frozen GitHub prerelease, then mark it ready to reconcile submission.",
   );
 });
 
