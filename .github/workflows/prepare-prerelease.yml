@@ -108,7 +108,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           active_versions=$(gh release list --limit 100 --json tagName,isPrerelease,name --jq '[.[] | select(.isPrerelease and ((.name // "") | endswith("cancelled") | not)) | .tagName | sub("^v";"")]')
-          ACTIVE_VERSIONS="$active_versions" node -e 'import("./scripts/release/model.mjs").then(({assertCandidateVersion}) => assertCandidateVersion({ version: process.env.VERSION, stableVersion: require("./package.json").version, activeVersions: JSON.parse(process.env.ACTIVE_VERSIONS), replacingVersion: process.env.VERSION }))'
+          node scripts/release/cli.mjs candidate validate-version --version "$VERSION" --active-versions "$active_versions" --replacing-version "$VERSION"
           if gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease 2>/dev/null | grep -qx false; then
             echo "v$VERSION is already stable and immutable" >&2
             exit 1
@@ -130,7 +130,14 @@ jobs:
             git fetch origin -- main
             git fetch origin -- develop
             git fetch origin -- "$branch"
-            node scripts/release/cli.mjs verify-hotfix --main origin/main --develop origin/develop --candidate FETCH_HEAD
+            main_ancestor=false
+            if git merge-base --is-ancestor origin/main FETCH_HEAD; then main_ancestor=true; fi
+            git rev-list origin/develop ^origin/main > "$RUNNER_TEMP/develop-commits"
+            git rev-list FETCH_HEAD ^origin/main > "$RUNNER_TEMP/candidate-commits"
+            node scripts/release/cli.mjs verify-hotfix \
+              --main-ancestor "$main_ancestor" \
+              --develop-commits "$RUNNER_TEMP/develop-commits" \
+              --candidate-commits "$RUNNER_TEMP/candidate-commits"
             git checkout -B "$branch" FETCH_HEAD
           fi
           remote_sha=$(git ls-remote --heads origin "refs/heads/$branch" | cut -f1)
@@ -261,7 +268,7 @@ jobs:
       - name: Revalidate candidate version slot
         run: |
           active_versions=$(gh release list --limit 100 --json tagName,isPrerelease,name --jq '[.[] | select(.isPrerelease and ((.name // "") | endswith("cancelled") | not)) | .tagName | sub("^v";"")]')
-          ACTIVE_VERSIONS="$active_versions" node -e 'import("./trusted-release-tools/scripts/release/model.mjs").then(({assertCandidateVersion}) => assertCandidateVersion({ version: process.env.VERSION, stableVersion: require("./package.json").version, activeVersions: JSON.parse(process.env.ACTIVE_VERSIONS), replacingVersion: process.env.VERSION }))'
+          node trusted-release-tools/scripts/release/cli.mjs candidate validate-version --version "$VERSION" --active-versions "$active_versions" --replacing-version "$VERSION"
           if gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease 2>/dev/null | grep -qx false; then
             echo "v$VERSION became stable while the candidate was building" >&2
             exit 1
@@ -334,7 +341,7 @@ jobs:
         run: |
           gh release list --limit 100 --json tagName,isPrerelease,name --jq '.[] | select(.isPrerelease and ((.name // "") | endswith("cancelled") | not)) | .tagName | sub("^v";"")' | while read -r old_version; do
             [[ "$old_version" != "$VERSION" ]] || continue
-            OLD_VERSION="$old_version" node -e 'import("./trusted-release-tools/scripts/release/model.mjs").then(({compareVersions}) => process.exit(compareVersions(process.env.OLD_VERSION, process.env.VERSION) < 0 ? 0 : 1))' || continue
+            node trusted-release-tools/scripts/release/cli.mjs version less-than "$old_version" "$VERSION" || continue
             rm -rf superseded && mkdir superseded
             if gh release download "v$old_version" --pattern candidate.json --dir superseded; then
               old_pr=$(jq -r .releasePr superseded/candidate.json)

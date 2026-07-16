@@ -103,7 +103,7 @@ jobs:
         run: gh release download "v$VERSION" --pattern candidate.json --dir candidate
       - name: Recheck frozen candidate after acquiring CWS lock
         run: |
-          node -e 'import("./scripts/release/model.mjs").then(({parseCandidateMetadata}) => parseCandidateMetadata(require("fs").readFileSync("candidate/candidate.json","utf8")))'
+          node scripts/release/cli.mjs candidate read --file candidate/candidate.json --version "$VERSION" >/dev/null
           test "$(jq -r .sourceSha candidate/candidate.json)" = "$VERIFIED_SHA"
           test "$(jq -r .releasePr candidate/candidate.json)" = "$VERIFIED_PR"
           test "$(jq -r .chromeZipSha256 candidate/candidate.json)" = "$VERIFIED_CHECKSUM"
@@ -114,11 +114,19 @@ jobs:
       - id: cws
         name: Submit with deferred publishing
         run: node scripts/cws.mjs submit-staged
+      - id: release-ready
+        name: Render pending release gate
+        env:
+          ACTION: ${{ steps.cws.outputs.action }}
+        run: node scripts/release/cli.mjs submit-check --action "$ACTION" --version "$VERSION"
       - name: Mark PR ready and notify releaser
         env:
           PR: ${{ needs.verify.outputs.pr }}
           SHA: ${{ needs.verify.outputs.sha }}
           ACTION: ${{ steps.cws.outputs.action }}
+          CHECK_STATUS: ${{ steps.release-ready.outputs.status }}
+          CHECK_TITLE: ${{ steps.release-ready.outputs.title }}
+          CHECK_SUMMARY: ${{ steps.release-ready.outputs.summary }}
         run: |
           gh pr ready "$PR" || true
           action="$ACTION"
@@ -126,15 +134,14 @@ jobs:
           if [[ "$action" == already-staged ]]; then
             state=STAGED
             gh release edit "v$VERSION" --prerelease --latest=false --notes "Frozen candidate from $SHA for release PR #$PR. Chrome Web Store version $VERSION is STAGED and ready for final approval."
-            gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$SHA" -f status=completed -f conclusion=success -f output[title]="CWS candidate staged" -f output[summary]="v$VERSION is approved and ready for final PR approval and merge."
           else
             state=PENDING_REVIEW
             gh release edit "v$VERSION" --prerelease --latest=false --notes "Frozen candidate from $SHA for release PR #$PR. Chrome Web Store version $VERSION is PENDING_REVIEW with staged publishing. Candidate assets and tag are immutable until cancellation or stable promotion."
-            gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$SHA" -f status=in_progress -f output[title]="CWS review pending" -f output[summary]="v$VERSION is frozen and submitted with staged publishing."
             marker="<!-- lurkloot-release:$VERSION:cws:PENDING_REVIEW -->"
             if ! gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
               gh pr comment "$PR" --body "$marker
             @$initiator, **v$VERSION** was submitted to CWS with deferred publishing and is pending review."
             fi
           fi
+          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$SHA" -f status="$CHECK_STATUS" -f output[title]="$CHECK_TITLE" -f output[summary]="$CHECK_SUMMARY"
           printf '## Candidate v%s submitted\n\n- PR: #%s\n- Source: `%s`\n- State: `%s`\n' "$VERSION" "$PR" "$SHA" "$state" >> "$GITHUB_STEP_SUMMARY"
