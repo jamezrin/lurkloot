@@ -289,6 +289,41 @@ test("candidate submission is reusable, approval-gated, and revalidates live own
   assert.match(text, /gh release edit "v\$VERSION"/);
 });
 
+test("privileged candidate boundaries require exactly the expected recognized release label", async () => {
+  const recognized = /select\(\. == "release\/patch" or \. == "release\/minor" or \. == "release\/major" or \. == "release\/hotfix"\)/;
+  for (const name of ["prepare-prerelease.yml", "submit-candidate.yml", "cancel-candidate.yml"]) {
+    const text = await workflow(name);
+    assert.match(text, recognized, `${name} must filter the complete recognized label set`);
+    assert.match(text, /recognized_labels=.*jq/, `${name} must filter recognized labels from live PR data`);
+    assert.match(text, /recognized_count=\$\(jq ['"]length['"]/, `${name} must count recognized labels`);
+    assert.match(text, /test "\$recognized_count" = 1/, `${name} must reject zero or multiple recognized labels`);
+    assert.match(text, /test "\$recognized_label" = "\$(?:RELEASE_LABEL|label)"/, `${name} must match the expected metadata or input label`);
+  }
+
+  const prepare = await workflow("prepare-prerelease.yml");
+  for (const marker of ["id: cws_candidate", "id: github_tag", "id: github_release", "id: github_assets", "id: docker_version", "id: docker_next"]) {
+    const boundary = prepare.indexOf(marker);
+    assert.ok(boundary >= 0);
+    assert.match(prepare.slice(boundary, boundary + 1800), /test "\$recognized_count" = 1/, `${marker} must contain a fresh exact-label boundary`);
+  }
+  const siteMutation = prepare.indexOf("id: site_next");
+  assert.match(prepare.slice(Math.max(0, siteMutation - 1400), siteMutation), /test "\$recognized_count" = 1/);
+
+  const submit = await workflow("submit-candidate.yml");
+  const submitMutation = submit.indexOf("submit-staged");
+  assert.match(submit.slice(Math.max(0, submitMutation - 1800), submitMutation), /test "\$recognized_count" = 1/);
+  const cancel = await workflow("cancel-candidate.yml");
+  const cancelMutation = cancel.indexOf("cancel-submission");
+  assert.match(cancel.slice(Math.max(0, cancelMutation - 1800), cancelMutation), /test "\$recognized_count" = 1/);
+});
+
+test("manual PR validation skips payload-dependent release policy while normal verification runs", async () => {
+  const text = await workflow("pr-validation.yml");
+  const policy = text.match(/\n  release-policy:\n([\s\S]*?)(?=\n  verify:\n)/)?.[1] ?? "";
+  assert.match(policy, /if: github\.event_name == 'pull_request'/);
+  assert.doesNotMatch(text.match(/\n  verify:\n([\s\S]*?)(?=\n  extension:\n)/)?.[1] ?? "", /if:.*pull_request/);
+});
+
 test("stable promotion selects schema-v2 candidates by PR identity, never branch names", async () => {
   const text = await workflow("promote-release.yml");
   assert.match(text, /workflow_dispatch:/);

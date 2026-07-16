@@ -72,7 +72,11 @@ jobs:
           test "$(jq -r .state <<<"$live")" = OPEN
           test "$(jq -r .isDraft <<<"$live")" = false
           label=$(jq -r .label candidate/candidate.json)
-          jq -e --arg label "$label" '.labels | any(.name == $label)' <<<"$live" >/dev/null
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$label"
           test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true
           test "$(git ls-remote origin "refs/tags/v$VERSION" | cut -f1)" = "$EXPECTED_SHA"
           fresh=$(sha256sum "fresh-build/lurkloot-$VERSION-chrome.zip" | cut -d' ' -f1)
@@ -145,15 +149,32 @@ jobs:
           test "$label" = "$(jq -r .label verification/candidate/candidate.json)"
           test "$(jq -r .trustedToolsSha verification/evidence.json)" = "${{ inputs.trusted_tools_ref }}"
           test "$(jq -r .freshChromeSha256 verification/evidence.json)" = "$(jq -r .chromeZipSha256 candidate/candidate.json)"
-          jq -e --arg label "$label" '.labels | any(.name == $label)' <<<"$live" >/dev/null
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$label"
+          revalidate() {
+            live=$(gh pr view "$PR" --json headRefOid,isDraft,state,labels)
+            test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_SHA"
+            test "$(jq -r .state <<<"$live")" = OPEN
+            test "$(jq -r .isDraft <<<"$live")" = false
+            recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+            recognized_count=$(jq 'length' <<<"$recognized_labels")
+            recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+            test "$recognized_count" = 1
+            test "$recognized_label" = "$label"
+          }
           test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true
           test "$(git ls-remote origin "refs/tags/v$VERSION" | cut -f1)" = "$EXPECTED_SHA"
           submission_output=$(mktemp)
+          revalidate
           GITHUB_OUTPUT="$submission_output" node scripts/cws.mjs submit-staged
           action=$(sed -n 's/^action=//p' "$submission_output")
           rm -f "$submission_output"
           test "$action" = submitted || test "$action" = already-submitted || test "$action" = already-staged
           check=$(ACTION="$action" node -e 'import("./scripts/release/github.mjs").then(({submitCandidateCheck}) => process.stdout.write(JSON.stringify(submitCandidateCheck(process.env.ACTION, process.env.VERSION))))')
+          revalidate
           gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$EXPECTED_SHA" \
             -f status=in_progress -f output[title]="$(jq -r .title <<<"$check")" -f output[summary]="$(jq -r .summary <<<"$check")"
           if [[ "$action" == already-staged ]]; then
@@ -171,6 +192,7 @@ jobs:
             milestone="cws-pending"
             milestone_guidance="Google is reviewing the frozen candidate with deferred publishing."
           fi
+          revalidate
           gh release edit "v$VERSION" --prerelease --latest=false --notes "$notes"
           status_marker="<!-- lurkloot-release-pr:$PR:status -->"
           status_body="$status_marker
@@ -184,6 +206,7 @@ jobs:
 
           **Next action:** $next_action"
           comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$status_marker\")) | .id" | head -1)
+          revalidate
           if [[ -n "$comment_id" ]]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$status_body" >/dev/null
           else
@@ -191,6 +214,7 @@ jobs:
           fi
           marker="<!-- lurkloot-release:$VERSION:milestone:$milestone -->"
           bodies=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[].body')
+          revalidate
           grep -Fq "$marker" <<<"$bodies" || gh pr comment "$PR" --body "$marker
           Candidate **v$VERSION** reached **$milestone**. $milestone_guidance"
       - if: always() && steps.mutation.outcome != 'success'
