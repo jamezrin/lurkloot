@@ -2,6 +2,7 @@ import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, Runtime
 import type { DropCampaign, DropReward, EngineSettings, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
+import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
 import { setTwitchIntegrity } from "../core/tabs";
@@ -9,7 +10,6 @@ import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
-import type { CompatibilityResolution, ResolvedCompatibility } from "../compatibility/types";
 
 export const ALARM_NAME = "lurkloot.tick";
 // A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
@@ -140,8 +140,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         platform: warning.platform,
         level: "warn",
         message: `${reason} ${warningFieldLabel(warning.platform, warning.field)} compatibility selection; using ${warning.resolved}`,
-        compatibilityCapability: warning.resolved,
-        compatibilityVersion: warning.resolved,
+        ...(warning.field === "profile"
+          ? { compatibilityProfile: warning.resolved }
+          : { compatibilityCapability: warning.resolved, compatibilityVersion: warning.resolved }),
       });
       reportedCompatibilityWarnings.add(key);
     }
@@ -173,6 +174,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const events: EngineEvent[] = [];
     const emit: EventEmitter = (event) => events.push(event);
     return operation(emit, events);
+  }
+
+  function clearOperationalEvents(events: EngineEvent[]): void {
+    const compatibilityEvents = events.filter((event) =>
+      event.category === "diagnostic"
+      && (event.compatibilityProfile !== undefined || event.compatibilityCapability !== undefined));
+    events.splice(0, events.length, ...compatibilityEvents);
   }
 
   // Persistent tabless watchers, one per platform, kept alive across discovery
@@ -375,7 +383,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await reconcileTablessWatchers(result.state, settings, adapters, emit, platforms);
         nextState = result.state;
       } catch (error) {
-        events.length = 0;
+        clearOperationalEvents(events);
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
         emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
         emit({ category: "diagnostic", level: "error", message: detail });
@@ -783,7 +791,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           );
         }
       } catch (error) {
-        events.length = 0;
+        clearOperationalEvents(events);
         emit({
           category: "diagnostic",
           platform: message.platform,

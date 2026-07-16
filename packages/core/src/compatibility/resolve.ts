@@ -11,11 +11,24 @@ import type {
   CompatibilitySelections,
 } from "./types";
 
-const RECOMMENDED_TWITCH_PROFILE: TwitchProfileId = "twitch-2026-07";
-const RECOMMENDED_KICK_PROFILE: KickProfileId = "kick-2026-07";
-
 function hasOwn<T extends object>(record: T, key: string): key is Extract<keyof T, string> {
   return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function recommendedTwitchProfile(host: CompatibilityHostFacts): TwitchProfileId {
+  const profile = Object.values(COMPATIBILITY_REGISTRY.twitch.profiles).find((candidate) =>
+    candidate.lifecycle === "recommended"
+    && candidate.hosts.includes(host.host)
+    && candidate.identities.includes(host.twitchIdentity));
+  if (!profile) throw new Error(`No recommended Twitch profile for ${host.host}/${host.twitchIdentity}`);
+  return profile.id;
+}
+
+function recommendedKickProfile(host: CompatibilityHostFacts): KickProfileId {
+  const profile = Object.values(COMPATIBILITY_REGISTRY.kick.profiles).find((candidate) =>
+    candidate.lifecycle === "recommended" && candidate.hosts.includes(host.host));
+  if (!profile) throw new Error(`No recommended Kick profile for ${host.host}`);
+  return profile.id;
 }
 
 function warning(
@@ -49,7 +62,7 @@ export function resolveCompatibility(
 ): CompatibilityResolution {
   const warnings: CompatibilityWarning[] = [];
 
-  let twitchProfile = RECOMMENDED_TWITCH_PROFILE;
+  let twitchProfile = recommendedTwitchProfile(host);
   if (settings.twitch.profile !== "auto") {
     if (hasOwn(COMPATIBILITY_REGISTRY.twitch.profiles, settings.twitch.profile)) {
       const candidate = COMPATIBILITY_REGISTRY.twitch.profiles[settings.twitch.profile];
@@ -89,7 +102,7 @@ export function resolveCompatibility(
     }
   }
 
-  let kickProfile = RECOMMENDED_KICK_PROFILE;
+  let kickProfile = recommendedKickProfile(host);
   if (settings.kick.profile !== "auto") {
     if (hasOwn(COMPATIBILITY_REGISTRY.kick.profiles, settings.kick.profile)) {
       const candidate = COMPATIBILITY_REGISTRY.kick.profiles[settings.kick.profile];

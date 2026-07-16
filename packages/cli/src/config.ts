@@ -1,7 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
-import { resolveCompatibility, type CompatibilityWarning } from "@lurkloot/core";
+import { resolveCompatibility } from "@lurkloot/core";
+import type { CompatibilityWarning } from "@lurkloot/shared/compatibility";
 import { DEFAULT_CLI_SETTINGS, parseCliSettings, type CliSettings } from "./settings";
 
 export const TRANSPORTS = ["http", "impersonate"] as const;

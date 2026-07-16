@@ -197,6 +197,43 @@ describe("background controller", () => {
     }));
   });
 
+  it("uses profile metadata for profile resolver warnings", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      compatibility: {
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: { ...DEFAULT_SETTINGS.compatibility.twitch, profile: "unknown-profile" },
+      },
+    });
+
+    await env.controller.handleStartup();
+
+    const warning = env.reportEvents.mock.calls.flatMap(([events]) => events).find((event) =>
+      event.category === "diagnostic" && event.platform === "twitch" && event.level === "warn");
+    expect(warning).toEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      compatibilityProfile: "twitch-2026-07",
+    }));
+    expect(warning).not.toHaveProperty("compatibilityCapability");
+    expect(warning).not.toHaveProperty("compatibilityVersion");
+  });
+
+  it("preserves compatibility diagnostics when a scheduler tick fails", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.twitch.discoverCampaigns = vi.fn(async () => { throw new Error("discovery failed"); });
+
+    await env.controller.tick();
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      compatibilityProfile: "twitch-2026-07",
+    }));
+  });
+
   it("does not emit resolver warnings for a disabled platform", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
