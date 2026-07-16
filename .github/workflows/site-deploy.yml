@@ -76,5 +76,9 @@ jobs:
           workingDirectory: site-artifact
           command: pages deploy . --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || 'next' }}
       - name: Summarize deployment
+        env:
+          DEPLOY_CHANNEL: ${{ inputs.channel }}
+          SOURCE_REF: ${{ inputs.ref }}
+          DEPLOY_URL: ${{ inputs.channel == 'production' && 'https://lurkloot.jamezrin.com' || 'https://next.lurkloot.pages.dev' }}
         run: |
-          printf '## Site deployed\n\n- Channel: `%s`\n- Source ref: `%s`\n- URL: %s\n' '${{ inputs.channel }}' '${{ inputs.ref }}' '${{ inputs.channel == 'production' && 'https://lurkloot.jamezrin.com' || 'https://next.lurkloot.pages.dev' }}' >> "$GITHUB_STEP_SUMMARY"
+          printf '## Site deployed\n\n- Channel: `%s`\n- Source ref: `%s`\n- URL: %s\n' "$DEPLOY_CHANNEL" "$SOURCE_REF" "$DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"

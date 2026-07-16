@@ -18,6 +18,9 @@ test("prepare workflow exposes controlled candidate inputs", async () => {
   assert.match(yaml, /Chrome Web Store Developer Dashboard/);
   assert.match(yaml, /\$GITHUB_STEP_SUMMARY/);
   assert.match(yaml, /gh workflow run pr-validation\.yml --ref "\$BRANCH"/);
+  assert.match(yaml, /trusted_tools_ref: \$\{\{ steps\.tooling\.outputs\.sha \}\}/);
+  assert.match(yaml, /trusted_tools_ref: \$\{\{ needs\.prepare\.outputs\.trusted_tools_ref \}\}/);
+  assert.doesNotMatch(yaml, /prepare-workspace '\$\{\{ inputs\.version \}\}'/);
   assert.ok(yaml.indexOf("name: Upload CWS draft") < yaml.indexOf("name: Advance canonical release PR"));
   assert.ok(yaml.indexOf("name: Advance canonical release PR") < yaml.indexOf("name: Replace mutable prerelease"));
 });
@@ -72,6 +75,14 @@ test("candidate builds cannot access signing or deployment credentials", async (
   assert.match(site, /deploy:\n    needs: build/);
   assert.doesNotMatch(extension.match(/build:\n[\s\S]*?\n  finalize:/)?.[0] ?? "", /CRX_PRIVATE_KEY/);
   assert.doesNotMatch(site.match(/build:\n[\s\S]*?\n  deploy:/)?.[0] ?? "", /CLOUDFLARE_/);
+  assert.match(extension, /trusted_tools_ref:/);
+  assert.match(extension, /ref: \$\{\{ inputs\.trusted_tools_ref \}\}/);
+  assert.match(extension, /persist-credentials: false/);
+  assert.doesNotMatch(extension, /prepare-workspace '\$\{\{ inputs\.version \}\}'/);
+  const docker = await workflow("build-docker.yml");
+  assert.match(docker, /trusted_tools_ref:/);
+  assert.match(docker, /ref: \$\{\{ inputs\.trusted_tools_ref \}\}/);
+  assert.doesNotMatch(docker, /prepare-workspace '\$\{\{ inputs\.version \}\}'/);
 });
 
 test("legacy publisher and candidate tag are gone", async () => {

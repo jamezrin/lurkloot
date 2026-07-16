@@ -70,6 +70,7 @@ jobs:
             rm -rf candidate && mkdir candidate
             gh release download "v$version" --pattern candidate.json --dir candidate
             node -e 'import(process.env.RUNNER_TEMP + "/release-tools/release/model.mjs").then(({parseCandidateMetadata}) => parseCandidateMetadata(require("fs").readFileSync("candidate/candidate.json","utf8")))'
+            test "$(jq -r .version candidate/candidate.json)" = "$version" || { echo "candidate metadata version does not match v$version" >&2; exit 1; }
             pr=$(jq -r .releasePr candidate/candidate.json)
             initiator=$(jq -r .initiator candidate/candidate.json)
             source_sha=$(jq -r .sourceSha candidate/candidate.json)

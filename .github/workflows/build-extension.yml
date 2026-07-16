@@ -10,6 +10,10 @@ on:
         description: Optional release version to overlay before building
         type: string
         default: ""
+      trusted_tools_ref:
+        description: Immutable trusted release-tooling commit; required with version
+        type: string
+        default: ""
       artifact_name:
         type: string
         default: extension-release-assets
@@ -30,6 +34,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: pnpm/action-setup@v6
         with:
           version: 11.9.0
@@ -40,12 +45,18 @@ jobs:
       - uses: actions/checkout@v7
         if: inputs.version != ''
         with:
-          ref: main
+          ref: ${{ inputs.trusted_tools_ref }}
           path: trusted-release-tools
+          persist-credentials: false
       - name: Apply release version
         if: inputs.version != ''
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          TRUSTED_TOOLS_REF: ${{ inputs.trusted_tools_ref }}
         run: |
-          node trusted-release-tools/scripts/release/cli.mjs prepare-workspace '${{ inputs.version }}'
+          [[ "$TRUSTED_TOOLS_REF" =~ ^[0-9a-f]{40}$ ]] || { echo "trusted_tools_ref must be an immutable commit SHA" >&2; exit 1; }
+          test "$(git -C trusted-release-tools rev-parse HEAD)" = "$TRUSTED_TOOLS_REF"
+          node trusted-release-tools/scripts/release/cli.mjs prepare-workspace "$RELEASE_VERSION"
           rm -rf trusted-release-tools
       - run: pnpm install --frozen-lockfile
       - run: pnpm release:check
@@ -116,5 +127,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Summarize extension artifacts
+        env:
+          ARTIFACT_NAME: ${{ inputs.artifact_name }}
+          SIGN_CRX: ${{ inputs.sign_crx }}
         run: |
-          printf '## Extension artifacts\n\n- Artifact: `%s`\n- Signed CRX: `%s`\n- Chrome ZIP: `%s`\n' '${{ inputs.artifact_name }}' '${{ inputs.sign_crx }}' "$(find release-assets -maxdepth 1 -name 'lurkloot-*-chrome.zip' -printf '%f' -quit)" >> "$GITHUB_STEP_SUMMARY"
+          printf '## Extension artifacts\n\n- Artifact: `%s`\n- Signed CRX: `%s`\n- Chrome ZIP: `%s`\n' "$ARTIFACT_NAME" "$SIGN_CRX" "$(find release-assets -maxdepth 1 -name 'lurkloot-*-chrome.zip' -printf '%f' -quit)" >> "$GITHUB_STEP_SUMMARY"

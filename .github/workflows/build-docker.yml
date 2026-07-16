@@ -10,6 +10,10 @@ on:
         description: Optional release version to overlay before building
         type: string
         default: ""
+      trusted_tools_ref:
+        description: Immutable trusted release-tooling commit; required with version
+        type: string
+        default: ""
       artifact_prefix:
         type: string
         default: docker-digest
@@ -37,6 +41,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v7
         if: inputs.version != ''
         with:
@@ -44,12 +49,18 @@ jobs:
       - uses: actions/checkout@v7
         if: inputs.version != ''
         with:
-          ref: main
+          ref: ${{ inputs.trusted_tools_ref }}
           path: trusted-release-tools
+          persist-credentials: false
       - name: Apply release version
         if: inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
+          TRUSTED_TOOLS_REF: ${{ inputs.trusted_tools_ref }}
         run: |
-          node trusted-release-tools/scripts/release/cli.mjs prepare-workspace '${{ inputs.version }}'
+          [[ "$TRUSTED_TOOLS_REF" =~ ^[0-9a-f]{40}$ ]] || { echo "trusted_tools_ref must be an immutable commit SHA" >&2; exit 1; }
+          test "$(git -C trusted-release-tools rev-parse HEAD)" = "$TRUSTED_TOOLS_REF"
+          node trusted-release-tools/scripts/release/cli.mjs prepare-workspace "$VERSION"
           rm -rf trusted-release-tools
       - uses: docker/setup-buildx-action@v4
       - if: inputs.push
@@ -69,10 +80,11 @@ jobs:
           push: ${{ inputs.push }}
           outputs: ${{ inputs.push && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE_NAME) || 'type=cacheonly' }}
       - if: inputs.push
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           mkdir -p /tmp/digests
-          digest='${{ steps.build.outputs.digest }}'
-          touch "/tmp/digests/${digest#sha256:}"
+          touch "/tmp/digests/${DIGEST#sha256:}"
       - if: inputs.push
         uses: actions/upload-artifact@v7
         with:
@@ -80,5 +92,9 @@ jobs:
           path: /tmp/digests/*
           retention-days: 1
       - name: Summarize Docker build
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          PUSHED: ${{ inputs.push }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          printf '## Docker build\n\n- Platform: `%s`\n- Pushed: `%s`\n- Digest: `%s`\n' '${{ matrix.platform }}' '${{ inputs.push }}' '${{ steps.build.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"
+          printf '## Docker build\n\n- Platform: `%s`\n- Pushed: `%s`\n- Digest: `%s`\n' "$PLATFORM" "$PUSHED" "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
