@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Bell,
@@ -30,7 +30,7 @@ import { useT } from "./context";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 import { CompatibilitySettings } from "./compatibilitySettings";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, compatibilityRegistry, compatibilityResolution, initialPlatform = "twitch" }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, initialPlatform = "twitch" }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
@@ -38,6 +38,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   // Optional: when provided, the settings view shows an "Export credentials"
   // action for the headless CLI. The extension wires it; the demo omits it.
   onExportCredentials?: () => void | Promise<void>;
+  exportConfirmationResetKey: number;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
   initialPlatform?: Platform;
@@ -46,6 +47,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
   const [compatibilityExpertExpanded, setCompatibilityExpertExpanded] = useState(false);
   const [exportArmed, setExportArmed] = useState(false);
+  useEffect(() => setExportArmed(false), [exportConfirmationResetKey]);
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as SettingsPatch);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
   const tabPlaybackDisabled = settings.tablessMode;
