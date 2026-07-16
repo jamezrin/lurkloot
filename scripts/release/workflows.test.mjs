@@ -51,6 +51,7 @@ test("promotion consumes stored artifacts without rebuilding", async () => {
   assert.match(yaml, /node trusted-release-tools\/scripts\/cws\.mjs publish-stable/);
   assert.doesNotMatch(yaml, /build-extension\.yml|build-docker\.yml|pnpm zip|docker\/build-push-action/);
   assert.doesNotMatch(yaml, /git tag --force|git push --force/);
+  assert.match(yaml, /channel: production\n      ref: \$\{\{ github\.event\.pull_request\.merge_commit_sha \}\}/);
 });
 
 test("site deployment uses explicit channel input", async () => {
@@ -58,6 +59,7 @@ test("site deployment uses explicit channel input", async () => {
   assert.match(yaml, /channel:\n        type: string/);
   assert.match(yaml, /actions\/upload-artifact/);
   assert.match(yaml, /actions\/download-artifact/);
+  assert.match(yaml, /persist-credentials: false/);
   assert.doesNotMatch(yaml, /release\.channel/);
 });
 

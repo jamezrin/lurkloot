@@ -268,7 +268,17 @@ jobs:
           sha=$(git rev-parse HEAD)
           pr=$EXISTING_PR
           if [[ "$KIND" == normal && -z "$pr" ]]; then
-            pr=$(gh pr create --draft --base main --head "$BRANCH" --title "chore(release): prepare $VERSION" --body "Release candidate for v$VERSION. Merge only after the cws-release-ready check passes." | sed 's#.*/##')
+            pr=$(gh pr create --draft --base main --head "$BRANCH" --title "chore(release): prepare $VERSION" --body "## Summary
+
+          Release candidate for v$VERSION. Merge only after the cws-release-ready check passes.
+
+          ## Testing
+
+          Automated candidate verification and artifact builds.
+
+          ## Linked issues
+
+          N/A" | sed 's#.*/##')
           fi
           echo "SOURCE_SHA=$sha" >> "$GITHUB_ENV"
           echo "RELEASE_PR=$pr" >> "$GITHUB_ENV"

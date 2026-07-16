@@ -10,7 +10,7 @@ Do not create or move release tags manually. The workflows own version tags, Git
 flowchart TD
     F[Feature pull requests] --> D[develop]
     D -->|Prepare or update prerelease| C[Mutable candidate]
-    C -->|Replace before review| D
+    C -->|Prepare again from a newer develop commit| C
     C -->|Submit candidate| R[CWS pending review]
     R -->|Cancel review| C
     R -->|CWS approves| S[CWS staged]

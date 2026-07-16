@@ -19,7 +19,7 @@ const fixtureMetadata = {
   artifactChecksums: {
     "lurkloot-1.5.0-chrome.zip": "b".repeat(64),
   },
-  dockerDigests: ["sha256:" + "c".repeat(64)],
+  dockerDigests: ["sha256:" + "c".repeat(64), "sha256:" + "d".repeat(64)],
   cwsState: "DRAFT",
   previewUrl: "https://next.lurkloot.pages.dev",
 };
@@ -88,5 +88,9 @@ test("rejects unsafe candidate metadata", () => {
   assert.throws(
     () => parseCandidateMetadata(JSON.stringify({ ...fixtureMetadata, unexpected: true })),
     /unexpected field/,
+  );
+  assert.throws(
+    () => parseCandidateMetadata(JSON.stringify({ ...fixtureMetadata, dockerDigests: [fixtureMetadata.dockerDigests[0], fixtureMetadata.dockerDigests[0]] })),
+    /two distinct/,
   );
 });

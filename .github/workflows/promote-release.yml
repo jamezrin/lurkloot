@@ -116,7 +116,7 @@ jobs:
     uses: ./.github/workflows/site-deploy.yml
     with:
       channel: production
-      ref: main
+      ref: ${{ github.event.pull_request.merge_commit_sha }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

@@ -129,7 +129,17 @@ export class ChromeWebStoreClient {
       headers: { authorization: `Bearer ${this.accessToken}`, ...init.headers },
     });
     const text = typeof response.text === "function" ? await response.text() : undefined;
-    const body = text === undefined ? await response.json() : text ? JSON.parse(text) : undefined;
+    let body;
+    if (text === undefined) {
+      body = await response.json();
+    } else if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        if (response.ok) throw new Error("Chrome Web Store API returned invalid JSON");
+        body = { error: { message: text } };
+      }
+    }
     if (!response.ok) throw new Error(`Chrome Web Store API failed (${response.status}): ${body?.error?.message ?? "unknown error"}`);
     return body;
   }
@@ -169,8 +179,6 @@ export class ChromeWebStoreClient {
   cancelSubmission() {
     return this.request(`/v2/${this.item}:cancelSubmission`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "{}",
     });
   }
 }
@@ -192,8 +200,10 @@ export async function waitForCancellation(client, version, { attempts = 30, dela
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const status = await client.status();
     const submitted = status.submittedItemRevisionStatus;
-    if (!submitted || submitted.state === "CANCELLED") return "cancelled";
-    if (revisionVersion(submitted) !== version) throw new Error(`Chrome Web Store switched to ${revisionVersion(submitted) ?? "an unknown version"} while cancelling ${version}`);
+    if (!submitted) return "cancelled";
+    const submittedVersion = revisionVersion(submitted);
+    if (submittedVersion !== version) throw new Error(`Chrome Web Store switched to ${submittedVersion ?? "an unknown version"} while cancelling ${version}`);
+    if (submitted.state === "CANCELLED") return "cancelled";
     await delay(2000);
   }
   throw new Error(`Chrome Web Store did not cancel ${version} within 60 seconds`);

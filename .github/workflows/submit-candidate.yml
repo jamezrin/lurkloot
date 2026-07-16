@@ -61,9 +61,11 @@ jobs:
         run: |
           node trusted-release-tools/scripts/release/cli.mjs metadata verify candidate/candidate.json candidate
           test "$(jq -r .version candidate/candidate.json)" = "$VERSION"
+          test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true || { echo "v$VERSION is not an active prerelease" >&2; exit 1; }
           source_sha=$(jq -r .sourceSha candidate/candidate.json)
           test "$(git rev-parse HEAD)" = "$source_sha"
           pr=$(jq -r .releasePr candidate/candidate.json)
+          test "$(gh pr view "$pr" --json state --jq .state)" = OPEN || { echo "release PR #$pr is not open" >&2; exit 1; }
           test "$(gh pr view "$pr" --json headRefOid --jq .headRefOid)" = "$source_sha"
           recorded_hash=$(jq -r .chromeZipSha256 candidate/candidate.json)
           fresh_hash=$(sha256sum "fresh-build/lurkloot-$VERSION-chrome.zip" | cut -d' ' -f1)
@@ -106,8 +108,11 @@ jobs:
           test "$(jq -r .releasePr candidate/candidate.json)" = "$VERIFIED_PR"
           test "$(jq -r .chromeZipSha256 candidate/candidate.json)" = "$VERIFIED_CHECKSUM"
           test "$(gh pr view "$VERIFIED_PR" --json headRefOid --jq .headRefOid)" = "$VERIFIED_SHA"
+          test "$(gh pr view "$VERIFIED_PR" --json state --jq .state)" = OPEN
+          test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true
           test "$(git ls-remote origin "refs/tags/v$VERSION" | cut -f1)" = "$VERIFIED_SHA"
-      - name: Submit with deferred publishing
+      - id: cws
+        name: Submit with deferred publishing
         run: node scripts/cws.mjs submit-staged
       - name: Mark PR ready and notify releaser
         env:
@@ -115,12 +120,20 @@ jobs:
           SHA: ${{ needs.verify.outputs.sha }}
         run: |
           gh pr ready "$PR" || true
-          gh release edit "v$VERSION" --prerelease --latest=false --notes "Frozen candidate from $SHA for release PR #$PR. Chrome Web Store version $VERSION is PENDING_REVIEW with staged publishing. Candidate assets and tag are immutable until cancellation or stable promotion."
-          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$SHA" -f status=in_progress -f output[title]="CWS review pending" -f output[summary]="v$VERSION is frozen and submitted with staged publishing."
+          action='${{ steps.cws.outputs.action }}'
           initiator=$(jq -r .initiator candidate/candidate.json)
-          marker="<!-- lurkloot-release:$VERSION:cws:PENDING_REVIEW -->"
-          if ! gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
-            gh pr comment "$PR" --body "$marker
-          @$initiator, **v$VERSION** was submitted to CWS with deferred publishing and is pending review."
+          if [[ "$action" == already-staged ]]; then
+            state=STAGED
+            gh release edit "v$VERSION" --prerelease --latest=false --notes "Frozen candidate from $SHA for release PR #$PR. Chrome Web Store version $VERSION is STAGED and ready for final approval."
+            gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$SHA" -f status=completed -f conclusion=success -f output[title]="CWS candidate staged" -f output[summary]="v$VERSION is approved and ready for final PR approval and merge."
+          else
+            state=PENDING_REVIEW
+            gh release edit "v$VERSION" --prerelease --latest=false --notes "Frozen candidate from $SHA for release PR #$PR. Chrome Web Store version $VERSION is PENDING_REVIEW with staged publishing. Candidate assets and tag are immutable until cancellation or stable promotion."
+            gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=cws-release-ready -f head_sha="$SHA" -f status=in_progress -f output[title]="CWS review pending" -f output[summary]="v$VERSION is frozen and submitted with staged publishing."
+            marker="<!-- lurkloot-release:$VERSION:cws:PENDING_REVIEW -->"
+            if ! gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
+              gh pr comment "$PR" --body "$marker
+            @$initiator, **v$VERSION** was submitted to CWS with deferred publishing and is pending review."
+            fi
           fi
-          printf '## Candidate v%s submitted\n\n- PR: #%s\n- Source: `%s`\n- State: `PENDING_REVIEW`\n' "$VERSION" "$PR" "$SHA" >> "$GITHUB_STEP_SUMMARY"
+          printf '## Candidate v%s submitted\n\n- PR: #%s\n- Source: `%s`\n- State: `%s`\n' "$VERSION" "$PR" "$SHA" "$state" >> "$GITHUB_STEP_SUMMARY"

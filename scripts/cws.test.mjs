@@ -85,6 +85,18 @@ test("uses staged publishing and cancellation API methods", async () => {
   assert.deepEqual(JSON.parse(requests[0].init.body), { publishType: "STAGED_PUBLISH", blockOnWarnings: true });
   assert.match(requests[0].url, /:publish$/);
   assert.match(requests[1].url, /:cancelSubmission$/);
+  assert.equal(requests[1].init.body, undefined);
+  assert.deepEqual(requests[1].init.headers, { authorization: "Bearer token" });
+});
+
+test("reports plaintext API failures with their HTTP status", async () => {
+  const client = new ChromeWebStoreClient({
+    publisherId: "publisher",
+    extensionId: "extension",
+    accessToken: "token",
+    fetchImpl: async () => ({ ok: false, status: 502, text: async () => "upstream unavailable" }),
+  });
+  await assert.rejects(client.status(), /502.*upstream unavailable/);
 });
 
 test("accepts the empty cancellation response required by CWS v2", async () => {
@@ -101,4 +113,9 @@ test("waits until CWS reports a cancelled submission", async () => {
   const states = [status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), status({ submitted: revision("CANCELLED", "1.4.0") })];
   const result = await waitForCancellation({ status: async () => states.shift() }, "1.4.0", { attempts: 2, delay: async () => {} });
   assert.equal(result, "cancelled");
+});
+
+test("rejects cancellation confirmation for another version", async () => {
+  const client = { status: async () => status({ submitted: revision("CANCELLED", "1.5.0") }) };
+  await assert.rejects(waitForCancellation(client, "1.4.0", { attempts: 1, delay: async () => {} }), /switched to 1\.5\.0/);
 });

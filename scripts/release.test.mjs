@@ -24,7 +24,6 @@ async function fixture(t, { version = "1.4.0", date = "2026-07-15" } = {}) {
     const absolutePath = join(root, path);
     await mkdir(dirname(absolutePath), { recursive: true });
     const manifest = { name: path === "package.json" ? "lurkloot" : `@lurkloot/${dirname(path).split("/").at(-1)}`, version, private: true };
-    if (path === "package.json") manifest.release = { channel: "stable" };
     await writeFile(absolutePath, `${JSON.stringify(manifest, null, 2)}\n`);
   }
   const changelogPath = join(root, "packages/site/src/changelog.json");
@@ -57,6 +56,10 @@ test("check rejects a mismatched workspace version", async (t) => {
 
 test("prepare synchronizes manifests and removes legacy channel state", async (t) => {
   const root = await fixture(t);
+  const rootPath = join(root, "package.json");
+  const legacyManifest = JSON.parse(await readFile(rootPath, "utf8"));
+  legacyManifest.release = { channel: "stable" };
+  await writeFile(rootPath, `${JSON.stringify(legacyManifest, null, 2)}\n`);
   const result = run(root, "prepare", "1.5.0");
   assert.equal(result.status, 0, result.stderr);
   for (const path of manifests) {
@@ -83,4 +86,15 @@ test("prepare rejects invalid release dates", async (t) => {
   const result = run(root, "prepare", "1.5.0", "--date", "2026-02-30");
   assert.equal(result.status, 1);
   assert.match(result.stderr, /valid --date/);
+});
+
+test("check rejects a present empty changelog date", async (t) => {
+  const root = await fixture(t);
+  const changelogPath = join(root, "packages/site/src/changelog.json");
+  const changelog = JSON.parse(await readFile(changelogPath, "utf8"));
+  changelog[0].date = "";
+  await writeFile(changelogPath, `${JSON.stringify(changelog, null, 2)}\n`);
+  const result = run(root, "check");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /invalid changelog date/);
 });
