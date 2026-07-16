@@ -195,3 +195,32 @@ test("candidate preparation exposes the controller result contract", async () =>
   assert.match(text, /metadata create/);
   assert.match(text, /schemaVersion/);
 });
+
+test("candidate cancellation is a reusable fail-closed replacement gate", async () => {
+  const text = await workflow("cancel-candidate.yml");
+  assert.match(text, /workflow_call:/);
+  for (const input of ["pr_number", "candidate_version", "expected_candidate_sha", "disposition"]) assert.match(text, new RegExp(`\\b${input}:`));
+  for (const output of ["cancelled", "safe_to_replace", "reason"]) assert.match(text, new RegExp(`\\b${output}:`));
+  assert.match(text, /group: cws-mutation/);
+  assert.match(text, /schemaVersion candidate\/candidate\.json\)" = 2/);
+  assert.match(text, /cancel-submission/);
+  assert.match(text, /scripts\/cws\.mjs status/);
+  assert.match(text, /submitted_state.*CANCELLED|CANCELLED.*submitted_state/s);
+  assert.match(text, /gh pr ready "\$PR" --undo/);
+  assert.match(text, /safe_to_replace=false/);
+  assert.match(text, /PUBLISHED/);
+});
+
+test("candidate submission is reusable, approval-gated, and revalidates live ownership", async () => {
+  const text = await workflow("submit-candidate.yml");
+  assert.match(text, /workflow_call:/);
+  for (const input of ["pr_number", "version", "expected_head_sha", "trusted_tools_ref"]) assert.match(text, new RegExp(`\\b${input}:`));
+  assert.doesNotMatch(text, /workflow_dispatch:/);
+  assert.match(text, /environment: cws-review/);
+  assert.doesNotMatch(text, /gh pr ready/);
+  assert.match(text, /schemaVersion candidate\/candidate\.json\)" = 2/);
+  assert.ok((text.match(/gh pr view "\$PR" --json headRefOid,isDraft,state,labels/g) ?? []).length >= 2);
+  assert.match(text, /submit-staged/);
+  assert.match(text, /cws-pending/);
+  assert.match(text, /ref: \$\{\{ inputs\.trusted_tools_ref \}\}/);
+});

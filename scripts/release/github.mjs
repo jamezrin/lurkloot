@@ -25,6 +25,17 @@ export function milestoneMarker(version, milestone) {
   return `<!-- lurkloot-release:${version}:milestone:${milestone} -->`;
 }
 
+export function lifecycleMilestoneGuidance(milestone) {
+  const guidance = {
+    "candidate-rebuilding": "The old candidate is cancelled; replacement artifacts are rebuilding.",
+    "environment-approval": "Approve the cws-review environment after checking this exact SHA.",
+    "cws-pending": "Google is reviewing the frozen candidate with deferred publishing.",
+    "reconciliation-blocked": "CWS state is uncertain; reconcile it in the dashboard before retrying.",
+  };
+  if (!guidance[milestone]) throw new Error(`unknown automatic lifecycle milestone: ${milestone}`);
+  return guidance[milestone];
+}
+
 export function renderReleaseStatus(status) {
   const links = [
     ["GitHub release", validatedUrl(status.releaseUrl, "releaseUrl")],
