@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
+import { resolveCompatibility } from "@lurkloot/core";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
-import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
+import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
@@ -81,7 +83,10 @@ function harness(
     // Host-owned tab policy + settings-patch application (see background.ts).
     loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false })),
     applySettingsPatch: vi.fn((current: ExtensionSettings, patch) => applySettingsPatch(current, patch)),
-    createAdapters: vi.fn((_emit: EventEmitter) => ({ twitch, kick })),
+    createAdapters: vi.fn((_emit: EventEmitter, nextSettings: ExtensionSettings) => ({
+      adapters: { twitch, kick },
+      ...resolveCompatibility(nextSettings.compatibility, { host: "extension", twitchIdentity: "web" }),
+    })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
   };
 
@@ -101,6 +106,206 @@ function harness(
 }
 
 describe("background controller", () => {
+  it("reports the effective compatibility profile and capability once per enabled platform", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+
+    await env.controller.tick();
+    await env.controller.tick();
+
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    expect(published).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      compatibilityProfile: "twitch-2026-07",
+      compatibilityCapability: "twitch-heartbeat-spade-v1",
+    }));
+    expect(published).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "kick",
+      compatibilityProfile: "kick-2026-07",
+      compatibilityCapability: "kick-claim-v2",
+      compatibilityCapabilities: ["kick-claim-v2"],
+    }));
+    expect(published.filter((event) =>
+      event.category === "diagnostic"
+      && "compatibilityProfile" in event
+      && event.platform === "twitch"
+    )).toHaveLength(1);
+    expect(published.filter((event) =>
+      event.category === "diagnostic"
+      && "compatibilityProfile" in event
+      && event.platform === "kick"
+    )).toHaveLength(1);
+    expect(JSON.stringify(published)).not.toContain("auth-token");
+  });
+
+  it("reports enabled compatibility selections on startup while farming is paused", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+
+    await env.controller.handleStartup();
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      compatibilityProfile: "twitch-2026-07",
+      compatibilityCapability: "twitch-heartbeat-spade-v1",
+    }));
+  });
+
+  it("reports compatibility again only when the effective selection changes", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+
+    await env.controller.tick();
+    await env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-gql-v1" } } },
+      tickAfterSave: true,
+    });
+
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    expect(published.filter((event) =>
+      event.category === "diagnostic"
+      && "compatibilityCapability" in event
+      && event.compatibilityCapability === "twitch-heartbeat-gql-v1"
+    )).toHaveLength(1);
+  });
+
+  it("emits credential-safe resolver warnings without echoing persisted selections", async () => {
+    const hostileSelection = "unknown-auth-token=secret-cookie";
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      compatibility: {
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_SETTINGS.compatibility.twitch,
+          heartbeatTransport: hostileSelection,
+        },
+      },
+    });
+
+    await env.controller.handleStartup();
+
+    const serialized = JSON.stringify(env.reportEvents.mock.calls.flatMap(([events]) => events));
+    expect(serialized).not.toContain(hostileSelection);
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      message: "Unknown Twitch heartbeat compatibility selection; using twitch-heartbeat-spade-v1",
+      compatibilityCapability: "twitch-heartbeat-spade-v1",
+    }));
+  });
+
+  it("uses profile metadata for profile resolver warnings", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      compatibility: {
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: { ...DEFAULT_SETTINGS.compatibility.twitch, profile: "unknown-profile" },
+      },
+    });
+
+    await env.controller.handleStartup();
+
+    const warning = env.reportEvents.mock.calls.flatMap(([events]) => events).find((event) =>
+      event.category === "diagnostic" && event.platform === "twitch" && event.level === "warn");
+    expect(warning).toEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      compatibilityProfile: "twitch-2026-07",
+    }));
+    expect(warning).not.toHaveProperty("compatibilityCapability");
+    expect(warning).not.toHaveProperty("compatibilityVersion");
+  });
+
+  it("preserves compatibility diagnostics when a scheduler tick fails", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.twitch.discoverCampaigns = vi.fn(async () => { throw new Error("discovery failed"); });
+
+    await env.controller.tick();
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      compatibilityProfile: "twitch-2026-07",
+    }));
+  });
+
+  it("does not emit resolver warnings for a disabled platform", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+      },
+      compatibility: {
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: { ...DEFAULT_SETTINGS.compatibility.twitch, heartbeatTransport: "invalid-secret" },
+      },
+    });
+
+    await env.controller.handleStartup();
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
+      event.category === "diagnostic" && event.platform === "twitch" && event.level === "warn"
+    )).toEqual([]);
+  });
+
+  it("emits a fresh warning when a different invalid selection resolves identically", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      compatibility: {
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: { ...DEFAULT_SETTINGS.compatibility.twitch, heartbeatTransport: "first-secret" },
+      },
+    });
+
+    await env.controller.handleStartup();
+    await env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { compatibility: { twitch: { heartbeatTransport: "second-secret" } } },
+      tickAfterSave: true,
+    });
+
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    expect(published.filter((event) =>
+      event.category === "diagnostic"
+      && event.platform === "twitch"
+      && event.level === "warn"
+      && event.message === "Unknown Twitch heartbeat compatibility selection; using twitch-heartbeat-spade-v1"
+    )).toHaveLength(2);
+    expect(JSON.stringify(published)).not.toContain("first-secret");
+    expect(JSON.stringify(published)).not.toContain("second-secret");
+  });
+
+  it("emits a fixed host-incompatible warning with only the safe fallback identifier", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      compatibility: {
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_SETTINGS.compatibility.twitch,
+          heartbeatTransport: "twitch-heartbeat-trowel-v1",
+        },
+      },
+    });
+
+    await env.controller.handleStartup();
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      message: "Host-incompatible Twitch heartbeat compatibility selection; using twitch-heartbeat-spade-v1",
+    }));
+  });
+
   it("saves operational state before publishing the ordered batch", async () => {
     const calls: string[] = [];
     const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
@@ -134,9 +339,12 @@ describe("background controller", () => {
 
   it("preserves adapter and scheduler event order within one tick batch", async () => {
     const env = harness();
-    vi.mocked(env.deps.createAdapters).mockImplementation((emit) => {
+    vi.mocked(env.deps.createAdapters).mockImplementation((emit, settings) => {
       emit({ category: "diagnostic", level: "debug", message: "adapter-created" });
-      return { twitch: env.twitch, kick: env.kick };
+      return {
+        adapters: { twitch: env.twitch, kick: env.kick },
+        ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
+      };
     });
 
     await env.controller.tick();
@@ -156,14 +364,14 @@ describe("background controller", () => {
 
     await env.controller.handleMessage({ type: "searchCategories", platform: "twitch", query: "game" });
 
-    expect(env.reportEvents).toHaveBeenCalledWith([
+    expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
       expect.objectContaining({
         category: "diagnostic",
         platform: "twitch",
         level: "warn",
         message: "Category search failed: category lookup failed",
       }),
-    ]);
+    ]));
 
     env.reportEvents.mockClear();
     await env.controller.tick();
@@ -215,6 +423,66 @@ describe("background controller", () => {
       .flatMap(([events]) => events)
       .filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"));
     expect(waitingEvents).toHaveLength(1);
+  });
+
+  it("publishes one actionable link-required diagnostic while repeated automatic claims are suppressed", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+      },
+    });
+    let claimPosts = 0;
+    let affirmativelyLinked = false;
+    const fetcher: PageFetcher = {
+      fetchJson: vi.fn(async (url: string) => {
+        if (url === "https://web.kick.com/api/v1/drops/claim") {
+          claimPosts += 1;
+          return { data: { connect_url: "https://accounts.example/link" } };
+        }
+        if (url === "https://web.kick.com/api/v1/drops/progress") {
+          return { data: [{ campaign_id: "kick-campaign", ...(affirmativelyLinked ? { user_app_connected: true } : {}) }] };
+        }
+        throw new Error(`Unexpected URL ${url}`);
+      }) as PageFetcher["fetchJson"],
+    };
+    const claimState = new KickClaimState();
+    env.deps.createAdapters.mockImplementation((emit, settings) => {
+      const kick = new KickAdapter(fetcher, undefined, undefined, emit, { claimState });
+      kick.discoverCampaigns = vi.fn(async () => [campaign("kick", "claimable")]);
+      kick.listCandidateChannels = vi.fn(async () => []);
+      return {
+        adapters: { twitch: env.twitch, kick },
+        ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
+      };
+    });
+
+    await env.controller.tick();
+    await env.controller.tick();
+
+    expect(claimPosts).toBe(1);
+    const events = env.reportEvents.mock.calls.flatMap(([batch]) => batch);
+    expect(events.filter((event) =>
+      event.category === "diagnostic"
+      && event.level === "warn"
+      && event.message.includes("using the account-link action")
+    )).toHaveLength(1);
+    expect(JSON.stringify(events)).not.toContain("https://accounts.example/link");
+    expect(env.state.campaigns.kick[0].rewards[0].claimGuidance).toEqual({
+      kind: "link_required",
+      url: "https://accounts.example/link",
+    });
+
+    affirmativelyLinked = true;
+    await env.controller.tick();
+    expect(claimPosts).toBe(2);
+
+    const separateState = new KickClaimState();
+    const separateAdapter = new KickAdapter(fetcher, undefined, undefined, () => {}, { claimState: separateState });
+    await separateAdapter.claimReward(campaign("kick", "claimable"), campaign("kick", "claimable").rewards[0]);
+    expect(claimPosts).toBe(3);
   });
 
   it("publishes a farming stop reason when automation is disabled", async () => {
@@ -434,7 +702,9 @@ describe("background controller", () => {
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.deps.closeManagedTabsByUrl).not.toHaveBeenCalled();
     expect(env.deps.saveState).not.toHaveBeenCalled();
-    expect(env.reportEvents).not.toHaveBeenCalled();
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
+      event.category === "diagnostic" && event.message.includes("Browser restarted")
+    )).toBe(false);
   });
 
   it("disables running on startup when auto-start is disabled even without stale tabs", async () => {

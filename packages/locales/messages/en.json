@@ -194,6 +194,12 @@
   "linkAccount": {
     "message": "Link your account"
   },
+  "externalGameAccountRequired": {
+    "message": "External game account required"
+  },
+  "linkExternalGameAccount": {
+    "message": "Link external game account"
+  },
   "viewDropPage": {
     "message": "View drop page"
   },
@@ -689,5 +695,86 @@
   },
   "showDiagnosticLogs": {
     "message": "Show diagnostics"
+  },
+  "compatibilityAutomatic": {
+    "message": "Automatic"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Twitch compatibility profile"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "Choose a bundled Twitch profile or let Lurkloot select it automatically."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Kick compatibility profile"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "Choose a bundled Kick profile or let Lurkloot select it automatically."
+  },
+  "compatibilityEffectiveTitle": {
+    "message": "Effective compatibility"
+  },
+  "compatibilityExpertShow": {
+    "message": "Show expert compatibility controls"
+  },
+  "compatibilityExpertHide": {
+    "message": "Hide expert compatibility controls"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Twitch heartbeat transport"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "Override the bundled Twitch watch heartbeat."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Twitch inventory query"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "Override the bundled Twitch inventory query."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Kick claim-link handling"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "Override the bundled Kick account-link handling."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "Recommended"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "Legacy"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "Experimental"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "Manual compatibility overrides are active. They may stop working when platforms change."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "Restore automatic compatibility"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch July 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "GraphQL heartbeat v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Spade heartbeat v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Trowel heartbeat v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Inventory query v1"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick July 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Claim handling v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Claim handling v2"
   }
 }

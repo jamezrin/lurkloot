@@ -1,0 +1,80 @@
+{
+  "data": {
+    "currentUser": {
+      "id": "sanitized-user",
+      "inventory": {
+        "gameEventDrops": [
+          {
+            "id": "owned-benefit",
+            "name": "Owned reward",
+            "lastAwardedAt": "2026-06-15T12:00:00.000Z"
+          }
+        ],
+        "dropCampaignsInProgress": [
+          {
+            "id": "active-campaign",
+            "name": "Active campaign",
+            "startAt": null,
+            "endAt": null,
+            "game": {
+              "id": "game-id",
+              "name": "Example Game"
+            },
+            "accountLinkURL": "https://accounts.example.test/link",
+            "self": {
+              "isAccountConnected": false
+            },
+            "timeBasedDrops": [
+              {
+                "id": "claimable-reward",
+                "name": "Claimable reward",
+                "startAt": null,
+                "endAt": null,
+                "requiredMinutesWatched": 60,
+                "benefitEdges": [
+                  {
+                    "benefit": {
+                      "id": "claimable-benefit",
+                      "name": "Claimable benefit",
+                      "distributionType": "DIRECT_ENTITLEMENT"
+                    }
+                  }
+                ],
+                "self": {
+                  "currentMinutesWatched": 60,
+                  "isClaimed": false,
+                  "dropInstanceID": "sanitized-user#active-campaign#claimable-reward"
+                }
+              }
+            ]
+          },
+          {
+            "id": "owned-campaign",
+            "name": "Owned campaign",
+            "startAt": "2026-06-01T00:00:00.000Z",
+            "endAt": "2026-07-01T00:00:00.000Z",
+            "accountLinkURL": null,
+            "timeBasedDrops": [
+              {
+                "id": "owned-reward",
+                "requiredMinutesWatched": 120,
+                "benefitEdges": [
+                  {
+                    "benefit": {
+                      "id": "owned-benefit",
+                      "name": "Owned reward"
+                    }
+                  }
+                ],
+                "self": {
+                  "currentMinutesWatched": 0,
+                  "isClaimed": false
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

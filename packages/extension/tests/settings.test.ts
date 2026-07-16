@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings } from "@lurkloot/shared/settings";
 
 describe("engine settings", () => {
   // The tab-policy fields (mute / keep-unmuted / auto-close / ad focus) and the
@@ -34,6 +34,47 @@ describe("engine settings", () => {
 });
 
 describe("settings", () => {
+  it("defaults compatibility selections to automatic detection", () => {
+    expect(mergeSettings(undefined).compatibility).toEqual({
+      twitch: { profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "auto" },
+      kick: { profile: "auto", claimLinkHandling: "auto" },
+    });
+  });
+
+  it("preserves bundled compatibility identifiers and normalizes invalid selections", () => {
+    const settings = mergeSettings({ compatibility: {
+      twitch: { profile: "twitch-2026-07", heartbeatTransport: "twitch-heartbeat-gql-v1", inventoryQueryVersion: "auto" },
+      kick: { profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" },
+    } } as never);
+    expect(settings.compatibility.twitch.profile).toBe("twitch-2026-07");
+    expect(settings.compatibility.twitch.heartbeatTransport).toBe("twitch-heartbeat-gql-v1");
+    expect(settings.compatibility.kick).toEqual({ profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" });
+
+    expect(mergeSettings({ compatibility: {
+      twitch: { profile: "  ", heartbeatTransport: 42, inventoryQueryVersion: " twitch-inventory-v1 " },
+      kick: { profile: null, claimLinkHandling: " kick-claim-v1 " },
+    } } as never).compatibility).toEqual({
+      twitch: { profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "twitch-inventory-v1" },
+      kick: { profile: "auto", claimLinkHandling: "kick-claim-v1" },
+    });
+  });
+
+  it("applies partial compatibility patches without erasing sibling selections", () => {
+    const current = mergeSettings({ compatibility: {
+      twitch: { profile: "twitch-2026-07", heartbeatTransport: "twitch-heartbeat-gql-v1", inventoryQueryVersion: "twitch-inventory-v1" },
+      kick: { profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" },
+    } } as never);
+
+    const settings = applySettingsPatch(current, {
+      compatibility: { twitch: { heartbeatTransport: "auto" } },
+    });
+
+    expect(settings.compatibility).toEqual({
+      twitch: { profile: "twitch-2026-07", heartbeatTransport: "auto", inventoryQueryVersion: "twitch-inventory-v1" },
+      kick: { profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" },
+    });
+  });
+
   it("defaults mockup popup settings", () => {
     expect(DEFAULT_SETTINGS).toMatchObject({
       muteFarmingTabs: true,

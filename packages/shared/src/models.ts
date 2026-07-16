@@ -6,6 +6,11 @@ export type RewardStatus = "locked" | "in_progress" | "claimable" | "claimed";
 
 export type RewardRequirementType = "watch" | "subscription" | "action";
 
+export interface ClaimGuidance {
+  kind: "link_required";
+  url: string;
+}
+
 // Lifecycle of the one-time Chrome Web Store rate/review nudge. "pending" until
 // the user either rates or dismisses it, after which it never shows again.
 export type RateNudgeStatus = "pending" | "rated" | "dismissed";
@@ -29,6 +34,7 @@ export interface DropReward {
   preconditionRewardIds?: string[];
   preconditionsMet?: boolean;
   isCurrentReward?: boolean;
+  claimGuidance?: ClaimGuidance;
 }
 
 export interface DropCampaign {
@@ -48,6 +54,7 @@ export interface DropCampaign {
   isGeneralDrop?: boolean;
   accountLinked?: boolean;
   accountLinkUrl?: string;
+  claimGuidance?: ClaimGuidance;
   eligibility?: "eligible" | "account_not_linked" | "waiting_for_subscription" | "upcoming" | "expired" | "completed" | "no_rewards";
   eligibilityReason?: string;
   priority?: number;
@@ -213,6 +220,22 @@ export interface PlatformSettings {
   categories: CategorySelection[];
 }
 
+export interface TwitchCompatibilitySettings {
+  profile: string;
+  heartbeatTransport: string;
+  inventoryQueryVersion: string;
+}
+
+export interface KickCompatibilitySettings {
+  profile: string;
+  claimLinkHandling: string;
+}
+
+export interface CompatibilitySettings {
+  twitch: TwitchCompatibilitySettings;
+  kick: KickCompatibilitySettings;
+}
+
 // The universal settings contract the farming engine (packages/core) consumes.
 // Host-agnostic: every field here does something during a scheduler tick on any
 // host (extension or CLI). Host-only knobs (browser tab policy, popup UI) live on
@@ -232,6 +255,7 @@ export interface EngineSettings {
   watchQueueFallbackOnly: boolean;
   priorityMode: PriorityMode;
   platform: Record<Platform, PlatformSettings>;
+  compatibility: CompatibilitySettings;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
   offlineRetryLimit: number;

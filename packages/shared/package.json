@@ -12,7 +12,8 @@
     "./i18n": "./src/i18n.ts",
     "./logging": "./src/logging.ts",
     "./rewards": "./src/rewards.ts",
-    "./events": "./src/events.ts"
+    "./events": "./src/events.ts",
+    "./compatibility": "./src/compatibility.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

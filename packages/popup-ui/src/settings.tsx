@@ -27,9 +27,10 @@ import {
 } from "./settingsControls";
 import { PlatformSettingsGroup, SettingsPlatformSwitch } from "./settingsPlatform";
 import { useT } from "./context";
-import type { GameItem } from "./types";
+import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
+import { CompatibilitySettings } from "./compatibilitySettings";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, initialPlatform = "twitch" }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, compatibilityRegistry, compatibilityResolution, initialPlatform = "twitch" }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
@@ -37,10 +38,13 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   // Optional: when provided, the settings view shows an "Export credentials"
   // action for the headless CLI. The extension wires it; the demo omits it.
   onExportCredentials?: () => void | Promise<void>;
+  compatibilityRegistry?: PopupCompatibilityRegistry;
+  compatibilityResolution?: PopupCompatibilityResolution;
   initialPlatform?: Platform;
 }) {
   const t = useT();
   const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
+  const [compatibilityExpertExpanded, setCompatibilityExpertExpanded] = useState(false);
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as SettingsPatch);
   const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
   const tabPlaybackDisabled = settings.tablessMode;
@@ -149,6 +153,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
       <SettingsSection title={t("advancedTitle")} description={t("advancedDescription")} icon={SlidersHorizontal}>
         <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={pollIntervalSeconds} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
         <SettingRow title={t("diagnosticLoggingTitle")} description={t("diagnosticLoggingDescription")} checked={settings.diagnosticLogging} onChange={set("diagnosticLogging")} />
+        {compatibilityRegistry && compatibilityResolution ? <CompatibilitySettings settings={settings.compatibility} registry={compatibilityRegistry} resolution={compatibilityResolution} onChange={onSettingsChange} expertExpanded={compatibilityExpertExpanded} onExpertExpandedChange={setCompatibilityExpertExpanded} /> : null}
       </SettingsSection>
       {onExportCredentials && (
         <SettingsSection title={t("cliExportTitle")} description={t("cliExportDescription")} icon={Terminal}>

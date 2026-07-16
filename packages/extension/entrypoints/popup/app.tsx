@@ -5,6 +5,7 @@ import {
   PromoTile,
   StoreScreenshot,
   createDemoPopupAdapter,
+  openHttpsLink,
   screenshotVariant,
   type PopupAdapter,
   type ScreenshotVariant,
@@ -12,6 +13,7 @@ import {
 import { SETTINGS_SESSION_PORT } from "@lurkloot/shared/messages";
 import { SUPPORTED_LOCALES } from "@lurkloot/shared/settings";
 import type { SupportedLocale } from "@lurkloot/shared/models";
+import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
 import {
   changelogUrl,
   dismissPendingChangelogVersion,
@@ -44,6 +46,7 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     },
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),
     getUiLanguage: () => browser.i18n.getUILanguage(),
+    openLink: (url) => openHttpsLink(url, (safeUrl) => void browser.tabs.create({ url: safeUrl })),
     getPendingChangelogVersion: loadPendingChangelogVersion,
     dismissPendingChangelogVersion,
     changelogUrl,
@@ -58,6 +61,8 @@ export function createExtensionPopupAdapter(): PopupAdapter {
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     },
+    compatibilityRegistry: COMPATIBILITY_REGISTRY,
+    resolveCompatibility: (settings) => resolveCompatibility(settings, { host: "extension", twitchIdentity: "web" }),
   };
 }
 

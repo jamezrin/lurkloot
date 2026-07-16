@@ -153,6 +153,7 @@ export function campaignViewFromCampaign(campaign: DropCampaign, index: number, 
       const progress = isWatchReward(reward) && reward.requiredMinutes > 0
         ? Math.min(100, (Math.min(reward.watchedMinutes, reward.requiredMinutes) / reward.requiredMinutes) * 100)
         : reward.status === "claimed" ? 100 : undefined;
+      const claimGuidance = safeClaimGuidance(reward.claimGuidance ?? campaign.claimGuidance);
       return {
         id: reward.id,
         name: reward.name,
@@ -164,11 +165,21 @@ export function campaignViewFromCampaign(campaign: DropCampaign, index: number, 
         art: initials(reward.name).slice(0, 8),
         tint: REWARD_TINTS[rewardIndex % REWARD_TINTS.length],
         imageUrl: campaign.platform === "kick" ? kickRewardImageUrl(reward.imageUrl) : reward.imageUrl,
+        claimGuidance,
       };
     }),
     hasWatchRewards: campaignHasWatchRewards(campaign),
     hasSubscriptionRewards: campaignHasSubscriptionRewards(campaign),
   };
+}
+
+function safeClaimGuidance(guidance: DropCampaign["claimGuidance"]): DropCampaign["claimGuidance"] {
+  if (guidance?.kind !== "link_required") return undefined;
+  try {
+    return new URL(guidance.url).protocol === "https:" ? guidance : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function campaignLifecycleState(campaign: DropCampaign): CampaignLifecycleState | undefined {

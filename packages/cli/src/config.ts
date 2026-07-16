@@ -1,6 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
+import { resolveCompatibility } from "@lurkloot/core";
+import type { CompatibilityWarning } from "@lurkloot/shared/compatibility";
 import { DEFAULT_CLI_SETTINGS, parseCliSettings, type CliSettings } from "./settings";
 
 export const TRANSPORTS = ["http", "impersonate"] as const;
@@ -58,6 +60,22 @@ export function defaultConfigJsonc(): string {
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
 
+    // Compatibility identifiers are bundled with this LurkLoot release.
+    // "auto" is recommended. Raw destinations and hashes cannot be supplied.
+    "compatibility": {
+      "twitch": {
+        // Profile selector, then expert heartbeat and inventory overrides.
+        "profile": ${json(defaults.compatibility.twitch.profile)},
+        "heartbeatTransport": ${json(defaults.compatibility.twitch.heartbeatTransport)},
+        "inventoryQueryVersion": ${json(defaults.compatibility.twitch.inventoryQueryVersion)}
+      },
+      "kick": {
+        // Profile selector, then expert claim-link handling override.
+        "profile": ${json(defaults.compatibility.kick.profile)},
+        "claimLinkHandling": ${json(defaults.compatibility.kick.claimLinkHandling)}
+      }
+    },
+
     "platform": {
       "twitch": {
         "enabled": ${json(twitch.enabled)},
@@ -100,19 +118,42 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
   }
   const authDir = resolve(dirname(configPath), (data.authDir as string | undefined) ?? "auth");
   const rawSettings = data.settings;
-  const warnings = rawSettings !== null
+  const warnings: string[] = rawSettings !== null
     && typeof rawSettings === "object"
     && !Array.isArray(rawSettings)
     && Object.hasOwn(rawSettings, "enabledLogLevels")
     ? [ENABLED_LOG_LEVELS_WARNING]
     : [];
+  const settings = parseCliSettings(data.settings);
+  const webWarnings = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "web" }).warnings;
+  const androidWarnings = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" }).warnings;
+  warnings.push(...webWarnings.filter((candidate) => androidWarnings.some((warning) =>
+    warning.code === candidate.code
+    && warning.platform === candidate.platform
+    && warning.field === candidate.field
+    && warning.requested === candidate.requested
+    && warning.resolved === candidate.resolved
+  )).map(formatCompatibilityWarning));
   return {
     transport: transport as Transport,
     authDir,
-    settings: parseCliSettings(data.settings),
+    settings,
     configPath,
     warnings,
   };
+}
+
+function formatCompatibilityWarning(warning: CompatibilityWarning): string {
+  const reason = warning.code === "unknown_selection" ? "Unknown" : "Host-incompatible";
+  let field: string;
+  if (warning.platform === "twitch") {
+    field = warning.field === "profile"
+      ? "Twitch profile"
+      : warning.field === "heartbeatTransport" ? "Twitch heartbeat" : "Twitch inventory";
+  } else {
+    field = warning.field === "profile" ? "Kick profile" : "Kick claim";
+  }
+  return `${reason} ${field} compatibility selection; using ${warning.resolved}`;
 }
 
 export function loadConfig(configPath: string): CliConfig {

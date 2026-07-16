@@ -9,7 +9,7 @@ import {
   normalizeIdList,
   normalizePriorities,
 } from "@lurkloot/shared/settings";
-import type { EngineSettings, Platform, PlatformSettings, PriorityMode } from "@lurkloot/shared/models";
+import type { CompatibilitySettings, EngineSettings, Platform, PlatformSettings, PriorityMode } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
 // ExtensionSettings. It only exposes settings that actually do something in the
@@ -32,6 +32,7 @@ export interface CliSettings {
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;
   platform: Record<Platform, PlatformSettings>;
+  compatibility: CompatibilitySettings;
 }
 
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
@@ -54,6 +55,10 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
     twitch: { ...DEFAULT_SETTINGS.platform.twitch },
     kick: { ...DEFAULT_SETTINGS.platform.kick },
   },
+  compatibility: {
+    twitch: { ...DEFAULT_SETTINGS.compatibility.twitch },
+    kick: { ...DEFAULT_SETTINGS.compatibility.kick },
+  },
 };
 
 const CLI_SETTING_KEYS = new Set<string>([
@@ -71,9 +76,14 @@ const CLI_SETTING_KEYS = new Set<string>([
   "notifyRewardEarned",
   "notifyNoDropsLeft",
   "platform",
+  "compatibility",
 ]);
 
 const CLI_PLATFORM_KEYS = new Set<string>(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories"]);
+const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
+  twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
+  kick: new Set(["profile", "claimLinkHandling"]),
+};
 
 // Settings that exist in the extension but are inert in the CLI's tabless path.
 // Called out by name so a config copy-pasted from the extension gets an
@@ -135,6 +145,29 @@ export function parseCliSettings(raw: unknown): CliSettings {
     }
   }
 
+  const compatibilityRaw = value.compatibility;
+  if (compatibilityRaw !== undefined) {
+    if (compatibilityRaw === null || typeof compatibilityRaw !== "object" || Array.isArray(compatibilityRaw)) {
+      offenders.push('"compatibility" must be a JSON object');
+    } else {
+      for (const [name, entry] of Object.entries(compatibilityRaw as Record<string, unknown>)) {
+        if (!PLATFORMS.includes(name as Platform)) {
+          offenders.push(`unknown compatibility platform "${name}" (expected one of: ${PLATFORMS.join(", ")})`);
+          continue;
+        }
+        if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+          offenders.push(`"compatibility.${name}" must be a JSON object`);
+          continue;
+        }
+        for (const key of Object.keys(entry as Record<string, unknown>)) {
+          if (!CLI_COMPATIBILITY_KEYS[name as Platform].has(key)) {
+            offenders.push(`unknown setting "${key}" under compatibility.${name}`);
+          }
+        }
+      }
+    }
+  }
+
   if (offenders.length > 0) {
     throw new Error(`Invalid CLI settings:\n  - ${offenders.join("\n  - ")}`);
   }
@@ -154,6 +187,23 @@ export function parseCliSettings(raw: unknown): CliSettings {
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform),
+    compatibility: normalizeCompatibility(v.compatibility),
+  };
+}
+
+function normalizeCompatibility(raw: EngineSettings["compatibility"] | undefined): CompatibilitySettings {
+  const selectionOrAuto = (value: unknown): string =>
+    typeof value === "string" && value.trim() !== "" ? value.trim() : "auto";
+  return {
+    twitch: {
+      profile: selectionOrAuto(raw?.twitch?.profile),
+      heartbeatTransport: selectionOrAuto(raw?.twitch?.heartbeatTransport),
+      inventoryQueryVersion: selectionOrAuto(raw?.twitch?.inventoryQueryVersion),
+    },
+    kick: {
+      profile: selectionOrAuto(raw?.kick?.profile),
+      claimLinkHandling: selectionOrAuto(raw?.kick?.claimLinkHandling),
+    },
   };
 }
 
