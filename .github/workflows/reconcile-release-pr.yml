@@ -36,8 +36,10 @@ jobs:
       trusted_tools_ref: ${{ steps.inspect.outputs.trusted_tools_ref }}
       candidate_version: ${{ steps.inspect.outputs.candidate_version }}
       candidate_sha: ${{ steps.inspect.outputs.candidate_sha }}
+      desired_release_labels: ${{ steps.inspect.outputs.desired_release_labels }}
       closed: ${{ steps.inspect.outputs.closed }}
       milestone: ${{ steps.inspect.outputs.milestone }}
+      unauthorized_label_transition: ${{ steps.inspect.outputs.unauthorized_label_transition }}
     env:
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number }}
@@ -95,10 +97,17 @@ jobs:
             fi
           done
 
+          recognizedLabels=$(printf '%s\n' "${labels[@]}" | jq -Rsc '[split("\n")[] | select(test("^release/(patch|minor|major|hotfix)$"))] | sort' -c)
+          unauthorizedLabelTransition=false
           authorizedBy=""; authorizedSha=""; recoveredLabel=""; permission=none
-          if [[ "$EVENT_ACTION" == labeled && "$EVENT_LABEL" =~ ^release/(patch|minor|major|hotfix)$ ]]; then
-            authorizedBy=$EVENT_ACTOR
-            permission=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$EVENT_ACTOR/permission" --jq .permission)
+          if [[ "$EVENT_ACTION" == labeled || "$EVENT_ACTION" == unlabeled ]]; then
+            eventPermission=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$EVENT_ACTOR/permission" --jq .permission)
+            if [[ "$eventPermission" != admin ]]; then
+              unauthorizedLabelTransition=true
+            elif [[ "$EVENT_ACTION" == labeled && "$EVENT_LABEL" =~ ^release/(patch|minor|major|hotfix)$ ]]; then
+              authorizedBy=$EVENT_ACTOR
+              permission=admin
+            fi
           elif [[ -n "$candidate" ]]; then
             metadataOutput=$(mktemp)
             GITHUB_OUTPUT="$metadataOutput" node scripts/release/cli.mjs metadata read --file "$candidate"
@@ -106,6 +115,13 @@ jobs:
             authorizedSha=$(sed -n 's/^authorized_sha=//p' "$metadataOutput")
             recoveredLabel=$(sed -n 's/^label=//p' "$metadataOutput")
             if printf '%s\n' "${labels[@]}" | grep -Fxq "$recoveredLabel"; then permission=admin; fi
+          fi
+          if [[ "$permission" == none && $(jq length <<<"$recognizedLabels") == 1 && "$unauthorizedLabelTransition" == false ]]; then
+            activeLabel=$(jq -r '.[0]' <<<"$recognizedLabels")
+            authorizedBy=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR/events?per_page=100" | jq -r --arg label "$activeLabel" '[.[][] | select(.event == "labeled" and .label.name == $label)] | last | .actor.login // empty')
+            if [[ -n "$authorizedBy" ]]; then
+              permission=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$authorizedBy/permission" --jq .permission)
+            fi
           fi
           printf '%s\n' "${labels[@]}" | jq -Rsc 'split("\n") | map(select(length > 0))' > labels.json
           jq -n --argjson labels "$(cat labels.json)" --arg baseRef "$base" --argjson sameRepository "$sameRepository" \
@@ -121,8 +137,7 @@ jobs:
           policySha=$(sed -n 's/^authorized_sha=//p' "$policyOutput")
           policyReason=$(sed -n 's/^reason=//p' "$policyOutput")
           controllerState=$policyState; milestone=""
-          if [[ "$policyState" == active && -n "$authorizedSha" && "$head" != "$authorizedSha" ]]; then
-            policySha=$authorizedSha
+          if [[ "$policyState" == active && "$head" != "$authorizedSha" ]]; then
             authorizedBy=${authorizedBy:?}
             controllerState=awaiting-approval
             milestone=environment-approval
@@ -145,6 +160,7 @@ jobs:
             echo "release_label=$label"; echo "authorized_by=$authorizedBy"; echo "stable_sha=$stableSha"; echo "stable_version=$stableVersion"
             echo "develop_sha=$developSha"; echo "trusted_tools_ref=$trustedToolsRef"; echo "candidate_version=$candidateVersion"
             echo "candidate_sha=$candidateSha"; echo "closed=$closed"; echo "milestone=$milestone"
+            echo "desired_release_labels=$recognizedLabels"; echo "unauthorized_label_transition=$unauthorizedLabelTransition"
           } >> "$GITHUB_OUTPUT"
       - id: reconcile
         name: Derive reconciliation action
@@ -155,6 +171,11 @@ jobs:
           if [[ $(jq -r .state policy.json) == blocked ]]; then
             echo "action=block" >> "$GITHUB_OUTPUT"
             echo "convert_to_draft=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ "${{ steps.inspect.outputs.unauthorized_label_transition }}" == true ]]; then
+            echo "action=block" >> "$GITHUB_OUTPUT"
+            echo "convert_to_draft=false" >> "$GITHUB_OUTPUT"
+            echo "reason=release label transition actor is not an administrator" >> "$GITHUB_OUTPUT"
           fi
 
   prepare:
@@ -193,6 +214,8 @@ jobs:
       pr_number: ${{ fromJSON(needs.inspect.outputs.pr_number) }}
       candidate_version: ${{ needs.inspect.outputs.candidate_version }}
       expected_candidate_sha: ${{ needs.inspect.outputs.candidate_sha }}
+      expected_live_head_sha: ${{ needs.inspect.outputs.head_sha }}
+      desired_release_labels: ${{ needs.inspect.outputs.desired_release_labels }}
       expected_pr_state: ${{ needs.inspect.outputs.closed == 'true' && 'closed-unmerged' || 'open' }}
       disposition: ${{ needs.inspect.outputs.action == 'cancel-and-prepare' && 'replace' || 'retire' }}
     secrets: inherit

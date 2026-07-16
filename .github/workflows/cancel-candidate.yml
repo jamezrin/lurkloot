@@ -6,6 +6,8 @@ on:
       pr_number: { type: number, required: true }
       candidate_version: { type: string, required: true }
       expected_candidate_sha: { type: string, required: true }
+      expected_live_head_sha: { type: string, required: true }
+      desired_release_labels: { type: string, required: true }
       expected_pr_state: { type: string, required: true }
       disposition: { type: string, required: true }
     outputs:
@@ -53,6 +55,8 @@ jobs:
       PR: ${{ inputs.pr_number }}
       VERSION: ${{ inputs.candidate_version }}
       EXPECTED_SHA: ${{ inputs.expected_candidate_sha }}
+      EXPECTED_LIVE_HEAD_SHA: ${{ inputs.expected_live_head_sha }}
+      EXPECTED_DESIRED_LABELS: ${{ inputs.desired_release_labels }}
       EXPECTED_PR_STATE: ${{ inputs.expected_pr_state }}
       DISPOSITION: ${{ inputs.disposition }}
       CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
@@ -69,6 +73,8 @@ jobs:
         run: |
           [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
           [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_LIVE_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(jq -c 'sort' <<<"$EXPECTED_DESIRED_LABELS")" = "$EXPECTED_DESIRED_LABELS"
           [[ "$EXPECTED_PR_STATE" == open || "$EXPECTED_PR_STATE" == closed-unmerged ]]
           [[ "$DISPOSITION" == retire || "$DISPOSITION" == replace ]]
           test "$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/main --jq .object.sha)" = "${{ needs.resolve-tools.outputs.main_sha }}"
@@ -80,17 +86,15 @@ jobs:
           label=$(jq -r .label candidate/candidate.json)
           revalidate() {
             live=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
-            test "$(jq -r .head.sha <<<"$live")" = "$EXPECTED_SHA"
+            test "$(jq -r .head.sha <<<"$live")" = "$EXPECTED_LIVE_HEAD_SHA"
             if [[ "$EXPECTED_PR_STATE" == open ]]; then
               jq -e '.state == "open" and .merged_at == null' <<<"$live" >/dev/null
             else
               jq -e '.state == "closed" and .merged_at == null' <<<"$live" >/dev/null
             fi
             recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
-            recognized_count=$(jq 'length' <<<"$recognized_labels")
-            recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
-            test "$recognized_count" = 1
-            test "$recognized_label" = "$label"
+            recognized_labels=$(jq -c 'sort' <<<"$recognized_labels")
+            test "$recognized_labels" = "$EXPECTED_DESIRED_LABELS"
           }
           revalidate
           test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true

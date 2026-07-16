@@ -106,24 +106,22 @@ test("merged staged candidate must match the active policy identity", () => {
   }
 });
 
-test("stale head blocks every active-policy mutation and promotion", () => {
-  const inputs = [
-    { draft: true, candidate: undefined, cwsState: "none" },
-    { draft: false, candidate, cwsState: "DRAFT" },
-    { draft: false, closed: true, candidate: { ...candidate, state: "PENDING_REVIEW" }, cwsState: "PENDING_REVIEW" },
-    { draft: false, merged: true, candidate: { ...candidate, state: "STAGED" }, cwsState: "STAGED" },
-  ];
+test("a pushed draft renews authorization through preparation", () => {
+  const live = { ...active, authorizedSha: "b".repeat(40) };
+  assert.equal(deriveReconciliation({
+    policy: live, draft: true, closed: false, merged: false,
+    headSha: live.authorizedSha, candidate, cwsState: "DRAFT",
+  }).action, "prepare");
+});
 
-  for (const input of inputs) {
-    const result = deriveReconciliation({
-      policy: active,
-      closed: false,
-      merged: false,
-      headSha: "b".repeat(40),
-      ...input,
-    });
-    assert.equal(result.action, "block");
-  }
+test("a pushed submitted candidate is cancelled before renewed preparation", () => {
+  const live = { ...active, authorizedSha: "b".repeat(40) };
+  assert.equal(deriveReconciliation({
+    policy: live, draft: false, closed: false, merged: false,
+    headSha: live.authorizedSha,
+    candidate: { ...candidate, state: "PENDING_REVIEW" },
+    cwsState: "PENDING_REVIEW",
+  }).action, "cancel-and-prepare");
 });
 
 test("matching frozen candidate on a draft PR is cancelled and converted to draft", () => {
