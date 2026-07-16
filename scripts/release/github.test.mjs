@@ -187,30 +187,33 @@ test("titles the check run by state", () => {
 
 test("gives every state its own operator guidance", () => {
   assert.equal(stateGuidance("STAGED", context), "v1.5.0 is approved and ready for final PR approval and merge.");
-  assert.equal(stateGuidance("PENDING_REVIEW", context), "v1.5.0 remains frozen while Google reviews it.");
+  assert.equal(
+    stateGuidance("PENDING_REVIEW", context),
+    "v1.5.0 remains frozen while Google reviews it. To replace or abandon it, convert PR #42 to draft or remove or change its release label so automation cancels and reconciles the candidate.",
+  );
   assert.equal(
     stateGuidance("PUBLISHED", { ...context, recovery: true }),
     "v1.5.0 matches an explicitly requested partial-publication recovery. Rerun stable promotion for the merged PR.",
   );
   assert.equal(
     stateGuidance("REJECTED", context),
-    "v1.5.0 was rejected. Correct the issues in the CWS dashboard, cancel or abandon this candidate, then prepare and submit a replacement.",
+    "v1.5.0 was rejected. Automation has stopped; resolve the rejection in the CWS dashboard and have a repository administrator reconcile the candidate before changing the PR.",
   );
   assert.equal(
     stateGuidance("CANCELLED", context),
-    "v1.5.0 is cancelled. Return the PR to draft and run Prepare prerelease again, or abandon it before choosing a higher version.",
+    "v1.5.0 is cancelled. Convert PR #42 to draft, then remove and reapply or change its release label to trigger automatic reconciliation.",
   );
   assert.equal(
     stateGuidance("POLICY_BLOCKED", context),
-    "CWS reports a warning or takedown. Resolve the policy action in the dashboard before any release operation.",
+    "CWS reports a warning or takedown. Automation has stopped; resolve the policy action in the dashboard and have a repository administrator reconcile the candidate.",
   );
   assert.equal(
     stateGuidance("VERSION_MISMATCH", context),
-    "CWS reports version 1.6.0 instead of v1.5.0. Stop and reconcile the active CWS submission before retrying.",
+    "CWS reports version 1.6.0 instead of v1.5.0. Automation has stopped; inspect the CWS dashboard and have a repository administrator reconcile the active submission.",
   );
   assert.equal(
     stateGuidance("CANDIDATE_CHANGED", context),
-    `Release PR #42 no longer matches frozen source ${metadata.sourceSha}. Cancel CWS review, restore or replace the candidate through Prepare prerelease, and do not merge this head.`,
+    `Release PR #42 no longer matches frozen source ${metadata.sourceSha}. Do not merge this head; convert the PR to draft or remove, reapply, or change its release label to trigger automatic reconciliation.`,
   );
   assert.equal(
     stateGuidance("none", context),
@@ -221,12 +224,18 @@ test("gives every state its own operator guidance", () => {
 test("falls back to dashboard guidance for an unmodelled state", () => {
   assert.equal(
     stateGuidance("DRAFT", context),
-    "v1.5.0 reported DRAFT. Inspect the CWS dashboard and use Cancel candidate before replacing or abandoning it.",
+    "v1.5.0 reported mutable state DRAFT. Convert PR #42 to draft or remove, reapply, or change its release label to trigger automatic reconciliation.",
   );
   assert.equal(
     stateGuidance("PUBLISHED", context),
-    "v1.5.0 reported PUBLISHED. Inspect the CWS dashboard and use Cancel candidate before replacing or abandoning it.",
+    "v1.5.0 reported unexpected state PUBLISHED. Automation has stopped; inspect the CWS dashboard and have a repository administrator reconcile the candidate.",
   );
+});
+
+test("never recommends retired manual candidate workflows", () => {
+  for (const state of ["PENDING_REVIEW", "REJECTED", "CANCELLED", "POLICY_BLOCKED", "VERSION_MISMATCH", "CANDIDATE_CHANGED", "none", "DRAFT", "PUBLISHED"]) {
+    assert.doesNotMatch(stateGuidance(state, context), /(?:run|use|through) (?:Prepare|Submit|Cancel)|Cancel candidate/i);
+  }
 });
 
 test("renders tagged transition comments with stable markers", () => {
