@@ -71,16 +71,40 @@ jobs:
             gh release download "v$version" --pattern candidate.json --dir candidate
             GITHUB_OUTPUT=report/candidate node "$TOOLS/release/cli.mjs" candidate read --file candidate/candidate.json --version "$version"
             pr=$(sed -n 's/^pr=//p' report/candidate)
+            source_sha=$(sed -n 's/^source_sha=//p' report/candidate)
             [[ $(gh pr view "$pr" --json state --jq .state) == OPEN ]] || continue
             branch=$(gh pr view "$pr" --json headRefName --jq .headRefName)
             git fetch origin "$branch"
             git checkout -B "$branch" FETCH_HEAD
             head_sha=$(git rev-parse HEAD)
+            head_descends_from_source=false
+            if git merge-base --is-ancestor "$source_sha" "$head_sha"; then head_descends_from_source=true; fi
+            head_metadata_only=false
+            if git diff --quiet "$source_sha" "$head_sha" -- \
+              . \
+              ':(exclude)package.json' \
+              ':(exclude)packages/*/package.json' \
+              ':(exclude)packages/site/src/changelog.json'; then
+              head_metadata_only=true
+            fi
+            head_commit_count=$(git rev-list --count "$source_sha..$head_sha")
+            head_author_email=$(git show -s --format=%ae "$head_sha")
+            head_subject=$(git show -s --format=%s "$head_sha")
+            jq -n \
+              --argjson descendsFromSource "$head_descends_from_source" \
+              --argjson metadataOnly "$head_metadata_only" \
+              --argjson commitCount "$head_commit_count" \
+              --arg authorEmail "$head_author_email" \
+              --arg subject "$head_subject" \
+              '{ schemaVersion: 1, $descendsFromSource, $metadataOnly, $commitCount, $authorEmail, $subject }' \
+              > report/head-evidence.json
             CWS_VERSION="$version" GITHUB_OUTPUT=report/cws node "$TOOLS/cws.mjs" status
             gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate --jq '.[].body | @json' > report/comments
             GITHUB_OUTPUT=report/outputs node "$TOOLS/release/cli.mjs" cws-report \
               --candidate candidate/candidate.json --status report/cws --comments report/comments \
-              --head-sha "$head_sha" --version "$version" --recovery "$RECOVERY" --report-dir report
+              --head-sha "$head_sha" \
+              --head-evidence report/head-evidence.json \
+              --version "$version" --recovery "$RECOVERY" --report-dir report
             status=$(sed -n 's/^status=//p' report/outputs)
             conclusion=$(sed -n 's/^conclusion=//p' report/outputs)
             title=$(sed -n 's/^title=//p' report/outputs)

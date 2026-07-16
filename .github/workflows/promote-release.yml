@@ -36,7 +36,7 @@ jobs:
           path: trusted-release-tools
       - id: release
         run: |
-          version=$(node -p "require('./package.json').version")
+          version=$(node trusted-release-tools/scripts/release/cli.mjs version)
           mkdir release-assets
           gh release download "v$version" --dir release-assets
           node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets

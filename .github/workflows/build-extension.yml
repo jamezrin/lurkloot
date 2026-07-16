@@ -64,7 +64,7 @@ jobs:
       - name: Normalize reproducible ZIP artifacts
         shell: bash
         run: |
-          version=$(node -p "require('./package.json').version")
+          version=$(node scripts/release/cli.mjs version)
           output=packages/extension/.output
           mkdir release-assets
           chrome_zip=$(find "$output" -maxdepth 1 -name "*-$version-chrome.zip" -print -quit)

@@ -19,6 +19,21 @@ export function checkTitle(state, { recovery = false } = {}) {
   return "CWS candidate blocked";
 }
 
+export function submitCandidateCheck(action, version) {
+  if (action === "already-staged") {
+    return {
+      status: "in_progress",
+      title: "CWS candidate staged; validation pending",
+      summary: `v${version} is staged in CWS and awaits monitor finalization and release metadata validation.`,
+    };
+  }
+  return {
+    status: "in_progress",
+    title: "CWS review pending",
+    summary: `v${version} is frozen and submitted with staged publishing.`,
+  };
+}
+
 export function stateGuidance(state, { version, pr, sourceSha, submittedVersion, recovery = false } = {}) {
   if (state === "STAGED") return `v${version} is approved and ready for final PR approval and merge.`;
   if (state === "PENDING_REVIEW") return `v${version} remains frozen while Google reviews it.`;
