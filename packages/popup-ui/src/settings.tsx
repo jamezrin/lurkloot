@@ -95,6 +95,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
         />
         <SettingRow title={t("pauseManualTitle")} description={t("pauseManualDescription")} checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
         <SettingRow title={t("autoStartTitle")} description={t("autoStartDescription")} checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
+        <SettingRow title={t("hideTipsTitle")} description={t("hideTipsDescription")} checked={!settings.showTips} onChange={(hideTips) => onSettingsChange({ showTips: !hideTips })} />
       </SettingsSection>
       <SettingsSection title={t("notificationsTitle")} description={t("notificationsDescription")} icon={Bell}>
         <SettingRow title={t("rewardEarnedTitle")} description={t("rewardEarnedDescription")} checked={settings.notifyRewardEarned} onChange={set("notifyRewardEarned")} />

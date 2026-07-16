@@ -119,9 +119,18 @@
   "watchingPausedHint": {
     "message": "Просмотр приостановлен. Включите переключатель, чтобы продолжить фарм drops."
   },
-  "priorityHint": {
-    "message": "Drops всегда имеют приоритет над очередью просмотра. Перетаскивайте кампании за ручку, чтобы задать порядок фарма."
-  },
+  "hideTipsTitle": { "message": "Скрыть советы" },
+  "hideTipsDescription": { "message": "Скрывает полезные советы в главном окне." },
+  "tipCampaignPriority": { "message": "Drops имеют приоритет над очередью. Перетаскивайте кампании за ручку, чтобы задать порядок." },
+  "tipMissingCampaigns": { "message": "Нет кампании? Проверьте инвентарь Drops платформы и фильтры в настройках." },
+  "tipCategorySelection": { "message": "Нужны только отдельные игры? Отключите «Фармить все категории» и выберите категории." },
+  "tipWatchQueue": { "message": "Очередь фармит выбранные каналы, когда нет доступных Drops." },
+  "tipTablessMode": { "message": "Режим без вкладок экономит ресурсы и при необходимости открывает вкладку без звука." },
+  "tipCli": { "message": "Не хотите расширение? Lurkloot также доступен как CLI для Docker." },
+  "tipCliAction": { "message": "Открыть руководство CLI" },
+  "tipFeedback": { "message": "Нашли ошибку или есть идея?" },
+  "tipFeedbackAction": { "message": "Создать issue на GitHub" },
+  "tipExcludedCampaigns": { "message": "Исключили кампанию случайно? Восстановите её в настройках Drops." },
   "noCampaigns": {
     "message": "Кампании пока не обнаружены."
   },

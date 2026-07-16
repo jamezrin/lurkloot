@@ -119,9 +119,18 @@
   "watchingPausedHint": {
     "message": "देखना रुका है। Drops फ़ार्मिंग फिर शुरू करने के लिए टॉगल करें।"
   },
-  "priorityHint": {
-    "message": "Drops को देखने की कतार से हमेशा प्राथमिकता मिलती है। फ़ार्मिंग क्रम सेट करने के लिए कैंपेन को ग्रिप से खींचें।"
-  },
+  "hideTipsTitle": { "message": "सुझाव छिपाएँ" },
+  "hideTipsDescription": { "message": "मुख्य पॉपअप से उपयोगी सुझाव हटाएँ।" },
+  "tipCampaignPriority": { "message": "Drops को देखने की कतार पर प्राथमिकता मिलती है। क्रम तय करने के लिए कैंपेन को ग्रिप से खींचें।" },
+  "tipMissingCampaigns": { "message": "कैंपेन नहीं दिख रहा? प्लेटफ़ॉर्म की Drops इन्वेंट्री और सेटिंग्स के फ़िल्टर जाँचें।" },
+  "tipCategorySelection": { "message": "सिर्फ़ कुछ गेम चाहिए? ‘सभी श्रेणियाँ फ़ार्म करें’ बंद करके श्रेणियाँ चुनें।" },
+  "tipWatchQueue": { "message": "योग्य Drops न होने पर देखने की कतार चुने हुए चैनल फ़ार्म करती है।" },
+  "tipTablessMode": { "message": "टैबलेस मोड कम संसाधन इस्तेमाल करता है और ज़रूरत पर म्यूट टैब खोलता है।" },
+  "tipCli": { "message": "एक्सटेंशन नहीं चाहिए? Lurkloot Docker-आधारित CLI के रूप में भी उपलब्ध है।" },
+  "tipCliAction": { "message": "CLI गाइड पढ़ें" },
+  "tipFeedback": { "message": "बग मिला या कोई सुझाव है?" },
+  "tipFeedbackAction": { "message": "GitHub issue खोलें" },
+  "tipExcludedCampaigns": { "message": "गलती से कैंपेन हटाया? उसे Drops सेटिंग्स से वापस लाएँ।" },
   "noCampaigns": {
     "message": "अभी कोई अभियान नहीं मिला।"
   },
