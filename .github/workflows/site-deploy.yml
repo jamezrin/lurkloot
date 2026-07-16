@@ -28,6 +28,10 @@ on:
       release_label:
         type: string
         default: ""
+      promote:
+        description: Promote a prerelease staging deployment to the mutable next branch
+        type: boolean
+        default: true
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
@@ -109,12 +113,32 @@ jobs:
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
           test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
-      - uses: cloudflare/wrangler-action@v4
+      - name: Stage immutable site deployment
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: site-artifact
-          command: pages deploy . --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || 'next' }}
+          command: pages deploy . --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || format('candidate-{0}-{1}', github.run_id, github.run_attempt) }}
+      - name: Revalidate candidate immediately before next promotion
+        if: inputs.channel == 'prerelease' && inputs.promote
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          RELEASE_LABEL: ${{ inputs.release_label }}
+        run: |
+          live=$(gh pr view "$PR" --json headRefOid,labels)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+      - name: Promote staged site to mutable channel
+        if: inputs.channel == 'prerelease' && inputs.promote
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: site-artifact
+          command: pages deploy . --project-name=lurkloot --branch=next
       - name: Summarize deployment
         env:
           DEPLOY_CHANNEL: ${{ inputs.channel }}

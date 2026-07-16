@@ -30,6 +30,7 @@
     "verify": "pnpm check && pnpm build && pnpm build:firefox"
   },
   "devDependencies": {
+    "crx3": "2.0.0",
     "typescript": "^7.0.0"
   }
 }
