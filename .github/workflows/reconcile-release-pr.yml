@@ -1,0 +1,277 @@
+name: Reconcile release PR
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, labeled, unlabeled, converted_to_draft, ready_for_review, closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      action: ${{ steps.reconcile.outputs.action }}
+      convert_to_draft: ${{ steps.reconcile.outputs.convert_to_draft }}
+      state: ${{ steps.inspect.outputs.state }}
+      reason: ${{ steps.reconcile.outputs.reason }}
+      pr_number: ${{ steps.inspect.outputs.pr_number }}
+      head_sha: ${{ steps.inspect.outputs.head_sha }}
+      version: ${{ steps.inspect.outputs.version }}
+      kind: ${{ steps.inspect.outputs.kind }}
+      release_label: ${{ steps.inspect.outputs.release_label }}
+      authorized_by: ${{ steps.inspect.outputs.authorized_by }}
+      stable_sha: ${{ steps.inspect.outputs.stable_sha }}
+      stable_version: ${{ steps.inspect.outputs.stable_version }}
+      develop_sha: ${{ steps.inspect.outputs.develop_sha }}
+      trusted_tools_ref: ${{ steps.inspect.outputs.trusted_tools_ref }}
+      candidate_version: ${{ steps.inspect.outputs.candidate_version }}
+      candidate_sha: ${{ steps.inspect.outputs.candidate_sha }}
+      milestone: ${{ steps.inspect.outputs.milestone }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      EVENT_ACTION: ${{ github.event.action }}
+      EVENT_LABEL: ${{ github.event.label.name }}
+      EVENT_ACTOR: ${{ github.actor }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch live refs without credentials
+        run: |
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main" "+refs/heads/develop:refs/remotes/origin/develop" "+refs/pull/$PR/head:refs/remotes/origin/release-pr-$PR"
+      - id: inspect
+        name: Inspect live policy and candidate ownership
+        run: |
+          set -euo pipefail
+          live=$(gh pr view "$PR" --json headRefOid,baseRefName,headRepository,isDraft,state,mergedAt,labels,author)
+          head=$(jq -r .headRefOid <<<"$live")
+          base=$(jq -r .baseRefName <<<"$live")
+          draft=$(jq -r .isDraft <<<"$live")
+          state=$(jq -r .state <<<"$live")
+          merged=$(jq -r '.mergedAt != null' <<<"$live")
+          mapfile -t labels < <(jq -r '.labels[].name' <<<"$live")
+          stableSha=$(git rev-parse origin/main)
+          developSha=$(git rev-parse origin/develop)
+          trustedToolsRef=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          test "$stableSha" = "$trustedToolsRef"
+          stableVersion=$(git show "$stableSha:package.json" | jq -r .version)
+          mainAncestor=false; git merge-base --is-ancestor "$stableSha" "$head" && mainAncestor=true
+          developAncestor=false; git merge-base --is-ancestor "$developSha" "$head" && developAncestor=true
+          git rev-list "$stableSha..$developSha" > develop-commits
+          git rev-list "$stableSha..$head" > candidate-commits
+          leaked=""
+          if grep -Fxf develop-commits candidate-commits | head -1 > leaked-commit; then leaked=$(cat leaked-commit); fi
+          sameRepository=$(jq -r --arg repo "$GITHUB_REPOSITORY" '.headRepository.nameWithOwner == $repo' <<<"$live")
+
+          mkdir -p candidates
+          while IFS=$'\t' read -r tag asset; do
+            file="candidates/${tag//\//-}.json"
+            gh api "$asset" -H "Accept: application/octet-stream" > "$file" || rm -f "$file"
+          done < <(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[][] | select(.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$")) | .tag_name as $tag | .assets[] | select(.name == "candidate.json") | [$tag,.url] | @tsv')
+          candidate=""
+          candidateVersionSeen=""
+          for file in candidates/*.json; do
+            [[ -f "$file" ]] || continue
+            if [[ $(jq -r '.schemaVersion == 2 and .releasePr == ($pr | tonumber)' --arg pr "$PR" "$file" 2>/dev/null) == true ]]; then
+              foundVersion=$(jq -r .version "$file")
+              if [[ -z "$candidateVersionSeen" ]] || node scripts/release/cli.mjs version less-than "$candidateVersionSeen" "$foundVersion"; then
+                candidate=$file
+                candidateVersionSeen=$foundVersion
+              fi
+            fi
+          done
+
+          authorizedBy=""; authorizedSha=""; recoveredLabel=""; permission=none
+          if [[ "$EVENT_ACTION" == labeled && "$EVENT_LABEL" =~ ^release/(patch|minor|major|hotfix)$ ]]; then
+            authorizedBy=$EVENT_ACTOR
+            permission=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$EVENT_ACTOR/permission" --jq .permission)
+          elif [[ -n "$candidate" ]]; then
+            metadataOutput=$(mktemp)
+            GITHUB_OUTPUT="$metadataOutput" node scripts/release/cli.mjs metadata read --file "$candidate"
+            authorizedBy=$(sed -n 's/^authorized_by=//p' "$metadataOutput")
+            authorizedSha=$(sed -n 's/^authorized_sha=//p' "$metadataOutput")
+            recoveredLabel=$(sed -n 's/^label=//p' "$metadataOutput")
+            if printf '%s\n' "${labels[@]}" | grep -Fxq "$recoveredLabel"; then permission=admin; fi
+          fi
+          printf '%s\n' "${labels[@]}" | jq -Rsc 'split("\n") | map(select(length > 0))' > labels.json
+          jq -n --argjson labels "$(cat labels.json)" --arg baseRef "$base" --argjson sameRepository "$sameRepository" \
+            --arg permission "$permission" --argjson mainAncestor "$mainAncestor" --argjson developAncestor "$developAncestor" \
+            --arg leakedDevelopCommit "$leaked" --arg stableVersion "$stableVersion" --arg headSha "$head" \
+            '{labels:$labels,baseRef:$baseRef,sameRepository:$sameRepository,labelActorPermission:$permission,mainAncestor:$mainAncestor,developAncestor:$developAncestor,leakedDevelopCommit:$leakedDevelopCommit,stableVersion:$stableVersion,headSha:$headSha}' > policy-input.json
+          policyOutput=$(mktemp)
+          GITHUB_OUTPUT="$policyOutput" node scripts/release/cli.mjs policy --input policy-input.json
+          policyState=$(sed -n 's/^state=//p' "$policyOutput")
+          kind=$(sed -n 's/^kind=//p' "$policyOutput")
+          label=$(sed -n 's/^label=//p' "$policyOutput")
+          version=$(sed -n 's/^version=//p' "$policyOutput")
+          policySha=$(sed -n 's/^authorized_sha=//p' "$policyOutput")
+          policyReason=$(sed -n 's/^reason=//p' "$policyOutput")
+          controllerState=$policyState; milestone=""
+          if [[ "$policyState" == active && -n "$authorizedSha" && "$head" != "$authorizedSha" ]]; then
+            policySha=$authorizedSha
+            authorizedBy=${authorizedBy:?}
+            controllerState=awaiting-approval
+            milestone=environment-approval
+          fi
+          jq -n --arg state "$policyState" --arg kind "$kind" --arg label "$label" --arg version "$version" --arg authorizedSha "$policySha" --arg reason "$policyReason" \
+            '{state:$state,kind:$kind,label:$label,version:$version,authorizedSha:$authorizedSha,reason:$reason}' > policy.json
+          candidateJson=null; cwsState=none; candidateVersion=""; candidateSha=""
+          if [[ -n "$candidate" ]]; then
+            candidateJson=$(jq '{version,label,sourceSha,state:.cwsState}' "$candidate")
+            cwsState=$(jq -r .cwsState "$candidate")
+            candidateVersion=$(jq -r .version "$candidate")
+            candidateSha=$(jq -r .sourceSha "$candidate")
+          fi
+          closed=false; [[ "$state" == CLOSED || "$state" == MERGED ]] && closed=true
+          jq -n --slurpfile policy policy.json --argjson draft "$draft" --argjson closed "$closed" --argjson merged "$merged" \
+            --arg headSha "$head" --argjson candidate "$candidateJson" --arg cwsState "$cwsState" \
+            '{policy:$policy[0],draft:$draft,closed:$closed,merged:$merged,headSha:$headSha,candidate:$candidate,cwsState:$cwsState}' > reconcile.json
+          {
+            echo "pr_number=$PR"; echo "head_sha=$head"; echo "state=$controllerState"; echo "version=$version"; echo "kind=$kind"
+            echo "release_label=$label"; echo "authorized_by=$authorizedBy"; echo "stable_sha=$stableSha"; echo "stable_version=$stableVersion"
+            echo "develop_sha=$developSha"; echo "trusted_tools_ref=$trustedToolsRef"; echo "candidate_version=$candidateVersion"
+            echo "candidate_sha=$candidateSha"; echo "milestone=$milestone"
+          } >> "$GITHUB_OUTPUT"
+      - id: reconcile
+        name: Derive reconciliation action
+        run: |
+          output=$(mktemp)
+          GITHUB_OUTPUT="$output" node scripts/release/cli.mjs reconcile --input reconcile.json
+          cat "$output" >> "$GITHUB_OUTPUT"
+          if [[ $(jq -r .state policy.json) == blocked ]]; then
+            echo "action=block" >> "$GITHUB_OUTPUT"
+            echo "convert_to_draft=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  prepare:
+    needs: inspect
+    if: needs.inspect.outputs.action == 'prepare'
+    permissions:
+      actions: read
+      checks: write
+      contents: write
+      packages: write
+      pull-requests: write
+    uses: ./.github/workflows/prepare-prerelease.yml
+    with:
+      pr_number: ${{ needs.inspect.outputs.pr_number }}
+      expected_head_sha: ${{ needs.inspect.outputs.head_sha }}
+      version: ${{ needs.inspect.outputs.version }}
+      kind: ${{ needs.inspect.outputs.kind }}
+      release_label: ${{ needs.inspect.outputs.release_label }}
+      authorized_by: ${{ needs.inspect.outputs.authorized_by }}
+      stable_sha: ${{ needs.inspect.outputs.stable_sha }}
+      stable_version: ${{ needs.inspect.outputs.stable_version }}
+      develop_sha: ${{ needs.inspect.outputs.develop_sha }}
+      trusted_tools_ref: ${{ needs.inspect.outputs.trusted_tools_ref }}
+    secrets: inherit
+
+  cancel:
+    needs: inspect
+    if: needs.inspect.outputs.action == 'cancel' || needs.inspect.outputs.action == 'retire' || needs.inspect.outputs.action == 'cancel-and-prepare'
+    permissions:
+      checks: write
+      contents: write
+      packages: write
+      pull-requests: write
+    uses: ./.github/workflows/cancel-candidate.yml
+    with:
+      pr_number: ${{ fromJSON(needs.inspect.outputs.pr_number) }}
+      candidate_version: ${{ needs.inspect.outputs.candidate_version }}
+      expected_candidate_sha: ${{ needs.inspect.outputs.candidate_sha }}
+      disposition: ${{ needs.inspect.outputs.action == 'cancel-and-prepare' && 'replace' || 'retire' }}
+    secrets: inherit
+
+  cancel-and-prepare:
+    needs: [inspect, cancel]
+    if: needs.inspect.outputs.action == 'cancel-and-prepare' && needs.cancel.result == 'success' && needs.cancel.outputs.safe_to_replace == 'true'
+    permissions:
+      actions: read
+      checks: write
+      contents: write
+      packages: write
+      pull-requests: write
+    uses: ./.github/workflows/prepare-prerelease.yml
+    with:
+      pr_number: ${{ needs.inspect.outputs.pr_number }}
+      expected_head_sha: ${{ needs.inspect.outputs.head_sha }}
+      version: ${{ needs.inspect.outputs.version }}
+      kind: ${{ needs.inspect.outputs.kind }}
+      release_label: ${{ needs.inspect.outputs.release_label }}
+      authorized_by: ${{ needs.inspect.outputs.authorized_by }}
+      stable_sha: ${{ needs.inspect.outputs.stable_sha }}
+      stable_version: ${{ needs.inspect.outputs.stable_version }}
+      develop_sha: ${{ needs.inspect.outputs.develop_sha }}
+      trusted_tools_ref: ${{ needs.inspect.outputs.trusted_tools_ref }}
+    secrets: inherit
+
+  submit:
+    needs: inspect
+    if: needs.inspect.outputs.action == 'submit'
+    permissions:
+      actions: read
+      checks: write
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/submit-candidate.yml
+    with:
+      pr_number: ${{ fromJSON(needs.inspect.outputs.pr_number) }}
+      version: ${{ needs.inspect.outputs.version }}
+      expected_head_sha: ${{ needs.inspect.outputs.head_sha }}
+      trusted_tools_ref: ${{ needs.inspect.outputs.trusted_tools_ref }}
+    secrets: inherit
+
+  notify:
+    needs: [inspect, prepare, cancel, cancel-and-prepare, submit]
+    if: always() && needs.inspect.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ needs.inspect.outputs.pr_number }}
+      VERSION: ${{ needs.inspect.outputs.version }}
+      SOURCE_SHA: ${{ needs.inspect.outputs.head_sha }}
+      STATE: ${{ needs.inspect.outputs.state }}
+      ACTION: ${{ needs.inspect.outputs.action }}
+      REASON: ${{ needs.inspect.outputs.reason }}
+      MILESTONE: ${{ needs.inspect.outputs.milestone }}
+    steps:
+      - name: Upsert sticky status and one-time blocker milestone
+        run: |
+          marker="<!-- lurkloot-release-pr:$PR:status -->"
+          body="$marker
+          ## Release status: $STATE
+
+          - Candidate: ${VERSION:+\`v$VERSION\`}
+          - Source: \`$SOURCE_SHA\`
+
+          **Activity:** $ACTION
+
+          **Blocker:** $REASON"
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -1)
+          if [[ -n "$comment_id" ]]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
+          fi
+          if [[ -n "$MILESTONE" && -n "$VERSION" ]]; then
+            milestone="<!-- lurkloot-release:$VERSION:milestone:$MILESTONE -->"
+            existing=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[].body')
+            grep -Fq "$milestone" <<<"$existing" || gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$milestone
+            Candidate **v$VERSION** reached **$MILESTONE**. This SHA requires fresh administrator approval before release mutation."
+          fi
