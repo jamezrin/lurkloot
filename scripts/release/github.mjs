@@ -12,22 +12,61 @@ export function checkConclusion(state, { recovery = false } = {}) {
   return { status: "completed", conclusion: "failure" };
 }
 
-const messages = {
-  PENDING_REVIEW: "is pending Chrome Web Store review. The candidate is frozen until review is cancelled or completed.",
-  STAGED: "is approved and staged in Chrome Web Store. The release PR is ready for final approval and merge.",
-  REJECTED: "was rejected by Chrome Web Store. Resolve the rejection, cancel or replace the candidate, and submit again.",
-  CANCELLED: "has been cancelled in Chrome Web Store. Return the PR to draft before replacing or abandoning it.",
-  PUBLISHED: "is already published in Chrome Web Store. Continue only as an idempotent recovery of the same candidate.",
-};
+export function checkTitle(state, { recovery = false } = {}) {
+  if (state === "STAGED") return "CWS candidate staged";
+  if (state === "PENDING_REVIEW") return "CWS review pending";
+  if (state === "PUBLISHED" && recovery) return "CWS candidate already published";
+  return "CWS candidate blocked";
+}
 
-export function renderReleaseComment({ metadata, state }) {
+export function stateGuidance(state, { version, pr, sourceSha, submittedVersion, recovery = false } = {}) {
+  if (state === "STAGED") return `v${version} is approved and ready for final PR approval and merge.`;
+  if (state === "PENDING_REVIEW") return `v${version} remains frozen while Google reviews it.`;
+  if (state === "PUBLISHED" && recovery) {
+    return `v${version} matches an explicitly requested partial-publication recovery. Rerun stable promotion for the merged PR.`;
+  }
+  if (state === "REJECTED") {
+    return `v${version} was rejected. Correct the issues in the CWS dashboard, cancel or abandon this candidate, then prepare and submit a replacement.`;
+  }
+  if (state === "CANCELLED") {
+    return `v${version} is cancelled. Return the PR to draft and run Prepare prerelease again, or abandon it before choosing a higher version.`;
+  }
+  if (state === "POLICY_BLOCKED") {
+    return "CWS reports a warning or takedown. Resolve the policy action in the dashboard before any release operation.";
+  }
+  if (state === "VERSION_MISMATCH") {
+    return `CWS reports version ${submittedVersion} instead of v${version}. Stop and reconcile the active CWS submission before retrying.`;
+  }
+  if (state === "CANDIDATE_CHANGED") {
+    return `Release PR #${pr} no longer matches frozen source ${sourceSha}. Cancel CWS review, restore or replace the candidate through Prepare prerelease, and do not merge this head.`;
+  }
+  if (state === "none") {
+    return `CWS has no submitted v${version} revision. Run Submit candidate again against the frozen GitHub prerelease.`;
+  }
+  return `v${version} reported ${state}. Inspect the CWS dashboard and use Cancel candidate before replacing or abandoning it.`;
+}
+
+export function renderReleaseComment({ metadata, state, summary }) {
   if (!loginPattern.test(metadata.initiator ?? "")) throw new Error("candidate initiator must be a valid GitHub login");
-  const message = messages[state] ?? `reported unexpected Chrome Web Store state ${state}. Publication remains blocked.`;
   return [
     commentMarker(metadata.version, state),
-    `@${metadata.initiator}, candidate **v${metadata.version}** ${message}`,
+    `@${metadata.initiator}, candidate **v${metadata.version}** is now **${state}**. ${summary}`,
+  ].join("\n");
+}
+
+export function renderReleaseNotes({ version, pr, state, summary }) {
+  return `Candidate for release PR #${pr}. Chrome Web Store version ${version} last reported ${state}. Source, tag, and downloadable assets remain frozen. ${summary}`;
+}
+
+export function renderStepSummary({ version, pr, state, conclusion, summary }) {
+  return [
+    `## CWS status for v${version}`,
     "",
-    `Source: \`${metadata.sourceSha}\``,
+    `- PR: #${pr}`,
+    `- State: \`${state}\``,
+    `- Check: \`${conclusion || "pending"}\``,
+    `- Guidance: ${summary}`,
+    "",
   ].join("\n");
 }
 

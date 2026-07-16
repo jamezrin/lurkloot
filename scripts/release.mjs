@@ -13,7 +13,7 @@ export const packagePaths = [
   "packages/popup-ui/package.json",
   "packages/shared/package.json",
 ];
-const changelogPath = "packages/site/src/changelog.json";
+export const changelogPath = "packages/site/src/changelog.json";
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 
 function validDate(value) {
