@@ -118,9 +118,10 @@ jobs:
         env:
           PR: ${{ needs.verify.outputs.pr }}
           SHA: ${{ needs.verify.outputs.sha }}
+          ACTION: ${{ steps.cws.outputs.action }}
         run: |
           gh pr ready "$PR" || true
-          action='${{ steps.cws.outputs.action }}'
+          action="$ACTION"
           initiator=$(jq -r .initiator candidate/candidate.json)
           if [[ "$action" == already-staged ]]; then
             state=STAGED
