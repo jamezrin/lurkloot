@@ -108,14 +108,15 @@ jobs:
             if [[ "$eventPermission" != admin ]]; then
               unauthorizedLabelTransition=true
             else
-              latestLabelEvent=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR/events?per_page=100" | jq -c '[.[][] | select(.event == "labeled" or .event == "unlabeled")] | last')
+              latestLabelEvent=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR/events?per_page=100" | jq -c '[.[][] | select((.event == "labeled" or .event == "unlabeled") and (.label.name | test("^release/(patch|minor|major|hotfix)$")))] | last')
+              latestRelevantLabelEventId=$(jq -r '.id // empty' <<<"$latestLabelEvent")
               latestLabelActor=$(jq -r '.actor.login // empty' <<<"$latestLabelEvent")
               latestLabelAction=$(jq -r '.event // empty' <<<"$latestLabelEvent")
               latestLabelName=$(jq -r '.label.name // empty' <<<"$latestLabelEvent")
-              if [[ "$latestLabelActor" != "$EVENT_ACTOR" || "$latestLabelAction" != "$EVENT_ACTION" || "$latestLabelName" != "$EVENT_LABEL" ]]; then
+              if [[ ! "$latestRelevantLabelEventId" =~ ^[1-9][0-9]*$ || "$latestLabelActor" != "$EVENT_ACTOR" || "$latestLabelAction" != "$EVENT_ACTION" || "$latestLabelName" != "$EVENT_LABEL" ]]; then
                 unauthorizedLabelTransition=true
               else
-                authorization=$(jq -cn --argjson pr "$PR" --arg headSha "$head" --argjson labels "$recognizedLabels" --arg authorizedBy "$EVENT_ACTOR" --arg createdAt "$(date -u +%FT%TZ)" '{schema:1,pr:$pr,headSha:$headSha,labels:$labels,authorizedBy:$authorizedBy,createdAt:$createdAt}')
+                authorization=$(jq -cn --argjson pr "$PR" --arg headSha "$head" --argjson labels "$recognizedLabels" --arg authorizedBy "$EVENT_ACTOR" --argjson eventId "$latestRelevantLabelEventId" --arg eventAction "$latestLabelAction" --arg eventLabel "$latestLabelName" --arg createdAt "$(date -u +%FT%TZ)" '{schema:2,pr:$pr,headSha:$headSha,labels:$labels,authorizedBy:$authorizedBy,eventId:$eventId,eventAction:$eventAction,eventLabel:$eventLabel,createdAt:$createdAt}')
                 encoded=$(printf %s "$authorization" | base64 -w0)
                 marker="<!-- lurkloot-release-label-authorization:"
                 body="$marker$encoded -->"
@@ -136,13 +137,23 @@ jobs:
             authorizedBy=$(sed -n 's/^authorized_by=//p' "$metadataOutput")
             authorizedSha=$(sed -n 's/^authorized_sha=//p' "$metadataOutput")
             recoveredLabel=$(sed -n 's/^label=//p' "$metadataOutput")
-            if printf '%s\n' "${labels[@]}" | grep -Fxq "$recoveredLabel"; then permission=admin; fi
           fi
-          if [[ "$EVENT_ACTION" != labeled && "$EVENT_ACTION" != unlabeled && "$permission" == none ]]; then
+          if [[ "$EVENT_ACTION" != labeled && "$EVENT_ACTION" != unlabeled ]]; then
             record=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate | jq -r '[.[] | select(.user.login == "github-actions[bot]" and .user.type == "Bot" and (.body | startswith("<!-- lurkloot-release-label-authorization:")))] | last | .body // empty')
             encoded=${record#<!-- lurkloot-release-label-authorization:}; encoded=${encoded% -->}
             authorization=""; [[ -z "$record" ]] || authorization=$(printf %s "$encoded" | base64 -d 2>/dev/null || true)
-            if [[ $(jq -r --argjson pr "$PR" --arg head "$head" --argjson labels "$recognizedLabels" '.schema == 1 and .pr == $pr and .headSha == $head and .labels == $labels' <<<"${authorization:-null}" 2>/dev/null) == true ]]; then
+            currentRelevantLabelEvent=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR/events?per_page=100" | jq -c '[.[][] | select((.event == "labeled" or .event == "unlabeled") and (.label.name | test("^release/(patch|minor|major|hotfix)$")))] | last')
+            currentRelevantLabelEventId=$(jq -r '.id // empty' <<<"$currentRelevantLabelEvent")
+            currentRelevantLabelAction=$(jq -r '.event // empty' <<<"$currentRelevantLabelEvent")
+            currentRelevantLabelName=$(jq -r '.label.name // empty' <<<"$currentRelevantLabelEvent")
+            eventCurrent=false
+            if [[ "$currentRelevantLabelEventId" =~ ^[1-9][0-9]*$ ]] && [[ $(jq -r --argjson eventId "$currentRelevantLabelEventId" --arg eventAction "$currentRelevantLabelAction" --arg eventLabel "$currentRelevantLabelName" '.schema == 2 and .eventId == $eventId and .eventAction == $eventAction and .eventLabel == $eventLabel' <<<"${authorization:-null}" 2>/dev/null) == true ]]; then
+              eventCurrent=true
+            fi
+            if [[ "$eventCurrent" == true && -n "$candidate" && $(jq -r .label "$candidate") == $(jq -r '.[0] // empty' <<<"$recognizedLabels") && $(jq length <<<"$recognizedLabels") == 1 ]]; then
+              permission=admin
+            fi
+            if [[ "$eventCurrent" == true && $(jq -r --argjson pr "$PR" --arg head "$head" --argjson labels "$recognizedLabels" '.schema == 2 and .pr == $pr and .headSha == $head and .labels == $labels' <<<"${authorization:-null}" 2>/dev/null) == true ]]; then
               authorizedBy=$(jq -r .authorizedBy <<<"$authorization")
               if [[ $(gh api "repos/$GITHUB_REPOSITORY/collaborators/$authorizedBy/permission" --jq .permission) == admin ]]; then
                 permission=admin
