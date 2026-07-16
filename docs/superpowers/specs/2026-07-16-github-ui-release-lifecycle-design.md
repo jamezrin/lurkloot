@@ -159,6 +159,10 @@ Repository validation continues on both `develop` and `main`. Branch protection 
 6. Remove `release.channel`, the manifest-driven stable toggle, the old unified release workflow, and creation of `cws-vVERSION-candidate` after the new path completes one stable release.
 7. Preserve existing stable tags and releases. Delete the obsolete candidate tag only after confirming it is not needed for an in-flight release.
 
+## Operator Documentation
+
+Root `RELEASING.md` is the canonical human release runbook and contains a Mermaid diagram for the normal and hotfix lifecycles. `README.md`, `AGENTS.md`, and the compatibility page at `docs/releases.md` link to that single source instead of duplicating instructions. `AGENTS.md` is the canonical repository guidance for coding agents; `CLAUDE.md` is a relative symbolic link to it.
+
 ## Out of Scope
 
 - Automatically uploading to AMO unless separate credentials and publication requirements are designed.
