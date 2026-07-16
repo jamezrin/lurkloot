@@ -78,7 +78,20 @@ jobs:
           test "$(jq -r .state <<<"$live")" = OPEN
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_SHA"
           label=$(jq -r .label candidate/candidate.json)
-          jq -e --arg label "$label" '.labels | any(.name == $label)' <<<"$live" >/dev/null
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$label"
+          revalidate() {
+            live=$(gh pr view "$PR" --json headRefOid,labels)
+            test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_SHA"
+            recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+            recognized_count=$(jq 'length' <<<"$recognized_labels")
+            recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+            test "$recognized_count" = 1
+            test "$recognized_label" = "$label"
+          }
           test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true
           GITHUB_OUTPUT=before-status node scripts/cws.mjs status
           published=$(sed -n 's/^published_version=//p' before-status)
@@ -89,6 +102,7 @@ jobs:
           test "$published" != "$VERSION" || { echo "PUBLISHED candidates cannot be cancelled" >&2; exit 1; }
           test "$warned" = false && test "$taken" = false
           if [[ "$submitted" == "$VERSION" && ( "$state" == PENDING_REVIEW || "$state" == STAGED ) ]]; then
+            revalidate
             node scripts/cws.mjs cancel-submission
           elif [[ "$submitted" != none && "$submitted" != "$VERSION" ]]; then
             echo "CWS version mismatch" >&2; exit 1
@@ -101,8 +115,10 @@ jobs:
           [[ "$after_version" == none || ( "$after_version" == "$VERSION" && "$after_state" == CANCELLED ) ]]
           is_draft=$(jq -r .isDraft <<<"$(gh pr view "$PR" --json isDraft)")
           if [[ "$is_draft" != true ]]; then
+            revalidate
             gh pr ready "$PR" --undo
           fi
+          revalidate
           gh release edit "v$VERSION" --title "v$VERSION cancelled" --prerelease --latest=false --notes "Candidate v$VERSION was cancelled and retained with its tag and assets for audit."
           if [[ "$DISPOSITION" == retire ]]; then
             owner=${GITHUB_REPOSITORY_OWNER,,}
@@ -110,6 +126,7 @@ jobs:
             versions=$(gh api "$endpoint?per_page=100" 2>/dev/null || true)
             [[ -n "$versions" ]] || { endpoint="orgs/$owner/packages/container/lurkloot-cli/versions"; versions=$(gh api "$endpoint?per_page=100"); }
             package_id=$(jq -r --arg version "$VERSION" '[.[] | select((.metadata.container.tags | index($version)) and (.metadata.container.tags | all(. == $version or . == "next")))] | if length == 1 then .[0].id else empty end' <<<"$versions")
+            revalidate
             [[ -z "$package_id" ]] || gh api -X DELETE "$endpoint/$package_id"
           fi
       - id: finalize

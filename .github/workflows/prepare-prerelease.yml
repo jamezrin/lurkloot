@@ -126,7 +126,11 @@ jobs:
           test "$(jq -r .baseRefName <<<"$live")" = main
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
           test "$(jq -r .isCrossRepository <<<"$live")" = false
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
 
   verify:
     needs: [resolve, validate]
@@ -266,7 +270,11 @@ jobs:
           test "$(jq -r .baseRefName <<<"$live")" = main
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
           test "$(jq -r .isCrossRepository <<<"$live")" = false
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
       - id: metadata
         name: Create schemaVersion 2 candidate metadata
         run: |
@@ -277,21 +285,33 @@ jobs:
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
       - name: Stage immutable GitHub tag
         run: gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$STAGING_ID" -f sha="$EXPECTED_HEAD_SHA" >/dev/null
       - name: Revalidate immediately before immutable staging release mutation
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
       - name: Stage immutable GitHub release
         run: gh release create "$STAGING_ID" --verify-tag --title "$STAGING_ID" --prerelease --latest=false --notes "Immutable staging candidate for v$VERSION from run $GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT."
       - name: Revalidate immediately before immutable staging asset mutation
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
       - name: Stage all new artifacts and metadata under immutable run identity
         run: gh release upload "$STAGING_ID" release-assets/* candidate.json
       - name: Back up prior canonical references
@@ -345,14 +365,22 @@ jobs:
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
           node trusted-release-tools/scripts/cws.mjs upload-candidate
       - id: github_tag
         name: Commit canonical GitHub tag
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
           tag="v$VERSION"
           prior=$(cat prior-tag-sha)
           if [[ -n "$prior" ]]; then gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" -F force=true >/dev/null; else gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$EXPECTED_HEAD_SHA" >/dev/null; fi
@@ -361,7 +389,11 @@ jobs:
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
           tag="v$VERSION"
           if [[ $(cat prior-release) == true ]]; then gh release edit "$tag" --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA (staged as $STAGING_ID)."; else gh release create "$tag" --verify-tag --title "$tag prerelease" --prerelease --latest=false --notes "Mutable candidate from PR #$PR at $EXPECTED_HEAD_SHA (staged as $STAGING_ID)."; fi
       - id: github_assets
@@ -369,7 +401,11 @@ jobs:
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
           tag="v$VERSION"
           gh release upload "$tag" --clobber release-assets/* candidate.json
       - id: docker_version
@@ -377,14 +413,22 @@ jobs:
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
           docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" "$IMAGE_NAME:$STAGING_ID"
       - id: docker_next
         name: Commit canonical Docker next alias
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
           docker buildx imagetools create --tag "$IMAGE_NAME:next" "$IMAGE_NAME:$STAGING_ID"
       - id: outputs
         name: Record committed candidate outputs before final mutation
@@ -400,7 +444,11 @@ jobs:
         run: |
           live=$(gh pr view "$PR" --json headRefOid,labels)
           test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
+          recognized_count=$(jq 'length' <<<"$recognized_labels")
+          recognized_label=$(jq -r '.[0] // empty' <<<"$recognized_labels")
+          test "$recognized_count" = 1
+          test "$recognized_label" = "$RELEASE_LABEL"
       - id: site_next
         name: Commit canonical site next reference
         uses: cloudflare/wrangler-action@v4
