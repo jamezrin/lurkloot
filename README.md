@@ -54,6 +54,12 @@ pnpm build:firefox
 
 For implementation details and package boundaries, see [the architecture guide](docs/architecture.md).
 
+## Releasing
+
+Releases are prepared and promoted through GitHub pull requests and Actions. Normal releases snapshot everything on `develop`; hotfixes branch from `main` and are synchronized back to `develop` after publication.
+
+See [RELEASING.md](RELEASING.md) for the lifecycle diagram and the complete prerelease, CWS review, cancellation, hotfix, promotion, and recovery runbook.
+
 ## Disclaimer
 
 Lurkloot is an independent project and is not affiliated with, endorsed by, or sponsored by Twitch or Kick. Platform behavior and terms can change, and automating viewing may be restricted by their terms of service. Use Lurkloot at your own discretion.

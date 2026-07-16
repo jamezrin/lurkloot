@@ -303,6 +303,9 @@ git commit -m "feat(release): promote reviewed artifacts immutably"
 ### Task 7: Documentation, configuration checklist, and migration cleanup
 
 **Files:**
+- Create: `RELEASING.md`
+- Create: `CLAUDE.md` as a symbolic link to `AGENTS.md`
+- Modify: `README.md`
 - Modify: `docs/releases.md`
 - Modify: `AGENTS.md` if present in the repository
 - Modify: `package.json`
@@ -323,7 +326,7 @@ Expected: FAIL while legacy declarations remain.
 
 - [ ] **Step 3: Rewrite release operations documentation**
 
-Document normal candidate update/freeze/monitor/merge, cancellation/replacement, higher-version abandonment, hotfix preparation and forward merge, partial failure recovery, AMO manual steps, required environments, required checks, branch protections, labels, secrets, variables, and the one-time creation of `develop` from `main`.
+Make root `RELEASING.md` the canonical runbook and include a Mermaid normal-release/hotfix diagram. Document normal candidate update/freeze/monitor/merge, cancellation/replacement, higher-version abandonment, hotfix preparation and forward merge, partial failure recovery, AMO manual steps, required environments, required checks, branch protections, labels, secrets, variables, and the one-time creation of `develop` from `main`. Link it from `README.md`, `AGENTS.md`, and a compatibility pointer at `docs/releases.md`; link `CLAUDE.md` symbolically to the canonical `AGENTS.md`.
 
 - [ ] **Step 4: Remove legacy declaration and commands**
 
@@ -337,7 +340,7 @@ Expected: all script tests, workspace typechecks, Vitest tests, site build, and 
 - [ ] **Step 6: Commit documentation and cleanup**
 
 ```bash
-git add docs/releases.md package.json scripts/release.test.mjs docs/superpowers/specs/2026-07-16-github-ui-release-lifecycle-design.md
+git add RELEASING.md README.md AGENTS.md CLAUDE.md docs/releases.md package.json scripts/release.test.mjs docs/superpowers/specs/2026-07-16-github-ui-release-lifecycle-design.md
 git commit -m "docs(release): document GitHub UI release operations"
 ```
 
