@@ -206,6 +206,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: prereleases
     permissions:
+      actions: read
       contents: write
       packages: write
       pull-requests: read
@@ -242,6 +243,13 @@ jobs:
       CWS_VERSION: ${{ needs.resolve.outputs.version }}
       CWS_PACKAGE_PATH: release-assets/lurkloot-${{ needs.resolve.outputs.version }}-chrome.zip
     steps:
+      - id: approval
+        name: Bind protected-environment approval to this candidate SHA
+        run: |
+          approver=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" --jq '[.[] | select(.state == "approved")] | last | .user.login // empty')
+          test -n "$approver" || { echo "No prereleases approval is recorded for this run" >&2; exit 1; }
+          test "$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$approver/permission" --jq .permission)" = admin
+          echo "authorized_by=$approver" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.trusted_tools_ref }}
@@ -277,6 +285,8 @@ jobs:
           test "$recognized_label" = "$RELEASE_LABEL"
       - id: metadata
         name: Create schemaVersion 2 candidate metadata
+        env:
+          AUTHORIZED_BY: ${{ steps.approval.outputs.authorized_by }}
         run: |
           export CREATED_AT="$(date -u +%FT%TZ)" RECONCILED_AT="$(date -u +%FT%TZ)"
           node trusted-release-tools/scripts/release/cli.mjs metadata create > candidate.json
