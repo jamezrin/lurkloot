@@ -28,7 +28,7 @@
     "privacy:gist": "scripts/update-privacy-gist.sh",
     "release:prepare": "node scripts/release.mjs prepare",
     "release:check": "node scripts/release.mjs check",
-    "release:test": "node --test scripts/release.test.mjs",
+    "release:test": "node --test scripts/release.test.mjs scripts/release/*.test.mjs",
     "cws:test": "node --test scripts/cws.test.mjs",
     "check": "pnpm cws:test && pnpm release:test && pnpm -r typecheck && pnpm test && pnpm build:site",
     "verify": "pnpm check && pnpm build && pnpm build:firefox"
