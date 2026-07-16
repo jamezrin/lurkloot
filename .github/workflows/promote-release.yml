@@ -102,8 +102,15 @@ jobs:
           submitted_version=$(sed -n 's/^submitted_version=//p' "$output")
           initiator=$(jq -r .initiator release-assets/candidate.json)
           pr=$(jq -r .releasePr release-assets/candidate.json)
-          gh pr comment "$pr" --body "<!-- lurkloot-release:$VERSION:promotion-blocked -->
+          marker="<!-- lurkloot-release:$VERSION:promotion-blocked -->"
+          body="$marker
           @$initiator, stable promotion stopped because CWS reported version \`${submitted_version:-none}\` in state \`${submitted_state:-none}\`, not the expected staged v$VERSION revision. Inspect the CWS dashboard and rerun promotion only after reconciling that exact version."
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n1)
+          if [[ -n "$comment_id" ]]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
+          else
+            gh pr comment "$pr" --body "$body"
+          fi
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -160,6 +167,13 @@ jobs:
     steps:
       - name: Announce stable publication
         run: |
-          gh pr comment "$PR" --body "<!-- lurkloot-release:$VERSION:stable -->
+          marker="<!-- lurkloot-release:$VERSION:stable -->"
+          body="$marker
           @$INITIATOR, **v$VERSION** is now stable. CWS is published, the GitHub release and Docker aliases are promoted, production is deployed, and the main-to-develop synchronization has been opened or reported for manual resolution."
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n1)
+          if [[ -n "$comment_id" ]]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
+          else
+            gh pr comment "$PR" --body "$body"
+          fi
           printf '## Stable v%s complete\n\nNotified @%s on PR #%s.\n' "$VERSION" "$INITIATOR" "$PR" >> "$GITHUB_STEP_SUMMARY"

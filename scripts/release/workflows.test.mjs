@@ -34,6 +34,8 @@ test("review workflows submit staged, cancel, and poll", async () => {
   assert.match(submit, /metadata verify candidate\/candidate\.json candidate/);
   assert.match(submit, /extension-submission-verification/);
   assert.match(submit, /fresh.*chrome\.zip/i);
+  assert.match(submit, /ACTION: \$\{\{ steps\.cws\.outputs\.action \}\}/);
+  assert.doesNotMatch(submit, /action='\$\{\{ steps\.cws\.outputs\.action \}\}'/);
   assert.match(cancel, /node scripts\/cws\.mjs cancel-submission/);
   assert.match(cancel, /environment: cws-review/);
   assert.match(monitor, /cron: ['"]\*\/30 \* \* \* \*['"]/);
@@ -54,9 +56,19 @@ test("promotion consumes stored artifacts without rebuilding", async () => {
   assert.match(yaml, /node trusted-release-tools\/scripts\/cws\.mjs publish-stable/);
   assert.match(yaml, /Notify releaser when CWS is not publishable/);
   assert.match(yaml, /Announce stable publication/);
+  assert.match(yaml, /issues\/comments\/\$comment_id/);
+  assert.match(yaml, /promotion-blocked/);
+  assert.match(yaml, /lurkloot-release:\$VERSION:stable/);
   assert.doesNotMatch(yaml, /build-extension\.yml|build-docker\.yml|pnpm zip|docker\/build-push-action/);
   assert.doesNotMatch(yaml, /git tag --force|git push --force/);
   assert.match(yaml, /channel: production\n      ref: \$\{\{ github\.event\.pull_request\.merge_commit_sha \}\}/);
+});
+
+test("forward synchronization handles first-run PR creation and release kinds", async () => {
+  const yaml = await workflow("forward-hotfix.yml");
+  assert.equal((yaml.match(/\.\[0\]\.number \/\/ empty/g) ?? []).length, 2);
+  assert.match(yaml, /-m "chore: forward \$KIND release \$VERSION"/);
+  assert.doesNotMatch(yaml, /-m "chore: forward hotfix/);
 });
 
 test("site deployment uses explicit channel input", async () => {
