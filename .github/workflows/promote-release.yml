@@ -4,76 +4,162 @@ on:
   pull_request:
     branches: [main]
     types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Merged release PR to recover
+        type: number
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: stable-release
+  group: stable-release-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
-  candidate:
-    if: github.event.pull_request.merged == true && (startsWith(github.event.pull_request.head.ref, 'release/') || startsWith(github.event.pull_request.head.ref, 'hotfix/'))
+  resolve:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     outputs:
+      pr: ${{ steps.resolve.outputs.pr }}
+      trusted_tools_ref: ${{ steps.resolve.outputs.trusted_tools_ref }}
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EVENT_PR: ${{ github.event.pull_request.number }}
+      INPUT_PR: ${{ inputs.pr_number }}
+    steps:
+      - id: resolve
+        run: |
+          pr=${EVENT_PR:-$INPUT_PR}
+          [[ "$pr" =~ ^[1-9][0-9]*$ ]] || { echo "pr_number must be a positive integer" >&2; exit 1; }
+          live=$(gh pr view "$pr" --json mergedAt,state)
+          test "$(jq -r .state <<<"$live")" = MERGED
+          test "$(jq -r .mergedAt <<<"$live")" != null
+          trusted_tools_ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          echo "trusted_tools_ref=$trusted_tools_ref" >> "$GITHUB_OUTPUT"
+
+  candidate:
+    needs: resolve
+    runs-on: ubuntu-latest
+    outputs:
+      active: ${{ steps.release.outputs.active }}
       version: ${{ steps.release.outputs.version }}
       kind: ${{ steps.release.outputs.kind }}
       initiator: ${{ steps.release.outputs.initiator }}
+      head_sha: ${{ steps.release.outputs.head_sha }}
+      merge_sha: ${{ steps.release.outputs.merge_sha }}
+      label: ${{ steps.release.outputs.label }}
     permissions:
+      actions: read
+      checks: read
       contents: read
+      pull-requests: read
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      PR: ${{ github.event.pull_request.number }}
+      PR: ${{ needs.resolve.outputs.pr }}
+      TRUSTED_TOOLS_REF: ${{ needs.resolve.outputs.trusted_tools_ref }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-          fetch-depth: 0
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ needs.resolve.outputs.trusted_tools_ref }}
           path: trusted-release-tools
+          fetch-depth: 0
       - id: release
         run: |
-          version=$(node trusted-release-tools/scripts/release/cli.mjs version)
+          live_main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          test "$live_main" = "$TRUSTED_TOOLS_REF" || { echo "trusted_tools_ref no longer matches live main" >&2; exit 1; }
           mkdir release-assets
-          gh release download "v$version" --dir release-assets
+          found=
+          while read -r tag; do
+            rm -rf probe && mkdir probe
+            gh release download "$tag" --pattern candidate.json --dir probe 2>/dev/null || continue
+            if [[ $(jq -r '.schemaVersion // 0' probe/candidate.json) == 2 && $(jq -r .releasePr probe/candidate.json) == "$PR" ]]; then
+              [[ -z "$found" ]] || { echo "multiple candidates claim PR #$PR" >&2; exit 1; }
+              found="$tag"
+              cp probe/candidate.json release-assets/candidate.json
+            fi
+          done < <(gh release list --limit 100 --json tagName --jq '.[].tagName' | sort -V)
+          if [[ -z "$found" ]]; then
+            echo "active=false" >> "$GITHUB_OUTPUT"
+            echo "No matching authorized staged candidate; no release action was performed" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          version=${found#v}
+          rm -rf release-assets && mkdir release-assets
+          gh release download "$found" --dir release-assets
+          GITHUB_OUTPUT=metadata-output node trusted-release-tools/scripts/release/cli.mjs metadata read --file release-assets/candidate.json --version "$version"
+          schema_version=$(sed -n 's/^schema_version=//p' metadata-output)
+          label=$(sed -n 's/^label=//p' metadata-output)
+          authorized_sha=$(sed -n 's/^authorized_sha=//p' metadata-output)
+          release_pr=$(sed -n 's/^release_pr=//p' metadata-output)
+          source_sha=$(sed -n 's/^source_sha=//p' metadata-output)
+          artifact_checksums=$(sed -n 's/^artifact_checksums=//p' metadata-output)
+          docker_digests=$(sed -n 's/^docker_digests=//p' metadata-output)
+          cws_state=$(sed -n 's/^cws_state=//p' metadata-output)
+          test "$schema_version" = 2
+          test "$release_pr" = "$PR"
+          test "$source_sha" = "$authorized_sha"
+          test "$cws_state" = DRAFT
+          test -n "$artifact_checksums"
+          test "$(jq length <<<"$docker_digests")" = 2
           node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets
-          test "$(jq -r .version release-assets/candidate.json)" = "$version"
-          test "$(jq -r .releasePr release-assets/candidate.json)" = "$PR"
-          source_sha=$(jq -r .sourceSha release-assets/candidate.json)
-          git fetch --force origin "refs/tags/v$version:refs/tags/v$version"
-          test "$(git rev-parse "refs/tags/v$version^{commit}")" = "$source_sha"
-          git fetch origin "pull/$PR/head"
-          test "$(git rev-parse FETCH_HEAD)" = "${{ github.event.pull_request.head.sha }}"
-          git merge-base --is-ancestor "$source_sha" "${{ github.event.pull_request.head.sha }}"
-          git diff --quiet "$source_sha" "${{ github.event.pull_request.head.sha }}" -- . ':(exclude)package.json' ':(exclude)packages/*/package.json' ':(exclude)packages/site/src/changelog.json'
-          git diff --quiet "${{ github.event.pull_request.head.sha }}" "${{ github.event.pull_request.merge_commit_sha }}"
-          release_state=$(gh release view "v$version" --json isPrerelease --jq 'if .isPrerelease then "prerelease" else "stable-recovery" end')
+          live=$(gh pr view "$PR" --json headRefOid,mergeCommit,mergedAt,state,labels,statusCheckRollup)
+          test "$(jq -r .state <<<"$live")" = MERGED
+          test "$(jq -r .mergedAt <<<"$live")" != null
+          head_sha=$(jq -r .headRefOid <<<"$live")
+          merge_sha=$(jq -r .mergeCommit.oid <<<"$live")
+          if [[ $(jq --arg label "$label" '[.labels[].name | select(. == $label)] | length' <<<"$live") != 1 || $(jq '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")] | length' <<<"$live") != 1 ]]; then
+            echo "active=false" >> "$GITHUB_OUTPUT"
+            echo "No matching authorized staged candidate; no release action was performed" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          jq -e '.statusCheckRollup | any(.name == "cws-release-ready" and .conclusion == "SUCCESS")' <<<"$live" >/dev/null
+          jq -e '.statusCheckRollup | all((.status == "COMPLETED") and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED"))' <<<"$live" >/dev/null
+          git -C trusted-release-tools fetch --force origin "refs/tags/v$version:refs/tags/v$version" "pull/$PR/head"
+          test "$(git -C trusted-release-tools rev-parse "refs/tags/v$version^{commit}")" = "$source_sha"
+          test "$(git -C trusted-release-tools rev-parse FETCH_HEAD)" = "$head_sha"
+          test "$(git -C trusted-release-tools rev-list --count "$source_sha..$head_sha")" = 1
+          test "$(git -C trusted-release-tools show -s --format=%ae "$head_sha")" = "41898282+github-actions[bot]@users.noreply.github.com"
+          test "$(git -C trusted-release-tools show -s --format=%s "$head_sha")" = "chore(release): finalize $version metadata"
+          git -C trusted-release-tools diff --quiet "$source_sha" "$head_sha" -- . ':(exclude)package.json' ':(exclude)packages/*/package.json' ':(exclude)packages/site/src/changelog.json'
+          git -C trusted-release-tools merge-base --is-ancestor "$head_sha" "$merge_sha"
+          echo "active=true" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "kind=$(jq -r .kind release-assets/candidate.json)" >> "$GITHUB_OUTPUT"
           echo "initiator=$(jq -r .initiator release-assets/candidate.json)" >> "$GITHUB_OUTPUT"
-          printf '## Stable promotion verified\n\n- Version: `%s`\n- PR: #%s\n- Candidate source: `%s`\n- GitHub release state: `%s`\n' "$version" "$PR" "$source_sha" "$release_state" >> "$GITHUB_STEP_SUMMARY"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "merge_sha=$merge_sha" >> "$GITHUB_OUTPUT"
+          echo "label=$label" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
+        if: steps.release.outputs.active == 'true'
         with:
           name: stable-release-assets-${{ steps.release.outputs.version }}
           path: release-assets
 
   publish:
-    needs: candidate
+    if: needs.candidate.outputs.active == 'true'
+    needs: [resolve, candidate]
     runs-on: ubuntu-latest
     environment: stable-releases
     permissions:
       contents: write
       packages: write
-      pull-requests: write
+      pull-requests: read
     concurrency:
       group: cws-mutation
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ needs.resolve.outputs.pr }}
       VERSION: ${{ needs.candidate.outputs.version }}
+      EXPECTED_HEAD_SHA: ${{ needs.candidate.outputs.head_sha }}
+      RELEASE_LABEL: ${{ needs.candidate.outputs.label }}
       IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
       CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
       CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
@@ -82,35 +168,25 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ needs.resolve.outputs.trusted_tools_ref }}
           path: trusted-release-tools
       - uses: actions/download-artifact@v8
         with:
           name: stable-release-assets-${{ needs.candidate.outputs.version }}
           path: release-assets
-      - name: Revalidate frozen release assets
-        run: node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets
-      - id: cws
-        name: Publish approved staged revision
-        run: node trusted-release-tools/scripts/cws.mjs publish-stable
-      - name: Notify releaser when CWS is not publishable
-        if: failure() && steps.cws.outcome == 'failure'
+      - name: Revalidate before CWS publication
         run: |
-          output=$(mktemp)
-          GITHUB_OUTPUT="$output" node trusted-release-tools/scripts/cws.mjs status || true
-          submitted_state=$(sed -n 's/^submitted_state=//p' "$output")
-          submitted_version=$(sed -n 's/^submitted_version=//p' "$output")
-          initiator=$(jq -r .initiator release-assets/candidate.json)
-          pr=$(jq -r .releasePr release-assets/candidate.json)
-          marker="<!-- lurkloot-release:$VERSION:promotion-blocked -->"
-          body="$marker
-          @$initiator, stable promotion stopped because CWS reported version \`${submitted_version:-none}\` in state \`${submitted_state:-none}\`, not the expected staged v$VERSION revision. Inspect the CWS dashboard and rerun promotion only after reconciling that exact version."
-          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n1)
-          if [[ -n "$comment_id" ]]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
-          else
-            gh pr comment "$pr" --body "$body"
-          fi
+          live=$(gh pr view "$PR" --json headRefOid,mergeCommit,mergedAt,state,labels,statusCheckRollup)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq -r .state <<<"$live")" = MERGED
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name | select(. == $label)] | length' <<<"$live")" = 1
+          node trusted-release-tools/scripts/release/cli.mjs metadata verify release-assets/candidate.json release-assets
+          status=$(mktemp)
+          GITHUB_OUTPUT="$status" node trusted-release-tools/scripts/cws.mjs status
+          test "$(sed -n 's/^submitted_version=//p' "$status")" = "$VERSION"
+          test "$(sed -n 's/^submitted_state=//p' "$status")" = STAGED
+      - name: Publish approved staged revision
+        run: node trusted-release-tools/scripts/cws.mjs publish-stable
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -119,31 +195,38 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Promote stored Docker digests
         run: |
-          mapfile -t digests < <(jq -r .dockerDigests[] release-assets/candidate.json)
-          ((${#digests[@]} == 2)) || { echo "expected two Docker digests" >&2; exit 1; }
-          args=()
-          for digest in "${digests[@]}"; do args+=("$IMAGE_NAME@$digest"); done
+          live=$(gh pr view "$PR" --json headRefOid,mergeCommit,mergedAt,state,labels,statusCheckRollup)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name | select(. == $label)] | length' <<<"$live")" = 1
+          mapfile -t digests < <(jq -r '.dockerDigests[]' release-assets/candidate.json | sort)
+          ((${#digests[@]} == 2))
+          args=(); for digest in "${digests[@]}"; do args+=("$IMAGE_NAME@$digest"); done
           docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" --tag "$IMAGE_NAME:${VERSION%.*}" --tag "$IMAGE_NAME:${VERSION%%.*}" --tag "$IMAGE_NAME:latest" "${args[@]}"
       - name: Promote immutable GitHub release
         run: |
-          test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true || {
-            test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = false
-            exit 0
-          }
-          gh release edit "v$VERSION" --title "v$VERSION" --latest --prerelease=false --notes "Stable release v$VERSION from reviewed candidate."
-          printf '## Stable v%s published\n\n- CWS: published or matching idempotent recovery\n- Docker: version, minor, major, and latest aliases promoted\n- GitHub release: stable\n' "$VERSION" >> "$GITHUB_STEP_SUMMARY"
+          live=$(gh pr view "$PR" --json headRefOid,mergeCommit,mergedAt,state,labels,statusCheckRollup)
+          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name | select(. == $label)] | length' <<<"$live")" = 1
+          state=$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)
+          if [[ "$state" == true ]]; then
+            gh release edit "v$VERSION" --title "v$VERSION" --latest --prerelease=false --notes "Stable release v$VERSION from reviewed candidate."
+          else
+            test "$state" = false
+          fi
 
   site:
+    if: needs.candidate.outputs.active == 'true'
     needs: [candidate, publish]
     uses: ./.github/workflows/site-deploy.yml
     with:
       channel: production
-      ref: ${{ github.event.pull_request.merge_commit_sha }}
+      ref: ${{ needs.candidate.outputs.merge_sha }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   forward-release:
+    if: needs.candidate.outputs.active == 'true'
     needs: [candidate, site]
     uses: ./.github/workflows/forward-hotfix.yml
     permissions:
@@ -153,9 +236,11 @@ jobs:
     with:
       version: ${{ needs.candidate.outputs.version }}
       kind: ${{ needs.candidate.outputs.kind }}
+      expected_main_sha: ${{ needs.candidate.outputs.merge_sha }}
 
   notify:
-    needs: [candidate, site, forward-release]
+    if: needs.candidate.outputs.active == 'true'
+    needs: [resolve, candidate, site, forward-release]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -163,17 +248,17 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       VERSION: ${{ needs.candidate.outputs.version }}
       INITIATOR: ${{ needs.candidate.outputs.initiator }}
-      PR: ${{ github.event.pull_request.number }}
+      PR: ${{ needs.resolve.outputs.pr }}
     steps:
-      - name: Announce stable publication
+      - name: Announce stable publication once
         run: |
-          marker="<!-- lurkloot-release:$VERSION:stable -->"
+          marker="<!-- lurkloot-release:$VERSION:milestone:stable -->"
           body="$marker
-          @$INITIATOR, **v$VERSION** is now stable. CWS is published, the GitHub release and Docker aliases are promoted, production is deployed, and the main-to-develop synchronization has been opened or reported for manual resolution."
-          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n1)
+          @$INITIATOR, candidate **v$VERSION** reached **stable**. CWS, immutable release assets, Docker aliases, and production deployment are promoted."
+          comments=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate)
+          comment_id=$(jq -r --arg marker "$marker" '.[] | select(.body | contains($marker)) | .id' <<<"$comments" | head -n1)
           if [[ -n "$comment_id" ]]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
           else
             gh pr comment "$PR" --body "$body"
           fi
-          printf '## Stable v%s complete\n\nNotified @%s on PR #%s.\n' "$VERSION" "$INITIATOR" "$PR" >> "$GITHUB_STEP_SUMMARY"

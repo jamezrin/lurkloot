@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { deriveCwsState, parseStatusOutputs } from "./monitor.mjs";
+import { readFile } from "node:fs/promises";
 
 const sourceSha = "a".repeat(40);
 
@@ -96,4 +97,20 @@ test("recovery does not rescue a published version nobody asked to recover", () 
 test("a store-reported PUBLISHED submission is not a recovery", () => {
   const published = { submittedState: "PUBLISHED" };
   assert.deepEqual(derive({ status: published, recoveryRequested: true }), { state: "PUBLISHED", recovery: false });
+});
+
+test("monitor finalization is schema-v2 policy bound and uses sticky lifecycle notifications", async () => {
+  const text = await readFile(".github/workflows/monitor-cws.yml", "utf8");
+  assert.match(text, /schema_version[\s\S]*== 2/);
+  for (const field of ["label", "authorized_sha", "release_pr", "source_sha"]) {
+    assert.match(text, new RegExp(`s/\\^${field}=//p`));
+  }
+  assert.match(text, /--json headRefOid,isDraft,state,labels/);
+  assert.match(text, /head_sha.*source_sha|source_sha.*head_sha/s);
+  assert.match(text, /chore\(release\): finalize \$version metadata/);
+  assert.match(text, /metadata verify candidate\/candidate\.json candidate/);
+  assert.match(text, /status\.md/);
+  assert.match(text, /milestone\.md/);
+  assert.match(text, /milestone:cws-staged/);
+  assert.doesNotMatch(text, /Run (?:Prepare|Submit)|workflow run (?:prepare|submit)/i);
 });

@@ -256,3 +256,35 @@ test("candidate submission is reusable, approval-gated, and revalidates live own
   assert.match(text, /lur[k]?loot-release-pr:\$PR:status/);
   assert.match(text, /gh release edit "v\$VERSION"/);
 });
+
+test("stable promotion selects schema-v2 candidates by PR identity, never branch names", async () => {
+  const text = await workflow("promote-release.yml");
+  assert.match(text, /workflow_dispatch:/);
+  const dispatch = text.match(/workflow_dispatch:\n([\s\S]*?)\npermissions:/)?.[1] ?? "";
+  assert.match(dispatch, /\n      pr_number:/);
+  assert.doesNotMatch(dispatch, /\n      (?:version|source_ref|release_kind):/);
+  assert.doesNotMatch(text, /startsWith\([^\n]*(?:release\/|hotfix\/)/);
+  assert.match(text, /schema_version[\s\S]*= 2/);
+  for (const field of ["label", "authorized_sha", "release_pr", "source_sha", "artifact_checksums", "docker_digests", "cws_state"]) {
+    assert.match(text, new RegExp(`s/\\^${field}=//p`));
+  }
+  assert.match(text, /No matching authorized staged candidate; no release action was performed/);
+  assert.match(text, /--json headRefOid,mergeCommit,mergedAt,state,labels,statusCheckRollup/);
+  assert.match(text, /cws-release-ready/);
+  assert.match(text, /metadata verify release-assets\/candidate\.json release-assets/);
+  assert.match(text, /chore\(release\): finalize \$version metadata/);
+  assert.match(text, /group: cws-mutation/);
+});
+
+test("promotion and forward merge use trusted live-main tooling and revalidate before mutations", async () => {
+  const promote = await workflow("promote-release.yml");
+  assert.match(promote, /git\/ref\/heads\/main/);
+  assert.match(promote, /trusted_tools_ref/);
+  assert.ok((promote.match(/gh pr view "\$PR" --json/g) ?? []).length >= 3);
+  assert.match(promote, /stable-release-\$\{\{ github\.repository \}\}/);
+
+  const forward = await workflow("forward-hotfix.yml");
+  assert.match(forward, /expected_main_sha/);
+  assert.match(forward, /git\/ref\/heads\/main/);
+  assert.match(forward, /test "\$live_main" = "\$EXPECTED_MAIN_SHA"/);
+});

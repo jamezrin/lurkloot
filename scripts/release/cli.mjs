@@ -13,6 +13,7 @@ import {
   renderReleaseStatus,
   renderReleaseComment,
   renderReleaseNotes,
+  renderMilestone,
   renderStepSummary,
   shouldComment,
   stateGuidance,
@@ -209,6 +210,27 @@ async function cwsReport(values) {
   const conclusion = check.conclusion ?? "";
   const reportDir = values["report-dir"];
   await writeFile(join(reportDir, "comment.md"), `${renderReleaseComment({ metadata, state, summary })}\n`);
+  await writeFile(join(reportDir, "status.md"), `${renderReleaseStatus({
+    version,
+    kind: metadata.kind,
+    pr,
+    sourceSha,
+    state,
+    checksum: metadata.chromeZipSha256,
+    releaseUrl: `https://github.com/${process.env.GITHUB_REPOSITORY}/releases/tag/v${version}`,
+    previewUrl: metadata.previewUrl,
+    workflowUrl: process.env.GITHUB_SERVER_URL && process.env.GITHUB_RUN_ID
+      ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+      : null,
+    activity: summary,
+  })}\n`);
+  if (state === "STAGED") {
+    await writeFile(join(reportDir, "milestone.md"), `${renderMilestone({
+      metadata,
+      milestone: "cws-staged",
+      guidance: `The frozen candidate is approved. Complete final PR review and merge PR #${pr} to promote it.`,
+    })}\n`);
+  }
   await writeFile(join(reportDir, "notes.md"), `${renderReleaseNotes({ version, pr, state, summary })}\n`);
   const existingBodies = values.comments ? parseCommentBodies(await readFile(values.comments, "utf8")) : [];
   await emitOutputs({
@@ -220,6 +242,7 @@ async function cwsReport(values) {
     pr,
     finalize: String(state === "STAGED" && !(await changelogHasDate(version))),
     should_comment: String(shouldComment(existingBodies, version, state)),
+    should_milestone: String(state === "STAGED" && shouldComment(existingBodies, version, "milestone:cws-staged")),
   });
   if (process.env.GITHUB_STEP_SUMMARY) {
     await appendFile(process.env.GITHUB_STEP_SUMMARY, renderStepSummary({ version, pr, state, conclusion, summary }));

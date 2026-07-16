@@ -9,6 +9,9 @@ on:
       kind:
         type: string
         required: true
+      expected_main_sha:
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -22,14 +25,18 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       VERSION: ${{ inputs.version }}
       KIND: ${{ inputs.kind }}
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: develop
+          ref: ${{ inputs.expected_main_sha }}
           fetch-depth: 0
       - name: Open synchronization PR
         run: |
           [[ "$KIND" == normal || "$KIND" == hotfix ]] || { echo "kind must be normal or hotfix" >&2; exit 1; }
+          [[ "$EXPECTED_MAIN_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "expected_main_sha must be a commit SHA" >&2; exit 1; }
+          live_main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          test "$live_main" = "$EXPECTED_MAIN_SHA" || { echo "live main changed before forward merge" >&2; exit 1; }
           branch="chore/forward-release-$VERSION"
           git fetch origin -- main develop
           existing_pr=$(gh pr list --state open --head "$branch" --base develop --json number --jq '.[0].number // empty')
@@ -44,9 +51,13 @@ jobs:
             printf '## Release v%s needs manual forward merge\n\nAutomatic merge conflicted. Follow %s before the next normal release.\n' "$VERSION" "$issue" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          live_main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          test "$live_main" = "$EXPECTED_MAIN_SHA"
           git push origin "$branch"
           pr=$(gh pr list --state open --head "$branch" --base develop --json number --jq '.[0].number // empty')
           if [[ -z "$pr" ]]; then
+            live_main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+            test "$live_main" = "$EXPECTED_MAIN_SHA"
             pr=$(gh pr create --base develop --head "$branch" --label release-forward-merge --title "chore: forward release $VERSION" --body "Carries stable $KIND release v$VERSION metadata and any production-only fixes from main into develop." | sed 's#.*/##')
           fi
           printf '## Release v%s forward merge\n\nOpened or refreshed PR #%s from main into develop.\n' "$VERSION" "$pr" >> "$GITHUB_STEP_SUMMARY"
