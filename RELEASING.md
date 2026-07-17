@@ -6,6 +6,30 @@ Do not enter versions, create or move tags, or run the old prepare/submit dispat
 
 ## Release lifecycle
 
+```mermaid
+flowchart TD
+    O[Draft PR to main] -->|admin applies one<br/>release/* label| POL{release-policy}
+    O -->|no release label| I[Inert: ordinary PR]
+    POL -->|not admin, fork, wrong base,<br/>2+ labels, bad ancestry| BLK[Blocked: nothing built]
+    POL -->|authorized| APV[Awaiting approval<br/>for displayed head SHA]
+
+    APV -->|admin approves<br/>prereleases + prerelease-site| MUT[Mutable candidate<br/>CWS DRAFT]
+    MUT -->|mark ready| FRZ[Frozen candidate<br/>CWS PENDING_REVIEW]
+    FRZ -->|Google approves| STG[CWS STAGED<br/>cws-release-ready passes]
+    STG -->|merge| STB[Stable release]
+    STB --> SYN[main to develop sync PR]
+
+    MUT -->|push| APV
+    FRZ -->|draft or relabel| CAN[Cancel: confirm exact<br/>CWS revision]
+    STG -->|draft or relabel| CAN
+    CAN --> MUT
+
+    MUT -.->|close unmerged| RET[Retired]
+    FRZ -.->|close unmerged:<br/>cancels CWS first| RET
+```
+
+A candidate is mutable until it is submitted to Chrome Web Store review. Submission freezes its source commit and artifacts; cancelling review makes it mutable again. The label authorizes building a candidate, a protected-environment approval bound to the displayed SHA authorizes publishing it, and merging the approved release PR is the irreversible stable-release boundary.
+
 1. Create a branch from `develop` for a normal release or from `main` for a hotfix, then open a **draft** pull request to `main`. The branch may have any name.
 2. Have a repository administrator apply exactly one release label:
    - `release/patch`, `release/minor`, or `release/major` for a normal release;
