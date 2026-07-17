@@ -110,7 +110,19 @@ jobs:
       pull-requests: read
     outputs:
       image_tag: ${{ steps.publish.outputs.image_tag }}
+    env:
+      RELEASE_TOOLS: trusted-release-tools
     steps:
+      # Revalidation runs the trusted tooling, never the candidate's own copy, so this job checks
+      # out the pinned release tools rather than the candidate ref.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.trusted_tools_ref }}
+          path: trusted-release-tools
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
       - uses: actions/download-artifact@v8
         with:
           pattern: ${{ inputs.artifact_prefix }}-oci-*
@@ -121,14 +133,12 @@ jobs:
         run: sha256sum -c image-amd64.tar.sha256 && sha256sum -c image-arm64.tar.sha256
       - name: Revalidate candidate immediately before amd64 registry mutation
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           PR: ${{ inputs.pr_number }}
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
           RELEASE_LABEL: ${{ inputs.release_label }}
         run: |
-          live=$(gh pr view "$PR" --json headRefOid,labels)
-          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          node "$RELEASE_TOOLS/scripts/release/cli.mjs" prepare pr-assert --pr "$PR" --expected-sha "$EXPECTED_HEAD_SHA" --label "$RELEASE_LABEL"
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -136,28 +146,25 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Stage immutable OCI amd64
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           PR: ${{ inputs.pr_number }}
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
           RELEASE_LABEL: ${{ inputs.release_label }}
         run: |
-          live=$(gh pr view "$PR" --json headRefOid,labels)
-          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          node "$RELEASE_TOOLS/scripts/release/cli.mjs" prepare pr-assert --pr "$PR" --expected-sha "$EXPECTED_HEAD_SHA" --label "$RELEASE_LABEL"
           staging="candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           docker load --input images/image-amd64.tar
           docker tag "$IMAGE_NAME:$VERSION-amd64" "$IMAGE_NAME:$staging-amd64"
           docker push "$IMAGE_NAME:$staging-amd64"
       - name: Revalidate candidate immediately before arm64 registry mutation
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           PR: ${{ inputs.pr_number }}
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
           RELEASE_LABEL: ${{ inputs.release_label }}
         run: |
-          live=$(gh pr view "$PR" --json headRefOid,labels)
-          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          node "$RELEASE_TOOLS/scripts/release/cli.mjs" prepare pr-assert --pr "$PR" --expected-sha "$EXPECTED_HEAD_SHA" --label "$RELEASE_LABEL"
       - name: Stage immutable OCI arm64
         env:
           VERSION: ${{ inputs.version }}
@@ -168,14 +175,12 @@ jobs:
           docker push "$IMAGE_NAME:$staging-arm64"
       - name: Revalidate candidate immediately before immutable manifest mutation
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           PR: ${{ inputs.pr_number }}
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
           RELEASE_LABEL: ${{ inputs.release_label }}
         run: |
-          live=$(gh pr view "$PR" --json headRefOid,labels)
-          test "$(jq -r .headRefOid <<<"$live")" = "$EXPECTED_HEAD_SHA"
-          test "$(jq --arg label "$RELEASE_LABEL" '[.labels[].name == $label] | any' <<<"$live")" = true
+          node "$RELEASE_TOOLS/scripts/release/cli.mjs" prepare pr-assert --pr "$PR" --expected-sha "$EXPECTED_HEAD_SHA" --label "$RELEASE_LABEL"
       - id: publish
         name: Stage immutable OCI manifest
         env:

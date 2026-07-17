@@ -187,7 +187,7 @@ export class ChromeWebStoreClient {
   }
 }
 
-async function waitForUpload(client, initial) {
+export async function waitForUpload(client, initial) {
   if (initial.uploadState === "SUCCEEDED" || initial.uploadState === "SUCCESS") return initial;
   if (initial.uploadState !== "UPLOAD_IN_PROGRESS" && initial.uploadState !== "IN_PROGRESS") return initial;
   for (let attempt = 0; attempt < 30; attempt += 1) {

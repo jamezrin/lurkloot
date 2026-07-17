@@ -30,6 +30,7 @@ export function lifecycleMilestoneGuidance(milestone) {
     "candidate-rebuilding": "The old candidate is cancelled; replacement artifacts are rebuilding.",
     "environment-approval": "Approve the cws-review environment after checking this exact SHA.",
     "cws-pending": "Google is reviewing the frozen candidate with deferred publishing.",
+    "cws-staged-validation": "CWS already reports the frozen candidate as staged; monitor finalization and release metadata validation remain pending.",
     "reconciliation-blocked": "CWS state is uncertain; reconcile it in the dashboard before retrying.",
   };
   if (!guidance[milestone]) throw new Error(`unknown automatic lifecycle milestone: ${milestone}`);
@@ -43,10 +44,13 @@ export function renderReleaseStatus(status) {
     ["CWS", validatedUrl(status.cwsUrl, "cwsUrl")],
     ["Workflow", validatedUrl(status.workflowUrl, "workflowUrl")],
   ].filter(([, url]) => url);
-  const details = [
-    `- Candidate: \`v${status.version}\` (${status.kind})`,
-    `- Source: \`${status.sourceSha}\``,
-  ];
+  // An inert PR has no candidate to name yet, so the identity line is omitted rather than
+  // rendered as an empty version.
+  const details = [];
+  if (status.version) {
+    details.push(status.kind ? `- Candidate: \`v${status.version}\` (${status.kind})` : `- Candidate: \`v${status.version}\``);
+  }
+  if (status.sourceSha) details.push(`- Source: \`${status.sourceSha}\``);
   if (status.checksum) details.push(`- Chrome ZIP: \`${status.checksum}\``);
   if (status.dockerTag) details.push(`- Docker: \`${status.dockerTag}\``);
   if (links.length) details.push(`- Links: ${links.map(([label, url]) => `[${label}](${url})`).join(" · ")}`);
