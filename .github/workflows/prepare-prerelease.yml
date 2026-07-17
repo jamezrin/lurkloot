@@ -161,6 +161,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      pull-requests: read
     uses: ./.github/workflows/build-docker.yml
     with:
       ref: ${{ needs.resolve.outputs.candidate_sha }}
@@ -174,6 +175,11 @@ jobs:
 
   site:
     needs: [resolve, verify]
+    # site-deploy's deploy job revalidates the PR and so declares pull-requests:read; the calling
+    # job must grant that ceiling.
+    permissions:
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/site-deploy.yml
     with:
       channel: prerelease
