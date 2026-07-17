@@ -81,7 +81,7 @@ test("renders staged and stable milestone snapshots", () => {
 test("renders automatic lifecycle milestone snapshots", () => {
   const guidance = {
     "candidate-rebuilding": "The old candidate is cancelled; replacement artifacts are rebuilding.",
-    "environment-approval": "Approve the cws-review environment after checking this exact SHA.",
+    "environment-approval": "Approve the prereleases and prerelease-site environments after checking this exact SHA.",
     "cws-pending": "Google is reviewing the frozen candidate with deferred publishing.",
     "reconciliation-blocked": "CWS state is uncertain; reconcile it in the dashboard before retrying.",
   };
