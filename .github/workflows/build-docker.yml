@@ -81,7 +81,10 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           push: false
-          tags: ${{ env.IMAGE_NAME }}:${{ inputs.version }}-${{ matrix.arch }}
+          # The publish job re-finds the loaded image by this exact tag, so version must be used
+          # verbatim when set. Validation builds pass no version, so fall back to a valid literal
+          # rather than emitting an invalid ":-arch" reference.
+          tags: ${{ env.IMAGE_NAME }}:${{ inputs.version || 'validation' }}-${{ matrix.arch }}
           outputs: type=oci,dest=/tmp/image-${{ matrix.arch }}.tar
       - name: Checksum OCI artifact
         run: sha256sum /tmp/image-${{ matrix.arch }}.tar > /tmp/image-${{ matrix.arch }}.tar.sha256

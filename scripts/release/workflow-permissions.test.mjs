@@ -51,9 +51,11 @@ test("candidate code builds without secrets or write access", async () => {
   assert.doesNotMatch(build, /environment:/);
   assert.doesNotMatch(build, /docker\/login-action/);
 
-  // Signing with the CRX key is confined to the environment-gated finalize job.
+  // Signing with the CRX key is confined to the finalize job, which is gated on the prereleases
+  // environment whenever signing is requested (the environment may be expressed conditionally so
+  // that unsigned validation runs are not gated).
   const finalize = jobBlock(text, "finalize");
-  assert.match(finalize, /environment: prereleases/);
+  assert.match(finalize, /environment:.*prereleases/);
   assert.match(finalize, /CRX_PRIVATE_KEY: \$\{\{ secrets\.CRX_PRIVATE_KEY \}\}/);
 });
 
@@ -68,7 +70,9 @@ test("every publishing mutation is gated by a protected environment", async () =
   ];
   for (const [file, job, environment] of gates) {
     const block = jobBlock(await workflow(file), job);
-    assert.match(block, new RegExp(`environment:\\s*(\\n\\s+name:\\s*)?${environment}|environment: ${environment}`),
+    // Accepts the plain form, the `name:` form, and a conditional expression that names the
+    // environment (used where the gate applies only to the privileged variant of the job).
+    assert.match(block, new RegExp(`environment:[^\\n]*${environment}|environment:\\s*\\n\\s+name:\\s*${environment}`),
       `${file} job ${job} must deploy to the ${environment} environment`);
   }
 });
