@@ -52,6 +52,14 @@ jobs:
       sign_crx: false
 
   docker:
+    # The called workflow's publish job declares packages:write and pull-requests:read. GitHub
+    # validates a reusable workflow's permission ceiling at compile time even though publish is
+    # skipped here (push: false), so the calling job must grant that ceiling. The build matrix job
+    # caps itself back to packages:none, so no candidate code runs with write access.
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: read
     uses: ./.github/workflows/build-docker.yml
     with:
       push: false
