@@ -120,7 +120,10 @@ jobs:
   finalize:
     needs: build
     runs-on: ubuntu-latest
-    environment: prereleases
+    # Only the signing path touches the CRX key, so the protected environment gates signing runs
+    # only. Validation calls (sign_crx: false) do unsigned verification and must not pause on a
+    # production-environment approval.
+    environment: ${{ inputs.sign_crx && 'prereleases' || '' }}
     steps:
       - uses: actions/download-artifact@v8
         with:
