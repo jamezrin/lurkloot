@@ -29,148 +29,24 @@ jobs:
       checks: write
       contents: write
       pull-requests: write
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      REQUESTED_VERSION: ${{ inputs.version }}
-      RECOVERY: ${{ inputs.recovery || false }}
     steps:
+      # Trusted tooling from main only. The candidate's own release metadata is fetched from the
+      # API at its source commit, so no candidate code is checked out or executed here.
       - uses: actions/checkout@v7
         with:
           ref: main
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.9.0
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
-      # Copy the whole directory: a hand-maintained file list silently breaks at runtime the moment
-      # the release tooling grows an import, and nothing in CI would catch it.
-      - name: Preserve trusted release tooling
-        run: |
-          trusted_tools_ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
-          test "$(git rev-parse HEAD)" = "$trusted_tools_ref" || { echo "checked-out tooling does not match live main" >&2; exit 1; }
-          mkdir -p "$RUNNER_TEMP/release-tools"
-          cp scripts/cws.mjs scripts/release.mjs "$RUNNER_TEMP/release-tools/"
-          cp -R scripts/release "$RUNNER_TEMP/release-tools/release"
-      - name: Validate optional version input
-        run: |
-          [[ -z "$REQUESTED_VERSION" || "$REQUESTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "version must be blank or stable SemVer X.Y.Z" >&2; exit 1; }
+          node-version: 22
       - name: Refresh active candidates
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+          RECOVERY: ${{ inputs.recovery || false }}
           CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
           CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
           CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
-          TOOLS: ${{ runner.temp }}/release-tools
-        run: |
-          if [[ -n "$REQUESTED_VERSION" ]]; then
-            versions="$REQUESTED_VERSION"
-          else
-            versions=$(gh release list --limit 100 --json tagName,isPrerelease,name --jq '.[] | select(.isPrerelease and ((.name // "") | endswith("cancelled") | not)) | .tagName | sub("^v";"")')
-          fi
-          while read -r version; do
-            [[ -n "$version" ]] || continue
-            rm -rf candidate report && mkdir candidate report
-            gh release download "v$version" --dir candidate
-            node "$TOOLS/release/cli.mjs" metadata verify candidate/candidate.json candidate
-            GITHUB_OUTPUT=report/candidate node "$TOOLS/release/cli.mjs" metadata read --file candidate/candidate.json --version "$version"
-            schema_version=$(sed -n 's/^schema_version=//p' report/candidate)
-            label=$(sed -n 's/^label=//p' report/candidate)
-            authorized_sha=$(sed -n 's/^authorized_sha=//p' report/candidate)
-            pr=$(sed -n 's/^release_pr=//p' report/candidate)
-            source_sha=$(sed -n 's/^source_sha=//p' report/candidate)
-            [[ "$schema_version" == 2 && "$source_sha" == "$authorized_sha" ]] || { echo "ignoring non-v2 or unauthorized candidate v$version"; continue; }
-            git fetch --force origin "refs/tags/v$version:refs/tags/v$version"
-            test "$(git rev-parse "refs/tags/v$version^{commit}")" = "$source_sha"
-            live=$(gh pr view "$pr" --json headRefOid,headRefName,isDraft,state,labels)
-            [[ $(jq -r .state <<<"$live") == OPEN ]] || continue
-            branch=$(jq -r .headRefName <<<"$live")
-            head_sha=$(jq -r .headRefOid <<<"$live")
-            label_count=$(jq --arg label "$label" '[.labels[].name | select(. == $label)] | length' <<<"$live")
-            recognized_count=$(jq '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")] | length' <<<"$live")
-            label_valid=true
-            if [[ "$label_count" != 1 || "$recognized_count" != 1 ]]; then label_valid=false; fi
-            ready_valid=true
-            if [[ $(jq -r .isDraft <<<"$live") != false ]]; then ready_valid=false; fi
-            git fetch origin "pull/$pr/head"
-            test "$(git rev-parse FETCH_HEAD)" = "$head_sha"
-            git checkout --detach FETCH_HEAD
-            head_descends_from_source=false
-            if git merge-base --is-ancestor "$source_sha" "$head_sha"; then head_descends_from_source=true; fi
-            head_metadata_only=false
-            if git diff --quiet "$source_sha" "$head_sha" -- \
-              . \
-              ':(exclude)package.json' \
-              ':(exclude)packages/*/package.json' \
-              ':(exclude)packages/site/src/changelog.json'; then
-              head_metadata_only=true
-            fi
-            [[ "$label_valid" == true && "$ready_valid" == true ]] || head_metadata_only=false
-            head_commit_count=$(git rev-list --count "$source_sha..$head_sha")
-            head_author_email=$(git show -s --format=%ae "$head_sha")
-            head_subject=$(git show -s --format=%s "$head_sha")
-            jq -n \
-              --argjson descendsFromSource "$head_descends_from_source" \
-              --argjson metadataOnly "$head_metadata_only" \
-              --argjson commitCount "$head_commit_count" \
-              --arg authorEmail "$head_author_email" \
-              --arg subject "$head_subject" \
-              '{ schemaVersion: 1, $descendsFromSource, $metadataOnly, $commitCount, $authorEmail, $subject }' \
-              > report/head-evidence.json
-            CWS_VERSION="$version" GITHUB_OUTPUT=report/cws node "$TOOLS/cws.mjs" status
-            gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate --jq '.[].body | @json' > report/comments
-            GITHUB_OUTPUT=report/outputs node "$TOOLS/release/cli.mjs" cws-report \
-              --candidate candidate/candidate.json --status report/cws --comments report/comments \
-              --head-sha "$head_sha" \
-              --head-evidence report/head-evidence.json \
-              --version "$version" --recovery "$RECOVERY" --report-dir report
-            status=$(sed -n 's/^status=//p' report/outputs)
-            conclusion=$(sed -n 's/^conclusion=//p' report/outputs)
-            title=$(sed -n 's/^title=//p' report/outputs)
-            summary=$(sed -n 's/^summary=//p' report/outputs)
-            if [[ $(sed -n 's/^finalize=//p' report/outputs) == true ]]; then
-              live=$(gh pr view "$pr" --json headRefOid,isDraft,state,labels)
-              test "$(jq -r .headRefOid <<<"$live")" = "$source_sha" || { echo CANDIDATE_CHANGED; exit 1; }
-              test "$(jq -r .isDraft <<<"$live")" = false || { echo CANDIDATE_CHANGED; exit 1; }
-              test "$(jq -r .state <<<"$live")" = OPEN || { echo CANDIDATE_CHANGED; exit 1; }
-              test "$(jq --arg label "$label" '[.labels[].name | select(. == $label)] | length' <<<"$live")" = 1 || { echo CANDIDATE_CHANGED; exit 1; }
-              node "$TOOLS/release/cli.mjs" prepare-workspace "$version" --date "$(date -u +%F)"
-              git add package.json packages/*/package.json packages/site/src/changelog.json
-              git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "chore(release): finalize $version metadata"
-              git diff --quiet "$source_sha" HEAD -- . ':(exclude)package.json' ':(exclude)packages/*/package.json' ':(exclude)packages/site/src/changelog.json'
-              live=$(gh pr view "$pr" --json headRefOid,isDraft,state,labels)
-              test "$(jq -r .headRefOid <<<"$live")" = "$source_sha" || { echo CANDIDATE_CHANGED; exit 1; }
-              test "$(jq -r .isDraft <<<"$live")" = false
-              test "$(jq --arg label "$label" '[.labels[].name | select(. == $label)] | length' <<<"$live")" = 1
-              git push origin "HEAD:$branch"
-              head_sha=$(git rev-parse HEAD)
-              gh workflow run pr-validation.yml --ref "$branch"
-            fi
-            live=$(gh pr view "$pr" --json headRefOid,isDraft,state,labels)
-            test "$(jq -r .headRefOid <<<"$live")" = "$head_sha" || { echo CANDIDATE_CHANGED; exit 1; }
-            args=(-f name=cws-release-ready -f head_sha="$head_sha" -f status="$status" -f output[title]="$title" -f output[summary]="$summary")
-            [[ -z "$conclusion" ]] || args+=(-f conclusion="$conclusion")
-            gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" "${args[@]}"
-            live=$(gh pr view "$pr" --json headRefOid,isDraft,state,labels)
-            test "$(jq -r .headRefOid <<<"$live")" = "$head_sha" || { echo CANDIDATE_CHANGED; exit 1; }
-            gh release edit "v$version" --prerelease --latest=false --notes-file report/notes.md
-            marker="<!-- lurkloot-release-pr:$pr:status -->"
-            comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n1)
-            live=$(gh pr view "$pr" --json headRefOid,isDraft,state,labels)
-            test "$(jq -r .headRefOid <<<"$live")" = "$head_sha" || { echo CANDIDATE_CHANGED; exit 1; }
-            if [[ -n "$comment_id" ]]; then
-              body=$(<report/status.md)
-              gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
-            else
-              gh pr comment "$pr" --body-file report/status.md
-            fi
-            if [[ $(sed -n 's/^should_milestone=//p' report/outputs) == true && -f report/milestone.md ]]; then
-              milestone="<!-- lurkloot-release:$version:milestone:cws-staged -->"
-              bodies=$(gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate --jq '.[].body')
-              if ! grep -Fq "$milestone" <<<"$bodies"; then
-                live=$(gh pr view "$pr" --json headRefOid,isDraft,state,labels)
-                test "$(jq -r .headRefOid <<<"$live")" = "$head_sha" || { echo CANDIDATE_CHANGED; exit 1; }
-                gh pr comment "$pr" --body-file report/milestone.md
-              fi
-            fi
-          done <<< "$versions"
+        run: >-
+          node scripts/release/cli.mjs monitor run
+          --version "$REQUESTED_VERSION" --recovery "$RECOVERY" --report-dir "$RUNNER_TEMP/report"

@@ -28,11 +28,18 @@ jobs:
       contents: read
     outputs:
       main_sha: ${{ steps.main.outputs.sha }}
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
       - id: main
-        run: echo "sha=$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/main --jq .object.sha)" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release/cli.mjs resolve-ref --ref main
 
   cancel:
     needs: resolve-tools
@@ -51,7 +58,7 @@ jobs:
       safe_to_replace: ${{ steps.finalize.outputs.safe_to_replace }}
       reason: ${{ steps.finalize.outputs.reason }}
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR: ${{ inputs.pr_number }}
       VERSION: ${{ inputs.candidate_version }}
       EXPECTED_SHA: ${{ inputs.expected_candidate_sha }}
@@ -59,126 +66,34 @@ jobs:
       EXPECTED_DESIRED_LABELS: ${{ inputs.desired_release_labels }}
       EXPECTED_PR_STATE: ${{ inputs.expected_pr_state }}
       DISPOSITION: ${{ inputs.disposition }}
-      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
-      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
-      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
-      CWS_VERSION: ${{ inputs.candidate_version }}
+      TRUSTED_TOOLS_REF: ${{ needs.resolve-tools.outputs.main_sha }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve-tools.outputs.main_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
       - id: operation
         name: Cancel and confirm the exact candidate
         continue-on-error: true
-        run: |
-          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$EXPECTED_LIVE_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$(jq -c 'sort' <<<"$EXPECTED_DESIRED_LABELS")" = "$EXPECTED_DESIRED_LABELS"
-          [[ "$EXPECTED_PR_STATE" == open || "$EXPECTED_PR_STATE" == closed-unmerged ]]
-          [[ "$DISPOSITION" == retire || "$DISPOSITION" == replace ]]
-          test "$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/main --jq .object.sha)" = "${{ needs.resolve-tools.outputs.main_sha }}"
-          gh release download "v$VERSION" --pattern candidate.json --dir candidate
-          node scripts/release/cli.mjs candidate read --file candidate/candidate.json --version "$VERSION" >/dev/null
-          test "$(jq -r .schemaVersion candidate/candidate.json)" = 2
-          test "$(jq -r .releasePr candidate/candidate.json)" = "$PR"
-          test "$(jq -r .sourceSha candidate/candidate.json)" = "$EXPECTED_SHA"
-          label=$(jq -r .label candidate/candidate.json)
-          revalidate() {
-            live=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
-            test "$(jq -r .head.sha <<<"$live")" = "$EXPECTED_LIVE_HEAD_SHA"
-            if [[ "$EXPECTED_PR_STATE" == open ]]; then
-              jq -e '.state == "open" and .merged_at == null' <<<"$live" >/dev/null
-            else
-              jq -e '.state == "closed" and .merged_at == null' <<<"$live" >/dev/null
-            fi
-            recognized_labels=$(jq -c '[.labels[].name | select(. == "release/patch" or . == "release/minor" or . == "release/major" or . == "release/hotfix")]' <<<"$live")
-            recognized_labels=$(jq -c 'sort' <<<"$recognized_labels")
-            test "$recognized_labels" = "$EXPECTED_DESIRED_LABELS"
-          }
-          revalidate
-          test "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true
-          GITHUB_OUTPUT=before-status node scripts/cws.mjs status
-          published=$(sed -n 's/^published_version=//p' before-status)
-          submitted=$(sed -n 's/^submitted_version=//p' before-status)
-          state=$(sed -n 's/^submitted_state=//p' before-status)
-          warned=$(sed -n 's/^warned=//p' before-status)
-          taken=$(sed -n 's/^taken_down=//p' before-status)
-          test "$published" != "$VERSION" || { echo "PUBLISHED candidates cannot be cancelled" >&2; exit 1; }
-          test "$warned" = false && test "$taken" = false
-          if [[ "$submitted" == "$VERSION" && ( "$state" == PENDING_REVIEW || "$state" == STAGED ) ]]; then
-            revalidate
-            node scripts/cws.mjs cancel-submission
-          elif [[ "$submitted" != none && "$submitted" != "$VERSION" ]]; then
-            echo "CWS version mismatch" >&2; exit 1
-          elif [[ "$state" != none && "$state" != CANCELLED ]]; then
-            echo "unknown CWS state: $state" >&2; exit 1
-          fi
-          GITHUB_OUTPUT=after-status node scripts/cws.mjs status
-          after_version=$(sed -n 's/^submitted_version=//p' after-status)
-          after_state=$(sed -n 's/^submitted_state=//p' after-status)
-          [[ "$after_version" == none || ( "$after_version" == "$VERSION" && "$after_state" == CANCELLED ) ]]
-          is_draft=$(jq -r .draft <<<"$live")
-          if [[ "$EXPECTED_PR_STATE" == open && "$is_draft" != true ]]; then
-            revalidate
-            gh pr ready "$PR" --undo
-          fi
-          revalidate
-          gh release edit "v$VERSION" --title "v$VERSION cancelled" --prerelease --latest=false --notes "Candidate v$VERSION was cancelled and retained with its tag and assets for audit."
-          if [[ "$DISPOSITION" == retire ]]; then
-            owner=${GITHUB_REPOSITORY_OWNER,,}
-            endpoint="users/$owner/packages/container/lurkloot-cli/versions"
-            versions=$(gh api "$endpoint?per_page=100" 2>/dev/null || true)
-            [[ -n "$versions" ]] || { endpoint="orgs/$owner/packages/container/lurkloot-cli/versions"; versions=$(gh api "$endpoint?per_page=100"); }
-            package_id=$(jq -r --arg version "$VERSION" '[.[] | select((.metadata.container.tags | index($version)) and (.metadata.container.tags | all(. == $version or . == "next")))] | if length == 1 then .[0].id else empty end' <<<"$versions")
-            revalidate
-            [[ -z "$package_id" ]] || gh api -X DELETE "$endpoint/$package_id"
-          fi
+        env:
+          CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+        run: >-
+          node scripts/release/cli.mjs cancel run
+          --pr "$PR" --version "$VERSION" --expected-sha "$EXPECTED_SHA"
+          --expected-live-head-sha "$EXPECTED_LIVE_HEAD_SHA" --desired-labels "$EXPECTED_DESIRED_LABELS"
+          --expected-pr-state "$EXPECTED_PR_STATE" --disposition "$DISPOSITION"
+          --trusted-tools "$TRUSTED_TOOLS_REF" --candidate-dir candidate
       - id: finalize
         if: always()
         name: Publish cancellation result and recovery guidance
         env:
-          OPERATION_OUTCOME: ${{ steps.operation.outcome }}
-        run: |
-          cancelled=false
-          safe=false
-          echo safe_to_replace=false >> "$GITHUB_OUTPUT"
-          reason=reconciliation-blocked
-          conclusion=failure
-          title="Candidate cancellation blocked"
-          summary="Cancellation did not reach a confirmed safe terminal state. Reconcile the exact CWS revision and retry."
-          if [[ "$OPERATION_OUTCOME" == success ]]; then
-            cancelled=true
-            safe=true
-            reason=confirmed-cancelled
-            conclusion=success
-            title="Candidate cancellation confirmed"
-            summary="CWS cancellation for v$VERSION is confirmed and its GitHub prerelease is retained for audit."
-          fi
-          echo "cancelled=$cancelled" >> "$GITHUB_OUTPUT"
-          echo "safe_to_replace=$safe" >> "$GITHUB_OUTPUT"
-          echo "reason=$reason" >> "$GITHUB_OUTPUT"
-          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
-            -f name=release-candidate -f head_sha="$EXPECTED_SHA" -f status=completed \
-            -f conclusion="$conclusion" -f output[title]="$title" -f output[summary]="$summary"
-          marker="<!-- lurkloot-release-pr:$PR:status -->"
-          body="$marker
-          ## Release status: $([[ "$safe" == true ]] && echo cancelled || echo blocked)
-
-          - Candidate: \`v$VERSION\`
-          - Source: \`$EXPECTED_SHA\`
-
-          **$([[ "$safe" == true ]] && echo 'Next action' || echo 'Recovery'):** $summary"
-          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -1)
-          if [[ -n "$comment_id" ]]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
-          else
-            gh pr comment "$PR" --body "$body"
-          fi
-          if [[ "$safe" != true ]]; then
-            milestone="<!-- lurkloot-release:$VERSION:milestone:reconciliation-blocked -->"
-            bodies=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[].body')
-            grep -Fq "$milestone" <<<"$bodies" || gh pr comment "$PR" --body "$milestone
-            Candidate **v$VERSION** reached **reconciliation-blocked**. CWS state is uncertain; reconcile it in the dashboard before retrying."
-            exit 1
-          fi
+          SUCCEEDED: ${{ steps.operation.outcome == 'success' }}
+        run: >-
+          node scripts/release/cli.mjs cancel finalize
+          --pr "$PR" --version "$VERSION" --expected-sha "$EXPECTED_SHA"
+          --succeeded "$SUCCEEDED"
