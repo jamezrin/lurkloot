@@ -10,10 +10,6 @@ on:
         description: Optional release version to overlay before building
         type: string
         default: ""
-      trusted_tools_ref:
-        description: Immutable trusted release-tooling commit; required with version
-        type: string
-        default: ""
       artifact_name:
         type: string
         default: extension-release-assets
@@ -42,32 +38,21 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - uses: actions/checkout@v7
-        if: inputs.version != ''
-        with:
-          ref: ${{ inputs.trusted_tools_ref }}
-          path: trusted-release-tools
-          persist-credentials: false
-      - name: Install and verify pinned signer from trusted main lockfile without credentials
+      - name: Install and verify the pinned signer
         if: inputs.sign_crx && inputs.version != ''
         run: |
-          pnpm --dir trusted-release-tools install --frozen-lockfile --ignore-scripts
-          mkdir trusted-release-tools/signer
-          printf '{"private":true,"dependencies":{"crx3":"2.0.0"}}\n' > trusted-release-tools/signer/package.json
-          pnpm --dir trusted-release-tools/signer install --offline --ignore-scripts --prod --lockfile=false --ignore-workspace
-          test "$(node -p "require('./trusted-release-tools/signer/node_modules/crx3/package.json').version")" = 2.0.0
-          tar -C trusted-release-tools -czf signer.tar.gz signer
+          pnpm install --frozen-lockfile --ignore-scripts
+          mkdir -p signer
+          printf '{"private":true,"dependencies":{"crx3":"2.0.0"}}\n' > signer/package.json
+          pnpm --dir signer install --offline --ignore-scripts --prod --lockfile=false --ignore-workspace
+          test "$(node -p "require('$GITHUB_WORKSPACE/signer/node_modules/crx3/package.json').version")" = 2.0.0
+          tar -czf signer.tar.gz signer
           sha256sum signer.tar.gz > SIGNER_SHA256
-      - name: Apply release version
+      - name: Set the release version
         if: inputs.version != ''
         env:
           RELEASE_VERSION: ${{ inputs.version }}
-          TRUSTED_TOOLS_REF: ${{ inputs.trusted_tools_ref }}
-        run: |
-          [[ "$TRUSTED_TOOLS_REF" =~ ^[0-9a-f]{40}$ ]] || { echo "trusted_tools_ref must be an immutable commit SHA" >&2; exit 1; }
-          test "$(git -C trusted-release-tools rev-parse HEAD)" = "$TRUSTED_TOOLS_REF"
-          node trusted-release-tools/scripts/release/cli.mjs prepare-workspace "$RELEASE_VERSION"
-          rm -rf trusted-release-tools
+        run: node scripts/release/cli.mjs prepare-workspace --version "$RELEASE_VERSION" --date "$(date -u +%F)"
       - run: pnpm install --frozen-lockfile
       - name: Verify trusted signer bundle exists before credentialed job
         if: inputs.sign_crx
@@ -88,7 +73,7 @@ jobs:
       - name: Normalize reproducible ZIP artifacts
         shell: bash
         run: |
-          version=$(node scripts/release/cli.mjs version)
+          version=$(node -p "require('./package.json').version")
           output=packages/extension/.output
           mkdir release-assets
           chrome_zip=$(find "$output" -maxdepth 1 -name "*-$version-chrome.zip" -print -quit)
@@ -120,10 +105,13 @@ jobs:
   finalize:
     needs: build
     runs-on: ubuntu-latest
-    # Only the signing path touches the CRX key, so the protected environment gates signing runs
-    # only. Validation calls (sign_crx: false) do unsigned verification and must not pause on a
-    # production-environment approval.
-    environment: ${{ inputs.sign_crx && 'prereleases' || '' }}
+    # Environments collapse to two: `preview` (no required reviewer) and `production` (required
+    # reviewer). Signing produces an artifact but distributes nothing, so it belongs behind the
+    # `preview` credential boundary that holds CRX_PRIVATE_KEY, not behind a human approval. The
+    # single human approval gate lives on the `publish` job in release.yml, which is what actually
+    # publishes. Validation calls (sign_crx: false) do unsigned verification and must not pause on
+    # any environment.
+    environment: ${{ inputs.sign_crx && 'preview' || '' }}
     steps:
       - uses: actions/download-artifact@v8
         with:
