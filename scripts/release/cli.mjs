@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
-import { appendFile, readFile, writeFile } from "node:fs/promises";
+import { appendFile, readFile, readdir, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import process from "node:process";
 import { changelogPath, checkWorkspace, prepareWorkspace } from "../release.mjs";
 import { latestVersion, nextVersion, parseManifestVersion } from "./version.mjs";
 import { releaseNotes } from "./notes.mjs";
 import { ChromeWebStoreClient, publishAction, serviceAccountToken, waitForUpload } from "../cws.mjs";
 import { releasePolicy } from "./pipeline.mjs";
+import { GitHubClient, reconcilePrerelease, retirePrerelease, upsertComment } from "./github.mjs";
 
 export function parseArgs(argv) {
   const values = {};
@@ -35,6 +37,25 @@ export function resolvePolicy({ labels = "", head = "", tags = "" }) {
   });
 }
 
+export function candidateStatus({ version, sha = "", state, url = "" }) {
+  const lines = [
+    `## Release candidate ${version}`,
+    "",
+    `- State: **${state}**`,
+  ];
+  if (sha) lines.push(`- Source: \`${sha.slice(0, 7)}\``);
+  if (url) lines.push(`- Candidate: ${url}`);
+  lines.push("- Site: https://next.lurkloot.pages.dev");
+  return lines.join("\n");
+}
+
+function githubClient() {
+  return new GitHubClient({
+    repository: process.env.GITHUB_REPOSITORY,
+    token: process.env.GITHUB_TOKEN,
+  });
+}
+
 async function emit(outputs) {
   const text = Object.entries(outputs).map(([key, value]) => `${key}=${value}`).join("\n");
   if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `${text}\n`);
@@ -56,6 +77,37 @@ const commands = {
   async notes(values) {
     const changelog = JSON.parse(await readFile(changelogPath, "utf8"));
     await writeFile(values.out, `${releaseNotes(changelog, values.version)}\n`);
+  },
+  async "publish-candidate"(values) {
+    const entries = await readdir(values.assets, { withFileTypes: true });
+    const assets = await Promise.all(entries
+      .filter((entry) => entry.isFile())
+      .map(async (entry) => ({
+        name: basename(entry.name),
+        bytes: await readFile(join(values.assets, entry.name)),
+      })));
+    await reconcilePrerelease({
+      client: githubClient(),
+      pr: Number(values.pr),
+      version: values.version,
+      sha: values.sha,
+      notes: await readFile(values.notes, "utf8"),
+      assets,
+    });
+  },
+  async "candidate-comment"(values) {
+    await upsertComment({
+      client: githubClient(),
+      pr: Number(values.pr),
+      body: candidateStatus(values),
+    });
+  },
+  async "retire-candidate"(values) {
+    await retirePrerelease({
+      client: githubClient(),
+      pr: Number(values.pr),
+      version: values.version,
+    });
   },
   async "cws-release"(values) {
     const client = new ChromeWebStoreClient({

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseArgs, resolvePolicy, resolveVersion } from "./cli.mjs";
+import { candidateStatus, parseArgs, resolvePolicy, resolveVersion } from "./cli.mjs";
 
 test("parses flags into a map", () => {
   assert.deepEqual(parseArgs(["--bump", "minor", "--version", "1.5.0"]), { bump: "minor", version: "1.5.0" });
@@ -26,4 +26,20 @@ test("resolves release policy from comma-separated workflow inputs", () => {
     label: "release/minor",
     version: "1.6.0",
   });
+});
+
+test("renders candidate status with stable links", () => {
+  assert.equal(candidateStatus({
+    version: "1.6.0",
+    sha: "abcdef123456",
+    state: "ready",
+    url: "https://github.com/jamezrin/lurkloot/releases/tag/candidate-v1.6.0",
+  }), [
+    "## Release candidate 1.6.0",
+    "",
+    "- State: **ready**",
+    "- Source: `abcdef1`",
+    "- Candidate: https://github.com/jamezrin/lurkloot/releases/tag/candidate-v1.6.0",
+    "- Site: https://next.lurkloot.pages.dev",
+  ].join("\n"));
 });
