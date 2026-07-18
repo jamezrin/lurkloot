@@ -3,7 +3,7 @@
 import { appendFile, readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 import { changelogPath, checkWorkspace, prepareWorkspace } from "../release.mjs";
-import { latestVersion, nextVersion, parseVersion } from "./version.mjs";
+import { latestVersion, nextVersion, parseManifestVersion } from "./version.mjs";
 import { releaseNotes } from "./notes.mjs";
 import { ChromeWebStoreClient, publishAction, serviceAccountToken, waitForUpload } from "../cws.mjs";
 
@@ -18,7 +18,9 @@ export function parseArgs(argv) {
 
 export function resolveVersion({ tags, bump, version }) {
   if (version) {
-    parseVersion(version);
+    // An operator-typed override becomes a manifest version, so reject a tag-style v prefix here
+    // rather than letting it fail later once the release branch already exists.
+    parseManifestVersion(version);
     return version;
   }
   return nextVersion(latestVersion(tags), bump);
