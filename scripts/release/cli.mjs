@@ -9,6 +9,8 @@ import { releaseNotes } from "./notes.mjs";
 import { ChromeWebStoreClient, publishAction, serviceAccountToken, waitForUpload } from "../cws.mjs";
 import { releasePolicy } from "./pipeline.mjs";
 import { GitHubClient, reconcilePrerelease, retirePrerelease, upsertComment } from "./github.mjs";
+import { createRepositoryToken } from "./github-app.mjs";
+import { syncBranches } from "./sync.mjs";
 
 export function parseArgs(argv) {
   const values = {};
@@ -47,6 +49,10 @@ export function candidateStatus({ version, sha = "", state, url = "" }) {
   if (url) lines.push(`- Candidate: ${url}`);
   lines.push("- Site: https://next.lurkloot.pages.dev");
   return lines.join("\n");
+}
+
+export function formatAppTokenOutput(token) {
+  return `::add-mask::${token}\ntoken=${token}\n`;
 }
 
 function githubClient() {
@@ -108,6 +114,20 @@ const commands = {
       pr: Number(values.pr),
       version: values.version,
     });
+  },
+  async "app-token"() {
+    const result = await createRepositoryToken({
+      appId: process.env.RELEASE_SYNC_APP_ID,
+      privateKey: process.env.RELEASE_SYNC_APP_PRIVATE_KEY,
+      repository: process.env.GITHUB_REPOSITORY,
+    });
+    process.stdout.write(`::add-mask::${result.token}\n`);
+    if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `token=${result.token}\n`);
+    else process.stdout.write(`token=${result.token}\n`);
+  },
+  async "sync-branches"(values) {
+    const result = await syncBranches({ remote: values.remote || "origin" });
+    await emit(result);
   },
   async "cws-release"(values) {
     const client = new ChromeWebStoreClient({

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { candidateStatus, parseArgs, resolvePolicy, resolveVersion } from "./cli.mjs";
+import { candidateStatus, formatAppTokenOutput, parseArgs, resolvePolicy, resolveVersion } from "./cli.mjs";
 
 test("parses flags into a map", () => {
   assert.deepEqual(parseArgs(["--bump", "minor", "--version", "1.5.0"]), { bump: "minor", version: "1.5.0" });
@@ -42,4 +42,8 @@ test("renders candidate status with stable links", () => {
     "- Candidate: https://github.com/jamezrin/lurkloot/releases/tag/candidate-v1.6.0",
     "- Site: https://next.lurkloot.pages.dev",
   ].join("\n"));
+});
+
+test("masks an App token before exporting it", () => {
+  assert.equal(formatAppTokenOutput("ghs_short"), "::add-mask::ghs_short\ntoken=ghs_short\n");
 });
