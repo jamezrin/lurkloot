@@ -60,8 +60,13 @@ Candidate pointers are deliberately mutable:
 - Site: `https://next.lurkloot.pages.dev`
 
 Every generated release-branch push rebuilds and refreshes those targets. Ownership metadata binds
-the candidate release to its pull request. Automation refuses to move a candidate tag when no owned
-prerelease proves its identity, and it never modifies a stable release through the candidate path.
+the candidate release to its pull request. An exact-SHA tag left behind by interrupted initial
+creation is recovered; a tag at any other SHA is rejected. Automation never modifies a stable
+release through the candidate path.
+
+The candidate pipeline writes all five required contexts directly to the generated release PR head:
+the four build/verification contexts plus `release candidate / ready`. This is necessary because
+GitHub intentionally suppresses new workflow events caused by the `GITHUB_TOKEN` that opens the PR.
 
 Only the most recently completed site candidate matters. Concurrent candidates therefore share the
 `next` deployment and the last successful deployment wins.
@@ -93,7 +98,9 @@ Stable publication operates on the exact merged commit and is idempotent:
 - `vX.Y.Z` is created once and is never moved.
 - The signed CRX, Chrome ZIP, Firefox ZIP, Firefox source ZIP, and checksums are uploaded to the
   stable GitHub release.
-- GHCR receives `X.Y.Z`, `X.Y`, `X`, and `latest`.
+- Docker architectures are exported as checksummed OCI archives before approval. GHCR receives
+  `X.Y.Z`, `X.Y`, `X`, and `latest` only inside the approved production job; an existing `X.Y.Z`
+  digest is never replaced.
 - Chrome Web Store receives the Chrome ZIP with `DEFAULT_PUBLISH`; Google publishes it automatically
   after review approval.
 - The production site deploys to `https://lurkloot.jamezrin.com`.
@@ -173,6 +180,7 @@ only then removes the conflicting classic protections. It refuses to run without
 
 - pull requests merged with `merge` only;
 - `verify`, `extension / build`, and both Docker architecture checks;
+- `release candidate / ready`, reported against the PR head by trusted workflow code;
 - branches up to date with `main` before merge;
 - no deletion or force push;
 - no bypass actors.
@@ -180,7 +188,7 @@ only then removes the conflicting classic protections. It refuses to run without
 `develop squash history` targets `develop` and requires:
 
 - pull requests merged with `squash` only for ordinary actors;
-- the same four checks and strict up-to-date policy;
+- the same five checks and strict up-to-date policy;
 - no deletion or force push;
 - only the Lurkloot Release Sync App as an always-allowed bypass actor.
 

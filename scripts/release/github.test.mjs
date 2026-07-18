@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { GitHubClient, reconcilePrerelease, retirePrerelease, upsertComment } from "./github.mjs";
+import {
+  GitHubClient,
+  reconcilePrerelease,
+  retirePrerelease,
+  setCandidateStatuses,
+  setCommitStatus,
+  upsertComment,
+} from "./github.mjs";
 import { candidateMarker } from "./pipeline.mjs";
 
 function response(status, body) {
@@ -30,7 +37,6 @@ test("creates a missing owned candidate prerelease", async () => {
   const routes = recordingFetch({
     "GET /repos/jamezrin/lurkloot/git/ref/tags/candidate-v1.6.0": response(404, { message: "Not Found" }),
     "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0": response(404, { message: "Not Found" }),
-    "POST /repos/jamezrin/lurkloot/git/refs": response(201, {}),
     "POST /repos/jamezrin/lurkloot/releases": response(201, {
       id: 12,
       upload_url: "https://uploads.github.com/repos/jamezrin/lurkloot/releases/12/assets{?name,label}",
@@ -50,9 +56,67 @@ test("creates a missing owned candidate prerelease", async () => {
   assert.deepEqual(routes.calls.map(({ method, path }) => `${method} ${path}`), [
     "GET /repos/jamezrin/lurkloot/git/ref/tags/candidate-v1.6.0",
     "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0",
-    "POST /repos/jamezrin/lurkloot/git/refs",
     "POST /repos/jamezrin/lurkloot/releases",
     "POST /repos/jamezrin/lurkloot/releases/12/assets",
+  ]);
+  const creation = routes.calls.find(({ method, path }) => method === "POST" && path.endsWith("/releases"));
+  assert.equal(JSON.parse(creation.init.body).target_commitish, "abc123");
+});
+
+test("recovers an exact-SHA candidate tag left without a release", async () => {
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/candidate-v1.6.0": response(200, { object: { sha: "abc123" } }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0": response(404, { message: "Not Found" }),
+    "POST /repos/jamezrin/lurkloot/releases": response(201, {
+      id: 12,
+      upload_url: "https://uploads.github.com/repos/jamezrin/lurkloot/releases/12/assets{?name,label}",
+      assets: [],
+    }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
+  await reconcilePrerelease({ client, pr: 132, version: "1.6.0", sha: "abc123", notes: "notes", assets: [] });
+  assert.equal(routes.calls.some(({ path }) => path.endsWith("/git/refs")), false);
+});
+
+test("refuses an orphan candidate tag at another SHA", async () => {
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/candidate-v1.6.0": response(200, { object: { sha: "foreign" } }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0": response(404, { message: "Not Found" }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
+  await assert.rejects(
+    reconcilePrerelease({ client, pr: 132, version: "1.6.0", sha: "abc123", notes: "notes", assets: [] }),
+    /another commit/,
+  );
+});
+
+test("writes the candidate gate status to the requested commit", async () => {
+  const routes = recordingFetch({
+    "POST /repos/jamezrin/lurkloot/statuses/abc123": response(201, {}),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
+  await setCommitStatus({ client, sha: "abc123", state: "success", targetUrl: "https://example.test/run" });
+  const body = JSON.parse(routes.calls[0].init.body);
+  assert.deepEqual(body, {
+    state: "success",
+    context: "release candidate / ready",
+    description: "Release candidate is ready",
+    target_url: "https://example.test/run",
+  });
+});
+
+test("writes every required context for a generated release pull request", async () => {
+  const routes = recordingFetch({
+    "POST /repos/jamezrin/lurkloot/statuses/abc123": response(201, {}),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
+  await setCandidateStatuses({ client, sha: "abc123", state: "pending" });
+  assert.deepEqual(routes.calls.map(({ init }) => JSON.parse(init.body).context), [
+    "verify",
+    "extension / build",
+    "docker / build (linux/amd64, ubuntu-latest, amd64)",
+    "docker / build (linux/arm64, ubuntu-24.04-arm, arm64)",
+    "release candidate / ready",
   ]);
 });
 
@@ -77,6 +141,8 @@ test("moves only an owned prerelease candidate", async () => {
   const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
   await reconcilePrerelease({ client, pr: 132, version: "1.6.0", sha: "new", notes: "notes", assets: [] });
   assert.equal(routes.calls.some(({ path }) => path.endsWith("candidate-v1.6.0")), true);
+  const update = routes.calls.find(({ method, path }) => method === "PATCH" && path.endsWith("/releases/12"));
+  assert.equal("target_commitish" in JSON.parse(update.init.body), false);
 });
 
 test("refuses stable or foreign candidate releases", async () => {

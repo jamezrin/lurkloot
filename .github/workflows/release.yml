@@ -77,6 +77,7 @@ jobs:
     uses: ./.github/workflows/build-extension.yml
     with:
       ref: ${{ needs.resolve.outputs.ref }}
+      trusted_ref: ${{ needs.resolve.outputs.ref }}
       sign_crx: true
     secrets: inherit
 
@@ -84,12 +85,12 @@ jobs:
     needs: resolve
     permissions:
       contents: read
-      packages: write
     uses: ./.github/workflows/build-docker.yml
     with:
       ref: ${{ needs.resolve.outputs.ref }}
       image_tag: ${{ needs.resolve.outputs.version }}
-      push: true
+      artifact_prefix: stable-docker-${{ github.run_id }}-${{ github.run_attempt }}
+      export_oci: true
     secrets: inherit
 
   site-build:
@@ -143,6 +144,11 @@ jobs:
           path: release-assets
       - uses: actions/download-artifact@v8
         with:
+          pattern: stable-docker-${{ github.run_id }}-${{ github.run_attempt }}-oci-*
+          path: docker-images
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
           name: stable-site-${{ github.run_id }}-${{ github.run_attempt }}
           path: site-artifact
       - name: Tag the released commit without ever moving a stable tag
@@ -168,15 +174,36 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Promote stable image aliases
+      - name: Verify and publish immutable stable image
         env:
           IMAGE: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
         run: |
           major="${VERSION%%.*}"
           minor="${VERSION%.*}"
+          staging="release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          cd docker-images
+          sha256sum -c image-amd64.tar.sha256
+          sha256sum -c image-arm64.tar.sha256
+          for arch in amd64 arm64; do
+            docker load --input "image-$arch.tar"
+            docker tag "$IMAGE:$VERSION-$arch" "$IMAGE:$staging-$arch"
+            docker push "$IMAGE:$staging-$arch"
+          done
+          docker buildx imagetools create --tag "$IMAGE:$staging" \
+            "$IMAGE:$staging-amd64" "$IMAGE:$staging-arm64"
+          desired=$(docker buildx imagetools inspect "$IMAGE:$staging" --raw | sha256sum | cut -d' ' -f1)
+          if docker buildx imagetools inspect "$IMAGE:$VERSION" --raw > existing-manifest.json 2>/dev/null; then
+            existing=$(sha256sum existing-manifest.json | cut -d' ' -f1)
+            if [ "$existing" != "$desired" ]; then
+              echo "refusing to move immutable image $IMAGE:$VERSION from sha256:$existing to sha256:$desired" >&2
+              exit 1
+            fi
+          fi
           docker buildx imagetools create \
             --tag "$IMAGE:$VERSION" --tag "$IMAGE:$minor" --tag "$IMAGE:$major" --tag "$IMAGE:latest" \
-            "$IMAGE:$VERSION"
+            "$IMAGE:$staging"
+          published=$(docker buildx imagetools inspect "$IMAGE:$VERSION" --raw | sha256sum | cut -d' ' -f1)
+          test "$published" = "$desired"
       - name: Publish to the Chrome Web Store
         env:
           CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}

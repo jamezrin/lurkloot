@@ -8,7 +8,14 @@ import { latestVersion, nextVersion, parseManifestVersion } from "./version.mjs"
 import { releaseNotes } from "./notes.mjs";
 import { ChromeWebStoreClient, publishAction, serviceAccountToken, waitForUpload } from "../cws.mjs";
 import { releasePolicy } from "./pipeline.mjs";
-import { GitHubClient, reconcilePrerelease, retirePrerelease, upsertComment } from "./github.mjs";
+import {
+  GitHubClient,
+  reconcilePrerelease,
+  retirePrerelease,
+  setCandidateStatuses,
+  setCommitStatus,
+  upsertComment,
+} from "./github.mjs";
 import { createRepositoryToken } from "./github-app.mjs";
 import { syncBranches } from "./sync.mjs";
 import { applyRepositoryConfig, repositoryConfiguration } from "./repository-config.mjs";
@@ -113,6 +120,22 @@ const commands = {
       client: githubClient(),
       pr: Number(values.pr),
       body: candidateStatus(values),
+    });
+  },
+  async "commit-status"(values) {
+    await setCommitStatus({
+      client: githubClient(),
+      sha: values.sha,
+      state: values.state,
+      targetUrl: values["target-url"] ?? "",
+    });
+  },
+  async "candidate-checks"(values) {
+    await setCandidateStatuses({
+      client: githubClient(),
+      sha: values.sha,
+      state: values.state,
+      targetUrl: values["target-url"] ?? "",
     });
   },
   async "retire-candidate"(values) {

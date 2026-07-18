@@ -1,10 +1,6 @@
+import { requiredMainStatusContexts } from "./checks.mjs";
+
 const actionsAppId = 15368;
-const requiredChecks = [
-  "verify",
-  "extension / build",
-  "docker / build (linux/amd64, ubuntu-latest, amd64)",
-  "docker / build (linux/arm64, ubuntu-24.04-arm, arm64)",
-];
 
 export function repositoryPatch() {
   return {
@@ -38,7 +34,7 @@ function statusRule() {
     parameters: {
       do_not_enforce_on_create: false,
       strict_required_status_checks_policy: true,
-      required_status_checks: requiredChecks.map((context) => ({ context, integration_id: actionsAppId })),
+      required_status_checks: requiredMainStatusContexts.map((context) => ({ context, integration_id: actionsAppId })),
     },
   };
 }

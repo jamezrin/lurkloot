@@ -6,6 +6,9 @@ on:
       ref:
         type: string
         required: true
+      trusted_ref:
+        type: string
+        required: true
       version:
         type: string
         required: true
@@ -21,7 +24,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pending:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.trusted_ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Mark the candidate head as pending
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.ref }}
+          TARGET_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          node scripts/release/cli.mjs candidate-checks
+          --sha "$SHA" --state pending --target-url "$TARGET_URL"
+
   verify:
+    needs: pending
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -47,6 +73,7 @@ jobs:
     uses: ./.github/workflows/build-extension.yml
     with:
       ref: ${{ inputs.ref }}
+      trusted_ref: ${{ inputs.trusted_ref }}
       artifact_name: candidate-extension-${{ inputs.version }}
       sign_crx: true
     secrets: inherit
@@ -74,7 +101,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ inputs.trusted_ref }}
           path: trusted
           persist-credentials: false
       - uses: actions/checkout@v7
@@ -124,7 +151,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ inputs.trusted_ref }}
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
@@ -139,3 +166,38 @@ jobs:
         run: >-
           node scripts/release/cli.mjs candidate-comment
           --pr "$PR" --version "$VERSION" --sha "$SHA" --state ready --url "$URL"
+
+  gate:
+    if: always()
+    needs: [verify, extension, docker, publish, site, status]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.trusted_ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Record the required candidate result on its head SHA
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.ref }}
+          TARGET_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          VERIFY: ${{ needs.verify.result }}
+          EXTENSION: ${{ needs.extension.result }}
+          DOCKER: ${{ needs.docker.result }}
+          PUBLISH: ${{ needs.publish.result }}
+          SITE: ${{ needs.site.result }}
+          STATUS: ${{ needs.status.result }}
+        run: |
+          state=success
+          for result in "$VERIFY" "$EXTENSION" "$DOCKER" "$PUBLISH" "$SITE" "$STATUS"; do
+            test "$result" = success || state=failure
+          done
+          node scripts/release/cli.mjs candidate-checks \
+            --sha "$SHA" --state "$state" --target-url "$TARGET_URL"
+          test "$state" = success

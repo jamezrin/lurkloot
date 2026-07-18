@@ -86,14 +86,19 @@ A generated release pull request triggers candidate preparation on `opened`, `re
    request.
 6. Deploy the site to the shared `next` branch.
 7. Maintain one sticky release-status comment on the generated release pull request.
+8. Write the four validation contexts and a unique `release candidate / ready` context directly to
+   the generated PR head. This preserves required-check semantics when GitHub suppresses events
+   caused by the token that creates the PR.
 
 Candidate tags and releases are preview pointers, not provenance anchors. They may move only while
 the corresponding GitHub release remains a prerelease and retains matching ownership metadata.
 Stable tags are immutable.
 
-Candidate code builds in credential-free jobs. The signing job receives only normalized unsigned
-artifacts and a pinned signer, not a candidate checkout. The Docker publishing job receives verified
-OCI archives but does not execute them. Preview credentials live in the `preview` environment.
+Candidate code builds in credential-free jobs. A separate credential-free job prepares the signer
+from the trusted base ref and its integrity-pinned lockfile. The signing job receives only normalized
+unsigned artifacts and that signer bundle, not a candidate checkout. The Docker publishing job
+receives verified OCI archives but does not execute them. Preview credentials live in the `preview`
+environment.
 
 ## Stable promotion
 
@@ -101,11 +106,13 @@ The stable workflow reacts to a merged `release/*` pull request into `main` and 
 dispatch as an idempotent recovery entrypoint. It operates on the resulting `main` commit:
 
 1. Validate the committed version, release label, stable predecessor, and workspace metadata.
-2. Rebuild signed extension artifacts and both Docker architectures from `main`.
+2. Rebuild signed extension artifacts and export both Docker architectures as checksummed OCI
+   archives from `main`, without registry credentials.
 3. Pass the single `production` environment approval.
 4. Create `vX.Y.Z` at the merged `main` commit, refusing to move an existing tag.
 5. Create or update the stable GitHub release and upload verified artifacts.
-6. Publish GHCR `X.Y.Z`, `X.Y`, `X`, and `latest` aliases.
+6. Inside the production gate, publish GHCR `X.Y.Z`, `X.Y`, `X`, and `latest` aliases. Refuse to
+   replace an existing version-specific digest.
 7. Upload the Chrome ZIP and request `DEFAULT_PUBLISH`, which publishes after Google approval.
 8. Remove the matching candidate prerelease and candidate tag only after the stable GitHub release
    exists.
@@ -121,8 +128,8 @@ fails instead of overwriting or moving a stable object.
 Repository merge methods enable merge commits and squash merges and disable rebase merges.
 
 - The `main` ruleset permits only merge-commit pull request merges. It requires pull requests and
-  the existing verification checks, blocks force pushes and deletions, and does not require linear
-  history.
+  the existing verification checks plus `release candidate / ready`, blocks force pushes and
+  deletions, and does not require linear history.
 - The `develop` ruleset permits only squash pull request merges. It requires pull requests and the
   existing verification checks and blocks force pushes and deletions. Linear history is disabled
   because the dedicated synchronization App may add a merge commit.

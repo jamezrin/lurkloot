@@ -1,4 +1,5 @@
 import { candidateMarker, candidateTag, parseCandidateMarker } from "./pipeline.mjs";
+import { candidateStatusContext, requiredMainStatusContexts } from "./checks.mjs";
 
 const apiOrigin = "https://api.github.com";
 const statusMarker = "<!-- lurkloot-release-status -->";
@@ -106,6 +107,10 @@ export class GitHubClient {
   updateComment(id, body) {
     return this.request(this.repoPath(`/issues/comments/${id}`), { method: "PATCH", body: { body } });
   }
+
+  createStatus(sha, body) {
+    return this.request(this.repoPath(`/statuses/${encodeURIComponent(sha)}`), { method: "POST", body });
+  }
 }
 
 function assertOwnedPrerelease(release, { pr, version }) {
@@ -123,11 +128,13 @@ function releaseBody({ notes, pr, version }) {
 export async function reconcilePrerelease({ client, pr, version, sha, notes, assets }) {
   const tag = candidateTag(version);
   const [ref, existingRelease] = await Promise.all([client.ref(tag), client.releaseByTag(tag)]);
-  if (ref && !existingRelease) throw new Error(`refusing to move ${tag}: no owned prerelease proves its identity`);
+  if (ref && !existingRelease && ref.object?.sha !== sha) {
+    throw new Error(`refusing to recover ${tag}: it points to another commit`);
+  }
   if (existingRelease) assertOwnedPrerelease(existingRelease, { pr, version });
 
-  if (!ref) await client.createRef(tag, sha);
-  else if (ref.object?.sha !== sha) await client.updateRef(tag, sha);
+  if (existingRelease && !ref) await client.createRef(tag, sha);
+  else if (existingRelease && ref.object?.sha !== sha) await client.updateRef(tag, sha);
 
   const body = {
     tag_name: tag,
@@ -139,7 +146,7 @@ export async function reconcilePrerelease({ client, pr, version, sha, notes, ass
   };
   const release = existingRelease
     ? await client.updateRelease(existingRelease.id, body)
-    : await client.createRelease(body);
+    : await client.createRelease({ ...body, target_commitish: sha });
   const existingAssets = new Map((release.assets ?? existingRelease?.assets ?? []).map((asset) => [asset.name, asset]));
   for (const asset of assets) {
     const existing = existingAssets.get(asset.name);
@@ -147,6 +154,25 @@ export async function reconcilePrerelease({ client, pr, version, sha, notes, ass
     await client.uploadAsset(release.upload_url ?? existingRelease.upload_url, asset);
   }
   return { release, tag };
+}
+
+export async function setCommitStatus({ client, sha, state, targetUrl = "", context = candidateStatusContext }) {
+  const descriptions = {
+    pending: "Release candidate is building",
+    success: "Release candidate is ready",
+    failure: "Release candidate failed",
+  };
+  if (!descriptions[state]) throw new Error(`unsupported commit status: ${state}`);
+  return client.createStatus(sha, {
+    state,
+    context,
+    description: descriptions[state],
+    ...(targetUrl ? { target_url: targetUrl } : {}),
+  });
+}
+
+export async function setCandidateStatuses(options) {
+  return Promise.all(requiredMainStatusContexts.map((context) => setCommitStatus({ ...options, context })));
 }
 
 export async function retirePrerelease({ client, pr, version }) {

@@ -8,6 +8,12 @@
 
 **Tech Stack:** GitHub Actions, Node 22/24 ESM, `node:test`, pnpm 11, WXT, Docker Buildx/GHCR, Chrome Web Store API v2, Cloudflare Pages, GitHub REST API.
 
+**Security hardening amendment:** Candidate signing tooling is prepared in a separate job from the
+trusted base ref and integrity-pinned lockfile. Generated release PRs receive required contexts on
+their head SHA from trusted orchestration. Stable Docker jobs export OCI archives before approval;
+all GHCR stable writes occur in the single production job and refuse to move an existing version
+digest. Candidate release creation recovers only an exact-SHA orphan tag.
+
 ## Global Constraints
 
 - Release labels are exactly `release/patch`, `release/minor`, and `release/major`.
@@ -534,4 +540,3 @@
   Apply and remove a release label on a test pull request, verify policy comments and candidate
   preparation, then close the generated candidate without merging. Confirm no stable tags, stable
   GHCR aliases, CWS revisions, or production deployments changed.
-

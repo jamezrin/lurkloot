@@ -131,9 +131,11 @@ jobs:
       contents: write
       packages: write
       pull-requests: write
+      statuses: write
     uses: ./.github/workflows/build-release-candidate.yml
     with:
       ref: ${{ needs.prepare.outputs.release_sha }}
+      trusted_ref: ${{ github.event.pull_request.base.sha }}
       version: ${{ needs.prepare.outputs.version }}
       pr_number: ${{ fromJSON(needs.prepare.outputs.release_pr) }}
     secrets: inherit
