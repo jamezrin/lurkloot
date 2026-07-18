@@ -41,6 +41,7 @@ jobs:
       - run: pnpm check
 
   extension:
+    needs: verify
     permissions:
       contents: read
     uses: ./.github/workflows/build-extension.yml
@@ -51,6 +52,7 @@ jobs:
     secrets: inherit
 
   docker:
+    needs: verify
     permissions:
       contents: read
       packages: write

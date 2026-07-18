@@ -154,8 +154,8 @@ export async function retirePrerelease({ client, pr, version }) {
   const release = await client.releaseByTag(tag);
   if (!release) return "absent";
   assertOwnedPrerelease(release, { pr, version });
-  await client.deleteRelease(release.id);
   await client.deleteRef(tag);
+  await client.deleteRelease(release.id);
   return "retired";
 }
 

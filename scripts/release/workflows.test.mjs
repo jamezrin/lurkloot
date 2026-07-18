@@ -28,6 +28,8 @@ test("candidate workflow runs trusted orchestration for generated release pull r
   assert.match(controller, /uses: \.\/\.github\/workflows\/build-release-candidate\.yml/);
   assert.match(candidate, /permissions:\n\s+contents: read/);
   assert.match(candidate, /pnpm check/);
+  assert.match(candidate, /extension:\n\s+needs: verify/);
+  assert.match(candidate, /docker:\n\s+needs: verify/);
   assert.match(candidate, /sign_crx: true/);
   assert.match(candidate, /image_tag: candidate-\$\{\{ inputs\.version \}\}/);
   assert.doesNotMatch(candidate, /image_tag: latest/);

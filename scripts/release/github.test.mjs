@@ -115,5 +115,8 @@ test("retires only the matching owned prerelease", async () => {
   });
   const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
   await retirePrerelease({ client, pr: 132, version: "1.6.0" });
-  assert.deepEqual(routes.calls.slice(-2).map(({ method }) => method), ["DELETE", "DELETE"]);
+  assert.deepEqual(routes.calls.slice(-2).map(({ method, path }) => `${method} ${path}`), [
+    "DELETE /repos/jamezrin/lurkloot/git/refs/tags/candidate-v1.6.0",
+    "DELETE /repos/jamezrin/lurkloot/releases/12",
+  ]);
 });
