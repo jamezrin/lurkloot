@@ -717,14 +717,32 @@
   "compatibilityKickProfileDescription": {
     "message": "शामिल Kick प्रोफ़ाइल चुनें या Lurkloot को अपने आप चुनने दें।"
   },
-  "compatibilityEffectiveTitle": {
-    "message": "प्रभावी संगतता"
+  "compatibilitySectionTitle": {
+    "message": "संगतता"
   },
-  "compatibilityExpertShow": {
-    "message": "विशेषज्ञ नियंत्रण दिखाएँ"
+  "compatibilitySectionDescription": {
+    "message": "Lurkloot हर प्लेटफ़ॉर्म से कैसे संवाद करता है। स्वचालित मोड बंडल की गई प्रोफ़ाइल का पालन करता है।"
   },
-  "compatibilityExpertHide": {
-    "message": "विशेषज्ञ नियंत्रण छिपाएँ"
+  "compatibilityComponentProfile": {
+    "message": "प्रोफ़ाइल"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "हार्टबीट ट्रांसपोर्ट"
+  },
+  "compatibilityComponentInventory": {
+    "message": "इन्वेंट्री क्वेरी"
+  },
+  "compatibilityComponentClaim": {
+    "message": "क्लेम हैंडलिंग"
+  },
+  "compatibilityFromProfile": {
+    "message": "प्रोफ़ाइल से"
+  },
+  "compatibilityOverridden": {
+    "message": "अधिलेखित"
+  },
+  "compatibilityReplacedBy": {
+    "message": "$1 द्वारा प्रतिस्थापित"
   },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "Twitch हार्टबीट ट्रांसपोर्ट"

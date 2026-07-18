@@ -717,14 +717,32 @@
   "compatibilityKickProfileDescription": {
     "message": "Выберите встроенный профиль Kick или разрешите Lurkloot выбрать его автоматически."
   },
-  "compatibilityEffectiveTitle": {
-    "message": "Активная совместимость"
+  "compatibilitySectionTitle": {
+    "message": "Совместимость"
   },
-  "compatibilityExpertShow": {
-    "message": "Показать расширенные настройки"
+  "compatibilitySectionDescription": {
+    "message": "Как Lurkloot взаимодействует с каждой платформой. Автоматический режим следует встроенному профилю."
   },
-  "compatibilityExpertHide": {
-    "message": "Скрыть расширенные настройки"
+  "compatibilityComponentProfile": {
+    "message": "Профиль"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "Транспорт heartbeat"
+  },
+  "compatibilityComponentInventory": {
+    "message": "Запрос инвентаря"
+  },
+  "compatibilityComponentClaim": {
+    "message": "Обработка получения наград"
+  },
+  "compatibilityFromProfile": {
+    "message": "Из профиля"
+  },
+  "compatibilityOverridden": {
+    "message": "Переопределено"
+  },
+  "compatibilityReplacedBy": {
+    "message": "Заменено на $1"
   },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "Передача пульса Twitch"

@@ -717,14 +717,32 @@
   "compatibilityKickProfileDescription": {
     "message": "选择内置的 Kick 配置文件，或让 Lurkloot 自动选择。"
   },
-  "compatibilityEffectiveTitle": {
-    "message": "当前兼容性"
+  "compatibilitySectionTitle": {
+    "message": "兼容性"
   },
-  "compatibilityExpertShow": {
-    "message": "显示专家控件"
+  "compatibilitySectionDescription": {
+    "message": "Lurkloot 与各平台通信的方式。自动模式会沿用内置配置方案。"
   },
-  "compatibilityExpertHide": {
-    "message": "隐藏专家控件"
+  "compatibilityComponentProfile": {
+    "message": "配置方案"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "心跳传输方式"
+  },
+  "compatibilityComponentInventory": {
+    "message": "库存查询"
+  },
+  "compatibilityComponentClaim": {
+    "message": "领取处理"
+  },
+  "compatibilityFromProfile": {
+    "message": "来自配置方案"
+  },
+  "compatibilityOverridden": {
+    "message": "已覆盖"
+  },
+  "compatibilityReplacedBy": {
+    "message": "已由 $1 取代"
   },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "Twitch 心跳传输"
