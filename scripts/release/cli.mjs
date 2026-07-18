@@ -11,6 +11,7 @@ import { releasePolicy } from "./pipeline.mjs";
 import { GitHubClient, reconcilePrerelease, retirePrerelease, upsertComment } from "./github.mjs";
 import { createRepositoryToken } from "./github-app.mjs";
 import { syncBranches } from "./sync.mjs";
+import { applyRepositoryConfig, repositoryConfiguration } from "./repository-config.mjs";
 
 export function parseArgs(argv) {
   const values = {};
@@ -55,10 +56,16 @@ export function formatAppTokenOutput(token) {
   return `::add-mask::${token}\ntoken=${token}\n`;
 }
 
+export function configureApplyRequested({ apply }) {
+  if (apply === undefined || apply === "false") return false;
+  if (apply === "true") return true;
+  throw new Error("--apply must be true or false");
+}
+
 function githubClient() {
   return new GitHubClient({
     repository: process.env.GITHUB_REPOSITORY,
-    token: process.env.GITHUB_TOKEN,
+    token: process.env.GITHUB_TOKEN || process.env.GH_TOKEN,
   });
 }
 
@@ -128,6 +135,16 @@ const commands = {
   async "sync-branches"(values) {
     const result = await syncBranches({ remote: values.remote || "origin" });
     await emit(result);
+  },
+  async "configure-repository"(values) {
+    const syncAppId = Number(values["sync-app-id"]);
+    const configuration = repositoryConfiguration(syncAppId);
+    if (!configureApplyRequested(values)) {
+      process.stdout.write(`${JSON.stringify(configuration, null, 2)}\n`);
+      return;
+    }
+    await applyRepositoryConfig({ client: githubClient(), syncAppId });
+    process.stdout.write("repository release rulesets applied\n");
   },
   async "cws-release"(values) {
     const client = new ChromeWebStoreClient({

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { candidateStatus, formatAppTokenOutput, parseArgs, resolvePolicy, resolveVersion } from "./cli.mjs";
+import { candidateStatus, configureApplyRequested, formatAppTokenOutput, parseArgs, resolvePolicy, resolveVersion } from "./cli.mjs";
 
 test("parses flags into a map", () => {
   assert.deepEqual(parseArgs(["--bump", "minor", "--version", "1.5.0"]), { bump: "minor", version: "1.5.0" });
@@ -46,4 +46,11 @@ test("renders candidate status with stable links", () => {
 
 test("masks an App token before exporting it", () => {
   assert.equal(formatAppTokenOutput("ghs_short"), "::add-mask::ghs_short\ntoken=ghs_short\n");
+});
+
+test("requires an explicit true value before applying repository settings", () => {
+  assert.equal(configureApplyRequested({}), false);
+  assert.equal(configureApplyRequested({ apply: "false" }), false);
+  assert.equal(configureApplyRequested({ apply: "true" }), true);
+  assert.throws(() => configureApplyRequested({ apply: "yes" }), /true or false/);
 });
