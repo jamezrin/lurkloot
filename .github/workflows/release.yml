@@ -64,10 +64,19 @@ jobs:
           path: release-assets
       - name: Tag the released commit
         run: |
-          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
-            -f ref="refs/tags/v$VERSION" -f sha="$GITHUB_SHA" \
-            || gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/v$VERSION" \
-                 -f sha="$GITHUB_SHA" -F force=true
+          # Re-running Release is meant to be a safe no-op, so an existing tag at this same commit is
+          # fine. An existing tag at a *different* commit is not: it means main moved on without a
+          # version bump, and force-moving v$VERSION would silently re-point a published release at
+          # code that was never released under that version.
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" --jq .object.sha 2>/dev/null || true)
+          if [ -z "$existing" ]; then
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/v$VERSION" -f sha="$GITHUB_SHA"
+          elif [ "$existing" != "$GITHUB_SHA" ]; then
+            echo "v$VERSION already tags $existing, refusing to move it to $GITHUB_SHA." >&2
+            echo "Prepare a new version instead of re-releasing a published one." >&2
+            exit 1
+          fi
       - name: Render release notes
         run: node scripts/release/cli.mjs notes --version "$VERSION" --out notes.md
       - name: Create or update the GitHub release
