@@ -27,7 +27,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - name: Mark release candidate / ready as not required
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -54,7 +54,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - id: policy
         run: |
           labels=$(jq -r '[.pull_request.labels[].name] | join(",")' "$GITHUB_EVENT_PATH")
