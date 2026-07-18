@@ -744,12 +744,6 @@
   "compatibilityReplacedBy": {
     "message": "تم استبداله بـ $1"
   },
-  "compatibilityExpertShow": {
-    "message": "إظهار عناصر التحكم المتقدمة"
-  },
-  "compatibilityExpertHide": {
-    "message": "إخفاء عناصر التحكم المتقدمة"
-  },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "نقل نبضات Twitch"
   },

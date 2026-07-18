@@ -744,12 +744,6 @@
   "compatibilityReplacedBy": {
     "message": "$1 द्वारा प्रतिस्थापित"
   },
-  "compatibilityExpertShow": {
-    "message": "विशेषज्ञ नियंत्रण दिखाएँ"
-  },
-  "compatibilityExpertHide": {
-    "message": "विशेषज्ञ नियंत्रण छिपाएँ"
-  },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "Twitch हार्टबीट ट्रांसपोर्ट"
   },
