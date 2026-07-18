@@ -54,7 +54,7 @@ jobs:
           pnpm --dir trusted-release-tools install --frozen-lockfile --ignore-scripts
           mkdir trusted-release-tools/signer
           printf '{"private":true,"dependencies":{"crx3":"2.0.0"}}\n' > trusted-release-tools/signer/package.json
-          pnpm --dir trusted-release-tools/signer install --offline --ignore-scripts --prod --lockfile=false
+          pnpm --dir trusted-release-tools/signer install --offline --ignore-scripts --prod --lockfile=false --ignore-workspace
           test "$(node -p "require('./trusted-release-tools/signer/node_modules/crx3/package.json').version")" = 2.0.0
           tar -C trusted-release-tools -czf signer.tar.gz signer
           sha256sum signer.tar.gz > SIGNER_SHA256
