@@ -10,19 +10,12 @@ on:
         description: Optional release version to overlay before building
         type: string
         default: ""
-      trusted_tools_ref:
-        description: Immutable trusted release-tooling commit; required with version
-        type: string
-        default: ""
       artifact_prefix:
         type: string
         default: docker-digest
       push:
         type: boolean
         default: false
-      pr_number: { type: string, default: "" }
-      expected_head_sha: { type: string, default: "" }
-      release_label: { type: string, default: "" }
     outputs:
       image_tag:
         value: ${{ jobs.publish.outputs.image_tag }}
@@ -55,22 +48,11 @@ jobs:
         if: inputs.version != ''
         with:
           node-version: 24
-      - uses: actions/checkout@v7
-        if: inputs.version != ''
-        with:
-          ref: ${{ inputs.trusted_tools_ref }}
-          path: trusted-release-tools
-          persist-credentials: false
-      - name: Apply release version
+      - name: Set the release version
         if: inputs.version != ''
         env:
           VERSION: ${{ inputs.version }}
-          TRUSTED_TOOLS_REF: ${{ inputs.trusted_tools_ref }}
-        run: |
-          [[ "$TRUSTED_TOOLS_REF" =~ ^[0-9a-f]{40}$ ]] || { echo "trusted_tools_ref must be an immutable commit SHA" >&2; exit 1; }
-          test "$(git -C trusted-release-tools rev-parse HEAD)" = "$TRUSTED_TOOLS_REF"
-          node trusted-release-tools/scripts/release/cli.mjs prepare-workspace "$VERSION"
-          rm -rf trusted-release-tools
+        run: node scripts/release/cli.mjs prepare-workspace --version "$VERSION" --date "$(date -u +%F)"
       - uses: docker/setup-buildx-action@v4
       - id: build
         uses: docker/build-push-action@v7
@@ -106,26 +88,13 @@ jobs:
     if: inputs.push
     needs: build
     runs-on: ubuntu-latest
-    environment: prereleases
+    environment: preview
     permissions:
       contents: read
       packages: write
-      pull-requests: read
     outputs:
       image_tag: ${{ steps.publish.outputs.image_tag }}
-    env:
-      RELEASE_TOOLS: trusted-release-tools
     steps:
-      # Revalidation runs the trusted tooling, never the candidate's own copy, so this job checks
-      # out the pinned release tools rather than the candidate ref.
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.trusted_tools_ref }}
-          path: trusted-release-tools
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
       - uses: actions/download-artifact@v8
         with:
           pattern: ${{ inputs.artifact_prefix }}-oci-*
@@ -134,74 +103,23 @@ jobs:
       - name: Verify OCI artifacts
         working-directory: images
         run: sha256sum -c image-amd64.tar.sha256 && sha256sum -c image-arm64.tar.sha256
-      - name: Revalidate candidate immediately before amd64 registry mutation
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          PR: ${{ inputs.pr_number }}
-          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
-          RELEASE_LABEL: ${{ inputs.release_label }}
-        run: |
-          node "$RELEASE_TOOLS/scripts/release/cli.mjs" prepare pr-assert --pr "$PR" --expected-sha "$EXPECTED_HEAD_SHA" --label "$RELEASE_LABEL"
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Stage immutable OCI amd64
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
-          PR: ${{ inputs.pr_number }}
-          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
-          RELEASE_LABEL: ${{ inputs.release_label }}
-        run: |
-          node "$RELEASE_TOOLS/scripts/release/cli.mjs" prepare pr-assert --pr "$PR" --expected-sha "$EXPECTED_HEAD_SHA" --label "$RELEASE_LABEL"
-          staging="candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker load --input images/image-amd64.tar
-          docker tag "$IMAGE_NAME:$VERSION-amd64" "$IMAGE_NAME:$staging-amd64"
-          docker push "$IMAGE_NAME:$staging-amd64"
-      - name: Revalidate candidate immediately before arm64 registry mutation
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          PR: ${{ inputs.pr_number }}
-          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
-          RELEASE_LABEL: ${{ inputs.release_label }}
-        run: |
-          node "$RELEASE_TOOLS/scripts/release/cli.mjs" prepare pr-assert --pr "$PR" --expected-sha "$EXPECTED_HEAD_SHA" --label "$RELEASE_LABEL"
-      - name: Stage immutable OCI arm64
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          staging="candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker load --input images/image-arm64.tar
-          docker tag "$IMAGE_NAME:$VERSION-arm64" "$IMAGE_NAME:$staging-arm64"
-          docker push "$IMAGE_NAME:$staging-arm64"
-      - name: Revalidate candidate immediately before immutable manifest mutation
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          PR: ${{ inputs.pr_number }}
-          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
-          RELEASE_LABEL: ${{ inputs.release_label }}
-        run: |
-          node "$RELEASE_TOOLS/scripts/release/cli.mjs" prepare pr-assert --pr "$PR" --expected-sha "$EXPECTED_HEAD_SHA" --label "$RELEASE_LABEL"
+      # Only the immutable version-specific tags are set here. The moving aliases `X.Y`, `X` and
+      # `latest` are deliberately left alone: release.yml's publish job sets them after the single
+      # human approval, so an unapproved build can never move `latest`.
       - id: publish
-        name: Stage immutable OCI manifest
+        name: Push the version tags
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          mkdir digests
-          staging="candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker buildx imagetools create --tag "$IMAGE_NAME:$staging" "$IMAGE_NAME:$staging-amd64" "$IMAGE_NAME:$staging-arm64"
-          # The candidate record carries one digest per architecture, so the per-arch manifests are
-          # recorded rather than the merged index digest.
-          for arch in amd64 arm64; do
-            digest=$(docker buildx imagetools inspect "$IMAGE_NAME:$staging-$arch" --format '{{json .Manifest.Digest}}' | tr -d '"' | sed 's/^sha256://')
-            [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || exit 1
-            touch "digests/$digest"
-          done
-          echo "image_tag=$IMAGE_NAME:$staging" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: ${{ inputs.artifact_prefix }}-digest-published
-          path: digests/*
-          retention-days: 1
+          docker load --input images/image-amd64.tar
+          docker push "$IMAGE_NAME:$VERSION-amd64"
+          docker load --input images/image-arm64.tar
+          docker push "$IMAGE_NAME:$VERSION-arm64"
+          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" \
+            "$IMAGE_NAME:$VERSION-amd64" "$IMAGE_NAME:$VERSION-arm64"
+          echo "image_tag=$IMAGE_NAME:$VERSION" >> "$GITHUB_OUTPUT"
