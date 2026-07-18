@@ -96,6 +96,10 @@ test("stable promotion runs automatically with one production gate and a dedicat
   assert.match(text, /RELEASE_SYNC_APP_PRIVATE_KEY/);
   assert.match(text, /cli\.mjs app-token/);
   assert.match(text, /cli\.mjs sync-branches/);
+  assert.ok(
+    text.indexOf("cli.mjs app-token") < text.indexOf("Tag the released commit"),
+    "sync App credentials must be validated before stable publication starts",
+  );
   assert.match(text, /retire-candidate/);
   assert.doesNotMatch(text, /gh pr create --base develop/);
 });
