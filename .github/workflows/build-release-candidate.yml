@@ -43,7 +43,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - name: Mark the candidate head as pending
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -121,7 +121,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - uses: actions/download-artifact@v8
         with:
           name: candidate-extension-${{ inputs.version }}
@@ -167,7 +167,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - name: Update the candidate status comment
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -193,7 +193,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - name: Record the required candidate result on its head SHA
         env:
           GITHUB_TOKEN: ${{ github.token }}
