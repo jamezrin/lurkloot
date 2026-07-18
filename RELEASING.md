@@ -188,7 +188,7 @@ only then removes the conflicting classic protections. It refuses to run without
 `develop squash history` targets `develop` and requires:
 
 - pull requests merged with `squash` only for ordinary actors;
-- the same five checks and strict up-to-date policy;
+- the four ordinary validation/build checks and strict up-to-date policy;
 - no deletion or force push;
 - only the Lurkloot Release Sync App as an always-allowed bypass actor.
 

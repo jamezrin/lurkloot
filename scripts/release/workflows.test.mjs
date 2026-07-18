@@ -28,6 +28,7 @@ test("candidate workflow runs trusted orchestration for generated release pull r
   assert.match(controller, /uses: \.\/\.github\/workflows\/build-release-candidate\.yml/);
   assert.match(controller, /commit-status/);
   assert.match(controller, /release candidate \/ ready/);
+  assert.match(controller, /if: >-\n\s+!startsWith\(github\.event\.pull_request\.head\.ref, 'release\/'\)/);
   assert.match(candidate, /permissions:\n\s+contents: read/);
   assert.match(candidate, /trusted_ref:/);
   assert.match(candidate, /statuses: write/);
@@ -63,6 +64,7 @@ test("stable promotion runs automatically with one production gate and a dedicat
   assert.match(text, /pull_request:\n\s+types: \[closed\]/);
   assert.match(text, /workflow_dispatch:/);
   assert.match(text, /github\.event\.pull_request\.merged/);
+  assert.match(text, /github\.event\.pull_request\.head\.repo\.full_name == github\.repository/);
   assert.match(text, /startsWith\(github\.event\.pull_request\.head\.ref, 'release\/'\)/);
   assert.equal((text.match(/environment: production/g) ?? []).length, 1);
   assert.match(text, /export_oci: true/);

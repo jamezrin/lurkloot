@@ -49,6 +49,10 @@ test("develop permits squash PRs and only the dedicated App bypasses", () => {
     bypass_mode: "always",
   }]);
   assert.deepEqual(rule(ruleset, "pull_request").parameters.allowed_merge_methods, ["squash"]);
+  assert.deepEqual(
+    rule(ruleset, "required_status_checks").parameters.required_status_checks.map(({ context }) => context),
+    checks.slice(0, -1),
+  );
   assert.equal(JSON.stringify(ruleset.bypass_actors).includes("15368"), false);
   assert.equal(rule(ruleset, "required_linear_history"), undefined);
 });

@@ -1,4 +1,4 @@
-import { requiredMainStatusContexts } from "./checks.mjs";
+import { requiredMainStatusContexts, validationStatusContexts } from "./checks.mjs";
 
 const actionsAppId = 15368;
 
@@ -28,18 +28,18 @@ function pullRequestRule(mergeMethod) {
   };
 }
 
-function statusRule() {
+function statusRule(contexts) {
   return {
     type: "required_status_checks",
     parameters: {
       do_not_enforce_on_create: false,
       strict_required_status_checks_policy: true,
-      required_status_checks: requiredMainStatusContexts.map((context) => ({ context, integration_id: actionsAppId })),
+      required_status_checks: contexts.map((context) => ({ context, integration_id: actionsAppId })),
     },
   };
 }
 
-function branchRuleset({ name, branch, mergeMethod, bypass_actors = [] }) {
+function branchRuleset({ name, branch, mergeMethod, statusContexts, bypass_actors = [] }) {
   return {
     name,
     target: "branch",
@@ -50,7 +50,7 @@ function branchRuleset({ name, branch, mergeMethod, bypass_actors = [] }) {
       { type: "deletion" },
       { type: "non_fast_forward" },
       pullRequestRule(mergeMethod),
-      statusRule(),
+      statusRule(statusContexts),
     ],
   };
 }
@@ -60,6 +60,7 @@ export function mainRuleset() {
     name: "main release history",
     branch: "main",
     mergeMethod: "merge",
+    statusContexts: requiredMainStatusContexts,
   });
 }
 
@@ -70,6 +71,7 @@ export function developRuleset(syncAppId) {
     name: "develop squash history",
     branch: "develop",
     mergeMethod: "squash",
+    statusContexts: validationStatusContexts,
     bypass_actors: [{ actor_id: actorId, actor_type: "Integration", bypass_mode: "always" }],
   });
 }
