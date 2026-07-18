@@ -1,0 +1,139 @@
+name: Build release candidate
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+      pr_number:
+        type: number
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-candidate-${{ inputs.version }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+
+  extension:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-extension.yml
+    with:
+      ref: ${{ inputs.ref }}
+      artifact_name: candidate-extension-${{ inputs.version }}
+      sign_crx: true
+    secrets: inherit
+
+  docker:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      ref: ${{ inputs.ref }}
+      image_tag: candidate-${{ inputs.version }}
+      artifact_prefix: candidate-docker-${{ inputs.version }}
+      push: true
+    secrets: inherit
+
+  publish:
+    needs: [verify, extension, docker]
+    runs-on: ubuntu-latest
+    environment: preview
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v8
+        with:
+          name: candidate-extension-${{ inputs.version }}
+          path: release-assets
+      - name: Render candidate release notes
+        working-directory: candidate
+        env:
+          VERSION: ${{ inputs.version }}
+        run: node ../trusted/scripts/release/cli.mjs notes --version "$VERSION" --out ../notes.md
+      - name: Create or refresh the owned GitHub prerelease
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+          VERSION: ${{ inputs.version }}
+          SHA: ${{ inputs.ref }}
+        run: >-
+          node trusted/scripts/release/cli.mjs publish-candidate
+          --pr "$PR" --version "$VERSION" --sha "$SHA"
+          --assets release-assets --notes notes.md
+
+  site:
+    needs: verify
+    permissions:
+      contents: read
+    uses: ./.github/workflows/site-deploy.yml
+    with:
+      channel: prerelease
+      ref: ${{ inputs.ref }}
+    secrets: inherit
+
+  status:
+    needs: [publish, site]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Update the candidate status comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+          VERSION: ${{ inputs.version }}
+          SHA: ${{ inputs.ref }}
+          URL: https://github.com/${{ github.repository }}/releases/tag/candidate-v${{ inputs.version }}
+        run: >-
+          node scripts/release/cli.mjs candidate-comment
+          --pr "$PR" --version "$VERSION" --sha "$SHA" --state ready --url "$URL"
