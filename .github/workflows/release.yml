@@ -152,7 +152,7 @@ jobs:
         run: node scripts/release/cli.mjs app-token
       - uses: pnpm/action-setup@v6
         with:
-          version: 11.9.0
+          version: 11.15.0
       - uses: actions/download-artifact@v8
         with:
           name: extension-release-assets
