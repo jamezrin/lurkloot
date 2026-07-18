@@ -83,6 +83,10 @@ test("stable promotion runs automatically with one production gate and a dedicat
   assert.match(text, /startsWith\(github\.event\.pull_request\.head\.ref, 'release\/'\)/);
   assert.equal((text.match(/environment: production/g) ?? []).length, 1);
   assert.match(text, /export_oci: true/);
+  assert.match(
+    text,
+    /docker:\n\s+needs: resolve\n\s+permissions:\n\s+contents: read\n\s+packages: write\n\s+uses: \.\/\.github\/workflows\/build-docker\.yml/,
+  );
   assert.doesNotMatch(text, /image_tag: \$\{\{ needs\.resolve\.outputs\.version \}\}\n\s+push: true/);
   assert.match(text, /Verify and publish immutable stable image/);
   assert.match(text, /refusing to move immutable image/);
