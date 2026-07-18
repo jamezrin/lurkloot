@@ -144,7 +144,7 @@ jobs:
         run: |
           sha256sum -c SIGNER_SHA256
           tar -xzf signer.tar.gz -C "$GITHUB_WORKSPACE"
-          test "$(node -p "require('./signer/node_modules/crx3/package.json').version")" = 2.0.0
+          test "$(node -p "require('$GITHUB_WORKSPACE/signer/node_modules/crx3/package.json').version")" = 2.0.0
       - name: Verify unsigned build output
         working-directory: release-assets
         run: sha256sum -c UNSIGNED_SHA256SUMS
