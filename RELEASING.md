@@ -4,6 +4,24 @@ Releases are driven from the Actions tab. Two workflow dispatches and one pull r
 every release, including hotfixes. Do not create or move tags by hand; CI never pushes to a
 protected branch, it only creates tags, releases and pull requests.
 
+## Before you start: write the changelog
+
+Release notes are rendered *only* from `packages/site/src/changelog.json`. Add the entry for the new
+version to `develop` before running Prepare release, since that is the branch it cuts from. Put it at
+the top of the array; omit `date`, because Prepare release stamps it:
+
+```json
+{ "version": "1.5.1", "changes": [
+  { "kind": "fixed", "text": "Fixed a thing." }
+] }
+```
+
+The only valid `kind` values are `new`, `improved` and `fixed`; anything else fails the site build.
+
+If no entry exists, Prepare release creates one with `"changes": []` rather than failing, and the
+GitHub release then ships with an **empty body**. That is the intended escape hatch for a build-only
+release, but it is silent — so write the entry first unless you mean it.
+
 ## The three steps
 
 1. **Actions → Prepare release.** Choose `patch`, `minor` or `major`, or type an explicit `X.Y.Z` to
@@ -28,6 +46,26 @@ protected branch, it only creates tags, releases and pull requests.
 
 Upload the Firefox ZIP and the source ZIP from the GitHub release to AMO; AMO publication remains
 manual.
+
+## Where the version number comes from
+
+Nobody edits a version by hand.
+
+Prepare release derives it from **git tags, not from `package.json`**: it reads `git tag --list 'v*'`,
+takes the highest stable tag, and applies your bump. Prereleases and leftover `candidate-*` tags are
+filtered out, so a stray tag cannot skew a bump. It then writes that version into all seven manifests
+and the changelog entry, as a single `chore(release): X.Y.Z` commit.
+
+Release reads the version back out of `package.json` on `main`. **That committed value is what is
+actually released** — the tag, the GHCR tags and the store package all follow it.
+
+The version is therefore derived from what was last released, and committed *before* anything is
+built. Nothing is frozen, so nothing can be invalidated mid-release.
+
+`checkWorkspace` runs as part of the bump and fails loudly if the seven manifests disagree or the
+changelog has no entry for the version, so a half-edited workspace cannot reach a release. An
+explicit version override must be bare `X.Y.Z`; a `v` prefix is rejected before any branch is
+created.
 
 ## Branch model and hotfixes
 
@@ -65,11 +103,14 @@ Restrict `preview`'s deployment branches to `main` and `release/*`.
 
 ## Credentials
 
-Environment secrets: `CRX_PRIVATE_KEY` in `preview`, `CWS_SERVICE_ACCOUNT_JSON` in `production`.
+Secrets: `CRX_PRIVATE_KEY`, `CWS_SERVICE_ACCOUNT_JSON`, `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`. All four are currently **repository** secrets, which every job reads via
+`secrets: inherit`. The "Holds" column above describes where the two publishing credentials belong
+once the optional hardening below is applied; until then the environments provide the approval gate
+and the branch restriction, but not a credential boundary.
 
-Repository secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. These stay at the
-repository level deliberately — the site deploys from both environments, so scoping them to one
-would break the other channel.
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` stay at the repository level permanently — the
+site deploys from both environments, so scoping them to one would break the other channel.
 
 Variables: `CWS_PUBLISHER_ID`, `CWS_EXTENSION_ID`.
 
@@ -89,6 +130,30 @@ submitted and does nothing.
 
 Re-running **Prepare release** for a version that is already prepared is likewise a no-op; it
 refreshes the branch and leaves the existing pull request in place.
+
+## After a release: reconcile `develop`
+
+Both branches require linear history, so pull requests between them merge by rebase. Rebasing
+rewrites the commits, so once the sync PR merges, `main` and `develop` end up with **identical trees
+but no shared history** — their merge-base stays at the commit before the merge.
+
+The consequence is cosmetic but compounds: the next `release/X.Y.Z` branch is cut from `develop`, so
+its pull request diffs from that stale merge-base and shows the previous release's version bump on
+top of the intended one. It still merges cleanly, because patch-equivalent commits are dropped on
+rebase.
+
+Check with:
+
+```sh
+git rev-parse origin/main^{tree} origin/develop^{tree}   # should match
+git merge-base origin/main origin/develop                # should equal origin/main
+```
+
+If the trees match but the merge-base is stale, reconcile `develop` to `main`. This needs a force
+push, so temporarily set `allow_force_pushes: true` and `enforce_admins: false` on `develop`, run
+`git push --force-with-lease origin origin/main:refs/heads/develop`, then restore both settings
+immediately. Only do this when the trees are already identical — it is a history fix, not a content
+change.
 
 ## Repository configuration
 
