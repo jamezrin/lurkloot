@@ -85,7 +85,7 @@ jobs:
           # verbatim when set. Validation builds pass no version, so fall back to a valid literal
           # rather than emitting an invalid ":-arch" reference.
           tags: ${{ env.IMAGE_NAME }}:${{ inputs.version || 'validation' }}-${{ matrix.arch }}
-          outputs: type=oci,dest=/tmp/image-${{ matrix.arch }}.tar
+          outputs: type=docker,dest=/tmp/image-${{ matrix.arch }}.tar
       - name: Checksum OCI artifact
         run: cd /tmp && sha256sum image-${{ matrix.arch }}.tar > image-${{ matrix.arch }}.tar.sha256
       - if: inputs.push
