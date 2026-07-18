@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cancelAction, ChromeWebStoreClient, normalizeStatus, prereleaseAction, revisionVersion, stableAction, submitAction, submittedAction, waitForCancellation } from "./cws.mjs";
+import { cancelAction, ChromeWebStoreClient, normalizeStatus, prereleaseAction, publishAction, revisionVersion, stableAction, submitAction, submittedAction, waitForCancellation } from "./cws.mjs";
 
 const revision = (state, version) => ({ state, distributionChannels: [{ deployPercentage: 100, crxVersion: version }] });
 const status = ({ published = "1.3.0", submitted, warned = false, takenDown = false } = {}) => ({
@@ -75,7 +75,7 @@ test("cancels only an active matching review", () => {
   assert.equal(cancelAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"), "cancel");
 });
 
-test("uses staged publishing and cancellation API methods", async () => {
+test("publishes immediately so approval goes live unattended", async () => {
   const requests = [];
   const client = new ChromeWebStoreClient({
     publisherId: "publisher",
@@ -86,9 +86,9 @@ test("uses staged publishing and cancellation API methods", async () => {
       return { ok: true, json: async () => ({ state: "PENDING_REVIEW" }) };
     },
   });
-  await client.submitStaged();
+  await client.publish();
   await client.cancelSubmission();
-  assert.deepEqual(JSON.parse(requests[0].init.body), { publishType: "STAGED_PUBLISH", blockOnWarnings: true });
+  assert.deepEqual(JSON.parse(requests[0].init.body), { publishType: "PUBLISH_IMMEDIATELY", blockOnWarnings: true });
   assert.match(requests[0].url, /:publish$/);
   assert.match(requests[1].url, /:cancelSubmission$/);
   assert.equal(requests[1].init.body, undefined);
@@ -124,4 +124,12 @@ test("waits until CWS reports a cancelled submission", async () => {
 test("rejects cancellation confirmation for another version", async () => {
   const client = { status: async () => status({ submitted: revision("CANCELLED", "1.5.0") }) };
   await assert.rejects(waitForCancellation(client, "1.4.0", { attempts: 1, delay: async () => {} }), /switched to 1\.5\.0/);
+});
+
+test("publishAction uploads, publishes, or skips based on live store state", () => {
+  assert.equal(publishAction(status({ published: "1.4.0" }), "1.5.0"), "upload");
+  assert.equal(publishAction(status({ published: "1.5.0" }), "1.5.0"), "already-published");
+  assert.equal(publishAction(status({ published: "1.4.0", submitted: revision("PENDING_REVIEW", "1.5.0") }), "1.5.0"), "in-review");
+  assert.equal(publishAction(status({ published: "1.4.0", submitted: revision("IN_REVIEW", "1.5.0") }), "1.5.0"), "in-review");
+  assert.throws(() => publishAction(status({ warned: true }), "1.5.0"), /policy warning/);
 });

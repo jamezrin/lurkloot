@@ -33,6 +33,15 @@ export function uploadAction(status, version) {
   throw new Error(`Chrome Web Store submitted revision is ${submitted.state}; resolve it in the Developer Dashboard`);
 }
 
+export function publishAction(status, version) {
+  assertHealthy(status);
+  if (revisionVersion(status.publishedItemRevisionStatus) === version) return "already-published";
+  const submitted = status.submittedItemRevisionStatus;
+  if (submitted && revisionVersion(submitted) === version
+    && ["PENDING_REVIEW", "IN_REVIEW"].includes(submitted.state)) return "in-review";
+  return "upload";
+}
+
 export const prereleaseAction = uploadAction;
 
 export function normalizeStatus(status) {
@@ -164,19 +173,13 @@ export class ChromeWebStoreClient {
     });
   }
 
-  publishStaged() {
+  // PUBLISH_IMMEDIATELY makes Google publish the item as soon as review passes, so no polling,
+  // no deferred-publish gate and no second workflow are required.
+  publish() {
     return this.request(`/v2/${this.item}:publish`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ publishType: "STAGED_PUBLISH", blockOnWarnings: true }),
-    });
-  }
-
-  submitStaged() {
-    return this.request(`/v2/${this.item}:publish`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ publishType: "STAGED_PUBLISH", blockOnWarnings: true }),
+      body: JSON.stringify({ publishType: "PUBLISH_IMMEDIATELY", blockOnWarnings: true }),
     });
   }
 
@@ -272,7 +275,7 @@ async function main() {
   if (command === "submit-staged") {
     const action = submitAction(status, version);
     if (action === "submit") {
-      const result = await client.submitStaged();
+      const result = await client.publish();
       if (result.state !== "PENDING_REVIEW" && result.state !== "STAGED") {
         throw new Error(`Chrome Web Store submission returned ${result.state}; expected PENDING_REVIEW or STAGED`);
       }
@@ -295,8 +298,10 @@ async function main() {
   }
   const action = stableAction(status, version);
   if (action === "publish") {
-    const result = await client.publishStaged();
-    if (result.state !== "PUBLISHED") throw new Error(`Chrome Web Store publish returned ${result.state}; expected PUBLISHED`);
+    const result = await client.publish();
+    if (result.state !== "PUBLISHED" && result.state !== "PENDING_REVIEW" && result.state !== "STAGED") {
+      throw new Error(`Chrome Web Store publish returned ${result.state}; expected PUBLISHED, PENDING_REVIEW or STAGED`);
+    }
   }
   await output({ action });
 }
