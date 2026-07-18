@@ -10,10 +10,18 @@ on:
         description: Optional release version to overlay before building
         type: string
         default: ""
+      image_tag:
+        description: Optional registry tag, independent from the committed workspace version
+        type: string
+        default: ""
       artifact_prefix:
         type: string
         default: docker-digest
       push:
+        type: boolean
+        default: false
+      export_oci:
+        description: Upload verified OCI archives without writing to the registry
         type: boolean
         default: false
     outputs:
@@ -63,14 +71,13 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }},ignore-error=true
           push: false
-          # The publish job re-finds the loaded image by this exact tag, so version must be used
-          # verbatim when set. Validation builds pass no version, so fall back to a valid literal
-          # rather than emitting an invalid ":-arch" reference.
-          tags: ${{ env.IMAGE_NAME }}:${{ inputs.version || 'validation' }}-${{ matrix.arch }}
+          # Candidate images use a mutable candidate-X.Y.Z tag without overlaying the committed
+          # workspace version. Stable builds default the registry tag to the supplied version.
+          tags: ${{ env.IMAGE_NAME }}:${{ inputs.image_tag || inputs.version || 'validation' }}-${{ matrix.arch }}
           outputs: type=docker,dest=/tmp/image-${{ matrix.arch }}.tar
       - name: Checksum OCI artifact
         run: cd /tmp && sha256sum image-${{ matrix.arch }}.tar > image-${{ matrix.arch }}.tar.sha256
-      - if: inputs.push
+      - if: inputs.push || inputs.export_oci
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact_prefix }}-oci-${{ matrix.arch }}
@@ -114,12 +121,13 @@ jobs:
       - id: publish
         name: Push the version tags
         env:
-          VERSION: ${{ inputs.version }}
+          IMAGE_TAG: ${{ inputs.image_tag || inputs.version }}
         run: |
+          test -n "$IMAGE_TAG"
           docker load --input images/image-amd64.tar
-          docker push "$IMAGE_NAME:$VERSION-amd64"
+          docker push "$IMAGE_NAME:$IMAGE_TAG-amd64"
           docker load --input images/image-arm64.tar
-          docker push "$IMAGE_NAME:$VERSION-arm64"
-          docker buildx imagetools create --tag "$IMAGE_NAME:$VERSION" \
-            "$IMAGE_NAME:$VERSION-amd64" "$IMAGE_NAME:$VERSION-arm64"
-          echo "image_tag=$IMAGE_NAME:$VERSION" >> "$GITHUB_OUTPUT"
+          docker push "$IMAGE_NAME:$IMAGE_TAG-arm64"
+          docker buildx imagetools create --tag "$IMAGE_NAME:$IMAGE_TAG" \
+            "$IMAGE_NAME:$IMAGE_TAG-amd64" "$IMAGE_NAME:$IMAGE_TAG-arm64"
+          echo "image_tag=$IMAGE_NAME:$IMAGE_TAG" >> "$GITHUB_OUTPUT"

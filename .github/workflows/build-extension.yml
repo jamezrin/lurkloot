@@ -6,6 +6,10 @@ on:
       ref:
         type: string
         default: ""
+      trusted_ref:
+        description: Trusted commit used only to prepare integrity-pinned signing tooling
+        type: string
+        default: ""
       version:
         description: Optional release version to overlay before building
         type: string
@@ -24,6 +28,41 @@ permissions:
   contents: read
 
 jobs:
+  prepare-signer:
+    if: inputs.sign_crx
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require an explicit trusted signer ref
+        env:
+          TRUSTED_REF: ${{ inputs.trusted_ref }}
+        run: test -n "$TRUSTED_REF"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.trusted_ref }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Prepare signer from the trusted integrity-pinned lockfile
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm --filter lurkloot deploy --legacy --dev signer
+          test "$(node -p "require('$GITHUB_WORKSPACE/signer/node_modules/crx3/package.json').version")" = 2.0.0
+          tar -czf signer.tar.gz signer
+          sha256sum signer.tar.gz > SIGNER_SHA256
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_name }}-signer
+          path: |
+            signer.tar.gz
+            SIGNER_SHA256
+          if-no-files-found: error
+          retention-days: 1
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -38,36 +77,12 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - name: Install and verify the pinned signer
-        if: inputs.sign_crx && inputs.version != ''
-        run: |
-          pnpm install --frozen-lockfile --ignore-scripts
-          mkdir -p signer
-          printf '{"private":true,"dependencies":{"crx3":"2.0.0"}}\n' > signer/package.json
-          pnpm --dir signer install --offline --ignore-scripts --prod --lockfile=false --ignore-workspace
-          test "$(node -p "require('$GITHUB_WORKSPACE/signer/node_modules/crx3/package.json').version")" = 2.0.0
-          tar -czf signer.tar.gz signer
-          sha256sum signer.tar.gz > SIGNER_SHA256
       - name: Set the release version
         if: inputs.version != ''
         env:
           RELEASE_VERSION: ${{ inputs.version }}
         run: node scripts/release/cli.mjs prepare-workspace --version "$RELEASE_VERSION" --date "$(date -u +%F)"
       - run: pnpm install --frozen-lockfile
-      - name: Verify trusted signer bundle exists before credentialed job
-        if: inputs.sign_crx
-        run: |
-          test -s signer.tar.gz
-          sha256sum -c SIGNER_SHA256
-      - uses: actions/upload-artifact@v7
-        if: inputs.sign_crx
-        with:
-          name: ${{ inputs.artifact_name }}-signer
-          path: |
-            signer.tar.gz
-            SIGNER_SHA256
-          if-no-files-found: error
-          retention-days: 1
       - run: pnpm release:check
       - run: pnpm zip && pnpm zip:firefox
       - name: Normalize reproducible ZIP artifacts
@@ -103,7 +118,11 @@ jobs:
           retention-days: 1
 
   finalize:
-    needs: build
+    needs: [build, prepare-signer]
+    if: >-
+      always() &&
+      needs.build.result == 'success' &&
+      (needs.prepare-signer.result == 'success' || needs.prepare-signer.result == 'skipped')
     runs-on: ubuntu-latest
     # Environments collapse to two: `preview` (no required reviewer) and `production` (required
     # reviewer). Signing produces an artifact but distributes nothing, so it belongs behind the

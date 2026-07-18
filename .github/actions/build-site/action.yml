@@ -1,0 +1,25 @@
+name: Build site artifact
+description: Build and checksum the Cloudflare Pages site without deployment credentials
+inputs:
+  channel:
+    description: Site deployment channel
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+      with:
+        version: 11.9.0
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: pnpm
+    - shell: bash
+      run: pnpm install --frozen-lockfile
+    - shell: bash
+      env:
+        SITE_DEPLOYMENT_CHANNEL: ${{ inputs.channel }}
+      run: pnpm build:site
+    - shell: bash
+      working-directory: packages/site/dist
+      run: find . -type f ! -name SITE_SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SITE_SHA256SUMS
