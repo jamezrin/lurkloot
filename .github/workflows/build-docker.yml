@@ -87,7 +87,7 @@ jobs:
           tags: ${{ env.IMAGE_NAME }}:${{ inputs.version || 'validation' }}-${{ matrix.arch }}
           outputs: type=oci,dest=/tmp/image-${{ matrix.arch }}.tar
       - name: Checksum OCI artifact
-        run: sha256sum /tmp/image-${{ matrix.arch }}.tar > /tmp/image-${{ matrix.arch }}.tar.sha256
+        run: cd /tmp && sha256sum image-${{ matrix.arch }}.tar > image-${{ matrix.arch }}.tar.sha256
       - if: inputs.push
         uses: actions/upload-artifact@v7
         with:
