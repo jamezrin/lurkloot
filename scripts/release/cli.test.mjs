@@ -12,4 +12,5 @@ test("an explicit version wins over the bump, otherwise the bump applies", () =>
   assert.equal(resolveVersion({ tags: ["v1.4.0"], bump: "minor", version: "2.0.0" }), "2.0.0");
   assert.throws(() => resolveVersion({ tags: ["v1.4.0"], bump: "", version: "" }), /bump must be/);
   assert.throws(() => resolveVersion({ tags: ["v1.4.0"], bump: "", version: "nope" }), /not stable SemVer/);
+  assert.throws(() => resolveVersion({ tags: ["v1.4.0"], bump: "", version: "v2.0.0" }), /not stable SemVer/);
 });
