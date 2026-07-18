@@ -14,7 +14,15 @@ const labels: Record<string, string> = {
   compatibilityTwitchProfileDescription: "Twitch profile description",
   compatibilityKickProfileTitle: "Kick compatibility profile",
   compatibilityKickProfileDescription: "Kick profile description",
-  compatibilityEffectiveTitle: "Effective compatibility",
+  compatibilitySectionTitle: "Compatibility",
+  compatibilitySectionDescription: "Compatibility description",
+  compatibilityComponentProfile: "Profile",
+  compatibilityComponentHeartbeat: "Heartbeat transport",
+  compatibilityComponentInventory: "Inventory query",
+  compatibilityComponentClaim: "Claim handling",
+  compatibilityFromProfile: "From profile",
+  compatibilityOverridden: "Overridden",
+  compatibilityReplacedBy: "Replaced by $1",
   compatibilityExpertShow: "Show expert compatibility controls",
   compatibilityExpertHide: "Hide expert compatibility controls",
   compatibilityTwitchHeartbeatTitle: "Twitch heartbeat transport",
@@ -59,7 +67,14 @@ function mount(onChange = vi.fn()) {
       onChange(patch);
       setSettings((current) => applySettingsPatch(current, patch));
     };
-    return <I18nContext.Provider value={{ t: (key) => labels[key] ?? key, dir: "ltr", locale: "en" }}>
+    // Mirrors translateFromCatalogs so $1 placeholders resolve like they do in
+    // the real popup.
+    const translate = (key: string, substitutions?: string | string[]) => {
+      const template = labels[key] ?? key;
+      const values = Array.isArray(substitutions) ? substitutions : substitutions == null ? [] : [substitutions];
+      return values.reduce((text, value, index) => text.replaceAll(`$${index + 1}`, value), template);
+    };
+    return <I18nContext.Provider value={{ t: translate, dir: "ltr", locale: "en" }}>
       <CompatibilitySettings
         settings={settings.compatibility}
         registry={COMPATIBILITY_REGISTRY}
@@ -96,12 +111,41 @@ function choose(element: HTMLSelectElement, value: string): void {
 }
 
 describe("extension compatibility settings", () => {
-  it("labels every effective capability and uses localized option titles", () => {
+  it("groups capabilities per platform and shows what each one resolved to", () => {
     const { container } = mount();
-    for (const label of ["Twitch compatibility profile", "Twitch heartbeat transport", "Twitch inventory query", "Kick compatibility profile", "Kick claim-link handling"]) {
+    for (const label of ["Twitch", "Kick", "Profile", "Heartbeat transport", "Inventory query", "Claim handling"]) {
       expect(container.textContent).toContain(label);
     }
+    // The resolved id sits on the row itself rather than in a separate summary
+    // block, so "Automatic" always states what it actually picked.
+    for (const id of ["twitch-2026-07", "twitch-heartbeat-spade-v1", "twitch-inventory-v1", "kick-2026-07", "kick-claim-v2"]) {
+      expect(container.textContent).toContain(id);
+    }
+    // Full capability names stay as accessible names for the controls.
     expect(select(container, "Twitch compatibility profile").textContent).toContain("Twitch July 2026");
+  });
+
+  it("carries lifecycle into the option labels so the tradeoff is visible when choosing", () => {
+    const { container } = mount();
+    act(() => byText(container, "Show expert compatibility controls").click());
+    const heartbeat = select(container, "Twitch heartbeat transport");
+    const optionLabels = [...heartbeat.options].map((option) => option.textContent);
+    expect(optionLabels).toContain("Automatic");
+    expect(optionLabels).toContain("Spade heartbeat v1 · Recommended");
+    expect(optionLabels).toContain("GraphQL heartbeat v1 · Legacy");
+  });
+
+  it("attributes inherited values to the profile and flags explicit overrides", () => {
+    const { container } = mount();
+    expect(container.textContent).toContain("From profile");
+    expect(container.textContent).not.toContain("Overridden");
+
+    act(() => byText(container, "Show expert compatibility controls").click());
+    act(() => choose(select(container, "Twitch heartbeat transport"), "twitch-heartbeat-gql-v1"));
+
+    expect(container.textContent).toContain("Overridden");
+    // A legacy pick names its successor instead of silently going stale.
+    expect(container.textContent).toContain("Replaced by Spade heartbeat v1");
   });
 
   it("expands expert overrides, changes both platforms, and restores one atomic patch", () => {

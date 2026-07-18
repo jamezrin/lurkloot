@@ -9,6 +9,9 @@ export interface CompatibilityOptionMetadata {
   readonly lifecycle: CompatibilityLifecycle;
   readonly hosts: readonly string[];
   readonly identities?: readonly string[];
+  // Set on superseded options: the id that replaces this one. Surfaced so a
+  // legacy selection says what to move to.
+  readonly replacement?: string;
 }
 export interface PopupCompatibilityRegistry {
   readonly twitch: {
