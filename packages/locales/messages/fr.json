@@ -717,8 +717,32 @@
   "compatibilityKickProfileDescription": {
     "message": "Choisissez un profil Kick fourni ou laissez Lurkloot le sélectionner automatiquement."
   },
-  "compatibilityEffectiveTitle": {
-    "message": "Compatibilité active"
+  "compatibilitySectionTitle": {
+    "message": "Compatibilité"
+  },
+  "compatibilitySectionDescription": {
+    "message": "Comment Lurkloot communique avec chaque plateforme. Le mode automatique suit le profil fourni."
+  },
+  "compatibilityComponentProfile": {
+    "message": "Profil"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "Transport du signal de suivi"
+  },
+  "compatibilityComponentInventory": {
+    "message": "Requête d'inventaire"
+  },
+  "compatibilityComponentClaim": {
+    "message": "Gestion des réclamations"
+  },
+  "compatibilityFromProfile": {
+    "message": "Depuis le profil"
+  },
+  "compatibilityOverridden": {
+    "message": "Remplacé"
+  },
+  "compatibilityReplacedBy": {
+    "message": "Remplacé par $1"
   },
   "compatibilityExpertShow": {
     "message": "Afficher les options avancées"

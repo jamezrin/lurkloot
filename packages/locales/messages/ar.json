@@ -717,8 +717,32 @@
   "compatibilityKickProfileDescription": {
     "message": "اختر ملف Kick مضمنًا أو دع Lurkloot يختاره تلقائيًا."
   },
-  "compatibilityEffectiveTitle": {
-    "message": "التوافق الفعّال"
+  "compatibilitySectionTitle": {
+    "message": "التوافق"
+  },
+  "compatibilitySectionDescription": {
+    "message": "كيف يتواصل Lurkloot مع كل منصة. الوضع التلقائي يتبع الملف المضمَّن."
+  },
+  "compatibilityComponentProfile": {
+    "message": "الملف الشخصي"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "نقل نبضات المتابعة"
+  },
+  "compatibilityComponentInventory": {
+    "message": "استعلام المخزون"
+  },
+  "compatibilityComponentClaim": {
+    "message": "معالجة المطالبات"
+  },
+  "compatibilityFromProfile": {
+    "message": "من الملف الشخصي"
+  },
+  "compatibilityOverridden": {
+    "message": "تم التجاوز"
+  },
+  "compatibilityReplacedBy": {
+    "message": "تم استبداله بـ $1"
   },
   "compatibilityExpertShow": {
     "message": "إظهار عناصر التحكم المتقدمة"
