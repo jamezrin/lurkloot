@@ -14,7 +14,8 @@
         "kind": "improved",
         "text": "Exporting session credentials for the command-line app now confirms inline in the popup instead of through a browser dialog."
       }
-    ]
+    ],
+    "date": "2026-07-18"
   },
   {
     "version": "1.4.0",
