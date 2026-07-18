@@ -744,12 +744,6 @@
   "compatibilityReplacedBy": {
     "message": "Replaced by $1"
   },
-  "compatibilityExpertShow": {
-    "message": "Show expert compatibility controls"
-  },
-  "compatibilityExpertHide": {
-    "message": "Hide expert compatibility controls"
-  },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "Twitch heartbeat transport"
   },

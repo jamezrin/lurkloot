@@ -744,12 +744,6 @@
   "compatibilityReplacedBy": {
     "message": "Заменено на $1"
   },
-  "compatibilityExpertShow": {
-    "message": "Показать расширенные настройки"
-  },
-  "compatibilityExpertHide": {
-    "message": "Скрыть расширенные настройки"
-  },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "Передача пульса Twitch"
   },

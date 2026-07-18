@@ -744,12 +744,6 @@
   "compatibilityReplacedBy": {
     "message": "Ersetzt durch $1"
   },
-  "compatibilityExpertShow": {
-    "message": "Expertenoptionen anzeigen"
-  },
-  "compatibilityExpertHide": {
-    "message": "Expertenoptionen ausblenden"
-  },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "Twitch-Heartbeat-Übertragung"
   },

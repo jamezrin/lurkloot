@@ -45,7 +45,6 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
 }) {
   const t = useT();
   const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
-  const [compatibilityExpertExpanded, setCompatibilityExpertExpanded] = useState(false);
   const [exportArmed, setExportArmed] = useState(false);
   useEffect(() => setExportArmed(false), [exportConfirmationResetKey]);
   const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as SettingsPatch);
@@ -156,7 +155,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
       <SettingsSection title={t("advancedTitle")} description={t("advancedDescription")} icon={SlidersHorizontal}>
         <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={pollIntervalSeconds} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
         <SettingRow title={t("diagnosticLoggingTitle")} description={t("diagnosticLoggingDescription")} checked={settings.diagnosticLogging} onChange={set("diagnosticLogging")} />
-        {compatibilityRegistry && compatibilityResolution ? <CompatibilitySettings settings={settings.compatibility} registry={compatibilityRegistry} resolution={compatibilityResolution} onChange={onSettingsChange} expertExpanded={compatibilityExpertExpanded} onExpertExpandedChange={setCompatibilityExpertExpanded} /> : null}
+        {compatibilityRegistry && compatibilityResolution ? <CompatibilitySettings settings={settings.compatibility} registry={compatibilityRegistry} resolution={compatibilityResolution} onChange={onSettingsChange} /> : null}
       </SettingsSection>
       {onExportCredentials && (
         <SettingsSection title={t("cliExportTitle")} description={t("cliExportDescription")} icon={Terminal}>

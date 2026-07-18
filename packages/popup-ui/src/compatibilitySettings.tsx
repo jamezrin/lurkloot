@@ -2,7 +2,7 @@ import React from "react";
 import type { CompatibilitySettings as CompatibilitySelections } from "@lurkloot/shared/models";
 import type { Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { ChevronDown, RotateCcw, TriangleAlert } from "lucide-react";
+import { RotateCcw, TriangleAlert } from "lucide-react";
 import { PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { SelectControl } from "./settingsControls";
@@ -88,9 +88,9 @@ function PlatformGroup({ platform, children }: { platform: Platform; children: R
   );
 }
 
-// One resolved component. The control and the value it produced sit together, so
+// One resolved capability. The control and the value it produced sit together, so
 // "Automatic" always says what it actually resolved to.
-function CompatibilityRow({ title, ariaLabel, description, selection, resolvedId, metadata, options: rowOptions, onChange, editable, component }: {
+function CompatibilityRow({ title, ariaLabel, description, selection, resolvedId, metadata, options: rowOptions, onChange, component }: {
   title: string;
   ariaLabel: string;
   description: string;
@@ -99,7 +99,6 @@ function CompatibilityRow({ title, ariaLabel, description, selection, resolvedId
   metadata?: CompatibilityOptionMetadata;
   options: Array<{ value: string; label: string }>;
   onChange(value: string): void | Promise<void>;
-  editable: boolean;
   // Components inherit from the profile when left automatic; a profile row has
   // nothing above it to inherit from.
   component: boolean;
@@ -113,17 +112,15 @@ function CompatibilityRow({ title, ariaLabel, description, selection, resolvedId
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-[12px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
-          {editable ? <div className="mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div> : null}
+          <div className="mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
         </div>
-        {editable
-          ? <SelectControl label={ariaLabel} value={selection} options={rowOptions} onChange={onChange} />
-          : <span className="shrink-0 text-[10px] font-semibold text-zinc-400 dark:text-zinc-500">{t("compatibilityFromProfile")}</span>}
+        <SelectControl label={ariaLabel} value={selection} options={rowOptions} onChange={onChange} />
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
         <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-200">{optionTitle(t, resolvedId)}</span>
         <LifecycleBadge lifecycle={lifecycle} />
         {automatic
-          ? (component && editable ? <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{t("compatibilityFromProfile")}</span> : null)
+          ? (component ? <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{t("compatibilityFromProfile")}</span> : null)
           : <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">{t("compatibilityOverridden")}</span>}
         <code className="w-full truncate text-[10px] text-zinc-400 dark:text-zinc-500">{resolvedId}</code>
         {replacement ? <span className="w-full text-[10px] text-amber-600 dark:text-amber-400">{t("compatibilityReplacedBy", optionTitle(t, replacement))}</span> : null}
@@ -132,13 +129,11 @@ function CompatibilityRow({ title, ariaLabel, description, selection, resolvedId
   );
 }
 
-export function CompatibilitySettings({ settings, registry, resolution, onChange, expertExpanded, onExpertExpandedChange }: {
+export function CompatibilitySettings({ settings, registry, resolution, onChange }: {
   settings: CompatibilitySelections;
   registry: PopupCompatibilityRegistry;
   resolution: PopupCompatibilityResolution;
   onChange(patch: SettingsPatch): void | Promise<void>;
-  expertExpanded: boolean;
-  onExpertExpandedChange(value: boolean): void;
 }) {
   const t = useT();
   const automatic = t("compatibilityAutomatic");
@@ -165,7 +160,6 @@ export function CompatibilitySettings({ settings, registry, resolution, onChange
         metadata={metadata(registry.twitch.profiles, effective.twitch.profile)}
         options={options(registry.twitch.profiles, automatic, t, true)}
         onChange={(profile) => onChange({ compatibility: { twitch: { profile } } })}
-        editable
         component={false}
       />
       <CompatibilityRow
@@ -177,7 +171,6 @@ export function CompatibilitySettings({ settings, registry, resolution, onChange
         metadata={metadata(registry.twitch.heartbeat, effective.twitch.heartbeat)}
         options={options(registry.twitch.heartbeat, automatic, t, true)}
         onChange={(heartbeatTransport) => onChange({ compatibility: { twitch: { heartbeatTransport } } })}
-        editable={expertExpanded}
         component
       />
       <CompatibilityRow
@@ -189,7 +182,6 @@ export function CompatibilitySettings({ settings, registry, resolution, onChange
         metadata={metadata(registry.twitch.inventory, effective.twitch.inventory)}
         options={options(registry.twitch.inventory, automatic, t, true)}
         onChange={(inventoryQueryVersion) => onChange({ compatibility: { twitch: { inventoryQueryVersion } } })}
-        editable={expertExpanded}
         component
       />
     </PlatformGroup>
@@ -204,7 +196,6 @@ export function CompatibilitySettings({ settings, registry, resolution, onChange
         metadata={metadata(registry.kick.profiles, effective.kick.profile)}
         options={options(registry.kick.profiles, automatic, t)}
         onChange={(profile) => onChange({ compatibility: { kick: { profile } } })}
-        editable
         component={false}
       />
       <CompatibilityRow
@@ -216,15 +207,11 @@ export function CompatibilitySettings({ settings, registry, resolution, onChange
         metadata={metadata(registry.kick.claim, effective.kick.claim)}
         options={options(registry.kick.claim, automatic, t)}
         onChange={(claimLinkHandling) => onChange({ compatibility: { kick: { claimLinkHandling } } })}
-        editable={expertExpanded}
         component
       />
     </PlatformGroup>
 
-    <button type="button" aria-expanded={expertExpanded} onClick={() => onExpertExpandedChange(!expertExpanded)} className="mt-2 flex w-full items-center justify-between rounded-lg px-1 py-1 text-[11px] font-semibold text-zinc-500 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]">
-      {t(expertExpanded ? "compatibilityExpertHide" : "compatibilityExpertShow")}<ChevronDown size={13} className={cn("transition-transform", expertExpanded && "rotate-180")} />
-    </button>
-    {overridden ? <div className="mt-1 flex items-start gap-1.5 rounded-lg bg-amber-500/10 p-2 text-[10px] text-amber-700 dark:text-amber-300"><TriangleAlert size={12} className="mt-0.5 shrink-0" /><span>{t("compatibilityOverrideWarning")}</span></div> : null}
+    {overridden ? <div className="mt-3 flex items-start gap-1.5 rounded-lg bg-amber-500/10 p-2 text-[10px] text-amber-700 dark:text-amber-300"><TriangleAlert size={12} className="mt-0.5 shrink-0" /><span>{t("compatibilityOverrideWarning")}</span></div> : null}
     <button type="button" disabled={!overridden} onClick={() => void onChange(AUTOMATIC_COMPATIBILITY_PATCH)} className="mt-2 flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-40 dark:border-zinc-700"><RotateCcw size={12} />{t("compatibilityRestoreAutomatic")}</button>
   </div>;
 }

@@ -744,12 +744,6 @@
   "compatibilityReplacedBy": {
     "message": "已由 $1 取代"
   },
-  "compatibilityExpertShow": {
-    "message": "显示专家控件"
-  },
-  "compatibilityExpertHide": {
-    "message": "隐藏专家控件"
-  },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "Twitch 心跳传输"
   },

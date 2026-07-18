@@ -23,8 +23,6 @@ const labels: Record<string, string> = {
   compatibilityFromProfile: "From profile",
   compatibilityOverridden: "Overridden",
   compatibilityReplacedBy: "Replaced by $1",
-  compatibilityExpertShow: "Show expert compatibility controls",
-  compatibilityExpertHide: "Hide expert compatibility controls",
   compatibilityTwitchHeartbeatTitle: "Twitch heartbeat transport",
   compatibilityTwitchHeartbeatDescription: "Heartbeat description",
   compatibilityTwitchInventoryTitle: "Twitch inventory query",
@@ -61,7 +59,6 @@ function mount(onChange = vi.fn()) {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.getElementById("app")!;
   function Harness() {
-    const [expanded, setExpanded] = useState(false);
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const handleChange = (patch: SettingsPatch) => {
       onChange(patch);
@@ -80,8 +77,6 @@ function mount(onChange = vi.fn()) {
         registry={COMPATIBILITY_REGISTRY}
         resolution={resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" })}
         onChange={handleChange}
-        expertExpanded={expanded}
-        onExpertExpandedChange={setExpanded}
       />
     </I18nContext.Provider>;
   }
@@ -127,7 +122,6 @@ describe("extension compatibility settings", () => {
 
   it("carries lifecycle into the option labels so the tradeoff is visible when choosing", () => {
     const { container } = mount();
-    act(() => byText(container, "Show expert compatibility controls").click());
     const heartbeat = select(container, "Twitch heartbeat transport");
     const optionLabels = [...heartbeat.options].map((option) => option.textContent);
     expect(optionLabels).toContain("Automatic");
@@ -140,7 +134,6 @@ describe("extension compatibility settings", () => {
     expect(container.textContent).toContain("From profile");
     expect(container.textContent).not.toContain("Overridden");
 
-    act(() => byText(container, "Show expert compatibility controls").click());
     act(() => choose(select(container, "Twitch heartbeat transport"), "twitch-heartbeat-gql-v1"));
 
     expect(container.textContent).toContain("Overridden");
@@ -148,10 +141,9 @@ describe("extension compatibility settings", () => {
     expect(container.textContent).toContain("Replaced by Spade heartbeat v1");
   });
 
-  it("expands expert overrides, changes both platforms, and restores one atomic patch", () => {
+  it("overrides on both platforms without a disclosure step, and restores one atomic patch", () => {
     const { container, onChange } = mount();
     expect(container.querySelectorAll('input[type="text"]')).toHaveLength(0);
-    act(() => byText(container, "Show expert compatibility controls").click());
 
     expect([...select(container, "Twitch inventory query").options].map((option) => option.value)).toEqual(["auto", "twitch-inventory-v1"]);
 

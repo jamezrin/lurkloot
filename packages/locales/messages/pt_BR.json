@@ -744,12 +744,6 @@
   "compatibilityReplacedBy": {
     "message": "Substituído por $1"
   },
-  "compatibilityExpertShow": {
-    "message": "Mostrar controles avançados"
-  },
-  "compatibilityExpertHide": {
-    "message": "Ocultar controles avançados"
-  },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "Transporte de pulsos da Twitch"
   },
