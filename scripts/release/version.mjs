@@ -7,6 +7,12 @@ export function parseVersion(value) {
   return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) };
 }
 
+// Git tags carry a v prefix, package manifests must not, so manifest validation is strict.
+export function parseManifestVersion(value) {
+  if (typeof value === "string" && value.startsWith("v")) throw new Error(`${value} is not stable SemVer X.Y.Z`);
+  return parseVersion(value);
+}
+
 export function nextVersion(current, bump) {
   if (!bumps.has(bump)) throw new Error(`bump must be one of ${[...bumps].join(", ")}`);
   const { major, minor, patch } = parseVersion(current);
