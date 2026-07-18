@@ -41,10 +41,15 @@ export function assertSameRepository(live, repo) {
   invariant(live.head?.repo?.full_name === repo, "release PR must be a same-repository PR");
 }
 
+// The candidate carries one image per architecture, so the digest artifacts must name exactly two
+// distinct manifests. Callers embed these in the candidate metadata, which rejects any other shape.
 export function assertDigestFilenames(names) {
-  invariant(names.length === 1, `expected exactly one Docker digest artifact, found ${names.length}`);
-  invariant(/^[0-9a-f]{64}$/.test(names[0]), `Docker digest filename ${names[0]} is not a SHA-256 value`);
-  return names[0];
+  invariant(names.length === 2, `expected exactly two Docker digest artifacts, found ${names.length}`);
+  invariant(new Set(names).size === 2, "Docker digest artifacts must be distinct");
+  for (const name of names) {
+    invariant(/^[0-9a-f]{64}$/.test(name), `Docker digest filename ${name} is not a SHA-256 value`);
+  }
+  return [...names].sort();
 }
 
 export function stagingReleaseNotes({ version, runId, runAttempt }) {

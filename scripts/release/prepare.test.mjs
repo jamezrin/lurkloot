@@ -55,10 +55,11 @@ test("a fork PR never publishes", () => {
 });
 
 test("exactly one well-formed docker digest artifact is required", () => {
-  assert.equal(assertDigestFilenames(["a".repeat(64)]), "a".repeat(64));
-  assert.throws(() => assertDigestFilenames([]), /exactly one Docker digest artifact, found 0/);
-  assert.throws(() => assertDigestFilenames(["a".repeat(64), "b".repeat(64)]), /found 2/);
-  assert.throws(() => assertDigestFilenames(["latest"]), /not a SHA-256 value/);
+  assert.deepEqual(assertDigestFilenames(["b".repeat(64), "a".repeat(64)]), ["a".repeat(64), "b".repeat(64)]);
+  assert.throws(() => assertDigestFilenames([]), /exactly two Docker digest artifacts, found 0/);
+  assert.throws(() => assertDigestFilenames(["a".repeat(64)]), /found 1/);
+  assert.throws(() => assertDigestFilenames(["a".repeat(64), "a".repeat(64)]), /must be distinct/);
+  assert.throws(() => assertDigestFilenames(["latest", "a".repeat(64)]), /not a SHA-256 value/);
 });
 
 test("release notes name the run and the candidate", () => {
