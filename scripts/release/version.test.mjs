@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { latestVersion, nextVersion, parseVersion } from "./version.mjs";
+import { latestVersion, nextVersion, parseManifestVersion, parseVersion } from "./version.mjs";
 
 test("parses stable semver only", () => {
   assert.deepEqual(parseVersion("1.5.0"), { major: 1, minor: 5, patch: 0 });
@@ -8,6 +8,11 @@ test("parses stable semver only", () => {
   assert.throws(() => parseVersion("1.5"), /not stable SemVer/);
   assert.throws(() => parseVersion("1.5.0-rc.1"), /not stable SemVer/);
   assert.throws(() => parseVersion("01.5.0"), /not stable SemVer/);
+});
+
+test("manifest versions reject the tag-style v prefix", () => {
+  assert.deepEqual(parseManifestVersion("1.5.0"), { major: 1, minor: 5, patch: 0 });
+  assert.throws(() => parseManifestVersion("v1.5.0"), /not stable SemVer/);
 });
 
 test("bumps each component and resets the lower ones", () => {

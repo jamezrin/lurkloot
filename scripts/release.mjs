@@ -2,7 +2,7 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
-import { parseVersion } from "./release/model.mjs";
+import { parseManifestVersion as parseVersion } from "./release/version.mjs";
 
 export const packagePaths = [
   "package.json",
