@@ -15,6 +15,13 @@ on:
       pr_number:
         type: number
         required: true
+    secrets:
+      CRX_PRIVATE_KEY:
+        required: false
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
 
 permissions:
   contents: read
@@ -76,7 +83,8 @@ jobs:
       trusted_ref: ${{ inputs.trusted_ref }}
       artifact_name: candidate-extension-${{ inputs.version }}
       sign_crx: true
-    secrets: inherit
+    secrets:
+      CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
 
   docker:
     needs: verify
@@ -89,7 +97,6 @@ jobs:
       image_tag: candidate-${{ inputs.version }}
       artifact_prefix: candidate-docker-${{ inputs.version }}
       push: true
-    secrets: inherit
 
   publish:
     needs: [verify, extension, docker]
@@ -140,7 +147,9 @@ jobs:
     with:
       channel: prerelease
       ref: ${{ inputs.ref }}
-    secrets: inherit
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   status:
     needs: [publish, site]

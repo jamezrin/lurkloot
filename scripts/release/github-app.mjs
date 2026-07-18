@@ -7,7 +7,7 @@ function encode(value) {
 }
 
 export function createAppJwt({ appId, privateKey, now = Math.floor(Date.now() / 1000) }) {
-  if (!/^\d+$/.test(String(appId ?? ""))) throw new Error("GitHub App ID must be a positive integer");
+  if (!/^[1-9]\d*$/.test(String(appId ?? ""))) throw new Error("GitHub App ID must be a positive integer");
   if (!String(privateKey ?? "").includes("PRIVATE KEY")) throw new Error("GitHub App private key is required");
   const unsigned = `${encode({ alg: "RS256", typ: "JWT" })}.${encode({
     iat: now - 60,

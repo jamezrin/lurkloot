@@ -140,7 +140,9 @@ test("moves only an owned prerelease candidate", async () => {
   });
   const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
   await reconcilePrerelease({ client, pr: 132, version: "1.6.0", sha: "new", notes: "notes", assets: [] });
-  assert.equal(routes.calls.some(({ path }) => path.endsWith("candidate-v1.6.0")), true);
+  assert.equal(routes.calls.some(({ method, path }) =>
+    method === "PATCH" &&
+    path === "/repos/jamezrin/lurkloot/git/refs/tags/candidate-v1.6.0"), true);
   const update = routes.calls.find(({ method, path }) => method === "PATCH" && path.endsWith("/releases/12"));
   assert.equal("target_commitish" in JSON.parse(update.init.body), false);
 });

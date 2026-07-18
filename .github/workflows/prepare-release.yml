@@ -138,4 +138,7 @@ jobs:
       trusted_ref: ${{ github.event.pull_request.base.sha }}
       version: ${{ needs.prepare.outputs.version }}
       pr_number: ${{ fromJSON(needs.prepare.outputs.release_pr) }}
-    secrets: inherit
+    secrets:
+      CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

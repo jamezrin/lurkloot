@@ -3,7 +3,7 @@ import { latestVersion, nextVersion, parseManifestVersion } from "./version.mjs"
 export const recognizedReleaseLabels = ["release/patch", "release/minor", "release/major"];
 const recognized = new Set(recognizedReleaseLabels);
 const generatedHead = /^release\/(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
-const markerPattern = /<!-- lurkloot-release-candidate:([^\n]+) -->/;
+const markerPattern = /<!-- lurkloot-release-candidate:([^\n]+) -->\s*$/;
 
 function labelNames(labels) {
   return (labels ?? []).map((label) => typeof label === "string" ? label : label.name);

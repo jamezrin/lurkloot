@@ -51,6 +51,11 @@ jobs:
             test "$GITHUB_REF" = refs/heads/main
             pr_number=$(gh pr list --base main --head "release/$version" --state merged --limit 1 --json number --jq '.[0].number // ""')
             test -n "$pr_number"
+            release_ref=$(gh pr view "$pr_number" --json mergeCommit --jq '.mergeCommit.oid // ""')
+            test -n "$release_ref"
+            git fetch --no-tags origin "$release_ref"
+            git checkout --detach "$release_ref"
+            test "$(node -p "require('./package.json').version")" = "$version"
             labels=$(gh pr view "$pr_number" --json labels --jq '[.labels[].name] | join(",")')
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -80,7 +85,8 @@ jobs:
       ref: ${{ needs.resolve.outputs.ref }}
       trusted_ref: ${{ needs.resolve.outputs.ref }}
       sign_crx: true
-    secrets: inherit
+    secrets:
+      CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
 
   docker:
     needs: resolve
@@ -92,7 +98,6 @@ jobs:
       image_tag: ${{ needs.resolve.outputs.version }}
       artifact_prefix: stable-docker-${{ github.run_id }}-${{ github.run_attempt }}
       export_oci: true
-    secrets: inherit
 
   site-build:
     needs: resolve
@@ -231,7 +236,11 @@ jobs:
         env:
           SYNC_TOKEN: ${{ steps.sync-token.outputs.token }}
         run: |
-          git remote set-url origin "https://x-access-token:$SYNC_TOKEN@github.com/$GITHUB_REPOSITORY"
+          auth=$(printf 'x-access-token:%s' "$SYNC_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
           node scripts/release/cli.mjs sync-branches --remote origin
       - name: Report stable publication
         run: >-

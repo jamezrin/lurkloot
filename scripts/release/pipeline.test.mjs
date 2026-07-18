@@ -54,6 +54,17 @@ test("candidate ownership markers round trip", () => {
   assert.equal(candidateTag("1.6.0"), "candidate-v1.6.0");
 });
 
+test("uses only the final trailing candidate ownership marker", () => {
+  const spoofed = candidateMarker({ pr: 999, version: "1.6.0", head: "release/1.6.0" });
+  const canonical = candidateMarker({ pr: 132, version: "1.6.0", head: "release/1.6.0" });
+  assert.deepEqual(parseCandidateMarker(`${spoofed}\nnotes\n${canonical}\n`), {
+    pr: 132,
+    version: "1.6.0",
+    head: "release/1.6.0",
+  });
+  assert.equal(parseCandidateMarker(`${canonical}\nuser-controlled suffix`), undefined);
+});
+
 test("validates a concurrent minor candidate after a patch release", () => {
   assert.deepEqual(validatePromotion({
     stableVersion: "1.5.1",

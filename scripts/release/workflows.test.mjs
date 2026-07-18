@@ -6,6 +6,10 @@ async function workflow(name) {
   return readFile(new URL(`../../.github/workflows/${name}`, import.meta.url), "utf8");
 }
 
+async function action(name) {
+  return readFile(new URL(`../../.github/actions/${name}`, import.meta.url), "utf8");
+}
+
 test("release preparation uses trusted base tooling for label lifecycle events", async () => {
   const text = await workflow("prepare-release.yml");
   assert.match(text, /pull_request_target:/);
@@ -41,6 +45,16 @@ test("candidate workflow runs trusted orchestration for generated release pull r
   assert.doesNotMatch(candidate, /image_tag: latest/);
   assert.match(candidate, /publish-candidate/);
   assert.match(candidate, /channel: prerelease/);
+  assert.doesNotMatch(candidate, /secrets: inherit/);
+  assert.doesNotMatch(controller, /secrets: inherit/);
+});
+
+test("credentialed actions and reusable calls expose only explicit secrets", async () => {
+  const deploy = await action("deploy-site/action.yml");
+  const prepare = await workflow("prepare-release.yml");
+  assert.match(deploy, /cloudflare\/wrangler-action@[0-9a-f]{40}/);
+  assert.doesNotMatch(deploy, /cloudflare\/wrangler-action@v4/);
+  assert.doesNotMatch(prepare, /secrets: inherit/);
 });
 
 test("signed extension tooling is prepared only from a trusted ref", async () => {
@@ -71,6 +85,10 @@ test("stable promotion runs automatically with one production gate and a dedicat
   assert.doesNotMatch(text, /image_tag: \$\{\{ needs\.resolve\.outputs\.version \}\}\n\s+push: true/);
   assert.match(text, /Verify and publish immutable stable image/);
   assert.match(text, /refusing to move immutable image/);
+  assert.match(text, /mergeCommit/);
+  assert.match(text, /git checkout --detach "\$release_ref"/);
+  assert.match(text, /GIT_CONFIG_KEY_0/);
+  assert.doesNotMatch(text, /git remote set-url/);
   assert.match(text, /uses: \.\/\.github\/actions\/build-site/);
   assert.match(text, /uses: \.\/\.github\/actions\/deploy-site/);
   assert.match(text, /RELEASE_SYNC_APP_ID/);

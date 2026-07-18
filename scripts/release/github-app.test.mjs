@@ -53,6 +53,7 @@ test("creates a repository-scoped contents-write installation token", async () =
 
 test("rejects missing or invalid App configuration", async () => {
   assert.throws(() => createAppJwt({ appId: "", privateKey: pem }), /App ID/);
+  assert.throws(() => createAppJwt({ appId: "0", privateKey: pem }), /positive integer/);
   await assert.rejects(
     createRepositoryToken({ appId: "12345", privateKey: "", repository: "jamezrin/lurkloot" }),
     /private key/,
