@@ -18,6 +18,7 @@ async function isAncestor(cwd, ancestor, descendant) {
 }
 
 async function defaultVerify(cwd) {
+  await exec("pnpm", ["install", "--frozen-lockfile"], { cwd });
   await exec("pnpm", ["verify"], { cwd });
 }
 

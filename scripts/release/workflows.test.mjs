@@ -41,3 +41,20 @@ test("docker separates workspace version overlays from image tags", async () => 
   assert.match(text, /inputs\.image_tag \|\| inputs\.version \|\| 'validation'/);
   assert.match(text, /IMAGE_TAG: \$\{\{ inputs\.image_tag \|\| inputs\.version \}\}/);
 });
+
+test("stable promotion runs automatically with one production gate and a dedicated sync token", async () => {
+  const text = await workflow("release.yml");
+  assert.match(text, /pull_request:\n\s+types: \[closed\]/);
+  assert.match(text, /workflow_dispatch:/);
+  assert.match(text, /github\.event\.pull_request\.merged/);
+  assert.match(text, /startsWith\(github\.event\.pull_request\.head\.ref, 'release\/'\)/);
+  assert.equal((text.match(/environment: production/g) ?? []).length, 1);
+  assert.match(text, /uses: \.\/\.github\/actions\/build-site/);
+  assert.match(text, /uses: \.\/\.github\/actions\/deploy-site/);
+  assert.match(text, /RELEASE_SYNC_APP_ID/);
+  assert.match(text, /RELEASE_SYNC_APP_PRIVATE_KEY/);
+  assert.match(text, /cli\.mjs app-token/);
+  assert.match(text, /cli\.mjs sync-branches/);
+  assert.match(text, /retire-candidate/);
+  assert.doesNotMatch(text, /gh pr create --base develop/);
+});
