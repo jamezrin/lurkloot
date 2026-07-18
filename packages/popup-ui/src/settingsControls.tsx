@@ -161,13 +161,14 @@ export function SelectSettingRow<T extends string>({ title, description, value, 
         <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
-      <label className={cn("flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>
+      <label className={cn("flex min-w-0 max-w-[45%] shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>
         <select
           aria-label={title}
+          title={disabled ? disabledReason : options.find((option) => option.value === value)?.label}
           disabled={disabled}
           value={value}
           onChange={(event) => void onChange(event.target.value as T)}
-          className={cn("bg-transparent pr-1 outline-none", disabled && "cursor-not-allowed")}
+          className={cn("w-full truncate bg-transparent pr-1 outline-none", disabled && "cursor-not-allowed")}
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
