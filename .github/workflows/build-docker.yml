@@ -79,7 +79,7 @@ jobs:
           file: packages/cli/Dockerfile
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }},ignore-error=true
           push: false
           # The publish job re-finds the loaded image by this exact tag, so version must be used
           # verbatim when set. Validation builds pass no version, so fall back to a valid literal
