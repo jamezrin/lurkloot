@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { requiredMainStatusContexts, validationStatusContexts } from "./checks.mjs";
 
 const actionsAppId = 15368;
@@ -83,12 +84,19 @@ function comparableRuleset(value) {
     enforcement: value.enforcement,
     bypass_actors: value.bypass_actors ?? [],
     conditions: value.conditions,
-    rules: value.rules,
+    rules: value.rules.map((rule) => {
+      if (rule.type !== "pull_request") return rule;
+      const parameters = { ...rule.parameters };
+      if (Array.isArray(parameters.required_reviewers) && parameters.required_reviewers.length === 0) {
+        delete parameters.required_reviewers;
+      }
+      return { ...rule, parameters };
+    }),
   };
 }
 
 function assertRuleset(actual, expected) {
-  if (JSON.stringify(comparableRuleset(actual)) !== JSON.stringify(expected)) {
+  if (!isDeepStrictEqual(comparableRuleset(actual), comparableRuleset(expected))) {
     throw new Error(`ruleset ${expected.name} did not read back with the requested configuration`);
   }
 }
