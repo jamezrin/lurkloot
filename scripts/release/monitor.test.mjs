@@ -72,9 +72,12 @@ test("an absent submission is not a version mismatch", () => {
 });
 
 test("a pending review whose head moved is a changed candidate", () => {
-  const moved = derive({ status: { submittedState: "PENDING_REVIEW" }, headSha: "b".repeat(40) });
+  const moved = derive({ status: { submittedState: "PENDING_REVIEW" }, headSha: "b".repeat(40), candidateHeadValid: false });
   assert.equal(moved.state, "CANDIDATE_CHANGED");
   assert.equal(derive({ status: { submittedState: "PENDING_REVIEW" } }).state, "PENDING_REVIEW");
+  // The verified metadata-only finalize commit lands after submission and stays reviewable.
+  const finalized = derive({ status: { submittedState: "PENDING_REVIEW" }, headSha: "b".repeat(40), candidateHeadValid: true });
+  assert.equal(finalized.state, "PENDING_REVIEW");
 });
 
 test("a staged candidate with an unverifiable head is a changed candidate", () => {

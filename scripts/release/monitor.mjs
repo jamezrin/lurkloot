@@ -18,7 +18,9 @@ export function deriveCwsState({ status, version, sourceSha, headSha, recoveryRe
   let state = status.submittedState;
   if (status.warned || status.takenDown) state = "POLICY_BLOCKED";
   if (status.submittedVersion !== version && state !== "none") state = "VERSION_MISMATCH";
-  if (state === "PENDING_REVIEW" && headSha !== sourceSha) state = "CANDIDATE_CHANGED";
+  // Finalization lands after submission, so a head that moved is only a changed candidate when it
+  // is not the verified metadata-only finalize commit descending from the reviewed source.
+  if (state === "PENDING_REVIEW" && headSha !== sourceSha && !candidateHeadValid) state = "CANDIDATE_CHANGED";
   if (state === "STAGED" && !candidateHeadValid) state = "CANDIDATE_CHANGED";
   const recovery = state === "none" && status.publishedVersion === version && recoveryRequested;
   if (recovery) state = "PUBLISHED";

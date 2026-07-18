@@ -1057,7 +1057,7 @@ async function buildCwsReport(client, values) {
   const recoveryRequested = values.recovery === true || values.recovery === "true";
   const probe = deriveCwsState({ status, version, sourceSha, headSha, recoveryRequested });
   const headEvidence = values.headEvidence;
-  const candidateHeadValid = probe.state === "STAGED"
+  const candidateHeadValid = probe.state === "STAGED" || probe.state === "PENDING_REVIEW"
     ? await verifyCandidateHead({
       version,
       sourceSha,
