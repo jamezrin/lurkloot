@@ -22,6 +22,10 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    # Both checkouts live in subdirectories, so the workspace root is not a git
+    # repository and gh cannot infer the repo from a remote.
+    env:
+      GH_REPO: ${{ github.repository }}
     outputs:
       action: ${{ steps.policy.outputs.action }}
       version: ${{ steps.policy.outputs.version }}
