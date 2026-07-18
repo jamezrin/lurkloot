@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.6.0",
+    "changes": [
+      {
+        "kind": "improved",
+        "text": "Compatibility settings now show what each option actually resolves to, grouped by platform, and say whether a value came from the selected profile or a manual override."
+      },
+      {
+        "kind": "fixed",
+        "text": "Long option names in settings dropdowns no longer squeeze setting titles into several lines."
+      }
+    ]
+  },
+  {
     "version": "1.5.0",
     "changes": [
       {
