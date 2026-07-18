@@ -323,7 +323,7 @@ async function monitorCandidate(client, { version, recovery, reportDir }) {
 
   const store = await cwsClient();
   const storeStatus = normalizeStatus(await store.status());
-  const report = await buildCwsReport({
+  const report = await buildCwsReport(client, {
     metadata,
     status: {
       publishedVersion: storeStatus.publishedVersion ?? "none",
