@@ -1,17 +1,11 @@
 name: Prepare release
 
 on:
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: Which component to bump
-        type: choice
-        options: [patch, minor, major]
-        required: true
-      version:
-        description: Optional explicit version (X.Y.Z), overrides the bump
-        type: string
-        default: ""
+  pull_request:
+    types: [labeled]
+    # branches filters on the base, so labelling anything that is not aimed at main — every renovate
+    # pull request into develop, for one — never starts a run at all.
+    branches: [main]
 
 permissions:
   contents: read
@@ -22,43 +16,93 @@ concurrency:
 
 jobs:
   prepare:
+    # A release/* label on a pull request into main is the whole trigger. The pull request already
+    # states both things a release needs — the bump comes from the label, the branch to cut from is
+    # its head — so a normal release (develop -> main) and a hotfix (hotfix/x -> main) are the same
+    # mechanism with nothing to keep in sync by hand.
+    #
+    # This is a pull_request, not a pull_request_target, event on purpose: a fork's pull request gets
+    # a read-only token, so labelling one fails harmlessly instead of running fork code with write
+    # access. Releases are cut from same-repository branches.
+    if: startsWith(github.event.label.name, 'release/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
+      # persist-credentials: false keeps the write token out of .git/config while the release
+      # scripts — which come from the labelled branch, not from main — are running. The push step
+      # supplies the token itself.
       - uses: actions/checkout@v7
         with:
-          ref: develop
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
       - id: version
         env:
-          BUMP: ${{ inputs.bump }}
-          VERSION: ${{ inputs.version }}
+          LABEL: ${{ github.event.label.name }}
         run: |
           tags=$(git tag --list 'v*' | tr '\n' ' ')
-          node scripts/release/cli.mjs next-version --tags "$tags" --bump "$BUMP" --version "$VERSION"
+          node scripts/release/cli.mjs next-version --tags "$tags" --bump "${LABEL#release/}"
+      - name: Refuse to overwrite another pull request's candidate
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TRIGGER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # Two pull requests labelled with the same bump before either is released compute the same
+          # version, and the second would force-push its own contents over the first candidate and
+          # take over its pull request. Retries from the same trigger stay a no-op; a different one
+          # stops here rather than silently replacing a prepared release.
+          body=$(gh pr list --head "release/$VERSION" --state open --json body --jq '.[0].body // ""')
+          if [ -n "$body" ] && ! printf '%s' "$body" | grep -qF "via #$TRIGGER."; then
+            echo "release/$VERSION is already prepared from a different pull request." >&2
+            echo "Release that one first, or close it before labelling this one." >&2
+            exit 1
+          fi
       - name: Bump the workspace
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: node scripts/release/cli.mjs prepare-workspace --version "$VERSION" --date "$(date -u +%F)"
-      - name: Open the release PR
+      - name: Open the release pull request
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          TRIGGER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "release/$VERSION"
-          # Re-running the same bump leaves the tree already at the target version, and git commit
-          # exits 1 with nothing staged. Skip only the commit so the push and PR reconciliation below
-          # still run and the re-run stays a no-op rather than a failure.
+          # Re-labelling an already prepared release leaves the tree at the target version, and git
+          # commit exits 1 with nothing staged. Skip only the commit so the push and the pull request
+          # reconciliation below still run and the re-run stays a no-op rather than a failure.
           git diff --quiet || git commit -am "chore(release): $VERSION"
-          git push --force origin "release/$VERSION"
+          # Checkout kept no credentials, so authenticate this one push explicitly. release/* is the
+          # only ref CI ever writes; main and develop are protected and CI cannot push to them.
+          git push --force "https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY" \
+            "HEAD:refs/heads/release/$VERSION"
           gh pr create --base main --head "release/$VERSION" \
             --title "Release $VERSION" \
-            --body "Version bump and changelog date for $VERSION. Merge this, then run **Release** on main." \
+            --body "Version bump and changelog date for $VERSION, cut from \`$HEAD_REF\` via #$TRIGGER. Merge this, then run **Release** on main." \
             || gh pr edit "release/$VERSION" --title "Release $VERSION"
+      - name: Supersede the triggering pull request
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TRIGGER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # release/$VERSION carries every commit this pull request had plus the bump, so leaving
+          # both open into main invites merging this one instead — which would ship the changes with
+          # no version bump, and Release would then no-op against the already published version.
+          #
+          # Skip when it is already closed, so re-applying the label to retry a failed run neither
+          # errors on the close nor posts the same comment twice.
+          if [ "$(gh pr view "$TRIGGER" --json state --jq .state)" = "OPEN" ]; then
+            url=$(gh pr view "release/$VERSION" --json url --jq .url)
+            gh pr comment "$TRIGGER" --body "Superseded by $url, which is this branch plus the $VERSION bump. Closing so it cannot be merged into main without the bump."
+            gh pr close "$TRIGGER"
+          fi
