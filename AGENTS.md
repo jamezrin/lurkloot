@@ -32,9 +32,13 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 
 ## Cutting a Release
 
-Releases are driven by draft pull requests to `main`; do not prepare them with local version-bump commands or create/move tags manually. Normal release heads start from `develop`, while hotfix heads start from `main` and exclude unreleased `develop` commits. A repository administrator activates the lifecycle by applying exactly one of `release/patch`, `release/minor`, `release/major`, or `release/hotfix`. Automation derives the version from that label, refreshes draft candidates after pushes, submits when the PR becomes ready, promotes after a staged candidate is merged, and opens the `main` to `develop` synchronization PR. Branch names are never release authorization.
+Releases run from the Actions tab. Run **Prepare release** (choose patch/minor/major) to open the
+version-bump PR into `main`, merge it, then run **Release** on `main`. Release tags the commit,
+builds every artifact, publishes the GitHub release, GHCR aliases, the Chrome Web Store submission
+and the production site, then opens the `main` to `develop` sync PR. Every step is idempotent: if
+one fails, fix the cause and run **Release** again. Do not push tags by hand.
 
-Follow [RELEASING.md](RELEASING.md) for administrator/SHA approvals, exact labels and checks, automatic reconciliation, CWS staged review, PR-number recovery, promotion, hotfixes, credentials, and required repository configuration.
+Follow [RELEASING.md](RELEASING.md) for the `preview` and `production` environments, the single release approval, credentials, Chrome Web Store publication timing, and required repository configuration.
 
 ## Coding Style & Naming Conventions
 

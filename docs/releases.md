@@ -2,4 +2,4 @@
 
 The canonical release runbook is [RELEASING.md](../RELEASING.md).
 
-It documents the GitHub UI workflow for normal releases, mutable prereleases, Chrome Web Store staged review, cancellation and replacement, version jumps, isolated hotfixes, stable promotion, and recovery.
+It documents the **Prepare release** and **Release** workflow dispatches, the branch model and hotfixes, the release environments and approval, credentials, Chrome Web Store publication timing, and recovery.
