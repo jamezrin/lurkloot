@@ -172,15 +172,24 @@ rebase.
 Check with:
 
 ```sh
+git fetch origin main develop                            # never check against stale refs
 git rev-parse origin/main^{tree} origin/develop^{tree}   # should match
 git merge-base origin/main origin/develop                # should equal origin/main
 ```
+
+Fetch first every time. The whole safety argument for the force push below is "the trees are already
+identical", and a stale `origin/develop` can satisfy that check while the real branch has moved on —
+in which case the push discards commits.
 
 If the trees match but the merge-base is stale, reconcile `develop` to `main`. This needs a force
 push, so temporarily set `allow_force_pushes: true` and `enforce_admins: false` on `develop`, run
 `git push --force-with-lease origin origin/main:refs/heads/develop`, then restore both settings
 immediately. Only do this when the trees are already identical — it is a history fix, not a content
 change.
+
+A branch cut from `develop` *before* a reconciliation keeps the old commit SHAs and starts conflicting
+with it. Replant it with `git rebase --onto origin/develop <last-commit-shared-with-old-develop>`; the
+duplicated commits drop as patch-equivalent, and the tree hash should be unchanged afterwards.
 
 ## Repository configuration
 
