@@ -192,9 +192,13 @@ jobs:
           mkdir digests
           staging="candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           docker buildx imagetools create --tag "$IMAGE_NAME:$staging" "$IMAGE_NAME:$staging-amd64" "$IMAGE_NAME:$staging-arm64"
-          digest=$(docker buildx imagetools inspect "$IMAGE_NAME:$staging" --format '{{json .Manifest.Digest}}' | tr -d '"' | sed 's/^sha256://')
-          [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || exit 1
-          touch "digests/$digest"
+          # The candidate record carries one digest per architecture, so the per-arch manifests are
+          # recorded rather than the merged index digest.
+          for arch in amd64 arm64; do
+            digest=$(docker buildx imagetools inspect "$IMAGE_NAME:$staging-$arch" --format '{{json .Manifest.Digest}}' | tr -d '"' | sed 's/^sha256://')
+            [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || exit 1
+            touch "digests/$digest"
+          done
           echo "image_tag=$IMAGE_NAME:$staging" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
