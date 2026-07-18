@@ -88,10 +88,13 @@ jobs:
     secrets:
       CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
 
+  # GitHub validates the called workflow's permission ceiling before evaluating its skipped
+  # publish job. The build matrix itself explicitly reduces packages back to none.
   docker:
     needs: resolve
     permissions:
       contents: read
+      packages: write
     uses: ./.github/workflows/build-docker.yml
     with:
       ref: ${{ needs.resolve.outputs.ref }}
