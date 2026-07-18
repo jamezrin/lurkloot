@@ -6,6 +6,7 @@ import { changelogPath, checkWorkspace, prepareWorkspace } from "../release.mjs"
 import { latestVersion, nextVersion, parseManifestVersion } from "./version.mjs";
 import { releaseNotes } from "./notes.mjs";
 import { ChromeWebStoreClient, publishAction, serviceAccountToken, waitForUpload } from "../cws.mjs";
+import { releasePolicy } from "./pipeline.mjs";
 
 export function parseArgs(argv) {
   const values = {};
@@ -26,6 +27,14 @@ export function resolveVersion({ tags, bump, version }) {
   return nextVersion(latestVersion(tags), bump);
 }
 
+export function resolvePolicy({ labels = "", head = "", tags = "" }) {
+  return releasePolicy({
+    labels: labels.split(",").map((label) => label.trim()).filter(Boolean),
+    head,
+    tags: tags.split(/\s+/).filter(Boolean),
+  });
+}
+
 async function emit(outputs) {
   const text = Object.entries(outputs).map(([key, value]) => `${key}=${value}`).join("\n");
   if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `${text}\n`);
@@ -33,6 +42,9 @@ async function emit(outputs) {
 }
 
 const commands = {
+  async policy(values) {
+    await emit(resolvePolicy(values));
+  },
   async "next-version"(values) {
     const tags = (values.tags ?? "").split(/\s+/).filter(Boolean);
     await emit({ version: resolveVersion({ tags, bump: values.bump, version: values.version ?? "" }) });

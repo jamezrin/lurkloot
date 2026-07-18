@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseArgs, resolveVersion } from "./cli.mjs";
+import { parseArgs, resolvePolicy, resolveVersion } from "./cli.mjs";
 
 test("parses flags into a map", () => {
   assert.deepEqual(parseArgs(["--bump", "minor", "--version", "1.5.0"]), { bump: "minor", version: "1.5.0" });
@@ -13,4 +13,17 @@ test("an explicit version wins over the bump, otherwise the bump applies", () =>
   assert.throws(() => resolveVersion({ tags: ["v1.4.0"], bump: "", version: "" }), /bump must be/);
   assert.throws(() => resolveVersion({ tags: ["v1.4.0"], bump: "", version: "nope" }), /not stable SemVer/);
   assert.throws(() => resolveVersion({ tags: ["v1.4.0"], bump: "", version: "v2.0.0" }), /not stable SemVer/);
+});
+
+test("resolves release policy from comma-separated workflow inputs", () => {
+  assert.deepEqual(resolvePolicy({
+    labels: "docs,release/minor",
+    head: "develop",
+    tags: "v1.4.0 v1.5.0",
+  }), {
+    action: "prepare",
+    bump: "minor",
+    label: "release/minor",
+    version: "1.6.0",
+  });
 });
