@@ -19,23 +19,6 @@ on:
       ref:
         type: string
         required: true
-      pr_number:
-        type: string
-        default: ""
-      expected_head_sha:
-        type: string
-        default: ""
-      release_label:
-        type: string
-        default: ""
-      trusted_tools_ref:
-        description: Immutable trusted release-tooling commit; required for candidate revalidation
-        type: string
-        default: ""
-      promote:
-        description: Promote a prerelease staging deployment to the mutable next branch
-        type: boolean
-        default: true
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
@@ -94,23 +77,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+    # The `prerelease` channel deploys to the environment named `preview`: the channel name is
+    # constrained by the site build (astro.config.mjs validates SITE_DEPLOYMENT_CHANNEL against
+    # {prerelease, production}), while the environment name comes from the two-environment model.
     environment:
-      name: ${{ inputs.channel == 'production' && 'production-site' || 'prerelease-site' }}
+      name: ${{ inputs.channel == 'production' && 'production' || 'preview' }}
       url: ${{ inputs.channel == 'production' && 'https://lurkloot.jamezrin.com' || 'https://next.lurkloot.pages.dev' }}
     steps:
-      # Candidate revalidation must run the pinned release tooling, never the candidate's own code,
-      # so the deploy job checks the tools out separately from the built site artifact.
-      - uses: actions/checkout@v7
-        if: inputs.trusted_tools_ref != ''
-        with:
-          ref: ${{ inputs.trusted_tools_ref }}
-          path: trusted-release-tools
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        if: inputs.trusted_tools_ref != ''
-        with:
-          node-version: 22
       - uses: actions/download-artifact@v8
         with:
           name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -118,41 +91,13 @@ jobs:
       - name: Verify static site artifact
         working-directory: site-artifact
         run: sha256sum -c SITE_SHA256SUMS
-      - name: Revalidate candidate immediately before prerelease deployment
-        if: inputs.channel == 'prerelease'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_TOOLS: trusted-release-tools
-          PR: ${{ inputs.pr_number }}
-          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
-          RELEASE_LABEL: ${{ inputs.release_label }}
-        run: |
-          node "$RELEASE_TOOLS/scripts/release/cli.mjs" prepare pr-assert --pr "$PR" --expected-sha "$EXPECTED_HEAD_SHA" --label "$RELEASE_LABEL"
-      - name: Stage immutable site deployment
+      - name: Deploy the site
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: site-artifact
-          command: pages deploy . --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || format('candidate-{0}-{1}', github.run_id, github.run_attempt) }}
-      - name: Revalidate candidate immediately before next promotion
-        if: inputs.channel == 'prerelease' && inputs.promote
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_TOOLS: trusted-release-tools
-          PR: ${{ inputs.pr_number }}
-          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
-          RELEASE_LABEL: ${{ inputs.release_label }}
-        run: |
-          node "$RELEASE_TOOLS/scripts/release/cli.mjs" prepare pr-assert --pr "$PR" --expected-sha "$EXPECTED_HEAD_SHA" --label "$RELEASE_LABEL"
-      - name: Promote staged site to mutable channel
-        if: inputs.channel == 'prerelease' && inputs.promote
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: site-artifact
-          command: pages deploy . --project-name=lurkloot --branch=next
+          command: pages deploy . --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || 'next' }}
       - name: Summarize deployment
         env:
           DEPLOY_CHANNEL: ${{ inputs.channel }}
