@@ -65,6 +65,12 @@ test("rejects an invalid synchronization App ID", () => {
 test("removes classic protection only after both rulesets read back", async () => {
   const calls = [];
   const desired = [mainRuleset(), developRuleset(98765)];
+  const readBack = desired.map((ruleset) => ({
+    ...ruleset,
+    rules: ruleset.rules.map((entry) => entry.type === "pull_request"
+      ? { ...entry, parameters: { ...entry.parameters, required_reviewers: [] } }
+      : entry),
+  }));
   const client = {
     repoPath: (path) => `/repos/jamezrin/lurkloot${path}`,
     async request(path, init = {}) {
@@ -74,7 +80,7 @@ test("removes classic protection only after both rulesets read back", async () =
         const index = calls.filter((call) => call.init.method === "POST").length - 1;
         return { id: index + 10, ...desired[index] };
       }
-      if (/\/rulesets\/1[01]$/.test(path)) return desired[Number(path.at(-1)) - 0];
+      if (/\/rulesets\/1[01]$/.test(path)) return readBack[Number(path.at(-1)) - 0];
       return {};
     },
   };
