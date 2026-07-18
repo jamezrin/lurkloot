@@ -50,22 +50,26 @@ There are exactly two environments.
 
 | Environment | Reviewer | Holds | Used by |
 | --- | --- | --- | --- |
-| `preview` | none | `CRX_PRIVATE_KEY`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | extension signing, the Docker version-tag push, prerelease site deploys |
-| `production` | required, repository admins | the publishing credentials | the `publish` job in `release.yml` and the production site deploy |
+| `preview` | none | `CRX_PRIVATE_KEY` | extension signing, the Docker version-tag push, prerelease site deploys |
+| `production` | required, repository admins | `CWS_SERVICE_ACCOUNT_JSON` | the `publish` job in `release.yml`, the production site deploy |
 
-`preview` holds the credentials that *produce* artifacts. `production` gates what actually
+`preview` holds the signing key that *produces* artifacts. `production` gates what actually
 publishes: the GitHub release, the moving GHCR aliases, the Chrome Web Store upload and the
 production site.
 
-There is one human approval per release. An unapproved build can produce artifacts and immutable
-version-specific tags, but it can never move `latest` or publish anything.
+A release run pauses for approval twice: once before `publish`, and once before the production
+site deploy, because both target `production`. An unapproved build can produce artifacts and
+immutable version-specific tags, but it can never move `latest` or publish anything.
 
 Restrict `preview`'s deployment branches to `main` and `release/*`.
 
 ## Credentials
 
-Secrets: `CRX_PRIVATE_KEY`, `CWS_SERVICE_ACCOUNT_JSON`, `CLOUDFLARE_API_TOKEN`,
-`CLOUDFLARE_ACCOUNT_ID`.
+Environment secrets: `CRX_PRIVATE_KEY` in `preview`, `CWS_SERVICE_ACCOUNT_JSON` in `production`.
+
+Repository secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. These stay at the
+repository level deliberately — the site deploys from both environments, so scoping them to one
+would break the other channel.
 
 Variables: `CWS_PUBLISHER_ID`, `CWS_EXTENSION_ID`.
 
@@ -93,9 +97,10 @@ For the administrator, once:
 - [ ] Create the `preview` environment with no required reviewer, and restrict its deployment
       branches to `main` and `release/*`.
 - [ ] Create the `production` environment with repository administrators as required reviewers.
-- [ ] Store `CRX_PRIVATE_KEY`, `CWS_SERVICE_ACCOUNT_JSON`, `CLOUDFLARE_API_TOKEN` and
-      `CLOUDFLARE_ACCOUNT_ID` in those environments, and set the `CWS_PUBLISHER_ID` and
-      `CWS_EXTENSION_ID` variables.
+- [ ] Store `CRX_PRIVATE_KEY` as a `preview` environment secret and `CWS_SERVICE_ACCOUNT_JSON` as a
+      `production` environment secret. Leave `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as
+      repository secrets, since the site deploys from both environments. Set the `CWS_PUBLISHER_ID`
+      and `CWS_EXTENSION_ID` variables.
 - [ ] Delete the obsolete environments `prereleases`, `cws-review`, `prerelease-site`,
       `production-site` and `stable-releases`.
 - [ ] **Remove `cws-release-ready` from `main`'s required status checks.** Nothing posts it any
