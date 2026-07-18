@@ -96,14 +96,14 @@ steps against a different pull request:
    `develop`.
 
 **Do not merge the fix yourself and skip the label.** Release reads the version from `package.json`
-on `main`; if the hotfix does not bump it, Release re-runs against the already-published version and
-does nothing — it re-tags the same version, edits the existing GitHub release, and the store reports
-the version as already submitted. It succeeds while shipping nothing. Closing the labelled pull
-request automatically is what keeps that from happening by accident.
+on `main`, so without a bump it would try to release the already-published version again. It fails at
+the tagging step rather than re-pointing `vX.Y.Z` at the new commit, so nothing is corrupted — but
+nothing ships either, and the fix sits on `main` looking released. Closing the labelled pull request
+automatically is what keeps that from happening by accident.
 
 ## Chrome Web Store timing
 
-The submission uses `PUBLISH_IMMEDIATELY`, so **Google publishes the item itself once review
+The submission uses `DEFAULT_PUBLISH`, so **Google publishes the item itself once review
 passes** — hours or days after the run finishes, with no further human action and no polling on our
 side. The store deliberately trails the GitHub release. Accepting that trade is what removed the
 staged-review, polling and cancellation machinery; do not add a workflow that waits for the store.
@@ -150,9 +150,14 @@ site deploy all tolerate re-running. **This idempotency is what replaces rollbac
 rollback and no cancellation flow.
 
 If a step fails, fix the cause and run **Release** again. A re-run with nothing left to change is a
-harmless no-op: the tag is updated to the same SHA, the release is edited rather than recreated, the
-aliases are re-pointed at the same digest, and the store upload reports that the version is already
-submitted and does nothing.
+harmless no-op: the tag already points at this commit and is left alone, the release is edited rather
+than recreated, the aliases are re-pointed at the same digest, and the store upload reports that the
+version is already submitted and does nothing.
+
+The one thing a re-run will not do is move a tag. If `vX.Y.Z` already points at a *different* commit,
+Release fails instead of re-pointing it — that state means `main` moved on without a version bump,
+and re-tagging would silently attach a published version to code that was never released as it.
+Prepare a new version rather than re-releasing a published one.
 
 Re-applying a `release/*` label for a version that is already prepared is likewise a no-op; it
 refreshes `release/X.Y.Z`, leaves the existing pull request in place, and skips the supersede comment

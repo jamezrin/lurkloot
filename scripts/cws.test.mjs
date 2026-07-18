@@ -88,7 +88,7 @@ test("publishes immediately so approval goes live unattended", async () => {
   });
   await client.publish();
   await client.cancelSubmission();
-  assert.deepEqual(JSON.parse(requests[0].init.body), { publishType: "PUBLISH_IMMEDIATELY", blockOnWarnings: true });
+  assert.deepEqual(JSON.parse(requests[0].init.body), { publishType: "DEFAULT_PUBLISH", blockOnWarnings: true });
   assert.match(requests[0].url, /:publish$/);
   assert.match(requests[1].url, /:cancelSubmission$/);
   assert.equal(requests[1].init.body, undefined);

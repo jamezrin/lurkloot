@@ -173,13 +173,15 @@ export class ChromeWebStoreClient {
     });
   }
 
-  // PUBLISH_IMMEDIATELY makes Google publish the item as soon as review passes, so no polling,
-  // no deferred-publish gate and no second workflow are required.
+  // DEFAULT_PUBLISH makes Google publish the item as soon as review passes, so no polling, no
+  // deferred-publish gate and no second workflow are required. The v2 PublishType enum accepts only
+  // PUBLISH_TYPE_UNSPECIFIED, DEFAULT_PUBLISH and STAGED_PUBLISH — STAGED_PUBLISH is the one that
+  // holds the item for a manual release, which is exactly what this pipeline does not want.
   publish() {
     return this.request(`/v2/${this.item}:publish`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ publishType: "PUBLISH_IMMEDIATELY", blockOnWarnings: true }),
+      body: JSON.stringify({ publishType: "DEFAULT_PUBLISH", blockOnWarnings: true }),
     });
   }
 
