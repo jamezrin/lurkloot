@@ -81,7 +81,7 @@ jobs:
       - name: Checksum static site artifact
         run: |
           cd packages/site/dist
-          find . -type f -print0 | sort -z | xargs -0 sha256sum > SITE_SHA256SUMS
+          find . -type f ! -name SITE_SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SITE_SHA256SUMS
       - uses: actions/upload-artifact@v7
         with:
           name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
