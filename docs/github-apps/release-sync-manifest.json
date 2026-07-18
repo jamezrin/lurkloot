@@ -1,0 +1,13 @@
+{
+  "name": "Lurkloot Release Sync",
+  "url": "https://github.com/jamezrin/lurkloot",
+  "hook_attributes": {
+    "active": false
+  },
+  "public": false,
+  "default_permissions": {
+    "contents": "write",
+    "metadata": "read"
+  },
+  "default_events": []
+}

@@ -1,124 +1,211 @@
 # Releasing Lurkloot
 
-Releases are operated from GitHub. Normal releases take everything on `develop` at the release cut. Hotfixes start from `main`, so they can ship without unreleased `develop` changes.
+Label a pull request into `main`, inspect the generated candidate, and merge the generated release
+pull request. Publication starts automatically after that merge and pauses once for approval on the
+`production` environment. Do not create or move tags by hand.
 
-Do not create or move release tags manually. The workflows own version tags, GitHub release assets, Chrome Web Store state, Docker aliases, and site deployments.
+## Before you start: write the changelog
 
-## Release lifecycle
+Release notes are rendered only from `packages/site/src/changelog.json`. Add the entry for the new
+version to the branch being released before applying the label. Put it at the top and omit `date`;
+Prepare release stamps it:
 
-```mermaid
-flowchart TD
-    F[Feature pull requests] --> D[develop]
-    D -->|Prepare or update prerelease| C[Mutable candidate]
-    C -->|Prepare again from a newer develop commit| C
-    C -->|Submit candidate| R[CWS pending review]
-    R -->|Cancel review| C
-    R -->|CWS approves| S[CWS staged]
-    S --> P[Release pull request ready]
-    P -->|Merge to main| L[Stable release]
-    L --> O[CWS published<br/>GitHub release promoted<br/>Docker aliases updated<br/>Production site deployed]
-    O --> FM[Open main to develop synchronization PR]
-
-    M[main] --> H[Hotfix pull request to main]
-    H --> HC[Hotfix candidate]
-    HC --> HR[CWS review and staging]
-    HR -->|Merge| HL[Stable hotfix]
-    HL --> FM
+```json
+{ "version": "1.6.0", "changes": [
+  { "kind": "new", "text": "Added a feature." }
+] }
 ```
 
-A candidate is mutable until it is submitted to Chrome Web Store review. Submission freezes its source commit and artifacts. Cancelling review makes it mutable again. Merging the approved release PR is the irreversible stable-release boundary.
+Valid change kinds are `new`, `improved`, and `fixed`. If no entry exists, preparation creates an
+empty entry. That intentionally permits build-only releases, but produces an empty release body.
 
-## Prepare a normal prerelease
+## Normal release flow
 
-1. Merge every intended change into `develop`.
-2. Update the Unreleased entry in `packages/site/src/changelog.json`.
-3. Open **Actions → Prepare prerelease → Run workflow**.
-4. Enter the release version, leave `source_ref` as `develop`, and choose the normal release kind.
-5. Wait for the workflow to build and verify the extension, publish candidate Docker digests, upload the CWS draft, deploy the preview site, and create or update the draft `release/VERSION → main` PR.
-6. Review the workflow-owned comment on that PR. It records the source commit, artifact checksums, preview URL, GitHub prerelease, and CWS state.
+1. Open the intended source pull request into `main`. For a normal release this is the `develop` to
+   `main` promotion pull request.
+2. Apply exactly one of `release/patch`, `release/minor`, or `release/major`.
+3. Prepare release cuts `release/X.Y.Z` from the source head, commits the version in all seven
+   workspace manifests, dates the changelog, opens a generated pull request into `main`, copies the
+   release label to it, and closes the original pull request as superseded.
+4. Candidate automation verifies the generated pull request, publishes the signed extension
+   artifacts as the mutable `candidate-vX.Y.Z` GitHub prerelease, pushes GHCR
+   `candidate-X.Y.Z`, and deploys the site to `next.lurkloot.pages.dev`.
+5. Review and merge the generated `release/X.Y.Z` pull request with a **merge commit**. Squash and
+   rebase are blocked on `main`; the original `develop` commit SHAs remain in `main` history.
+6. Release rebuilds from the merged `main` commit. Approve its single `production` job. It publishes
+   GitHub, GHCR, Chrome Web Store, and the production site, retires the candidate, then merges `main`
+   directly into `develop` with the dedicated synchronization App.
 
-Running **Prepare prerelease** again with the same version replaces the candidate from the current selected `develop` commit, but only while the CWS revision remains an unsubmitted draft.
+`workflow_dispatch` remains on **Release** only for idempotent recovery. A successful release does
+not require a manual dispatch.
 
-The version may jump beyond the originally expected patch, minor, or major release. It must be greater than the newest stable version and any other active candidate. After the higher candidate upload succeeds, automation closes the older release PR and retains its GitHub prerelease as a cancelled audit record. Release labels can document the expected bump, but the explicit workflow version is authoritative.
+## Label lifecycle
 
-## Submit and review a candidate
+- No recognized label means ordinary pull-request behavior.
+- More than one recognized release label blocks preparation and posts an explanatory comment.
+- Removing one label while another remains prepares the remaining selection.
+- Removing the final release label reports the already-created candidate as orphaned. Automation
+  does not delete it, because it may already be under review.
+- Generated `release/*` pull requests carry their release label for promotion validation but are
+  ignored as new preparation sources.
+- Fork pull requests cannot prepare releases. In this public repository, native GitHub roles limit
+  label application to users with triage-or-higher access; currently only `jamezrin` has that access.
 
-1. Inspect the preview site, GitHub prerelease assets, changelog, and CWS draft.
-2. Open **Actions → Submit candidate → Run workflow**, enter the version, and approve the protected `cws-review` environment when prompted.
-3. The workflow rebuilds the unsigned extension in a credential-free job, verifies that the normalized Chrome ZIP has the recorded SHA-256, verifies candidate provenance, and submits CWS with `STAGED_PUBLISH`. Deferred publishing is enforced by the API; there is no automatic-publishing checkbox to remember.
-4. The release PR becomes ready for review and its `cws-release-ready` check remains pending.
-5. A scheduled workflow polls CWS. Use **Actions → Refresh CWS status** for an immediate check.
+## Candidate behavior
 
-The workflow comments only when the state changes and tags the user who prepared the release:
+Candidate pointers are deliberately mutable:
 
-- `PENDING_REVIEW`: the candidate is frozen and waiting for Google.
-- `STAGED`: CWS approved the candidate; the readiness check passes after release metadata is finalized.
-- `REJECTED`, `CANCELLED`, policy warning, or takedown: the check fails with recovery guidance.
+- GitHub tag/release: `candidate-vX.Y.Z`
+- GHCR image: `candidate-X.Y.Z`
+- Site: `https://next.lurkloot.pages.dev`
 
-When CWS becomes staged, automation synchronizes package versions and dates the changelog in a tightly scoped release-metadata commit. Normal checks run again. No extension artifact is rebuilt.
+Every generated release-branch push rebuilds and refreshes those targets. Ownership metadata binds
+the candidate release to its pull request. An exact-SHA tag left behind by interrupted initial
+creation is recovered; a tag at any other SHA is rejected. Automation never modifies a stable
+release through the candidate path.
 
-## Promote a normal release
+The candidate pipeline writes all five required contexts directly to the generated release PR head:
+the four build/verification contexts plus `release candidate / ready`. This is necessary because
+GitHub intentionally suppresses new workflow events caused by the `GITHUB_TOKEN` that opens the PR.
 
-Approve and merge the `release/VERSION → main` PR after all required checks pass. The merge triggers promotion of the exact reviewed candidate; approve the protected `stable-releases` environment when GitHub requests final publication authorization:
+Only the most recently completed site candidate matters. Concurrent candidates therefore share the
+`next` deployment and the last successful deployment wins.
 
-1. Verify the release PR, candidate source, tag, CWS version, and stored checksums.
-2. Publish the staged CWS revision.
-3. Promote the stored Docker digests to stable aliases.
-4. Convert the existing GitHub prerelease into the stable release.
-5. Deploy the site to production.
-6. Open a `main → develop` synchronization PR so the stable version/date metadata becomes the base of the next release.
+## Parallel hotfix and normal candidates
 
-Promotion is idempotent. If an external service fails after CWS publication, rerun promotion for the same merged release PR. Never rebuild or force-move a stable release.
+Different versions may be prepared concurrently. For example, with `1.5.0` stable:
 
-After promotion, confirm CWS, GitHub Releases, Docker aliases, the production changelog, and the automatically opened synchronization PR. Merge that PR into `develop` before preparing the next normal release. Upload the Firefox ZIP and source ZIP from the GitHub release to AMO; AMO publication remains manual.
+```text
+release/1.5.1  <- patch candidate from a hotfix branch based on main
+release/1.6.0  <- minor candidate from a develop snapshot
+```
 
-## Cancel, replace, or abandon a candidate
+If `1.5.1` publishes first, `1.6.0` remains the correct minor version, but its old candidate does
+not contain the hotfix. Merge the updated `main` into `release/1.6.0`, resolve manifest or changelog
+conflicts by keeping version `1.6.0` and both changelog entries, and push. Do not rebase: merging
+preserves the original development commit SHAs. The push rebuilds the candidate before it can merge.
 
-Open **Actions → Cancel candidate → Run workflow**, enter the version, and choose whether to keep or abandon it.
+If `1.6.0` publishes first, a pending `1.5.1` is invalid because releases cannot go backwards.
+Re-prepare the hotfix as `1.6.1`.
 
-- **Keep mutable** cancels an active CWS review, returns the release PR to draft, and permits another candidate upload for the same version.
-- **Abandon** cancels review when possible, closes the release PR, and marks the GitHub prerelease as cancelled while retaining its audit trail.
+Two pull requests may not own the same candidate version. The second preparation fails instead of
+force-pushing over the first release branch.
 
-After cancellation, prepare the same version again or choose any higher valid version. A staged candidate is cancelled explicitly through the CWS API before it can be replaced; it is never silently overwritten.
+## Stable publication
 
-## Release a hotfix
+Stable publication operates on the exact merged commit and is idempotent:
 
-1. Create `hotfix/SHORT-DESCRIPTION` from `main`.
-2. Open a PR from the hotfix branch to `main`. Do not merge `develop` into it.
-3. Update the changelog and optionally apply `release/patch`, `release/minor`, or `release/major`.
-4. Run **Prepare prerelease** with the explicit version, hotfix release kind, and hotfix PR number.
-5. Review, submit, and wait for CWS staging exactly as for a normal candidate.
-6. Merge the hotfix PR after `cws-release-ready` and the other required checks pass.
+- `vX.Y.Z` is created once and is never moved.
+- The signed CRX, Chrome ZIP, Firefox ZIP, Firefox source ZIP, and checksums are uploaded to the
+  stable GitHub release.
+- Docker architectures are exported as checksummed OCI archives before approval. GHCR receives
+  `X.Y.Z`, `X.Y`, `X`, and `latest` only inside the approved production job; an existing `X.Y.Z`
+  digest is never replaced.
+- Chrome Web Store receives the Chrome ZIP with `DEFAULT_PUBLISH`; Google publishes it automatically
+  after review approval.
+- The production site deploys to `https://lurkloot.jamezrin.com`.
+- The owned mutable candidate release and tag are removed after the stable release exists.
+- `main` is merged directly into `develop` after local `pnpm verify` succeeds.
 
-Stable promotion publishes the reviewed hotfix without any `develop` commits. As with a normal release, automation opens a `main → develop` synchronization PR so the fix and stable metadata are carried into the next normal release. Resolve that PR manually if it conflicts.
+Firefox Add-ons publication remains manual. Upload the Firefox and source ZIPs from the GitHub
+release to AMO.
 
-## Recovery rules
+## Branch model
 
-- Retry a failed candidate build; the previous candidate remains intact until replacement succeeds.
-- Retry an upload or submission against the same checksummed artifact.
-- Refreshing CWS status never mutates a candidate.
-- Rerun partial stable promotion only for the same merged PR and candidate metadata.
-- A matching CWS `PUBLISHED` state is accepted during partial-publication recovery.
-- Stop and investigate any stable tag, source SHA, artifact checksum, Docker digest, or CWS version mismatch.
-- Never force-move a stable tag or rebuild a stable version from different code.
+- Ordinary feature and fix pull requests into `develop` use squash merge.
+- Release and hotfix pull requests into `main` use merge commits.
+- Rebase merging is disabled repository-wide.
+- Force pushes and deletions remain blocked on both protected branches.
+- The dedicated synchronization App may bypass only the `develop` pull-request requirement so it
+  can fast-forward or merge `main` directly after publication.
+- The general GitHub Actions App is not a bypass actor.
 
-## Repository configuration
+The direct synchronization is a fast-forward when `develop` has not advanced. When it has advanced,
+the sync creates a merge commit, verifies the combined tree, and pushes it. A conflict aborts before
+any remote update.
 
-For a new installation, create `develop` once from the current `main` head, apply the same validation protection, and direct feature and Renovate PRs to `develop`. During migration of this workflow itself, synchronize `main` back into `develop` immediately after the bootstrap PR merges so both branches contain the release automation before preparing the first candidate.
+## Environments and credentials
 
-The repository requires:
+There are exactly two environments:
 
-- protected `main` and `develop` branches;
-- required validation and `cws-release-ready` checks on release and hotfix PRs;
-- `prereleases`, `cws-review`, `stable-releases`, `prerelease-site`, and `production-site` environments;
-- `CRX_PRIVATE_KEY`, `CWS_SERVICE_ACCOUNT_JSON`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID` secrets; candidate builds run in separate jobs that cannot access these credentials;
-- `CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID` variables;
-- optional `release/patch`, `release/minor`, and `release/major` labels, plus the automation-owned `release-forward-merge` label.
+| Environment | Approval | Credentials and purpose |
+| --- | --- | --- |
+| `preview` | none | `CRX_PRIVATE_KEY`; candidate signing, candidate GHCR, preview site |
+| `production` | `jamezrin` | CWS credentials and sync App credentials; all stable publication |
 
-The CWS service-account email must be a member of the publisher. Preserve the CRX private key permanently because replacing it changes the sideloaded extension identity. Pull requests from forks must never receive release credentials.
+Repository secrets used from both channels remain `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`. Variables are `CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID`.
 
-## Release artifacts
+Move `CRX_PRIVATE_KEY` to `preview` and `CWS_SERVICE_ACCOUNT_JSON` to `production` when their
+plaintext values are available. Never delete the repository copy until the environment copy has
+been written successfully. Losing the CRX key changes the extension ID.
 
-GitHub Releases are the canonical artifact store. Each candidate records the signed Chrome CRX, Chrome ZIP, Firefox ZIP, Firefox source ZIP, `SHA256SUMS`, candidate metadata, Docker digests, source commit, release PR, initiating user, CWS state, and preview deployment.
+The production environment additionally requires:
 
-The ordinary `vVERSION` tag identifies the candidate and replaces the former dedicated CWS candidate tag. It may move only while the prerelease is mutable. It freezes during review and becomes permanently immutable at stable promotion.
+- `RELEASE_SYNC_APP_ID`
+- `RELEASE_SYNC_APP_PRIVATE_KEY`
+
+## One-time dedicated App setup
+
+The settings template is `docs/github-apps/release-sync-manifest.json`. GitHub requires the owner to
+authorize App registration; a workflow cannot create this identity for itself.
+
+1. In GitHub, open **Settings -> Developer settings -> GitHub Apps -> New GitHub App**.
+2. Use the template name and URL, disable the webhook, keep the App private, grant repository
+   `Contents: Read and write`, and subscribe to no events.
+3. Install the App only on `jamezrin/lurkloot`.
+4. Record the numeric App ID and generate one private key PEM.
+5. Store them on the protected environment:
+
+   ```sh
+   gh secret set RELEASE_SYNC_APP_ID --env production --body "APP_ID"
+   gh secret set RELEASE_SYNC_APP_PRIVATE_KEY --env production < release-sync.private-key.pem
+   ```
+
+6. Preview the ruleset migration, then apply it using the App ID:
+
+   ```sh
+   export GITHUB_REPOSITORY=jamezrin/lurkloot
+   export GH_TOKEN="$(gh auth token)"
+   node scripts/release/cli.mjs configure-repository --sync-app-id "APP_ID"
+   node scripts/release/cli.mjs configure-repository --sync-app-id "APP_ID" --apply true
+   ```
+
+Apply mode enables merge+squash, disables rebase, creates and reads back both active rulesets, and
+only then removes the conflicting classic protections. It refuses to run without a positive App ID.
+
+## Repository policy after migration
+
+`main release history` targets `main` and requires:
+
+- pull requests merged with `merge` only;
+- `verify`, `extension / build`, and both Docker architecture checks;
+- `release candidate / ready`, reported against the PR head by trusted workflow code;
+- branches up to date with `main` before merge;
+- no deletion or force push;
+- no bypass actors.
+
+`develop squash history` targets `develop` and requires:
+
+- pull requests merged with `squash` only for ordinary actors;
+- the four ordinary validation/build checks and strict up-to-date policy;
+- no deletion or force push;
+- only the Lurkloot Release Sync App as an always-allowed bypass actor.
+
+The repository default workflow token remains read-only.
+
+## Recovery
+
+- Preparation failure: fix the cause and remove/reapply the release label.
+- Candidate failure: re-run the failed workflow or push the corrected release branch.
+- Stable failure after merge: fix the external/configuration problem and manually dispatch
+  **Release** on `main`. Matching completed steps are no-ops.
+- Existing stable tag at another SHA: stop and prepare a new version. Never move it.
+- Sync conflict: merge `main` into `develop` locally, run `pnpm verify`, and push with the dedicated
+  App credential; alternatively use a one-off reviewed synchronization PR. Do not disable branch
+  protection.
+- Missing App configuration: publication reports the completed stable steps and fails at sync. Add
+  the two production secrets and rerun Release.
+
+The Chrome Web Store intentionally trails the GitHub release while Google reviews the submission.
+There is no polling, cancellation, or rollback workflow.

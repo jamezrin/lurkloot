@@ -50,17 +50,9 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           persist-credentials: false
-      - uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/build-site
         with:
-          version: 11.9.0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build:site
-        env:
-          SITE_DEPLOYMENT_CHANNEL: ${{ inputs.channel }}
+          channel: ${{ inputs.channel }}
       - uses: actions/upload-artifact@v7
         with:
           name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -71,20 +63,31 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # The `prerelease` channel deploys to the environment named `preview`: the channel name is
+    # constrained by the site build (astro.config.mjs validates SITE_DEPLOYMENT_CHANNEL against
+    # {prerelease, production}), while the environment name comes from the two-environment model.
     environment:
-      name: ${{ inputs.channel == 'production' && 'production-site' || 'prerelease-site' }}
+      name: ${{ inputs.channel == 'production' && 'production' || 'preview' }}
       url: ${{ inputs.channel == 'production' && 'https://lurkloot.jamezrin.com' || 'https://next.lurkloot.pages.dev' }}
     steps:
+      # The local deployment action comes from the trusted caller commit. Candidate source remains
+      # confined to the credential-free build job and crosses this boundary only as checksummed data.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
           name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: site-artifact
-      - uses: cloudflare/wrangler-action@v4
+      - uses: ./.github/actions/deploy-site
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: site-artifact
-          command: pages deploy . --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || 'next' }}
+          channel: ${{ inputs.channel }}
+          directory: site-artifact
+          api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Summarize deployment
         env:
           DEPLOY_CHANNEL: ${{ inputs.channel }}

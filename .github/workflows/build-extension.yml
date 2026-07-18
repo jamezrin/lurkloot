@@ -6,12 +6,12 @@ on:
       ref:
         type: string
         default: ""
-      version:
-        description: Optional release version to overlay before building
+      trusted_ref:
+        description: Trusted commit used only to prepare integrity-pinned signing tooling
         type: string
         default: ""
-      trusted_tools_ref:
-        description: Immutable trusted release-tooling commit; required with version
+      version:
+        description: Optional release version to overlay before building
         type: string
         default: ""
       artifact_name:
@@ -28,6 +28,41 @@ permissions:
   contents: read
 
 jobs:
+  prepare-signer:
+    if: inputs.sign_crx
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require an explicit trusted signer ref
+        env:
+          TRUSTED_REF: ${{ inputs.trusted_ref }}
+        run: test -n "$TRUSTED_REF"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.trusted_ref }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Prepare signer from the trusted integrity-pinned lockfile
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm --filter lurkloot deploy --legacy --dev signer
+          test "$(node -p "require('$GITHUB_WORKSPACE/signer/node_modules/crx3/package.json').version")" = 2.0.0
+          tar -czf signer.tar.gz signer
+          sha256sum signer.tar.gz > SIGNER_SHA256
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_name }}-signer
+          path: |
+            signer.tar.gz
+            SIGNER_SHA256
+          if-no-files-found: error
+          retention-days: 1
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -42,22 +77,11 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - uses: actions/checkout@v7
-        if: inputs.version != ''
-        with:
-          ref: ${{ inputs.trusted_tools_ref }}
-          path: trusted-release-tools
-          persist-credentials: false
-      - name: Apply release version
+      - name: Set the release version
         if: inputs.version != ''
         env:
           RELEASE_VERSION: ${{ inputs.version }}
-          TRUSTED_TOOLS_REF: ${{ inputs.trusted_tools_ref }}
-        run: |
-          [[ "$TRUSTED_TOOLS_REF" =~ ^[0-9a-f]{40}$ ]] || { echo "trusted_tools_ref must be an immutable commit SHA" >&2; exit 1; }
-          test "$(git -C trusted-release-tools rev-parse HEAD)" = "$TRUSTED_TOOLS_REF"
-          node trusted-release-tools/scripts/release/cli.mjs prepare-workspace "$RELEASE_VERSION"
-          rm -rf trusted-release-tools
+        run: node scripts/release/cli.mjs prepare-workspace --version "$RELEASE_VERSION" --date "$(date -u +%F)"
       - run: pnpm install --frozen-lockfile
       - run: pnpm release:check
       - run: pnpm zip && pnpm zip:firefox
@@ -83,6 +107,9 @@ jobs:
           normalize_zip "$chrome_zip" "release-assets/lurkloot-$version-chrome.zip"
           normalize_zip "$firefox_zip" "release-assets/lurkloot-$version-firefox.zip"
           normalize_zip "$sources_zip" "release-assets/lurkloot-$version-firefox-sources.zip"
+      - name: Checksum unsigned build output
+        working-directory: release-assets
+        run: sha256sum lurkloot-* > UNSIGNED_SHA256SUMS
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact_name }}-unsigned
@@ -91,8 +118,19 @@ jobs:
           retention-days: 1
 
   finalize:
-    needs: build
+    needs: [build, prepare-signer]
+    if: >-
+      always() &&
+      needs.build.result == 'success' &&
+      (needs.prepare-signer.result == 'success' || needs.prepare-signer.result == 'skipped')
     runs-on: ubuntu-latest
+    # Environments collapse to two: `preview` (no required reviewer) and `production` (required
+    # reviewer). Signing produces an artifact but distributes nothing, so it belongs behind the
+    # `preview` credential boundary that holds CRX_PRIVATE_KEY, not behind a human approval. The
+    # single human approval gate lives on the `publish` job in release.yml, which is what actually
+    # publishes. Validation calls (sign_crx: false) do unsigned verification and must not pause on
+    # any environment.
+    environment: ${{ inputs.sign_crx && 'preview' || '' }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -102,24 +140,46 @@ jobs:
         if: inputs.sign_crx
         with:
           node-version: 24
+      - uses: actions/download-artifact@v8
+        if: inputs.sign_crx
+        with:
+          name: ${{ inputs.artifact_name }}-signer
+          path: signer-artifact
+      - name: Verify and unpack pinned local signer
+        if: inputs.sign_crx
+        working-directory: signer-artifact
+        run: |
+          sha256sum -c SIGNER_SHA256
+          tar -xzf signer.tar.gz -C "$GITHUB_WORKSPACE"
+          test "$(node -p "require('$GITHUB_WORKSPACE/signer/node_modules/crx3/package.json').version")" = 2.0.0
+      - name: Verify unsigned build output
+        working-directory: release-assets
+        run: sha256sum -c UNSIGNED_SHA256SUMS
       - name: Build signed CRX3
         if: inputs.sign_crx
         env:
           CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
         run: |
           test -n "$CRX_PRIVATE_KEY" || { echo "CRX_PRIVATE_KEY is not configured" >&2; exit 1; }
-          printf '%s' "$CRX_PRIVATE_KEY" > "$RUNNER_TEMP/lurkloot.pem"
+          key="$RUNNER_TEMP/lurkloot.pem"
+          trap 'rm -f "$RUNNER_TEMP/lurkloot.pem"' EXIT
+          printf '%s' "$CRX_PRIVATE_KEY" > "$key"
+          unset CRX_PRIVATE_KEY
           chrome_zip=$(find release-assets -maxdepth 1 -name 'lurkloot-*-chrome.zip' -print -quit)
           test -n "$chrome_zip"
           version=${chrome_zip#release-assets/lurkloot-}
           version=${version%-chrome.zip}
           mkdir chrome-mv3
           unzip -q "$chrome_zip" -d chrome-mv3
-          npx --yes crx3@2.0.0 -p "$RUNNER_TEMP/lurkloot.pem" -o "release-assets/lurkloot-$version-chrome.crx" -- chrome-mv3
-          rm -f "$RUNNER_TEMP/lurkloot.pem"
+          # GitHub's Ubuntu runner permits a root network namespace. The signer and
+          # key exist before entry, so this performs no image/package acquisition.
+          sudo unshare --net --mount-proc -- \
+            node signer/node_modules/crx3/bin/crx3.js -p "$key" -o "release-assets/lurkloot-$version-chrome.crx" -- chrome-mv3
       - name: Generate checksums
         working-directory: release-assets
-        run: sha256sum lurkloot-* > SHA256SUMS
+        run: |
+          rm UNSIGNED_SHA256SUMS
+          sha256sum lurkloot-* > SHA256SUMS
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact_name }}

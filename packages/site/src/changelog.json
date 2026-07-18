@@ -1,5 +1,23 @@
 [
   {
+    "version": "1.5.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Added rotating tips in the popup that point to useful settings and shortcuts, with an option to hide them."
+      },
+      {
+        "kind": "new",
+        "text": "Added Twitch and Kick compatibility profiles that keep farming working as those sites change — selected automatically, or manually with expert overrides."
+      },
+      {
+        "kind": "improved",
+        "text": "Exporting session credentials for the command-line app now confirms inline in the popup instead of through a browser dialog."
+      }
+    ],
+    "date": "2026-07-18"
+  },
+  {
     "version": "1.4.0",
     "changes": [
       {

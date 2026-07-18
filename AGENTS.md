@@ -32,9 +32,16 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 
 ## Cutting a Release
 
-Releases are operated through GitHub pull requests and Actions; do not prepare them with local version-bump commands or create/move tags manually. Normal releases include everything on `develop` at the release cut. Hotfixes branch from `main`, target `main`, and are forward-merged to `develop` after publication. Use the explicit version in the GitHub workflow; release labels are advisory.
+Label a pull request into `main` with `release/patch`, `release/minor` or `release/major`. Prepare
+release cuts `release/X.Y.Z` from that PR's head, commits the version, opens its own PR into `main`,
+closes the one you labelled, and publishes mutable candidate artifacts on every release-branch push.
+Merge the generated release PR with a merge commit; **Release** starts automatically, publishes the
+GitHub release, GHCR aliases, Chrome Web Store submission and production site after one approval,
+then merges `main` directly into `develop` with the dedicated sync App. A hotfix is the same flow
+with `release/patch` on a PR branched from `main`. Use manual **Release** dispatch only for idempotent
+recovery. Do not create or move tags by hand.
 
-Follow [RELEASING.md](RELEASING.md) for candidate updates, CWS staged review, cancellation, promotion, hotfixes, recovery, credentials, and required repository configuration.
+Follow [RELEASING.md](RELEASING.md) for the `preview` and `production` environments, the single release approval, credentials, Chrome Web Store publication timing, and required repository configuration.
 
 ## Coding Style & Naming Conventions
 

@@ -1,0 +1,251 @@
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'release/'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      ref: ${{ steps.metadata.outputs.ref }}
+      pr_number: ${{ steps.metadata.outputs.pr_number }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || 'main' }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: metadata
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$EVENT_NAME" = pull_request ]; then
+            pr_number=$EVENT_PR
+            labels=$(jq -r '[.pull_request.labels[].name] | join(",")' "$GITHUB_EVENT_PATH")
+          else
+            test "$GITHUB_REF" = refs/heads/main
+            pr_number=$(gh pr list --base main --head "release/$version" --state merged --limit 1 --json number --jq '.[0].number // ""')
+            test -n "$pr_number"
+            release_ref=$(gh pr view "$pr_number" --json mergeCommit --jq '.mergeCommit.oid // ""')
+            test -n "$release_ref"
+            git fetch --no-tags origin "$release_ref"
+            git checkout --detach "$release_ref"
+            test "$(node -p "require('./package.json').version")" = "$version"
+            labels=$(gh pr view "$pr_number" --json labels --jq '[.labels[].name] | join(",")')
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          echo "labels=$labels" >> "$GITHUB_OUTPUT"
+      - id: policy
+        env:
+          LABELS: ${{ steps.metadata.outputs.labels }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          tags=$(git tag --list 'v*' | grep -vx "v$VERSION" | tr '\n' ' ' || true)
+          node scripts/release/cli.mjs policy --labels "$LABELS" --head stable-source --tags "$tags"
+      - name: Match the committed release version
+        env:
+          COMMITTED: ${{ steps.metadata.outputs.version }}
+          EXPECTED: ${{ steps.policy.outputs.version }}
+        run: test "$COMMITTED" = "$EXPECTED"
+      - run: node scripts/release.mjs check
+
+  extension:
+    needs: resolve
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-extension.yml
+    with:
+      ref: ${{ needs.resolve.outputs.ref }}
+      trusted_ref: ${{ needs.resolve.outputs.ref }}
+      sign_crx: true
+    secrets:
+      CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+
+  # GitHub validates the called workflow's permission ceiling before evaluating its skipped
+  # publish job. The build matrix itself explicitly reduces packages back to none.
+  docker:
+    needs: resolve
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      ref: ${{ needs.resolve.outputs.ref }}
+      image_tag: ${{ needs.resolve.outputs.version }}
+      artifact_prefix: stable-docker-${{ github.run_id }}-${{ github.run_attempt }}
+      export_oci: true
+
+  site-build:
+    needs: resolve
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.ref }}
+          persist-credentials: false
+      - uses: ./.github/actions/build-site
+        with:
+          channel: production
+      - uses: actions/upload-artifact@v7
+        with:
+          name: stable-site-${{ github.run_id }}-${{ github.run_attempt }}
+          path: packages/site/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: [resolve, extension, docker, site-build]
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+      RELEASE_SHA: ${{ needs.resolve.outputs.ref }}
+      RELEASE_PR: ${{ needs.resolve.outputs.pr_number }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: sync-token
+        name: Validate branch synchronization credentials before publication
+        env:
+          RELEASE_SYNC_APP_ID: ${{ secrets.RELEASE_SYNC_APP_ID }}
+          RELEASE_SYNC_APP_PRIVATE_KEY: ${{ secrets.RELEASE_SYNC_APP_PRIVATE_KEY }}
+        run: node scripts/release/cli.mjs app-token
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/download-artifact@v8
+        with:
+          name: extension-release-assets
+          path: release-assets
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: stable-docker-${{ github.run_id }}-${{ github.run_attempt }}-oci-*
+          path: docker-images
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: stable-site-${{ github.run_id }}-${{ github.run_attempt }}
+          path: site-artifact
+      - name: Tag the released commit without ever moving a stable tag
+        run: |
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" --jq .object.sha 2>/dev/null || true)
+          if [ -z "$existing" ]; then
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/v$VERSION" -f sha="$RELEASE_SHA"
+          elif [ "$existing" != "$RELEASE_SHA" ]; then
+            echo "v$VERSION already tags $existing; refusing to move it to $RELEASE_SHA." >&2
+            exit 1
+          fi
+      - name: Create or update the stable GitHub release
+        run: |
+          node scripts/release/cli.mjs notes --version "$VERSION" --out notes.md
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            gh release edit "v$VERSION" --notes-file notes.md --latest
+          else
+            gh release create "v$VERSION" --title "v$VERSION" --notes-file notes.md --latest
+          fi
+          gh release upload "v$VERSION" release-assets/* --clobber
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify and publish immutable stable image
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
+        run: |
+          major="${VERSION%%.*}"
+          minor="${VERSION%.*}"
+          staging="release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          cd docker-images
+          sha256sum -c image-amd64.tar.sha256
+          sha256sum -c image-arm64.tar.sha256
+          for arch in amd64 arm64; do
+            docker load --input "image-$arch.tar"
+            docker tag "$IMAGE:$VERSION-$arch" "$IMAGE:$staging-$arch"
+            docker push "$IMAGE:$staging-$arch"
+          done
+          docker buildx imagetools create --tag "$IMAGE:$staging" \
+            "$IMAGE:$staging-amd64" "$IMAGE:$staging-arm64"
+          desired=$(docker buildx imagetools inspect "$IMAGE:$staging" --raw | sha256sum | cut -d' ' -f1)
+          if docker buildx imagetools inspect "$IMAGE:$VERSION" --raw > existing-manifest.json 2>/dev/null; then
+            existing=$(sha256sum existing-manifest.json | cut -d' ' -f1)
+            if [ "$existing" != "$desired" ]; then
+              echo "refusing to move immutable image $IMAGE:$VERSION from sha256:$existing to sha256:$desired" >&2
+              exit 1
+            fi
+          fi
+          docker buildx imagetools create \
+            --tag "$IMAGE:$VERSION" --tag "$IMAGE:$minor" --tag "$IMAGE:$major" --tag "$IMAGE:latest" \
+            "$IMAGE:$staging"
+          published=$(docker buildx imagetools inspect "$IMAGE:$VERSION" --raw | sha256sum | cut -d' ' -f1)
+          test "$published" = "$desired"
+      - name: Publish to the Chrome Web Store
+        env:
+          CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+        run: >-
+          node scripts/release/cli.mjs cws-release
+          --version "$VERSION" --package "release-assets/lurkloot-$VERSION-chrome.zip"
+      - uses: ./.github/actions/deploy-site
+        with:
+          channel: production
+          directory: site-artifact
+          api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Retire the matching mutable candidate
+        run: node scripts/release/cli.mjs retire-candidate --pr "$RELEASE_PR" --version "$VERSION"
+      - name: Merge main directly into develop with the dedicated App
+        env:
+          SYNC_TOKEN: ${{ steps.sync-token.outputs.token }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$SYNC_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
+          node scripts/release/cli.mjs sync-branches --remote origin
+      - name: Report stable publication
+        run: >-
+          gh pr comment "$RELEASE_PR"
+          --body "Released v$VERSION. Chrome Web Store review was requested with automatic publication: https://chrome.google.com/webstore/devconsole/5fdc4582-d1e8-4714-819e-d4bdcee7da79/aobaackpofkghaejdnnmpmeaiaoibhdn"

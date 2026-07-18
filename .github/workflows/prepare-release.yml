@@ -1,0 +1,144 @@
+name: Prepare release
+
+on:
+  pull_request_target:
+    types: [labeled, unlabeled]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: >-
+      startsWith(github.event.label.name, 'release/') &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      action: ${{ steps.policy.outputs.action }}
+      version: ${{ steps.policy.outputs.version }}
+      release_pr: ${{ steps.open.outputs.release_pr }}
+      release_sha: ${{ steps.open.outputs.release_sha }}
+    steps:
+      # pull_request_target supplies a write token, so only trusted base-branch tooling is executed.
+      # Candidate source is checked out as data in a separate directory and mutated by that tooling.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          path: trusted
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: policy
+        name: Resolve the live release policy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          labels=$(jq -r '[.pull_request.labels[].name] | join(",")' "$GITHUB_EVENT_PATH")
+          tags=$(git -C trusted tag --list 'v*' | tr '\n' ' ')
+          if ! node trusted/scripts/release/cli.mjs policy --labels "$labels" --head "$HEAD_REF" --tags "$tags"; then
+            gh pr comment "$PR" --body "Release preparation is blocked: only one of \`release/patch\`, \`release/minor\`, or \`release/major\` may be applied."
+            exit 1
+          fi
+      - name: Report an orphaned candidate
+        if: steps.policy.outputs.action == 'orphan'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr comment "$PR" --body "All release labels were removed. Any candidate already prepared from this pull request is now orphaned and will not be deleted automatically."
+      - name: Check out candidate source without credentials
+        if: steps.policy.outputs.action == 'prepare'
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+      - name: Refuse to overwrite another pull request's release branch
+        if: steps.policy.outputs.action == 'prepare'
+        env:
+          VERSION: ${{ steps.policy.outputs.version }}
+          TRIGGER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          body=$(gh pr list --head "release/$VERSION" --state open --json body --jq '.[0].body // ""')
+          if [ -n "$body" ] && ! printf '%s' "$body" | grep -qF "via #$TRIGGER."; then
+            gh pr comment "$TRIGGER" --body "Release \`$VERSION\` is already owned by another pull request. Release or close that candidate first."
+            exit 1
+          fi
+      - name: Bump the workspace with trusted tooling
+        if: steps.policy.outputs.action == 'prepare'
+        working-directory: candidate
+        env:
+          VERSION: ${{ steps.policy.outputs.version }}
+        run: node ../trusted/scripts/release/cli.mjs prepare-workspace --version "$VERSION" --date "$(date -u +%F)"
+      - id: open
+        name: Push the release branch and open its pull request
+        if: steps.policy.outputs.action == 'prepare'
+        working-directory: candidate
+        env:
+          VERSION: ${{ steps.policy.outputs.version }}
+          LABEL: ${{ steps.policy.outputs.label }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          TRIGGER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "release/$VERSION"
+          git add package.json packages/*/package.json packages/site/src/changelog.json
+          git diff --cached --quiet || git commit -m "chore(release): bump version to $VERSION"
+          git push --force "https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY" \
+            "HEAD:refs/heads/release/$VERSION"
+          gh pr create --base main --head "release/$VERSION" \
+            --title "chore(release): bump version to $VERSION" \
+            --label "$LABEL" \
+            --body "Version bump and changelog date for $VERSION, cut from \`$HEAD_REF\` via #$TRIGGER. Merge with a merge commit to publish automatically." \
+            || gh pr edit "release/$VERSION" --title "chore(release): bump version to $VERSION" --add-label "$LABEL"
+          release_pr=$(gh pr view "release/$VERSION" --json number --jq .number)
+          echo "release_pr=$release_pr" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Supersede the triggering pull request
+        if: steps.policy.outputs.action == 'prepare'
+        env:
+          VERSION: ${{ steps.policy.outputs.version }}
+          TRIGGER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(gh pr view "$TRIGGER" --json state --jq .state)" = "OPEN" ]; then
+            url=$(gh pr view "release/$VERSION" --json url --jq .url)
+            gh pr comment "$TRIGGER" --body "Superseded by $url, which contains this branch plus the committed $VERSION release metadata."
+            gh pr close "$TRIGGER"
+          fi
+
+  preview:
+    needs: prepare
+    if: needs.prepare.outputs.action == 'prepare'
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      statuses: write
+    uses: ./.github/workflows/build-release-candidate.yml
+    with:
+      ref: ${{ needs.prepare.outputs.release_sha }}
+      trusted_ref: ${{ github.event.pull_request.base.sha }}
+      version: ${{ needs.prepare.outputs.version }}
+      pr_number: ${{ fromJSON(needs.prepare.outputs.release_pr) }}
+    secrets:
+      CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

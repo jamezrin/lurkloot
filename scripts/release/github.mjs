@@ -1,76 +1,194 @@
-const loginPattern = /^(?!-)[A-Za-z0-9-]{1,39}(?<!-)$/;
+import { candidateMarker, candidateTag, parseCandidateMarker } from "./pipeline.mjs";
+import { candidateStatusContext, requiredMainStatusContexts } from "./checks.mjs";
 
-export function commentMarker(version, state) {
-  return `<!-- lurkloot-release:${version}:cws:${state} -->`;
+const apiOrigin = "https://api.github.com";
+const statusMarker = "<!-- lurkloot-release-status -->";
+
+export class GitHubClient {
+  constructor({ repository, token, fetchImpl = fetch }) {
+    if (!/^[^/]+\/[^/]+$/.test(repository ?? "")) throw new Error("GITHUB_REPOSITORY must be owner/name");
+    if (!token) throw new Error("GITHUB_TOKEN is required");
+    this.repository = repository;
+    this.token = token;
+    this.fetch = fetchImpl;
+  }
+
+  async request(path, { allowNotFound = false, body, headers, ...init } = {}) {
+    const url = path.startsWith("https://") ? path : `${apiOrigin}${path}`;
+    const response = await this.fetch(url, {
+      ...init,
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${this.token}`,
+        "x-github-api-version": "2026-03-10",
+        ...(body === undefined ? {} : { "content-type": "application/json" }),
+        ...headers,
+      },
+      body: body === undefined || Buffer.isBuffer(body) ? body : JSON.stringify(body),
+    });
+    if (allowNotFound && response.status === 404) return undefined;
+    const text = await response.text();
+    let value;
+    if (text) {
+      try { value = JSON.parse(text); } catch { value = text; }
+    }
+    if (!response.ok) {
+      throw new Error(`GitHub API failed (${response.status}): ${value?.message ?? value ?? "unknown error"}`);
+    }
+    return value;
+  }
+
+  repoPath(path) {
+    return `/repos/${this.repository}${path}`;
+  }
+
+  ref(tag) {
+    return this.request(this.repoPath(`/git/ref/tags/${encodeURIComponent(tag)}`), { allowNotFound: true });
+  }
+
+  createRef(tag, sha) {
+    return this.request(this.repoPath("/git/refs"), {
+      method: "POST",
+      body: { ref: `refs/tags/${tag}`, sha },
+    });
+  }
+
+  updateRef(tag, sha) {
+    return this.request(this.repoPath(`/git/refs/tags/${encodeURIComponent(tag)}`), {
+      method: "PATCH",
+      body: { sha, force: true },
+    });
+  }
+
+  deleteRef(tag) {
+    return this.request(this.repoPath(`/git/refs/tags/${encodeURIComponent(tag)}`), {
+      method: "DELETE",
+      allowNotFound: true,
+    });
+  }
+
+  releaseByTag(tag) {
+    return this.request(this.repoPath(`/releases/tags/${encodeURIComponent(tag)}`), { allowNotFound: true });
+  }
+
+  createRelease(body) {
+    return this.request(this.repoPath("/releases"), { method: "POST", body });
+  }
+
+  updateRelease(id, body) {
+    return this.request(this.repoPath(`/releases/${id}`), { method: "PATCH", body });
+  }
+
+  deleteRelease(id) {
+    return this.request(this.repoPath(`/releases/${id}`), { method: "DELETE" });
+  }
+
+  deleteAsset(id) {
+    return this.request(this.repoPath(`/releases/assets/${id}`), { method: "DELETE" });
+  }
+
+  uploadAsset(uploadUrl, { name, bytes }) {
+    const base = uploadUrl.replace(/\{.*$/, "");
+    return this.request(`${base}?name=${encodeURIComponent(name)}`, {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: bytes,
+    });
+  }
+
+  comments(pr) {
+    return this.request(this.repoPath(`/issues/${pr}/comments`));
+  }
+
+  createComment(pr, body) {
+    return this.request(this.repoPath(`/issues/${pr}/comments`), { method: "POST", body: { body } });
+  }
+
+  updateComment(id, body) {
+    return this.request(this.repoPath(`/issues/comments/${id}`), { method: "PATCH", body: { body } });
+  }
+
+  createStatus(sha, body) {
+    return this.request(this.repoPath(`/statuses/${encodeURIComponent(sha)}`), { method: "POST", body });
+  }
 }
 
-export function checkConclusion(state, { recovery = false } = {}) {
-  if (state === "PENDING_REVIEW") return { status: "in_progress" };
-  if (state === "STAGED" || (state === "PUBLISHED" && recovery)) {
-    return { status: "completed", conclusion: "success" };
+function assertOwnedPrerelease(release, { pr, version }) {
+  const ownership = parseCandidateMarker(release.body);
+  if (!release.prerelease || ownership?.pr !== Number(pr) || ownership.version !== version) {
+    throw new Error(`refusing to modify candidate-v${version}: release is stable or owned by another pull request`);
   }
-  return { status: "completed", conclusion: "failure" };
 }
 
-export function checkTitle(state, { recovery = false } = {}) {
-  if (state === "STAGED") return "CWS candidate staged";
-  if (state === "PENDING_REVIEW") return "CWS review pending";
-  if (state === "PUBLISHED" && recovery) return "CWS candidate already published";
-  return "CWS candidate blocked";
+function releaseBody({ notes, pr, version }) {
+  const marker = candidateMarker({ pr, version, head: `release/${version}` });
+  return [notes.trim(), marker].filter(Boolean).join("\n\n");
 }
 
-export function stateGuidance(state, { version, pr, sourceSha, submittedVersion, recovery = false } = {}) {
-  if (state === "STAGED") return `v${version} is approved and ready for final PR approval and merge.`;
-  if (state === "PENDING_REVIEW") return `v${version} remains frozen while Google reviews it.`;
-  if (state === "PUBLISHED" && recovery) {
-    return `v${version} matches an explicitly requested partial-publication recovery. Rerun stable promotion for the merged PR.`;
+export async function reconcilePrerelease({ client, pr, version, sha, notes, assets }) {
+  const tag = candidateTag(version);
+  const [ref, existingRelease] = await Promise.all([client.ref(tag), client.releaseByTag(tag)]);
+  if (ref && !existingRelease && ref.object?.sha !== sha) {
+    throw new Error(`refusing to recover ${tag}: it points to another commit`);
   }
-  if (state === "REJECTED") {
-    return `v${version} was rejected. Correct the issues in the CWS dashboard, cancel or abandon this candidate, then prepare and submit a replacement.`;
+  if (existingRelease) assertOwnedPrerelease(existingRelease, { pr, version });
+
+  if (existingRelease && !ref) await client.createRef(tag, sha);
+  else if (existingRelease && ref.object?.sha !== sha) await client.updateRef(tag, sha);
+
+  const body = {
+    tag_name: tag,
+    name: `${version} candidate`,
+    body: releaseBody({ notes, pr, version }),
+    draft: false,
+    prerelease: true,
+    make_latest: "false",
+  };
+  const release = existingRelease
+    ? await client.updateRelease(existingRelease.id, body)
+    : await client.createRelease({ ...body, target_commitish: sha });
+  const existingAssets = new Map((release.assets ?? existingRelease?.assets ?? []).map((asset) => [asset.name, asset]));
+  for (const asset of assets) {
+    const existing = existingAssets.get(asset.name);
+    if (existing) await client.deleteAsset(existing.id);
+    await client.uploadAsset(release.upload_url ?? existingRelease.upload_url, asset);
   }
-  if (state === "CANCELLED") {
-    return `v${version} is cancelled. Return the PR to draft and run Prepare prerelease again, or abandon it before choosing a higher version.`;
-  }
-  if (state === "POLICY_BLOCKED") {
-    return "CWS reports a warning or takedown. Resolve the policy action in the dashboard before any release operation.";
-  }
-  if (state === "VERSION_MISMATCH") {
-    return `CWS reports version ${submittedVersion} instead of v${version}. Stop and reconcile the active CWS submission before retrying.`;
-  }
-  if (state === "CANDIDATE_CHANGED") {
-    return `Release PR #${pr} no longer matches frozen source ${sourceSha}. Cancel CWS review, restore or replace the candidate through Prepare prerelease, and do not merge this head.`;
-  }
-  if (state === "none") {
-    return `CWS has no submitted v${version} revision. Run Submit candidate again against the frozen GitHub prerelease.`;
-  }
-  return `v${version} reported ${state}. Inspect the CWS dashboard and use Cancel candidate before replacing or abandoning it.`;
+  return { release, tag };
 }
 
-export function renderReleaseComment({ metadata, state, summary }) {
-  if (!loginPattern.test(metadata.initiator ?? "")) throw new Error("candidate initiator must be a valid GitHub login");
-  return [
-    commentMarker(metadata.version, state),
-    `@${metadata.initiator}, candidate **v${metadata.version}** is now **${state}**. ${summary}`,
-  ].join("\n");
+export async function setCommitStatus({ client, sha, state, targetUrl = "", context = candidateStatusContext }) {
+  const descriptions = {
+    pending: "Release candidate is building",
+    success: "Release candidate is ready",
+    failure: "Release candidate failed",
+  };
+  if (!descriptions[state]) throw new Error(`unsupported commit status: ${state}`);
+  return client.createStatus(sha, {
+    state,
+    context,
+    description: descriptions[state],
+    ...(targetUrl ? { target_url: targetUrl } : {}),
+  });
 }
 
-export function renderReleaseNotes({ version, pr, state, summary }) {
-  return `Candidate for release PR #${pr}. Chrome Web Store version ${version} last reported ${state}. Source, tag, and downloadable assets remain frozen. ${summary}`;
+export async function setCandidateStatuses(options) {
+  return Promise.all(requiredMainStatusContexts.map((context) => setCommitStatus({ ...options, context })));
 }
 
-export function renderStepSummary({ version, pr, state, conclusion, summary }) {
-  return [
-    `## CWS status for v${version}`,
-    "",
-    `- PR: #${pr}`,
-    `- State: \`${state}\``,
-    `- Check: \`${conclusion || "pending"}\``,
-    `- Guidance: ${summary}`,
-    "",
-  ].join("\n");
+export async function retirePrerelease({ client, pr, version }) {
+  const tag = candidateTag(version);
+  const release = await client.releaseByTag(tag);
+  if (!release) return "absent";
+  assertOwnedPrerelease(release, { pr, version });
+  await client.deleteRef(tag);
+  await client.deleteRelease(release.id);
+  return "retired";
 }
 
-export function shouldComment(existingBodies, version, state) {
-  const marker = commentMarker(version, state);
-  return !existingBodies.some((body) => body.includes(marker));
+export async function upsertComment({ client, pr, body }) {
+  const rendered = `${statusMarker}\n${body}`;
+  const comments = await client.comments(pr);
+  const existing = comments.find((comment) => comment.body?.startsWith(statusMarker));
+  if (existing) return client.updateComment(existing.id, rendered);
+  return client.createComment(pr, rendered);
 }

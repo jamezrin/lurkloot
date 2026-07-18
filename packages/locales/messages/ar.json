@@ -609,6 +609,12 @@
   "cliExportConfirm": {
     "message": "سيؤدي هذا إلى تنزيل رموز جلسات Twitch وKick في ملف. أي شخص يملك هذا الملف يمكنه التصرف نيابةً عنك على هذه المواقع. هل تريد المتابعة؟"
   },
+  "cliExportCancel": {
+    "message": "إلغاء"
+  },
+  "cliExportConfirmButton": {
+    "message": "تأكيد التصدير"
+  },
   "cliExportButton": {
     "message": "تصدير بيانات الاعتماد"
   },
