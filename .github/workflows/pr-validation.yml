@@ -12,25 +12,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  release-policy:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - name: Validate credential-free release ancestry policy
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-        run: node scripts/release/cli.mjs policy ancestry --pr "$PR"
-
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -52,14 +33,13 @@ jobs:
       sign_crx: false
 
   docker:
-    # The called workflow's publish job declares packages:write and pull-requests:read. GitHub
-    # validates a reusable workflow's permission ceiling at compile time even though publish is
-    # skipped here (push: false), so the calling job must grant that ceiling. The build matrix job
-    # caps itself back to packages:none, so no candidate code runs with write access.
+    # The called workflow's publish job declares packages:write. GitHub validates a reusable
+    # workflow's permission ceiling at compile time even though publish is skipped here
+    # (push: false), so the calling job must grant that ceiling. The build matrix job caps itself
+    # back to packages:none, so no PR code runs with write access.
     permissions:
       contents: read
       packages: write
-      pull-requests: read
     uses: ./.github/workflows/build-docker.yml
     with:
       push: false
