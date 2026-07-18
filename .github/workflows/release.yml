@@ -141,6 +141,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+      - id: sync-token
+        name: Validate branch synchronization credentials before publication
+        env:
+          RELEASE_SYNC_APP_ID: ${{ secrets.RELEASE_SYNC_APP_ID }}
+          RELEASE_SYNC_APP_PRIVATE_KEY: ${{ secrets.RELEASE_SYNC_APP_PRIVATE_KEY }}
+        run: node scripts/release/cli.mjs app-token
       - uses: pnpm/action-setup@v6
         with:
           version: 11.9.0
@@ -226,12 +232,6 @@ jobs:
           account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Retire the matching mutable candidate
         run: node scripts/release/cli.mjs retire-candidate --pr "$RELEASE_PR" --version "$VERSION"
-      - id: sync-token
-        name: Mint the dedicated branch synchronization token
-        env:
-          RELEASE_SYNC_APP_ID: ${{ secrets.RELEASE_SYNC_APP_ID }}
-          RELEASE_SYNC_APP_PRIVATE_KEY: ${{ secrets.RELEASE_SYNC_APP_PRIVATE_KEY }}
-        run: node scripts/release/cli.mjs app-token
       - name: Merge main directly into develop with the dedicated App
         env:
           SYNC_TOKEN: ${{ steps.sync-token.outputs.token }}
