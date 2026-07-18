@@ -1,0 +1,64 @@
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which component to bump
+        type: choice
+        options: [patch, minor, major]
+        required: true
+      version:
+        description: Optional explicit version (X.Y.Z), overrides the bump
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: develop
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          tags=$(git tag --list 'v*' | tr '\n' ' ')
+          node scripts/release/cli.mjs next-version --tags "$tags" --bump "$BUMP" --version "$VERSION"
+      - name: Bump the workspace
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/release/cli.mjs prepare-workspace --version "$VERSION" --date "$(date -u +%F)"
+      - name: Open the release PR
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "release/$VERSION"
+          # Re-running the same bump leaves the tree already at the target version, and git commit
+          # exits 1 with nothing staged. Skip only the commit so the push and PR reconciliation below
+          # still run and the re-run stays a no-op rather than a failure.
+          git diff --quiet || git commit -am "chore(release): $VERSION"
+          git push --force origin "release/$VERSION"
+          gh pr create --base main --head "release/$VERSION" \
+            --title "Release $VERSION" \
+            --body "Version bump and changelog date for $VERSION. Merge this, then run **Release** on main." \
+            || gh pr edit "release/$VERSION" --title "Release $VERSION"
