@@ -60,7 +60,8 @@ test("credentialed actions and reusable calls expose only explicit secrets", asy
 test("signed extension tooling is prepared only from a trusted ref", async () => {
   const text = await workflow("build-extension.yml");
   assert.match(text, /prepare-signer:/);
-  assert.match(text, /ref: \$\{\{ inputs\.trusted_ref \|\| github\.sha \}\}/);
+  assert.match(text, /ref: \$\{\{ inputs\.trusted_ref \}\}/);
+  assert.match(text, /test -n "\$TRUSTED_REF"/);
   assert.match(text, /pnpm --filter lurkloot deploy --legacy --dev signer/);
   assert.match(text, /needs: \[build, prepare-signer\]/);
   assert.doesNotMatch(text, /if: inputs\.sign_crx && inputs\.version != ''/);

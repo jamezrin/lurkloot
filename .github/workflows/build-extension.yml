@@ -32,9 +32,13 @@ jobs:
     if: inputs.sign_crx
     runs-on: ubuntu-latest
     steps:
+      - name: Require an explicit trusted signer ref
+        env:
+          TRUSTED_REF: ${{ inputs.trusted_ref }}
+        run: test -n "$TRUSTED_REF"
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.trusted_ref || github.sha }}
+          ref: ${{ inputs.trusted_ref }}
           persist-credentials: false
       - uses: pnpm/action-setup@v6
         with:
