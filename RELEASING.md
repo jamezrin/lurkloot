@@ -92,22 +92,43 @@ refreshes the branch and leaves the existing pull request in place.
 
 ## Repository configuration
 
-For the administrator, once:
+Applied:
 
-- [ ] Create the `preview` environment with no required reviewer, and restrict its deployment
-      branches to `main` and `release/*`.
-- [ ] Create the `production` environment with repository administrators as required reviewers.
-- [ ] Store `CRX_PRIVATE_KEY` as a `preview` environment secret and `CWS_SERVICE_ACCOUNT_JSON` as a
-      `production` environment secret. Leave `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as
-      repository secrets, since the site deploys from both environments. Set the `CWS_PUBLISHER_ID`
-      and `CWS_EXTENSION_ID` variables.
-- [ ] Delete the obsolete environments `prereleases`, `cws-review`, `prerelease-site`,
-      `production-site` and `stable-releases`.
-- [ ] **Remove `cws-release-ready` from `main`'s required status checks.** Nothing posts it any
-      more, so leaving it required blocks every pull request forever.
-- [ ] Set `main`'s required status checks to `verify`, `extension / build`,
+- [x] `preview` environment, no required reviewer, deployment branches restricted to `main` and
+      `release/*`.
+- [x] `production` environment, with repository administrators as required reviewers.
+- [x] Obsolete environments `prereleases`, `cws-review`, `prerelease-site`, `production-site` and
+      `stable-releases` deleted.
+- [x] `cws-release-ready` removed from `main`'s required status checks. Nothing posts it any more,
+      so leaving it required would have blocked every pull request forever.
+- [x] `main`'s required status checks are `verify`, `extension / build`,
       `docker / build (linux/amd64, ubuntu-latest, amd64)` and
-      `docker / build (linux/arm64, ubuntu-24.04-arm, arm64)`.
-- [ ] Delete the obsolete labels `release/patch`, `release/minor`, `release/major` and
-      `release/hotfix`.
-- [ ] Confirm the default workflow token permission stays `read`.
+      `docker / build (linux/arm64, ubuntu-24.04-arm, arm64)`. `develop` matches.
+- [x] Obsolete labels `release/patch`, `release/minor`, `release/major` and `release/hotfix`
+      deleted.
+- [x] Default workflow token permission is `read`.
+
+### Optional hardening: scope the credentials to environments
+
+All four secrets are currently repository secrets, which every job can read via `secrets: inherit`.
+The pipeline works as-is; the environments today provide the approval gate and the branch
+restriction, but not a credential boundary.
+
+To make them a real boundary, move the two publishing credentials into environments. This cannot be
+automated, because GitHub never discloses an existing secret's value — only someone holding the
+plaintext can re-enter it:
+
+```sh
+gh secret set CRX_PRIVATE_KEY --env preview < path/to/lurkloot.pem
+gh secret delete CRX_PRIVATE_KEY
+
+gh secret set CWS_SERVICE_ACCOUNT_JSON --env production < path/to/service-account.json
+gh secret delete CWS_SERVICE_ACCOUNT_JSON
+```
+
+Leave `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` at the repository level: the site deploys
+from both environments, so scoping them to one would break the other channel.
+
+Do this only when you have the plaintext to hand. Deleting a repository secret without having
+successfully set the environment copy breaks signing or publishing on the next release, and
+`CRX_PRIVATE_KEY` cannot be regenerated — losing it changes the extension ID.
