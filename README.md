@@ -56,9 +56,9 @@ For implementation details and package boundaries, see [the architecture guide](
 
 ## Releasing
 
-Releases run from the GitHub Actions tab. **Prepare release** opens a version-bump pull request from `develop` into `main`; merging it and then running **Release** on `main` tags the commit and publishes every artifact. Hotfixes are ordinary pull requests into `main` followed by the same **Release** run, and are synchronized back to `develop` afterwards.
+Labelling a pull request into `main` with `release/patch`, `release/minor` or `release/major` opens a version-bump pull request from `release/X.Y.Z`; merging that and then running **Release** on `main` tags the commit and publishes every artifact. A hotfix is the same flow, labelling a pull request branched from `main` rather than the `develop` promotion, and is synchronized back to `develop` afterwards.
 
-See [RELEASING.md](RELEASING.md) for the dispatch-driven flow, the release environments and approval, credentials, and recovery.
+See [RELEASING.md](RELEASING.md) for the release flow, the environments and approval, credentials, and recovery.
 
 ## Disclaimer
 

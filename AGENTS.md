@@ -32,11 +32,13 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 
 ## Cutting a Release
 
-Releases run from the Actions tab. Run **Prepare release** (choose patch/minor/major) to open the
-version-bump PR into `main`, merge it, then run **Release** on `main`. Release tags the commit,
-builds every artifact, publishes the GitHub release, GHCR aliases, the Chrome Web Store submission
-and the production site, then opens the `main` to `develop` sync PR. Every step is idempotent: if
-one fails, fix the cause and run **Release** again. Do not push tags by hand.
+Label a pull request into `main` with `release/patch`, `release/minor` or `release/major`. Prepare
+release cuts `release/X.Y.Z` from that PR's head, bumps the version, opens its own PR into `main` and
+closes the one you labelled. Merge the release PR, then run **Release** on `main`. Release tags the
+commit, builds every artifact, publishes the GitHub release, GHCR aliases, the Chrome Web Store
+submission and the production site, then opens the `main` to `develop` sync PR. A hotfix is the same
+flow with `release/patch` on a PR branched from `main`. Every step is idempotent: if one fails, fix
+the cause and run **Release** again. Do not push tags by hand.
 
 Follow [RELEASING.md](RELEASING.md) for the `preview` and `production` environments, the single release approval, credentials, Chrome Web Store publication timing, and required repository configuration.
 

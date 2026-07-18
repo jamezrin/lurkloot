@@ -1,14 +1,16 @@
 # Releasing Lurkloot
 
-Releases are driven from the Actions tab. Two workflow dispatches and one pull request merge cover
-every release, including hotfixes. Do not create or move tags by hand; CI never pushes to a
-protected branch, it only creates tags, releases and pull requests.
+Label a pull request into `main`, merge the release pull request that appears, then run **Release**.
+That covers every release, including hotfixes. Do not create or move tags by hand; the only branch CI
+ever pushes is the generated `release/X.Y.Z`. It cannot push to `main` or `develop` — beyond that
+branch it only creates tags, releases and pull requests.
 
 ## Before you start: write the changelog
 
 Release notes are rendered *only* from `packages/site/src/changelog.json`. Add the entry for the new
-version to `develop` before running Prepare release, since that is the branch it cuts from. Put it at
-the top of the array; omit `date`, because Prepare release stamps it:
+version to the branch you are releasing — `develop` for a normal release — before you apply the
+label, since Prepare release cuts from that branch. Put it at the top of the array; omit `date`,
+because Prepare release stamps it:
 
 ```json
 { "version": "1.5.1", "changes": [
@@ -24,13 +26,22 @@ release, but it is silent — so write the entry first unless you mean it.
 
 ## The three steps
 
-1. **Actions → Prepare release.** Choose `patch`, `minor` or `major`, or type an explicit `X.Y.Z` to
-   override the bump. The workflow branches `release/X.Y.Z` from `develop`, bumps the version in all
-   seven `package.json` files, stamps the date on the changelog entry, and opens a pull request into
-   `main`.
-2. **Review and merge that pull request.** This merge *is* the `develop` to `main` promotion. There
-   is no separate promotion step.
+1. **Open a pull request into `main` and label it** `release/patch`, `release/minor` or
+   `release/major`. For a normal release that is the `develop` to `main` promotion pull request; for
+   a hotfix it is the fix's own pull request. Prepare release cuts `release/X.Y.Z` from that pull
+   request's head, bumps the version in all seven `package.json` files, stamps the date on the
+   changelog entry, and opens its own pull request into `main`.
+2. **Review and merge the `release/X.Y.Z` pull request.** This merge *is* the promotion. There is no
+   separate promotion step.
 3. **Actions → Release, run on `main`.** The workflow refuses to run from any other branch.
+
+The label says how much to bump; the pull request says what is being released. There is no base or
+version input to keep in sync with the branch, because the pull request already carries both facts.
+
+Prepare release then comments on the pull request you labelled and **closes it**. That is deliberate:
+`release/X.Y.Z` is the same branch plus the bump, so leaving both open into `main` would let you
+merge the one without the version bump. If a run fails part way, remove the label and add it again to
+retry.
 
 ## What Release does
 
@@ -52,9 +63,10 @@ manual.
 Nobody edits a version by hand.
 
 Prepare release derives it from **git tags, not from `package.json`**: it reads `git tag --list 'v*'`,
-takes the highest stable tag, and applies your bump. Prereleases and leftover `candidate-*` tags are
-filtered out, so a stray tag cannot skew a bump. It then writes that version into all seven manifests
-and the changelog entry, as a single `chore(release): X.Y.Z` commit.
+takes the highest stable tag, and applies the bump named by the label. Prereleases and leftover
+`candidate-*` tags are filtered out, so a stray tag cannot skew a bump. It then writes that version
+into all seven manifests and the changelog entry, as a single `chore(release): X.Y.Z` commit on
+`release/X.Y.Z`.
 
 Release reads the version back out of `package.json` on `main`. **That committed value is what is
 actually released** — the tag, the GHCR tags and the store package all follow it.
@@ -63,17 +75,31 @@ The version is therefore derived from what was last released, and committed *bef
 built. Nothing is frozen, so nothing can be invalidated mid-release.
 
 `checkWorkspace` runs as part of the bump and fails loudly if the seven manifests disagree or the
-changelog has no entry for the version, so a half-edited workspace cannot reach a release. An
-explicit version override must be bare `X.Y.Z`; a `v` prefix is rejected before any branch is
-created.
+changelog has no entry for the version, so a half-edited workspace cannot reach a release. Only
+`release/patch`, `release/minor` and `release/major` name a valid bump; any other `release/*` label
+fails the run before a branch is created rather than guessing.
 
 ## Branch model and hotfixes
 
 `develop` is what is in development. `main` is what is ready to release or already released.
 
-A hotfix is an ordinary pull request into `main` followed by **Release**. There is no hotfix
-machinery, no hotfix label, and no separate workflow. The `main` to `develop` sync PR that Release
-opens carries the fix back to `develop`.
+There is no hotfix machinery, no hotfix label, and no separate workflow. A hotfix is the same three
+steps against a different pull request:
+
+1. Branch from `main`, not `develop`, and open the fix as an ordinary pull request into `main`.
+   **Do not merge it.**
+2. Label it `release/patch`. Prepare release cuts `release/X.Y.Z` from your fix branch, so the
+   release carries the already-released commits plus your fix and *none* of develop's unreleased
+   work. Your pull request is then closed as superseded.
+3. Merge the `release/X.Y.Z` pull request, then run **Release** on `main` as usual.
+4. Merge the `main` to `develop` sync PR that Release opens, so the fix and the version bump reach
+   `develop`.
+
+**Do not merge the fix yourself and skip the label.** Release reads the version from `package.json`
+on `main`; if the hotfix does not bump it, Release re-runs against the already-published version and
+does nothing — it re-tags the same version, edits the existing GitHub release, and the store reports
+the version as already submitted. It succeeds while shipping nothing. Closing the labelled pull
+request automatically is what keeps that from happening by accident.
 
 ## Chrome Web Store timing
 
@@ -128,8 +154,9 @@ harmless no-op: the tag is updated to the same SHA, the release is edited rather
 aliases are re-pointed at the same digest, and the store upload reports that the version is already
 submitted and does nothing.
 
-Re-running **Prepare release** for a version that is already prepared is likewise a no-op; it
-refreshes the branch and leaves the existing pull request in place.
+Re-applying a `release/*` label for a version that is already prepared is likewise a no-op; it
+refreshes `release/X.Y.Z`, leaves the existing pull request in place, and skips the supersede comment
+because the labelled pull request is already closed.
 
 ## After a release: reconcile `develop`
 
@@ -169,8 +196,9 @@ Applied:
 - [x] `main`'s required status checks are `verify`, `extension / build`,
       `docker / build (linux/amd64, ubuntu-latest, amd64)` and
       `docker / build (linux/arm64, ubuntu-24.04-arm, arm64)`. `develop` matches.
-- [x] Obsolete labels `release/patch`, `release/minor`, `release/major` and `release/hotfix`
-      deleted.
+- [x] Labels `release/patch`, `release/minor` and `release/major` exist — they are the release
+      trigger. There is deliberately no `release/hotfix`: a hotfix is a `release/patch` on a pull
+      request whose head is a hotfix branch.
 - [x] Default workflow token permission is `read`.
 
 ### Optional hardening: scope the credentials to environments
