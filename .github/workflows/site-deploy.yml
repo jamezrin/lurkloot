@@ -50,21 +50,9 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           persist-credentials: false
-      - uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/build-site
         with:
-          version: 11.9.0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build:site
-        env:
-          SITE_DEPLOYMENT_CHANNEL: ${{ inputs.channel }}
-      - name: Checksum static site artifact
-        run: |
-          cd packages/site/dist
-          find . -type f ! -name SITE_SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SITE_SHA256SUMS
+          channel: ${{ inputs.channel }}
       - uses: actions/upload-artifact@v7
         with:
           name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -84,20 +72,22 @@ jobs:
       name: ${{ inputs.channel == 'production' && 'production' || 'preview' }}
       url: ${{ inputs.channel == 'production' && 'https://lurkloot.jamezrin.com' || 'https://next.lurkloot.pages.dev' }}
     steps:
+      # The local deployment action comes from the trusted caller commit. Candidate source remains
+      # confined to the credential-free build job and crosses this boundary only as checksummed data.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
           name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: site-artifact
-      - name: Verify static site artifact
-        working-directory: site-artifact
-        run: sha256sum -c SITE_SHA256SUMS
-      - name: Deploy the site
-        uses: cloudflare/wrangler-action@v4
+      - uses: ./.github/actions/deploy-site
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: site-artifact
-          command: pages deploy . --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || 'next' }}
+          channel: ${{ inputs.channel }}
+          directory: site-artifact
+          api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Summarize deployment
         env:
           DEPLOY_CHANNEL: ${{ inputs.channel }}

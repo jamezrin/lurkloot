@@ -1,0 +1,91 @@
+name: Refresh release candidate
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-candidate-controller-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  non-release:
+    if: >-
+      !startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Mark release candidate / ready as not required
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          TARGET_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          node scripts/release/cli.mjs commit-status
+          --sha "$SHA" --state success --target-url "$TARGET_URL"
+
+  resolve:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.policy.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: policy
+        run: |
+          labels=$(jq -r '[.pull_request.labels[].name] | join(",")' "$GITHUB_EVENT_PATH")
+          tags=$(git tag --list 'v*' | tr '\n' ' ')
+          node scripts/release/cli.mjs policy --labels "$labels" --head candidate-source --tags "$tags"
+      - name: Match the committed release identity
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.policy.outputs.version }}
+        run: |
+          committed=$(gh api "repos/$GITHUB_REPOSITORY/contents/package.json?ref=$HEAD_SHA" --jq .content | base64 -d | jq -r .version)
+          expected=${HEAD_REF#release/}
+          test "$committed" = "$expected"
+          test "$committed" = "$VERSION"
+
+  preview:
+    needs: resolve
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      statuses: write
+    uses: ./.github/workflows/build-release-candidate.yml
+    with:
+      ref: ${{ github.event.pull_request.head.sha }}
+      trusted_ref: ${{ github.event.pull_request.base.sha }}
+      version: ${{ needs.resolve.outputs.version }}
+      pr_number: ${{ github.event.pull_request.number }}
+    secrets:
+      CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
