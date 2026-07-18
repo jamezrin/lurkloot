@@ -1,241 +1,211 @@
 # Releasing Lurkloot
 
-Label a pull request into `main`, merge the release pull request that appears, then run **Release**.
-That covers every release, including hotfixes. Do not create or move tags by hand; the only branch CI
-ever pushes is the generated `release/X.Y.Z`. It cannot push to `main` or `develop` — beyond that
-branch it only creates tags, releases and pull requests.
+Label a pull request into `main`, inspect the generated candidate, and merge the generated release
+pull request. Publication starts automatically after that merge and pauses once for approval on the
+`production` environment. Do not create or move tags by hand.
 
 ## Before you start: write the changelog
 
-Release notes are rendered *only* from `packages/site/src/changelog.json`. Add the entry for the new
-version to the branch you are releasing — `develop` for a normal release — before you apply the
-label, since Prepare release cuts from that branch. Put it at the top of the array; omit `date`,
-because Prepare release stamps it:
+Release notes are rendered only from `packages/site/src/changelog.json`. Add the entry for the new
+version to the branch being released before applying the label. Put it at the top and omit `date`;
+Prepare release stamps it:
 
 ```json
-{ "version": "1.5.1", "changes": [
-  { "kind": "fixed", "text": "Fixed a thing." }
+{ "version": "1.6.0", "changes": [
+  { "kind": "new", "text": "Added a feature." }
 ] }
 ```
 
-The only valid `kind` values are `new`, `improved` and `fixed`; anything else fails the site build.
+Valid change kinds are `new`, `improved`, and `fixed`. If no entry exists, preparation creates an
+empty entry. That intentionally permits build-only releases, but produces an empty release body.
 
-If no entry exists, Prepare release creates one with `"changes": []` rather than failing, and the
-GitHub release then ships with an **empty body**. That is the intended escape hatch for a build-only
-release, but it is silent — so write the entry first unless you mean it.
+## Normal release flow
 
-## The three steps
+1. Open the intended source pull request into `main`. For a normal release this is the `develop` to
+   `main` promotion pull request.
+2. Apply exactly one of `release/patch`, `release/minor`, or `release/major`.
+3. Prepare release cuts `release/X.Y.Z` from the source head, commits the version in all seven
+   workspace manifests, dates the changelog, opens a generated pull request into `main`, copies the
+   release label to it, and closes the original pull request as superseded.
+4. Candidate automation verifies the generated pull request, publishes the signed extension
+   artifacts as the mutable `candidate-vX.Y.Z` GitHub prerelease, pushes GHCR
+   `candidate-X.Y.Z`, and deploys the site to `next.lurkloot.pages.dev`.
+5. Review and merge the generated `release/X.Y.Z` pull request with a **merge commit**. Squash and
+   rebase are blocked on `main`; the original `develop` commit SHAs remain in `main` history.
+6. Release rebuilds from the merged `main` commit. Approve its single `production` job. It publishes
+   GitHub, GHCR, Chrome Web Store, and the production site, retires the candidate, then merges `main`
+   directly into `develop` with the dedicated synchronization App.
 
-1. **Open a pull request into `main` and label it** `release/patch`, `release/minor` or
-   `release/major`. For a normal release that is the `develop` to `main` promotion pull request; for
-   a hotfix it is the fix's own pull request. Prepare release cuts `release/X.Y.Z` from that pull
-   request's head, bumps the version in all seven `package.json` files, stamps the date on the
-   changelog entry, and opens its own pull request into `main`.
-2. **Review and merge the `release/X.Y.Z` pull request.** This merge *is* the promotion. There is no
-   separate promotion step.
-3. **Actions → Release, run on `main`.** The workflow refuses to run from any other branch.
+`workflow_dispatch` remains on **Release** only for idempotent recovery. A successful release does
+not require a manual dispatch.
 
-The label says how much to bump; the pull request says what is being released. There is no base or
-version input to keep in sync with the branch, because the pull request already carries both facts.
+## Label lifecycle
 
-Prepare release then comments on the pull request you labelled and **closes it**. That is deliberate:
-`release/X.Y.Z` is the same branch plus the bump, so leaving both open into `main` would let you
-merge the one without the version bump. If a run fails part way, remove the label and add it again to
-retry.
+- No recognized label means ordinary pull-request behavior.
+- More than one recognized release label blocks preparation and posts an explanatory comment.
+- Removing one label while another remains prepares the remaining selection.
+- Removing the final release label reports the already-created candidate as orphaned. Automation
+  does not delete it, because it may already be under review.
+- Generated `release/*` pull requests carry their release label for promotion validation but are
+  ignored as new preparation sources.
+- Fork pull requests cannot prepare releases. In this public repository, native GitHub roles limit
+  label application to users with triage-or-higher access; currently only `jamezrin` has that access.
 
-## What Release does
+## Candidate behavior
 
-- Tags `vX.Y.Z` on the released commit.
-- Builds the extension, including the signed CRX, and the CLI Docker image for `linux/amd64` and
-  `linux/arm64`.
-- Creates or updates the GitHub release, marks it Latest, and uploads the signed CRX, both browser
-  ZIPs, the sources ZIP and the checksums.
-- Pushes the GHCR version tags, then moves the aliases `X.Y`, `X` and `latest`.
-- Uploads the Chrome Web Store submission.
-- Deploys the production site.
-- Opens the `main` to `develop` synchronization pull request.
+Candidate pointers are deliberately mutable:
 
-Upload the Firefox ZIP and the source ZIP from the GitHub release to AMO; AMO publication remains
-manual.
+- GitHub tag/release: `candidate-vX.Y.Z`
+- GHCR image: `candidate-X.Y.Z`
+- Site: `https://next.lurkloot.pages.dev`
 
-## Where the version number comes from
+Every generated release-branch push rebuilds and refreshes those targets. Ownership metadata binds
+the candidate release to its pull request. An exact-SHA tag left behind by interrupted initial
+creation is recovered; a tag at any other SHA is rejected. Automation never modifies a stable
+release through the candidate path.
 
-Nobody edits a version by hand.
+The candidate pipeline writes all five required contexts directly to the generated release PR head:
+the four build/verification contexts plus `release candidate / ready`. This is necessary because
+GitHub intentionally suppresses new workflow events caused by the `GITHUB_TOKEN` that opens the PR.
 
-Prepare release derives it from **git tags, not from `package.json`**: it reads `git tag --list 'v*'`,
-takes the highest stable tag, and applies the bump named by the label. Prereleases and leftover
-`candidate-*` tags are filtered out, so a stray tag cannot skew a bump. It then writes that version
-into all seven manifests and the changelog entry, as a single `chore(release): X.Y.Z` commit on
-`release/X.Y.Z`.
+Only the most recently completed site candidate matters. Concurrent candidates therefore share the
+`next` deployment and the last successful deployment wins.
 
-Release reads the version back out of `package.json` on `main`. **That committed value is what is
-actually released** — the tag, the GHCR tags and the store package all follow it.
+## Parallel hotfix and normal candidates
 
-The version is therefore derived from what was last released, and committed *before* anything is
-built. Nothing is frozen, so nothing can be invalidated mid-release.
+Different versions may be prepared concurrently. For example, with `1.5.0` stable:
 
-`checkWorkspace` runs as part of the bump and fails loudly if the seven manifests disagree or the
-changelog has no entry for the version, so a half-edited workspace cannot reach a release. Only
-`release/patch`, `release/minor` and `release/major` name a valid bump; any other `release/*` label
-fails the run before a branch is created rather than guessing.
+```text
+release/1.5.1  <- patch candidate from a hotfix branch based on main
+release/1.6.0  <- minor candidate from a develop snapshot
+```
 
-## Branch model and hotfixes
+If `1.5.1` publishes first, `1.6.0` remains the correct minor version, but its old candidate does
+not contain the hotfix. Merge the updated `main` into `release/1.6.0`, resolve manifest or changelog
+conflicts by keeping version `1.6.0` and both changelog entries, and push. Do not rebase: merging
+preserves the original development commit SHAs. The push rebuilds the candidate before it can merge.
 
-`develop` is what is in development. `main` is what is ready to release or already released.
+If `1.6.0` publishes first, a pending `1.5.1` is invalid because releases cannot go backwards.
+Re-prepare the hotfix as `1.6.1`.
 
-There is no hotfix machinery, no hotfix label, and no separate workflow. A hotfix is the same three
-steps against a different pull request:
+Two pull requests may not own the same candidate version. The second preparation fails instead of
+force-pushing over the first release branch.
 
-1. Branch from `main`, not `develop`, and open the fix as an ordinary pull request into `main`.
-   **Do not merge it.**
-2. Label it `release/patch`. Prepare release cuts `release/X.Y.Z` from your fix branch, so the
-   release carries the already-released commits plus your fix and *none* of develop's unreleased
-   work. Your pull request is then closed as superseded.
-3. Merge the `release/X.Y.Z` pull request, then run **Release** on `main` as usual.
-4. Merge the `main` to `develop` sync PR that Release opens, so the fix and the version bump reach
-   `develop`.
+## Stable publication
 
-**Do not merge the fix yourself and skip the label.** Release reads the version from `package.json`
-on `main`, so without a bump it would try to release the already-published version again. It fails at
-the tagging step rather than re-pointing `vX.Y.Z` at the new commit, so nothing is corrupted — but
-nothing ships either, and the fix sits on `main` looking released. Closing the labelled pull request
-automatically is what keeps that from happening by accident.
+Stable publication operates on the exact merged commit and is idempotent:
 
-## Chrome Web Store timing
+- `vX.Y.Z` is created once and is never moved.
+- The signed CRX, Chrome ZIP, Firefox ZIP, Firefox source ZIP, and checksums are uploaded to the
+  stable GitHub release.
+- Docker architectures are exported as checksummed OCI archives before approval. GHCR receives
+  `X.Y.Z`, `X.Y`, `X`, and `latest` only inside the approved production job; an existing `X.Y.Z`
+  digest is never replaced.
+- Chrome Web Store receives the Chrome ZIP with `DEFAULT_PUBLISH`; Google publishes it automatically
+  after review approval.
+- The production site deploys to `https://lurkloot.jamezrin.com`.
+- The owned mutable candidate release and tag are removed after the stable release exists.
+- `main` is merged directly into `develop` after local `pnpm verify` succeeds.
 
-The submission uses `DEFAULT_PUBLISH`, so **Google publishes the item itself once review
-passes** — hours or days after the run finishes, with no further human action and no polling on our
-side. The store deliberately trails the GitHub release. Accepting that trade is what removed the
-staged-review, polling and cancellation machinery; do not add a workflow that waits for the store.
+Firefox Add-ons publication remains manual. Upload the Firefox and source ZIPs from the GitHub
+release to AMO.
 
-## Environments and approval
+## Branch model
 
-There are exactly two environments.
+- Ordinary feature and fix pull requests into `develop` use squash merge.
+- Release and hotfix pull requests into `main` use merge commits.
+- Rebase merging is disabled repository-wide.
+- Force pushes and deletions remain blocked on both protected branches.
+- The dedicated synchronization App may bypass only the `develop` pull-request requirement so it
+  can fast-forward or merge `main` directly after publication.
+- The general GitHub Actions App is not a bypass actor.
 
-| Environment | Reviewer | Holds | Used by |
-| --- | --- | --- | --- |
-| `preview` | none | `CRX_PRIVATE_KEY` | extension signing, the Docker version-tag push, prerelease site deploys |
-| `production` | required, repository admins | `CWS_SERVICE_ACCOUNT_JSON` | the `publish` job in `release.yml`, the production site deploy |
+The direct synchronization is a fast-forward when `develop` has not advanced. When it has advanced,
+the sync creates a merge commit, verifies the combined tree, and pushes it. A conflict aborts before
+any remote update.
 
-`preview` holds the signing key that *produces* artifacts. `production` gates what actually
-publishes: the GitHub release, the moving GHCR aliases, the Chrome Web Store upload and the
-production site.
+## Environments and credentials
 
-A release run pauses for approval twice: once before `publish`, and once before the production
-site deploy, because both target `production`. An unapproved build can produce artifacts and
-immutable version-specific tags, but it can never move `latest` or publish anything.
+There are exactly two environments:
 
-Restrict `preview`'s deployment branches to `main` and `release/*`.
+| Environment | Approval | Credentials and purpose |
+| --- | --- | --- |
+| `preview` | none | `CRX_PRIVATE_KEY`; candidate signing, candidate GHCR, preview site |
+| `production` | `jamezrin` | CWS credentials and sync App credentials; all stable publication |
 
-## Credentials
+Repository secrets used from both channels remain `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`. Variables are `CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID`.
 
-Secrets: `CRX_PRIVATE_KEY`, `CWS_SERVICE_ACCOUNT_JSON`, `CLOUDFLARE_API_TOKEN` and
-`CLOUDFLARE_ACCOUNT_ID`. All four are currently **repository** secrets, which every job reads via
-`secrets: inherit`. The "Holds" column above describes where the two publishing credentials belong
-once the optional hardening below is applied; until then the environments provide the approval gate
-and the branch restriction, but not a credential boundary.
+Move `CRX_PRIVATE_KEY` to `preview` and `CWS_SERVICE_ACCOUNT_JSON` to `production` when their
+plaintext values are available. Never delete the repository copy until the environment copy has
+been written successfully. Losing the CRX key changes the extension ID.
 
-`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` stay at the repository level permanently — the
-site deploys from both environments, so scoping them to one would break the other channel.
+The production environment additionally requires:
 
-Variables: `CWS_PUBLISHER_ID`, `CWS_EXTENSION_ID`.
+- `RELEASE_SYNC_APP_ID`
+- `RELEASE_SYNC_APP_PRIVATE_KEY`
 
-The CWS service-account email must be a member of the Chrome Web Store publisher, and the CRX
-private key must be preserved permanently — losing it changes the extension ID.
+## One-time dedicated App setup
+
+The settings template is `docs/github-apps/release-sync-manifest.json`. GitHub requires the owner to
+authorize App registration; a workflow cannot create this identity for itself.
+
+1. In GitHub, open **Settings -> Developer settings -> GitHub Apps -> New GitHub App**.
+2. Use the template name and URL, disable the webhook, keep the App private, grant repository
+   `Contents: Read and write`, and subscribe to no events.
+3. Install the App only on `jamezrin/lurkloot`.
+4. Record the numeric App ID and generate one private key PEM.
+5. Store them on the protected environment:
+
+   ```sh
+   gh secret set RELEASE_SYNC_APP_ID --env production --body "APP_ID"
+   gh secret set RELEASE_SYNC_APP_PRIVATE_KEY --env production < release-sync.private-key.pem
+   ```
+
+6. Preview the ruleset migration, then apply it using the App ID:
+
+   ```sh
+   export GITHUB_REPOSITORY=jamezrin/lurkloot
+   export GH_TOKEN="$(gh auth token)"
+   node scripts/release/cli.mjs configure-repository --sync-app-id "APP_ID"
+   node scripts/release/cli.mjs configure-repository --sync-app-id "APP_ID" --apply true
+   ```
+
+Apply mode enables merge+squash, disables rebase, creates and reads back both active rulesets, and
+only then removes the conflicting classic protections. It refuses to run without a positive App ID.
+
+## Repository policy after migration
+
+`main release history` targets `main` and requires:
+
+- pull requests merged with `merge` only;
+- `verify`, `extension / build`, and both Docker architecture checks;
+- `release candidate / ready`, reported against the PR head by trusted workflow code;
+- branches up to date with `main` before merge;
+- no deletion or force push;
+- no bypass actors.
+
+`develop squash history` targets `develop` and requires:
+
+- pull requests merged with `squash` only for ordinary actors;
+- the four ordinary validation/build checks and strict up-to-date policy;
+- no deletion or force push;
+- only the Lurkloot Release Sync App as an always-allowed bypass actor.
+
+The repository default workflow token remains read-only.
 
 ## Recovery
 
-Every step is idempotent. Tagging, the GitHub release, the GHCR aliases, the store upload and the
-site deploy all tolerate re-running. **This idempotency is what replaces rollback.** There is no
-rollback and no cancellation flow.
+- Preparation failure: fix the cause and remove/reapply the release label.
+- Candidate failure: re-run the failed workflow or push the corrected release branch.
+- Stable failure after merge: fix the external/configuration problem and manually dispatch
+  **Release** on `main`. Matching completed steps are no-ops.
+- Existing stable tag at another SHA: stop and prepare a new version. Never move it.
+- Sync conflict: merge `main` into `develop` locally, run `pnpm verify`, and push with the dedicated
+  App credential; alternatively use a one-off reviewed synchronization PR. Do not disable branch
+  protection.
+- Missing App configuration: publication reports the completed stable steps and fails at sync. Add
+  the two production secrets and rerun Release.
 
-If a step fails, fix the cause and run **Release** again. A re-run with nothing left to change is a
-harmless no-op: the tag already points at this commit and is left alone, the release is edited rather
-than recreated, the aliases are re-pointed at the same digest, and the store upload reports that the
-version is already submitted and does nothing.
-
-The one thing a re-run will not do is move a tag. If `vX.Y.Z` already points at a *different* commit,
-Release fails instead of re-pointing it — that state means `main` moved on without a version bump,
-and re-tagging would silently attach a published version to code that was never released as it.
-Prepare a new version rather than re-releasing a published one.
-
-Re-applying a `release/*` label for a version that is already prepared is likewise a no-op; it
-refreshes `release/X.Y.Z`, leaves the existing pull request in place, and skips the supersede comment
-because the labelled pull request is already closed.
-
-## After a release: reconcile `develop`
-
-Both branches require linear history, so pull requests between them merge by rebase. Rebasing
-rewrites the commits, so once the sync PR merges, `main` and `develop` end up with **identical trees
-but no shared history** — their merge-base stays at the commit before the merge.
-
-The consequence is cosmetic but compounds: the next `release/X.Y.Z` branch is cut from `develop`, so
-its pull request diffs from that stale merge-base and shows the previous release's version bump on
-top of the intended one. It still merges cleanly, because patch-equivalent commits are dropped on
-rebase.
-
-Check with:
-
-```sh
-git fetch origin main develop                            # never check against stale refs
-git rev-parse origin/main^{tree} origin/develop^{tree}   # should match
-git merge-base origin/main origin/develop                # should equal origin/main
-```
-
-Fetch first every time. The whole safety argument for the force push below is "the trees are already
-identical", and a stale `origin/develop` can satisfy that check while the real branch has moved on —
-in which case the push discards commits.
-
-If the trees match but the merge-base is stale, reconcile `develop` to `main`. This needs a force
-push, so temporarily set `allow_force_pushes: true` and `enforce_admins: false` on `develop`, run
-`git push --force-with-lease origin origin/main:refs/heads/develop`, then restore both settings
-immediately. Only do this when the trees are already identical — it is a history fix, not a content
-change.
-
-A branch cut from `develop` *before* a reconciliation keeps the old commit SHAs and starts conflicting
-with it. Replant it with `git rebase --onto origin/develop <last-commit-shared-with-old-develop>`; the
-duplicated commits drop as patch-equivalent, and the tree hash should be unchanged afterwards.
-
-## Repository configuration
-
-Applied:
-
-- [x] `preview` environment, no required reviewer, deployment branches restricted to `main` and
-      `release/*`.
-- [x] `production` environment, with repository administrators as required reviewers.
-- [x] Obsolete environments `prereleases`, `cws-review`, `prerelease-site`, `production-site` and
-      `stable-releases` deleted.
-- [x] `cws-release-ready` removed from `main`'s required status checks. Nothing posts it any more,
-      so leaving it required would have blocked every pull request forever.
-- [x] `main`'s required status checks are `verify`, `extension / build`,
-      `docker / build (linux/amd64, ubuntu-latest, amd64)` and
-      `docker / build (linux/arm64, ubuntu-24.04-arm, arm64)`. `develop` matches.
-- [x] Labels `release/patch`, `release/minor` and `release/major` exist — they are the release
-      trigger. There is deliberately no `release/hotfix`: a hotfix is a `release/patch` on a pull
-      request whose head is a hotfix branch.
-- [x] Default workflow token permission is `read`.
-
-### Optional hardening: scope the credentials to environments
-
-All four secrets are currently repository secrets, which every job can read via `secrets: inherit`.
-The pipeline works as-is; the environments today provide the approval gate and the branch
-restriction, but not a credential boundary.
-
-To make them a real boundary, move the two publishing credentials into environments. This cannot be
-automated, because GitHub never discloses an existing secret's value — only someone holding the
-plaintext can re-enter it:
-
-```sh
-gh secret set CRX_PRIVATE_KEY --env preview < path/to/lurkloot.pem
-gh secret delete CRX_PRIVATE_KEY
-
-gh secret set CWS_SERVICE_ACCOUNT_JSON --env production < path/to/service-account.json
-gh secret delete CWS_SERVICE_ACCOUNT_JSON
-```
-
-Leave `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` at the repository level: the site deploys
-from both environments, so scoping them to one would break the other channel.
-
-Do this only when you have the plaintext to hand. Deleting a repository secret without having
-successfully set the environment copy breaks signing or publishing on the next release, and
-`CRX_PRIVATE_KEY` cannot be regenerated — losing it changes the extension ID.
+The Chrome Web Store intentionally trails the GitHub release while Google reviews the submission.
+There is no polling, cancellation, or rollback workflow.
