@@ -56,9 +56,9 @@ For implementation details and package boundaries, see [the architecture guide](
 
 ## Releasing
 
-Releases are prepared and promoted through GitHub pull requests and Actions. Normal releases snapshot everything on `develop`; hotfixes branch from `main` and are synchronized back to `develop` after publication.
+Releases run from the GitHub Actions tab. **Prepare release** opens a version-bump pull request from `develop` into `main`; merging it and then running **Release** on `main` tags the commit and publishes every artifact. Hotfixes are ordinary pull requests into `main` followed by the same **Release** run, and are synchronized back to `develop` afterwards.
 
-See [RELEASING.md](RELEASING.md) for the lifecycle diagram and the complete prerelease, CWS review, cancellation, hotfix, promotion, and recovery runbook.
+See [RELEASING.md](RELEASING.md) for the dispatch-driven flow, the release environments and approval, credentials, and recovery.
 
 ## Disclaimer
 
