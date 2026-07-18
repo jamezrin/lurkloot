@@ -1,0 +1,129 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Refuse to release from anywhere but main
+        run: test "$GITHUB_REF" = "refs/heads/main"
+      - id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+  extension:
+    needs: resolve
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-extension.yml
+    with:
+      version: ${{ needs.resolve.outputs.version }}
+      sign_crx: true
+    secrets: inherit
+
+  docker:
+    needs: resolve
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      version: ${{ needs.resolve.outputs.version }}
+      push: true
+    secrets: inherit
+
+  publish:
+    needs: [resolve, extension, docker]
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write
+      packages: write
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v8
+        with:
+          name: extension-release-assets
+          path: release-assets
+      - name: Tag the released commit
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/v$VERSION" -f sha="$GITHUB_SHA" \
+            || gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/v$VERSION" \
+                 -f sha="$GITHUB_SHA" -F force=true
+      - name: Render release notes
+        run: node scripts/release/cli.mjs notes --version "$VERSION" --out notes.md
+      - name: Create or update the GitHub release
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            gh release edit "v$VERSION" --notes-file notes.md --latest
+          else
+            gh release create "v$VERSION" --title "v$VERSION" --notes-file notes.md --latest
+          fi
+          gh release upload "v$VERSION" release-assets/* --clobber
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Promote the image aliases
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
+        run: |
+          major="${VERSION%%.*}"
+          minor="${VERSION%.*}"
+          docker buildx imagetools create \
+            --tag "$IMAGE:$VERSION" --tag "$IMAGE:$minor" --tag "$IMAGE:$major" --tag "$IMAGE:latest" \
+            "$IMAGE:$VERSION"
+      - name: Publish to the Chrome Web Store
+        env:
+          CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+        run: |
+          node scripts/release/cli.mjs cws-release \
+            --version "$VERSION" --package "release-assets/lurkloot-$VERSION-chrome.zip"
+
+  site:
+    needs: [resolve, publish]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/site-deploy.yml
+    with:
+      channel: production
+      ref: main
+    secrets: inherit
+
+  sync:
+    needs: [resolve, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          gh pr create --base develop --head main \
+            --title "Sync main into develop after $VERSION" \
+            --body "Brings the $VERSION release commit back into develop." \
+            || echo "sync PR already open"
