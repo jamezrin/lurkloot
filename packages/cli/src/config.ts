@@ -100,7 +100,9 @@ export function defaultConfigJsonc(): string {
         "excludedChannels": ${json(kick.excludedChannels)},
         "farmAllCategories": ${json(kick.farmAllCategories)},
         // Used when farmAllCategories is false.
-        "categories": ${json(kick.categories)}
+        "categories": ${json(kick.categories)},
+        // Claim Kick's daily gamification challenges automatically.
+        "autoClaimChallenges": ${json(kick.autoClaimChallenges)}
       }
     }
   }

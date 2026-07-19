@@ -89,7 +89,7 @@ const CLI_SETTING_KEYS = new Set<string>([
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChannelPoints"]),
-  kick: new Set(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories"]),
+  kick: new Set(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChallenges"]),
 };
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
@@ -251,10 +251,10 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Platfor
       ...twitch.base,
       autoClaimChannelPoints: booleanOr(twitch.ps.autoClaimChannelPoints, DEFAULT_CLI_SETTINGS.platform.twitch.autoClaimChannelPoints),
     },
-    // autoClaimChallenges is not a CLI-configurable knob (CLI_PLATFORM_KEYS omits
-    // it for kick, and `ps` above is never read for it), but KickPlatformSettings
-    // still requires the field, so it's pinned to the shared default here.
-    kick: { ...kick.base, autoClaimChallenges: DEFAULT_CLI_SETTINGS.platform.kick.autoClaimChallenges },
+    kick: {
+      ...kick.base,
+      autoClaimChallenges: booleanOr(kick.ps.autoClaimChallenges, DEFAULT_CLI_SETTINGS.platform.kick.autoClaimChallenges),
+    },
   };
 }
 
