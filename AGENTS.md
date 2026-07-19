@@ -58,6 +58,28 @@ Use strict TypeScript and ES modules. Keep imports explicit and prefer `type` im
 
 Tests use Vitest in a Node environment with globals enabled and live in `packages/extension/tests/`. Add focused `*.test.ts` files matching the module being exercised, such as `scheduler.test.ts`, `parsers.test.ts`, or `version.test.ts`. Prefer deterministic unit tests with mocked adapters, browser APIs, or storage rather than live Twitch/Kick calls. Run `pnpm test` for test-only changes and `pnpm verify` before releases.
 
+## Worktrees
+
+**Always develop feature work in a git worktree under `.worktrees/`, never in the main checkout.**
+Multiple agent sessions run against this repository at once, and the main checkout is shared: doing
+feature work there lets concurrent sessions commit onto each other's branches. Create the worktree
+*before* the first edit, not after the branch already has commits on it.
+
+```bash
+git fetch origin develop
+git worktree add .worktrees/<short-kebab-case-description> -b <type>/<short-kebab-case-description> origin/develop
+cd .worktrees/<short-kebab-case-description>
+pnpm install --frozen-lockfile   # each worktree needs its own node_modules
+```
+
+Name the directory after the branch with the `<type>/` prefix dropped, so `feat/kick-daily-challenges`
+lives in `.worktrees/kick-daily-challenges`. Branch from `origin/develop` — it is the integration
+branch, and `main` runs ahead of it between releases. Leave the main checkout parked on `develop`.
+
+Run `git worktree list` before starting: if a worktree for the work already exists, use it rather
+than creating a second one. Remove a worktree with `git worktree remove .worktrees/<name>` once its
+branch is merged.
+
 ## Commit & Pull Request Guidelines
 
 Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) using `<type>[optional scope]: <description>`. Use lowercase types and imperative, present-tense descriptions without a trailing period. Keep commits focused and use a scope when it adds useful context, such as `feat(popup): add schedule refresh button` or `fix(scheduler): refresh viewer counts`.
