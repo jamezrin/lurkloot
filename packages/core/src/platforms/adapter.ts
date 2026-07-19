@@ -55,6 +55,12 @@ export interface PlatformAdapter {
   // the automatic fallback when heartbeats stop earning.
   supportsTabless?: boolean;
   createTablessWatcher?(): TablessWatchController;
+  // Whether a bounded post-claim refresh is worthwhile on this platform. Twitch
+  // only reveals the next reward in a campaign chain on a subsequent inventory
+  // read, so re-polling recovers watch time the fixed alarm would otherwise
+  // waste. Kick's tabless watcher holds a persistent viewer socket and paces
+  // its own sends, so it has no equivalent dead minute to recover.
+  supportsPostClaimHandoff?: boolean;
 }
 
 export interface PageFetcher {

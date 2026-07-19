@@ -609,6 +609,16 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
 });
 
 describe("TwitchAdapter", () => {
+  it("declares the post-claim handoff capability for Twitch only", () => {
+    // Reading a capability must not touch the network.
+    const fetcher = jsonFetcher(() => {
+      throw new Error("unexpected fetch");
+    });
+
+    expect(new TwitchAdapter(fetcher).supportsPostClaimHandoff).toBe(true);
+    expect(new KickAdapter(fetcher).supportsPostClaimHandoff).toBeUndefined();
+  });
+
   it("discovers active dashboard campaigns through detail GQL and merges inventory progress", async () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
