@@ -154,6 +154,34 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
       </SettingsSection>
       <SettingsSection title={t("advancedTitle")} description={t("advancedDescription")} icon={SlidersHorizontal}>
         <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={pollIntervalSeconds} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
+        <SettingRow
+          title={t("postClaimHandoffTitle")}
+          description={t("postClaimHandoffDescription")}
+          checked={settings.postClaimHandoff}
+          onChange={set("postClaimHandoff")}
+        />
+        <NumberSettingRow
+          title={t("postClaimHandoffIntervalTitle")}
+          description={t("postClaimHandoffIntervalDescription")}
+          value={settings.postClaimHandoffIntervalSeconds}
+          min={1}
+          max={30}
+          suffix={t("secondsSuffix")}
+          disabled={!settings.postClaimHandoff}
+          disabledReason={t("postClaimHandoffDescription")}
+          onChange={(value) => onSettingsChange({ postClaimHandoffIntervalSeconds: value })}
+        />
+        <NumberSettingRow
+          title={t("postClaimHandoffMaxTitle")}
+          description={t("postClaimHandoffMaxDescription")}
+          value={settings.postClaimHandoffMaxSeconds}
+          min={5}
+          max={120}
+          suffix={t("secondsSuffix")}
+          disabled={!settings.postClaimHandoff}
+          disabledReason={t("postClaimHandoffDescription")}
+          onChange={(value) => onSettingsChange({ postClaimHandoffMaxSeconds: value })}
+        />
         <SettingRow title={t("diagnosticLoggingTitle")} description={t("diagnosticLoggingDescription")} checked={settings.diagnosticLogging} onChange={set("diagnosticLogging")} />
         {compatibilityRegistry && compatibilityResolution ? <CompatibilitySettings settings={settings.compatibility} registry={compatibilityRegistry} resolution={compatibilityResolution} onChange={onSettingsChange} /> : null}
       </SettingsSection>
