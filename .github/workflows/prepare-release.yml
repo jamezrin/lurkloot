@@ -52,7 +52,8 @@ jobs:
         run: |
           labels=$(jq -r '[.pull_request.labels[].name] | join(",")' "$GITHUB_EVENT_PATH")
           tags=$(git -C trusted tag --list 'v*' | tr '\n' ' ')
-          if ! node trusted/scripts/release/cli.mjs policy --labels "$labels" --head "$HEAD_REF" --tags "$tags"; then
+          prereleases=$(node trusted/scripts/release/cli.mjs prerelease-tags)
+          if ! node trusted/scripts/release/cli.mjs policy --labels "$labels" --head "$HEAD_REF" --tags "$tags" --exclude "$prereleases"; then
             gh pr comment "$PR" --body "Release preparation is blocked: only one of \`release/patch\`, \`release/minor\`, or \`release/major\` may be applied."
             exit 1
           fi
@@ -114,10 +115,12 @@ jobs:
         name: Resolve the live release policy
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           labels=$(jq -r '[.pull_request.labels[].name] | join(",")' "$GITHUB_EVENT_PATH")
           tags=$(git tag --list 'v*' | tr '\n' ' ')
-          node scripts/release/cli.mjs policy --labels "$labels" --head "$HEAD_REF" --tags "$tags"
+          prereleases=$(node scripts/release/cli.mjs prerelease-tags)
+          node scripts/release/cli.mjs policy --labels "$labels" --head "$HEAD_REF" --tags "$tags" --exclude "$prereleases"
       - name: Refuse to overwrite another pull request's release branch
         env:
           VERSION: ${{ steps.policy.outputs.version }}

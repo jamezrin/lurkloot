@@ -21,8 +21,10 @@ export function nextVersion(current, bump) {
   return `${major}.${minor}.${patch + 1}`;
 }
 
-// Staging candidates and prereleases must never influence the next version, so a leftover
-// candidate tag cannot skew a bump.
+// Staging candidates and prereleases must never influence the next version. This function only
+// filters by tag shape, and a candidate is now published as `vX.Y.Z`, which is stable-shaped — so
+// that guarantee lives in `releasePolicy`, which excludes the tags of unpromoted prereleases before
+// calling here. Do not rely on the tag name alone to keep a candidate out of a bump.
 export function latestVersion(tags) {
   const versions = tags.filter((tag) => stable.test(tag)).map(parseVersion);
   if (versions.length === 0) return "0.0.0";
