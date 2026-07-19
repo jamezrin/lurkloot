@@ -271,7 +271,16 @@ describe("per-platform claim settings", () => {
   });
 
   it("drops the legacy top-level key from the merged result", () => {
-    expect("autoClaimChannelPoints" in mergeSettings(undefined)).toBe(false);
+    // Passing the legacy key is the whole point: merging must consume it into
+    // platform.twitch rather than carrying it through to the merged object.
+    const merged = mergeSettings({ autoClaimChannelPoints: false } as never);
+    expect("autoClaimChannelPoints" in merged).toBe(false);
+    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(false);
+  });
+
+  it("falls back to the default when the legacy top-level value is not a boolean", () => {
+    const merged = mergeSettings({ autoClaimChannelPoints: "yes" } as never);
+    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(true);
   });
 
   it("defaults autoClaimChallenges on for Kick", () => {

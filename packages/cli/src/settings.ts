@@ -115,7 +115,16 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "diagnosticLogging",
 ]);
 
+// Top-level settings that moved into a per-platform block. Named separately so
+// an existing config that still carries one gets a "move it here" error instead
+// of a misleading "unknown setting".
+const MOVED_SETTING_KEYS: Record<string, string> = {
+  autoClaimChannelPoints: "platform.twitch.autoClaimChannelPoints",
+};
+
 function describeOffender(key: string): string {
+  const movedTo = MOVED_SETTING_KEYS[key];
+  if (movedTo) return `"${key}" moved to "${movedTo}"; move the value there`;
   return EXTENSION_ONLY_KEYS.has(key)
     ? `"${key}" is an extension-only setting with no effect in the CLI; remove it`
     : `unknown CLI setting "${key}"`;
