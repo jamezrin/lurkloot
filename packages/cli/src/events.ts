@@ -39,6 +39,8 @@ export function formatCliEvent(event: EngineEvent): string {
       const detail = event.data.detail ? ` (${event.data.detail})` : "";
       return `Farming interrupted: ${formatStopReason(event.data.reason)}${detail}`;
     }
+    case "challenge_claimed":
+      return `Claimed a ${event.data.rarity} ${event.data.recurrence} challenge`;
     default: {
       const exhaustive: never = event;
       return exhaustive;

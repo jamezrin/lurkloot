@@ -308,6 +308,10 @@ export interface SchedulerState {
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
+  // Last time each platform's account-level gamification endpoints were polled.
+  // Persisted because adapters are rebuilt every tick, so an in-memory throttle
+  // would never survive to the next one.
+  gamification?: Partial<Record<Platform, { lastCheckedAt: string }>>;
   campaigns: Record<Platform, DropCampaign[]>;
   lastTickAt?: string;
   // ISO timestamp recorded once by the background on install; drives the
