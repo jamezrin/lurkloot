@@ -11,7 +11,7 @@ import { assertReleaseAssets, releasePolicy } from "./pipeline.mjs";
 import {
   GitHubClient,
   reconcilePrerelease,
-  retirePrerelease,
+  promotePrerelease,
   setCandidateStatuses,
   setCommitStatus,
   upsertComment,
@@ -145,12 +145,14 @@ const commands = {
       targetUrl: values["target-url"] ?? "",
     });
   },
-  async "retire-candidate"(values) {
-    await retirePrerelease({
+  async "promote-release"(values) {
+    const { tag, promoted } = await promotePrerelease({
       client: githubClient(),
       pr: Number(values.pr),
       version: values.version,
+      notes: await readFile(values.notes, "utf8"),
     });
+    process.stdout.write(`${promoted ? "promoted" : "already promoted"} ${tag}\n`);
   },
   async "app-token"() {
     const result = await createRepositoryToken({

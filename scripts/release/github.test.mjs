@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   GitHubClient,
   reconcilePrerelease,
-  retirePrerelease,
+  promotePrerelease,
   setCandidateStatuses,
   setCommitStatus,
   upsertComment,
@@ -35,8 +35,8 @@ function recordingFetch(routes) {
 
 test("creates a missing owned candidate prerelease", async () => {
   const routes = recordingFetch({
-    "GET /repos/jamezrin/lurkloot/git/ref/tags/candidate-v1.6.0": response(404, { message: "Not Found" }),
-    "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0": response(404, { message: "Not Found" }),
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(404, { message: "Not Found" }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(404, { message: "Not Found" }),
     "POST /repos/jamezrin/lurkloot/releases": response(201, {
       id: 12,
       upload_url: "https://uploads.github.com/repos/jamezrin/lurkloot/releases/12/assets{?name,label}",
@@ -54,8 +54,8 @@ test("creates a missing owned candidate prerelease", async () => {
     assets: [{ name: "lurkloot.zip", bytes: Buffer.from("zip") }],
   });
   assert.deepEqual(routes.calls.map(({ method, path }) => `${method} ${path}`), [
-    "GET /repos/jamezrin/lurkloot/git/ref/tags/candidate-v1.6.0",
-    "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0",
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0",
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0",
     "POST /repos/jamezrin/lurkloot/releases",
     "POST /repos/jamezrin/lurkloot/releases/12/assets",
   ]);
@@ -65,8 +65,8 @@ test("creates a missing owned candidate prerelease", async () => {
 
 test("recovers an exact-SHA candidate tag left without a release", async () => {
   const routes = recordingFetch({
-    "GET /repos/jamezrin/lurkloot/git/ref/tags/candidate-v1.6.0": response(200, { object: { sha: "abc123" } }),
-    "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0": response(404, { message: "Not Found" }),
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(200, { object: { sha: "abc123" } }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(404, { message: "Not Found" }),
     "POST /repos/jamezrin/lurkloot/releases": response(201, {
       id: 12,
       upload_url: "https://uploads.github.com/repos/jamezrin/lurkloot/releases/12/assets{?name,label}",
@@ -80,8 +80,8 @@ test("recovers an exact-SHA candidate tag left without a release", async () => {
 
 test("refuses an orphan candidate tag at another SHA", async () => {
   const routes = recordingFetch({
-    "GET /repos/jamezrin/lurkloot/git/ref/tags/candidate-v1.6.0": response(200, { object: { sha: "foreign" } }),
-    "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0": response(404, { message: "Not Found" }),
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(200, { object: { sha: "foreign" } }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(404, { message: "Not Found" }),
   });
   const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
   await assert.rejects(
@@ -123,15 +123,15 @@ test("writes every required context for a generated release pull request", async
 test("moves only an owned prerelease candidate", async () => {
   const marker = candidateMarker({ pr: 132, version: "1.6.0", head: "release/1.6.0" });
   const routes = recordingFetch({
-    "GET /repos/jamezrin/lurkloot/git/ref/tags/candidate-v1.6.0": response(200, { object: { sha: "old" } }),
-    "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0": response(200, {
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(200, { object: { sha: "old" } }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, {
       id: 12,
       prerelease: true,
       body: marker,
       upload_url: "https://uploads.github.com/repos/jamezrin/lurkloot/releases/12/assets{?name,label}",
       assets: [],
     }),
-    "PATCH /repos/jamezrin/lurkloot/git/refs/tags/candidate-v1.6.0": response(200, {}),
+    "PATCH /repos/jamezrin/lurkloot/git/refs/tags/v1.6.0": response(200, {}),
     "PATCH /repos/jamezrin/lurkloot/releases/12": response(200, {
       id: 12,
       upload_url: "https://uploads.github.com/repos/jamezrin/lurkloot/releases/12/assets{?name,label}",
@@ -142,7 +142,7 @@ test("moves only an owned prerelease candidate", async () => {
   await reconcilePrerelease({ client, pr: 132, version: "1.6.0", sha: "new", notes: "notes", assets: [] });
   assert.equal(routes.calls.some(({ method, path }) =>
     method === "PATCH" &&
-    path === "/repos/jamezrin/lurkloot/git/refs/tags/candidate-v1.6.0"), true);
+    path === "/repos/jamezrin/lurkloot/git/refs/tags/v1.6.0"), true);
   const update = routes.calls.find(({ method, path }) => method === "PATCH" && path.endsWith("/releases/12"));
   assert.equal("target_commitish" in JSON.parse(update.init.body), false);
 });
@@ -153,8 +153,8 @@ test("refuses stable or foreign candidate releases", async () => {
     { id: 12, prerelease: true, body: candidateMarker({ pr: 999, version: "1.6.0", head: "release/1.6.0" }) },
   ]) {
     const routes = recordingFetch({
-      "GET /repos/jamezrin/lurkloot/git/ref/tags/candidate-v1.6.0": response(200, { object: { sha: "old" } }),
-      "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0": response(200, release),
+      "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(200, { object: { sha: "old" } }),
+      "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, release),
     });
     const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
     await assert.rejects(
@@ -174,17 +174,64 @@ test("updates one sticky release status comment", async () => {
   assert.equal(routes.calls.at(-1).method, "PATCH");
 });
 
-test("retires only the matching owned prerelease", async () => {
+test("promotes the owned candidate in place without touching its tag", async () => {
   const marker = candidateMarker({ pr: 132, version: "1.6.0", head: "release/1.6.0" });
   const routes = recordingFetch({
-    "GET /repos/jamezrin/lurkloot/releases/tags/candidate-v1.6.0": response(200, { id: 12, prerelease: true, body: marker }),
-    "DELETE /repos/jamezrin/lurkloot/releases/12": response(204),
-    "DELETE /repos/jamezrin/lurkloot/git/refs/tags/candidate-v1.6.0": response(204),
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, { id: 12, prerelease: true, body: marker }),
+    "PATCH /repos/jamezrin/lurkloot/releases/12": response(200, { id: 12, prerelease: false }),
   });
   const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
-  await retirePrerelease({ client, pr: 132, version: "1.6.0" });
-  assert.deepEqual(routes.calls.slice(-2).map(({ method, path }) => `${method} ${path}`), [
-    "DELETE /repos/jamezrin/lurkloot/git/refs/tags/candidate-v1.6.0",
-    "DELETE /repos/jamezrin/lurkloot/releases/12",
-  ]);
+  const result = await promotePrerelease({ client, pr: 132, version: "1.6.0", notes: "notes" });
+  assert.equal(result.promoted, true);
+  const patch = JSON.parse(routes.calls.find(({ method }) => method === "PATCH").init.body);
+  assert.equal(patch.prerelease, false);
+  assert.equal(patch.make_latest, "true");
+  assert.ok(!routes.calls.some(({ path }) => path.includes("/git/refs")), "promotion must not move the tag");
+});
+
+test("promoting an already promoted release is a no-op", async () => {
+  const marker = candidateMarker({ pr: 132, version: "1.6.0", head: "release/1.6.0" });
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, { id: 12, prerelease: false, body: marker }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
+  const result = await promotePrerelease({ client, pr: 132, version: "1.6.0", notes: "notes" });
+  assert.equal(result.promoted, false);
+  assert.ok(!routes.calls.some(({ method }) => method === "PATCH"));
+});
+
+test("refuses to promote a release owned by another pull request", async () => {
+  const marker = candidateMarker({ pr: 999, version: "1.6.0", head: "release/1.6.0" });
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, { id: 12, prerelease: false, body: marker }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
+  await assert.rejects(
+    () => promotePrerelease({ client, pr: 132, version: "1.6.0", notes: "notes" }),
+    /owned by another pull request/,
+  );
+});
+
+test("refuses to promote a version that never had a candidate", async () => {
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(404, { message: "Not Found" }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
+  await assert.rejects(
+    () => promotePrerelease({ client, pr: 132, version: "1.6.0", notes: "notes" }),
+    /no candidate release exists/,
+  );
+});
+
+test("a promoted release cannot be reopened by a later candidate build", async () => {
+  const marker = candidateMarker({ pr: 132, version: "1.6.0", head: "release/1.6.0" });
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(200, { object: { sha: "abc" } }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, { id: 12, prerelease: false, body: marker }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
+  await assert.rejects(
+    () => reconcilePrerelease({ client, pr: 132, version: "1.6.0", sha: "abc", notes: "n", assets: [] }),
+    /already promoted/,
+  );
 });

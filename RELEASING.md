@@ -27,8 +27,8 @@ empty entry. That intentionally permits build-only releases, but produces an emp
 2. Apply exactly one of `release/patch`, `release/minor`, or `release/major`. The label validates the
    version and builds a candidate. It does not modify the pull request it is applied to.
 3. Candidate automation verifies the labelled head, publishes the signed extension artifacts as the
-   mutable `candidate-vX.Y.Z` GitHub prerelease, pushes GHCR `candidate-X.Y.Z`, and deploys the site
-   to `next.lurkloot.pages.dev`.
+   mutable `vX.Y.Z` GitHub **prerelease**, pushes GHCR `candidate-X.Y.Z`, and deploys the site to
+   `next.lurkloot.pages.dev`.
 4. Review and merge that pull request normally, with a **merge commit**.
 5. Prepare release then cuts `release/X.Y.Z` from the resulting merge commit on `main`, commits the
    version in all seven workspace manifests, dates the changelog, opens a generated pull request into
@@ -36,9 +36,10 @@ empty entry. That intentionally permits build-only releases, but produces an emp
    generated pull request's diff is only the version bump and changelog date.
 6. Review and merge the generated `release/X.Y.Z` pull request with a **merge commit**. Squash and
    rebase are blocked on `main`; the original `develop` commit SHAs remain in `main` history.
-7. Release rebuilds from the merged `main` commit. Approve its single `production` job. It publishes
-   GitHub, GHCR, Chrome Web Store, and the production site, retires the candidate, then merges `main`
-   directly into `develop` with the dedicated synchronization App.
+7. Release runs from the merged `main` commit. Approve its single `production` job. It promotes the
+   `vX.Y.Z` prerelease to the latest release, publishing the extension artifacts it already carries
+   rather than rebuilding them, then publishes GHCR, Chrome Web Store, and the production site, and
+   merges `main` directly into `develop` with the dedicated synchronization App.
 
 `workflow_dispatch` remains on **Release** only for idempotent recovery. A successful release does
 not require a manual dispatch.
@@ -61,14 +62,21 @@ not require a manual dispatch.
 
 Candidate pointers are deliberately mutable:
 
-- GitHub tag/release: `candidate-vX.Y.Z`
+- GitHub tag/release: `vX.Y.Z`, published as a prerelease
 - GHCR image: `candidate-X.Y.Z`
 - Site: `https://next.lurkloot.pages.dev`
 
 Every generated release-branch push rebuilds and refreshes those targets. Ownership metadata binds
 the candidate release to its pull request. An exact-SHA tag left behind by interrupted initial
 creation is recovered; a tag at any other SHA is rejected. Automation never modifies a stable
-release through the candidate path.
+release through the candidate path: promotion clears the prerelease flag, and every later candidate
+build against that tag fails.
+
+The candidate and the stable release are the same object. `vX.Y.Z` is created during candidacy at the
+release branch head and is never moved; merging the release pull request flips it from prerelease to
+latest and publishes the artifacts it already carries. Because `vX.Y.Z` exists while the release is
+still under review, it is a moving tag until promotion — it stays out of `releases/latest` while it
+is a prerelease, but anyone pinning the raw tag during that window gets a pre-release commit.
 
 The candidate pipeline writes all five required contexts directly to the generated release PR head:
 the four build/verification contexts plus `release candidate / ready`. This is necessary because

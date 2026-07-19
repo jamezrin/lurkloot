@@ -174,7 +174,7 @@ jobs:
           PR: ${{ inputs.pr_number }}
           VERSION: ${{ inputs.version }}
           SHA: ${{ inputs.ref }}
-          URL: https://github.com/${{ github.repository }}/releases/tag/candidate-v${{ inputs.version }}
+          URL: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}
         run: >-
           node scripts/release/cli.mjs candidate-comment
           --pr "$PR" --version "$VERSION" --sha "$SHA" --state ready --url "$URL"
