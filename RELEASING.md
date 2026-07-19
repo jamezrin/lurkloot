@@ -66,7 +66,9 @@ Candidate pointers are deliberately mutable:
 - GHCR image: `candidate-X.Y.Z`
 - Site: `https://next.lurkloot.pages.dev`
 
-Every generated release-branch push rebuilds and refreshes those targets. Ownership metadata binds
+Every push to a labelled head rebuilds and refreshes those targets, as does every generated
+release-branch push, so the candidate always describes the commit that would be released rather
+than whichever commit was current when the label went on. Ownership metadata binds
 the candidate release to its pull request. An exact-SHA tag left behind by interrupted initial
 creation is recovered; a tag at any other SHA is rejected. Automation never modifies a stable
 release through the candidate path: promotion clears the prerelease flag, and every later candidate
