@@ -104,11 +104,32 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   // Omitted in headless/test runs, where the scheduler forgets contexts from
   // state only (see runSchedulerTick / StopPageContextTabs).
   stopPageContextTabs?: StopPageContextTabs;
+  // Delay used by the bounded post-claim handoff. Injected so tests can drive
+  // the loop deterministically instead of racing real timers. Resolves early
+  // (without throwing) when the signal aborts, so callers check `signal.aborted`
+  // after awaiting rather than catching.
+  wait?(ms: number, signal: AbortSignal): Promise<void>;
 }
 
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
   const reportedCompatibility = new Map<Platform, string>();
   const reportedCompatibilityWarnings = new Set<string>();
+
+  const wait: NonNullable<BackgroundControllerDeps<S>["wait"]> = deps.wait ?? ((ms, signal) => new Promise<void>((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  }));
 
   const selectionFingerprint = (value: string): string => {
     let hash = 0x811c9dc5;
