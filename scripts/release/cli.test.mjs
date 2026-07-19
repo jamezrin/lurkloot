@@ -33,13 +33,13 @@ test("renders candidate status with stable links", () => {
     version: "1.6.0",
     sha: "abcdef123456",
     state: "ready",
-    url: "https://github.com/jamezrin/lurkloot/releases/tag/candidate-v1.6.0",
+    url: "https://github.com/jamezrin/lurkloot/releases/tag/v1.6.0",
   }), [
     "## Release candidate 1.6.0",
     "",
     "- State: **ready**",
     "- Source: `abcdef1`",
-    "- Candidate: https://github.com/jamezrin/lurkloot/releases/tag/candidate-v1.6.0",
+    "- Candidate: https://github.com/jamezrin/lurkloot/releases/tag/v1.6.0",
     "- Site: https://next.lurkloot.pages.dev",
   ].join("\n"));
 });

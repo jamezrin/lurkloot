@@ -53,7 +53,7 @@ test("candidate ownership markers round trip", () => {
   assert.match(marker, /^<!-- lurkloot-release-candidate:/);
   assert.deepEqual(parseCandidateMarker(`Candidate\n\n${marker}\n`), context);
   assert.equal(parseCandidateMarker("ordinary release body"), undefined);
-  assert.equal(candidateTag("1.6.0"), "candidate-v1.6.0");
+  assert.equal(candidateTag("1.6.0"), "v1.6.0");
 });
 
 test("uses only the final trailing candidate ownership marker", () => {

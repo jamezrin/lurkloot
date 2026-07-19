@@ -60,13 +60,6 @@ export class GitHubClient {
     });
   }
 
-  deleteRef(tag) {
-    return this.request(this.repoPath(`/git/refs/tags/${encodeURIComponent(tag)}`), {
-      method: "DELETE",
-      allowNotFound: true,
-    });
-  }
-
   releaseByTag(tag) {
     return this.request(this.repoPath(`/releases/tags/${encodeURIComponent(tag)}`), { allowNotFound: true });
   }
@@ -77,10 +70,6 @@ export class GitHubClient {
 
   updateRelease(id, body) {
     return this.request(this.repoPath(`/releases/${id}`), { method: "PATCH", body });
-  }
-
-  deleteRelease(id) {
-    return this.request(this.repoPath(`/releases/${id}`), { method: "DELETE" });
   }
 
   deleteAsset(id) {
@@ -113,10 +102,12 @@ export class GitHubClient {
   }
 }
 
+// The prerelease check is what stops a late candidate build from overwriting a release that has
+// already been promoted: promotion clears the flag, so every later reconcile against it fails here.
 function assertOwnedPrerelease(release, { pr, version }) {
   const ownership = parseCandidateMarker(release.body);
   if (!release.prerelease || ownership?.pr !== Number(pr) || ownership.version !== version) {
-    throw new Error(`refusing to modify candidate-v${version}: release is stable or owned by another pull request`);
+    throw new Error(`refusing to modify v${version}: release is already promoted or owned by another pull request`);
   }
 }
 
@@ -175,14 +166,29 @@ export async function setCandidateStatuses(options) {
   return Promise.all(requiredMainStatusContexts.map((context) => setCommitStatus({ ...options, context })));
 }
 
-export async function retirePrerelease({ client, pr, version }) {
+// Promotion is the terminal transition for a candidate: the same release object and the same tag
+// become the stable release. It is deliberately not creatable from nothing — a version with no
+// candidate has no reviewed artifacts to publish.
+export async function promotePrerelease({ client, pr, version, notes }) {
   const tag = candidateTag(version);
   const release = await client.releaseByTag(tag);
-  if (!release) return "absent";
+  if (!release) throw new Error(`cannot promote ${tag}: no candidate release exists`);
+  if (!release.prerelease) {
+    const ownership = parseCandidateMarker(release.body);
+    if (ownership?.pr !== Number(pr) || ownership.version !== version) {
+      throw new Error(`refusing to promote ${tag}: release is owned by another pull request`);
+    }
+    return { release, tag, promoted: false };
+  }
   assertOwnedPrerelease(release, { pr, version });
-  await client.deleteRef(tag);
-  await client.deleteRelease(release.id);
-  return "retired";
+  const promoted = await client.updateRelease(release.id, {
+    name: `v${version}`,
+    body: notes.trim(),
+    draft: false,
+    prerelease: false,
+    make_latest: "true",
+  });
+  return { release: promoted, tag, promoted: true };
 }
 
 export async function upsertComment({ client, pr, body }) {

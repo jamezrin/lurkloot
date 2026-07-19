@@ -32,9 +32,11 @@ export function releasePolicy({ labels, head, tags }) {
   };
 }
 
+// One tag spans candidacy and stable publication. The candidate publishes it as a prerelease at the
+// release branch head; merging flips that same release to latest without ever moving the tag.
 export function candidateTag(version) {
   parseManifestVersion(version);
-  return `candidate-v${version}`;
+  return `v${version}`;
 }
 
 export function candidateMarker({ pr, version, head }) {
