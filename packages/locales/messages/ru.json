@@ -422,6 +422,24 @@
   "schedulerIntervalDescription": {
     "message": "Как часто обновляется статус кампаний и стримеров."
   },
+  "postClaimHandoffTitle": {
+    "message": "Быстрая передача награды"
+  },
+  "postClaimHandoffDescription": {
+    "message": "После получения дропа ненадолго проверяет следующую награду кампании вместо ожидания следующего запланированного цикла. Только для Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Интервал проверки при передаче"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Сколько ждать между проверками следующей награды."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Ограничение времени передачи"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Прекратить и вернуться к обычному расписанию по истечении этого времени."
+  },
   "secondsSuffix": {
     "message": "с"
   },

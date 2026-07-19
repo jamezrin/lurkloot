@@ -422,6 +422,24 @@
   "schedulerIntervalDescription": {
     "message": "Wie oft Kampagnen- und Streamerstatus aktualisiert werden."
   },
+  "postClaimHandoffTitle": {
+    "message": "Schnelle Belohnungsübergabe"
+  },
+  "postClaimHandoffDescription": {
+    "message": "Sucht nach dem Einlösen eines Drops kurz nach der nächsten Belohnung der Kampagne, statt auf den nächsten geplanten Zyklus zu warten. Nur für Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Prüfintervall der Übergabe"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Wie lange zwischen den Prüfungen auf die nächste Belohnung gewartet wird."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Zeitlimit der Übergabe"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Nach dieser Zeit aufgeben und zum regulären Zeitplan zurückkehren."
+  },
   "secondsSuffix": {
     "message": "Sek."
   },
