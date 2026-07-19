@@ -2207,6 +2207,73 @@ describe("background controller", () => {
       expect(env.timer.parked).toBe(0);
     });
 
+    it("does not start a second handoff while the first is still starting", async () => {
+      const env = handoffEnv();
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+
+      // Both calls are made before either has finished its async setup.
+      const first = env.controller.runClaimHandoff("twitch", ["reward-1"]);
+      const second = env.controller.runClaimHandoff("twitch", ["reward-1"]);
+      await drainMicrotasks();
+      env.controller.abortClaimHandoffs();
+      await env.timer.flush();
+      await Promise.all([first, second]);
+
+      expect(env.timer.wait).toHaveBeenCalledTimes(1);
+    });
+
+    it("honors an abort issued while the handoff is still starting", async () => {
+      const env = handoffEnv();
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+
+      const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
+      // Synchronously, before any setup await has resolved.
+      env.controller.abortClaimHandoffs();
+      await env.timer.flush();
+      await handoff;
+
+      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    });
+
+    it("never refreshes after the maximum duration has elapsed", async () => {
+      // A 30s interval against a 45s budget: a second full-length wait would
+      // land a refresh at 60s, past the deadline the setting promises.
+      const env = handoffEnv({ postClaimHandoffIntervalSeconds: 30, postClaimHandoffMaxSeconds: 45 });
+      // The session keeps watching the reward that was just claimed, so the loop
+      // never succeeds and never sees "nothing left" — only the deadline can end
+      // it. Without that, the early exit would mask any overshoot.
+      env.twitch.discoverCampaigns = vi.fn(async () => [campaign("twitch")]);
+
+      const handoff = env.controller.runClaimHandoff("twitch", ["reward"]);
+      for (let index = 0; index < 5; index += 1) await env.timer.flush();
+      await handoff;
+
+      expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(1);
+    });
+
+    it("sends no heartbeat when the abort lands while state is being read", async () => {
+      const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+      const env = handoffEnv({ tablessMode: true });
+      env.twitch.supportsTabless = true;
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(true)]);
+
+      await env.controller.tick();
+      watcher.tick.mockClear();
+
+      // Cancel at the moment the successor becomes visible to the handoff.
+      const loadState = env.deps.loadState.getMockImplementation()!;
+      env.deps.loadState.mockImplementation(async () => {
+        const state = await loadState();
+        if (state.sessions.twitch.rewardId === "reward-2") env.controller.abortClaimHandoffs();
+        return state;
+      });
+
+      await env.controller.runClaimHandoff("twitch", ["reward-1"]);
+
+      expect(watcher.tick).not.toHaveBeenCalled();
+    });
+
     it("sends no heartbeat when the next reward runs in a visible tab", async () => {
       const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
       const env = handoffEnv({ tablessMode: false });

@@ -8,6 +8,22 @@
 
 **Tech Stack:** TypeScript, pnpm workspaces, Vitest (Node environment, globals enabled), React (popup UI), WXT (extension shell).
 
+> **As built — this plan was not followed exactly.** It is kept as the record of what was planned;
+> the spec describes the shipped design. Where they disagree, the spec is correct. Deviations:
+>
+> - `tick()` returns `ClaimedRewards` (reward ids per platform), not `Platform[]`. Task 4's contract
+>   is insufficient: seeding the "already claimed" set from the post-tick session marks the successor
+>   as claimed, and the loop never terminates.
+> - A fast path was added — when the triggering tick already selected the successor, the poll loop is
+>   skipped and only the heartbeat is brought forward.
+> - The `claimHandoffs` map is per-controller, not module-level, and its entry is reserved
+>   synchronously before the first await to close a duplicate-start and missed-abort race.
+> - The interval wait is capped at the remaining budget so a refresh cannot land past `maxSeconds`.
+> - The "nothing left" early exit covers `no_eligible_channel` as well as `campaign_ineligible`.
+> - `packages/cli/src/settings.ts` has its own explicit settings surface (interface, defaults, key
+>   allowlist, normalizer), so Task 8 required four edits there rather than the one templated line.
+> - `NumberSettingRow` gained a `disabled` prop, following `SelectSettingRow`'s existing pattern.
+
 **Conventions that apply to every task:**
 - Two-space indentation, double quotes, semicolons, camelCase functions/variables, `type` imports for types.
 - Conventional Commits, imperative mood, no trailing period.

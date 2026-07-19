@@ -664,43 +664,55 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // on its own, so a long handoff never blocks telemetry or user actions.
   async function runClaimHandoff(platform: Platform, justClaimedRewardIds: readonly string[] = []): Promise<void> {
     if (claimHandoffs.has(platform)) return;
-    const settings = await deps.loadSettings();
-    if (!settings.postClaimHandoff || !settings.running) return;
-    if (!settings.platform[platform].enabled) return;
-
-    const adapters = createAdapters(settings, () => undefined);
-    if (!adapters[platform].supportsPostClaimHandoff) return;
-
-    const claimed = new Set(justClaimedRewardIds);
-    // A session is a successful handoff target when it is watching a reward
-    // other than the ones just claimed.
-    const isSuccessor = (session: WatchSession): boolean =>
-      session.status === "watching" && session.rewardId != null && !claimed.has(session.rewardId);
-
-    // The triggering tick may already have found the successor, in which case
-    // there is nothing to poll for — only a heartbeat to bring forward.
-    const before = await deps.loadState();
-    if (isSuccessor(before.sessions[platform])) {
-      await sendImmediateHeartbeat(platform, before.sessions[platform]);
-      return;
-    }
-
+    // Reserved synchronously, before the first await. Registering after the
+    // async setup would let two triggers past the guard into concurrent loops,
+    // and would let an abortClaimHandoffs() landing mid-setup miss this handoff
+    // entirely.
     const abort = new AbortController();
     claimHandoffs.set(platform, abort);
-    // The deadline is computed once. A claim occurring inside the loop never
-    // extends it, so the worst case stays fixed at maxSeconds.
-    const deadline = Date.now() + settings.postClaimHandoffMaxSeconds * 1000;
-    const intervalMs = settings.postClaimHandoffIntervalSeconds * 1000;
 
     try {
+      const settings = await deps.loadSettings();
+      if (abort.signal.aborted) return;
+      if (!settings.postClaimHandoff || !settings.running) return;
+      if (!settings.platform[platform].enabled) return;
+
+      const adapters = createAdapters(settings, () => undefined);
+      if (!adapters[platform].supportsPostClaimHandoff) return;
+
+      const claimed = new Set(justClaimedRewardIds);
+      // A session is a successful handoff target when it is watching a reward
+      // other than the ones just claimed.
+      const isSuccessor = (session: WatchSession): boolean =>
+        session.status === "watching" && session.rewardId != null && !claimed.has(session.rewardId);
+
+      // The triggering tick may already have found the successor, in which case
+      // there is nothing to poll for — only a heartbeat to bring forward.
+      const before = await deps.loadState();
+      if (abort.signal.aborted) return;
+      if (isSuccessor(before.sessions[platform])) {
+        await sendImmediateHeartbeat(platform, before.sessions[platform]);
+        return;
+      }
+
+      // The deadline is computed once. A claim occurring inside the loop never
+      // extends it, so the worst case stays fixed at maxSeconds.
+      const deadline = Date.now() + settings.postClaimHandoffMaxSeconds * 1000;
+      const intervalMs = settings.postClaimHandoffIntervalSeconds * 1000;
+
       while (!abort.signal.aborted && Date.now() < deadline) {
-        await wait(intervalMs, abort.signal);
-        if (abort.signal.aborted) break;
+        // Capped at the remaining budget, so an interval longer than what is
+        // left cannot push a refresh past the deadline.
+        await wait(Math.min(intervalMs, deadline - Date.now()), abort.signal);
+        if (abort.signal.aborted || Date.now() >= deadline) break;
 
         await tick([platform]);
         if (abort.signal.aborted) break;
 
         const session = (await deps.loadState()).sessions[platform];
+        // Re-checked after the load: a cancellation during it must not still
+        // transmit.
+        if (abort.signal.aborted) break;
         if (isSuccessor(session)) {
           await sendImmediateHeartbeat(platform, session);
           return;

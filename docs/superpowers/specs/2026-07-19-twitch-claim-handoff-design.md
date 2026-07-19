@@ -81,10 +81,16 @@ The Twitch adapter sets it; Kick leaves it unset. The controller stays platform-
 ### Trigger
 
 `tick()` already runs inside `withEventCollector` and therefore observes every emitted event. It
-collects the platforms that produced a `reward_claimed` activity event
-(`packages/core/src/core/scheduler.ts:473`) and returns them, so its current `Promise<void>` becomes
-`Promise<Platform[]>`. The popup's manual-claim path
-(`packages/core/src/background/controller.ts:771`) triggers the handoff on the same basis.
+collects the `reward_claimed` activity events (`packages/core/src/core/scheduler.ts:473`) and returns
+the claimed reward ids keyed by platform, so its current `Promise<void>` becomes
+`Promise<ClaimedRewards>` where `ClaimedRewards = Partial<Record<Platform, string[]>>`. The popup's
+manual-claim path (`packages/core/src/background/controller.ts:771`) triggers the handoff on the same
+basis, passing the id it just claimed.
+
+The ids, not merely the platforms, are what the handoff needs: it recognises a successor as "the
+session is watching a reward that is not one of the ones just claimed". Deriving that from the
+session's own `rewardId` after the tick does not work, because by then the session already points at
+the successor — which would be recorded as claimed, and the loop would never terminate.
 
 A handoff starts only when the platform's adapter declares `supportsPostClaimHandoff`, the settings
 enable it, and farming is running.
@@ -97,16 +103,26 @@ or user actions for its whole duration. This mirrors the existing arrangement in
 `runWatchHeartbeat`, which deliberately defers its trailing `tick()` until after its locked closure
 returns.
 
-A module-level `Map<Platform, AbortController>` tracks in-flight handoffs. Starting a handoff for a
-platform that already has one is a no-op rather than a restart.
+A per-controller `Map<Platform, AbortController>` tracks in-flight handoffs. Starting a handoff for a
+platform that already has one is a no-op rather than a restart. The map entry is claimed
+**synchronously, before the first await**: registering it after the async setup would let two
+triggers past the duplicate guard into concurrent loops, and would let an `abortClaimHandoffs()`
+arriving mid-setup miss the handoff entirely. Everything after the reservation runs inside a `try`
+whose `finally` releases it.
+
+There is also a fast path before the loop. When the triggering tick already selected the successor,
+there is nothing to poll for, so the handoff skips straight to the immediate heartbeat.
 
 Loop shape, per iteration:
 
 1. Check `signal.aborted`; exit if set.
-2. `await deps.wait(intervalMs, signal)`.
-3. Check `signal.aborted`; exit if set.
+2. `await deps.wait(min(intervalMs, deadline - now), signal)` — capped at the remaining budget, so an
+   interval longer than what is left cannot push a refresh past the deadline.
+3. Check `signal.aborted` and the deadline; exit if either has passed.
 4. `await tick([platform])`.
-5. Evaluate stop conditions against the freshly persisted state.
+5. Check `signal.aborted`; exit if set.
+6. Load state, re-check `signal.aborted` (a cancellation during the load must not still transmit),
+   then evaluate stop conditions.
 
 ### Re-entrancy and boundedness
 
@@ -129,9 +145,11 @@ The loop ends on the first of:
 
 ### Abort
 
-The handoff aborts on farming stopped, the platform being disabled, `beginSettingsSession()`, and
-runtime restart. Abort is checked immediately before and after every await, so a stop request takes
-effect within one in-flight tick rather than at the next interval boundary.
+The handoff aborts on farming stopped, the platform being disabled, `beginSettingsSession()`,
+runtime restart, and CLI shutdown — the last of these before the transport is disposed, so a handoff
+cannot keep refreshing against disposed resources or hold the process open with a pending delay.
+Abort is checked immediately before and after every await, so a stop request takes effect within one
+in-flight tick rather than at the next interval boundary.
 
 ### Tail action
 

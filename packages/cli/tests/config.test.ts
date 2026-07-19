@@ -191,11 +191,11 @@ describe("loadConfig", () => {
 
   it("documents the post-claim handoff settings in the template", () => {
     // The round-trip above merges defaults, so an omitted key would still pass
-    // there. Assert the template itself carries them.
+    // there. Assert the template itself carries them, with the rendered values.
     const template = defaultConfigJsonc();
-    expect(template).toContain("\"postClaimHandoff\":");
-    expect(template).toContain("\"postClaimHandoffIntervalSeconds\":");
-    expect(template).toContain("\"postClaimHandoffMaxSeconds\":");
+    expect(template).toContain(`"postClaimHandoff": ${DEFAULT_CLI_SETTINGS.postClaimHandoff}`);
+    expect(template).toContain(`"postClaimHandoffIntervalSeconds": ${DEFAULT_CLI_SETTINGS.postClaimHandoffIntervalSeconds}`);
+    expect(template).toContain(`"postClaimHandoffMaxSeconds": ${DEFAULT_CLI_SETTINGS.postClaimHandoffMaxSeconds}`);
   });
 });
 
