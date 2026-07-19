@@ -141,9 +141,7 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
         : t("activityInterruption", reason);
     }
     case "challenge_claimed":
-      // Minimal factual fallback: locale strings for this event are owned by a
-      // later task, not invented here.
-      return `Claimed a ${event.data.rarity} ${event.data.recurrence} challenge`;
+      return t("activityChallengeClaimed", [event.data.rarity, event.data.recurrence]);
     default: {
       const exhaustive: never = event;
       return exhaustive;

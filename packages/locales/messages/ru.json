@@ -455,6 +455,18 @@
   "watchQueueEditHint": {
     "message": "Редактируйте её на вкладке Очередь просмотра после выбора $1."
   },
+  "autoClaimChannelPointsTitle": {
+    "message": "Автополучение баллов канала"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Автоматически получает бонусы баллов канала во время фарма на этой платформе."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Автополучение ежедневных испытаний"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Открывает награду ежедневного испытания Kick, как только выполнена цель по времени просмотра."
+  },
   "excludedChannelsTitle": {
     "message": "Исключённые каналы drops"
   },
@@ -541,6 +553,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 из $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Награда за испытание заявлена"
+  },
+  "notificationChallengeReward": {
+    "message": "Вы выиграли карту $1 за испытание $2."
   },
   "notificationNoDropsLeftMessage": {
     "message": "На $1 нет подходящих drops для фарма."
@@ -650,6 +668,9 @@
   },
   "activityRewardClaimed": {
     "message": "Получено: $1 из кампании $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "Получено: испытание $1 $2"
   },
   "activityInterruption": {
     "message": "Сбор прерван: $1."

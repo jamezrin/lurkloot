@@ -455,6 +455,18 @@
   "watchQueueEditHint": {
     "message": "Modificala dalla scheda Coda di visione dopo aver selezionato $1."
   },
+  "autoClaimChannelPointsTitle": {
+    "message": "Riscatto automatico dei punti canale"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Riscatta automaticamente i bonus in punti canale durante il farming su questa piattaforma."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Riscatto automatico delle sfide giornaliere"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Apre la ricompensa della sfida giornaliera di Kick al raggiungimento del suo obiettivo di tempo di visione."
+  },
   "excludedChannelsTitle": {
     "message": "Canali drop esclusi"
   },
@@ -541,6 +553,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 da $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Ricompensa della sfida riscattata"
+  },
+  "notificationChallengeReward": {
+    "message": "Hai vinto una carta $1 dalla tua sfida $2."
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 non ha drop idonei da farmare."
@@ -650,6 +668,9 @@
   },
   "activityRewardClaimed": {
     "message": "Riscattato $1 da $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "Riscattata una sfida $1 $2"
   },
   "activityInterruption": {
     "message": "Raccolta interrotta: $1."

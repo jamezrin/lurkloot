@@ -455,6 +455,18 @@
   "watchQueueEditHint": {
     "message": "Nach Auswahl von $1 im Warteschlangen-Tab bearbeiten."
   },
+  "autoClaimChannelPointsTitle": {
+    "message": "Kanalpunkte automatisch beanspruchen"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Beansprucht Kanalpunkt-Boni automatisch, während diese Plattform gefarmt wird."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Tägliche Challenges automatisch beanspruchen"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Öffnet Kicks tägliche Challenge-Belohnung, sobald das Sehdauer-Ziel erreicht ist."
+  },
   "excludedChannelsTitle": {
     "message": "Ausgeschlossene Drop-Kanäle"
   },
@@ -541,6 +553,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 aus $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Challenge-Belohnung beansprucht"
+  },
+  "notificationChallengeReward": {
+    "message": "Du hast eine $1-Karte aus deiner $2-Challenge gewonnen."
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 hat keine geeigneten Drops zum Farmen."
@@ -650,6 +668,9 @@
   },
   "activityRewardClaimed": {
     "message": "$1 aus $2 wurde abgeholt."
+  },
+  "activityChallengeClaimed": {
+    "message": "$1-$2-Challenge-Belohnung abgeholt"
   },
   "activityInterruption": {
     "message": "Sammeln unterbrochen: $1."
