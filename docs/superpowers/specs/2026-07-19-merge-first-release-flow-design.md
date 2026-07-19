@@ -215,3 +215,19 @@ End-to-end verification requires a real release cycle; `1.6.0` is the first one 
 `release/1.6.0` and its pull request [#148](https://github.com/jamezrin/lurkloot/pull/148) already exist,
 cut from `develop` under the old flow, and [#146](https://github.com/jamezrin/lurkloot/pull/146) is closed
 unmerged. Reconciling that state is a separate decision from this design and is not specified here.
+
+## Amendment, 2026-07-19: the push trigger was removed
+
+The `push` trigger on `release/**` described above was removed after one release cycle. It was added
+because a `GITHUB_TOKEN`-created pull request does not fire `opened`, so the release pull request
+would never receive its first candidate build. That gap is already closed by `cut` calling
+`build-release-candidate.yml` directly with the pull request number it just created.
+
+Every later push to the release branch also fires `pull_request_target: synchronize`, so both
+triggers started a build for the same commit. They carried different controller concurrency groups —
+keyed on the pull request number and on the ref name — so both were admitted, and only the inner
+`release-candidate-${version}` group cancelled one of them. The cancelled run's jobs then surfaced on
+the pull request as failing checks, on every release-branch push.
+
+The trigger covered no case that `cut` and `synchronize` do not already cover, so it was deleted
+rather than reconciled.
