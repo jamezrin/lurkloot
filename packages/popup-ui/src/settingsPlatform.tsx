@@ -28,8 +28,9 @@ import {
   moveById,
   useDndSensors,
 } from "./primitives";
+import { SettingRow } from "./settingsControls";
 
-export function PlatformSettingsGroup({ platform, suggestions, settings, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories, onExcludedChannelsChange }: {
+export function PlatformSettingsGroup({ platform, suggestions, settings, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories, onExcludedChannelsChange, onAutoClaimBonusChange }: {
   platform: Platform;
   suggestions: GameItem[];
   settings: ExtensionSettings;
@@ -37,6 +38,9 @@ export function PlatformSettingsGroup({ platform, suggestions, settings, onFarmA
   onCategoriesChange(categories: CategorySelection[]): void | Promise<void>;
   onSearchCategories(query: string): Promise<CategorySelection[]>;
   onExcludedChannelsChange(channels: string[]): void | Promise<void>;
+  // The platform's own claim toggle: channel points on Twitch, daily challenges
+  // on Kick. Each platform has exactly one, so a single callback covers both.
+  onAutoClaimBonusChange(value: boolean): void | Promise<void>;
 }) {
   const t = useT();
   const details = PLATFORMS[platform];
@@ -61,6 +65,21 @@ export function PlatformSettingsGroup({ platform, suggestions, settings, onFarmA
           </div>
           <Pill tone="outline">{queueCount}/20</Pill>
         </div>
+        {platform === "twitch" ? (
+          <SettingRow
+            title={t("autoClaimChannelPointsTitle")}
+            description={t("autoClaimChannelPointsDescription")}
+            checked={settings.platform.twitch.autoClaimChannelPoints}
+            onChange={onAutoClaimBonusChange}
+          />
+        ) : (
+          <SettingRow
+            title={t("autoClaimChallengesTitle")}
+            description={t("autoClaimChallengesDescription")}
+            checked={settings.platform.kick.autoClaimChallenges}
+            onChange={onAutoClaimBonusChange}
+          />
+        )}
       </div>
       <ChannelListEditor
         title={t("excludedChannelsTitle")}

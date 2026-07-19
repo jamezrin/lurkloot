@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PageFetcher } from "@lurkloot/core/adapter";
+import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
@@ -570,6 +570,75 @@ describe("KickAdapter", () => {
     const fetcher = jsonFetcher(() => { throw new Error("should not fetch"); });
     await expect(new KickAdapter(fetcher).searchCategories("   ")).resolves.toEqual([]);
   });
+
+  it("claims only completed, unclaimed Kick challenges", async () => {
+    const claimed: string[] = [];
+    const fetcher = jsonFetcher((url, init) => {
+      if (url === "https://web.kick.com/api/v1/gamification/challenges") {
+        return {
+          data: [
+            { id: "done", recurrence: "daily", claimed_at: null, condition: { progress: 60, threshold: 60 } },
+            { id: "already", recurrence: "daily", claimed_at: "2026-07-17T23:39:02Z", condition: { progress: 60, threshold: 60 } },
+            { id: "partial", recurrence: "daily", claimed_at: null, condition: { progress: 30, threshold: 60 } },
+          ],
+        };
+      }
+      if (url === "https://web.kick.com/api/v1/gamification/challenges/done/claim") {
+        expect(init?.method).toBe("POST");
+        claimed.push("done");
+        return { data: { challenge_id: "done", winner: { id: "card", rarity: "legendary" } } };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const adapter = new KickAdapter(fetcher);
+
+    await expect(adapter.claimChallenges!()).resolves.toEqual([
+      { id: "done", rarity: "legendary", recurrence: "daily" },
+    ]);
+    expect(claimed).toEqual(["done"]);
+  });
+
+  it("reports an unknown rarity when the Kick claim response omits a winner", async () => {
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/gamification/challenges") {
+        return { data: [{ id: "done", recurrence: "weekly", claimed_at: null, condition: { progress: 5, threshold: 5 } }] };
+      }
+      if (url === "https://web.kick.com/api/v1/gamification/challenges/done/claim") return { message: "success" };
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    await expect(new KickAdapter(fetcher).claimChallenges!()).resolves.toEqual([
+      { id: "done", rarity: "unknown", recurrence: "weekly" },
+    ]);
+  });
+
+  it("keeps claiming Kick challenges after one claim fails", async () => {
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/gamification/challenges") {
+        return {
+          data: [
+            { id: "bad", recurrence: "daily", claimed_at: null, condition: { progress: 1, threshold: 1 } },
+            { id: "good", recurrence: "daily", claimed_at: null, condition: { progress: 1, threshold: 1 } },
+          ],
+        };
+      }
+      if (url === "https://web.kick.com/api/v1/gamification/challenges/bad/claim") throw new Error("boom");
+      if (url === "https://web.kick.com/api/v1/gamification/challenges/good/claim") {
+        return { data: { winner: { rarity: "common" } } };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    await expect(new KickAdapter(fetcher).claimChallenges!()).resolves.toEqual([
+      { id: "good", rarity: "common", recurrence: "daily" },
+    ]);
+  });
+
+  it("returns nothing when Kick reports no challenges", async () => {
+    const fetcher = jsonFetcher(() => ({}));
+    await expect(new KickAdapter(fetcher).claimChallenges!()).resolves.toEqual([]);
+  });
 });
 
 describe("createKickFetcher (background-first, tab fallback)", () => {
@@ -609,6 +678,21 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
 });
 
 describe("TwitchAdapter", () => {
+  it("declares the post-claim handoff capability for Twitch only", () => {
+    // Reading a capability must not touch the network.
+    const fetcher = jsonFetcher(() => {
+      throw new Error("unexpected fetch");
+    });
+
+    // Read through the interface: the capability is optional there, and Kick's
+    // concrete class deliberately does not declare it at all.
+    const twitch: PlatformAdapter = new TwitchAdapter(fetcher);
+    const kick: PlatformAdapter = new KickAdapter(fetcher);
+
+    expect(twitch.supportsPostClaimHandoff).toBe(true);
+    expect(kick.supportsPostClaimHandoff).toBeUndefined();
+  });
+
   it("discovers active dashboard campaigns through detail GQL and merges inventory progress", async () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);

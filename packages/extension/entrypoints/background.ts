@@ -204,7 +204,7 @@ export default defineBackground(() => {
 
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === ALARM_NAME) {
-      void controller.tick();
+      void controller.tickAndHandOff();
     } else if (alarm.name === WATCH_ALARM_NAME) {
       void controller.runWatchHeartbeat();
     }

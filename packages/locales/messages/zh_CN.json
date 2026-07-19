@@ -422,9 +422,34 @@
   "schedulerIntervalDescription": {
     "message": "活动和主播状态刷新的频率。"
   },
+  "postClaimHandoffTitle": {
+    "message": "快速奖励交接"
+  },
+  "postClaimHandoffDescription": {
+    "message": "领取掉宝后，短暂检查活动中的下一个奖励，而不是等待下一个计划周期。仅限 Twitch。"
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "交接检查间隔"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "两次检查下一个奖励之间的等待时间。"
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "交接时间上限"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "超过这段时间后放弃并返回常规计划。"
+  },
   "secondsSuffix": {
     "message": "秒"
   },
+  "deadlineSafetyMarginTitle": { "message": "截止时间安全余量" },
+  "deadlineSafetyMarginDescription": { "message": "开始获取奖励前需额外预留的分钟数。" },
+  "deadlineSafetyMarginDisabledReason": { "message": "启用截止时间筛选后才能修改安全余量。" },
+  "skipUnfinishableRewardsTitle": { "message": "跳过无法完成的奖励" },
+  "skipUnfinishableRewardsDescription": { "message": "当剩余观看时间超过截止前可用时间时，不再获取该奖励。" },
+  "minutesSuffix": { "message": "分钟" },
+  "insufficientTimeRemaining": { "message": "剩余时间不足" },
   "automationSectionTitle": {
     "message": "自动化"
   },
@@ -436,6 +461,18 @@
   },
   "watchQueueEditHint": {
     "message": "选择 $1 后，在观看队列标签页编辑。"
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "自动领取频道积分"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "在该平台刷取时自动领取频道积分奖励。"
+  },
+  "autoClaimChallengesTitle": {
+    "message": "自动领取每日挑战"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "达到观看时长目标后自动领取 Kick 每日挑战奖励。"
   },
   "excludedChannelsTitle": {
     "message": "排除的掉宝频道"
@@ -523,6 +560,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 来自 $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "已领取挑战奖励"
+  },
+  "notificationChallengeReward": {
+    "message": "你从 $2 挑战中赢得了一张 $1 卡片。"
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 没有可刷取的合格掉宝。"
@@ -632,6 +675,9 @@
   },
   "activityRewardClaimed": {
     "message": "已领取 $2 中的 $1。"
+  },
+  "activityChallengeClaimed": {
+    "message": "已领取 $2 挑战的 $1 卡片"
   },
   "activityInterruption": {
     "message": "领取已中断：$1。"

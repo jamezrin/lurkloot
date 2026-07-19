@@ -422,9 +422,34 @@
   "schedulerIntervalDescription": {
     "message": "Wie oft Kampagnen- und Streamerstatus aktualisiert werden."
   },
+  "postClaimHandoffTitle": {
+    "message": "Schnelle Belohnungsübergabe"
+  },
+  "postClaimHandoffDescription": {
+    "message": "Sucht nach dem Einlösen eines Drops kurz nach der nächsten Belohnung der Kampagne, statt auf den nächsten geplanten Zyklus zu warten. Nur für Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Prüfintervall der Übergabe"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Wie lange zwischen den Prüfungen auf die nächste Belohnung gewartet wird."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Zeitlimit der Übergabe"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Nach dieser Zeit aufgeben und zum regulären Zeitplan zurückkehren."
+  },
   "secondsSuffix": {
     "message": "Sek."
   },
+  "deadlineSafetyMarginTitle": { "message": "Sicherheitsmarge bis zum Ablauf" },
+  "deadlineSafetyMarginDescription": { "message": "Zusätzliche Minuten vor dem Farmen einer Belohnung." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Aktiviere den Fristfilter, um die Sicherheitsmarge zu ändern." },
+  "skipUnfinishableRewardsTitle": { "message": "Nicht abschließbare Belohnungen überspringen" },
+  "skipUnfinishableRewardsDescription": { "message": "Belohnungen nicht farmen, wenn die verbleibende Wiedergabezeit die Frist überschreitet." },
+  "minutesSuffix": { "message": "Min." },
+  "insufficientTimeRemaining": { "message": "Nicht genügend Zeit verbleibend" },
   "automationSectionTitle": {
     "message": "Automatisierung"
   },
@@ -436,6 +461,18 @@
   },
   "watchQueueEditHint": {
     "message": "Nach Auswahl von $1 im Warteschlangen-Tab bearbeiten."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "Kanalpunkte automatisch beanspruchen"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Beansprucht Kanalpunkt-Boni automatisch, während diese Plattform gefarmt wird."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Tägliche Challenges automatisch beanspruchen"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Beansprucht Kicks tägliche Challenge-Belohnung, sobald das Sehdauer-Ziel erreicht ist."
   },
   "excludedChannelsTitle": {
     "message": "Ausgeschlossene Drop-Kanäle"
@@ -523,6 +560,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 aus $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Challenge-Belohnung beansprucht"
+  },
+  "notificationChallengeReward": {
+    "message": "Du hast eine $1-Karte aus deiner $2-Challenge gewonnen."
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 hat keine geeigneten Drops zum Farmen."
@@ -632,6 +675,9 @@
   },
   "activityRewardClaimed": {
     "message": "$1 aus $2 wurde abgeholt."
+  },
+  "activityChallengeClaimed": {
+    "message": "$1-Karte aus der $2-Challenge erhalten"
   },
   "activityInterruption": {
     "message": "Sammeln unterbrochen: $1."

@@ -1,5 +1,22 @@
 [
   {
+    "version": "1.7.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Added automatic claiming for completed Kick daily challenges, with separate per-platform controls for Kick challenges and Twitch channel points."
+      },
+      {
+        "kind": "new",
+        "text": "Lurkloot now avoids farming rewards that cannot be completed before their deadline, with an adjustable safety margin."
+      },
+      {
+        "kind": "improved",
+        "text": "Twitch now starts progressing toward the next reward sooner after a claim instead of waiting for the next scheduled cycle."
+      }
+    ]
+  },
+  {
     "version": "1.6.0",
     "changes": [
       {

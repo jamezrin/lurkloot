@@ -117,6 +117,35 @@ describe("settings", () => {
     expect(mergeSettings({ offlineRetryLimit: Number.NaN }).offlineRetryLimit).toBe(DEFAULT_SETTINGS.offlineRetryLimit);
   });
 
+  it("clamps post-claim handoff settings and defaults them when absent", () => {
+    expect(mergeSettings({}).postClaimHandoff).toBe(true);
+    expect(mergeSettings({}).postClaimHandoffIntervalSeconds).toBe(5);
+    expect(mergeSettings({}).postClaimHandoffMaxSeconds).toBe(45);
+
+    expect(mergeSettings({ postClaimHandoffIntervalSeconds: 0 }).postClaimHandoffIntervalSeconds).toBe(1);
+    expect(mergeSettings({ postClaimHandoffIntervalSeconds: 99 }).postClaimHandoffIntervalSeconds).toBe(30);
+    expect(mergeSettings({ postClaimHandoffMaxSeconds: 1 }).postClaimHandoffMaxSeconds).toBe(5);
+    expect(mergeSettings({ postClaimHandoffMaxSeconds: 999 }).postClaimHandoffMaxSeconds).toBe(120);
+
+    expect(mergeSettings({ postClaimHandoffIntervalSeconds: Number.NaN }).postClaimHandoffIntervalSeconds)
+      .toBe(DEFAULT_SETTINGS.postClaimHandoffIntervalSeconds);
+    expect(mergeSettings({ postClaimHandoffMaxSeconds: Number.NaN }).postClaimHandoffMaxSeconds)
+      .toBe(DEFAULT_SETTINGS.postClaimHandoffMaxSeconds);
+    expect(mergeSettings({ postClaimHandoff: false }).postClaimHandoff).toBe(false);
+  });
+
+  it("normalizes deadline filtering enablement and its safety margin independently", () => {
+    expect(DEFAULT_ENGINE_SETTINGS.skipUnfinishableRewards).toBe(true);
+    expect(DEFAULT_ENGINE_SETTINGS.deadlineSafetyMarginMinutes).toBe(5);
+    expect(mergeEngineSettings({ skipUnfinishableRewards: false }).skipUnfinishableRewards).toBe(false);
+    expect(mergeEngineSettings({ skipUnfinishableRewards: "no" } as never).skipUnfinishableRewards).toBe(true);
+    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: -9 }).deadlineSafetyMarginMinutes).toBe(0);
+    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: 0 }).deadlineSafetyMarginMinutes).toBe(0);
+    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: 4.6 }).deadlineSafetyMarginMinutes).toBe(5);
+    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: 99 }).deadlineSafetyMarginMinutes).toBe(60);
+    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: Number.NaN }).deadlineSafetyMarginMinutes).toBe(5);
+  });
+
   it("keeps diagnostic logging independent from the removed engine log-level setting", () => {
     expect(mergeSettings(undefined).diagnosticLogging).toBe(false);
     expect(mergeSettings({ diagnosticLogging: true }).diagnosticLogging).toBe(true);
@@ -232,5 +261,48 @@ describe("settings", () => {
     // ids like "13" leak in as categories.
     expect(settings.platform.twitch.categories).toEqual([]);
     expect(settings.platform.kick.categories).toEqual([]);
+  });
+});
+
+describe("per-platform claim settings", () => {
+  it("defaults autoClaimChannelPoints on for Twitch", () => {
+    expect(mergeSettings(undefined).platform.twitch.autoClaimChannelPoints).toBe(true);
+  });
+
+  it("migrates a legacy top-level autoClaimChannelPoints onto platform.twitch", () => {
+    const merged = mergeSettings({ autoClaimChannelPoints: false } as never);
+    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(false);
+  });
+
+  it("prefers an explicit platform.twitch value over the legacy top-level one", () => {
+    const merged = mergeSettings({
+      autoClaimChannelPoints: false,
+      platform: { ...DEFAULT_SETTINGS.platform, twitch: { ...DEFAULT_SETTINGS.platform.twitch, autoClaimChannelPoints: true } },
+    } as never);
+    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(true);
+  });
+
+  it("drops the legacy top-level key from the merged result", () => {
+    // Passing the legacy key is the whole point: merging must consume it into
+    // platform.twitch rather than carrying it through to the merged object.
+    const merged = mergeSettings({ autoClaimChannelPoints: false } as never);
+    expect("autoClaimChannelPoints" in merged).toBe(false);
+    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(false);
+  });
+
+  it("falls back to the default when the legacy top-level value is not a boolean", () => {
+    const merged = mergeSettings({ autoClaimChannelPoints: "yes" } as never);
+    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(true);
+  });
+
+  it("defaults autoClaimChallenges on for Kick", () => {
+    expect(mergeSettings(undefined).platform.kick.autoClaimChallenges).toBe(true);
+  });
+
+  it("honors an explicit autoClaimChallenges of false", () => {
+    const merged = mergeSettings({
+      platform: { ...DEFAULT_SETTINGS.platform, kick: { ...DEFAULT_SETTINGS.platform.kick, autoClaimChallenges: false } },
+    });
+    expect(merged.platform.kick.autoClaimChallenges).toBe(false);
   });
 });

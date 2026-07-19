@@ -422,9 +422,34 @@
   "schedulerIntervalDescription": {
     "message": "مدى تكرار تحديث حالة الحملات والبثوث."
   },
+  "postClaimHandoffTitle": {
+    "message": "تسليم سريع للمكافآت"
+  },
+  "postClaimHandoffDescription": {
+    "message": "بعد المطالبة بمكافأة، يتحقق لفترة وجيزة من المكافأة التالية في الحملة بدلاً من انتظار الدورة المجدولة التالية. Twitch فقط."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "فاصل التحقق أثناء التسليم"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "مدة الانتظار بين عمليات التحقق من المكافأة التالية."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "الحد الزمني للتسليم"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "التوقف والعودة إلى الجدول المعتاد بعد هذه المدة."
+  },
   "secondsSuffix": {
     "message": "ث"
   },
+  "deadlineSafetyMarginTitle": { "message": "هامش أمان الموعد النهائي" },
+  "deadlineSafetyMarginDescription": { "message": "دقائق إضافية مطلوبة قبل جمع المكافأة." },
+  "deadlineSafetyMarginDisabledReason": { "message": "فعّل تصفية الموعد النهائي لتغيير هامش الأمان." },
+  "skipUnfinishableRewardsTitle": { "message": "تخطي المكافآت التي لا يمكن إكمالها" },
+  "skipUnfinishableRewardsDescription": { "message": "لا تجمع المكافآت عندما يتجاوز وقت المشاهدة المتبقي الوقت المتاح قبل الموعد النهائي." },
+  "minutesSuffix": { "message": "د" },
+  "insufficientTimeRemaining": { "message": "الوقت المتبقي غير كافٍ" },
   "automationSectionTitle": {
     "message": "الأتمتة"
   },
@@ -436,6 +461,18 @@
   },
   "watchQueueEditHint": {
     "message": "حررها من تبويب قائمة المشاهدة بعد اختيار $1."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "استلام نقاط القناة تلقائيًا"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "استلم مكافآت نقاط القناة تلقائيًا أثناء الفارم على هذه المنصة."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "استلام التحديات اليومية تلقائيًا"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "استلم مكافأة تحدي Kick اليومي بمجرد تحقيق هدف وقت المشاهدة."
   },
   "excludedChannelsTitle": {
     "message": "قنوات Drops المستبعدة"
@@ -523,6 +560,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 من $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "تم استلام مكافأة التحدي"
+  },
+  "notificationChallengeReward": {
+    "message": "ربحت بطاقة $1 من تحدي $2."
   },
   "notificationNoDropsLeftMessage": {
     "message": "لا توجد Drops مؤهلة للفارم على $1."
@@ -632,6 +675,9 @@
   },
   "activityRewardClaimed": {
     "message": "تم استلام $1 من $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "تم استلام بطاقة $1 من تحدي $2"
   },
   "activityInterruption": {
     "message": "توقف الجمع: $1."

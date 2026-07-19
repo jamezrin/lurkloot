@@ -183,10 +183,22 @@ describe("loadConfig", () => {
     try {
       const path = join(dir, "config.json");
       writeFileSync(path, defaultConfigJsonc());
+      expect(defaultConfigJsonc()).toContain('"skipUnfinishableRewards": true');
+      expect(defaultConfigJsonc()).toContain("0 uses exact feasibility; 1-60 adds a safety buffer.");
+      expect(defaultConfigJsonc()).toContain('"deadlineSafetyMarginMinutes": 5');
       expect(loadConfig(path).settings).toEqual(DEFAULT_CLI_SETTINGS);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("documents the post-claim handoff settings in the template", () => {
+    // The round-trip above merges defaults, so an omitted key would still pass
+    // there. Assert the template itself carries them, with the rendered values.
+    const template = defaultConfigJsonc();
+    expect(template).toContain(`"postClaimHandoff": ${DEFAULT_CLI_SETTINGS.postClaimHandoff}`);
+    expect(template).toContain(`"postClaimHandoffIntervalSeconds": ${DEFAULT_CLI_SETTINGS.postClaimHandoffIntervalSeconds}`);
+    expect(template).toContain(`"postClaimHandoffMaxSeconds": ${DEFAULT_CLI_SETTINGS.postClaimHandoffMaxSeconds}`);
   });
 });
 

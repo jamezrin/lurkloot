@@ -9,29 +9,35 @@ import {
   normalizeIdList,
   normalizePriorities,
 } from "@lurkloot/shared/settings";
-import type { CompatibilitySettings, EngineSettings, Platform, PlatformSettings, PriorityMode } from "@lurkloot/shared/models";
+import type { CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
 // ExtensionSettings. It only exposes settings that actually do something in the
 // headless, tabless watch path (direct HTTP heartbeats / Kick WebSocket; no
 // browser, no tabs). Anything that only matters with a real browser running is
 // rejected (see EXTENSION_ONLY_KEYS) so the config never carries inert knobs.
-// Per-platform settings are identical to the extension's, so PlatformSettings is
-// reused verbatim — sharing the *type* is fine; the top-level schema is not.
+// Per-platform settings reuse the extension's split platform types; the
+// top-level schema is deliberately not shared.
 export interface CliSettings {
   autoClaim: boolean;
-  autoClaimChannelPoints: boolean;
   priorityMode: PriorityMode;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
   watchQueueFallbackOnly: boolean;
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
+  // Bounded post-claim refresh. Twitch-only in practice: the Kick adapter does
+  // not declare the capability. See EngineSettings.postClaimHandoff.
+  postClaimHandoff: boolean;
+  postClaimHandoffIntervalSeconds: number;
+  postClaimHandoffMaxSeconds: number;
+  skipUnfinishableRewards: boolean;
+  deadlineSafetyMarginMinutes: number;
   // Gate the controller's reward/no-drops notifications, which the CLI renders
   // as log lines (see runtime/run.ts createNotification).
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;
-  platform: Record<Platform, PlatformSettings>;
+  platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;
 }
 
@@ -42,13 +48,17 @@ const PLATFORMS: Platform[] = ["twitch", "kick"];
 // source of truth for values shared with the extension.
 export const DEFAULT_CLI_SETTINGS: CliSettings = {
   autoClaim: DEFAULT_SETTINGS.autoClaim,
-  autoClaimChannelPoints: DEFAULT_SETTINGS.autoClaimChannelPoints,
   priorityMode: DEFAULT_SETTINGS.priorityMode,
   campaignPriorities: { ...DEFAULT_SETTINGS.campaignPriorities },
   excludedCampaignIds: [...DEFAULT_SETTINGS.excludedCampaignIds],
   watchQueueFallbackOnly: DEFAULT_SETTINGS.watchQueueFallbackOnly,
   offlineRetryLimit: DEFAULT_SETTINGS.offlineRetryLimit,
   pollIntervalMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
+  postClaimHandoff: DEFAULT_SETTINGS.postClaimHandoff,
+  postClaimHandoffIntervalSeconds: DEFAULT_SETTINGS.postClaimHandoffIntervalSeconds,
+  postClaimHandoffMaxSeconds: DEFAULT_SETTINGS.postClaimHandoffMaxSeconds,
+  skipUnfinishableRewards: DEFAULT_SETTINGS.skipUnfinishableRewards,
+  deadlineSafetyMarginMinutes: DEFAULT_SETTINGS.deadlineSafetyMarginMinutes,
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
   platform: {
@@ -63,13 +73,17 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
 
 const CLI_SETTING_KEYS = new Set<string>([
   "autoClaim",
-  "autoClaimChannelPoints",
   "priorityMode",
   "campaignPriorities",
   "excludedCampaignIds",
   "watchQueueFallbackOnly",
   "offlineRetryLimit",
   "pollIntervalMinutes",
+  "postClaimHandoff",
+  "postClaimHandoffIntervalSeconds",
+  "postClaimHandoffMaxSeconds",
+  "skipUnfinishableRewards",
+  "deadlineSafetyMarginMinutes",
   // Accepted only so config parsing can surface the deprecation warning.
   // Runtime log filtering belongs to the global --log option and process logger.
   "enabledLogLevels",
@@ -79,7 +93,10 @@ const CLI_SETTING_KEYS = new Set<string>([
   "compatibility",
 ]);
 
-const CLI_PLATFORM_KEYS = new Set<string>(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories"]);
+const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
+  twitch: new Set(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChannelPoints"]),
+  kick: new Set(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChallenges"]),
+};
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
   kick: new Set(["profile", "claimLinkHandling"]),
@@ -104,7 +121,16 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "diagnosticLogging",
 ]);
 
+// Top-level settings that moved into a per-platform block. Named separately so
+// an existing config that still carries one gets a "move it here" error instead
+// of a misleading "unknown setting".
+const MOVED_SETTING_KEYS: Record<string, string> = {
+  autoClaimChannelPoints: "platform.twitch.autoClaimChannelPoints",
+};
+
 function describeOffender(key: string): string {
+  const movedTo = MOVED_SETTING_KEYS[key];
+  if (movedTo) return `"${key}" moved to "${movedTo}"; move the value there`;
   return EXTENSION_ONLY_KEYS.has(key)
     ? `"${key}" is an extension-only setting with no effect in the CLI; remove it`
     : `unknown CLI setting "${key}"`;
@@ -138,7 +164,7 @@ export function parseCliSettings(raw: unknown): CliSettings {
         }
         if (entry && typeof entry === "object" && !Array.isArray(entry)) {
           for (const key of Object.keys(entry as Record<string, unknown>)) {
-            if (!CLI_PLATFORM_KEYS.has(key)) offenders.push(`unknown setting "${key}" under platform.${name}`);
+            if (!CLI_PLATFORM_KEYS[name as Platform].has(key)) offenders.push(`unknown setting "${key}" under platform.${name}`);
           }
         }
       }
@@ -175,7 +201,6 @@ export function parseCliSettings(raw: unknown): CliSettings {
   const v = value as Partial<EngineSettings>;
   return {
     autoClaim: booleanOr(v.autoClaim, DEFAULT_CLI_SETTINGS.autoClaim),
-    autoClaimChannelPoints: booleanOr(v.autoClaimChannelPoints, DEFAULT_CLI_SETTINGS.autoClaimChannelPoints),
     priorityMode: PRIORITY_MODES.includes(v.priorityMode as PriorityMode)
       ? (v.priorityMode as PriorityMode)
       : DEFAULT_CLI_SETTINGS.priorityMode,
@@ -184,6 +209,16 @@ export function parseCliSettings(raw: unknown): CliSettings {
     watchQueueFallbackOnly: booleanOr(v.watchQueueFallbackOnly, DEFAULT_CLI_SETTINGS.watchQueueFallbackOnly),
     offlineRetryLimit: clampInteger(v.offlineRetryLimit, 1, 10, DEFAULT_CLI_SETTINGS.offlineRetryLimit),
     pollIntervalMinutes: clampNumber(v.pollIntervalMinutes, 1, 60, DEFAULT_CLI_SETTINGS.pollIntervalMinutes),
+    postClaimHandoff: booleanOr(v.postClaimHandoff, DEFAULT_CLI_SETTINGS.postClaimHandoff),
+    postClaimHandoffIntervalSeconds: clampInteger(v.postClaimHandoffIntervalSeconds, 1, 30, DEFAULT_CLI_SETTINGS.postClaimHandoffIntervalSeconds),
+    postClaimHandoffMaxSeconds: clampInteger(v.postClaimHandoffMaxSeconds, 5, 120, DEFAULT_CLI_SETTINGS.postClaimHandoffMaxSeconds),
+    skipUnfinishableRewards: booleanOr(v.skipUnfinishableRewards, DEFAULT_CLI_SETTINGS.skipUnfinishableRewards),
+    deadlineSafetyMarginMinutes: clampInteger(
+      v.deadlineSafetyMarginMinutes,
+      0,
+      60,
+      DEFAULT_CLI_SETTINGS.deadlineSafetyMarginMinutes,
+    ),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform),
@@ -207,19 +242,33 @@ function normalizeCompatibility(raw: EngineSettings["compatibility"] | undefined
   };
 }
 
-function normalizePlatform(raw: EngineSettings["platform"] | undefined): Record<Platform, PlatformSettings> {
-  const build = (platform: Platform): PlatformSettings => {
-    const ps = (raw?.[platform] ?? {}) as Partial<PlatformSettings>;
+function normalizePlatform(raw: EngineSettings["platform"] | undefined): PlatformSettingsByPlatform {
+  const common = (platform: Platform) => {
+    const ps = (raw?.[platform] ?? {}) as Partial<TwitchPlatformSettings & KickPlatformSettings>;
     const defaults = DEFAULT_CLI_SETTINGS.platform[platform];
     return {
-      enabled: booleanOr(ps.enabled, defaults.enabled),
-      watchQueueChannels: normalizeChannelList(ps.watchQueueChannels),
-      excludedChannels: normalizeChannelList(ps.excludedChannels),
-      farmAllCategories: booleanOr(ps.farmAllCategories, defaults.farmAllCategories),
-      categories: normalizeCategorySelections(ps.categories),
+      ps,
+      base: {
+        enabled: booleanOr(ps.enabled, defaults.enabled),
+        watchQueueChannels: normalizeChannelList(ps.watchQueueChannels),
+        excludedChannels: normalizeChannelList(ps.excludedChannels),
+        farmAllCategories: booleanOr(ps.farmAllCategories, defaults.farmAllCategories),
+        categories: normalizeCategorySelections(ps.categories),
+      },
     };
   };
-  return { twitch: build("twitch"), kick: build("kick") };
+  const twitch = common("twitch");
+  const kick = common("kick");
+  return {
+    twitch: {
+      ...twitch.base,
+      autoClaimChannelPoints: booleanOr(twitch.ps.autoClaimChannelPoints, DEFAULT_CLI_SETTINGS.platform.twitch.autoClaimChannelPoints),
+    },
+    kick: {
+      ...kick.base,
+      autoClaimChallenges: booleanOr(kick.ps.autoClaimChallenges, DEFAULT_CLI_SETTINGS.platform.kick.autoClaimChallenges),
+    },
+  };
 }
 
 // Expands the CLI settings into the EngineSettings contract the shared engine

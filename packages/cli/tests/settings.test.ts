@@ -30,6 +30,9 @@ describe("parseCliSettings", () => {
     expect(parseCliSettings({ pollIntervalMinutes: 999 }).pollIntervalMinutes).toBe(60);
     expect(parseCliSettings({ offlineRetryLimit: 0 }).offlineRetryLimit).toBe(1);
     expect(parseCliSettings({ offlineRetryLimit: 99 }).offlineRetryLimit).toBe(10);
+    expect(parseCliSettings({ deadlineSafetyMarginMinutes: -9 }).deadlineSafetyMarginMinutes).toBe(0);
+    expect(parseCliSettings({ deadlineSafetyMarginMinutes: 0 }).deadlineSafetyMarginMinutes).toBe(0);
+    expect(parseCliSettings({ deadlineSafetyMarginMinutes: 99 }).deadlineSafetyMarginMinutes).toBe(60);
   });
 
   it("round-trips compatibility profile and expert selections", () => {
@@ -89,6 +92,30 @@ describe("parseCliSettings", () => {
     expect(() => parseCliSettings({ turbo: true })).toThrow(/unknown CLI setting "turbo"/);
   });
 
+  it("points a moved top-level key at its new per-platform home", () => {
+    expect(() => parseCliSettings({ autoClaimChannelPoints: false }))
+      .toThrow(/"autoClaimChannelPoints" moved to "platform.twitch.autoClaimChannelPoints"/);
+  });
+
+  it("accepts autoClaimChannelPoints under platform.twitch", () => {
+    expect(parseCliSettings({ platform: { twitch: { autoClaimChannelPoints: false } } }).platform.twitch.autoClaimChannelPoints).toBe(false);
+    expect(parseCliSettings({}).platform.twitch.autoClaimChannelPoints).toBe(true);
+  });
+
+  it("accepts autoClaimChallenges under platform.kick", () => {
+    const parsed = parseCliSettings({ platform: { kick: { autoClaimChallenges: false } } });
+    expect(parsed.platform.kick.autoClaimChallenges).toBe(false);
+  });
+
+  it("defaults autoClaimChallenges on when the config omits it", () => {
+    expect(parseCliSettings({}).platform.kick.autoClaimChallenges).toBe(true);
+  });
+
+  it("rejects autoClaimChallenges under platform.twitch", () => {
+    expect(() => parseCliSettings({ platform: { twitch: { autoClaimChallenges: true } } }))
+      .toThrow('unknown setting "autoClaimChallenges" under platform.twitch');
+  });
+
   it("lists every offender in a single error", () => {
     let message = "";
     try {
@@ -125,12 +152,16 @@ describe("toEngineSettings", () => {
       autoClaim: false,
       priorityMode: "lowest_availability",
       pollIntervalMinutes: 4,
+      skipUnfinishableRewards: false,
+      deadlineSafetyMarginMinutes: 5,
       platform: { kick: { enabled: false } },
     });
     const engine = toEngineSettings(cli);
     expect(engine.autoClaim).toBe(false);
     expect(engine.priorityMode).toBe("lowest_availability");
     expect(engine.pollIntervalMinutes).toBe(4);
+    expect(engine.skipUnfinishableRewards).toBe(false);
+    expect(engine.deadlineSafetyMarginMinutes).toBe(5);
     expect(engine.platform.kick.enabled).toBe(false);
     expect(engine.compatibility).toEqual(cli.compatibility);
   });

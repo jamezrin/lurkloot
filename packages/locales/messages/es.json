@@ -422,9 +422,34 @@
   "schedulerIntervalDescription": {
     "message": "Frecuencia con la que se actualizan campañas y streamers."
   },
+  "postClaimHandoffTitle": {
+    "message": "Traspaso rápido de recompensas"
+  },
+  "postClaimHandoffDescription": {
+    "message": "Después de reclamar un drop, busca brevemente la siguiente recompensa de la campaña en lugar de esperar al siguiente ciclo programado. Solo en Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Intervalo de comprobación del traspaso"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Cuánto esperar entre comprobaciones de la siguiente recompensa."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Límite de tiempo del traspaso"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Rendirse y volver a la programación normal después de este tiempo."
+  },
   "secondsSuffix": {
     "message": "s"
   },
+  "deadlineSafetyMarginTitle": { "message": "Margen de seguridad del plazo" },
+  "deadlineSafetyMarginDescription": { "message": "Minutos adicionales requeridos antes de farmear una recompensa." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Activa el filtro de plazos para cambiar el margen de seguridad." },
+  "skipUnfinishableRewardsTitle": { "message": "Omitir recompensas que no se pueden completar" },
+  "skipUnfinishableRewardsDescription": { "message": "No farmear recompensas cuyo tiempo de visionado restante supere el plazo disponible." },
+  "minutesSuffix": { "message": "min." },
+  "insufficientTimeRemaining": { "message": "No queda tiempo suficiente" },
   "automationSectionTitle": {
     "message": "Automatización"
   },
@@ -436,6 +461,18 @@
   },
   "watchQueueEditHint": {
     "message": "Edítala desde la pestaña Cola de visualización después de seleccionar $1."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "Auto-reclamar puntos de canal"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Reclama automáticamente las bonificaciones de puntos de canal mientras se farmea esta plataforma."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Auto-reclamar desafíos diarios"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Reclama la recompensa del desafío diario de Kick en cuanto se cumple su objetivo de tiempo de visualización."
   },
   "excludedChannelsTitle": {
     "message": "Canales de drops excluidos"
@@ -523,6 +560,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 de $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Recompensa de desafío reclamada"
+  },
+  "notificationChallengeReward": {
+    "message": "Ganaste una carta $1 de tu desafío $2."
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 no tiene drops elegibles para farmear."
@@ -632,6 +675,9 @@
   },
   "activityRewardClaimed": {
     "message": "Se reclamó $1 de $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "Reclamó una carta $1 del desafío $2"
   },
   "activityInterruption": {
     "message": "Obtención interrumpida: $1."

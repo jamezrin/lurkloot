@@ -422,9 +422,34 @@
   "schedulerIntervalDescription": {
     "message": "Frequenza di aggiornamento di campagne e streamer."
   },
+  "postClaimHandoffTitle": {
+    "message": "Passaggio rapido delle ricompense"
+  },
+  "postClaimHandoffDescription": {
+    "message": "Dopo aver riscattato un drop, cerca brevemente la ricompensa successiva della campagna invece di attendere il ciclo programmato successivo. Solo Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Intervallo di controllo del passaggio"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Quanto attendere tra un controllo e l’altro della ricompensa successiva."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Limite di tempo del passaggio"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Rinuncia e torna alla pianificazione regolare dopo questo tempo."
+  },
   "secondsSuffix": {
     "message": "sec"
   },
+  "deadlineSafetyMarginTitle": { "message": "Margine di sicurezza della scadenza" },
+  "deadlineSafetyMarginDescription": { "message": "Minuti aggiuntivi richiesti prima di farmare una ricompensa." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Attiva il filtro delle scadenze per modificare il margine." },
+  "skipUnfinishableRewardsTitle": { "message": "Salta le ricompense impossibili da completare" },
+  "skipUnfinishableRewardsDescription": { "message": "Non farmare ricompense se il tempo di visione restante supera la scadenza." },
+  "minutesSuffix": { "message": "min." },
+  "insufficientTimeRemaining": { "message": "Tempo rimanente insufficiente" },
   "automationSectionTitle": {
     "message": "Automazione"
   },
@@ -436,6 +461,18 @@
   },
   "watchQueueEditHint": {
     "message": "Modificala dalla scheda Coda di visione dopo aver selezionato $1."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "Riscatto automatico dei punti canale"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Riscatta automaticamente i bonus in punti canale durante il farming su questa piattaforma."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Riscatto automatico delle sfide giornaliere"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Riscatta la ricompensa della sfida giornaliera di Kick al raggiungimento del suo obiettivo di tempo di visione."
   },
   "excludedChannelsTitle": {
     "message": "Canali drop esclusi"
@@ -523,6 +560,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 da $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Ricompensa della sfida riscattata"
+  },
+  "notificationChallengeReward": {
+    "message": "Hai vinto una carta $1 dalla tua sfida $2."
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 non ha drop idonei da farmare."
@@ -632,6 +675,9 @@
   },
   "activityRewardClaimed": {
     "message": "Riscattato $1 da $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "Riscattata una carta $1 dalla sfida $2"
   },
   "activityInterruption": {
     "message": "Raccolta interrotta: $1."

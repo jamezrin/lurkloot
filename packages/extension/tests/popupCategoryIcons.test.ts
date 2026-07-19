@@ -26,6 +26,7 @@ describe("popup category icons", () => {
       onCategoriesChange: () => {},
       onSearchCategories: async () => [],
       onExcludedChannelsChange: () => {},
+      onAutoClaimBonusChange: () => {},
     }));
   }
 

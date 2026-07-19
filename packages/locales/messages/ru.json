@@ -422,9 +422,34 @@
   "schedulerIntervalDescription": {
     "message": "Как часто обновляется статус кампаний и стримеров."
   },
+  "postClaimHandoffTitle": {
+    "message": "Быстрая передача награды"
+  },
+  "postClaimHandoffDescription": {
+    "message": "После получения дропа ненадолго проверяет следующую награду кампании вместо ожидания следующего запланированного цикла. Только для Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Интервал проверки при передаче"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Сколько ждать между проверками следующей награды."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Ограничение времени передачи"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Прекратить и вернуться к обычному расписанию по истечении этого времени."
+  },
   "secondsSuffix": {
     "message": "с"
   },
+  "deadlineSafetyMarginTitle": { "message": "Запас времени до окончания" },
+  "deadlineSafetyMarginDescription": { "message": "Дополнительные минуты перед фармом награды." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Включите фильтр сроков, чтобы изменить запас времени." },
+  "skipUnfinishableRewardsTitle": { "message": "Пропускать награды, которые нельзя завершить" },
+  "skipUnfinishableRewardsDescription": { "message": "Не фармить награды, если оставшееся время просмотра превышает доступный срок." },
+  "minutesSuffix": { "message": "мин" },
+  "insufficientTimeRemaining": { "message": "Недостаточно оставшегося времени" },
   "automationSectionTitle": {
     "message": "Автоматизация"
   },
@@ -436,6 +461,18 @@
   },
   "watchQueueEditHint": {
     "message": "Редактируйте её на вкладке Очередь просмотра после выбора $1."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "Автополучение баллов канала"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Автоматически получает бонусы баллов канала во время фарма на этой платформе."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Автополучение ежедневных испытаний"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Получает награду ежедневного испытания Kick, как только выполнена цель по времени просмотра."
   },
   "excludedChannelsTitle": {
     "message": "Исключённые каналы drops"
@@ -523,6 +560,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 из $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Награда за испытание заявлена"
+  },
+  "notificationChallengeReward": {
+    "message": "Вы выиграли карту $1 за испытание $2."
   },
   "notificationNoDropsLeftMessage": {
     "message": "На $1 нет подходящих drops для фарма."
@@ -632,6 +675,9 @@
   },
   "activityRewardClaimed": {
     "message": "Получено: $1 из кампании $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "Получена карта $1 за испытание $2"
   },
   "activityInterruption": {
     "message": "Сбор прерван: $1."

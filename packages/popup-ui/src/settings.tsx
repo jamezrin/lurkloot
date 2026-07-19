@@ -81,6 +81,11 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     },
     { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
   );
+  const setPlatformAutoClaimBonus = (platform: Platform) => (value: boolean) => onSettingsChange(
+    platform === "twitch"
+      ? { platform: { twitch: { autoClaimChannelPoints: value } } }
+      : { platform: { kick: { autoClaimChallenges: value } } },
+  );
 
   return (
     <div className="space-y-6">
@@ -129,7 +134,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
         <SettingsPlatformSwitch active={platformTab} onChange={setPlatformTab} />
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={platformTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="space-y-3">
-            <PlatformSettingsGroup platform={platformTab} suggestions={suggestions[platformTab]} settings={settings} onFarmAllCategoriesChange={setPlatformFarmAllCategories(platformTab)} onCategoriesChange={setPlatformCategories(platformTab)} onSearchCategories={(query) => onSearchCategories(platformTab, query)} onExcludedChannelsChange={setPlatformExcludedChannels(platformTab)} />
+            <PlatformSettingsGroup platform={platformTab} suggestions={suggestions[platformTab]} settings={settings} onFarmAllCategoriesChange={setPlatformFarmAllCategories(platformTab)} onCategoriesChange={setPlatformCategories(platformTab)} onSearchCategories={(query) => onSearchCategories(platformTab, query)} onExcludedChannelsChange={setPlatformExcludedChannels(platformTab)} onAutoClaimBonusChange={setPlatformAutoClaimBonus(platformTab)} />
           </motion.div>
         </AnimatePresence>
       </SettingsSection>
@@ -154,6 +159,51 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
       </SettingsSection>
       <SettingsSection title={t("advancedTitle")} description={t("advancedDescription")} icon={SlidersHorizontal}>
         <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={pollIntervalSeconds} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
+        <SettingRow
+          title={t("postClaimHandoffTitle")}
+          description={t("postClaimHandoffDescription")}
+          checked={settings.postClaimHandoff}
+          onChange={set("postClaimHandoff")}
+        />
+        <NumberSettingRow
+          title={t("postClaimHandoffIntervalTitle")}
+          description={t("postClaimHandoffIntervalDescription")}
+          value={settings.postClaimHandoffIntervalSeconds}
+          min={1}
+          max={30}
+          suffix={t("secondsSuffix")}
+          disabled={!settings.postClaimHandoff}
+          disabledReason={t("postClaimHandoffDescription")}
+          onChange={(value) => onSettingsChange({ postClaimHandoffIntervalSeconds: value })}
+        />
+        <NumberSettingRow
+          title={t("postClaimHandoffMaxTitle")}
+          description={t("postClaimHandoffMaxDescription")}
+          value={settings.postClaimHandoffMaxSeconds}
+          min={5}
+          max={120}
+          suffix={t("secondsSuffix")}
+          disabled={!settings.postClaimHandoff}
+          disabledReason={t("postClaimHandoffDescription")}
+          onChange={(value) => onSettingsChange({ postClaimHandoffMaxSeconds: value })}
+        />
+        <SettingRow
+          title={t("skipUnfinishableRewardsTitle")}
+          description={t("skipUnfinishableRewardsDescription")}
+          checked={settings.skipUnfinishableRewards}
+          onChange={(value) => onSettingsChange({ skipUnfinishableRewards: value }, { tickAfterSave: true })}
+        />
+        <NumberSettingRow
+          title={t("deadlineSafetyMarginTitle")}
+          description={t("deadlineSafetyMarginDescription")}
+          value={settings.deadlineSafetyMarginMinutes}
+          min={0}
+          max={60}
+          suffix={t("minutesSuffix")}
+          onChange={(value) => onSettingsChange({ deadlineSafetyMarginMinutes: value }, { tickAfterSave: true })}
+          disabled={!settings.skipUnfinishableRewards}
+          disabledReason={t("deadlineSafetyMarginDisabledReason")}
+        />
         <SettingRow title={t("diagnosticLoggingTitle")} description={t("diagnosticLoggingDescription")} checked={settings.diagnosticLogging} onChange={set("diagnosticLogging")} />
         {compatibilityRegistry && compatibilityResolution ? <CompatibilitySettings settings={settings.compatibility} registry={compatibilityRegistry} resolution={compatibilityResolution} onChange={onSettingsChange} /> : null}
       </SettingsSection>

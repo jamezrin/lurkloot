@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformSettings, SchedulerState } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, KickPlatformSettings, Platform, SchedulerState, TwitchPlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
@@ -32,7 +32,7 @@ const channel = (username: string, patch: Partial<ChannelCandidate> = {}): Chann
 });
 
 type SettingsPatch = Partial<Omit<ExtensionSettings, "platform">> & {
-  platform?: Partial<Record<Platform, Partial<PlatformSettings>>>;
+  platform?: { twitch?: Partial<TwitchPlatformSettings>; kick?: Partial<KickPlatformSettings> };
 };
 
 function settings(patch: SettingsPatch = {}): ExtensionSettings {
@@ -61,6 +61,69 @@ function adapter(platform: Platform, campaigns: DropCampaign[], candidates: Chan
 }
 
 describe("scheduler campaign selection", () => {
+  it("skips an infeasible in-progress reward for a feasible locked reward", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const inProgress = { ...reward("in_progress"), id: "long", requiredMinutes: 60, watchedMinutes: 10 };
+      const locked = { ...reward("locked"), id: "short", requiredMinutes: 20, watchedMinutes: 0 };
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [campaign("timed", { endsAt: "2026-07-19T12:40:00.000Z", rewards: [inProgress, locked] })],
+        settings({ deadlineSafetyMarginMinutes: 5 }),
+        {
+          listCandidateChannels: vi.fn(async () => [channel("creator")]),
+          checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        },
+      );
+      expect(decision.action).toBe("watch");
+      expect(decision.reward?.id).toBe("short");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects a campaign when no watch reward can finish before its deadline", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const listCandidateChannels = vi.fn(async () => [channel("creator")]);
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [campaign("timed", { endsAt: "2026-07-19T12:44:59.999Z" })],
+        settings({ deadlineSafetyMarginMinutes: 5 }),
+        {
+          listCandidateChannels,
+          checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        },
+      );
+      expect(decision.action).toBe("idle");
+      expect(decision.reason).toContain("cannot be completed before their deadline");
+      expect(listCandidateChannels).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("preserves current selection behavior when deadline filtering is disabled", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [campaign("timed", { endsAt: "2026-07-19T12:01:00.000Z" })],
+        settings({ skipUnfinishableRewards: false, deadlineSafetyMarginMinutes: 5 }),
+        {
+          listCandidateChannels: vi.fn(async () => [channel("creator")]),
+          checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        },
+      );
+      expect(decision.action).toBe("watch");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("uses explicit priority before ending soonest", () => {
     const first = campaign("first", { endsAt: "2026-06-01T00:00:00.000Z" });
     const second = campaign("second", { endsAt: "2026-07-01T00:00:00.000Z" });
@@ -597,6 +660,62 @@ describe("scheduler tick", () => {
 
     expect(second.events.filter((event) => event.category === "diagnostic" && event.message.startsWith("Campaign decision:"))).toEqual([]);
     expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("campaigns eligible"))).toEqual([]);
+  });
+
+  it("emits structured diagnostics for rewards excluded by deadline feasibility", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const timed = campaign("drops", { endsAt: "2026-07-19T12:44:59.999Z" });
+      const result = await runSchedulerTick(
+        baseState,
+        settings({
+          deadlineSafetyMarginMinutes: 5,
+          platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
+        }),
+        { twitch: adapter("twitch", [timed], []), kick: adapter("kick", [], []) },
+      );
+
+      expect(result.events).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        code: "reward_insufficient_time",
+        data: expect.objectContaining({
+          campaignId: "drops",
+          rewardId: "reward-in_progress",
+          remainingMinutes: 40,
+          marginMinutes: 5,
+          deadline: "2026-07-19T12:44:59.999Z",
+        }),
+      }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("emits a deadline diagnostic once when unchanged campaigns become infeasible over time", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const timed = campaign("drops", { endsAt: "2026-07-19T12:50:00.000Z" });
+      const twitch = adapter("twitch", [timed], []);
+      const tickSettings = settings({
+        deadlineSafetyMarginMinutes: 5,
+        platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
+      });
+      const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+
+      const first = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+      expect(first.events.filter((event) => event.code === "reward_insufficient_time")).toEqual([]);
+
+      vi.setSystemTime("2026-07-19T12:06:00.000Z");
+      const second = await runSchedulerTick(first.state, tickSettings, tickAdapters);
+      expect(second.events.filter((event) => event.code === "reward_insufficient_time")).toHaveLength(1);
+
+      const third = await runSchedulerTick(second.state, tickSettings, tickAdapters);
+      expect(third.events.filter((event) => event.code === "reward_insufficient_time")).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not classify a missing replacement reward as completed", async () => {
@@ -1865,6 +1984,116 @@ describe("scheduler tick", () => {
 
     expect(twitch.claimChannelPoints).toHaveBeenCalledWith(expect.objectContaining({ username: "allowed" }));
     expect(result.events.some((event) => event.category === "diagnostic" && event.message.includes("Claimed channel points"))).toBe(true);
+  });
+
+  it("claims Kick challenges even when the platform never starts watching", async () => {
+    const kick = {
+      ...adapter("kick", [], []),
+      claimChallenges: vi.fn(async () => [{ id: "daily", rarity: "epic", recurrence: "daily" }]),
+    };
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(kick.claimChallenges).toHaveBeenCalled();
+    expect(result.state.sessions.kick.status).toBe("idle");
+    expect(result.state.gamification?.kick?.lastCheckedAt).toBeDefined();
+    expect(result.events.some((event) => event.category === "activity" && event.code === "challenge_claimed")).toBe(true);
+  });
+
+  it("skips the Kick challenge poll inside the throttle window", async () => {
+    const kick = { ...adapter("kick", [], []), claimChallenges: vi.fn(async () => []) };
+    const recent = new Date(Date.now() - 60_000).toISOString();
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        gamification: { kick: { lastCheckedAt: recent } },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(kick.claimChallenges).not.toHaveBeenCalled();
+    expect(result.state.gamification?.kick?.lastCheckedAt).toBe(recent);
+  });
+
+  // A clock rollback (NTP correction, a suspended VM) can leave a stamp in the
+  // future. Treating it as "recently polled" would suppress claiming until the
+  // clock caught up, so a future stamp counts as stale instead.
+  it("polls immediately when the stored Kick challenge timestamp is in the future", async () => {
+    const kick = { ...adapter("kick", [], []), claimChallenges: vi.fn(async () => []) };
+    const future = new Date(Date.now() + 60 * 60_000).toISOString();
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        gamification: { kick: { lastCheckedAt: future } },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(kick.claimChallenges).toHaveBeenCalled();
+    expect(result.state.gamification?.kick?.lastCheckedAt).not.toBe(future);
+  });
+
+  it("does not claim Kick challenges when the setting is off", async () => {
+    const kick = { ...adapter("kick", [], []), claimChallenges: vi.fn(async () => []) };
+
+    await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true, autoClaimChallenges: false } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(kick.claimChallenges).not.toHaveBeenCalled();
+  });
+
+  it("keeps the tick healthy when a Kick challenge poll throws", async () => {
+    const kick = {
+      ...adapter("kick", [], []),
+      claimChallenges: vi.fn(async () => { throw new Error("gamification down"); }),
+    };
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(result.state.sessions.kick.status).not.toBe("error");
+    expect(result.state.sessions.kick.errorChecks).toBe(0);
+    expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("gamification down"))).toBe(true);
   });
 });
 

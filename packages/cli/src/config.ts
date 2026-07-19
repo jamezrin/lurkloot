@@ -42,9 +42,8 @@ export function defaultConfigJsonc(): string {
   "authDir": "auth",
 
   "settings": {
-    // Automatically claim completed drops and Twitch channel-point bonuses.
+    // Automatically claim completed drops.
     "autoClaim": ${json(defaults.autoClaim)},
-    "autoClaimChannelPoints": ${json(defaults.autoClaimChannelPoints)},
 
     // ending_soonest | lowest_availability | priority_list_only
     "priorityMode": ${json(defaults.priorityMode)},
@@ -57,6 +56,18 @@ export function defaultConfigJsonc(): string {
     "offlineRetryLimit": ${json(defaults.offlineRetryLimit)},
     // How often campaign discovery and watch state are refreshed (1-60 minutes).
     "pollIntervalMinutes": ${json(defaults.pollIntervalMinutes)},
+
+    // After claiming a reward, briefly re-check for the next one in the chain
+    // instead of waiting for the regular one-minute watch cycle. Twitch only.
+    "postClaimHandoff": ${json(defaults.postClaimHandoff)},
+    // Seconds between re-checks (1-30) and the total budget before giving up
+    // and falling back to the regular schedule (5-120).
+    "postClaimHandoffIntervalSeconds": ${json(defaults.postClaimHandoffIntervalSeconds)},
+    "postClaimHandoffMaxSeconds": ${json(defaults.postClaimHandoffMaxSeconds)},
+    // Skip rewards that cannot finish before their earliest valid deadline.
+    "skipUnfinishableRewards": ${json(defaults.skipUnfinishableRewards)},
+    // 0 uses exact feasibility; 1-60 adds a safety buffer.
+    "deadlineSafetyMarginMinutes": ${json(defaults.deadlineSafetyMarginMinutes)},
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
 
@@ -83,7 +94,9 @@ export function defaultConfigJsonc(): string {
         "excludedChannels": ${json(twitch.excludedChannels)},
         "farmAllCategories": ${json(twitch.farmAllCategories)},
         // Used when farmAllCategories is false.
-        "categories": ${json(twitch.categories)}
+        "categories": ${json(twitch.categories)},
+        // Claim channel-point bonuses while farming this platform.
+        "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)}
       },
       "kick": {
         "enabled": ${json(kick.enabled)},
@@ -91,7 +104,9 @@ export function defaultConfigJsonc(): string {
         "excludedChannels": ${json(kick.excludedChannels)},
         "farmAllCategories": ${json(kick.farmAllCategories)},
         // Used when farmAllCategories is false.
-        "categories": ${json(kick.categories)}
+        "categories": ${json(kick.categories)},
+        // Claim Kick's daily gamification challenges automatically.
+        "autoClaimChallenges": ${json(kick.autoClaimChallenges)}
       }
     }
   }

@@ -1,4 +1,4 @@
-import type { AdFocusMode, CampaignFilterKey, CategorySelection, CompatibilitySettings, EngineSettings, ExtensionSettings, LanguageOverride, Platform, PlatformSettings, PriorityMode, RateNudgeStatus, SupportedLocale } from "./models";
+import type { AdFocusMode, CampaignFilterKey, CategorySelection, CompatibilitySettings, EngineSettings, ExtensionSettings, KickPlatformSettings, LanguageOverride, Platform, PriorityMode, RateNudgeStatus, SupportedLocale, TwitchPlatformSettings } from "./models";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
@@ -8,7 +8,10 @@ export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "es", "fr", "it", "ru
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 
 export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "campaignVisibility">> & {
-  platform?: Partial<Record<Platform, Partial<PlatformSettings>>>;
+  platform?: {
+    twitch?: Partial<TwitchPlatformSettings>;
+    kick?: Partial<KickPlatformSettings>;
+  };
   compatibility?: {
     twitch?: Partial<CompatibilitySettings["twitch"]>;
     kick?: Partial<CompatibilitySettings["kick"]>;
@@ -20,7 +23,6 @@ export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compat
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   running: false,
   autoClaim: true,
-  autoClaimChannelPoints: true,
   tablessMode: true,
   pauseOnManualWatch: true,
   notifyRewardEarned: true,
@@ -35,6 +37,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       excludedChannels: [],
       farmAllCategories: true,
       categories: [],
+      autoClaimChannelPoints: true,
     },
     kick: {
       enabled: true,
@@ -42,6 +45,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       excludedChannels: [],
       farmAllCategories: true,
       categories: [],
+      autoClaimChallenges: true,
     },
   },
   compatibility: {
@@ -59,6 +63,13 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   excludedCampaignIds: [],
   offlineRetryLimit: 3,
   pollIntervalMinutes: 1,
+  postClaimHandoff: true,
+  // Nine refreshes at most, always finishing before the next one-minute watch
+  // alarm so the handoff and the alarm never contend for the same heartbeat.
+  postClaimHandoffIntervalSeconds: 5,
+  postClaimHandoffMaxSeconds: 45,
+  skipUnfinishableRewards: true,
+  deadlineSafetyMarginMinutes: 5,
 };
 
 // The extension's full defaults: the engine contract plus the host-only knobs.
@@ -89,10 +100,12 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
 export function mergeEngineSettings(value: Partial<EngineSettings> | undefined): EngineSettings {
   const platform = value?.platform;
   const compatibility = value?.compatibility;
+  // Pre-split configs stored this at the top level. Read it as the fallback for
+  // the Twitch platform block so an existing "off" survives; never written back.
+  const legacyChannelPoints = (value as (Partial<EngineSettings> & { autoClaimChannelPoints?: boolean }) | undefined)?.autoClaimChannelPoints;
   return {
     running: booleanOr(value?.running, DEFAULT_ENGINE_SETTINGS.running),
     autoClaim: booleanOr(value?.autoClaim, DEFAULT_ENGINE_SETTINGS.autoClaim),
-    autoClaimChannelPoints: booleanOr(value?.autoClaimChannelPoints, DEFAULT_ENGINE_SETTINGS.autoClaimChannelPoints),
     tablessMode: booleanOr(value?.tablessMode, DEFAULT_ENGINE_SETTINGS.tablessMode),
     pauseOnManualWatch: booleanOr(value?.pauseOnManualWatch, DEFAULT_ENGINE_SETTINGS.pauseOnManualWatch),
     notifyRewardEarned: booleanOr(value?.notifyRewardEarned, DEFAULT_ENGINE_SETTINGS.notifyRewardEarned),
@@ -109,6 +122,10 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
         farmAllCategories: booleanOr(platform?.twitch?.farmAllCategories, DEFAULT_ENGINE_SETTINGS.platform.twitch.farmAllCategories),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
+        autoClaimChannelPoints: booleanOr(
+          platform?.twitch?.autoClaimChannelPoints,
+          booleanOr(legacyChannelPoints, DEFAULT_ENGINE_SETTINGS.platform.twitch.autoClaimChannelPoints),
+        ),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),
@@ -116,6 +133,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         farmAllCategories: booleanOr(platform?.kick?.farmAllCategories, DEFAULT_ENGINE_SETTINGS.platform.kick.farmAllCategories),
         categories: normalizeCategorySelections(platform?.kick?.categories),
+        autoClaimChallenges: booleanOr(platform?.kick?.autoClaimChallenges, DEFAULT_ENGINE_SETTINGS.platform.kick.autoClaimChallenges),
       },
     },
     compatibility: {
@@ -134,6 +152,16 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_ENGINE_SETTINGS.offlineRetryLimit),
     // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_ENGINE_SETTINGS.pollIntervalMinutes),
+    postClaimHandoff: booleanOr(value?.postClaimHandoff, DEFAULT_ENGINE_SETTINGS.postClaimHandoff),
+    postClaimHandoffIntervalSeconds: clampInteger(value?.postClaimHandoffIntervalSeconds, 1, 30, DEFAULT_ENGINE_SETTINGS.postClaimHandoffIntervalSeconds),
+    postClaimHandoffMaxSeconds: clampInteger(value?.postClaimHandoffMaxSeconds, 5, 120, DEFAULT_ENGINE_SETTINGS.postClaimHandoffMaxSeconds),
+    skipUnfinishableRewards: booleanOr(value?.skipUnfinishableRewards, DEFAULT_ENGINE_SETTINGS.skipUnfinishableRewards),
+    deadlineSafetyMarginMinutes: clampInteger(
+      value?.deadlineSafetyMarginMinutes,
+      0,
+      60,
+      DEFAULT_ENGINE_SETTINGS.deadlineSafetyMarginMinutes,
+    ),
   };
 }
 
@@ -268,4 +296,16 @@ export function normalizePriorities(value: Record<string, number> | undefined): 
       .filter(([campaignId, priority]) => campaignId.trim() && Number.isFinite(priority))
       .map(([campaignId, priority]) => [campaignId.trim(), Math.round(priority)]),
   );
+}
+
+// The claim toggles are per-platform, so a scheduler loop holding `platform` as a
+// variable cannot read them off the union. These answer "is the toggle on for
+// this platform"; whether the platform can actually claim is decided separately
+// by the adapter's optional capability method.
+export function autoClaimChannelPointsFor(settings: EngineSettings, platform: Platform): boolean {
+  return platform === "twitch" ? settings.platform.twitch.autoClaimChannelPoints : false;
+}
+
+export function autoClaimChallengesFor(settings: EngineSettings, platform: Platform): boolean {
+  return platform === "kick" ? settings.platform.kick.autoClaimChallenges : false;
 }

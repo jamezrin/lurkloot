@@ -140,6 +140,8 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
         ? t("activityInterruptionWithDetail", [reason, event.data.detail])
         : t("activityInterruption", reason);
     }
+    case "challenge_claimed":
+      return t("activityChallengeClaimed", [event.data.rarity, event.data.recurrence]);
     default: {
       const exhaustive: never = event;
       return exhaustive;
