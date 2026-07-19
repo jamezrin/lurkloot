@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyRepositoryConfig, developRuleset, mainRuleset, repositoryPatch } from "./repository-config.mjs";
+import {
+  applyRepositoryConfig,
+  developRuleset,
+  mainRuleset,
+  previewBranchPolicies,
+  reconcilePreviewPolicies,
+  repositoryPatch,
+} from "./repository-config.mjs";
 
 const checks = [
   "verify",
@@ -81,6 +88,9 @@ test("removes classic protection only after both rulesets read back", async () =
         return { id: index + 10, ...desired[index] };
       }
       if (/\/rulesets\/1[01]$/.test(path)) return readBack[Number(path.at(-1)) - 0];
+      if (path.endsWith("/deployment-branch-policies")) {
+        return { branch_policies: previewBranchPolicies().map((name) => ({ name, type: "branch" })) };
+      }
       return {};
     },
   };
@@ -93,4 +103,50 @@ test("removes classic protection only after both rulesets read back", async () =
   const lastRulesetRead = calls.map(({ path }) => path).findLastIndex((path) => path.includes("/rulesets/"));
   const firstDelete = calls.findIndex(({ init }) => init.method === "DELETE");
   assert.ok(lastRulesetRead < firstDelete);
+});
+
+test("preview admits every branch that builds a candidate", () => {
+  assert.deepEqual(previewBranchPolicies(), ["main", "release/*", "develop", "hotfix/*"]);
+});
+
+function previewClient(initial) {
+  const created = [];
+  return {
+    created,
+    repoPath: (path) => `/repos/jamezrin/lurkloot${path}`,
+    async request(path, init = {}) {
+      assert.equal(path, "/repos/jamezrin/lurkloot/environments/preview/deployment-branch-policies");
+      if (init.method === "POST") {
+        created.push(init.body.name);
+        return { id: created.length, ...init.body };
+      }
+      return { branch_policies: [...initial, ...created].map((name) => ({ name, type: "branch" })) };
+    },
+  };
+}
+
+test("only the missing preview branch policies are created", async () => {
+  const client = previewClient(["main", "release/*"]);
+  await reconcilePreviewPolicies(client);
+  assert.deepEqual(client.created, ["develop", "hotfix/*"]);
+});
+
+test("an already configured preview environment is left untouched", async () => {
+  const client = previewClient(previewBranchPolicies());
+  await reconcilePreviewPolicies(client);
+  assert.deepEqual(client.created, []);
+});
+
+test("a preview policy that does not read back is a failure", async () => {
+  const client = {
+    repoPath: (path) => `/repos/jamezrin/lurkloot${path}`,
+    async request(path, init = {}) {
+      if (init.method === "POST") return {};
+      return { branch_policies: [{ name: "main", type: "branch" }] };
+    },
+  };
+  await assert.rejects(
+    () => reconcilePreviewPolicies(client),
+    /preview is missing the release\/\* deployment branch policy/,
+  );
 });

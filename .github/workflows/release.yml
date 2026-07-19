@@ -175,6 +175,8 @@ jobs:
             echo "v$VERSION already tags $existing; refusing to move it to $RELEASE_SHA." >&2
             exit 1
           fi
+      - name: Verify the release asset set
+        run: node scripts/release/cli.mjs assert-assets --assets release-assets --version "$VERSION"
       - name: Create or update the stable GitHub release
         run: |
           node scripts/release/cli.mjs notes --version "$VERSION" --out notes.md

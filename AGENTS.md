@@ -32,9 +32,12 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 
 ## Cutting a Release
 
-Label a pull request into `main` with `release/patch`, `release/minor` or `release/major`. Prepare
-release cuts `release/X.Y.Z` from that PR's head, commits the version, opens its own PR into `main`,
-closes the one you labelled, and publishes mutable candidate artifacts on every release-branch push.
+Label a pull request into `main` with `release/patch`, `release/minor` or `release/major`. The label
+validates the version and publishes mutable candidate artifacts; it does not modify the PR it is
+applied to. Merge that PR normally with a merge commit. Prepare release then cuts `release/X.Y.Z`
+from the resulting merge commit on `main`, commits the version, and opens its own PR into `main`
+whose diff is only the version bump. Candidate artifacts refresh on every release-branch push.
+
 Merge the generated release PR with a merge commit; **Release** starts automatically, publishes the
 GitHub release, GHCR aliases, Chrome Web Store submission and production site after one approval,
 then merges `main` directly into `develop` with the dedicated sync App. A hotfix is the same flow

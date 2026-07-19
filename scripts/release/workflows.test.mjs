@@ -13,12 +13,14 @@ async function action(name) {
 test("release preparation uses trusted base tooling for label lifecycle events", async () => {
   const text = await workflow("prepare-release.yml");
   assert.match(text, /pull_request_target:/);
-  assert.match(text, /types: \[labeled, unlabeled\]/);
+  assert.match(text, /types: \[labeled, unlabeled, closed\]/);
   assert.match(text, /head\.repo\.full_name == github\.repository/);
   assert.match(text, /!startsWith\(github\.event\.pull_request\.head\.ref, 'release\/'\)/);
+  // The label path still resolves policy with base-branch tooling against an untrusted head. The
+  // cut path runs after the merge, where the tree is already on main and needs no second checkout.
   assert.match(text, /path: trusted/);
-  assert.match(text, /path: candidate/);
-  assert.match(text, /\.\.\/trusted\/scripts\/release\/cli\.mjs prepare-workspace/);
+  assert.match(text, /node trusted\/scripts\/release\/cli\.mjs policy/);
+  assert.match(text, /node scripts\/release\/cli\.mjs prepare-workspace/);
   assert.match(text, /--add-label "\$LABEL"/);
   assert.match(text, /uses: \.\/\.github\/workflows\/build-release-candidate\.yml/);
 });
@@ -32,7 +34,10 @@ test("candidate workflow runs trusted orchestration for generated release pull r
   assert.match(controller, /uses: \.\/\.github\/workflows\/build-release-candidate\.yml/);
   assert.match(controller, /commit-status/);
   assert.match(controller, /release candidate \/ ready/);
-  assert.match(controller, /if: >-\n\s+!startsWith\(github\.event\.pull_request\.head\.ref, 'release\/'\)/);
+  assert.match(
+    controller,
+    /if: >-\n\s+github\.event_name == 'pull_request_target' &&\n\s+!startsWith\(github\.event\.pull_request\.head\.ref, 'release\/'\)/,
+  );
   assert.match(candidate, /permissions:\n\s+contents: read/);
   assert.match(candidate, /trusted_ref:/);
   assert.match(candidate, /statuses: write/);
@@ -106,4 +111,35 @@ test("stable promotion runs automatically with one production gate and a dedicat
   );
   assert.match(text, /retire-candidate/);
   assert.doesNotMatch(text, /gh pr create --base develop/);
+});
+
+test("stable publication verifies its asset set before uploading", async () => {
+  const text = await workflow("release.yml");
+  assert.match(text, /assert-assets/);
+  assert.match(text, /gh release upload "v\$VERSION" release-assets\/\* --clobber/);
+});
+
+test("labelling a pull request never closes it", async () => {
+  const text = await workflow("prepare-release.yml");
+  assert.doesNotMatch(text, /gh pr close/);
+  assert.doesNotMatch(text, /Superseded by/);
+});
+
+test("the release branch is cut from the merge commit after the pull request lands", async () => {
+  const text = await workflow("prepare-release.yml");
+  assert.match(text, /types: \[labeled, unlabeled, closed\]/);
+  assert.match(text, /github\.event\.pull_request\.merged/);
+  assert.match(text, /ref: \$\{\{ github\.event\.pull_request\.merge_commit_sha \}\}/);
+  assert.match(text, /git switch -C "release\/\$VERSION"/);
+  assert.match(text, /gh pr create --base main --head "release\/\$VERSION"/);
+});
+
+test("the release branch rebuilds its candidate on push", async () => {
+  const text = await workflow("release-candidate.yml");
+  assert.match(text, /push:\n\s+branches: \['release\/\*\*'\]/);
+  assert.match(text, /github\.event_name == 'push'/);
+  assert.match(text, /release_pr=\$\(gh pr list --head "\$REF_NAME" --base main --state open/);
+  // Both pull request jobs must stay inert on a push event, where pull_request context is empty.
+  assert.match(text, /github\.event_name == 'pull_request_target' &&\n\s+!startsWith/);
+  assert.match(text, /github\.event_name == 'pull_request_target' &&\n\s+github\.event\.pull_request\.head\.repo/);
 });
