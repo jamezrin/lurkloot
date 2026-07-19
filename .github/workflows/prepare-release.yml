@@ -2,7 +2,7 @@ name: Prepare release
 
 on:
   pull_request_target:
-    types: [labeled, unlabeled, closed]
+    types: [labeled, unlabeled, synchronize, closed]
     branches: [main]
 
 permissions:
@@ -15,12 +15,18 @@ concurrency:
 jobs:
   # A label only validates and previews. It never modifies the pull request it is applied to;
   # the release branch is cut once that pull request actually merges, by the cut job below.
+  # Pushes to a labelled head rebuild too, so the candidate always describes the commit that would
+  # be released rather than whichever commit happened to be current when the label went on.
   validate:
     if: >-
-      (github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
-      startsWith(github.event.label.name, 'release/') &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      !startsWith(github.event.pull_request.head.ref, 'release/')
+      !startsWith(github.event.pull_request.head.ref, 'release/') &&
+      (
+      ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
+      startsWith(github.event.label.name, 'release/')) ||
+      (github.event.action == 'synchronize' &&
+      contains(join(github.event.pull_request.labels.*.name, ','), 'release/'))
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read

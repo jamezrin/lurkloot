@@ -36,7 +36,8 @@ Label a pull request into `main` with `release/patch`, `release/minor` or `relea
 validates the version and publishes mutable candidate artifacts; it does not modify the PR it is
 applied to. Merge that PR normally with a merge commit. Prepare release then cuts `release/X.Y.Z`
 from the resulting merge commit on `main`, commits the version, and opens its own PR into `main`
-whose diff is only the version bump. Candidate artifacts refresh on every release-branch push.
+whose diff is only the version bump. Candidate artifacts refresh on every push to a labelled head
+and on every release-branch push.
 
 Merge the generated release PR with a merge commit; **Release** starts automatically, publishes the
 GitHub release, GHCR aliases, Chrome Web Store submission and production site after one approval,
