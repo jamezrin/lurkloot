@@ -2120,5 +2120,59 @@ describe("background controller", () => {
 
       expect(env.timer.wait).not.toHaveBeenCalled();
     });
+
+    it("sends one immediate heartbeat when the next reward starts tablessly", async () => {
+      const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+      const env = handoffEnv({ tablessMode: true });
+      env.twitch.supportsTabless = true;
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+      let reveal = false;
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(reveal)]);
+
+      const handoff = env.controller.runClaimHandoff("twitch");
+      reveal = true;
+      await env.timer.flush();
+      await handoff;
+
+      expect(watcher.tick).toHaveBeenCalledTimes(1);
+      expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    });
+
+    it("skips the immediate heartbeat when one just landed on the same channel", async () => {
+      const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+      const env = handoffEnv({ tablessMode: true });
+      env.twitch.supportsTabless = true;
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+      // Both rewards visible from the start, so the triggering tick already
+      // selects the successor and the handoff takes its fast path.
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(true)]);
+
+      // Establish the tabless session and land a heartbeat seconds ago.
+      await env.controller.tick();
+      await env.controller.runWatchHeartbeat();
+      watcher.tick.mockClear();
+
+      await env.controller.runClaimHandoff("twitch", ["reward-1"]);
+
+      expect(watcher.tick).not.toHaveBeenCalled();
+    });
+
+    it("sends no heartbeat when the next reward runs in a visible tab", async () => {
+      const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+      const env = handoffEnv({ tablessMode: false });
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+      let reveal = false;
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(reveal)]);
+
+      const handoff = env.controller.runClaimHandoff("twitch");
+      reveal = true;
+      await env.timer.flush();
+      await handoff;
+
+      expect(watcher.tick).not.toHaveBeenCalled();
+      // The tick that detected the successor already re-pointed the tab.
+      expect(env.state.sessions.twitch.rewardId).toBe("reward-2");
+      expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    });
   });
 });

@@ -27,6 +27,11 @@ const NOTHING_LEFT_REASON_CODES: WatchReasonCode[] = ["campaign_ineligible", "no
 function isNothingLeftToFarm(reasonCode: WatchReasonCode | undefined): boolean {
   return reasonCode != null && NOTHING_LEFT_REASON_CODES.includes(reasonCode);
 }
+// How recently a heartbeat must have landed for the post-claim handoff to treat
+// the channel as already covered. Half the fixed one-minute alarm period: long
+// enough to suppress a genuine double-send, short enough that a real handoff
+// still transmits.
+const RECENT_HEARTBEAT_MS = 30_000;
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   automation_disabled: true,
@@ -706,9 +711,59 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
-  // Replaced with the real immediate heartbeat in the next commit.
-  async function sendImmediateHeartbeat(_platform: Platform, _session: WatchSession): Promise<void> {
-    return;
+  // Transmits one heartbeat for a freshly-selected tabless target instead of
+  // waiting for the next watch alarm. A visible tab needs nothing: it earns
+  // progress continuously and the detecting tick already re-pointed it.
+  async function sendImmediateHeartbeat(platform: Platform, session: WatchSession): Promise<void> {
+    if (session.watchMode !== "tabless") return;
+    const watcher = tablessWatchers.get(platform);
+    if (!watcher) return;
+
+    // A channel switch always transmits: lastHeartbeatAt then refers to the
+    // previous target, so its recency says nothing about the new one.
+    const sameChannel = watcher.channelUrl != null && watcher.channelUrl === session.channel?.url;
+    const lastHeartbeatAt = session.lastHeartbeatAt ? Date.parse(session.lastHeartbeatAt) : Number.NaN;
+    const recent = !Number.isNaN(lastHeartbeatAt) && Date.now() - lastHeartbeatAt < RECENT_HEARTBEAT_MS;
+    if (sameChannel && recent) return;
+
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      let ok = false;
+      let message: string | undefined;
+      drainWatcherEvents(watcher, emit);
+      try {
+        const result = await watcher.tick(tablessWatchContext());
+        ok = result.ok;
+        message = result.message;
+      } catch (error) {
+        message = error instanceof Error ? error.message : "Post-claim heartbeat failed";
+      } finally {
+        drainWatcherEvents(watcher, emit);
+      }
+
+      const state = await deps.loadState();
+      const current = state.sessions[platform];
+      const nextState: SchedulerState = {
+        ...state,
+        sessions: {
+          ...state.sessions,
+          [platform]: {
+            ...current,
+            lastHeartbeatAt: new Date().toISOString(),
+            lastHeartbeatOk: ok,
+            heartbeatChecks: ok ? 0 : (current.heartbeatChecks ?? 0) + 1,
+          },
+        },
+      };
+      emit({
+        category: "diagnostic",
+        platform,
+        level: ok ? "debug" : "warn",
+        message: ok
+          ? "Post-claim handoff started the next reward without waiting for the watch alarm"
+          : message ?? "Post-claim heartbeat failed",
+      });
+      await persistAndReport(nextState, events);
+    }));
   }
 
   async function beginSettingsSession(): Promise<void> {
