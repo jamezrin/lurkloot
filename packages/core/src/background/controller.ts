@@ -677,7 +677,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       if (!settings.postClaimHandoff || !settings.running) return;
       if (!settings.platform[platform].enabled) return;
 
-      const adapters = createAdapters(settings, () => undefined);
+      // Deliberately bypasses the createAdapters() wrapper: that records every
+      // compatibility diagnostic it emits into the dedup caches, so probing
+      // through it with a no-op emit would mark a diagnostic as "already
+      // reported" without it ever reaching a sink, permanently suppressing it on
+      // the next genuine tick. This is a capability lookup, not a reporting
+      // context; the handoff's own tick() reports normally.
+      const { adapters } = deps.createAdapters(() => undefined, settings);
       if (!adapters[platform].supportsPostClaimHandoff) return;
 
       const claimed = new Set(justClaimedRewardIds);

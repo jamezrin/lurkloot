@@ -2113,6 +2113,23 @@ describe("background controller", () => {
       expect(env.timer.wait).not.toHaveBeenCalled();
     });
 
+    it("does not suppress compatibility diagnostics when probing the capability", async () => {
+      const env = handoffEnv();
+      // Bails right after the capability probe, which is the call that could
+      // poison the controller's compatibility dedup cache.
+      env.twitch.supportsPostClaimHandoff = undefined;
+
+      await env.controller.runClaimHandoff("twitch", ["reward-1"]);
+      await env.controller.tick();
+
+      const published = env.reportEvents.mock.calls.flatMap(([events]: [readonly EngineEvent[]]) => events);
+      expect(published).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        message: expect.stringContaining("Using compatibility profile"),
+      }));
+    });
+
     it("does not run when the setting is disabled", async () => {
       const env = handoffEnv({ postClaimHandoff: false });
 
