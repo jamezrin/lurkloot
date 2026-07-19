@@ -44,7 +44,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
 
   const tickOnce = async () => {
     try {
-      await controller.tick();
+      await controller.tickAndHandOff();
       const state = await loadState(statePath);
       const waits = subscriptionWaitKeys([...state.campaigns.twitch, ...state.campaigns.kick]);
       for (const key of seenSubscriptionWaits) {

@@ -2157,6 +2157,56 @@ describe("background controller", () => {
       expect(watcher.tick).not.toHaveBeenCalled();
     });
 
+    it("starts a handoff after an automatic claim", async () => {
+      const env = handoffEnv();
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+
+      const handoff = env.controller.tickAndHandOff();
+      for (let index = 0; index < 12; index += 1) await env.timer.flush();
+      await handoff;
+
+      expect(env.timer.wait).toHaveBeenCalled();
+    });
+
+    it("does not start a nested handoff for a claim inside a handoff", async () => {
+      const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
+      // Every refresh yields another claimable reward, which would restart the
+      // deadline forever if a nested handoff were allowed.
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+
+      const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
+      for (let index = 0; index < 10; index += 1) await env.timer.flush();
+      await handoff;
+
+      expect(env.timer.wait.mock.calls.length).toBeLessThanOrEqual(3);
+    });
+
+    it("aborts running handoffs when a settings session begins", async () => {
+      const env = handoffEnv();
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+
+      const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
+      await drainMicrotasks();
+      await env.controller.beginSettingsSession();
+      await env.timer.flush();
+      await handoff;
+
+      expect(env.timer.parked).toBe(0);
+    });
+
+    it("aborts running handoffs when farming is switched off", async () => {
+      const env = handoffEnv();
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+
+      const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
+      await drainMicrotasks();
+      await env.controller.handleMessage({ type: "setRunning", running: false });
+      await env.timer.flush();
+      await handoff;
+
+      expect(env.timer.parked).toBe(0);
+    });
+
     it("sends no heartbeat when the next reward runs in a visible tab", async () => {
       const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
       const env = handoffEnv({ tablessMode: false });

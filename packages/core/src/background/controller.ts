@@ -337,6 +337,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function handleStartup(): Promise<void> {
+    // A restart kills the watchers a handoff would transmit through, so leave
+    // no loop running against them.
+    abortClaimHandoffs();
     const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
@@ -711,6 +714,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  // The normal entry point for alarm- and message-driven ticks: run the tick,
+  // then hand off for every platform that claimed. Kept separate from tick() so
+  // the handoff's own inner ticks cannot recurse into another handoff.
+  async function tickAndHandOff(platforms?: Platform[]): Promise<void> {
+    const claimed = await tick(platforms);
+    for (const platform of Object.keys(claimed) as Platform[]) {
+      await runClaimHandoff(platform, claimed[platform] ?? []);
+    }
+  }
+
   // Transmits one heartbeat for a freshly-selected tabless target instead of
   // waiting for the next watch alarm. A visible tab needs nothing: it earns
   // progress continuously and the detecting tick already re-pointed it.
@@ -767,6 +780,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function beginSettingsSession(): Promise<void> {
+    abortClaimHandoffs();
     settingsPauseCount += 1;
     if (settingsPauseCount === 1) await tick(undefined, { forcePaused: true });
   }
@@ -893,6 +907,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // Hold the state lock across the whole load→persist so a concurrent tick or
     // telemetry write can't clobber the claimed-reward update. snapshot() runs
     // after the lock so it reflects the committed state.
+    let claimedManually = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const campaigns = state.campaigns[message.platform];
@@ -924,6 +939,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       let stateWithCampaigns: SchedulerState;
       try {
         const claimed = await createAdapters(settings, emit)[message.platform].claimReward(campaign, reward);
+        claimedManually = claimed;
         const nextCampaigns = campaigns.map((item) => {
           if (item.id !== campaign.id) return item;
           const rewards = item.rewards.map((candidate) => candidate.id === reward.id && claimed
@@ -978,6 +994,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       }
       await persistAndReport(stateWithCampaigns, events);
     }));
+    // Outside the lock: runClaimHandoff ticks, which takes the lock itself.
+    if (claimedManually) await runClaimHandoff(message.platform, [message.rewardId]);
     return snapshot();
   }
 
@@ -999,8 +1017,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
 
     if (message.type === "setRunning") {
+      // Stopping must cancel any loop still refreshing in the background.
+      if (!message.running) abortClaimHandoffs();
       await updateStoredSettings({ running: message.running });
-      await tick();
+      await tickAndHandOff();
       return snapshot();
     }
 
@@ -1012,7 +1032,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           },
         },
       });
-      if (settings.running) await tick();
+      if (settings.running) await tickAndHandOff();
       return snapshot();
     }
 
@@ -1026,14 +1046,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       };
       if (message.enabled) patch.running = true;
       const settings = await updateStoredSettings(patch);
-      if (settings.running) await tick();
+      if (settings.running) await tickAndHandOff();
       return snapshot();
     }
 
     if (message.type === "saveSettings") {
       const settings = await updateStoredSettings(message.settingsPatch);
       if (message.tickAfterSave && settingsPauseCount === 0 && settings.running && hasEnabledPlatform(settings)) {
-        await tick(message.tickAfterSavePlatforms);
+        await tickAndHandOff(message.tickAfterSavePlatforms);
       }
       return snapshot();
     }
@@ -1062,7 +1082,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
 
     if (message.type === "tickNow") {
-      await tick();
+      await tickAndHandOff();
       return snapshot();
     }
   }
@@ -1136,6 +1156,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     endSettingsSession,
     captureTwitchIntegrity,
     tick,
+    tickAndHandOff,
     runWatchHeartbeat,
     runClaimHandoff,
     abortClaimHandoffs,
