@@ -56,6 +56,8 @@ const EN_RUNTIME_MESSAGES: Record<string, string> = {
   notificationNoDropsLeft: "No drops left",
   notificationRewardFromCampaign: "$1 from $2",
   notificationNoDropsLeftMessage: "$1 has no eligible drops to farm.",
+  notificationChallengeClaimed: "Challenge reward claimed",
+  notificationChallengeReward: "You won a $1 card from your $2 challenge.",
 };
 
 function emitHostCallbackError(
@@ -434,7 +436,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         });
         const lifecycleEvents = farmingLifecycleEvents(state, result.state);
         for (const event of lifecycleEvents) emit(event);
-        await emitNotifications(settings, state, result.state);
+        await emitNotifications(settings, state, result.state, result.events);
         await applyAdFocusForState(result.state, emit);
         await reconcileTablessWatchers(result.state, settings, adapters, emit, platforms);
         nextState = result.state;
@@ -1130,12 +1132,23 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     settings: EngineSettings,
     previous: SchedulerState,
     next: SchedulerState,
+    tickEvents: readonly EngineEvent[] = [],
   ): Promise<void> {
     if (settings.notifyRewardEarned) {
       for (const reward of newlyEarnedRewards(previous, next)) {
         await safeNotify(
           await tr("notificationRewardEarned"),
           await tr("notificationRewardFromCampaign", [reward.reward.name, reward.campaign.name]),
+        );
+      }
+      // Challenge claims never enter SchedulerState, so they come from the tick's
+      // events instead of a state diff. They ride notifyRewardEarned deliberately:
+      // one more toggle for a single event type is not worth the settings surface.
+      for (const event of tickEvents) {
+        if (event.category !== "activity" || event.code !== "challenge_claimed") continue;
+        await safeNotify(
+          await tr("notificationChallengeClaimed"),
+          await tr("notificationChallengeReward", [event.data.rarity, event.data.recurrence]),
         );
       }
     }
