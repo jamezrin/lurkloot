@@ -195,7 +195,7 @@ export function SelectSettingRow<T extends string>({ title, description, value, 
   );
 }
 
-export function NumberSettingRow({ title, description, value, min, max, suffix, onChange }: { title: string; description: string; value: number; min: number; max: number; suffix: string; onChange(value: number): void | Promise<void> }) {
+export function NumberSettingRow({ title, description, value, min, max, suffix, onChange, disabled = false, disabledReason }: { title: string; description: string; value: number; min: number; max: number; suffix: string; onChange(value: number): void | Promise<void>; disabled?: boolean; disabledReason?: string }) {
   const [draft, setDraft] = useState(String(value));
 
   useEffect(() => {
@@ -214,15 +214,16 @@ export function NumberSettingRow({ title, description, value, min, max, suffix, 
   }
 
   return (
-    <div className="flex items-center gap-3 py-2.5">
+    <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
       <div className="min-w-0 flex-1">
         <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
-      <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+      <label className={cn("flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>
         <input
           aria-label={title}
           type="number"
+          disabled={disabled}
           min={min}
           max={max}
           step={1}

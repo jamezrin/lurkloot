@@ -422,6 +422,24 @@
   "schedulerIntervalDescription": {
     "message": "कैंपेन और streamer स्थिति कितनी बार refresh होती है।"
   },
+  "postClaimHandoffTitle": {
+    "message": "तेज़ इनाम हैंडऑफ़"
+  },
+  "postClaimHandoffDescription": {
+    "message": "ड्रॉप क्लेम करने के बाद, अगले निर्धारित चक्र की प्रतीक्षा करने के बजाय अभियान के अगले इनाम की थोड़ी देर जाँच करें। केवल Twitch।"
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "हैंडऑफ़ जाँच अंतराल"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "अगले इनाम की जाँच के बीच कितनी देर प्रतीक्षा करनी है।"
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "हैंडऑफ़ समय सीमा"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "इतने समय बाद छोड़ दें और नियमित शेड्यूल पर लौट आएँ।"
+  },
   "secondsSuffix": {
     "message": "सेक"
   },

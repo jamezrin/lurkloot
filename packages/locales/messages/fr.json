@@ -422,6 +422,24 @@
   "schedulerIntervalDescription": {
     "message": "Fréquence d’actualisation des campagnes et streamers."
   },
+  "postClaimHandoffTitle": {
+    "message": "Transfert rapide des récompenses"
+  },
+  "postClaimHandoffDescription": {
+    "message": "Après avoir réclamé un drop, recherche brièvement la récompense suivante de la campagne au lieu d’attendre le prochain cycle planifié. Twitch uniquement."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Intervalle de vérification du transfert"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Temps d’attente entre deux vérifications de la récompense suivante."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Limite de temps du transfert"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Abandonner et revenir au planning normal après ce délai."
+  },
   "secondsSuffix": {
     "message": "s"
   },

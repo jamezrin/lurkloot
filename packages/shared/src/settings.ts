@@ -59,6 +59,11 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   excludedCampaignIds: [],
   offlineRetryLimit: 3,
   pollIntervalMinutes: 1,
+  postClaimHandoff: true,
+  // Nine refreshes at most, always finishing before the next one-minute watch
+  // alarm so the handoff and the alarm never contend for the same heartbeat.
+  postClaimHandoffIntervalSeconds: 5,
+  postClaimHandoffMaxSeconds: 45,
 };
 
 // The extension's full defaults: the engine contract plus the host-only knobs.
@@ -134,6 +139,9 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_ENGINE_SETTINGS.offlineRetryLimit),
     // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_ENGINE_SETTINGS.pollIntervalMinutes),
+    postClaimHandoff: booleanOr(value?.postClaimHandoff, DEFAULT_ENGINE_SETTINGS.postClaimHandoff),
+    postClaimHandoffIntervalSeconds: clampInteger(value?.postClaimHandoffIntervalSeconds, 1, 30, DEFAULT_ENGINE_SETTINGS.postClaimHandoffIntervalSeconds),
+    postClaimHandoffMaxSeconds: clampInteger(value?.postClaimHandoffMaxSeconds, 5, 120, DEFAULT_ENGINE_SETTINGS.postClaimHandoffMaxSeconds),
   };
 }
 

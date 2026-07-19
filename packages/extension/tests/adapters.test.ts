@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PageFetcher } from "@lurkloot/core/adapter";
+import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
@@ -609,6 +609,21 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
 });
 
 describe("TwitchAdapter", () => {
+  it("declares the post-claim handoff capability for Twitch only", () => {
+    // Reading a capability must not touch the network.
+    const fetcher = jsonFetcher(() => {
+      throw new Error("unexpected fetch");
+    });
+
+    // Read through the interface: the capability is optional there, and Kick's
+    // concrete class deliberately does not declare it at all.
+    const twitch: PlatformAdapter = new TwitchAdapter(fetcher);
+    const kick: PlatformAdapter = new KickAdapter(fetcher);
+
+    expect(twitch.supportsPostClaimHandoff).toBe(true);
+    expect(kick.supportsPostClaimHandoff).toBeUndefined();
+  });
+
   it("discovers active dashboard campaigns through detail GQL and merges inventory progress", async () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);

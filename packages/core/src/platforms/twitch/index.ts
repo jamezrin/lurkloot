@@ -709,6 +709,11 @@ export class TwitchAdapter implements PlatformAdapter {
   // it keeps working even though the controller recreates adapters each tick.
   supportsTabless = true;
 
+  // Twitch reveals the next reward in a campaign chain only on a later
+  // inventory read, so a bounded post-claim refresh recovers watch time that
+  // would otherwise be lost waiting for the fixed one-minute watch alarm.
+  supportsPostClaimHandoff = true;
+
   createTablessWatcher(): TablessWatchController {
     return new TwitchWatcher(this.gqlTransport, this.options);
   }

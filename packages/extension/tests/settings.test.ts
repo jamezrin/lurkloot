@@ -117,6 +117,23 @@ describe("settings", () => {
     expect(mergeSettings({ offlineRetryLimit: Number.NaN }).offlineRetryLimit).toBe(DEFAULT_SETTINGS.offlineRetryLimit);
   });
 
+  it("clamps post-claim handoff settings and defaults them when absent", () => {
+    expect(mergeSettings({}).postClaimHandoff).toBe(true);
+    expect(mergeSettings({}).postClaimHandoffIntervalSeconds).toBe(5);
+    expect(mergeSettings({}).postClaimHandoffMaxSeconds).toBe(45);
+
+    expect(mergeSettings({ postClaimHandoffIntervalSeconds: 0 }).postClaimHandoffIntervalSeconds).toBe(1);
+    expect(mergeSettings({ postClaimHandoffIntervalSeconds: 99 }).postClaimHandoffIntervalSeconds).toBe(30);
+    expect(mergeSettings({ postClaimHandoffMaxSeconds: 1 }).postClaimHandoffMaxSeconds).toBe(5);
+    expect(mergeSettings({ postClaimHandoffMaxSeconds: 999 }).postClaimHandoffMaxSeconds).toBe(120);
+
+    expect(mergeSettings({ postClaimHandoffIntervalSeconds: Number.NaN }).postClaimHandoffIntervalSeconds)
+      .toBe(DEFAULT_SETTINGS.postClaimHandoffIntervalSeconds);
+    expect(mergeSettings({ postClaimHandoffMaxSeconds: Number.NaN }).postClaimHandoffMaxSeconds)
+      .toBe(DEFAULT_SETTINGS.postClaimHandoffMaxSeconds);
+    expect(mergeSettings({ postClaimHandoff: false }).postClaimHandoff).toBe(false);
+  });
+
   it("keeps diagnostic logging independent from the removed engine log-level setting", () => {
     expect(mergeSettings(undefined).diagnosticLogging).toBe(false);
     expect(mergeSettings({ diagnosticLogging: true }).diagnosticLogging).toBe(true);

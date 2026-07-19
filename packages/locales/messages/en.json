@@ -422,6 +422,24 @@
   "schedulerIntervalDescription": {
     "message": "How often campaign and streamer status refreshes."
   },
+  "postClaimHandoffTitle": {
+    "message": "Fast reward handoff"
+  },
+  "postClaimHandoffDescription": {
+    "message": "After claiming a drop, briefly check for the next reward in the campaign instead of waiting for the next scheduled cycle. Twitch only."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Handoff check interval"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "How long to wait between checks for the next reward."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Handoff time limit"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Give up and return to the regular schedule after this long."
+  },
   "secondsSuffix": {
     "message": "sec"
   },

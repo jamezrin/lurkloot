@@ -422,6 +422,24 @@
   "schedulerIntervalDescription": {
     "message": "活动和主播状态刷新的频率。"
   },
+  "postClaimHandoffTitle": {
+    "message": "快速奖励交接"
+  },
+  "postClaimHandoffDescription": {
+    "message": "领取掉宝后，短暂检查活动中的下一个奖励，而不是等待下一个计划周期。仅限 Twitch。"
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "交接检查间隔"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "两次检查下一个奖励之间的等待时间。"
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "交接时间上限"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "超过这段时间后放弃并返回常规计划。"
+  },
   "secondsSuffix": {
     "message": "秒"
   },

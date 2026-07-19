@@ -422,6 +422,24 @@
   "schedulerIntervalDescription": {
     "message": "مدى تكرار تحديث حالة الحملات والبثوث."
   },
+  "postClaimHandoffTitle": {
+    "message": "تسليم سريع للمكافآت"
+  },
+  "postClaimHandoffDescription": {
+    "message": "بعد المطالبة بمكافأة، يتحقق لفترة وجيزة من المكافأة التالية في الحملة بدلاً من انتظار الدورة المجدولة التالية. Twitch فقط."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "فاصل التحقق أثناء التسليم"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "مدة الانتظار بين عمليات التحقق من المكافأة التالية."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "الحد الزمني للتسليم"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "التوقف والعودة إلى الجدول المعتاد بعد هذه المدة."
+  },
   "secondsSuffix": {
     "message": "ث"
   },

@@ -422,6 +422,24 @@
   "schedulerIntervalDescription": {
     "message": "Frequenza di aggiornamento di campagne e streamer."
   },
+  "postClaimHandoffTitle": {
+    "message": "Passaggio rapido delle ricompense"
+  },
+  "postClaimHandoffDescription": {
+    "message": "Dopo aver riscattato un drop, cerca brevemente la ricompensa successiva della campagna invece di attendere il ciclo programmato successivo. Solo Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Intervallo di controllo del passaggio"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Quanto attendere tra un controllo e l’altro della ricompensa successiva."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Limite di tempo del passaggio"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Rinuncia e torna alla pianificazione regolare dopo questo tempo."
+  },
   "secondsSuffix": {
     "message": "sec"
   },
