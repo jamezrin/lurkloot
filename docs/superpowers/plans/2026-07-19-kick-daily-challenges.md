@@ -1013,11 +1013,35 @@ Also add `notificationChallengeReward`:
   }
 ```
 
+And `activityChallengeClaimed`, for the popup's activity feed:
+
+```json
+  "activityChallengeClaimed": {
+    "message": "Claimed a $1 $2 challenge"
+  }
+```
+
 - [ ] **Step 2: Translate into the other nine catalogs**
 
-Add the same six keys to `ar.json`, `de.json`, `es.json`, `fr.json`, `hi.json`, `it.json`,
+Add the same seven keys to `ar.json`, `de.json`, `es.json`, `fr.json`, `hi.json`, `it.json`,
 `pt_BR.json`, `ru.json`, and `zh_CN.json`, translating the message values. Keep the `$1` / `$2`
 placeholders and their order intact in every locale.
+
+- [ ] **Step 2b: Replace the hardcoded activity-feed string**
+
+Task 4 added a `challenge_claimed` case to `formatCurrentActivity` in
+`packages/popup-ui/src/activity.logic.ts` to satisfy an exhaustive `never` switch. It returns a
+hardcoded English string, unlike every sibling case which uses `t()`. Swap it for the locale key:
+
+```ts
+    case "challenge_claimed":
+      return t("activityChallengeClaimed", [event.data.rarity, event.data.recurrence]);
+```
+
+Delete the two-line comment above it that defers this to a later task — this is that task.
+
+Leave `packages/cli/src/events.ts` alone: the CLI's `formatCliEvent` is deliberately non-i18n and
+its plain-string case matches every other case in that file.
 
 - [ ] **Step 3: Render the toggles**
 
