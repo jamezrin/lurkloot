@@ -1,8 +1,9 @@
 # Releasing Lurkloot
 
-Label a pull request into `main`, inspect the generated candidate, and merge the generated release
-pull request. Publication starts automatically after that merge and pauses once for approval on the
-`production` environment. Do not create or move tags by hand.
+Label a pull request into `main`, inspect the candidate, and merge that pull request normally. A
+generated release pull request carrying the version bump then opens against `main`; merging it starts
+publication automatically, pausing once for approval on the `production` environment. Do not create
+or move tags by hand.
 
 ## Before you start: write the changelog
 
@@ -23,16 +24,19 @@ empty entry. That intentionally permits build-only releases, but produces an emp
 
 1. Open the intended source pull request into `main`. For a normal release this is the `develop` to
    `main` promotion pull request.
-2. Apply exactly one of `release/patch`, `release/minor`, or `release/major`.
-3. Prepare release cuts `release/X.Y.Z` from the source head, commits the version in all seven
-   workspace manifests, dates the changelog, opens a generated pull request into `main`, copies the
-   release label to it, and closes the original pull request as superseded.
-4. Candidate automation verifies the generated pull request, publishes the signed extension
-   artifacts as the mutable `candidate-vX.Y.Z` GitHub prerelease, pushes GHCR
-   `candidate-X.Y.Z`, and deploys the site to `next.lurkloot.pages.dev`.
-5. Review and merge the generated `release/X.Y.Z` pull request with a **merge commit**. Squash and
+2. Apply exactly one of `release/patch`, `release/minor`, or `release/major`. The label validates the
+   version and builds a candidate. It does not modify the pull request it is applied to.
+3. Candidate automation verifies the labelled head, publishes the signed extension artifacts as the
+   mutable `candidate-vX.Y.Z` GitHub prerelease, pushes GHCR `candidate-X.Y.Z`, and deploys the site
+   to `next.lurkloot.pages.dev`.
+4. Review and merge that pull request normally, with a **merge commit**.
+5. Prepare release then cuts `release/X.Y.Z` from the resulting merge commit on `main`, commits the
+   version in all seven workspace manifests, dates the changelog, opens a generated pull request into
+   `main`, copies the release label to it, and rebuilds the candidate from the release branch. The
+   generated pull request's diff is only the version bump and changelog date.
+6. Review and merge the generated `release/X.Y.Z` pull request with a **merge commit**. Squash and
    rebase are blocked on `main`; the original `develop` commit SHAs remain in `main` history.
-6. Release rebuilds from the merged `main` commit. Approve its single `production` job. It publishes
+7. Release rebuilds from the merged `main` commit. Approve its single `production` job. It publishes
    GitHub, GHCR, Chrome Web Store, and the production site, retires the candidate, then merges `main`
    directly into `develop` with the dedicated synchronization App.
 
@@ -44,8 +48,10 @@ not require a manual dispatch.
 - No recognized label means ordinary pull-request behavior.
 - More than one recognized release label blocks preparation and posts an explanatory comment.
 - Removing one label while another remains prepares the remaining selection.
-- Removing the final release label reports the already-created candidate as orphaned. Automation
-  does not delete it, because it may already be under review.
+- Removing the final release label comments that merging will no longer cut a release. Any candidate
+  already published is left in place, because it may already be under review.
+- The release branch is cut only when a labelled pull request merges. Closing one unmerged cuts
+  nothing.
 - Generated `release/*` pull requests carry their release label for promotion validation but are
   ignored as new preparation sources.
 - Fork pull requests cannot prepare releases. In this public repository, native GitHub roles limit
