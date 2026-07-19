@@ -143,3 +143,13 @@ test("the release branch rebuilds its candidate on push", async () => {
   assert.match(text, /github\.event_name == 'pull_request_target' &&\n\s+!startsWith/);
   assert.match(text, /github\.event_name == 'pull_request_target' &&\n\s+github\.event\.pull_request\.head\.repo/);
 });
+
+test("candidate builds overlay the release version before packaging", async () => {
+  const candidate = await workflow("build-release-candidate.yml");
+  const extension = await workflow("build-extension.yml");
+  // The label-time candidate builds an unbumped tree, so without this overlay the artifacts are
+  // named for the previous version while the prerelease claims the new one.
+  assert.match(candidate, /^      version: \$\{\{ inputs\.version \}\}$/m);
+  assert.match(extension, /if: inputs\.version != ''/);
+  assert.match(extension, /prepare-workspace --version "\$RELEASE_VERSION"/);
+});
