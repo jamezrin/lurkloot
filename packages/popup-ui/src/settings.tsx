@@ -187,6 +187,15 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
           disabledReason={t("postClaimHandoffDescription")}
           onChange={(value) => onSettingsChange({ postClaimHandoffMaxSeconds: value })}
         />
+        <NumberSettingRow
+          title={t("deadlineSafetyMarginTitle")}
+          description={t("deadlineSafetyMarginDescription")}
+          value={settings.deadlineSafetyMarginMinutes}
+          min={-1}
+          max={60}
+          suffix={settings.deadlineSafetyMarginMinutes === -1 ? t("disabled") : t("minutesSuffix")}
+          onChange={(value) => onSettingsChange({ deadlineSafetyMarginMinutes: value }, { tickAfterSave: true })}
+        />
         <SettingRow title={t("diagnosticLoggingTitle")} description={t("diagnosticLoggingDescription")} checked={settings.diagnosticLogging} onChange={set("diagnosticLogging")} />
         {compatibilityRegistry && compatibilityResolution ? <CompatibilitySettings settings={settings.compatibility} registry={compatibilityRegistry} resolution={compatibilityResolution} onChange={onSettingsChange} /> : null}
       </SettingsSection>

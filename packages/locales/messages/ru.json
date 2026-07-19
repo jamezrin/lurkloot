@@ -443,6 +443,11 @@
   "secondsSuffix": {
     "message": "с"
   },
+  "deadlineSafetyMarginTitle": { "message": "Запас времени до окончания" },
+  "deadlineSafetyMarginDescription": { "message": "Дополнительные минуты перед фармом награды. -1 отключает фильтр сроков." },
+  "disabled": { "message": "Отключено" },
+  "minutesSuffix": { "message": "мин" },
+  "insufficientTimeRemaining": { "message": "Недостаточно оставшегося времени" },
   "automationSectionTitle": {
     "message": "Автоматизация"
   },

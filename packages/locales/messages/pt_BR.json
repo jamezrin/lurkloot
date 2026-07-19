@@ -443,6 +443,11 @@
   "secondsSuffix": {
     "message": "s"
   },
+  "deadlineSafetyMarginTitle": { "message": "Margem de segurança do prazo" },
+  "deadlineSafetyMarginDescription": { "message": "Minutos extras antes de farmar uma recompensa. Use -1 para desativar o filtro de prazo." },
+  "disabled": { "message": "Desativado" },
+  "minutesSuffix": { "message": "min." },
+  "insufficientTimeRemaining": { "message": "Tempo restante insuficiente" },
   "automationSectionTitle": {
     "message": "Automação"
   },

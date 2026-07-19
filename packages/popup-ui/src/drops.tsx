@@ -424,6 +424,11 @@ function RewardTile({ reward }: { reward: RewardView }) {
             </span>
             <span className="tabular">{formatMinutes(reward.requiredMinutes)}</span>
           </div>
+          {reward.ineligibilityReason === "insufficient_time" ? (
+            <div className="mt-1 text-[10px] font-semibold leading-tight text-amber-600 dark:text-amber-400">
+              {t("insufficientTimeRemaining")}
+            </div>
+          ) : null}
         </>
       ) : reward.requirement === "subscription" ? (
         <div className="space-y-1 text-[10px] leading-tight text-zinc-500 dark:text-zinc-400">

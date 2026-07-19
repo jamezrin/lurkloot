@@ -443,6 +443,11 @@
   "secondsSuffix": {
     "message": "s"
   },
+  "deadlineSafetyMarginTitle": { "message": "Margen de seguridad del plazo" },
+  "deadlineSafetyMarginDescription": { "message": "Minutos adicionales requeridos antes de farmear una recompensa. Usa -1 para desactivar el filtro de plazos." },
+  "disabled": { "message": "Desactivado" },
+  "minutesSuffix": { "message": "min." },
+  "insufficientTimeRemaining": { "message": "No queda tiempo suficiente" },
   "automationSectionTitle": {
     "message": "Automatización"
   },

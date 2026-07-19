@@ -55,6 +55,7 @@ export type RewardView = {
   tint: string;
   imageUrl?: string;
   claimGuidance?: ClaimGuidance;
+  ineligibilityReason?: "insufficient_time";
 };
 export type CampaignLifecycleState = "upcoming" | "expired" | "finished";
 

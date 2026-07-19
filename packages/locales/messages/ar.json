@@ -443,6 +443,11 @@
   "secondsSuffix": {
     "message": "ث"
   },
+  "deadlineSafetyMarginTitle": { "message": "هامش أمان الموعد النهائي" },
+  "deadlineSafetyMarginDescription": { "message": "دقائق إضافية مطلوبة قبل جمع المكافأة. استخدم -1 لتعطيل تصفية الموعد النهائي." },
+  "disabled": { "message": "معطل" },
+  "minutesSuffix": { "message": "د" },
+  "insufficientTimeRemaining": { "message": "الوقت المتبقي غير كافٍ" },
   "automationSectionTitle": {
     "message": "الأتمتة"
   },

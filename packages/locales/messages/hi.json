@@ -443,6 +443,11 @@
   "secondsSuffix": {
     "message": "सेक"
   },
+  "deadlineSafetyMarginTitle": { "message": "समय-सीमा सुरक्षा मार्जिन" },
+  "deadlineSafetyMarginDescription": { "message": "इनाम फ़ार्म करने से पहले आवश्यक अतिरिक्त मिनट। फ़िल्टर बंद करने के लिए -1 का उपयोग करें।" },
+  "disabled": { "message": "अक्षम" },
+  "minutesSuffix": { "message": "मिनट" },
+  "insufficientTimeRemaining": { "message": "पर्याप्त समय शेष नहीं" },
   "automationSectionTitle": {
     "message": "ऑटोमेशन"
   },

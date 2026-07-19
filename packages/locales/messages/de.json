@@ -443,6 +443,11 @@
   "secondsSuffix": {
     "message": "Sek."
   },
+  "deadlineSafetyMarginTitle": { "message": "Sicherheitsmarge bis zum Ablauf" },
+  "deadlineSafetyMarginDescription": { "message": "Zusätzliche Minuten vor dem Farmen einer Belohnung. -1 deaktiviert den Fristfilter." },
+  "disabled": { "message": "Deaktiviert" },
+  "minutesSuffix": { "message": "Min." },
+  "insufficientTimeRemaining": { "message": "Nicht genügend Zeit verbleibend" },
   "automationSectionTitle": {
     "message": "Automatisierung"
   },

@@ -47,6 +47,7 @@ const testMessages: Record<string, string> = {
   excluded: "Excluded",
   excludeFromFarming: "Exclude from farming",
   farmingLabel: "Farming",
+  insufficientTimeRemaining: "Insufficient time remaining",
   notEarnableByWatching: "Not earnable by watching",
   qualifyingSubscriptionsRequired: "Requires $1 qualifying subscriptions",
   subscribedRefresh: "I've subscribed — refresh status",
@@ -78,6 +79,21 @@ function renderDrops(campaigns: CampaignView[], refreshing = false): string {
 }
 
 describe("subscription drop popup views", () => {
+  it("marks and explains watch rewards with insufficient time", () => {
+    const source = {
+      ...campaign("timed", [reward({ requirement: "watch", requiredMinutes: 60, watchedMinutes: 30, status: "in_progress" })]),
+      endsAt: "2026-07-19T12:34:59.999Z",
+    };
+
+    const view = campaignViewFromCampaign(source, 0, idleSession, false, {
+      deadlineSafetyMarginMinutes: 5,
+      now: Date.parse("2026-07-19T12:00:00.000Z"),
+    });
+
+    expect(view.rewards[0].ineligibilityReason).toBe("insufficient_time");
+    expect(renderDrops([view])).toContain("Insufficient time remaining");
+  });
+
   it("preserves subscription rewards without fabricating progress", () => {
     const source = campaign("subscription-only", [
       reward({ id: "subscribe-once", name: "Subscribe once", requirement: "subscription", requiredSubs: 1 }),

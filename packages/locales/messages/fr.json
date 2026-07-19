@@ -443,6 +443,11 @@
   "secondsSuffix": {
     "message": "s"
   },
+  "deadlineSafetyMarginTitle": { "message": "Marge de sécurité avant échéance" },
+  "deadlineSafetyMarginDescription": { "message": "Minutes supplémentaires requises avant de farmer une récompense. Utilisez -1 pour désactiver le filtre." },
+  "disabled": { "message": "Désactivé" },
+  "minutesSuffix": { "message": "min." },
+  "insufficientTimeRemaining": { "message": "Temps restant insuffisant" },
   "automationSectionTitle": {
     "message": "Automatisation"
   },

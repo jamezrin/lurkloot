@@ -229,7 +229,7 @@ export function NumberSettingRow({ title, description, value, min, max, suffix, 
           step={1}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          onBlur={() => commit()}
+          onBlur={(event) => commit(event.currentTarget.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") event.currentTarget.blur();
           }}

@@ -443,6 +443,11 @@
   "secondsSuffix": {
     "message": "sec"
   },
+  "deadlineSafetyMarginTitle": { "message": "Deadline safety margin" },
+  "deadlineSafetyMarginDescription": { "message": "Extra minutes required before farming a reward. Use -1 to disable deadline filtering." },
+  "disabled": { "message": "Disabled" },
+  "minutesSuffix": { "message": "min" },
+  "insufficientTimeRemaining": { "message": "Insufficient time remaining" },
   "automationSectionTitle": {
     "message": "Automation"
   },

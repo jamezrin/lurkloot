@@ -443,6 +443,11 @@
   "secondsSuffix": {
     "message": "秒"
   },
+  "deadlineSafetyMarginTitle": { "message": "截止时间安全余量" },
+  "deadlineSafetyMarginDescription": { "message": "开始获取奖励前需额外预留的分钟数。设为 -1 可关闭截止时间筛选。" },
+  "disabled": { "message": "已禁用" },
+  "minutesSuffix": { "message": "分钟" },
+  "insufficientTimeRemaining": { "message": "剩余时间不足" },
   "automationSectionTitle": {
     "message": "自动化"
   },
