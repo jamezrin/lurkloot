@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
@@ -54,6 +54,7 @@ function harness(
   overrides: {
     saveState?: (state: SchedulerState) => Promise<void>;
     reportEvents?: (events: readonly EngineEvent[]) => Promise<void>;
+    wait?: (ms: number, signal: AbortSignal) => Promise<void>;
   } = {},
 ) {
   let currentSettings = settings;
@@ -88,6 +89,7 @@ function harness(
       ...resolveCompatibility(nextSettings.compatibility, { host: "extension", twitchIdentity: "web" }),
     })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
+    wait: overrides.wait,
   };
 
   return {
@@ -1718,6 +1720,36 @@ describe("background controller", () => {
     return watcher;
   }
 
+  // Drains every pending microtask. setTimeout stays real under the Date-only
+  // fake timers these handoff tests install, so one turn of the macrotask queue
+  // is enough to let an async loop run to its next park.
+  const drainMicrotasks = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+  // A `wait` the test releases by hand, so handoff loops advance
+  // deterministically instead of racing real timers.
+  function manualWait() {
+    const pending: Array<() => void> = [];
+    const wait = vi.fn(async (ms: number, signal: AbortSignal) => {
+      if (signal.aborted) return;
+      await new Promise<void>((resolve) => {
+        pending.push(resolve);
+        signal.addEventListener("abort", () => resolve(), { once: true });
+      });
+      // The delay still consumes the handoff's time budget, so a loop driven
+      // entirely by flush() still reaches its deadline.
+      vi.setSystemTime(Date.now() + ms);
+    });
+    // Drain FIRST so the loop has actually parked — runClaimHandoff suspends on
+    // loadSettings well before it reaches its first wait, and releasing an empty
+    // queue would leave it parked forever.
+    const flush = async () => {
+      await drainMicrotasks();
+      for (const resolve of pending.splice(0)) resolve();
+      await drainMicrotasks();
+    };
+    return { wait, flush, get parked() { return pending.length; } };
+  }
+
   function tablessEnv(overrides: Partial<ExtensionSettings> = {}) {
     const env = harness({
       ...DEFAULT_SETTINGS,
@@ -1961,12 +1993,132 @@ describe("background controller", () => {
     expect(env.state.lastTickAt).toBeDefined();
   });
 
-  it("reports the platforms that claimed a reward from tick", async () => {
+  it("reports the reward ids claimed during a tick, per platform", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: true });
     env.twitch.discoverCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
 
     const claimed = await env.controller.tick();
 
-    expect(claimed).toEqual(["twitch"]);
+    expect(claimed).toEqual({ twitch: ["reward"] });
+  });
+
+  describe("post-claim handoff", () => {
+    // Date only: the handoff's deadline is wall-clock based, but its delays are
+    // injected, so setTimeout must stay real for drainMicrotasks.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    // Twitch-only environment whose adapter opts into the handoff.
+    function handoffEnv(overrides: Partial<ExtensionSettings> = {}) {
+      const timer = manualWait();
+      const env = harness({
+        ...DEFAULT_SETTINGS,
+        running: true,
+        autoClaim: true,
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
+        },
+        ...overrides,
+      }, { wait: timer.wait });
+      env.twitch.supportsPostClaimHandoff = true;
+      // Re-declare the getters: spreading `env` would evaluate them once and
+      // freeze the initial snapshot, so every assertion would read stale state.
+      return {
+        ...env,
+        timer,
+        get state() { return env.state; },
+        get settings() { return env.settings; },
+      };
+    }
+
+    // A campaign whose first reward is claimable and whose second reward only
+    // becomes visible on a later inventory read — the Twitch behavior the
+    // handoff exists to absorb.
+    function chainedCampaign(revealSecond: boolean): DropCampaign {
+      const first: DropReward = { id: "reward-1", name: "First", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" };
+      const second: DropReward = { id: "reward-2", name: "Second", requiredMinutes: 60, watchedMinutes: 0, status: "in_progress" };
+      return {
+        id: "twitch-campaign",
+        platform: "twitch",
+        name: "twitch campaign",
+        status: "active",
+        rewards: revealSecond ? [first, second] : [first],
+      };
+    }
+
+    it("starts earning the next reward before the next heartbeat alarm", async () => {
+      const env = handoffEnv();
+      let reveal = false;
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(reveal)]);
+
+      const handoff = env.controller.runClaimHandoff("twitch");
+      reveal = true;
+      await env.timer.flush();
+      await handoff;
+
+      expect(env.state.sessions.twitch.rewardId).toBe("reward-2");
+    });
+
+    it("stops at the deadline when no next reward appears", async () => {
+      const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+
+      const handoff = env.controller.runClaimHandoff("twitch");
+      for (let index = 0; index < 10; index += 1) await env.timer.flush();
+      await handoff;
+
+      // A 15s budget at a 5s interval is three refreshes, never ten.
+      expect(env.timer.wait.mock.calls.length).toBeLessThanOrEqual(3);
+      expect(env.deps.createAlarm).not.toHaveBeenCalled();
+    });
+
+    it("exits early when the platform has no eligible reward left", async () => {
+      const env = handoffEnv();
+      env.twitch.discoverCampaigns = vi.fn(async () => []);
+
+      const handoff = env.controller.runClaimHandoff("twitch");
+      await env.timer.flush();
+      await handoff;
+
+      expect(env.timer.wait).toHaveBeenCalledTimes(1);
+    });
+
+    it("aborts in flight when farming stops", async () => {
+      const env = handoffEnv();
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+
+      const handoff = env.controller.runClaimHandoff("twitch");
+      // Let the loop actually park before aborting, so this exercises an
+      // in-flight cancellation rather than a pre-start one.
+      await drainMicrotasks();
+      env.controller.abortClaimHandoffs();
+      await env.timer.flush();
+      await handoff;
+
+      expect(env.timer.parked).toBe(0);
+      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    });
+
+    it("does not run for a platform without the capability", async () => {
+      const env = handoffEnv();
+      env.twitch.supportsPostClaimHandoff = undefined;
+
+      await env.controller.runClaimHandoff("twitch");
+
+      expect(env.timer.wait).not.toHaveBeenCalled();
+    });
+
+    it("does not run when the setting is disabled", async () => {
+      const env = handoffEnv({ postClaimHandoff: false });
+
+      await env.controller.runClaimHandoff("twitch");
+
+      expect(env.timer.wait).not.toHaveBeenCalled();
+    });
   });
 });

@@ -16,6 +16,17 @@ export const ALARM_NAME = "lurkloot.tick";
 // of the (heavier, configurable) discovery tick. chrome.alarms clamps to a
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
 export const WATCH_ALARM_NAME = "lurkloot.watch";
+// Reward ids claimed during one tick, per platform. The post-claim handoff needs
+// the ids (not just the platforms) so it can tell a genuine successor from the
+// reward that was just claimed.
+export type ClaimedRewards = Partial<Record<Platform, string[]>>;
+// Reasons a refreshed platform has nothing left to farm. Reaching one of these
+// means further refreshes would return the same answer, so the post-claim
+// handoff stops instead of spending the rest of its budget.
+const NOTHING_LEFT_REASON_CODES: WatchReasonCode[] = ["campaign_ineligible", "no_eligible_channel"];
+function isNothingLeftToFarm(reasonCode: WatchReasonCode | undefined): boolean {
+  return reasonCode != null && NOTHING_LEFT_REASON_CODES.includes(reasonCode);
+}
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   automation_disabled: true,
@@ -114,6 +125,12 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
   const reportedCompatibility = new Map<Platform, string>();
   const reportedCompatibilityWarnings = new Set<string>();
+  // In-flight post-claim handoffs, one per platform. A claim arriving while a
+  // handoff is already running for that platform is absorbed by the running
+  // loop rather than starting a second one, which is what keeps the work
+  // bounded. Per-controller, unlike the storage lock: these loops coordinate
+  // only with each other.
+  const claimHandoffs = new Map<Platform, AbortController>();
 
   const wait: NonNullable<BackgroundControllerDeps<S>["wait"]> = deps.wait ?? ((ms, signal) => new Promise<void>((resolve) => {
     if (signal.aborted) {
@@ -377,8 +394,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     });
   }
 
-  async function tick(platforms?: Platform[], options?: { forcePaused?: boolean }): Promise<Platform[]> {
-    const claimedPlatforms = new Set<Platform>();
+  async function tick(platforms?: Platform[], options?: { forcePaused?: boolean }): Promise<ClaimedRewards> {
+    const claimedRewards: ClaimedRewards = {};
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const storedSettings = await deps.loadSettings();
       const settings: S = options?.forcePaused || settingsPauseCount > 0
@@ -397,7 +414,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         // needs to know which platforms claimed.
         const claimObservingEmit: EventEmitter = (event) => {
           if (event.category === "activity" && event.code === "reward_claimed" && event.platform) {
-            claimedPlatforms.add(event.platform);
+            (claimedRewards[event.platform] ??= []).push(event.data.rewardId);
           }
           emit(event);
         };
@@ -415,7 +432,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         nextState = result.state;
       } catch (error) {
         // The tick was rolled back, so any partial claim set is not actionable.
-        claimedPlatforms.clear();
+        for (const key of Object.keys(claimedRewards) as Platform[]) delete claimedRewards[key];
         clearOperationalEvents(events);
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
         emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
@@ -431,7 +448,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         }
       }
     }));
-    return [...claimedPlatforms];
+    return claimedRewards;
   }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
@@ -623,6 +640,75 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     for (const platform of fallbackPlatforms) {
       await tick([platform]);
     }
+  }
+
+  // Aborts every in-flight handoff. Called when farming stops, when a settings
+  // session begins, and on runtime restart.
+  function abortClaimHandoffs(): void {
+    for (const controller of claimHandoffs.values()) controller.abort();
+    claimHandoffs.clear();
+  }
+
+  // Bounded post-claim handoff (see docs/superpowers/specs/2026-07-19-twitch-claim-handoff-design.md).
+  // Re-runs a scoped tick on the configured cadence until the platform lands on
+  // a reward other than the ones just claimed, then hands off to the immediate
+  // heartbeat. Runs OUTSIDE the state lock: each inner tick() acquires the lock
+  // on its own, so a long handoff never blocks telemetry or user actions.
+  async function runClaimHandoff(platform: Platform, justClaimedRewardIds: readonly string[] = []): Promise<void> {
+    if (claimHandoffs.has(platform)) return;
+    const settings = await deps.loadSettings();
+    if (!settings.postClaimHandoff || !settings.running) return;
+    if (!settings.platform[platform].enabled) return;
+
+    const adapters = createAdapters(settings, () => undefined);
+    if (!adapters[platform].supportsPostClaimHandoff) return;
+
+    const claimed = new Set(justClaimedRewardIds);
+    // A session is a successful handoff target when it is watching a reward
+    // other than the ones just claimed.
+    const isSuccessor = (session: WatchSession): boolean =>
+      session.status === "watching" && session.rewardId != null && !claimed.has(session.rewardId);
+
+    // The triggering tick may already have found the successor, in which case
+    // there is nothing to poll for — only a heartbeat to bring forward.
+    const before = await deps.loadState();
+    if (isSuccessor(before.sessions[platform])) {
+      await sendImmediateHeartbeat(platform, before.sessions[platform]);
+      return;
+    }
+
+    const abort = new AbortController();
+    claimHandoffs.set(platform, abort);
+    // The deadline is computed once. A claim occurring inside the loop never
+    // extends it, so the worst case stays fixed at maxSeconds.
+    const deadline = Date.now() + settings.postClaimHandoffMaxSeconds * 1000;
+    const intervalMs = settings.postClaimHandoffIntervalSeconds * 1000;
+
+    try {
+      while (!abort.signal.aborted && Date.now() < deadline) {
+        await wait(intervalMs, abort.signal);
+        if (abort.signal.aborted) break;
+
+        await tick([platform]);
+        if (abort.signal.aborted) break;
+
+        const session = (await deps.loadState()).sessions[platform];
+        if (isSuccessor(session)) {
+          await sendImmediateHeartbeat(platform, session);
+          return;
+        }
+        // Nothing eligible left on this platform: the chain is finished, so stop
+        // rather than burning the rest of the budget on identical refreshes.
+        if (session.status !== "watching" && isNothingLeftToFarm(session.reasonCode)) return;
+      }
+    } finally {
+      if (claimHandoffs.get(platform) === abort) claimHandoffs.delete(platform);
+    }
+  }
+
+  // Replaced with the real immediate heartbeat in the next commit.
+  async function sendImmediateHeartbeat(_platform: Platform, _session: WatchSession): Promise<void> {
+    return;
   }
 
   async function beginSettingsSession(): Promise<void> {
@@ -996,6 +1082,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     captureTwitchIntegrity,
     tick,
     runWatchHeartbeat,
+    runClaimHandoff,
+    abortClaimHandoffs,
   };
 }
 
