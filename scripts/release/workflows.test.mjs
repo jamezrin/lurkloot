@@ -34,7 +34,10 @@ test("candidate workflow runs trusted orchestration for generated release pull r
   assert.match(controller, /uses: \.\/\.github\/workflows\/build-release-candidate\.yml/);
   assert.match(controller, /commit-status/);
   assert.match(controller, /release candidate \/ ready/);
-  assert.match(controller, /if: >-\n\s+!startsWith\(github\.event\.pull_request\.head\.ref, 'release\/'\)/);
+  assert.match(
+    controller,
+    /if: >-\n\s+github\.event_name == 'pull_request_target' &&\n\s+!startsWith\(github\.event\.pull_request\.head\.ref, 'release\/'\)/,
+  );
   assert.match(candidate, /permissions:\n\s+contents: read/);
   assert.match(candidate, /trusted_ref:/);
   assert.match(candidate, /statuses: write/);
@@ -129,4 +132,14 @@ test("the release branch is cut from the merge commit after the pull request lan
   assert.match(text, /ref: \$\{\{ github\.event\.pull_request\.merge_commit_sha \}\}/);
   assert.match(text, /git switch -C "release\/\$VERSION"/);
   assert.match(text, /gh pr create --base main --head "release\/\$VERSION"/);
+});
+
+test("the release branch rebuilds its candidate on push", async () => {
+  const text = await workflow("release-candidate.yml");
+  assert.match(text, /push:\n\s+branches: \['release\/\*\*'\]/);
+  assert.match(text, /github\.event_name == 'push'/);
+  assert.match(text, /release_pr=\$\(gh pr list --head "\$REF_NAME" --base main --state open/);
+  // Both pull request jobs must stay inert on a push event, where pull_request context is empty.
+  assert.match(text, /github\.event_name == 'pull_request_target' &&\n\s+!startsWith/);
+  assert.match(text, /github\.event_name == 'pull_request_target' &&\n\s+github\.event\.pull_request\.head\.repo/);
 });
