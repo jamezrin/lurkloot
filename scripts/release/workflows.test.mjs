@@ -13,12 +13,14 @@ async function action(name) {
 test("release preparation uses trusted base tooling for label lifecycle events", async () => {
   const text = await workflow("prepare-release.yml");
   assert.match(text, /pull_request_target:/);
-  assert.match(text, /types: \[labeled, unlabeled\]/);
+  assert.match(text, /types: \[labeled, unlabeled, closed\]/);
   assert.match(text, /head\.repo\.full_name == github\.repository/);
   assert.match(text, /!startsWith\(github\.event\.pull_request\.head\.ref, 'release\/'\)/);
+  // The label path still resolves policy with base-branch tooling against an untrusted head. The
+  // cut path runs after the merge, where the tree is already on main and needs no second checkout.
   assert.match(text, /path: trusted/);
-  assert.match(text, /path: candidate/);
-  assert.match(text, /\.\.\/trusted\/scripts\/release\/cli\.mjs prepare-workspace/);
+  assert.match(text, /node trusted\/scripts\/release\/cli\.mjs policy/);
+  assert.match(text, /node scripts\/release\/cli\.mjs prepare-workspace/);
   assert.match(text, /--add-label "\$LABEL"/);
   assert.match(text, /uses: \.\/\.github\/workflows\/build-release-candidate\.yml/);
 });
@@ -112,4 +114,19 @@ test("stable publication verifies its asset set before uploading", async () => {
   const text = await workflow("release.yml");
   assert.match(text, /assert-assets/);
   assert.match(text, /gh release upload "v\$VERSION" release-assets\/\* --clobber/);
+});
+
+test("labelling a pull request never closes it", async () => {
+  const text = await workflow("prepare-release.yml");
+  assert.doesNotMatch(text, /gh pr close/);
+  assert.doesNotMatch(text, /Superseded by/);
+});
+
+test("the release branch is cut from the merge commit after the pull request lands", async () => {
+  const text = await workflow("prepare-release.yml");
+  assert.match(text, /types: \[labeled, unlabeled, closed\]/);
+  assert.match(text, /github\.event\.pull_request\.merged/);
+  assert.match(text, /ref: \$\{\{ github\.event\.pull_request\.merge_commit_sha \}\}/);
+  assert.match(text, /git switch -C "release\/\$VERSION"/);
+  assert.match(text, /gh pr create --base main --head "release\/\$VERSION"/);
 });
