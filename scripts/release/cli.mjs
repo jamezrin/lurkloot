@@ -71,6 +71,12 @@ export function configureApplyRequested({ apply }) {
   throw new Error("--apply must be true or false");
 }
 
+export function pendingNotesAllowed({ pending }) {
+  if (pending === undefined || pending === "false") return false;
+  if (pending === "true") return true;
+  throw new Error("--pending must be true or false");
+}
+
 function githubClient() {
   return new GitHubClient({
     repository: process.env.GITHUB_REPOSITORY,
@@ -98,7 +104,8 @@ const commands = {
   },
   async notes(values) {
     const changelog = JSON.parse(await readFile(changelogPath, "utf8"));
-    await writeFile(values.out, `${releaseNotes(changelog, values.version)}\n`);
+    const pending = pendingNotesAllowed(values);
+    await writeFile(values.out, `${releaseNotes(changelog, values.version, { pending })}\n`);
   },
   async "publish-candidate"(values) {
     const entries = await readdir(values.assets, { withFileTypes: true });
