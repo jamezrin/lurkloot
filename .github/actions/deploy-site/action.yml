@@ -19,9 +19,39 @@ runs:
     - shell: bash
       working-directory: ${{ inputs.directory }}
       run: sha256sum -c SITE_SHA256SUMS
+    # wrangler-action reuses an existing wrangler and otherwise installs one. The artifact directory
+    # holds only built files, so package-manager detection finds no lockfile, falls back to npm, and
+    # npm resolves the install by walking up to the repository root -- rewriting its package.json.
+    # That rewrite broke the develop synchronisation at the end of the 1.6.0 release. Give the
+    # install a scratch directory outside the repository and deploy the artifact by absolute path.
+    - id: wrangler
+      shell: bash
+      env:
+        SITE_MANIFEST: ${{ github.workspace }}/packages/site/package.json
+      run: |
+        scratch="$RUNNER_TEMP/wrangler-deploy"
+        mkdir -p "$scratch"
+        printf '{"name":"lurkloot-deploy","private":true}\n' > "$scratch/package.json"
+        echo "directory=$scratch" >> "$GITHUB_OUTPUT"
+        # One source of truth for the version: whatever the site package pins, Renovate keeps current.
+        version=$(node -p "require('$SITE_MANIFEST').devDependencies.wrangler")
+        test -n "$version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
     - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
       with:
         apiToken: ${{ inputs.api_token }}
         accountId: ${{ inputs.account_id }}
-        workingDirectory: ${{ inputs.directory }}
-        command: pages deploy . --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || 'next' }}
+        wranglerVersion: ${{ steps.wrangler.outputs.version }}
+        workingDirectory: ${{ steps.wrangler.outputs.directory }}
+        command: pages deploy ${{ github.workspace }}/${{ inputs.directory }} --project-name=lurkloot --branch=${{ inputs.channel == 'production' && 'main' || 'next' }}
+    # The deploy must not have touched the repository. Catch a regression here rather than three
+    # steps later, where it surfaces as an unrelated git failure.
+    - shell: bash
+      run: |
+        git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
+        dirty=$(git status --porcelain --untracked-files=no)
+        if [ -n "$dirty" ]; then
+          echo "site deployment modified tracked files:" >&2
+          printf '%s\n' "$dirty" >&2
+          exit 1
+        fi
