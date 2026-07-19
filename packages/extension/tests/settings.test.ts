@@ -251,3 +251,37 @@ describe("settings", () => {
     expect(settings.platform.kick.categories).toEqual([]);
   });
 });
+
+describe("per-platform claim settings", () => {
+  it("defaults autoClaimChannelPoints on for Twitch", () => {
+    expect(mergeSettings(undefined).platform.twitch.autoClaimChannelPoints).toBe(true);
+  });
+
+  it("migrates a legacy top-level autoClaimChannelPoints onto platform.twitch", () => {
+    const merged = mergeSettings({ autoClaimChannelPoints: false } as never);
+    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(false);
+  });
+
+  it("prefers an explicit platform.twitch value over the legacy top-level one", () => {
+    const merged = mergeSettings({
+      autoClaimChannelPoints: false,
+      platform: { ...DEFAULT_SETTINGS.platform, twitch: { ...DEFAULT_SETTINGS.platform.twitch, autoClaimChannelPoints: true } },
+    } as never);
+    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(true);
+  });
+
+  it("drops the legacy top-level key from the merged result", () => {
+    expect("autoClaimChannelPoints" in mergeSettings(undefined)).toBe(false);
+  });
+
+  it("defaults autoClaimChallenges on for Kick", () => {
+    expect(mergeSettings(undefined).platform.kick.autoClaimChallenges).toBe(true);
+  });
+
+  it("honors an explicit autoClaimChallenges of false", () => {
+    const merged = mergeSettings({
+      platform: { ...DEFAULT_SETTINGS.platform, kick: { ...DEFAULT_SETTINGS.platform.kick, autoClaimChallenges: false } },
+    });
+    expect(merged.platform.kick.autoClaimChallenges).toBe(false);
+  });
+});

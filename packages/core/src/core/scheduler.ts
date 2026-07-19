@@ -12,6 +12,7 @@ import type {
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
 import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
+import { autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
@@ -593,7 +594,7 @@ export async function runSchedulerTick(
           }
         }
         nextState.managedPageContextTabs = await stopPageContextTabs(currentManagedPageContextTabs(), { platforms: [platform] });
-        if (settings.autoClaimChannelPoints && adapter.claimChannelPoints) {
+        if (autoClaimChannelPointsFor(settings, platform) && adapter.claimChannelPoints) {
           try {
             const claimed = await adapter.claimChannelPoints(decision.channel);
             if (claimed) {
