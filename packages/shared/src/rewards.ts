@@ -22,10 +22,11 @@ export type RewardFeasibility =
 export function rewardFeasibility(
   campaign: Pick<DropCampaign, "endsAt">,
   reward: DropReward,
+  enabled: boolean,
   marginMinutes: number,
   now = Date.now(),
 ): RewardFeasibility {
-  if (marginMinutes === -1) return { kind: "disabled" };
+  if (!enabled) return { kind: "disabled" };
   if (!isWatchReward(reward) || reward.status === "claimed" || reward.status === "claimable") {
     return { kind: "not_applicable" };
   }

@@ -136,7 +136,7 @@ export function campaignViewFromCampaign(
   index: number,
   session: WatchSession,
   excluded: boolean,
-  feasibility?: { deadlineSafetyMarginMinutes: number; now?: number },
+  feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number },
 ): CampaignView {
   return {
     id: campaign.id,
@@ -162,7 +162,13 @@ export function campaignViewFromCampaign(
         : reward.status === "claimed" ? 100 : undefined;
       const claimGuidance = safeClaimGuidance(reward.claimGuidance ?? campaign.claimGuidance);
       const deadlineFeasibility = feasibility
-        ? rewardFeasibility(campaign, reward, feasibility.deadlineSafetyMarginMinutes, feasibility.now)
+        ? rewardFeasibility(
+            campaign,
+            reward,
+            feasibility.skipUnfinishableRewards,
+            feasibility.deadlineSafetyMarginMinutes,
+            feasibility.now,
+          )
         : undefined;
       return {
         id: reward.id,

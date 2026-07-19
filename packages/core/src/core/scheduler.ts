@@ -514,7 +514,12 @@ export async function runSchedulerTick(
         emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
         for (const campaign of campaigns) {
           for (const reward of campaign.rewards) {
-            const feasibility = rewardFeasibility(campaign, reward, settings.deadlineSafetyMarginMinutes);
+            const feasibility = rewardFeasibility(
+              campaign,
+              reward,
+              settings.skipUnfinishableRewards,
+              settings.deadlineSafetyMarginMinutes,
+            );
             if (feasibility.kind !== "insufficient_time") continue;
             const availableMinutes = feasibility.availableMilliseconds / 60_000;
             emit({
@@ -832,7 +837,12 @@ function isRewardRelevantNow(reward: DropReward): boolean {
 }
 
 function isRewardDeadlineFeasible(campaign: DropCampaign, reward: DropReward, settings: EngineSettings): boolean {
-  return rewardFeasibility(campaign, reward, settings.deadlineSafetyMarginMinutes).kind !== "insufficient_time";
+  return rewardFeasibility(
+    campaign,
+    reward,
+    settings.skipUnfinishableRewards,
+    settings.deadlineSafetyMarginMinutes,
+  ).kind !== "insufficient_time";
 }
 
 function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): string {

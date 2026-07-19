@@ -86,12 +86,20 @@ describe("subscription drop popup views", () => {
     };
 
     const view = campaignViewFromCampaign(source, 0, idleSession, false, {
+      skipUnfinishableRewards: true,
       deadlineSafetyMarginMinutes: 5,
       now: Date.parse("2026-07-19T12:00:00.000Z"),
     });
 
     expect(view.rewards[0].ineligibilityReason).toBe("insufficient_time");
     expect(renderDrops([view])).toContain("Insufficient time remaining");
+
+    const disabled = campaignViewFromCampaign(source, 0, idleSession, false, {
+      skipUnfinishableRewards: false,
+      deadlineSafetyMarginMinutes: 5,
+      now: Date.parse("2026-07-19T12:00:00.000Z"),
+    });
+    expect(disabled.rewards[0].ineligibilityReason).toBeUndefined();
   });
 
   it("preserves subscription rewards without fabricating progress", () => {

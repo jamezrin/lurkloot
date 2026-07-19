@@ -444,8 +444,10 @@
     "message": "s"
   },
   "deadlineSafetyMarginTitle": { "message": "Margen de seguridad del plazo" },
-  "deadlineSafetyMarginDescription": { "message": "Minutos adicionales requeridos antes de farmear una recompensa. Usa -1 para desactivar el filtro de plazos." },
-  "disabled": { "message": "Desactivado" },
+  "deadlineSafetyMarginDescription": { "message": "Minutos adicionales requeridos antes de farmear una recompensa." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Activa el filtro de plazos para cambiar el margen de seguridad." },
+  "skipUnfinishableRewardsTitle": { "message": "Omitir recompensas que no se pueden completar" },
+  "skipUnfinishableRewardsDescription": { "message": "No farmear recompensas cuyo tiempo de visionado restante supere el plazo disponible." },
   "minutesSuffix": { "message": "min." },
   "insufficientTimeRemaining": { "message": "No queda tiempo suficiente" },
   "automationSectionTitle": {

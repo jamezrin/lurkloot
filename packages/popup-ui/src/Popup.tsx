@@ -487,7 +487,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     index,
     session,
     excludedIds.has(campaign.id),
-    { deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes },
+    {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+    },
   ));
   const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform], t);
   // Categories that currently have active drop campaigns, surfaced as one-tap

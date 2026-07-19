@@ -444,8 +444,10 @@
     "message": "秒"
   },
   "deadlineSafetyMarginTitle": { "message": "截止时间安全余量" },
-  "deadlineSafetyMarginDescription": { "message": "开始获取奖励前需额外预留的分钟数。设为 -1 可关闭截止时间筛选。" },
-  "disabled": { "message": "已禁用" },
+  "deadlineSafetyMarginDescription": { "message": "开始获取奖励前需额外预留的分钟数。" },
+  "deadlineSafetyMarginDisabledReason": { "message": "启用截止时间筛选后才能修改安全余量。" },
+  "skipUnfinishableRewardsTitle": { "message": "跳过无法完成的奖励" },
+  "skipUnfinishableRewardsDescription": { "message": "当剩余观看时间超过截止前可用时间时，不再获取该奖励。" },
   "minutesSuffix": { "message": "分钟" },
   "insufficientTimeRemaining": { "message": "剩余时间不足" },
   "automationSectionTitle": {

@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 describe("deadline feasibility setting", () => {
-  it("shows the shared value in Advanced settings and saves -1 immediately", () => {
+  function mountSettings(settings = DEFAULT_SETTINGS) {
     const { document, window } = parseHTML("<div id=app></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
@@ -26,9 +26,10 @@ describe("deadline feasibility setting", () => {
     const labels: Record<string, string> = {
       advancedTitle: "Advanced",
       deadlineSafetyMarginTitle: "Deadline safety margin",
-      deadlineSafetyMarginDescription: "Use -1 to disable deadline filtering.",
-      disabled: "Disabled",
+      deadlineSafetyMarginDescription: "Extra buffer minutes.",
       minutesSuffix: "min",
+      skipUnfinishableRewardsTitle: "Skip rewards that cannot be completed",
+      skipUnfinishableRewardsDescription: "Do not farm impossible rewards.",
     };
     const adapter = {} as PopupAdapter;
     const container = document.getElementById("app")!;
@@ -41,7 +42,7 @@ describe("deadline feasibility setting", () => {
             <SettingsView
               suggestions={{ twitch: [], kick: [] }}
               onSearchCategories={async () => []}
-              settings={DEFAULT_SETTINGS}
+              settings={settings}
               onSettingsChange={onSettingsChange}
               exportConfirmationResetKey={0}
             />
@@ -52,18 +53,25 @@ describe("deadline feasibility setting", () => {
 
     const advanced = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Advanced"));
     act(() => advanced?.click());
-    const input = container.querySelector('input[aria-label="Deadline safety margin"]') as HTMLInputElement;
-    expect(input.value).toBe("5");
+    return { container, onSettingsChange };
+  }
 
-    act(() => {
-      Object.defineProperty(input, "value", { configurable: true, value: "-1" });
-      input.dispatchEvent(new window.Event("input", { bubbles: true }));
-      input.dispatchEvent(new window.Event("change", { bubbles: true }));
-      input.dispatchEvent(new window.Event("focusout", { bubbles: true }));
-    });
+  it("defaults the toggle on and saves changes immediately", () => {
+    const { container, onSettingsChange } = mountSettings();
+    const toggle = container.querySelector('[role="switch"][aria-label="Skip rewards that cannot be completed"]') as HTMLButtonElement;
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+
+    act(() => toggle.click());
     expect(onSettingsChange).toHaveBeenCalledWith(
-      { deadlineSafetyMarginMinutes: -1 },
+      { skipUnfinishableRewards: false },
       { tickAfterSave: true },
     );
+  });
+
+  it("disables but preserves the margin input when filtering is off", () => {
+    const { container } = mountSettings({ ...DEFAULT_SETTINGS, skipUnfinishableRewards: false, deadlineSafetyMarginMinutes: 17 });
+    const input = container.querySelector('input[aria-label="Deadline safety margin"]') as HTMLInputElement;
+    expect(input.value).toBe("17");
+    expect(input.disabled).toBe(true);
   });
 });

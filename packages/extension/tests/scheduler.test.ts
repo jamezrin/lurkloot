@@ -112,7 +112,7 @@ describe("scheduler campaign selection", () => {
       const decision = await chooseCampaignDecision(
         "twitch",
         [campaign("timed", { endsAt: "2026-07-19T12:01:00.000Z" })],
-        settings({ deadlineSafetyMarginMinutes: -1 }),
+        settings({ skipUnfinishableRewards: false, deadlineSafetyMarginMinutes: 5 }),
         {
           listCandidateChannels: vi.fn(async () => [channel("creator")]),
           checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),

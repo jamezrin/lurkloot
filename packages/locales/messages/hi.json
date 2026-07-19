@@ -444,8 +444,10 @@
     "message": "सेक"
   },
   "deadlineSafetyMarginTitle": { "message": "समय-सीमा सुरक्षा मार्जिन" },
-  "deadlineSafetyMarginDescription": { "message": "इनाम फ़ार्म करने से पहले आवश्यक अतिरिक्त मिनट। फ़िल्टर बंद करने के लिए -1 का उपयोग करें।" },
-  "disabled": { "message": "अक्षम" },
+  "deadlineSafetyMarginDescription": { "message": "इनाम फ़ार्म करने से पहले आवश्यक अतिरिक्त मिनट।" },
+  "deadlineSafetyMarginDisabledReason": { "message": "सुरक्षा मार्जिन बदलने के लिए समय-सीमा फ़िल्टर सक्षम करें।" },
+  "skipUnfinishableRewardsTitle": { "message": "पूरा न हो सकने वाले इनाम छोड़ें" },
+  "skipUnfinishableRewardsDescription": { "message": "जब बचा हुआ देखने का समय समय-सीमा से अधिक हो तो इनाम फ़ार्म न करें।" },
   "minutesSuffix": { "message": "मिनट" },
   "insufficientTimeRemaining": { "message": "पर्याप्त समय शेष नहीं" },
   "automationSectionTitle": {

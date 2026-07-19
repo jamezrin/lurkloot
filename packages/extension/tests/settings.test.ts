@@ -134,10 +134,12 @@ describe("settings", () => {
     expect(mergeSettings({ postClaimHandoff: false }).postClaimHandoff).toBe(false);
   });
 
-  it("normalizes the deadline safety margin including the disabled sentinel", () => {
+  it("normalizes deadline filtering enablement and its safety margin independently", () => {
+    expect(DEFAULT_ENGINE_SETTINGS.skipUnfinishableRewards).toBe(true);
     expect(DEFAULT_ENGINE_SETTINGS.deadlineSafetyMarginMinutes).toBe(5);
-    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: -9 }).deadlineSafetyMarginMinutes).toBe(-1);
-    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: -1 }).deadlineSafetyMarginMinutes).toBe(-1);
+    expect(mergeEngineSettings({ skipUnfinishableRewards: false }).skipUnfinishableRewards).toBe(false);
+    expect(mergeEngineSettings({ skipUnfinishableRewards: "no" } as never).skipUnfinishableRewards).toBe(true);
+    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: -9 }).deadlineSafetyMarginMinutes).toBe(0);
     expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: 0 }).deadlineSafetyMarginMinutes).toBe(0);
     expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: 4.6 }).deadlineSafetyMarginMinutes).toBe(5);
     expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: 99 }).deadlineSafetyMarginMinutes).toBe(60);

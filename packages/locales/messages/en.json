@@ -444,8 +444,10 @@
     "message": "sec"
   },
   "deadlineSafetyMarginTitle": { "message": "Deadline safety margin" },
-  "deadlineSafetyMarginDescription": { "message": "Extra minutes required before farming a reward. Use -1 to disable deadline filtering." },
-  "disabled": { "message": "Disabled" },
+  "deadlineSafetyMarginDescription": { "message": "Extra minutes required before farming a reward." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Enable deadline filtering to change the safety margin." },
+  "skipUnfinishableRewardsTitle": { "message": "Skip rewards that cannot be completed" },
+  "skipUnfinishableRewardsDescription": { "message": "Do not farm rewards when their remaining watch time exceeds the time before their deadline." },
   "minutesSuffix": { "message": "min" },
   "insufficientTimeRemaining": { "message": "Insufficient time remaining" },
   "automationSectionTitle": {

@@ -281,6 +281,7 @@ export interface EngineSettings {
   postClaimHandoff: boolean;
   postClaimHandoffIntervalSeconds: number;
   postClaimHandoffMaxSeconds: number;
+  skipUnfinishableRewards: boolean;
   deadlineSafetyMarginMinutes: number;
 }
 
