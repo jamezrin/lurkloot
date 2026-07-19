@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   GitHubClient,
   reconcilePrerelease,
+  prereleaseTags,
   promotePrerelease,
   setCandidateStatuses,
   setCommitStatus,
@@ -234,4 +235,16 @@ test("a promoted release cannot be reopened by a later candidate build", async (
     () => reconcilePrerelease({ client, pr: 132, version: "1.6.0", sha: "abc", notes: "n", assets: [] }),
     /already promoted/,
   );
+});
+
+test("prerelease tags list only unpromoted candidates", async () => {
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/releases": response(200, [
+      { tag_name: "v1.6.0", prerelease: true },
+      { tag_name: "v1.5.0", prerelease: false },
+      { tag_name: "v1.4.0", prerelease: false },
+    ]),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
+  assert.deepEqual(await prereleaseTags({ client }), ["v1.6.0"]);
 });

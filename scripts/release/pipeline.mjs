@@ -19,16 +19,20 @@ export function isGeneratedReleaseHead(head) {
   return generatedHead.test(head ?? "");
 }
 
-export function releasePolicy({ labels, head, tags }) {
+// `exclude` carries the tags of releases that are still prereleases. A candidate publishes vX.Y.Z
+// before the version is final, so that tag sits in the stable namespace while it is only a
+// candidate; counting it would make the next derivation skip a version. See version.mjs.
+export function releasePolicy({ labels, head, tags, exclude = [] }) {
   if (isGeneratedReleaseHead(head)) return { action: "ignore" };
   const label = selectReleaseLabel(labels);
   if (!label) return { action: "orphan" };
   const bump = label.slice("release/".length);
+  const stableTags = (tags ?? []).filter((tag) => !exclude.includes(tag));
   return {
     action: "prepare",
     bump,
     label,
-    version: nextVersion(latestVersion(tags ?? []), bump),
+    version: nextVersion(latestVersion(stableTags), bump),
   };
 }
 

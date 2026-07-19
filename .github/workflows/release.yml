@@ -66,9 +66,11 @@ jobs:
         env:
           LABELS: ${{ steps.metadata.outputs.labels }}
           VERSION: ${{ steps.metadata.outputs.version }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           tags=$(git tag --list 'v*' | grep -vx "v$VERSION" | tr '\n' ' ' || true)
-          node scripts/release/cli.mjs policy --labels "$LABELS" --head stable-source --tags "$tags"
+          prereleases=$(node scripts/release/cli.mjs prerelease-tags)
+          node scripts/release/cli.mjs policy --labels "$LABELS" --head stable-source --tags "$tags" --exclude "$prereleases"
       - name: Match the committed release version
         env:
           COMMITTED: ${{ steps.metadata.outputs.version }}
