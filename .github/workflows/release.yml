@@ -227,6 +227,10 @@ jobs:
           export GIT_CONFIG_COUNT=1
           export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
           export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
+          # Publication dirties the workspace before this runs: the site deploy installs wrangler on
+          # demand, which rewrites package.json. Synchronization switches branches, so it aborts on a
+          # dirty tree. Everything is already published by now, so tracked edits are discarded.
+          git restore --staged --worktree -- .
           node scripts/release/cli.mjs sync-branches --remote origin
       - name: Report stable publication
         run: >-
