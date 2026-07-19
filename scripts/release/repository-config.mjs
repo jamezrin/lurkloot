@@ -110,6 +110,27 @@ async function reconcileRuleset(client, existing, desired) {
   return created.id;
 }
 
+// prepare-release runs on pull_request_target, so the deployment ref GitHub evaluates is the head
+// branch name rather than a pull request ref. develop covers the normal flow and hotfix/* the urgent
+// one; prepare-release already restricts these jobs to same-repository heads.
+export function previewBranchPolicies() {
+  return ["main", "release/*", "develop", "hotfix/*"];
+}
+
+export async function reconcilePreviewPolicies(client) {
+  const path = "/environments/preview/deployment-branch-policies";
+  const names = (result) => (result?.branch_policies ?? []).map((policy) => policy.name);
+  const existing = names(await client.request(client.repoPath(path)));
+  for (const name of previewBranchPolicies()) {
+    if (existing.includes(name)) continue;
+    await client.request(client.repoPath(path), { method: "POST", body: { name, type: "branch" } });
+  }
+  const actual = names(await client.request(client.repoPath(path)));
+  for (const name of previewBranchPolicies()) {
+    if (!actual.includes(name)) throw new Error(`preview is missing the ${name} deployment branch policy`);
+  }
+}
+
 export async function applyRepositoryConfig({ client, syncAppId }) {
   const desired = [mainRuleset(), developRuleset(syncAppId)];
   await client.request(client.repoPath(""), { method: "PATCH", body: repositoryPatch() });
@@ -128,9 +149,14 @@ export async function applyRepositoryConfig({ client, syncAppId }) {
       allowNotFound: true,
     });
   }
-  return { repository: repositoryPatch(), rulesets: desired };
+  await reconcilePreviewPolicies(client);
+  return { repository: repositoryPatch(), rulesets: desired, previewBranchPolicies: previewBranchPolicies() };
 }
 
 export function repositoryConfiguration(syncAppId) {
-  return { repository: repositoryPatch(), rulesets: [mainRuleset(), developRuleset(syncAppId)] };
+  return {
+    repository: repositoryPatch(),
+    rulesets: [mainRuleset(), developRuleset(syncAppId)],
+    previewBranchPolicies: previewBranchPolicies(),
+  };
 }
