@@ -4,20 +4,17 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize]
     branches: [main]
-  push:
-    branches: ['release/**']
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-candidate-controller-${{ github.event.pull_request.number || github.ref_name }}
+  group: release-candidate-controller-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   non-release:
     if: >-
-      github.event_name == 'pull_request_target' &&
       !startsWith(github.event.pull_request.head.ref, 'release/')
     runs-on: ubuntu-latest
     permissions:
@@ -42,7 +39,6 @@ jobs:
 
   resolve:
     if: >-
-      github.event_name == 'pull_request_target' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release/')
     runs-on: ubuntu-latest
@@ -92,60 +88,6 @@ jobs:
       trusted_ref: ${{ github.event.pull_request.base.sha }}
       version: ${{ needs.resolve.outputs.version }}
       pr_number: ${{ github.event.pull_request.number }}
-    secrets:
-      CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-  # A release branch push is the only candidate trigger that survives the release pull request being
-  # opened with GITHUB_TOKEN, which never dispatches workflow runs.
-  resolve-push:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      version: ${{ steps.identity.outputs.version }}
-      pr_number: ${{ steps.identity.outputs.pr_number }}
-      trusted_ref: ${{ steps.identity.outputs.trusted_ref }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - id: identity
-        name: Match the committed release identity
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          version=${REF_NAME#release/}
-          test "$(node -p "require('./package.json').version")" = "$version"
-          release_pr=$(gh pr list --head "$REF_NAME" --base main --state open --limit 1 --json number --jq '.[0].number // ""')
-          test -n "$release_pr"
-          git fetch --no-tags origin main
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "pr_number=$release_pr" >> "$GITHUB_OUTPUT"
-          echo "trusted_ref=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
-
-  preview-push:
-    needs: resolve-push
-    permissions:
-      contents: write
-      packages: write
-      pull-requests: write
-      statuses: write
-    uses: ./.github/workflows/build-release-candidate.yml
-    with:
-      ref: ${{ github.sha }}
-      trusted_ref: ${{ needs.resolve-push.outputs.trusted_ref }}
-      version: ${{ needs.resolve-push.outputs.version }}
-      pr_number: ${{ fromJSON(needs.resolve-push.outputs.pr_number) }}
     secrets:
       CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
