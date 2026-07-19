@@ -137,11 +137,14 @@ where the reviewed artifacts are produced. This is the intended trade: ship what
 
 ## Testing
 
-`pipeline.test.mjs` covers `candidateTag` returning `vX.Y.Z`. `github.test.mjs` covers
-`reconcilePrerelease` refusing to touch a promoted (non-prerelease) release, and loses its
-`retirePrerelease` cases. `workflows.test.mjs` asserts `release.yml` creates no tag, contains no
-`gh release create`, promotes with `--prerelease=false --latest`, downloads and checksums its assets,
-and no longer references `retire-candidate`. `repository-config.test.mjs` asserts the strict policy.
+Workflow YAML is not unit tested. `scripts/release/workflows.test.mjs` was deleted on 2026-07-19; do
+not reintroduce assertions against `.github/workflows` contents. Workflow changes are verified by a
+YAML parse check and by real CI runs.
+
+Tests cover the script harness only: `pipeline.test.mjs` for `candidateTag` returning `vX.Y.Z`,
+`github.test.mjs` for `reconcilePrerelease` refusing to touch a promoted (non-prerelease) release —
+losing its `retirePrerelease` cases — and `repository-config.test.mjs` for the strict status-check
+policy.
 
 End-to-end verification requires a real release; `1.6.0` is the first one through both this and the
 merge-first change.
