@@ -260,6 +260,13 @@ export interface EngineSettings {
   excludedCampaignIds: string[];
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
+  // Bounded post-claim handoff. After a reward is claimed, re-run discovery for
+  // that platform on this cadence until the next eligible reward appears, then
+  // transmit immediately instead of waiting for the fixed one-minute watch
+  // alarm. Only platforms whose adapter sets supportsPostClaimHandoff use it.
+  postClaimHandoff: boolean;
+  postClaimHandoffIntervalSeconds: number;
+  postClaimHandoffMaxSeconds: number;
 }
 
 // The browser extension's full settings schema: the engine contract plus the
