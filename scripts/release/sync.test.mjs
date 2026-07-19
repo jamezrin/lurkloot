@@ -89,3 +89,31 @@ test("leaves remote develop unchanged when a merge conflicts", async () => {
   assert.equal(after, before);
   assert.equal(verified, false);
 });
+
+test("refuses to synchronize when tracked files are modified", async () => {
+  // The publish job installs wrangler on demand during the site deploy, which rewrites package.json
+  // in the workspace this runs in. A bare git abort was hard to diagnose, so name the paths.
+  const { seed } = await fixture();
+  await git(seed, "switch", "main");
+  await writeFile(join(seed, "shared.txt"), "main\n");
+  await git(seed, "commit", "-am", "main edit");
+  await git(seed, "push", "origin", "main");
+  await git(seed, "switch", "--detach", "origin/main");
+  await writeFile(join(seed, "shared.txt"), "dirtied by a previous step\n");
+  await assert.rejects(
+    syncBranches({ cwd: seed, verify: async () => {} }),
+    /dirty working tree[\s\S]*shared\.txt/,
+  );
+});
+
+test("untracked files do not block synchronization", async () => {
+  const { seed } = await fixture();
+  await git(seed, "switch", "main");
+  await writeFile(join(seed, "shared.txt"), "main\n");
+  await git(seed, "commit", "-am", "main edit");
+  await git(seed, "push", "origin", "main");
+  await git(seed, "switch", "--detach", "origin/main");
+  await writeFile(join(seed, "notes.md"), "left behind by publication\n");
+  const result = await syncBranches({ cwd: seed, verify: async () => {} });
+  assert.equal(result.mode, "fast-forward");
+});

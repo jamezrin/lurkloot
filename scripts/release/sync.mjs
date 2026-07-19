@@ -33,6 +33,12 @@ export async function syncBranches({ cwd = process.cwd(), remote = "origin", ver
     return { mode: "already-contained", sha: (await git(cwd, "rev-parse", develop)).stdout.trim() };
   }
 
+  // Switching branches aborts on modified tracked files, and the publish job that calls this has
+  // already run steps that can rewrite the workspace. Fail with the offending paths rather than a
+  // bare git abort. Untracked files are ignored: the job leaves downloaded artifacts lying around.
+  const dirty = (await git(cwd, "status", "--porcelain", "--untracked-files=no")).stdout.trim();
+  if (dirty) throw new Error(`refusing to synchronize with a dirty working tree:\n${dirty}`);
+
   await git(cwd, "switch", "--detach", develop);
   await git(cwd, "config", "user.name", "Lurkloot Release Sync[bot]");
   await git(cwd, "config", "user.email", "release-sync@lurkloot.invalid");
