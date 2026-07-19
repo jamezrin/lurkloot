@@ -54,3 +54,12 @@ test("requires an explicit true value before applying repository settings", () =
   assert.equal(configureApplyRequested({ apply: "true" }), true);
   assert.throws(() => configureApplyRequested({ apply: "yes" }), /true or false/);
 });
+
+test("policy resolution accepts a space-separated exclusion list", () => {
+  assert.equal(resolvePolicy({
+    labels: "release/minor",
+    head: "develop",
+    tags: "v1.5.0 v1.6.0",
+    exclude: "v1.6.0",
+  }).version, "1.6.0");
+});

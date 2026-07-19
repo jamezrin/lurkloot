@@ -60,6 +60,10 @@ export class GitHubClient {
     });
   }
 
+  releases() {
+    return this.request(this.repoPath("/releases?per_page=100"));
+  }
+
   releaseByTag(tag) {
     return this.request(this.repoPath(`/releases/tags/${encodeURIComponent(tag)}`), { allowNotFound: true });
   }
@@ -129,7 +133,9 @@ export async function reconcilePrerelease({ client, pr, version, sha, notes, ass
 
   const body = {
     tag_name: tag,
-    name: `${version} candidate`,
+    // The title is the stable one from the outset. Promotion is a state change on the same release,
+    // so nothing about how it reads should differ between the prerelease and the final release.
+    name: `v${version}`,
     body: releaseBody({ notes, pr, version }),
     draft: false,
     prerelease: true,
@@ -164,6 +170,13 @@ export async function setCommitStatus({ client, sha, state, targetUrl = "", cont
 
 export async function setCandidateStatuses(options) {
   return Promise.all(requiredMainStatusContexts.map((context) => setCommitStatus({ ...options, context })));
+}
+
+// The tags of every release still marked as a prerelease. These are candidates that have not been
+// promoted, so they must not count toward the next version derivation.
+export async function prereleaseTags({ client }) {
+  const releases = await client.releases();
+  return (releases ?? []).filter((release) => release.prerelease).map((release) => release.tag_name);
 }
 
 // Promotion is the terminal transition for a candidate: the same release object and the same tag

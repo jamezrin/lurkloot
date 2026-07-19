@@ -60,10 +60,13 @@ jobs:
         with:
           node-version: 22
       - id: policy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           labels=$(jq -r '[.pull_request.labels[].name] | join(",")' "$GITHUB_EVENT_PATH")
           tags=$(git tag --list 'v*' | tr '\n' ' ')
-          node scripts/release/cli.mjs policy --labels "$labels" --head candidate-source --tags "$tags"
+          prereleases=$(node scripts/release/cli.mjs prerelease-tags)
+          node scripts/release/cli.mjs policy --labels "$labels" --head candidate-source --tags "$tags" --exclude "$prereleases"
       - name: Match the committed release identity
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

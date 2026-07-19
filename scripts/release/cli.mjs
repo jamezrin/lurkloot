@@ -11,6 +11,7 @@ import { assertReleaseAssets, releasePolicy } from "./pipeline.mjs";
 import {
   GitHubClient,
   reconcilePrerelease,
+  prereleaseTags,
   promotePrerelease,
   setCandidateStatuses,
   setCommitStatus,
@@ -39,11 +40,12 @@ export function resolveVersion({ tags, bump, version }) {
   return nextVersion(latestVersion(tags), bump);
 }
 
-export function resolvePolicy({ labels = "", head = "", tags = "" }) {
+export function resolvePolicy({ labels = "", head = "", tags = "", exclude = "" }) {
   return releasePolicy({
     labels: labels.split(",").map((label) => label.trim()).filter(Boolean),
     head,
     tags: tags.split(/\s+/).filter(Boolean),
+    exclude: exclude.split(/\s+/).filter(Boolean),
   });
 }
 
@@ -144,6 +146,10 @@ const commands = {
       state: values.state,
       targetUrl: values["target-url"] ?? "",
     });
+  },
+  async "prerelease-tags"() {
+    const tags = await prereleaseTags({ client: githubClient() });
+    process.stdout.write(`${tags.join(" ")}\n`);
   },
   async "promote-release"(values) {
     const { tag, promoted } = await promotePrerelease({

@@ -116,3 +116,30 @@ test("asset assertion rejects a version mismatch", () => {
     /unexpected release asset: lurkloot-1\.5\.0-chrome\.crx/,
   );
 });
+
+test("a prerelease tag never influences the next version", () => {
+  // The candidate publishes vX.Y.Z as a prerelease before the version is final, so that tag is in
+  // the v* namespace while it is still a candidate. Counting it would skip a version.
+  assert.deepEqual(releasePolicy({
+    labels: ["release/minor"],
+    head: "develop",
+    tags: ["v1.4.0", "v1.5.0", "v1.6.0"],
+    exclude: ["v1.6.0"],
+  }), { action: "prepare", bump: "minor", label: "release/minor", version: "1.6.0" });
+});
+
+test("excluding nothing leaves the derivation unchanged", () => {
+  assert.equal(releasePolicy({
+    labels: ["release/minor"],
+    head: "develop",
+    tags: ["v1.4.0", "v1.5.0"],
+    exclude: [],
+  }).version, "1.6.0");
+});
+
+test("recomputing after the candidate tag exists is stable", () => {
+  // validate computes 1.6.0 and publishes the v1.6.0 prerelease; cut must reach the same answer.
+  const at = (tags) => releasePolicy({ labels: ["release/minor"], head: "develop", tags, exclude: ["v1.6.0"] }).version;
+  assert.equal(at(["v1.5.0"]), "1.6.0");
+  assert.equal(at(["v1.5.0", "v1.6.0"]), "1.6.0");
+});
