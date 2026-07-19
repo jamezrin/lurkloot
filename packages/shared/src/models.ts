@@ -281,6 +281,7 @@ export interface EngineSettings {
   postClaimHandoff: boolean;
   postClaimHandoffIntervalSeconds: number;
   postClaimHandoffMaxSeconds: number;
+  deadlineSafetyMarginMinutes: number;
 }
 
 // The browser extension's full settings schema: the engine contract plus the

@@ -68,6 +68,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   // alarm so the handoff and the alarm never contend for the same heartbeat.
   postClaimHandoffIntervalSeconds: 5,
   postClaimHandoffMaxSeconds: 45,
+  deadlineSafetyMarginMinutes: 5,
 };
 
 // The extension's full defaults: the engine contract plus the host-only knobs.
@@ -153,6 +154,12 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     postClaimHandoff: booleanOr(value?.postClaimHandoff, DEFAULT_ENGINE_SETTINGS.postClaimHandoff),
     postClaimHandoffIntervalSeconds: clampInteger(value?.postClaimHandoffIntervalSeconds, 1, 30, DEFAULT_ENGINE_SETTINGS.postClaimHandoffIntervalSeconds),
     postClaimHandoffMaxSeconds: clampInteger(value?.postClaimHandoffMaxSeconds, 5, 120, DEFAULT_ENGINE_SETTINGS.postClaimHandoffMaxSeconds),
+    deadlineSafetyMarginMinutes: clampInteger(
+      value?.deadlineSafetyMarginMinutes,
+      -1,
+      60,
+      DEFAULT_ENGINE_SETTINGS.deadlineSafetyMarginMinutes,
+    ),
   };
 }
 
