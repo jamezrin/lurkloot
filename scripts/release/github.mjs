@@ -133,7 +133,9 @@ export async function reconcilePrerelease({ client, pr, version, sha, notes, ass
 
   const body = {
     tag_name: tag,
-    name: `${version} candidate`,
+    // The title is the stable one from the outset. Promotion is a state change on the same release,
+    // so nothing about how it reads should differ between the prerelease and the final release.
+    name: `v${version}`,
     body: releaseBody({ notes, pr, version }),
     draft: false,
     prerelease: true,

@@ -248,3 +248,26 @@ test("prerelease tags list only unpromoted candidates", async () => {
   const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
   assert.deepEqual(await prereleaseTags({ client }), ["v1.6.0"]);
 });
+
+test("the candidate and the promoted release carry the same title", async () => {
+  const marker = candidateMarker({ pr: 132, version: "1.6.0", head: "release/1.6.0" });
+  const create = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(404, { message: "Not Found" }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(404, { message: "Not Found" }),
+    "POST /repos/jamezrin/lurkloot/releases": response(201, { id: 12, upload_url: "https://uploads/{?name,label}", assets: [] }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "t", fetchImpl: create.fetchImpl });
+  await reconcilePrerelease({ client, pr: 132, version: "1.6.0", sha: "abc", notes: "n", assets: [] });
+  const created = JSON.parse(create.calls.find(({ method }) => method === "POST").init.body);
+
+  const promote = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, { id: 12, prerelease: true, body: marker }),
+    "PATCH /repos/jamezrin/lurkloot/releases/12": response(200, { id: 12 }),
+  });
+  const client2 = new GitHubClient({ repository: "jamezrin/lurkloot", token: "t", fetchImpl: promote.fetchImpl });
+  await promotePrerelease({ client: client2, pr: 132, version: "1.6.0", notes: "n" });
+  const promoted = JSON.parse(promote.calls.find(({ method }) => method === "PATCH").init.body);
+
+  assert.equal(created.name, "v1.6.0");
+  assert.equal(created.name, promoted.name);
+});
