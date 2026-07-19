@@ -108,10 +108,18 @@ export class GitHubClient {
 
 // The prerelease check is what stops a late candidate build from overwriting a release that has
 // already been promoted: promotion clears the flag, so every later reconcile against it fails here.
-function assertOwnedPrerelease(release, { pr, version }) {
+// A candidate belongs to its release branch, not to whichever pull request published it first.
+// Merge-first has two legitimate publishers: the labelled source pull request builds the candidate
+// at label time, and the generated release pull request rebuilds and promotes it after the cut.
+// Scoping ownership to `head` lets the second take over from the first while still rejecting a
+// release for another version, an unmarked release, and anything already promoted.
+function assertOwnedPrerelease(release, { version }) {
   const ownership = parseCandidateMarker(release.body);
-  if (!release.prerelease || ownership?.pr !== Number(pr) || ownership.version !== version) {
-    throw new Error(`refusing to modify v${version}: release is already promoted or owned by another pull request`);
+  if (!release.prerelease) {
+    throw new Error(`refusing to modify v${version}: release is already promoted`);
+  }
+  if (ownership?.version !== version || ownership.head !== `release/${version}`) {
+    throw new Error(`refusing to modify v${version}: release does not belong to release/${version}`);
   }
 }
 
@@ -126,7 +134,7 @@ export async function reconcilePrerelease({ client, pr, version, sha, notes, ass
   if (ref && !existingRelease && ref.object?.sha !== sha) {
     throw new Error(`refusing to recover ${tag}: it points to another commit`);
   }
-  if (existingRelease) assertOwnedPrerelease(existingRelease, { pr, version });
+  if (existingRelease) assertOwnedPrerelease(existingRelease, { version });
 
   if (existingRelease && !ref) await client.createRef(tag, sha);
   else if (existingRelease && ref.object?.sha !== sha) await client.updateRef(tag, sha);
@@ -188,12 +196,12 @@ export async function promotePrerelease({ client, pr, version, notes }) {
   if (!release) throw new Error(`cannot promote ${tag}: no candidate release exists`);
   if (!release.prerelease) {
     const ownership = parseCandidateMarker(release.body);
-    if (ownership?.pr !== Number(pr) || ownership.version !== version) {
-      throw new Error(`refusing to promote ${tag}: release is owned by another pull request`);
+    if (ownership?.version !== version || ownership.head !== `release/${version}`) {
+      throw new Error(`refusing to promote ${tag}: release does not belong to release/${version}`);
     }
     return { release, tag, promoted: false };
   }
-  assertOwnedPrerelease(release, { pr, version });
+  assertOwnedPrerelease(release, { version });
   const promoted = await client.updateRelease(release.id, {
     name: `v${version}`,
     body: notes.trim(),

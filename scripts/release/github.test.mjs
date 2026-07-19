@@ -151,7 +151,7 @@ test("moves only an owned prerelease candidate", async () => {
 test("refuses stable or foreign candidate releases", async () => {
   for (const release of [
     { id: 12, prerelease: false, body: "" },
-    { id: 12, prerelease: true, body: candidateMarker({ pr: 999, version: "1.6.0", head: "release/1.6.0" }) },
+    { id: 12, prerelease: true, body: candidateMarker({ pr: 999, version: "1.7.0", head: "release/1.7.0" }) },
   ]) {
     const routes = recordingFetch({
       "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(200, { object: { sha: "old" } }),
@@ -201,15 +201,15 @@ test("promoting an already promoted release is a no-op", async () => {
   assert.ok(!routes.calls.some(({ method }) => method === "PATCH"));
 });
 
-test("refuses to promote a release owned by another pull request", async () => {
-  const marker = candidateMarker({ pr: 999, version: "1.6.0", head: "release/1.6.0" });
+test("refuses to promote a release belonging to another release branch", async () => {
+  const marker = candidateMarker({ pr: 999, version: "1.7.0", head: "release/1.7.0" });
   const routes = recordingFetch({
     "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, { id: 12, prerelease: false, body: marker }),
   });
   const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
   await assert.rejects(
     () => promotePrerelease({ client, pr: 132, version: "1.6.0", notes: "notes" }),
-    /owned by another pull request/,
+    /does not belong to release\/1\.6\.0/,
   );
 });
 
@@ -270,4 +270,54 @@ test("the candidate and the promoted release carry the same title", async () => 
 
   assert.equal(created.name, "v1.6.0");
   assert.equal(created.name, promoted.name);
+});
+
+test("the generated release pull request may take over its source pull request's candidate", async () => {
+  // Merge-first has two legitimate publishers for one candidate: the labelled source pull request
+  // at label time, then the generated release pull request after the cut. Ownership is scoped to
+  // the release branch, which both agree on, not to whichever pull request published first.
+  const marker = candidateMarker({ pr: 156, version: "1.6.0", head: "release/1.6.0" });
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(200, { object: { sha: "abc" } }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, { id: 12, prerelease: true, body: marker, assets: [] }),
+    "PATCH /repos/jamezrin/lurkloot/releases/12": response(200, { id: 12, assets: [], upload_url: "https://uploads/{?name,label}" }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "t", fetchImpl: routes.fetchImpl });
+  await reconcilePrerelease({ client, pr: 157, version: "1.6.0", sha: "abc", notes: "n", assets: [] });
+  assert.ok(routes.calls.some(({ method }) => method === "PATCH"));
+});
+
+test("the generated release pull request may promote its source pull request's candidate", async () => {
+  const marker = candidateMarker({ pr: 156, version: "1.6.0", head: "release/1.6.0" });
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, { id: 12, prerelease: true, body: marker }),
+    "PATCH /repos/jamezrin/lurkloot/releases/12": response(200, { id: 12 }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "t", fetchImpl: routes.fetchImpl });
+  assert.equal((await promotePrerelease({ client, pr: 157, version: "1.6.0", notes: "n" })).promoted, true);
+});
+
+test("a candidate for another version is still refused", async () => {
+  const marker = candidateMarker({ pr: 156, version: "1.7.0", head: "release/1.7.0" });
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(200, { object: { sha: "abc" } }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, { id: 12, prerelease: true, body: marker }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "t", fetchImpl: routes.fetchImpl });
+  await assert.rejects(
+    () => reconcilePrerelease({ client, pr: 157, version: "1.6.0", sha: "abc", notes: "n", assets: [] }),
+    /does not belong to release\/1\.6\.0/,
+  );
+});
+
+test("a release with no ownership marker is refused", async () => {
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/git/ref/tags/v1.6.0": response(200, { object: { sha: "abc" } }),
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, { id: 12, prerelease: true, body: "hand written" }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "t", fetchImpl: routes.fetchImpl });
+  await assert.rejects(
+    () => reconcilePrerelease({ client, pr: 157, version: "1.6.0", sha: "abc", notes: "n", assets: [] }),
+    /does not belong to release\/1\.6\.0/,
+  );
 });
