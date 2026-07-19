@@ -67,3 +67,27 @@ export function validatePromotion({ stableVersion, version, label }) {
   if (version !== expected) throw new Error(`${label} expected ${expected}, received ${version}`);
   return { bump, version };
 }
+
+// The upload steps glob their assets directory, so anything a build step leaves behind would be
+// published. Both the candidate prerelease and the stable release must carry exactly this set.
+export function expectedReleaseAssets(version) {
+  return [
+    "SHA256SUMS",
+    `lurkloot-${version}-chrome.crx`,
+    `lurkloot-${version}-chrome.zip`,
+    `lurkloot-${version}-firefox-sources.zip`,
+    `lurkloot-${version}-firefox.zip`,
+  ];
+}
+
+export function assertReleaseAssets({ names, version }) {
+  const expected = expectedReleaseAssets(version);
+  const actual = [...names].sort();
+  for (const name of actual) {
+    if (!expected.includes(name)) throw new Error(`unexpected release asset: ${name}`);
+  }
+  for (const name of expected) {
+    if (!actual.includes(name)) throw new Error(`missing release asset: ${name}`);
+  }
+  return expected;
+}

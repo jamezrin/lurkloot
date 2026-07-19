@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  assertReleaseAssets,
   candidateMarker,
   candidateTag,
+  expectedReleaseAssets,
   isGeneratedReleaseHead,
   parseCandidateMarker,
   releasePolicy,
@@ -74,5 +76,43 @@ test("validates a concurrent minor candidate after a patch release", () => {
   assert.throws(
     () => validatePromotion({ stableVersion: "1.6.0", version: "1.5.1", label: "release/patch" }),
     /expected 1\.6\.1/,
+  );
+});
+
+test("expected release assets are the four builds plus checksums", () => {
+  assert.deepEqual(expectedReleaseAssets("1.6.0"), [
+    "SHA256SUMS",
+    "lurkloot-1.6.0-chrome.crx",
+    "lurkloot-1.6.0-chrome.zip",
+    "lurkloot-1.6.0-firefox-sources.zip",
+    "lurkloot-1.6.0-firefox.zip",
+  ]);
+});
+
+test("asset assertion accepts the exact expected set in any order", () => {
+  const names = [
+    "lurkloot-1.6.0-firefox.zip",
+    "SHA256SUMS",
+    "lurkloot-1.6.0-chrome.crx",
+    "lurkloot-1.6.0-firefox-sources.zip",
+    "lurkloot-1.6.0-chrome.zip",
+  ];
+  assert.deepEqual(assertReleaseAssets({ names, version: "1.6.0" }), expectedReleaseAssets("1.6.0"));
+});
+
+test("asset assertion rejects an unexpected file", () => {
+  const names = [...expectedReleaseAssets("1.6.0"), "candidate.json"];
+  assert.throws(() => assertReleaseAssets({ names, version: "1.6.0" }), /unexpected release asset: candidate\.json/);
+});
+
+test("asset assertion rejects a missing file", () => {
+  const names = expectedReleaseAssets("1.6.0").filter((name) => name !== "SHA256SUMS");
+  assert.throws(() => assertReleaseAssets({ names, version: "1.6.0" }), /missing release asset: SHA256SUMS/);
+});
+
+test("asset assertion rejects a version mismatch", () => {
+  assert.throws(
+    () => assertReleaseAssets({ names: expectedReleaseAssets("1.5.0"), version: "1.6.0" }),
+    /unexpected release asset: lurkloot-1\.5\.0-chrome\.crx/,
   );
 });
