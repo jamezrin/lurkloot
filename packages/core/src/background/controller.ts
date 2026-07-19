@@ -377,7 +377,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     });
   }
 
-  async function tick(platforms?: Platform[], options?: { forcePaused?: boolean }): Promise<void> {
+  async function tick(platforms?: Platform[], options?: { forcePaused?: boolean }): Promise<Platform[]> {
+    const claimedPlatforms = new Set<Platform>();
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const storedSettings = await deps.loadSettings();
       const settings: S = options?.forcePaused || settingsPauseCount > 0
@@ -391,11 +392,20 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       let nextState: SchedulerState;
       try {
         const adapters = createAdapters(settings, emit);
+        // Observed here rather than returned by the scheduler: the controller
+        // already sees every emitted event, and the post-claim handoff only
+        // needs to know which platforms claimed.
+        const claimObservingEmit: EventEmitter = (event) => {
+          if (event.category === "activity" && event.code === "reward_claimed" && event.platform) {
+            claimedPlatforms.add(event.platform);
+          }
+          emit(event);
+        };
         const result = await runSchedulerTick(state, settings, adapters, {
           ...(platforms ? { platforms } : {}),
           stopPageContextTabs: deps.stopPageContextTabs,
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
-          emit,
+          emit: claimObservingEmit,
         });
         const lifecycleEvents = farmingLifecycleEvents(state, result.state);
         for (const event of lifecycleEvents) emit(event);
@@ -404,6 +414,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await reconcileTablessWatchers(result.state, settings, adapters, emit, platforms);
         nextState = result.state;
       } catch (error) {
+        // The tick was rolled back, so any partial claim set is not actionable.
+        claimedPlatforms.clear();
         clearOperationalEvents(events);
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
         emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
@@ -419,6 +431,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         }
       }
     }));
+    return [...claimedPlatforms];
   }
 
   async function handleTabRemoved(tabId: number): Promise<void> {

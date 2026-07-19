@@ -1960,4 +1960,13 @@ describe("background controller", () => {
     expect(env.state.manualWatch?.kick).toBeUndefined();
     expect(env.state.lastTickAt).toBeDefined();
   });
+
+  it("reports the platforms that claimed a reward from tick", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: true });
+    env.twitch.discoverCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
+
+    const claimed = await env.controller.tick();
+
+    expect(claimed).toEqual(["twitch"]);
+  });
 });
