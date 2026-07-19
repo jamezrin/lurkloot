@@ -37,7 +37,7 @@ export const faqItems: FaqItem[] = [
   },
   {
     q: "How does the auto-claim work?",
-    a: "When a drop becomes claimable, Lurkloot claims it for you automatically — including Twitch channel points if you enable that toggle. You can also turn on notifications so you know the moment a reward lands, and it tells you when all campaigns are exhausted.",
+    a: "When a drop becomes claimable, Lurkloot claims it for you automatically. The same goes for Twitch channel points and Kick's daily challenge cards, which are opened as soon as their watch-time goal is met — both are on by default, with a separate toggle per platform. You can also turn on notifications so you know the moment a reward lands, and it tells you when all campaigns are exhausted.",
   },
   {
     q: "Can I control which campaigns it prioritizes?",
