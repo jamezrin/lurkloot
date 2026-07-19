@@ -64,6 +64,8 @@ export function defaultConfigJsonc(): string {
     // and falling back to the regular schedule (5-120).
     "postClaimHandoffIntervalSeconds": ${json(defaults.postClaimHandoffIntervalSeconds)},
     "postClaimHandoffMaxSeconds": ${json(defaults.postClaimHandoffMaxSeconds)},
+    // -1 disables deadline filtering; 0 uses exact feasibility; 1-60 adds a safety buffer.
+    "deadlineSafetyMarginMinutes": ${json(defaults.deadlineSafetyMarginMinutes)},
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
 

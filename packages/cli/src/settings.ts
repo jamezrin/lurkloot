@@ -31,6 +31,7 @@ export interface CliSettings {
   postClaimHandoff: boolean;
   postClaimHandoffIntervalSeconds: number;
   postClaimHandoffMaxSeconds: number;
+  deadlineSafetyMarginMinutes: number;
   // Gate the controller's reward/no-drops notifications, which the CLI renders
   // as log lines (see runtime/run.ts createNotification).
   notifyRewardEarned: boolean;
@@ -55,6 +56,7 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   postClaimHandoff: DEFAULT_SETTINGS.postClaimHandoff,
   postClaimHandoffIntervalSeconds: DEFAULT_SETTINGS.postClaimHandoffIntervalSeconds,
   postClaimHandoffMaxSeconds: DEFAULT_SETTINGS.postClaimHandoffMaxSeconds,
+  deadlineSafetyMarginMinutes: DEFAULT_SETTINGS.deadlineSafetyMarginMinutes,
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
   platform: {
@@ -78,6 +80,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "postClaimHandoff",
   "postClaimHandoffIntervalSeconds",
   "postClaimHandoffMaxSeconds",
+  "deadlineSafetyMarginMinutes",
   // Accepted only so config parsing can surface the deprecation warning.
   // Runtime log filtering belongs to the global --log option and process logger.
   "enabledLogLevels",
@@ -206,6 +209,12 @@ export function parseCliSettings(raw: unknown): CliSettings {
     postClaimHandoff: booleanOr(v.postClaimHandoff, DEFAULT_CLI_SETTINGS.postClaimHandoff),
     postClaimHandoffIntervalSeconds: clampInteger(v.postClaimHandoffIntervalSeconds, 1, 30, DEFAULT_CLI_SETTINGS.postClaimHandoffIntervalSeconds),
     postClaimHandoffMaxSeconds: clampInteger(v.postClaimHandoffMaxSeconds, 5, 120, DEFAULT_CLI_SETTINGS.postClaimHandoffMaxSeconds),
+    deadlineSafetyMarginMinutes: clampInteger(
+      v.deadlineSafetyMarginMinutes,
+      -1,
+      60,
+      DEFAULT_CLI_SETTINGS.deadlineSafetyMarginMinutes,
+    ),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform),

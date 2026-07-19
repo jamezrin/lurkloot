@@ -30,6 +30,10 @@ describe("parseCliSettings", () => {
     expect(parseCliSettings({ pollIntervalMinutes: 999 }).pollIntervalMinutes).toBe(60);
     expect(parseCliSettings({ offlineRetryLimit: 0 }).offlineRetryLimit).toBe(1);
     expect(parseCliSettings({ offlineRetryLimit: 99 }).offlineRetryLimit).toBe(10);
+    expect(parseCliSettings({ deadlineSafetyMarginMinutes: -9 }).deadlineSafetyMarginMinutes).toBe(-1);
+    expect(parseCliSettings({ deadlineSafetyMarginMinutes: -1 }).deadlineSafetyMarginMinutes).toBe(-1);
+    expect(parseCliSettings({ deadlineSafetyMarginMinutes: 0 }).deadlineSafetyMarginMinutes).toBe(0);
+    expect(parseCliSettings({ deadlineSafetyMarginMinutes: 99 }).deadlineSafetyMarginMinutes).toBe(60);
   });
 
   it("round-trips compatibility profile and expert selections", () => {
@@ -149,12 +153,14 @@ describe("toEngineSettings", () => {
       autoClaim: false,
       priorityMode: "lowest_availability",
       pollIntervalMinutes: 4,
+      deadlineSafetyMarginMinutes: -1,
       platform: { kick: { enabled: false } },
     });
     const engine = toEngineSettings(cli);
     expect(engine.autoClaim).toBe(false);
     expect(engine.priorityMode).toBe("lowest_availability");
     expect(engine.pollIntervalMinutes).toBe(4);
+    expect(engine.deadlineSafetyMarginMinutes).toBe(-1);
     expect(engine.platform.kick.enabled).toBe(false);
     expect(engine.compatibility).toEqual(cli.compatibility);
   });
