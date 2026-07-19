@@ -26,3 +26,8 @@ test("omits empty groups and rejects an unknown version", () => {
   assert.equal(releaseNotes(changelog, "1.5.0"), ["## New", "- Older."].join("\n"));
   assert.throws(() => releaseNotes(changelog, "9.9.9"), /no changelog entry for 9\.9\.9/);
 });
+
+test("falls back to a placeholder for a version that has no entry yet", () => {
+  assert.equal(releaseNotes(changelog, "1.7.0", { pending: true }), "_No changelog entry for 1.7.0 yet._");
+  assert.equal(releaseNotes(changelog, "1.5.0", { pending: true }), ["## New", "- Older."].join("\n"));
+});
