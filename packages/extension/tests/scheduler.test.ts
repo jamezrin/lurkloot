@@ -61,6 +61,69 @@ function adapter(platform: Platform, campaigns: DropCampaign[], candidates: Chan
 }
 
 describe("scheduler campaign selection", () => {
+  it("skips an infeasible in-progress reward for a feasible locked reward", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const inProgress = { ...reward("in_progress"), id: "long", requiredMinutes: 60, watchedMinutes: 10 };
+      const locked = { ...reward("locked"), id: "short", requiredMinutes: 20, watchedMinutes: 0 };
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [campaign("timed", { endsAt: "2026-07-19T12:40:00.000Z", rewards: [inProgress, locked] })],
+        settings({ deadlineSafetyMarginMinutes: 5 }),
+        {
+          listCandidateChannels: vi.fn(async () => [channel("creator")]),
+          checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        },
+      );
+      expect(decision.action).toBe("watch");
+      expect(decision.reward?.id).toBe("short");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects a campaign when no watch reward can finish before its deadline", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const listCandidateChannels = vi.fn(async () => [channel("creator")]);
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [campaign("timed", { endsAt: "2026-07-19T12:44:59.999Z" })],
+        settings({ deadlineSafetyMarginMinutes: 5 }),
+        {
+          listCandidateChannels,
+          checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        },
+      );
+      expect(decision.action).toBe("idle");
+      expect(decision.reason).toContain("cannot be completed before their deadline");
+      expect(listCandidateChannels).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("preserves current selection behavior when deadline filtering is disabled", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [campaign("timed", { endsAt: "2026-07-19T12:01:00.000Z" })],
+        settings({ skipUnfinishableRewards: false, deadlineSafetyMarginMinutes: 5 }),
+        {
+          listCandidateChannels: vi.fn(async () => [channel("creator")]),
+          checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        },
+      );
+      expect(decision.action).toBe("watch");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("uses explicit priority before ending soonest", () => {
     const first = campaign("first", { endsAt: "2026-06-01T00:00:00.000Z" });
     const second = campaign("second", { endsAt: "2026-07-01T00:00:00.000Z" });
@@ -597,6 +660,62 @@ describe("scheduler tick", () => {
 
     expect(second.events.filter((event) => event.category === "diagnostic" && event.message.startsWith("Campaign decision:"))).toEqual([]);
     expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("campaigns eligible"))).toEqual([]);
+  });
+
+  it("emits structured diagnostics for rewards excluded by deadline feasibility", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const timed = campaign("drops", { endsAt: "2026-07-19T12:44:59.999Z" });
+      const result = await runSchedulerTick(
+        baseState,
+        settings({
+          deadlineSafetyMarginMinutes: 5,
+          platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
+        }),
+        { twitch: adapter("twitch", [timed], []), kick: adapter("kick", [], []) },
+      );
+
+      expect(result.events).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        code: "reward_insufficient_time",
+        data: expect.objectContaining({
+          campaignId: "drops",
+          rewardId: "reward-in_progress",
+          remainingMinutes: 40,
+          marginMinutes: 5,
+          deadline: "2026-07-19T12:44:59.999Z",
+        }),
+      }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("emits a deadline diagnostic once when unchanged campaigns become infeasible over time", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const timed = campaign("drops", { endsAt: "2026-07-19T12:50:00.000Z" });
+      const twitch = adapter("twitch", [timed], []);
+      const tickSettings = settings({
+        deadlineSafetyMarginMinutes: 5,
+        platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
+      });
+      const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+
+      const first = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+      expect(first.events.filter((event) => event.code === "reward_insufficient_time")).toEqual([]);
+
+      vi.setSystemTime("2026-07-19T12:06:00.000Z");
+      const second = await runSchedulerTick(first.state, tickSettings, tickAdapters);
+      expect(second.events.filter((event) => event.code === "reward_insufficient_time")).toHaveLength(1);
+
+      const third = await runSchedulerTick(second.state, tickSettings, tickAdapters);
+      expect(third.events.filter((event) => event.code === "reward_insufficient_time")).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not classify a missing replacement reward as completed", async () => {

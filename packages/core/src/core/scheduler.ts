@@ -11,7 +11,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
-import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
+import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims, rewardFeasibility } from "@lurkloot/shared/rewards";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
@@ -36,8 +36,11 @@ function challengePollDue(state: SchedulerState, platform: Platform, now: number
   return now - last >= CHALLENGE_POLL_INTERVAL_MS;
 }
 
-function activeReward(campaign: DropCampaign): DropReward | undefined {
-  const earnable = campaign.rewards.filter((reward) => reward.preconditionsMet !== false && isRewardAvailableToEarn(reward));
+function activeReward(campaign: DropCampaign, settings: EngineSettings): DropReward | undefined {
+  const earnable = campaign.rewards.filter((reward) =>
+    reward.preconditionsMet !== false
+    && isRewardAvailableToEarn(reward)
+    && isRewardDeadlineFeasible(campaign, reward, settings));
   return earnable.find((reward) => reward.status === "in_progress")
     ?? earnable.find((reward) => reward.status === "locked");
 }
@@ -77,7 +80,11 @@ function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
   // reordered (campaignPriorities). Category curation is owned by the separate
   // per-platform "Farm all categories" filter above.
   if (settings.priorityMode === "priority_list_only" && !isInPriorityList(campaign, settings)) return false;
-  return campaign.rewards.some((reward) => reward.status !== "claimed" && reward.preconditionsMet !== false && isRewardRelevantNow(reward));
+  return campaign.rewards.some((reward) =>
+    reward.status !== "claimed"
+    && reward.preconditionsMet !== false
+    && isRewardRelevantNow(reward)
+    && (canClaimReward(reward) || isRewardDeadlineFeasible(campaign, reward, settings)));
 }
 
 function isInPriorityList(campaign: DropCampaign, settings: EngineSettings): boolean {
@@ -147,7 +154,7 @@ export async function chooseCampaignDecision(
   const subscriptionOnly = onlySubscriptionCampaigns(campaigns, settings);
 
   for (const campaign of sorted) {
-    const reward = activeReward(campaign);
+    const reward = activeReward(campaign, settings);
     if (!reward) continue;
 
     const excludedChannels = settings.platform[platform].excludedChannels ?? [];
@@ -235,6 +242,15 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   }
   if (settings.priorityMode === "priority_list_only" && !notExcluded.some((campaign) => isInPriorityList(campaign, settings))) {
     return "No prioritized campaigns are eligible";
+  }
+  const relevantCampaigns = notExcluded.filter((campaign) => campaign.status === "active" && !hasCampaignEnded(campaign));
+  if (relevantCampaigns.length > 0 && relevantCampaigns.every((campaign) =>
+    campaign.rewards.some((reward) => reward.preconditionsMet !== false && isRewardAvailableToEarn(reward))
+    && !campaign.rewards.some((reward) =>
+      reward.preconditionsMet !== false
+      && isRewardAvailableToEarn(reward)
+      && isRewardDeadlineFeasible(campaign, reward, settings)))) {
+    return "Available rewards cannot be completed before their deadline";
   }
   return "No eligible campaigns";
 }
@@ -371,6 +387,7 @@ export async function runSchedulerTick(
     sessions: { ...state.sessions },
     managedWatchTabs: { ...state.managedWatchTabs },
     managedPageContextTabs: { ...state.managedPageContextTabs },
+    deadlineInfeasibleRewardIds: { ...state.deadlineInfeasibleRewardIds },
     lastTickAt: new Date().toISOString(),
   };
   const decisions: WatchDecision[] = [];
@@ -497,6 +514,43 @@ export async function runSchedulerTick(
         const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
         emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
       }
+
+      const previousInfeasibleRewardIds = new Set(state.deadlineInfeasibleRewardIds?.[platform]);
+      const currentInfeasibleRewardIds: string[] = [];
+      for (const campaign of campaigns) {
+        for (const reward of campaign.rewards) {
+          const feasibility = rewardFeasibility(
+            campaign,
+            reward,
+            settings.skipUnfinishableRewards,
+            settings.deadlineSafetyMarginMinutes,
+          );
+          if (feasibility.kind !== "insufficient_time") continue;
+          const diagnosticId = `${campaign.id}:${reward.id}`;
+          currentInfeasibleRewardIds.push(diagnosticId);
+          if (previousInfeasibleRewardIds.has(diagnosticId)) continue;
+          const availableMinutes = feasibility.availableMilliseconds / 60_000;
+          emit({
+            category: "diagnostic",
+            platform,
+            level: "info",
+            code: "reward_insufficient_time",
+            message: `${campaign.name} / ${reward.name} has insufficient time: ${feasibility.remainingMinutes} watch minutes remain, ${availableMinutes.toFixed(2)} minutes are available before ${feasibility.deadline}, margin ${feasibility.marginMinutes} minutes`,
+            data: {
+              campaignId: campaign.id,
+              rewardId: reward.id,
+              remainingMinutes: feasibility.remainingMinutes,
+              availableMinutes,
+              deadline: feasibility.deadline,
+              marginMinutes: feasibility.marginMinutes,
+            },
+          });
+        }
+      }
+      nextState.deadlineInfeasibleRewardIds = {
+        ...nextState.deadlineInfeasibleRewardIds,
+        [platform]: currentInfeasibleRewardIds,
+      };
 
       if (settings.autoClaim) {
         const claimResult = await claimReadyRewards(
@@ -791,6 +845,15 @@ async function claimReadyRewards(
 
 function isRewardRelevantNow(reward: DropReward): boolean {
   return canClaimReward(reward) || isRewardAvailableToEarn(reward);
+}
+
+function isRewardDeadlineFeasible(campaign: DropCampaign, reward: DropReward, settings: EngineSettings): boolean {
+  return rewardFeasibility(
+    campaign,
+    reward,
+    settings.skipUnfinishableRewards,
+    settings.deadlineSafetyMarginMinutes,
+  ).kind !== "insufficient_time";
 }
 
 function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): string {

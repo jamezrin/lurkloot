@@ -443,6 +443,13 @@
   "secondsSuffix": {
     "message": "sec"
   },
+  "deadlineSafetyMarginTitle": { "message": "Margine di sicurezza della scadenza" },
+  "deadlineSafetyMarginDescription": { "message": "Minuti aggiuntivi richiesti prima di farmare una ricompensa." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Attiva il filtro delle scadenze per modificare il margine." },
+  "skipUnfinishableRewardsTitle": { "message": "Salta le ricompense impossibili da completare" },
+  "skipUnfinishableRewardsDescription": { "message": "Non farmare ricompense se il tempo di visione restante supera la scadenza." },
+  "minutesSuffix": { "message": "min." },
+  "insufficientTimeRemaining": { "message": "Tempo rimanente insufficiente" },
   "automationSectionTitle": {
     "message": "Automazione"
   },

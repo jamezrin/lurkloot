@@ -443,6 +443,13 @@
   "secondsSuffix": {
     "message": "s"
   },
+  "deadlineSafetyMarginTitle": { "message": "Margem de segurança do prazo" },
+  "deadlineSafetyMarginDescription": { "message": "Minutos extras antes de farmar uma recompensa." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Ative o filtro de prazo para alterar a margem de segurança." },
+  "skipUnfinishableRewardsTitle": { "message": "Pular recompensas que não podem ser concluídas" },
+  "skipUnfinishableRewardsDescription": { "message": "Não farmar recompensas quando o tempo restante de exibição ultrapassar o prazo." },
+  "minutesSuffix": { "message": "min." },
+  "insufficientTimeRemaining": { "message": "Tempo restante insuficiente" },
   "automationSectionTitle": {
     "message": "Automação"
   },

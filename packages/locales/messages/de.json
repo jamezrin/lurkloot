@@ -443,6 +443,13 @@
   "secondsSuffix": {
     "message": "Sek."
   },
+  "deadlineSafetyMarginTitle": { "message": "Sicherheitsmarge bis zum Ablauf" },
+  "deadlineSafetyMarginDescription": { "message": "Zusätzliche Minuten vor dem Farmen einer Belohnung." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Aktiviere den Fristfilter, um die Sicherheitsmarge zu ändern." },
+  "skipUnfinishableRewardsTitle": { "message": "Nicht abschließbare Belohnungen überspringen" },
+  "skipUnfinishableRewardsDescription": { "message": "Belohnungen nicht farmen, wenn die verbleibende Wiedergabezeit die Frist überschreitet." },
+  "minutesSuffix": { "message": "Min." },
+  "insufficientTimeRemaining": { "message": "Nicht genügend Zeit verbleibend" },
   "automationSectionTitle": {
     "message": "Automatisierung"
   },

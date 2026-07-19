@@ -482,7 +482,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter((campaign) => isCampaignVisible(campaign, settings, excludedIds)), settings);
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
-  const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(campaign, index, session, excludedIds.has(campaign.id)));
+  const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(
+    campaign,
+    index,
+    session,
+    excludedIds.has(campaign.id),
+    {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+    },
+  ));
   const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform], t);
   // Categories that currently have active drop campaigns, surfaced as one-tap
   // "Has active drops" suggestions in the category filter editor (zero network).

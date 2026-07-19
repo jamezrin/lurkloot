@@ -183,6 +183,9 @@ describe("loadConfig", () => {
     try {
       const path = join(dir, "config.json");
       writeFileSync(path, defaultConfigJsonc());
+      expect(defaultConfigJsonc()).toContain('"skipUnfinishableRewards": true');
+      expect(defaultConfigJsonc()).toContain("0 uses exact feasibility; 1-60 adds a safety buffer.");
+      expect(defaultConfigJsonc()).toContain('"deadlineSafetyMarginMinutes": 5');
       expect(loadConfig(path).settings).toEqual(DEFAULT_CLI_SETTINGS);
     } finally {
       rmSync(dir, { recursive: true, force: true });

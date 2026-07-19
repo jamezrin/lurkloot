@@ -443,6 +443,13 @@
   "secondsSuffix": {
     "message": "с"
   },
+  "deadlineSafetyMarginTitle": { "message": "Запас времени до окончания" },
+  "deadlineSafetyMarginDescription": { "message": "Дополнительные минуты перед фармом награды." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Включите фильтр сроков, чтобы изменить запас времени." },
+  "skipUnfinishableRewardsTitle": { "message": "Пропускать награды, которые нельзя завершить" },
+  "skipUnfinishableRewardsDescription": { "message": "Не фармить награды, если оставшееся время просмотра превышает доступный срок." },
+  "minutesSuffix": { "message": "мин" },
+  "insufficientTimeRemaining": { "message": "Недостаточно оставшегося времени" },
   "automationSectionTitle": {
     "message": "Автоматизация"
   },

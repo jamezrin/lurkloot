@@ -281,6 +281,8 @@ export interface EngineSettings {
   postClaimHandoff: boolean;
   postClaimHandoffIntervalSeconds: number;
   postClaimHandoffMaxSeconds: number;
+  skipUnfinishableRewards: boolean;
+  deadlineSafetyMarginMinutes: number;
 }
 
 // The browser extension's full settings schema: the engine contract plus the
@@ -313,6 +315,7 @@ export interface SchedulerState {
   // would never survive to the next one.
   gamification?: Partial<Record<Platform, { lastCheckedAt: string }>>;
   campaigns: Record<Platform, DropCampaign[]>;
+  deadlineInfeasibleRewardIds?: Partial<Record<Platform, string[]>>;
   lastTickAt?: string;
   // ISO timestamp recorded once by the background on install; drives the
   // time-based rate/review nudge. Undefined means "unknown" (pre-feature state).

@@ -5,6 +5,7 @@ import {
   campaignHasWatchRewards,
   isWatchReward,
   rewardRequirementType,
+  rewardFeasibility,
 } from "@lurkloot/shared/rewards";
 import { CAMPAIGN_TINTS, GAME_ACCENTS, NO_CATEGORY_ACCENT, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
@@ -130,7 +131,13 @@ function rewardComplete(reward: RewardView): boolean {
   return reward.obtained || (reward.progress ?? 0) >= 100;
 }
 
-export function campaignViewFromCampaign(campaign: DropCampaign, index: number, session: WatchSession, excluded: boolean): CampaignView {
+export function campaignViewFromCampaign(
+  campaign: DropCampaign,
+  index: number,
+  session: WatchSession,
+  excluded: boolean,
+  feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number },
+): CampaignView {
   return {
     id: campaign.id,
     gameId: gameId(campaign),
@@ -154,6 +161,15 @@ export function campaignViewFromCampaign(campaign: DropCampaign, index: number, 
         ? Math.min(100, (Math.min(reward.watchedMinutes, reward.requiredMinutes) / reward.requiredMinutes) * 100)
         : reward.status === "claimed" ? 100 : undefined;
       const claimGuidance = safeClaimGuidance(reward.claimGuidance ?? campaign.claimGuidance);
+      const deadlineFeasibility = feasibility
+        ? rewardFeasibility(
+            campaign,
+            reward,
+            feasibility.skipUnfinishableRewards,
+            feasibility.deadlineSafetyMarginMinutes,
+            feasibility.now,
+          )
+        : undefined;
       return {
         id: reward.id,
         name: reward.name,
@@ -166,6 +182,7 @@ export function campaignViewFromCampaign(campaign: DropCampaign, index: number, 
         tint: REWARD_TINTS[rewardIndex % REWARD_TINTS.length],
         imageUrl: campaign.platform === "kick" ? kickRewardImageUrl(reward.imageUrl) : reward.imageUrl,
         claimGuidance,
+        ineligibilityReason: deadlineFeasibility?.kind === "insufficient_time" ? "insufficient_time" : undefined,
       };
     }),
     hasWatchRewards: campaignHasWatchRewards(campaign),

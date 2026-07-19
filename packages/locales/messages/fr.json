@@ -443,6 +443,13 @@
   "secondsSuffix": {
     "message": "s"
   },
+  "deadlineSafetyMarginTitle": { "message": "Marge de sécurité avant échéance" },
+  "deadlineSafetyMarginDescription": { "message": "Minutes supplémentaires requises avant de farmer une récompense." },
+  "deadlineSafetyMarginDisabledReason": { "message": "Activez le filtre des échéances pour modifier la marge." },
+  "skipUnfinishableRewardsTitle": { "message": "Ignorer les récompenses impossibles à terminer" },
+  "skipUnfinishableRewardsDescription": { "message": "Ne pas farmer une récompense si le temps de visionnage restant dépasse son échéance." },
+  "minutesSuffix": { "message": "min." },
+  "insufficientTimeRemaining": { "message": "Temps restant insuffisant" },
   "automationSectionTitle": {
     "message": "Automatisation"
   },

@@ -443,6 +443,13 @@
   "secondsSuffix": {
     "message": "ث"
   },
+  "deadlineSafetyMarginTitle": { "message": "هامش أمان الموعد النهائي" },
+  "deadlineSafetyMarginDescription": { "message": "دقائق إضافية مطلوبة قبل جمع المكافأة." },
+  "deadlineSafetyMarginDisabledReason": { "message": "فعّل تصفية الموعد النهائي لتغيير هامش الأمان." },
+  "skipUnfinishableRewardsTitle": { "message": "تخطي المكافآت التي لا يمكن إكمالها" },
+  "skipUnfinishableRewardsDescription": { "message": "لا تجمع المكافآت عندما يتجاوز وقت المشاهدة المتبقي الوقت المتاح قبل الموعد النهائي." },
+  "minutesSuffix": { "message": "د" },
+  "insufficientTimeRemaining": { "message": "الوقت المتبقي غير كافٍ" },
   "automationSectionTitle": {
     "message": "الأتمتة"
   },
