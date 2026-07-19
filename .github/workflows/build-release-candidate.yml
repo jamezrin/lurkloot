@@ -81,6 +81,9 @@ jobs:
     with:
       ref: ${{ inputs.ref }}
       trusted_ref: ${{ inputs.trusted_ref }}
+      # The label-time candidate builds the source pull request's tree, which has no version bump
+      # yet, so the version is overlaid here to keep artifact names and the prerelease consistent.
+      version: ${{ inputs.version }}
       artifact_name: candidate-extension-${{ inputs.version }}
       sign_crx: true
     secrets:
