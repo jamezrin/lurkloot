@@ -10,7 +10,8 @@
         "kind": "fixed",
         "text": "Long option names in settings dropdowns no longer squeeze setting titles into several lines."
       }
-    ]
+    ],
+    "date": "2026-07-19"
   },
   {
     "version": "1.5.0",
