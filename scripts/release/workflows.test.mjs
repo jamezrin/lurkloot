@@ -107,3 +107,9 @@ test("stable promotion runs automatically with one production gate and a dedicat
   assert.match(text, /retire-candidate/);
   assert.doesNotMatch(text, /gh pr create --base develop/);
 });
+
+test("stable publication verifies its asset set before uploading", async () => {
+  const text = await workflow("release.yml");
+  assert.match(text, /assert-assets/);
+  assert.match(text, /gh release upload "v\$VERSION" release-assets\/\* --clobber/);
+});

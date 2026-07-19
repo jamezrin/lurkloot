@@ -7,7 +7,7 @@ import { changelogPath, checkWorkspace, prepareWorkspace } from "../release.mjs"
 import { latestVersion, nextVersion, parseManifestVersion } from "./version.mjs";
 import { releaseNotes } from "./notes.mjs";
 import { ChromeWebStoreClient, publishAction, serviceAccountToken, waitForUpload } from "../cws.mjs";
-import { releasePolicy } from "./pipeline.mjs";
+import { assertReleaseAssets, releasePolicy } from "./pipeline.mjs";
 import {
   GitHubClient,
   reconcilePrerelease,
@@ -100,12 +100,12 @@ const commands = {
   },
   async "publish-candidate"(values) {
     const entries = await readdir(values.assets, { withFileTypes: true });
-    const assets = await Promise.all(entries
-      .filter((entry) => entry.isFile())
-      .map(async (entry) => ({
-        name: basename(entry.name),
-        bytes: await readFile(join(values.assets, entry.name)),
-      })));
+    const files = entries.filter((entry) => entry.isFile());
+    assertReleaseAssets({ names: files.map((entry) => basename(entry.name)), version: values.version });
+    const assets = await Promise.all(files.map(async (entry) => ({
+      name: basename(entry.name),
+      bytes: await readFile(join(values.assets, entry.name)),
+    })));
     await reconcilePrerelease({
       client: githubClient(),
       pr: Number(values.pr),
@@ -113,6 +113,13 @@ const commands = {
       sha: values.sha,
       notes: await readFile(values.notes, "utf8"),
       assets,
+    });
+  },
+  async "assert-assets"(values) {
+    const entries = await readdir(values.assets, { withFileTypes: true });
+    assertReleaseAssets({
+      names: entries.filter((entry) => entry.isFile()).map((entry) => basename(entry.name)),
+      version: values.version,
     });
   },
   async "candidate-comment"(values) {
