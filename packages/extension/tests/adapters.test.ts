@@ -570,6 +570,75 @@ describe("KickAdapter", () => {
     const fetcher = jsonFetcher(() => { throw new Error("should not fetch"); });
     await expect(new KickAdapter(fetcher).searchCategories("   ")).resolves.toEqual([]);
   });
+
+  it("claims only completed, unclaimed Kick challenges", async () => {
+    const claimed: string[] = [];
+    const fetcher = jsonFetcher((url, init) => {
+      if (url === "https://web.kick.com/api/v1/gamification/challenges") {
+        return {
+          data: [
+            { id: "done", recurrence: "daily", claimed_at: null, condition: { progress: 60, threshold: 60 } },
+            { id: "already", recurrence: "daily", claimed_at: "2026-07-17T23:39:02Z", condition: { progress: 60, threshold: 60 } },
+            { id: "partial", recurrence: "daily", claimed_at: null, condition: { progress: 30, threshold: 60 } },
+          ],
+        };
+      }
+      if (url === "https://web.kick.com/api/v1/gamification/challenges/done/claim") {
+        expect(init?.method).toBe("POST");
+        claimed.push("done");
+        return { data: { challenge_id: "done", winner: { id: "card", rarity: "legendary" } } };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const adapter = new KickAdapter(fetcher);
+
+    await expect(adapter.claimChallenges!()).resolves.toEqual([
+      { id: "done", rarity: "legendary", recurrence: "daily" },
+    ]);
+    expect(claimed).toEqual(["done"]);
+  });
+
+  it("reports an unknown rarity when the Kick claim response omits a winner", async () => {
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/gamification/challenges") {
+        return { data: [{ id: "done", recurrence: "weekly", claimed_at: null, condition: { progress: 5, threshold: 5 } }] };
+      }
+      if (url === "https://web.kick.com/api/v1/gamification/challenges/done/claim") return { message: "success" };
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    await expect(new KickAdapter(fetcher).claimChallenges!()).resolves.toEqual([
+      { id: "done", rarity: "unknown", recurrence: "weekly" },
+    ]);
+  });
+
+  it("keeps claiming Kick challenges after one claim fails", async () => {
+    const fetcher = jsonFetcher((url) => {
+      if (url === "https://web.kick.com/api/v1/gamification/challenges") {
+        return {
+          data: [
+            { id: "bad", recurrence: "daily", claimed_at: null, condition: { progress: 1, threshold: 1 } },
+            { id: "good", recurrence: "daily", claimed_at: null, condition: { progress: 1, threshold: 1 } },
+          ],
+        };
+      }
+      if (url === "https://web.kick.com/api/v1/gamification/challenges/bad/claim") throw new Error("boom");
+      if (url === "https://web.kick.com/api/v1/gamification/challenges/good/claim") {
+        return { data: { winner: { rarity: "common" } } };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    await expect(new KickAdapter(fetcher).claimChallenges!()).resolves.toEqual([
+      { id: "good", rarity: "common", recurrence: "daily" },
+    ]);
+  });
+
+  it("returns nothing when Kick reports no challenges", async () => {
+    const fetcher = jsonFetcher(() => ({}));
+    await expect(new KickAdapter(fetcher).claimChallenges!()).resolves.toEqual([]);
+  });
 });
 
 describe("createKickFetcher (background-first, tab fallback)", () => {

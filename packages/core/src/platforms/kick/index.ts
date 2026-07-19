@@ -2,7 +2,7 @@ import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, D
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import { KickWafBlockedError } from "../../core/tabs";
-import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, unavailableWatchTabPort, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
 import type { ResolvedCompatibility } from "../../compatibility/types";
@@ -54,6 +54,24 @@ interface KickClaimResponse {
   success?: boolean;
   message?: string;
   data?: { id?: string | number } | null;
+}
+
+interface KickChallengesResponse {
+  data?: KickChallenge[];
+}
+
+interface KickChallenge {
+  id?: string;
+  recurrence?: string;
+  // Kick sets this when the box has already been opened. `status` is deliberately
+  // not consulted: only "claimed" is documented, so any check against the other
+  // values would be a guess.
+  claimed_at?: string | null;
+  condition?: { progress?: number; threshold?: number; type?: string };
+}
+
+interface KickChallengeClaimResponse {
+  data?: { challenge_id?: string; winner?: { id?: string; rarity?: string } } | null;
 }
 
 // Default Kick fetcher. Spike: try the service worker first (fully tabless) and
@@ -297,6 +315,39 @@ export class KickAdapter implements PlatformAdapter {
       }
       throw error;
     }
+  }
+
+  async claimChallenges(): Promise<ClaimedChallenge[]> {
+    const response = await this.fetcher.fetchJson<KickChallengesResponse>(
+      "https://web.kick.com/api/v1/gamification/challenges",
+      undefined,
+      this.emit,
+    );
+    const claimed: ClaimedChallenge[] = [];
+    for (const challenge of response?.data ?? []) {
+      const id = typeof challenge?.id === "string" ? challenge.id.trim() : "";
+      if (!id || challenge.claimed_at != null) continue;
+      const progress = Number(challenge.condition?.progress ?? 0);
+      const threshold = Number(challenge.condition?.threshold ?? 0);
+      if (!Number.isFinite(progress) || !Number.isFinite(threshold) || threshold <= 0 || progress < threshold) continue;
+      // One failing box must not block the others, so each claim is isolated.
+      try {
+        const result = await this.fetcher.fetchJson<KickChallengeClaimResponse>(
+          `https://web.kick.com/api/v1/gamification/challenges/${encodeURIComponent(id)}/claim`,
+          { method: "POST" },
+          this.emit,
+        );
+        const rarity = result?.data?.winner?.rarity;
+        claimed.push({
+          id,
+          rarity: typeof rarity === "string" && rarity.trim() ? rarity.trim() : "unknown",
+          recurrence: typeof challenge.recurrence === "string" && challenge.recurrence.trim() ? challenge.recurrence.trim() : "unknown",
+        });
+      } catch (error) {
+        diagnostic(this.emit, "warn", `Kick challenge ${id} claim failed: ${error instanceof Error ? error.message : String(error)}`, "kick");
+      }
+    }
+    return claimed;
   }
 
   private warnAccountNotLinked(campaign: DropCampaign, reward: DropReward, responseUrl?: string): void {
