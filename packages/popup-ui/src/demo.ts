@@ -104,6 +104,7 @@ function demoSnapshot(): RuntimeSnapshot {
           { id: "starfall arena", name: "Starfall Arena" },
           { id: "spellforge", name: "Spellforge" },
         ],
+        autoClaimChannelPoints: true,
       },
       kick: {
         enabled: true,
@@ -111,6 +112,7 @@ function demoSnapshot(): RuntimeSnapshot {
         excludedChannels: [],
         farmAllCategories: true,
         categories: [],
+        autoClaimChallenges: true,
       },
     },
     campaignPriorities: {

@@ -1644,6 +1644,29 @@ describe("background controller", () => {
     });
   });
 
+  it("emits a notification when a Kick challenge is claimed", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, notifyRewardEarned: true });
+    env.kick.claimChallenges = vi.fn(async () => [{ id: "daily", rarity: "mythic", recurrence: "daily" }]);
+
+    await env.controller.tick();
+
+    expect(env.deps.createNotification).toHaveBeenCalledWith({
+      title: "Challenge reward claimed",
+      message: "You won a mythic card from your daily challenge.",
+    });
+  });
+
+  it("does not emit a challenge notification when reward notifications are off", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, notifyRewardEarned: false });
+    env.kick.claimChallenges = vi.fn(async () => [{ id: "daily", rarity: "mythic", recurrence: "daily" }]);
+
+    await env.controller.tick();
+
+    expect(env.deps.createNotification).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Challenge reward claimed" }),
+    );
+  });
+
   it("does not emit disabled reward notifications", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true, notifyRewardEarned: false });
     env.state.campaigns.twitch = [campaign("twitch", "in_progress")];

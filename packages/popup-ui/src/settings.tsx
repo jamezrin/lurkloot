@@ -81,6 +81,11 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     },
     { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
   );
+  const setPlatformAutoClaimBonus = (platform: Platform) => (value: boolean) => onSettingsChange(
+    platform === "twitch"
+      ? { platform: { twitch: { autoClaimChannelPoints: value } } }
+      : { platform: { kick: { autoClaimChallenges: value } } },
+  );
 
   return (
     <div className="space-y-6">
@@ -129,7 +134,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
         <SettingsPlatformSwitch active={platformTab} onChange={setPlatformTab} />
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={platformTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="space-y-3">
-            <PlatformSettingsGroup platform={platformTab} suggestions={suggestions[platformTab]} settings={settings} onFarmAllCategoriesChange={setPlatformFarmAllCategories(platformTab)} onCategoriesChange={setPlatformCategories(platformTab)} onSearchCategories={(query) => onSearchCategories(platformTab, query)} onExcludedChannelsChange={setPlatformExcludedChannels(platformTab)} />
+            <PlatformSettingsGroup platform={platformTab} suggestions={suggestions[platformTab]} settings={settings} onFarmAllCategoriesChange={setPlatformFarmAllCategories(platformTab)} onCategoriesChange={setPlatformCategories(platformTab)} onSearchCategories={(query) => onSearchCategories(platformTab, query)} onExcludedChannelsChange={setPlatformExcludedChannels(platformTab)} onAutoClaimBonusChange={setPlatformAutoClaimBonus(platformTab)} />
           </motion.div>
         </AnimatePresence>
       </SettingsSection>

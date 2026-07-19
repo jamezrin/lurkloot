@@ -89,6 +89,30 @@ describe("parseCliSettings", () => {
     expect(() => parseCliSettings({ turbo: true })).toThrow(/unknown CLI setting "turbo"/);
   });
 
+  it("points a moved top-level key at its new per-platform home", () => {
+    expect(() => parseCliSettings({ autoClaimChannelPoints: false }))
+      .toThrow(/"autoClaimChannelPoints" moved to "platform.twitch.autoClaimChannelPoints"/);
+  });
+
+  it("accepts autoClaimChannelPoints under platform.twitch", () => {
+    expect(parseCliSettings({ platform: { twitch: { autoClaimChannelPoints: false } } }).platform.twitch.autoClaimChannelPoints).toBe(false);
+    expect(parseCliSettings({}).platform.twitch.autoClaimChannelPoints).toBe(true);
+  });
+
+  it("accepts autoClaimChallenges under platform.kick", () => {
+    const parsed = parseCliSettings({ platform: { kick: { autoClaimChallenges: false } } });
+    expect(parsed.platform.kick.autoClaimChallenges).toBe(false);
+  });
+
+  it("defaults autoClaimChallenges on when the config omits it", () => {
+    expect(parseCliSettings({}).platform.kick.autoClaimChallenges).toBe(true);
+  });
+
+  it("rejects autoClaimChallenges under platform.twitch", () => {
+    expect(() => parseCliSettings({ platform: { twitch: { autoClaimChallenges: true } } }))
+      .toThrow('unknown setting "autoClaimChallenges" under platform.twitch');
+  });
+
   it("lists every offender in a single error", () => {
     let message = "";
     try {

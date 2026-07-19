@@ -455,6 +455,18 @@
   "watchQueueEditHint": {
     "message": "选择 $1 后，在观看队列标签页编辑。"
   },
+  "autoClaimChannelPointsTitle": {
+    "message": "自动领取频道积分"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "在该平台刷取时自动领取频道积分奖励。"
+  },
+  "autoClaimChallengesTitle": {
+    "message": "自动领取每日挑战"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "达到观看时长目标后自动领取 Kick 每日挑战奖励。"
+  },
   "excludedChannelsTitle": {
     "message": "排除的掉宝频道"
   },
@@ -541,6 +553,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 来自 $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "已领取挑战奖励"
+  },
+  "notificationChallengeReward": {
+    "message": "你从 $2 挑战中赢得了一张 $1 卡片。"
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 没有可刷取的合格掉宝。"
@@ -650,6 +668,9 @@
   },
   "activityRewardClaimed": {
     "message": "已领取 $2 中的 $1。"
+  },
+  "activityChallengeClaimed": {
+    "message": "已领取 $2 挑战的 $1 卡片"
   },
   "activityInterruption": {
     "message": "领取已中断：$1。"

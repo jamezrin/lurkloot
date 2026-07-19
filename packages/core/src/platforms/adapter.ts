@@ -32,6 +32,14 @@ export interface WatchTabOptions {
   managedTab?: ManagedWatchTab;
 }
 
+// A gamification challenge that was just claimed. Account-level, so unlike
+// channel points it is not tied to a channel or a watch session.
+export interface ClaimedChallenge {
+  id: string;
+  rarity: string;
+  recurrence: string;
+}
+
 export interface PlatformAdapter {
   platform: Platform;
   readonly compatibility?: ResolvedCompatibility[Platform];
@@ -45,6 +53,10 @@ export interface PlatformAdapter {
   // must defer until then instead of POSTing a value Twitch will reject.
   isClaimReady?(reward: DropReward): boolean;
   claimChannelPoints?(channel: ChannelCandidate): Promise<boolean>;
+  // Claims any completed, unclaimed gamification challenges for the logged-in
+  // account and reports what was won. Account-level, so it takes no channel and
+  // runs regardless of whether a watch session is active.
+  claimChallenges?(): Promise<ClaimedChallenge[]>;
   // Live search of the platform's categories/games, powering the "Farm only these
   // categories" picker in Settings. Returns id + name (+ box art) matches.
   searchCategories?(query: string): Promise<CategorySelection[]>;

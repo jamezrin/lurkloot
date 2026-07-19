@@ -455,6 +455,18 @@
   "watchQueueEditHint": {
     "message": "Edit it from the Watch Queue tab after selecting $1."
   },
+  "autoClaimChannelPointsTitle": {
+    "message": "Auto-claim channel points"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Claim channel-point bonuses while farming this platform."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Auto-claim daily challenges"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Claim Kick's daily challenge reward once its watch-time goal is met."
+  },
   "excludedChannelsTitle": {
     "message": "Excluded drop channels"
   },
@@ -541,6 +553,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 from $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Challenge reward claimed"
+  },
+  "notificationChallengeReward": {
+    "message": "You won a $1 card from your $2 challenge."
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 has no eligible drops to farm."
@@ -650,6 +668,9 @@
   },
   "activityRewardClaimed": {
     "message": "Claimed $1 from $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "Claimed a $1 card from the $2 challenge"
   },
   "activityInterruption": {
     "message": "Farming interrupted: $1."

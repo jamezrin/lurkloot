@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformSettings, SchedulerState } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, KickPlatformSettings, Platform, SchedulerState, TwitchPlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
@@ -32,7 +32,7 @@ const channel = (username: string, patch: Partial<ChannelCandidate> = {}): Chann
 });
 
 type SettingsPatch = Partial<Omit<ExtensionSettings, "platform">> & {
-  platform?: Partial<Record<Platform, Partial<PlatformSettings>>>;
+  platform?: { twitch?: Partial<TwitchPlatformSettings>; kick?: Partial<KickPlatformSettings> };
 };
 
 function settings(patch: SettingsPatch = {}): ExtensionSettings {
@@ -1865,6 +1865,116 @@ describe("scheduler tick", () => {
 
     expect(twitch.claimChannelPoints).toHaveBeenCalledWith(expect.objectContaining({ username: "allowed" }));
     expect(result.events.some((event) => event.category === "diagnostic" && event.message.includes("Claimed channel points"))).toBe(true);
+  });
+
+  it("claims Kick challenges even when the platform never starts watching", async () => {
+    const kick = {
+      ...adapter("kick", [], []),
+      claimChallenges: vi.fn(async () => [{ id: "daily", rarity: "epic", recurrence: "daily" }]),
+    };
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(kick.claimChallenges).toHaveBeenCalled();
+    expect(result.state.sessions.kick.status).toBe("idle");
+    expect(result.state.gamification?.kick?.lastCheckedAt).toBeDefined();
+    expect(result.events.some((event) => event.category === "activity" && event.code === "challenge_claimed")).toBe(true);
+  });
+
+  it("skips the Kick challenge poll inside the throttle window", async () => {
+    const kick = { ...adapter("kick", [], []), claimChallenges: vi.fn(async () => []) };
+    const recent = new Date(Date.now() - 60_000).toISOString();
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        gamification: { kick: { lastCheckedAt: recent } },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(kick.claimChallenges).not.toHaveBeenCalled();
+    expect(result.state.gamification?.kick?.lastCheckedAt).toBe(recent);
+  });
+
+  // A clock rollback (NTP correction, a suspended VM) can leave a stamp in the
+  // future. Treating it as "recently polled" would suppress claiming until the
+  // clock caught up, so a future stamp counts as stale instead.
+  it("polls immediately when the stored Kick challenge timestamp is in the future", async () => {
+    const kick = { ...adapter("kick", [], []), claimChallenges: vi.fn(async () => []) };
+    const future = new Date(Date.now() + 60 * 60_000).toISOString();
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        gamification: { kick: { lastCheckedAt: future } },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(kick.claimChallenges).toHaveBeenCalled();
+    expect(result.state.gamification?.kick?.lastCheckedAt).not.toBe(future);
+  });
+
+  it("does not claim Kick challenges when the setting is off", async () => {
+    const kick = { ...adapter("kick", [], []), claimChallenges: vi.fn(async () => []) };
+
+    await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true, autoClaimChallenges: false } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(kick.claimChallenges).not.toHaveBeenCalled();
+  });
+
+  it("keeps the tick healthy when a Kick challenge poll throws", async () => {
+    const kick = {
+      ...adapter("kick", [], []),
+      claimChallenges: vi.fn(async () => { throw new Error("gamification down"); }),
+    };
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(result.state.sessions.kick.status).not.toBe("error");
+    expect(result.state.sessions.kick.errorChecks).toBe(0);
+    expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("gamification down"))).toBe(true);
   });
 });
 

@@ -455,6 +455,18 @@
   "watchQueueEditHint": {
     "message": "$1 चुनने के बाद देखने की कतार टैब से संपादित करें।"
   },
+  "autoClaimChannelPointsTitle": {
+    "message": "चैनल पॉइंट अपने आप क्लेम करें"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "इस प्लेटफ़ॉर्म पर फ़ार्म करते समय चैनल-पॉइंट बोनस अपने आप क्लेम करें।"
+  },
+  "autoClaimChallengesTitle": {
+    "message": "दैनिक चैलेंज अपने आप क्लेम करें"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "देखने के समय का लक्ष्य पूरा होते ही Kick का दैनिक चैलेंज इनाम प्राप्त करें।"
+  },
   "excludedChannelsTitle": {
     "message": "हटाए गए drop चैनल"
   },
@@ -541,6 +553,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$2 से $1"
+  },
+  "notificationChallengeClaimed": {
+    "message": "चैलेंज इनाम क्लेम किया गया"
+  },
+  "notificationChallengeReward": {
+    "message": "आपने अपने $2 चैलेंज से $1 कार्ड जीता।"
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 पर फ़ार्म करने योग्य drops नहीं हैं。"
@@ -650,6 +668,9 @@
   },
   "activityRewardClaimed": {
     "message": "$2 से $1 प्राप्त किया गया।"
+  },
+  "activityChallengeClaimed": {
+    "message": "$2 चैलेंज से $1 कार्ड प्राप्त किया"
   },
   "activityInterruption": {
     "message": "ड्रॉप जुटाना रुका: $1।"

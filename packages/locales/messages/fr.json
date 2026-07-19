@@ -455,6 +455,18 @@
   "watchQueueEditHint": {
     "message": "Modifiez-la depuis l’onglet File de visionnage après avoir sélectionné $1."
   },
+  "autoClaimChannelPointsTitle": {
+    "message": "Réclamer automatiquement les points de chaîne"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Réclame automatiquement les bonus de points de chaîne lors du farm sur cette plateforme."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Réclamer automatiquement les défis quotidiens"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Réclame la récompense du défi quotidien de Kick une fois l’objectif de temps de visionnage atteint."
+  },
   "excludedChannelsTitle": {
     "message": "Chaînes de drops exclues"
   },
@@ -541,6 +553,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 de $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Récompense de défi réclamée"
+  },
+  "notificationChallengeReward": {
+    "message": "Vous avez gagné une carte $1 de votre défi $2."
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 n’a aucun drop éligible à farmer."
@@ -650,6 +668,9 @@
   },
   "activityRewardClaimed": {
     "message": "$1 de $2 a été récupéré."
+  },
+  "activityChallengeClaimed": {
+    "message": "Carte $1 réclamée depuis le défi $2"
   },
   "activityInterruption": {
     "message": "Collecte interrompue : $1."

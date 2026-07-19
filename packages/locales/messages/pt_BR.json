@@ -455,6 +455,18 @@
   "watchQueueEditHint": {
     "message": "Edite na aba Fila de visualização depois de selecionar $1."
   },
+  "autoClaimChannelPointsTitle": {
+    "message": "Resgatar pontos de canal automaticamente"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Resgata automaticamente os bônus de pontos de canal enquanto farma nesta plataforma."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Resgatar desafios diários automaticamente"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Resgata a recompensa do desafio diário da Kick assim que a meta de tempo assistido é atingida."
+  },
   "excludedChannelsTitle": {
     "message": "Canais de drops excluídos"
   },
@@ -541,6 +553,12 @@
   },
   "notificationRewardFromCampaign": {
     "message": "$1 de $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Recompensa do desafio resgatada"
+  },
+  "notificationChallengeReward": {
+    "message": "Você ganhou uma carta $1 do seu desafio $2."
   },
   "notificationNoDropsLeftMessage": {
     "message": "$1 não tem drops elegíveis para farmar."
@@ -650,6 +668,9 @@
   },
   "activityRewardClaimed": {
     "message": "$1 de $2 foi resgatado."
+  },
+  "activityChallengeClaimed": {
+    "message": "Carta $1 resgatada do desafio $2"
   },
   "activityInterruption": {
     "message": "Coleta interrompida: $1."

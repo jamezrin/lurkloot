@@ -12,6 +12,7 @@ import type {
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
 import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
+import { autoClaimChallengesFor, autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
@@ -19,6 +20,21 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
 export const MANUAL_WATCH_TTL_MS = 20_000;
+
+// Kick's daily challenge window is hours long, so a ten-minute poll is far more
+// than responsive enough while keeping the request count negligible.
+const CHALLENGE_POLL_INTERVAL_MS = 10 * 60 * 1000;
+
+function challengePollDue(state: SchedulerState, platform: Platform, now: number): boolean {
+  const lastCheckedAt = state.gamification?.[platform]?.lastCheckedAt;
+  if (!lastCheckedAt) return true;
+  const last = Date.parse(lastCheckedAt);
+  // A stamp in the future means the clock moved backwards (NTP correction, a
+  // suspended VM). Treat it as stale rather than letting it suppress claiming
+  // until the clock catches up.
+  if (!Number.isFinite(last) || last > now) return true;
+  return now - last >= CHALLENGE_POLL_INTERVAL_MS;
+}
 
 function activeReward(campaign: DropCampaign): DropReward | undefined {
   const earnable = campaign.rewards.filter((reward) => reward.preconditionsMet !== false && isRewardAvailableToEarn(reward));
@@ -426,6 +442,32 @@ export async function runSchedulerTick(
         continue;
       }
 
+      // Account-level, so it runs whether or not this platform ends up watching:
+      // the watch-time threshold is usually met by a session that has already
+      // stopped. Failures are swallowed — gamification is strictly additive to
+      // farming and must never fail the tick or trip the error backoff.
+      if (autoClaimChallengesFor(settings, platform) && adapter.claimChallenges && challengePollDue(nextState, platform, Date.now())) {
+        // Stamped on attempt, not on success, so a persistently failing endpoint
+        // is retried on the next interval instead of on every tick.
+        nextState.gamification = {
+          ...nextState.gamification,
+          [platform]: { lastCheckedAt: new Date().toISOString() },
+        };
+        try {
+          for (const challenge of await adapter.claimChallenges()) {
+            emit({
+              category: "activity",
+              code: "challenge_claimed",
+              level: "info",
+              platform,
+              data: { challengeId: challenge.id, rarity: challenge.rarity, recurrence: challenge.recurrence },
+            });
+          }
+        } catch (error) {
+          emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Challenge claim failed");
+        }
+      }
+
       if (isInBackoff(previous)) {
         nextState.sessions[platform] = {
           ...previous,
@@ -593,7 +635,7 @@ export async function runSchedulerTick(
           }
         }
         nextState.managedPageContextTabs = await stopPageContextTabs(currentManagedPageContextTabs(), { platforms: [platform] });
-        if (settings.autoClaimChannelPoints && adapter.claimChannelPoints) {
+        if (autoClaimChannelPointsFor(settings, platform) && adapter.claimChannelPoints) {
           try {
             const claimed = await adapter.claimChannelPoints(decision.channel);
             if (claimed) {

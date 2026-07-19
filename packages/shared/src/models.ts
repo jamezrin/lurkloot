@@ -220,6 +220,21 @@ export interface PlatformSettings {
   categories: CategorySelection[];
 }
 
+// Per-platform settings carry the claim toggles that only make sense on that
+// platform, so the type never advertises a knob the platform ignores.
+export interface TwitchPlatformSettings extends PlatformSettings {
+  autoClaimChannelPoints: boolean;
+}
+
+export interface KickPlatformSettings extends PlatformSettings {
+  autoClaimChallenges: boolean;
+}
+
+export interface PlatformSettingsByPlatform {
+  twitch: TwitchPlatformSettings;
+  kick: KickPlatformSettings;
+}
+
 export interface TwitchCompatibilitySettings {
   profile: string;
   heartbeatTransport: string;
@@ -243,7 +258,6 @@ export interface CompatibilitySettings {
 export interface EngineSettings {
   running: boolean;
   autoClaim: boolean;
-  autoClaimChannelPoints: boolean;
   // Low-resource mode: farm by sending watch signals instead of opening a
   // video tab. Twitch uses API heartbeats; Kick uses a viewer WebSocket. Falls
   // back to a tab automatically if heartbeats stop earning.
@@ -254,7 +268,7 @@ export interface EngineSettings {
   autoStartDropFarming: boolean;
   watchQueueFallbackOnly: boolean;
   priorityMode: PriorityMode;
-  platform: Record<Platform, PlatformSettings>;
+  platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
@@ -294,6 +308,10 @@ export interface SchedulerState {
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
+  // Last time each platform's account-level gamification endpoints were polled.
+  // Persisted because adapters are rebuilt every tick, so an in-memory throttle
+  // would never survive to the next one.
+  gamification?: Partial<Record<Platform, { lastCheckedAt: string }>>;
   campaigns: Record<Platform, DropCampaign[]>;
   lastTickAt?: string;
   // ISO timestamp recorded once by the background on install; drives the
