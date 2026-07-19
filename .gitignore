@@ -18,6 +18,9 @@ stats-*.json
 # Local reference material (third-party projects, not part of this repo)
 references/
 
+# Per-branch git worktrees (see the Worktrees section in AGENTS.md)
+.worktrees/
+
 # Build / dist output
 artifacts/
 dist/
