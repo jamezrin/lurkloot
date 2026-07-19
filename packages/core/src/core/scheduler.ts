@@ -29,7 +29,10 @@ function challengePollDue(state: SchedulerState, platform: Platform, now: number
   const lastCheckedAt = state.gamification?.[platform]?.lastCheckedAt;
   if (!lastCheckedAt) return true;
   const last = Date.parse(lastCheckedAt);
-  if (!Number.isFinite(last)) return true;
+  // A stamp in the future means the clock moved backwards (NTP correction, a
+  // suspended VM). Treat it as stale rather than letting it suppress claiming
+  // until the clock catches up.
+  if (!Number.isFinite(last) || last > now) return true;
   return now - last >= CHALLENGE_POLL_INTERVAL_MS;
 }
 

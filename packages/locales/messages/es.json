@@ -465,7 +465,7 @@
     "message": "Auto-reclamar desafíos diarios"
   },
   "autoClaimChallengesDescription": {
-    "message": "Abre la recompensa del desafío diario de Kick en cuanto se cumple su objetivo de tiempo de visualización."
+    "message": "Reclama la recompensa del desafío diario de Kick en cuanto se cumple su objetivo de tiempo de visualización."
   },
   "excludedChannelsTitle": {
     "message": "Canales de drops excluidos"
@@ -670,7 +670,7 @@
     "message": "Se reclamó $1 de $2."
   },
   "activityChallengeClaimed": {
-    "message": "Reclamó un desafío $1 $2"
+    "message": "Reclamó una carta $1 del desafío $2"
   },
   "activityInterruption": {
     "message": "Obtención interrumpida: $1."

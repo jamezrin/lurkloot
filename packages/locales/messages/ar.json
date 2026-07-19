@@ -465,7 +465,7 @@
     "message": "استلام التحديات اليومية تلقائيًا"
   },
   "autoClaimChallengesDescription": {
-    "message": "افتح مكافأة تحدي Kick اليومي بمجرد تحقيق هدف وقت المشاهدة."
+    "message": "استلم مكافأة تحدي Kick اليومي بمجرد تحقيق هدف وقت المشاهدة."
   },
   "excludedChannelsTitle": {
     "message": "قنوات Drops المستبعدة"
@@ -670,7 +670,7 @@
     "message": "تم استلام $1 من $2."
   },
   "activityChallengeClaimed": {
-    "message": "تم استلام مكافأة تحدي $1 $2"
+    "message": "تم استلام بطاقة $1 من تحدي $2"
   },
   "activityInterruption": {
     "message": "توقف الجمع: $1."

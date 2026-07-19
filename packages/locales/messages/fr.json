@@ -465,7 +465,7 @@
     "message": "Réclamer automatiquement les défis quotidiens"
   },
   "autoClaimChallengesDescription": {
-    "message": "Ouvre la récompense du défi quotidien de Kick une fois l’objectif de temps de visionnage atteint."
+    "message": "Réclame la récompense du défi quotidien de Kick une fois l’objectif de temps de visionnage atteint."
   },
   "excludedChannelsTitle": {
     "message": "Chaînes de drops exclues"
@@ -670,7 +670,7 @@
     "message": "$1 de $2 a été récupéré."
   },
   "activityChallengeClaimed": {
-    "message": "Défi $1 $2 réclamé"
+    "message": "Carte $1 réclamée depuis le défi $2"
   },
   "activityInterruption": {
     "message": "Collecte interrompue : $1."

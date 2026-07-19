@@ -465,7 +465,7 @@
     "message": "Tägliche Challenges automatisch beanspruchen"
   },
   "autoClaimChallengesDescription": {
-    "message": "Öffnet Kicks tägliche Challenge-Belohnung, sobald das Sehdauer-Ziel erreicht ist."
+    "message": "Beansprucht Kicks tägliche Challenge-Belohnung, sobald das Sehdauer-Ziel erreicht ist."
   },
   "excludedChannelsTitle": {
     "message": "Ausgeschlossene Drop-Kanäle"
@@ -670,7 +670,7 @@
     "message": "$1 aus $2 wurde abgeholt."
   },
   "activityChallengeClaimed": {
-    "message": "$1-$2-Challenge-Belohnung abgeholt"
+    "message": "$1-Karte aus der $2-Challenge erhalten"
   },
   "activityInterruption": {
     "message": "Sammeln unterbrochen: $1."

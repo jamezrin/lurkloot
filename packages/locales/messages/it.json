@@ -465,7 +465,7 @@
     "message": "Riscatto automatico delle sfide giornaliere"
   },
   "autoClaimChallengesDescription": {
-    "message": "Apre la ricompensa della sfida giornaliera di Kick al raggiungimento del suo obiettivo di tempo di visione."
+    "message": "Riscatta la ricompensa della sfida giornaliera di Kick al raggiungimento del suo obiettivo di tempo di visione."
   },
   "excludedChannelsTitle": {
     "message": "Canali drop esclusi"
@@ -670,7 +670,7 @@
     "message": "Riscattato $1 da $2."
   },
   "activityChallengeClaimed": {
-    "message": "Riscattata una sfida $1 $2"
+    "message": "Riscattata una carta $1 dalla sfida $2"
   },
   "activityInterruption": {
     "message": "Raccolta interrotta: $1."

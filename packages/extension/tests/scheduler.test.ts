@@ -1912,6 +1912,30 @@ describe("scheduler tick", () => {
     expect(result.state.gamification?.kick?.lastCheckedAt).toBe(recent);
   });
 
+  // A clock rollback (NTP correction, a suspended VM) can leave a stamp in the
+  // future. Treating it as "recently polled" would suppress claiming until the
+  // clock caught up, so a future stamp counts as stale instead.
+  it("polls immediately when the stored Kick challenge timestamp is in the future", async () => {
+    const kick = { ...adapter("kick", [], []), claimChallenges: vi.fn(async () => []) };
+    const future = new Date(Date.now() + 60 * 60_000).toISOString();
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        gamification: { kick: { lastCheckedAt: future } },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+    );
+
+    expect(kick.claimChallenges).toHaveBeenCalled();
+    expect(result.state.gamification?.kick?.lastCheckedAt).not.toBe(future);
+  });
+
   it("does not claim Kick challenges when the setting is off", async () => {
     const kick = { ...adapter("kick", [], []), claimChallenges: vi.fn(async () => []) };
 

@@ -465,7 +465,7 @@
     "message": "Resgatar desafios diários automaticamente"
   },
   "autoClaimChallengesDescription": {
-    "message": "Abre a recompensa do desafio diário da Kick assim que a meta de tempo assistido é atingida."
+    "message": "Resgata a recompensa do desafio diário da Kick assim que a meta de tempo assistido é atingida."
   },
   "excludedChannelsTitle": {
     "message": "Canais de drops excluídos"
@@ -670,7 +670,7 @@
     "message": "$1 de $2 foi resgatado."
   },
   "activityChallengeClaimed": {
-    "message": "Desafio $1 $2 resgatado"
+    "message": "Carta $1 resgatada do desafio $2"
   },
   "activityInterruption": {
     "message": "Coleta interrompida: $1."

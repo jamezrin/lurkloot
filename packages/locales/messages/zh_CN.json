@@ -465,7 +465,7 @@
     "message": "自动领取每日挑战"
   },
   "autoClaimChallengesDescription": {
-    "message": "达到观看时长目标后自动打开 Kick 每日挑战奖励。"
+    "message": "达到观看时长目标后自动领取 Kick 每日挑战奖励。"
   },
   "excludedChannelsTitle": {
     "message": "排除的掉宝频道"
@@ -670,7 +670,7 @@
     "message": "已领取 $2 中的 $1。"
   },
   "activityChallengeClaimed": {
-    "message": "已领取 $1 $2 挑战奖励"
+    "message": "已领取 $2 挑战的 $1 卡片"
   },
   "activityInterruption": {
     "message": "领取已中断：$1。"

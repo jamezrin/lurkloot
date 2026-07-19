@@ -465,7 +465,7 @@
     "message": "Auto-claim daily challenges"
   },
   "autoClaimChallengesDescription": {
-    "message": "Open Kick's daily challenge reward once its watch-time goal is met."
+    "message": "Claim Kick's daily challenge reward once its watch-time goal is met."
   },
   "excludedChannelsTitle": {
     "message": "Excluded drop channels"
@@ -670,7 +670,7 @@
     "message": "Claimed $1 from $2."
   },
   "activityChallengeClaimed": {
-    "message": "Claimed a $1 $2 challenge"
+    "message": "Claimed a $1 card from the $2 challenge"
   },
   "activityInterruption": {
     "message": "Farming interrupted: $1."
