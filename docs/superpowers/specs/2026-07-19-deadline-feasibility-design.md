@@ -38,7 +38,7 @@ The scheduler applies feasibility alongside existing reward availability and pre
 
 All scheduler paths that select or retain a reward use the same evaluator. This includes initial campaign selection, switching to a higher-priority reward, and deciding whether the current watch session remains valid. Disabling the toggle bypasses this filtering everywhere.
 
-The scheduler emits a specific diagnostic when a candidate is excluded. The message identifies the campaign and reward and reports the remaining watch minutes, available minutes, selected deadline, and configured margin. Existing generic `campaign_ineligible` session handling remains compatible, while the text explains the precise cause.
+The scheduler emits a specific diagnostic when a candidate is excluded. The message identifies the campaign and reward and reports the remaining watch minutes, available minutes, selected deadline, and configured margin. It tracks the currently infeasible reward identities separately from the campaign inventory fingerprint, so a clock-driven transition emits once even when campaign data is unchanged, while subsequent unchanged ticks remain deduplicated. Existing generic `campaign_ineligible` session handling remains compatible, while the text explains the precise cause.
 
 ## Popup and CLI Presentation
 

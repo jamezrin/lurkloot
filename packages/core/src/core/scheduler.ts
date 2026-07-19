@@ -387,6 +387,7 @@ export async function runSchedulerTick(
     sessions: { ...state.sessions },
     managedWatchTabs: { ...state.managedWatchTabs },
     managedPageContextTabs: { ...state.managedPageContextTabs },
+    deadlineInfeasibleRewardIds: { ...state.deadlineInfeasibleRewardIds },
     lastTickAt: new Date().toISOString(),
   };
   const decisions: WatchDecision[] = [];
@@ -512,34 +513,44 @@ export async function runSchedulerTick(
         emitDiagnostic(emit, platform, "debug", `Campaign inventory changed (${campaigns.length} discovered)`);
         const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
         emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
-        for (const campaign of campaigns) {
-          for (const reward of campaign.rewards) {
-            const feasibility = rewardFeasibility(
-              campaign,
-              reward,
-              settings.skipUnfinishableRewards,
-              settings.deadlineSafetyMarginMinutes,
-            );
-            if (feasibility.kind !== "insufficient_time") continue;
-            const availableMinutes = feasibility.availableMilliseconds / 60_000;
-            emit({
-              category: "diagnostic",
-              platform,
-              level: "info",
-              code: "reward_insufficient_time",
-              message: `${campaign.name} / ${reward.name} has insufficient time: ${feasibility.remainingMinutes} watch minutes remain, ${availableMinutes.toFixed(2)} minutes are available before ${feasibility.deadline}, margin ${feasibility.marginMinutes} minutes`,
-              data: {
-                campaignId: campaign.id,
-                rewardId: reward.id,
-                remainingMinutes: feasibility.remainingMinutes,
-                availableMinutes,
-                deadline: feasibility.deadline,
-                marginMinutes: feasibility.marginMinutes,
-              },
-            });
-          }
+      }
+
+      const previousInfeasibleRewardIds = new Set(state.deadlineInfeasibleRewardIds?.[platform]);
+      const currentInfeasibleRewardIds: string[] = [];
+      for (const campaign of campaigns) {
+        for (const reward of campaign.rewards) {
+          const feasibility = rewardFeasibility(
+            campaign,
+            reward,
+            settings.skipUnfinishableRewards,
+            settings.deadlineSafetyMarginMinutes,
+          );
+          if (feasibility.kind !== "insufficient_time") continue;
+          const diagnosticId = `${campaign.id}:${reward.id}`;
+          currentInfeasibleRewardIds.push(diagnosticId);
+          if (previousInfeasibleRewardIds.has(diagnosticId)) continue;
+          const availableMinutes = feasibility.availableMilliseconds / 60_000;
+          emit({
+            category: "diagnostic",
+            platform,
+            level: "info",
+            code: "reward_insufficient_time",
+            message: `${campaign.name} / ${reward.name} has insufficient time: ${feasibility.remainingMinutes} watch minutes remain, ${availableMinutes.toFixed(2)} minutes are available before ${feasibility.deadline}, margin ${feasibility.marginMinutes} minutes`,
+            data: {
+              campaignId: campaign.id,
+              rewardId: reward.id,
+              remainingMinutes: feasibility.remainingMinutes,
+              availableMinutes,
+              deadline: feasibility.deadline,
+              marginMinutes: feasibility.marginMinutes,
+            },
+          });
         }
       }
+      nextState.deadlineInfeasibleRewardIds = {
+        ...nextState.deadlineInfeasibleRewardIds,
+        [platform]: currentInfeasibleRewardIds,
+      };
 
       if (settings.autoClaim) {
         const claimResult = await claimReadyRewards(

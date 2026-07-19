@@ -692,6 +692,32 @@ describe("scheduler tick", () => {
     }
   });
 
+  it("emits a deadline diagnostic once when unchanged campaigns become infeasible over time", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const timed = campaign("drops", { endsAt: "2026-07-19T12:50:00.000Z" });
+      const twitch = adapter("twitch", [timed], []);
+      const tickSettings = settings({
+        deadlineSafetyMarginMinutes: 5,
+        platform: { twitch: { enabled: true, watchQueueChannels: [] }, kick: { enabled: false, watchQueueChannels: [] } },
+      });
+      const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+
+      const first = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+      expect(first.events.filter((event) => event.code === "reward_insufficient_time")).toEqual([]);
+
+      vi.setSystemTime("2026-07-19T12:06:00.000Z");
+      const second = await runSchedulerTick(first.state, tickSettings, tickAdapters);
+      expect(second.events.filter((event) => event.code === "reward_insufficient_time")).toHaveLength(1);
+
+      const third = await runSchedulerTick(second.state, tickSettings, tickAdapters);
+      expect(third.events.filter((event) => event.code === "reward_insufficient_time")).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not classify a missing replacement reward as completed", async () => {
     const currentChannel = channel("creator");
     const twitch = adapter("twitch", [campaign("drops")], [currentChannel]);
