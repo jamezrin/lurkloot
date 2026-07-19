@@ -188,6 +188,15 @@ describe("loadConfig", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("documents the post-claim handoff settings in the template", () => {
+    // The round-trip above merges defaults, so an omitted key would still pass
+    // there. Assert the template itself carries them.
+    const template = defaultConfigJsonc();
+    expect(template).toContain("\"postClaimHandoff\":");
+    expect(template).toContain("\"postClaimHandoffIntervalSeconds\":");
+    expect(template).toContain("\"postClaimHandoffMaxSeconds\":");
+  });
 });
 
 describe("CLI config warning integration", () => {

@@ -27,6 +27,11 @@ export interface CliSettings {
   watchQueueFallbackOnly: boolean;
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
+  // Bounded post-claim refresh. Twitch-only in practice: the Kick adapter does
+  // not declare the capability. See EngineSettings.postClaimHandoff.
+  postClaimHandoff: boolean;
+  postClaimHandoffIntervalSeconds: number;
+  postClaimHandoffMaxSeconds: number;
   // Gate the controller's reward/no-drops notifications, which the CLI renders
   // as log lines (see runtime/run.ts createNotification).
   notifyRewardEarned: boolean;
@@ -49,6 +54,9 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   watchQueueFallbackOnly: DEFAULT_SETTINGS.watchQueueFallbackOnly,
   offlineRetryLimit: DEFAULT_SETTINGS.offlineRetryLimit,
   pollIntervalMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
+  postClaimHandoff: DEFAULT_SETTINGS.postClaimHandoff,
+  postClaimHandoffIntervalSeconds: DEFAULT_SETTINGS.postClaimHandoffIntervalSeconds,
+  postClaimHandoffMaxSeconds: DEFAULT_SETTINGS.postClaimHandoffMaxSeconds,
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
   platform: {
@@ -70,6 +78,9 @@ const CLI_SETTING_KEYS = new Set<string>([
   "watchQueueFallbackOnly",
   "offlineRetryLimit",
   "pollIntervalMinutes",
+  "postClaimHandoff",
+  "postClaimHandoffIntervalSeconds",
+  "postClaimHandoffMaxSeconds",
   // Accepted only so config parsing can surface the deprecation warning.
   // Runtime log filtering belongs to the global --log option and process logger.
   "enabledLogLevels",
@@ -184,6 +195,9 @@ export function parseCliSettings(raw: unknown): CliSettings {
     watchQueueFallbackOnly: booleanOr(v.watchQueueFallbackOnly, DEFAULT_CLI_SETTINGS.watchQueueFallbackOnly),
     offlineRetryLimit: clampInteger(v.offlineRetryLimit, 1, 10, DEFAULT_CLI_SETTINGS.offlineRetryLimit),
     pollIntervalMinutes: clampNumber(v.pollIntervalMinutes, 1, 60, DEFAULT_CLI_SETTINGS.pollIntervalMinutes),
+    postClaimHandoff: booleanOr(v.postClaimHandoff, DEFAULT_CLI_SETTINGS.postClaimHandoff),
+    postClaimHandoffIntervalSeconds: clampInteger(v.postClaimHandoffIntervalSeconds, 1, 30, DEFAULT_CLI_SETTINGS.postClaimHandoffIntervalSeconds),
+    postClaimHandoffMaxSeconds: clampInteger(v.postClaimHandoffMaxSeconds, 5, 120, DEFAULT_CLI_SETTINGS.postClaimHandoffMaxSeconds),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform),

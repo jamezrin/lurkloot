@@ -57,6 +57,14 @@ export function defaultConfigJsonc(): string {
     "offlineRetryLimit": ${json(defaults.offlineRetryLimit)},
     // How often campaign discovery and watch state are refreshed (1-60 minutes).
     "pollIntervalMinutes": ${json(defaults.pollIntervalMinutes)},
+
+    // After claiming a reward, briefly re-check for the next one in the chain
+    // instead of waiting for the regular one-minute watch cycle. Twitch only.
+    "postClaimHandoff": ${json(defaults.postClaimHandoff)},
+    // Seconds between re-checks (1-30) and the total budget before giving up
+    // and falling back to the regular schedule (5-120).
+    "postClaimHandoffIntervalSeconds": ${json(defaults.postClaimHandoffIntervalSeconds)},
+    "postClaimHandoffMaxSeconds": ${json(defaults.postClaimHandoffMaxSeconds)},
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
 
