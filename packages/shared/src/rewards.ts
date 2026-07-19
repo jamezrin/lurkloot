@@ -12,6 +12,47 @@ export function rewardRequirementType(reward: RequirementFields): RewardRequirem
 export const isWatchReward = (reward: RequirementFields): boolean => rewardRequirementType(reward) === "watch";
 export const isSubscriptionReward = (reward: RequirementFields): boolean => rewardRequirementType(reward) === "subscription";
 
+export type RewardFeasibility =
+  | { kind: "disabled" }
+  | { kind: "not_applicable" }
+  | { kind: "unknown_deadline" }
+  | { kind: "feasible"; deadline: string; remainingMinutes: number; availableMilliseconds: number; marginMinutes: number }
+  | { kind: "insufficient_time"; deadline: string; remainingMinutes: number; availableMilliseconds: number; marginMinutes: number };
+
+export function rewardFeasibility(
+  campaign: Pick<DropCampaign, "endsAt">,
+  reward: DropReward,
+  marginMinutes: number,
+  now = Date.now(),
+): RewardFeasibility {
+  if (marginMinutes === -1) return { kind: "disabled" };
+  if (!isWatchReward(reward) || reward.status === "claimed" || reward.status === "claimable") {
+    return { kind: "not_applicable" };
+  }
+
+  const deadlines = [campaign.endsAt, reward.availableUntil]
+    .flatMap((deadline) => {
+      if (!deadline) return [];
+      const timestamp = Date.parse(deadline);
+      return Number.isNaN(timestamp) ? [] : [{ deadline, timestamp }];
+    })
+    .sort((left, right) => left.timestamp - right.timestamp);
+  const earliest = deadlines[0];
+  if (!earliest) return { kind: "unknown_deadline" };
+
+  const remainingMinutes = Math.max(0, reward.requiredMinutes - reward.watchedMinutes);
+  const availableMilliseconds = earliest.timestamp - now;
+  const requiredMilliseconds = (remainingMinutes + marginMinutes) * 60_000;
+  const kind = availableMilliseconds >= requiredMilliseconds ? "feasible" : "insufficient_time";
+  return {
+    kind,
+    deadline: earliest.deadline,
+    remainingMinutes,
+    availableMilliseconds,
+    marginMinutes,
+  };
+}
+
 export function isWaitingSubscriptionReward(reward: DropReward, now = Date.now()): boolean {
   if (!isSubscriptionReward(reward)) return false;
   if (reward.status !== "locked" && reward.status !== "in_progress") return false;
