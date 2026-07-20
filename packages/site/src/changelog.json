@@ -14,7 +14,8 @@
         "kind": "improved",
         "text": "Twitch now starts progressing toward the next reward sooner after a claim instead of waiting for the next scheduled cycle."
       }
-    ]
+    ],
+    "date": "2026-07-19"
   },
   {
     "version": "1.6.0",

@@ -36,10 +36,10 @@ warning per command; use the global `--log debug|info|warn|error` option instead
 option is its sole event filter.
 
 Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`,
-`campaignPriorities`, `excludedCampaignIds`, `watchQueueFallbackOnly`,
+`campaignPriorities`, `excludedCampaignIds`, `idleWatchlistFallbackOnly`,
 `offlineRetryLimit`, `pollIntervalMinutes`,
 `notifyRewardEarned`, `notifyNoDropsLeft`, and per-platform `enabled`,
-`watchQueueChannels`, `excludedChannels`, `farmAllCategories`, `categories`.
+`idleWatchlistChannels`, `excludedChannels`, `farmAllCategories`, `categories`.
 
 Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
 `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,

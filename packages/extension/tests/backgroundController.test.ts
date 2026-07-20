@@ -777,8 +777,8 @@ describe("background controller", () => {
       running: false,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, watchQueueChannels: [] },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
       },
     });
 
@@ -865,7 +865,7 @@ describe("background controller", () => {
       ...env.settings,
       platform: {
         ...env.settings.platform,
-        twitch: { ...env.settings.platform.twitch, watchQueueChannels: ["fallback"] },
+        twitch: { ...env.settings.platform.twitch, idleWatchlistChannels: ["fallback"] },
       },
     };
 
@@ -876,7 +876,7 @@ describe("background controller", () => {
     }));
 
     expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
-    expect(snapshot.settings.platform.twitch.watchQueueChannels).toEqual(["fallback"]);
+    expect(snapshot.settings.platform.twitch.idleWatchlistChannels).toEqual(["fallback"]);
   });
 
   it("only ticks requested platforms after saving settings with targeted platforms", async () => {
@@ -885,7 +885,7 @@ describe("background controller", () => {
       ...env.settings,
       platform: {
         ...env.settings.platform,
-        kick: { ...env.settings.platform.kick, watchQueueChannels: ["fallback"] },
+        kick: { ...env.settings.platform.kick, idleWatchlistChannels: ["fallback"] },
       },
     };
 
@@ -899,16 +899,16 @@ describe("background controller", () => {
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(env.kick.discoverCampaigns).toHaveBeenCalled();
-    expect(snapshot.settings.platform.kick.watchQueueChannels).toEqual(["fallback"]);
+    expect(snapshot.settings.platform.kick.idleWatchlistChannels).toEqual(["fallback"]);
   });
 
-  it("does not start automation after saving Watch Queue settings while paused", async () => {
+  it("does not start automation after saving Idle Watchlist settings while paused", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false });
     const nextSettings = {
       ...env.settings,
       platform: {
         ...env.settings.platform,
-        twitch: { ...env.settings.platform.twitch, watchQueueChannels: ["fallback"] },
+        twitch: { ...env.settings.platform.twitch, idleWatchlistChannels: ["fallback"] },
       },
     };
 
@@ -920,7 +920,7 @@ describe("background controller", () => {
 
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(snapshot.settings.running).toBe(false);
-    expect(snapshot.settings.platform.twitch.watchQueueChannels).toEqual(["fallback"]);
+    expect(snapshot.settings.platform.twitch.idleWatchlistChannels).toEqual(["fallback"]);
   });
 
   it("temporarily pauses active sessions while a settings session is open without persisting running=false", async () => {
@@ -1387,7 +1387,7 @@ describe("background controller", () => {
       running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
       },
     });
     env.state.sessions.twitch = {
@@ -1428,7 +1428,7 @@ describe("background controller", () => {
       running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, watchQueueChannels: [] },
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
       },
     });
     env.state.sessions.twitch = {
@@ -1780,7 +1780,7 @@ describe("background controller", () => {
       tablessMode: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
       },
       ...overrides,
     });
@@ -1817,7 +1817,7 @@ describe("background controller", () => {
       tablessMode: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
       },
     }, {
       reportEvents: async (events) => { reported.push([...events]); },
@@ -2044,7 +2044,7 @@ describe("background controller", () => {
         autoClaim: true,
         platform: {
           ...DEFAULT_SETTINGS.platform,
-          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchQueueChannels: [] },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
         },
         ...overrides,
       }, { wait: timer.wait });

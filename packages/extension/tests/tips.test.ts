@@ -85,7 +85,7 @@ describe("TipsBanner", () => {
       "tipCampaignPriority",
       "tipMissingCampaigns",
       "tipCategorySelection",
-      "tipWatchQueue",
+      "tipIdleWatchlist",
       "tipTablessMode",
       "tipCli",
       "tipCliAction",

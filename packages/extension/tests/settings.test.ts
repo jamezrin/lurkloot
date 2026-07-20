@@ -34,6 +34,36 @@ describe("engine settings", () => {
 });
 
 describe("settings", () => {
+  it("migrates legacy Watch Queue settings to Idle Watchlist settings", () => {
+    const settings = mergeSettings({
+      watchQueueFallbackOnly: false,
+      platform: {
+        twitch: { watchQueueChannels: [" LegacyOne ", "legacyone", "Second"] },
+        kick: { watchQueueChannels: ["KickLegacy"] },
+      },
+    } as never);
+
+    expect(settings.idleWatchlistFallbackOnly).toBe(false);
+    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["legacyone", "second"]);
+    expect(settings.platform.kick.idleWatchlistChannels).toEqual(["kicklegacy"]);
+    expect(settings).not.toHaveProperty("watchQueueFallbackOnly");
+  });
+
+  it("prefers new Idle Watchlist settings over legacy aliases", () => {
+    const settings = mergeSettings({
+      idleWatchlistFallbackOnly: false,
+      watchQueueFallbackOnly: true,
+      platform: {
+        twitch: { idleWatchlistChannels: [], watchQueueChannels: ["legacy"] },
+        kick: { idleWatchlistChannels: ["new"], watchQueueChannels: ["legacy"] },
+      },
+    } as never);
+
+    expect(settings.idleWatchlistFallbackOnly).toBe(false);
+    expect(settings.platform.twitch.idleWatchlistChannels).toEqual([]);
+    expect(settings.platform.kick.idleWatchlistChannels).toEqual(["new"]);
+  });
+
   it("defaults compatibility selections to automatic detection", () => {
     expect(mergeSettings(undefined).compatibility).toEqual({
       twitch: { profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "auto" },
@@ -86,7 +116,7 @@ describe("settings", () => {
       autoStartDropFarming: true,
       showTips: true,
       languageOverride: "browser",
-      watchQueueFallbackOnly: true,
+      idleWatchlistFallbackOnly: true,
       pollIntervalMinutes: 1,
       diagnosticLogging: false,
       platform: {
@@ -167,11 +197,11 @@ describe("settings", () => {
       platform: {
         twitch: {
           enabled: "true",
-          watchQueueChannels: [" Creator ", "", "creator"],
+          idleWatchlistChannels: [" Creator ", "", "creator"],
           excludedChannels: [" @SkipMe ", "skipme"],
           categories: [{ id: " Game-A ", name: " Game A " }, { id: "game-a", name: "Dup" }, { id: "", name: "blank" }],
         },
-        kick: { enabled: false, watchQueueChannels: ["KickOne"], excludedChannels: ["KickSkip"], categories: [{ id: "cat-1", name: "Category" }] },
+        kick: { enabled: false, idleWatchlistChannels: ["KickOne"], excludedChannels: ["KickSkip"], categories: [{ id: "cat-1", name: "Category" }] },
       },
       campaignPriorities: {
         " campaign ": 2.6,
@@ -185,12 +215,12 @@ describe("settings", () => {
     expect(settings.pauseOnManualWatch).toBe(DEFAULT_SETTINGS.pauseOnManualWatch);
     expect(settings.priorityMode).toBe(DEFAULT_SETTINGS.priorityMode);
     expect(settings.platform.twitch.enabled).toBe(DEFAULT_SETTINGS.platform.twitch.enabled);
-    expect(settings.platform.twitch.watchQueueChannels).toEqual(["creator"]);
+    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["creator"]);
     expect(settings.platform.twitch.excludedChannels).toEqual(["skipme"]);
     // Categories: trimmed, deduped by lowercased id (order preserved), blanks dropped.
     expect(settings.platform.twitch.categories).toEqual([{ id: "Game-A", name: "Game A" }]);
     expect(settings.platform.kick.enabled).toBe(false);
-    expect(settings.platform.kick.watchQueueChannels).toEqual(["kickone"]);
+    expect(settings.platform.kick.idleWatchlistChannels).toEqual(["kickone"]);
     expect(settings.platform.kick.excludedChannels).toEqual(["kickskip"]);
     expect(settings.platform.kick.categories).toEqual([{ id: "cat-1", name: "Category" }]);
     expect(settings.campaignPriorities).toEqual({ campaign: 3 });
@@ -236,22 +266,22 @@ describe("settings", () => {
       .toBe("browser");
   });
 
-  it("preserves watch queue channel priority order while removing duplicates", () => {
+  it("preserves idle watchlist channel priority order while removing duplicates", () => {
     const settings = mergeSettings({
       platform: {
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, watchQueueChannels: ["third", "first", "second", "first"] },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, watchQueueChannels: [] },
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, idleWatchlistChannels: ["third", "first", "second", "first"] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, idleWatchlistChannels: [] },
       },
     });
 
-    expect(settings.platform.twitch.watchQueueChannels).toEqual(["third", "first", "second"]);
+    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["third", "first", "second"]);
   });
 
   it("defaults Farm all categories on and ignores the legacy gamePriority list", () => {
     const settings = mergeSettings({
       platform: {
-        twitch: { enabled: true, watchQueueChannels: [], gamePriority: ["13", "rust"] },
-        kick: { enabled: true, watchQueueChannels: [] },
+        twitch: { enabled: true, idleWatchlistChannels: [], gamePriority: ["13", "rust"] },
+        kick: { enabled: true, idleWatchlistChannels: [] },
       },
     } as unknown as Parameters<typeof mergeSettings>[0]);
 

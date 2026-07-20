@@ -104,8 +104,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "watchQueueTab": {
-    "message": "Watch Queue"
+  "idleWatchlistTab": {
+    "message": "Idle Watchlist"
   },
   "automationTitle": {
     "message": "$1 automation"
@@ -139,10 +139,10 @@
   },
   "hideTipsTitle": { "message": "Hide tips" },
   "hideTipsDescription": { "message": "Remove helpful tips from the main popup." },
-  "tipCampaignPriority": { "message": "Drops take priority over the Watch Queue. Drag campaigns by the grip to set their farming order." },
+  "tipCampaignPriority": { "message": "Drops take priority over the Idle Watchlist. Drag campaigns by the grip to set their farming order." },
   "tipMissingCampaigns": { "message": "Missing a campaign? Check your platform's Drops inventory, then review campaign filters in Settings." },
   "tipCategorySelection": { "message": "Only farming certain games? Turn off ‘Farm all categories’ in platform settings and choose your categories." },
-  "tipWatchQueue": { "message": "The Watch Queue farms selected channels when no eligible drops are available." },
+  "tipIdleWatchlist": { "message": "Drops stay first priority. The Idle Watchlist watches selected channels when no eligible drops are available." },
   "tipTablessMode": { "message": "Tabless mode uses fewer resources and falls back to a muted tab when needed." },
   "tipCli": { "message": "Prefer running without an extension? Lurkloot is also available as a Docker-based CLI." },
   "tipCliAction": { "message": "Read the CLI guide" },
@@ -281,8 +281,8 @@
   "excludeFromFarming": {
     "message": "Exclude from farming"
   },
-  "noWatchQueue": {
-    "message": "No watch queue channels configured."
+  "noIdleWatchlist": {
+    "message": "No idle watchlist channels configured."
   },
   "channelPlaceholder": {
     "message": "channel"
@@ -293,8 +293,8 @@
   "addChannel": {
     "message": "Add channel"
   },
-  "queued": {
-    "message": "queued"
+  "idleWatchlistChannel": {
+    "message": "On watchlist"
   },
   "live": {
     "message": "live"
@@ -371,17 +371,17 @@
   "lowAvailabilityFirst": {
     "message": "Low availability first"
   },
-  "watchQueueSettingsTitle": {
-    "message": "Watch Queue"
+  "idleWatchlistSettingsTitle": {
+    "message": "Idle Watchlist"
   },
-  "watchQueueSettingsDescription": {
-    "message": "Shared fallback queue behavior."
+  "idleWatchlistSettingsDescription": {
+    "message": "Fallback channels used when no eligible drops are available."
   },
-  "watchQueueFallbackOnlyTitle": {
-    "message": "Only when no drops are active"
+  "idleWatchlistFallbackOnlyTitle": {
+    "message": "Only when no eligible drops are available"
   },
-  "watchQueueFallbackOnlyDescription": {
-    "message": "Preserves drop priority automatically."
+  "idleWatchlistFallbackOnlyDescription": {
+    "message": "Keeps eligible drop farming first priority."
   },
   "platformSettingsTitle": {
     "message": "Platform settings"
@@ -414,7 +414,7 @@
     "message": "Mute farming tabs"
   },
   "muteTabsDescription": {
-    "message": "Keep drop and Watch Queue tabs muted while farming."
+    "message": "Keep drop and Idle Watchlist tabs muted while farming."
   },
   "keepVideosUnmutedTitle": {
     "message": "Keep farming videos unmuted"
@@ -487,13 +487,13 @@
     "message": "Automation"
   },
   "farmOnPlatform": {
-    "message": "Farm drops and watch the queue on $1."
+    "message": "Farm drops and watch Idle Watchlist channels on $1."
   },
   "enabled": {
     "message": "Enabled"
   },
-  "watchQueueEditHint": {
-    "message": "Edit it from the Watch Queue tab after selecting $1."
+  "idleWatchlistEditHint": {
+    "message": "Edit it from the Idle Watchlist tab after selecting $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Auto-claim channel points"
@@ -621,11 +621,11 @@
   "screenshotKickSubcopy": {
     "message": "The same automation, eligibility checks, and auto-claim you rely on for Twitch — now covering Kick creator rewards."
   },
-  "screenshotQueueHeadline": {
-    "message": "A fallback Watch Queue keeps you earning."
+  "screenshotIdleWatchlistHeadline": {
+    "message": "Your Idle Watchlist keeps you earning between drops."
   },
-  "screenshotQueueSubcopy": {
-    "message": "When no drops are active, Lurkloot watches your favorite channels so your time online never goes to waste."
+  "screenshotIdleWatchlistSubcopy": {
+    "message": "When no eligible drops are available, Lurkloot watches your selected fallback channels."
   },
   "screenshotSettingsHeadline": {
     "message": "Tune every detail to your setup."
@@ -754,8 +754,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "a higher-priority reward took over"
   },
-  "activityReasonHigherPriorityWatchQueue": {
-    "message": "the Watch Queue took priority"
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "a higher-priority Idle Watchlist channel became available"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "the watch requirement was completed"

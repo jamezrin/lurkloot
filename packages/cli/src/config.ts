@@ -51,8 +51,8 @@ export function defaultConfigJsonc(): string {
     "campaignPriorities": ${json(defaults.campaignPriorities)},
     "excludedCampaignIds": ${json(defaults.excludedCampaignIds)},
 
-    // Prefer explicit watch queues; fall back to discovered eligible channels.
-    "watchQueueFallbackOnly": ${json(defaults.watchQueueFallbackOnly)},
+    // Keep eligible drops first; use the Idle Watchlist only when none are available.
+    "idleWatchlistFallbackOnly": ${json(defaults.idleWatchlistFallbackOnly)},
     "offlineRetryLimit": ${json(defaults.offlineRetryLimit)},
     // How often campaign discovery and watch state are refreshed (1-60 minutes).
     "pollIntervalMinutes": ${json(defaults.pollIntervalMinutes)},
@@ -90,7 +90,7 @@ export function defaultConfigJsonc(): string {
     "platform": {
       "twitch": {
         "enabled": ${json(twitch.enabled)},
-        "watchQueueChannels": ${json(twitch.watchQueueChannels)},
+        "idleWatchlistChannels": ${json(twitch.idleWatchlistChannels)},
         "excludedChannels": ${json(twitch.excludedChannels)},
         "farmAllCategories": ${json(twitch.farmAllCategories)},
         // Used when farmAllCategories is false.
@@ -100,7 +100,7 @@ export function defaultConfigJsonc(): string {
       },
       "kick": {
         "enabled": ${json(kick.enabled)},
-        "watchQueueChannels": ${json(kick.watchQueueChannels)},
+        "idleWatchlistChannels": ${json(kick.idleWatchlistChannels)},
         "excludedChannels": ${json(kick.excludedChannels)},
         "farmAllCategories": ${json(kick.farmAllCategories)},
         // Used when farmAllCategories is false.

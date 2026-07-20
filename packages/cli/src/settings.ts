@@ -23,7 +23,7 @@ export interface CliSettings {
   priorityMode: PriorityMode;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
-  watchQueueFallbackOnly: boolean;
+  idleWatchlistFallbackOnly: boolean;
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
   // Bounded post-claim refresh. Twitch-only in practice: the Kick adapter does
@@ -51,7 +51,7 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   priorityMode: DEFAULT_SETTINGS.priorityMode,
   campaignPriorities: { ...DEFAULT_SETTINGS.campaignPriorities },
   excludedCampaignIds: [...DEFAULT_SETTINGS.excludedCampaignIds],
-  watchQueueFallbackOnly: DEFAULT_SETTINGS.watchQueueFallbackOnly,
+  idleWatchlistFallbackOnly: DEFAULT_SETTINGS.idleWatchlistFallbackOnly,
   offlineRetryLimit: DEFAULT_SETTINGS.offlineRetryLimit,
   pollIntervalMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
   postClaimHandoff: DEFAULT_SETTINGS.postClaimHandoff,
@@ -76,6 +76,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "priorityMode",
   "campaignPriorities",
   "excludedCampaignIds",
+  "idleWatchlistFallbackOnly",
   "watchQueueFallbackOnly",
   "offlineRetryLimit",
   "pollIntervalMinutes",
@@ -94,8 +95,8 @@ const CLI_SETTING_KEYS = new Set<string>([
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
-  twitch: new Set(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChannelPoints"]),
-  kick: new Set(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChallenges"]),
+  twitch: new Set(["enabled", "idleWatchlistChannels", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChannelPoints"]),
+  kick: new Set(["enabled", "idleWatchlistChannels", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChallenges"]),
 };
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
@@ -206,7 +207,10 @@ export function parseCliSettings(raw: unknown): CliSettings {
       : DEFAULT_CLI_SETTINGS.priorityMode,
     campaignPriorities: normalizePriorities(v.campaignPriorities),
     excludedCampaignIds: normalizeIdList(v.excludedCampaignIds),
-    watchQueueFallbackOnly: booleanOr(v.watchQueueFallbackOnly, DEFAULT_CLI_SETTINGS.watchQueueFallbackOnly),
+    idleWatchlistFallbackOnly: booleanOr(
+      currentOrLegacy<boolean>(value, "idleWatchlistFallbackOnly", "watchQueueFallbackOnly"),
+      DEFAULT_CLI_SETTINGS.idleWatchlistFallbackOnly,
+    ),
     offlineRetryLimit: clampInteger(v.offlineRetryLimit, 1, 10, DEFAULT_CLI_SETTINGS.offlineRetryLimit),
     pollIntervalMinutes: clampNumber(v.pollIntervalMinutes, 1, 60, DEFAULT_CLI_SETTINGS.pollIntervalMinutes),
     postClaimHandoff: booleanOr(v.postClaimHandoff, DEFAULT_CLI_SETTINGS.postClaimHandoff),
@@ -250,7 +254,9 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Platfor
       ps,
       base: {
         enabled: booleanOr(ps.enabled, defaults.enabled),
-        watchQueueChannels: normalizeChannelList(ps.watchQueueChannels),
+        idleWatchlistChannels: normalizeChannelList(
+          currentOrLegacy<string[]>(ps, "idleWatchlistChannels", "watchQueueChannels"),
+        ),
         excludedChannels: normalizeChannelList(ps.excludedChannels),
         farmAllCategories: booleanOr(ps.farmAllCategories, defaults.farmAllCategories),
         categories: normalizeCategorySelections(ps.categories),
@@ -269,6 +275,14 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Platfor
       autoClaimChallenges: booleanOr(kick.ps.autoClaimChallenges, DEFAULT_CLI_SETTINGS.platform.kick.autoClaimChallenges),
     },
   };
+}
+
+function currentOrLegacy<T>(owner: object | undefined, currentKey: string, legacyKey: string): T | undefined {
+  if (!owner) return undefined;
+  const values = owner as Record<string, unknown>;
+  return Object.prototype.hasOwnProperty.call(values, currentKey)
+    ? values[currentKey] as T | undefined
+    : values[legacyKey] as T | undefined;
 }
 
 // Expands the CLI settings into the EngineSettings contract the shared engine

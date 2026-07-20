@@ -104,8 +104,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "watchQueueTab": {
-    "message": "File de visionnage"
+  "idleWatchlistTab": {
+    "message": "Liste de veille inactive"
   },
   "automationTitle": {
     "message": "Automatisation $1"
@@ -139,10 +139,10 @@
   },
   "hideTipsTitle": { "message": "Masquer les astuces" },
   "hideTipsDescription": { "message": "Masque les astuces de la fenêtre principale." },
-  "tipCampaignPriority": { "message": "Les drops ont priorité sur la file d’attente. Faites glisser les campagnes par la poignée pour les ordonner." },
+  "tipCampaignPriority": { "message": "Les drops ont priorité sur la liste de veille inactive. Faites glisser les campagnes par la poignée pour les ordonner." },
   "tipMissingCampaigns": { "message": "Une campagne manque ? Vérifiez l’inventaire Drops de la plateforme puis les filtres dans les paramètres." },
   "tipCategorySelection": { "message": "Seulement certains jeux ? Désactivez « Farmer toutes les catégories » et choisissez vos catégories." },
-  "tipWatchQueue": { "message": "La file d’attente farme les chaînes choisies lorsqu’aucun drop éligible n’est disponible." },
+  "tipIdleWatchlist": { "message": "La liste de veille inactive farme les chaînes choisies lorsqu’aucun drop éligible n’est disponible." },
   "tipTablessMode": { "message": "Le mode sans onglet utilise moins de ressources et ouvre un onglet muet si nécessaire." },
   "tipCli": { "message": "Vous préférez éviter l’extension ? Lurkloot existe aussi en CLI Docker." },
   "tipCliAction": { "message": "Lire le guide CLI" },
@@ -281,8 +281,8 @@
   "excludeFromFarming": {
     "message": "Exclure du farm"
   },
-  "noWatchQueue": {
-    "message": "Aucune chaîne configurée dans la file."
+  "noIdleWatchlist": {
+    "message": "Aucune chaîne configurée dans la liste."
   },
   "channelPlaceholder": {
     "message": "chaîne"
@@ -293,8 +293,8 @@
   "addChannel": {
     "message": "Ajouter une chaîne"
   },
-  "queued": {
-    "message": "en file"
+  "idleWatchlistChannel": {
+    "message": "dans la liste de veille"
   },
   "live": {
     "message": "en direct"
@@ -371,16 +371,16 @@
   "lowAvailabilityFirst": {
     "message": "Faible disponibilité d’abord"
   },
-  "watchQueueSettingsTitle": {
-    "message": "File de visionnage"
+  "idleWatchlistSettingsTitle": {
+    "message": "Liste de veille inactive"
   },
-  "watchQueueSettingsDescription": {
-    "message": "Comportement partagé de la file de secours."
+  "idleWatchlistSettingsDescription": {
+    "message": "Comportement partagé de la liste de secours."
   },
-  "watchQueueFallbackOnlyTitle": {
-    "message": "Seulement sans drops actifs"
+  "idleWatchlistFallbackOnlyTitle": {
+    "message": "Uniquement lorsqu’aucun drop éligible n’est disponible"
   },
-  "watchQueueFallbackOnlyDescription": {
+  "idleWatchlistFallbackOnlyDescription": {
     "message": "Préserve automatiquement la priorité des drops."
   },
   "platformSettingsTitle": {
@@ -414,7 +414,7 @@
     "message": "Mettre les onglets de farm en sourdine"
   },
   "muteTabsDescription": {
-    "message": "Garde les onglets Drops et file de visionnage en sourdine pendant le farm."
+    "message": "Garde les onglets Drops et liste de veille inactive en sourdine pendant le farm."
   },
   "keepVideosUnmutedTitle": {
     "message": "Garder les vidéos de farm non muettes"
@@ -492,8 +492,8 @@
   "enabled": {
     "message": "Activé"
   },
-  "watchQueueEditHint": {
-    "message": "Modifiez-la depuis l’onglet File de visionnage après avoir sélectionné $1."
+  "idleWatchlistEditHint": {
+    "message": "Modifiez-la depuis l’onglet Liste de veille inactive après avoir sélectionné $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Réclamer automatiquement les points de chaîne"
@@ -621,10 +621,10 @@
   "screenshotKickSubcopy": {
     "message": "La même automatisation, les mêmes vérifications d’éligibilité et la réclamation auto que sur Twitch, désormais pour les récompenses créateur Kick."
   },
-  "screenshotQueueHeadline": {
-    "message": "Une file de visionnage de secours vous garde en progression."
+  "screenshotIdleWatchlistHeadline": {
+    "message": "Une liste de veille inactive de secours vous garde en progression."
   },
-  "screenshotQueueSubcopy": {
+  "screenshotIdleWatchlistSubcopy": {
     "message": "Quand aucun drop n’est actif, Lurkloot regarde vos chaînes préférées pour que votre temps en ligne reste utile."
   },
   "screenshotSettingsHeadline": {
@@ -754,8 +754,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "une récompense prioritaire a pris le relais"
   },
-  "activityReasonHigherPriorityWatchQueue": {
-    "message": "la file de visionnage est devenue prioritaire"
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "la liste de veille inactive est devenue prioritaire"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "la durée de visionnage requise est atteinte"

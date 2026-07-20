@@ -84,12 +84,12 @@ export const SCREENSHOT_VARIANTS: Record<string, ScreenshotVariant> = {
     headlineKey: "screenshotKickHeadline",
     subcopyKey: "screenshotKickSubcopy",
   },
-  "watch-queue": {
+  "idle-watchlist": {
     platform: "twitch",
-    view: "watchQueue",
+    view: "idleWatchlist",
     accentGradient: TWITCH_GRADIENT,
-    headlineKey: "screenshotQueueHeadline",
-    subcopyKey: "screenshotQueueSubcopy",
+    headlineKey: "screenshotIdleWatchlistHeadline",
+    subcopyKey: "screenshotIdleWatchlistSubcopy",
   },
   settings: {
     platform: "twitch",

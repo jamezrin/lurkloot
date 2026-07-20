@@ -2,6 +2,32 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CLI_SETTINGS, parseCliSettings, toEngineSettings } from "../src/settings";
 
 describe("parseCliSettings", () => {
+  it("accepts legacy Watch Queue keys and normalizes them to Idle Watchlist keys", () => {
+    const settings = parseCliSettings({
+      watchQueueFallbackOnly: false,
+      platform: { twitch: { watchQueueChannels: [" Legacy ", "legacy"] } },
+    });
+
+    expect(settings.idleWatchlistFallbackOnly).toBe(false);
+    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["legacy"]);
+    expect(settings).not.toHaveProperty("watchQueueFallbackOnly");
+  });
+
+  it("prefers Idle Watchlist keys over legacy CLI aliases", () => {
+    const settings = parseCliSettings({
+      idleWatchlistFallbackOnly: false,
+      watchQueueFallbackOnly: true,
+      platform: {
+        twitch: { idleWatchlistChannels: [], watchQueueChannels: ["legacy"] },
+        kick: { idleWatchlistChannels: ["new"], watchQueueChannels: ["legacy"] },
+      },
+    });
+
+    expect(settings.idleWatchlistFallbackOnly).toBe(false);
+    expect(settings.platform.twitch.idleWatchlistChannels).toEqual([]);
+    expect(settings.platform.kick.idleWatchlistChannels).toEqual(["new"]);
+  });
+
   it("returns defaults for an empty/undefined settings block", () => {
     expect(parseCliSettings(undefined)).toEqual(DEFAULT_CLI_SETTINGS);
     expect(parseCliSettings({})).toEqual(DEFAULT_CLI_SETTINGS);
@@ -12,7 +38,7 @@ describe("parseCliSettings", () => {
       autoClaim: false,
       pollIntervalMinutes: 9,
       excludedCampaignIds: [" Foo ", "Foo", "bar"],
-      platform: { twitch: { enabled: false, watchQueueChannels: ["@Streamer", "streamer"] } },
+      platform: { twitch: { enabled: false, idleWatchlistChannels: ["@Streamer", "streamer"] } },
     });
     expect(settings.autoClaim).toBe(false);
     expect(settings.pollIntervalMinutes).toBe(9);
@@ -20,7 +46,7 @@ describe("parseCliSettings", () => {
     expect(settings.excludedCampaignIds).toEqual(["Foo", "bar"]);
     // Channels are lowercased, @-stripped and deduped.
     expect(settings.platform.twitch.enabled).toBe(false);
-    expect(settings.platform.twitch.watchQueueChannels).toEqual(["streamer"]);
+    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["streamer"]);
     // Untouched platform keeps its default.
     expect(settings.platform.kick.enabled).toBe(DEFAULT_CLI_SETTINGS.platform.kick.enabled);
   });

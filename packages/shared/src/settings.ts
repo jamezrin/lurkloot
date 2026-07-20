@@ -28,12 +28,12 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   notifyRewardEarned: true,
   notifyNoDropsLeft: true,
   autoStartDropFarming: true,
-  watchQueueFallbackOnly: true,
+  idleWatchlistFallbackOnly: true,
   priorityMode: "ending_soonest",
   platform: {
     twitch: {
       enabled: true,
-      watchQueueChannels: [],
+      idleWatchlistChannels: [],
       excludedChannels: [],
       farmAllCategories: true,
       categories: [],
@@ -41,7 +41,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
     },
     kick: {
       enabled: true,
-      watchQueueChannels: [],
+      idleWatchlistChannels: [],
       excludedChannels: [],
       farmAllCategories: true,
       categories: [],
@@ -111,14 +111,19 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     notifyRewardEarned: booleanOr(value?.notifyRewardEarned, DEFAULT_ENGINE_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_ENGINE_SETTINGS.notifyNoDropsLeft),
     autoStartDropFarming: booleanOr(value?.autoStartDropFarming, DEFAULT_ENGINE_SETTINGS.autoStartDropFarming),
-    watchQueueFallbackOnly: booleanOr(value?.watchQueueFallbackOnly, DEFAULT_ENGINE_SETTINGS.watchQueueFallbackOnly),
+    idleWatchlistFallbackOnly: booleanOr(
+      currentOrLegacy<boolean>(value, "idleWatchlistFallbackOnly", "watchQueueFallbackOnly"),
+      DEFAULT_ENGINE_SETTINGS.idleWatchlistFallbackOnly,
+    ),
     priorityMode: PRIORITY_MODES.includes(value?.priorityMode as PriorityMode)
       ? (value!.priorityMode as PriorityMode)
       : DEFAULT_ENGINE_SETTINGS.priorityMode,
     platform: {
       twitch: {
         enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_ENGINE_SETTINGS.platform.twitch.enabled),
-        watchQueueChannels: normalizeChannelList(platform?.twitch?.watchQueueChannels),
+        idleWatchlistChannels: normalizeChannelList(
+          currentOrLegacy<string[]>(platform?.twitch, "idleWatchlistChannels", "watchQueueChannels"),
+        ),
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
         farmAllCategories: booleanOr(platform?.twitch?.farmAllCategories, DEFAULT_ENGINE_SETTINGS.platform.twitch.farmAllCategories),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
@@ -129,7 +134,9 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),
-        watchQueueChannels: normalizeChannelList(platform?.kick?.watchQueueChannels),
+        idleWatchlistChannels: normalizeChannelList(
+          currentOrLegacy<string[]>(platform?.kick, "idleWatchlistChannels", "watchQueueChannels"),
+        ),
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         farmAllCategories: booleanOr(platform?.kick?.farmAllCategories, DEFAULT_ENGINE_SETTINGS.platform.kick.farmAllCategories),
         categories: normalizeCategorySelections(platform?.kick?.categories),
@@ -163,6 +170,14 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
       DEFAULT_ENGINE_SETTINGS.deadlineSafetyMarginMinutes,
     ),
   };
+}
+
+function currentOrLegacy<T>(owner: object | undefined, currentKey: string, legacyKey: string): T | undefined {
+  if (!owner) return undefined;
+  const values = owner as Record<string, unknown>;
+  return Object.prototype.hasOwnProperty.call(values, currentKey)
+    ? values[currentKey] as T | undefined
+    : values[legacyKey] as T | undefined;
 }
 
 // Normalizes the extension's full settings: the engine contract plus the
