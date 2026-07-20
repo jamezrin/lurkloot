@@ -110,7 +110,7 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
     case "channel_mismatch": return t("activityReasonChannelMismatch");
     case "watch_unhealthy": return t("activityReasonWatchUnhealthy");
     case "higher_priority_reward": return t("activityReasonHigherPriorityReward");
-    case "higher_priority_watch_queue": return t("activityReasonHigherPriorityWatchQueue");
+    case "higher_priority_idle_watchlist": return t("activityReasonHigherPriorityIdleWatchlist");
     case "watch_requirement_completed": return t("activityReasonWatchRequirementCompleted");
     case "runtime_restart": return t("activityReasonRuntimeRestart");
     case "target_changed": return t("activityReasonTargetChanged");

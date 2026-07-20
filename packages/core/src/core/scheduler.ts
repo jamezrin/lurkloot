@@ -188,7 +188,7 @@ export async function chooseCampaignDecision(
     };
   }
 
-  const fallbackCandidates = settings.platform[platform].watchQueueChannels
+  const fallbackCandidates = settings.platform[platform].idleWatchlistChannels
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean)
     .map((username) => fallbackChannel(platform, username));
@@ -199,15 +199,15 @@ export async function chooseCampaignDecision(
       platform,
       action: "fallback",
       channel: fallback,
-      reason: `${noCampaignReason}; Watch Queue channel selected`,
-      reasonCode: "watch_queue_selected",
+      reason: `${noCampaignReason}; Idle Watchlist channel selected`,
+      reasonCode: "idle_watchlist_selected",
     };
   }
 
   return {
     platform,
     action: "idle",
-    reason: `${noCampaignReason} and no Watch Queue channels`,
+    reason: `${noCampaignReason} and no Idle Watchlist channels`,
     reasonCode: waitingForSubscription ? "campaign_ineligible" : "no_eligible_channel",
   };
 }
@@ -502,11 +502,11 @@ export async function runSchedulerTick(
         const discovered = await adapter.discoverCampaigns();
         campaigns = await adapter.readProgress(discovered, previous);
       } catch (error) {
-        if (!hasWatchQueueChannels(settings, platform)) throw error;
+        if (!hasIdleWatchlistChannels(settings, platform)) throw error;
         campaigns = [];
         const message = error instanceof Error ? error.message : "Drop discovery failed";
-        emitDiagnostic(emit, platform, "warn", `${message}; checking Watch Queue fallback`);
-        emitDiagnostic(emit, platform, "debug", `Drop discovery error (Watch Queue fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
+        emitDiagnostic(emit, platform, "warn", `${message}; checking Idle Watchlist fallback`);
+        emitDiagnostic(emit, platform, "debug", `Drop discovery error (Idle Watchlist fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
       }
       nextState.campaigns[platform] = campaigns;
       if (campaignDiagnosticFingerprint(campaigns) !== campaignDiagnosticFingerprint(state.campaigns[platform])) {
@@ -739,8 +739,8 @@ function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolea
   return !Number.isNaN(checkedAt) && Date.now() - checkedAt <= MANUAL_WATCH_TTL_MS;
 }
 
-function hasWatchQueueChannels(settings: EngineSettings, platform: Platform): boolean {
-  return settings.platform[platform].watchQueueChannels.some((username) => username.trim());
+function hasIdleWatchlistChannels(settings: EngineSettings, platform: Platform): boolean {
+  return settings.platform[platform].idleWatchlistChannels.some((username) => username.trim());
 }
 
 function withoutManagedWatchTab(
@@ -916,7 +916,7 @@ async function shouldKeepWatching(
   // which the controller tracks and falls back to a tab on. Here we only keep or
   // switch the channel based on liveness/category, so skip playback retries.
   const isTabless = previous.watchMode === "tabless";
-  if (!settings.watchQueueFallbackOnly && !previous.campaignId && nextDecision.action === "watch") {
+  if (!settings.idleWatchlistFallbackOnly && !previous.campaignId && nextDecision.action === "watch") {
     const fallbackCheck = await adapter.checkChannel(previous.channel);
     const fallbackOfflineChecks = fallbackCheck.live ? 0 : previous.offlineChecks + 1;
     if (fallbackCheck.live && fallbackCheck.categoryMatches) {
@@ -927,8 +927,8 @@ async function shouldKeepWatching(
           offlineChecks: fallbackOfflineChecks,
           playbackChecks: fallbackPlaybackChecks,
           channel: channelFromCheck(previous.channel, fallbackCheck),
-          reason: "Keeping current Watch Queue tab",
-          reasonCode: "keeping_watch_queue",
+          reason: "Keeping current Idle Watchlist tab",
+          reasonCode: "keeping_idle_watchlist",
         };
       }
     }
@@ -942,14 +942,14 @@ async function shouldKeepWatching(
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority eligible campaign available", reasonCode: "higher_priority_reward" };
   }
 
-  // When watching a Watch Queue fallback, a different selection means a
-  // higher-priority watch queue channel is now live (e.g. after reordering the
-  // queue or one coming online), so switch to it instead of staying put.
+  // When watching an Idle Watchlist fallback, a different selection means a
+  // higher-priority idle watchlist channel is now live (e.g. after reordering the
+  // watchlist or one coming online), so switch to it instead of staying put.
   const differentFallbackAvailable = changedTarget
     && nextDecision.action === "fallback"
     && !previous.campaignId;
   if (differentFallbackAvailable) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Watch Queue channel available", reasonCode: "higher_priority_watch_queue" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Idle Watchlist channel available", reasonCode: "higher_priority_idle_watchlist" };
   }
 
   const check = await adapter.checkChannel(previous.channel);
@@ -1033,8 +1033,8 @@ function normalizedPreviousReasonCode(previous: WatchSession, decision: WatchDec
   if (decision.reasonCode === "keeping_current_watch" && previous.reasonCode === "eligible_campaign") {
     return "keeping_current_watch";
   }
-  if (decision.reasonCode === "keeping_watch_queue" && previous.reasonCode === "watch_queue_selected") {
-    return "keeping_watch_queue";
+  if (decision.reasonCode === "keeping_idle_watchlist" && previous.reasonCode === "idle_watchlist_selected") {
+    return "keeping_idle_watchlist";
   }
   return previous.reasonCode;
 }

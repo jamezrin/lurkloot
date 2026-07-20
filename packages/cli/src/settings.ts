@@ -9,6 +9,7 @@ import {
   normalizeIdList,
   normalizePriorities,
 } from "@lurkloot/shared/settings";
+import { migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
 import type { CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
@@ -23,7 +24,7 @@ export interface CliSettings {
   priorityMode: PriorityMode;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
-  watchQueueFallbackOnly: boolean;
+  idleWatchlistFallbackOnly: boolean;
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
   // Bounded post-claim refresh. Twitch-only in practice: the Kick adapter does
@@ -51,7 +52,7 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   priorityMode: DEFAULT_SETTINGS.priorityMode,
   campaignPriorities: { ...DEFAULT_SETTINGS.campaignPriorities },
   excludedCampaignIds: [...DEFAULT_SETTINGS.excludedCampaignIds],
-  watchQueueFallbackOnly: DEFAULT_SETTINGS.watchQueueFallbackOnly,
+  idleWatchlistFallbackOnly: DEFAULT_SETTINGS.idleWatchlistFallbackOnly,
   offlineRetryLimit: DEFAULT_SETTINGS.offlineRetryLimit,
   pollIntervalMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
   postClaimHandoff: DEFAULT_SETTINGS.postClaimHandoff,
@@ -76,7 +77,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "priorityMode",
   "campaignPriorities",
   "excludedCampaignIds",
-  "watchQueueFallbackOnly",
+  "idleWatchlistFallbackOnly",
   "offlineRetryLimit",
   "pollIntervalMinutes",
   "postClaimHandoff",
@@ -94,8 +95,8 @@ const CLI_SETTING_KEYS = new Set<string>([
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
-  twitch: new Set(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChannelPoints"]),
-  kick: new Set(["enabled", "watchQueueChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChallenges"]),
+  twitch: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChannelPoints"]),
+  kick: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChallenges"]),
 };
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
@@ -121,35 +122,56 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "diagnosticLogging",
 ]);
 
-// Top-level settings that moved into a per-platform block. Named separately so
-// an existing config that still carries one gets a "move it here" error instead
-// of a misleading "unknown setting".
-const MOVED_SETTING_KEYS: Record<string, string> = {
-  autoClaimChannelPoints: "platform.twitch.autoClaimChannelPoints",
-};
-
-function describeOffender(key: string): string {
-  const movedTo = MOVED_SETTING_KEYS[key];
-  if (movedTo) return `"${key}" moved to "${movedTo}"; move the value there`;
+// A migration may rename a legacy key onto one the CLI rejects — `verboseLogging`
+// becomes `diagnosticLogging`, which is extension-only. Name the key the user
+// actually wrote, or the error points at a line their file does not contain. The
+// match is by `replacement`; a nested rename's replacement is a dotted path that
+// never equals a bare top-level key, so this only fires for top-level offenders.
+// A user who writes BOTH the legacy and the current form of such a key sees the
+// "renamed from" framing even though they also wrote the current name directly;
+// that collision is pathological (an extension-only key in two forms in a CLI
+// config) and still names a real offending line, so it is left as-is.
+function describeOffender(key: string, diagnostics: SettingsMigrationDiagnostic[]): string {
+  const renamedFrom = diagnostics.find((diagnostic) => diagnostic.replacement === key)?.path;
+  const subject = renamedFrom ? `"${renamedFrom}" (renamed to "${key}")` : `"${key}"`;
   return EXTENSION_ONLY_KEYS.has(key)
-    ? `"${key}" is an extension-only setting with no effect in the CLI; remove it`
-    : `unknown CLI setting "${key}"`;
+    ? `${subject} is an extension-only setting with no effect in the CLI; remove it`
+    : `unknown CLI setting ${subject}`;
 }
 
-// Parses and validates the `settings` block of a CLI config. Unknown or
+export interface CliSettingsParseResult {
+  settings: CliSettings;
+  diagnostics: SettingsMigrationDiagnostic[];
+}
+
+// Parses and validates the `settings` block of a CLI config. Runs the shared
+// migration registry first, so deprecated aliases are renamed away before
+// validation and only genuinely unknown keys become errors; the caller's object
+// is never mutated and the config file is never rewritten. Unknown or
 // extension-only keys (top-level or per-platform) are a hard error listing every
 // offender at once; recognized values are normalized through the shared
 // primitives (range clamps, channel/category/id dedupe, log-level canonicalize).
-export function parseCliSettings(raw: unknown): CliSettings {
-  if (raw === undefined) return structuredClone(DEFAULT_CLI_SETTINGS);
+export function parseCliSettingsWithDiagnostics(raw: unknown): CliSettingsParseResult {
+  if (raw === undefined) return { settings: structuredClone(DEFAULT_CLI_SETTINGS), diagnostics: [] };
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error('Config "settings" must be a JSON object');
   }
-  const value = raw as Record<string, unknown>;
+  const migration = migrateSettings(raw);
+  return { settings: parseMigratedCliSettings(migration.settings, migration.diagnostics), diagnostics: migration.diagnostics };
+}
+
+export function parseCliSettings(raw: unknown): CliSettings {
+  return parseCliSettingsWithDiagnostics(raw).settings;
+}
+
+// Validates and normalizes an already-migrated settings payload. See
+// parseCliSettingsWithDiagnostics for the full contract; `diagnostics` is passed
+// through only so a renamed-away key can be named by its original path in errors.
+function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: SettingsMigrationDiagnostic[]): CliSettings {
   const offenders: string[] = [];
 
   for (const key of Object.keys(value)) {
-    if (!CLI_SETTING_KEYS.has(key)) offenders.push(describeOffender(key));
+    if (!CLI_SETTING_KEYS.has(key)) offenders.push(describeOffender(key, diagnostics));
   }
 
   const platformRaw = value.platform;
@@ -206,7 +228,7 @@ export function parseCliSettings(raw: unknown): CliSettings {
       : DEFAULT_CLI_SETTINGS.priorityMode,
     campaignPriorities: normalizePriorities(v.campaignPriorities),
     excludedCampaignIds: normalizeIdList(v.excludedCampaignIds),
-    watchQueueFallbackOnly: booleanOr(v.watchQueueFallbackOnly, DEFAULT_CLI_SETTINGS.watchQueueFallbackOnly),
+    idleWatchlistFallbackOnly: booleanOr(v.idleWatchlistFallbackOnly, DEFAULT_CLI_SETTINGS.idleWatchlistFallbackOnly),
     offlineRetryLimit: clampInteger(v.offlineRetryLimit, 1, 10, DEFAULT_CLI_SETTINGS.offlineRetryLimit),
     pollIntervalMinutes: clampNumber(v.pollIntervalMinutes, 1, 60, DEFAULT_CLI_SETTINGS.pollIntervalMinutes),
     postClaimHandoff: booleanOr(v.postClaimHandoff, DEFAULT_CLI_SETTINGS.postClaimHandoff),
@@ -250,7 +272,7 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Platfor
       ps,
       base: {
         enabled: booleanOr(ps.enabled, defaults.enabled),
-        watchQueueChannels: normalizeChannelList(ps.watchQueueChannels),
+        idleWatchlistChannels: normalizeChannelList(ps.idleWatchlistChannels),
         excludedChannels: normalizeChannelList(ps.excludedChannels),
         farmAllCategories: booleanOr(ps.farmAllCategories, defaults.farmAllCategories),
         categories: normalizeCategorySelections(ps.categories),

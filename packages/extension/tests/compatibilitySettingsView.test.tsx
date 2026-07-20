@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
 import { applySettingsPatch, DEFAULT_SETTINGS, type SettingsPatch } from "@lurkloot/shared/settings";
 import { I18nContext } from "../../popup-ui/src/context";
-import { CompatibilitySettings } from "../../popup-ui/src/compatibilitySettings";
+import { PlatformCompatibilitySettings } from "../../popup-ui/src/compatibilitySettings";
+import type { Platform } from "@lurkloot/shared/models";
 
 const labels: Record<string, string> = {
   compatibilityAutomatic: "Automatic",
@@ -52,7 +53,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mount(onChange = vi.fn()) {
+function mount(onChange = vi.fn(), platform: Platform = "twitch") {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -72,7 +73,8 @@ function mount(onChange = vi.fn()) {
       return values.reduce((text, value, index) => text.replaceAll(`$${index + 1}`, value), template);
     };
     return <I18nContext.Provider value={{ t: translate, dir: "ltr", locale: "en" }}>
-      <CompatibilitySettings
+      <PlatformCompatibilitySettings
+        platform={platform}
         settings={settings.compatibility}
         registry={COMPATIBILITY_REGISTRY}
         resolution={resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" })}
@@ -106,22 +108,43 @@ function choose(element: HTMLSelectElement, value: string): void {
 }
 
 describe("extension compatibility settings", () => {
-  it("groups capabilities per platform and shows what each one resolved to", () => {
-    const { container } = mount();
-    for (const label of ["Twitch", "Kick", "Profile", "Heartbeat transport", "Inventory query", "Claim handling"]) {
+  it("shows the twitch capabilities and what each one resolved to", () => {
+    const { container } = mount(undefined, "twitch");
+    for (const label of ["Profile", "Heartbeat transport", "Inventory query"]) {
       expect(container.textContent).toContain(label);
     }
+    expect(container.textContent).not.toContain("Claim handling");
     // The resolved id sits on the row itself rather than in a separate summary
     // block, so "Automatic" always states what it actually picked.
-    for (const id of ["twitch-2026-07", "twitch-heartbeat-spade-v1", "twitch-inventory-v1", "kick-2026-07", "kick-claim-v2"]) {
+    for (const id of ["twitch-2026-07", "twitch-heartbeat-spade-v1", "twitch-inventory-v1"]) {
       expect(container.textContent).toContain(id);
     }
     // Full capability names stay as accessible names for the controls.
     expect(select(container, "Twitch compatibility profile").textContent).toContain("Twitch July 2026");
   });
 
+  it("shows the kick capabilities and what each one resolved to", () => {
+    const { container } = mount(undefined, "kick");
+    for (const label of ["Profile", "Claim handling"]) {
+      expect(container.textContent).toContain(label);
+    }
+    expect(container.textContent).not.toContain("Heartbeat transport");
+    expect(container.textContent).not.toContain("Inventory query");
+    for (const id of ["kick-2026-07", "kick-claim-v2"]) {
+      expect(container.textContent).toContain(id);
+    }
+    expect(select(container, "Kick compatibility profile").textContent).toContain("Kick July 2026");
+  });
+
+  it("renders only the requested platform's rows", () => {
+    const { container } = mount(undefined, "twitch");
+    const text = container.textContent ?? "";
+    expect(text).toContain("Heartbeat transport");
+    expect(text).not.toContain("Claim handling");
+  });
+
   it("carries lifecycle into the option labels so the tradeoff is visible when choosing", () => {
-    const { container } = mount();
+    const { container } = mount(undefined, "twitch");
     const heartbeat = select(container, "Twitch heartbeat transport");
     const optionLabels = [...heartbeat.options].map((option) => option.textContent);
     expect(optionLabels).toContain("Automatic");
@@ -130,7 +153,7 @@ describe("extension compatibility settings", () => {
   });
 
   it("attributes inherited values to the profile and flags explicit overrides", () => {
-    const { container } = mount();
+    const { container } = mount(undefined, "twitch");
     expect(container.textContent).toContain("From profile");
     expect(container.textContent).not.toContain("Overridden");
 
@@ -141,8 +164,8 @@ describe("extension compatibility settings", () => {
     expect(container.textContent).toContain("Replaced by Spade heartbeat v1");
   });
 
-  it("overrides on both platforms without a disclosure step, and restores one atomic patch", () => {
-    const { container, onChange } = mount();
+  it("overrides twitch settings without a disclosure step, and restores just that platform", () => {
+    const { container, onChange } = mount(undefined, "twitch");
     expect(container.querySelectorAll('input[type="text"]')).toHaveLength(0);
 
     expect([...select(container, "Twitch inventory query").options].map((option) => option.value)).toEqual(["auto", "twitch-inventory-v1"]);
@@ -150,18 +173,24 @@ describe("extension compatibility settings", () => {
     const heartbeat = select(container, "Twitch heartbeat transport");
     expect(heartbeat.textContent).not.toContain("Trowel");
     act(() => choose(heartbeat, "twitch-heartbeat-gql-v1"));
-
-    const claim = select(container, "Kick claim-link handling");
-    act(() => choose(claim, "kick-claim-v2"));
     expect(onChange).toHaveBeenNthCalledWith(1, { compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-gql-v1" } } });
-    expect(onChange).toHaveBeenNthCalledWith(2, { compatibility: { kick: { claimLinkHandling: "kick-claim-v2" } } });
 
     act(() => byText(container, "Restore automatic compatibility").click());
     expect(onChange).toHaveBeenLastCalledWith({
-      compatibility: {
-        twitch: { profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "auto" },
-        kick: { profile: "auto", claimLinkHandling: "auto" },
-      },
+      compatibility: { twitch: { profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "auto" } },
+    });
+  });
+
+  it("overrides kick settings without a disclosure step, and restores just that platform", () => {
+    const { container, onChange } = mount(undefined, "kick");
+
+    const claim = select(container, "Kick claim-link handling");
+    act(() => choose(claim, "kick-claim-v2"));
+    expect(onChange).toHaveBeenNthCalledWith(1, { compatibility: { kick: { claimLinkHandling: "kick-claim-v2" } } });
+
+    act(() => byText(container, "Restore automatic compatibility").click());
+    expect(onChange).toHaveBeenLastCalledWith({
+      compatibility: { kick: { profile: "auto", claimLinkHandling: "auto" } },
     });
   });
 });

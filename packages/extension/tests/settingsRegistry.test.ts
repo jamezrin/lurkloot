@@ -1,0 +1,150 @@
+import { describe, expect, it } from "vitest";
+import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
+import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { buildSettingsRegistry } from "../../popup-ui/src/settingsRegistry";
+
+const englishPath = createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json");
+const english = JSON.parse(readFileSync(englishPath, "utf8")) as Record<string, { message: string }>;
+
+function registry() {
+  return buildSettingsRegistry({
+    t: (key: string) => key,
+    settings: DEFAULT_SETTINGS,
+    onSettingsChange: async () => undefined,
+    suggestions: { twitch: [], kick: [] },
+    onSearchCategories: async () => [],
+    compatibilityRegistry: COMPATIBILITY_REGISTRY,
+    compatibilityResolution: resolveCompatibility(DEFAULT_SETTINGS.compatibility, { host: "extension", twitchIdentity: "web" }),
+  });
+}
+
+// Every entry id in tree order: section rows first, then each group's entries.
+// Shared by the uniqueness check and the snapshot below.
+function allEntryIds(sections: ReturnType<typeof registry>): string[] {
+  return sections.flatMap((section) => [
+    ...section.rows.map((row) => row.id),
+    ...section.groups.flatMap((group) => group.entries.map((entry) => entry.id)),
+  ]);
+}
+
+describe("settings registry", () => {
+  it("exposes exactly the three top-level sections in order", () => {
+    expect(registry().map((section) => section.id)).toEqual(["general", "twitch", "kick"]);
+  });
+
+  it("gives every section, group and entry a unique id", () => {
+    // Section and group ids key persisted collapse state (settingsControls.tsx),
+    // so a duplicate there means two groups silently sharing collapse state at
+    // runtime, not just a cosmetic clash.
+    const ids = registry().flatMap((section) => [
+      section.id,
+      ...section.groups.map((group) => group.id),
+      ...allEntryIds([section]),
+    ]);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  // Groups that render exactly one rich editor are exempt from the "no
+  // one-setting subsections" rule below — it targets lists of toggles, not
+  // editors. Listed explicitly (not by an `endsWith` suffix match) so a future
+  // one-toggle group can never be silently exempted by sharing a suffix, and so
+  // the assertion also catches an editor group quietly growing a toggle list.
+  const EDITOR_GROUP_IDS = [
+    "twitch.categories",
+    "kick.categories",
+    "twitch.channels",
+    "kick.channels",
+    "twitch.compatibility",
+    "kick.compatibility",
+  ];
+
+  it("gives every non-editor group at least two entries, and every editor group exactly one", () => {
+    for (const section of registry()) {
+      for (const group of section.groups) {
+        if (EDITOR_GROUP_IDS.includes(group.id)) {
+          expect(group.entries.length, `${section.id}/${group.id}`).toBe(1);
+        } else {
+          expect(group.entries.length, `${section.id}/${group.id}`).toBeGreaterThanOrEqual(2);
+        }
+      }
+    }
+  });
+
+  it("resolves every message key against the English catalog", () => {
+    for (const section of registry()) {
+      expect(english[section.titleKey], section.titleKey).toBeTruthy();
+      const entries = [...section.rows, ...section.groups.flatMap((group) => group.entries)];
+      for (const group of section.groups) expect(english[group.titleKey], group.titleKey).toBeTruthy();
+      for (const entry of entries) {
+        expect(english[entry.titleKey], entry.titleKey).toBeTruthy();
+        expect(english[entry.descriptionKey], entry.descriptionKey).toBeTruthy();
+      }
+    }
+  });
+
+  it("marks exactly one advanced group per section", () => {
+    const advanced = registry().flatMap((section) => section.groups.filter((group) => group.advanced).map((group) => group.id));
+    expect(advanced).toEqual([
+      "general.advanced",
+      "twitch.compatibility",
+      "kick.compatibility",
+    ]);
+  });
+
+  it("omits the compatibility groups when no registry is supplied", () => {
+    const withoutCompatibility = buildSettingsRegistry({
+      t: (key: string) => key,
+      settings: DEFAULT_SETTINGS,
+      onSettingsChange: async () => undefined,
+      suggestions: { twitch: [], kick: [] },
+      onSearchCategories: async () => [],
+    });
+    const groups = withoutCompatibility.flatMap((section) => section.groups.map((group) => group.id));
+    expect(groups).not.toContain("twitch.compatibility");
+    expect(groups).not.toContain("kick.compatibility");
+  });
+
+  // A flat list of every entry id, in tree order. This is the real risk for a
+  // data tree like this one: a setting silently vanishing (or moving somewhere
+  // unintended) in a future edit. It also doubles as readable documentation of
+  // the IA — read top to bottom to see exactly what the tree contains.
+  it("keeps the full settings tree stable", () => {
+    expect(allEntryIds(registry())).toMatchInlineSnapshot(`
+      [
+        "general.appearance.language",
+        "general.appearance.autoStart",
+        "general.appearance.pauseOnManualWatch",
+        "general.appearance.hideTips",
+        "general.notifications.rewardEarned",
+        "general.notifications.noDropsLeft",
+        "general.drops.autoClaim",
+        "general.drops.priorityMode",
+        "general.drops.idleWatchlistFallbackOnly",
+        "general.drops.campaignVisibility",
+        "general.drops.forgetExcluded",
+        "general.farmingTabs.tabless",
+        "general.farmingTabs.autoClose",
+        "general.farmingTabs.mute",
+        "general.farmingTabs.keepUnmuted",
+        "general.farmingTabs.adFocus",
+        "general.advanced.pollInterval",
+        "general.advanced.postClaimHandoff",
+        "general.advanced.postClaimHandoffInterval",
+        "general.advanced.postClaimHandoffMax",
+        "general.advanced.skipUnfinishable",
+        "general.advanced.deadlineSafetyMargin",
+        "general.advanced.diagnosticLogging",
+        "twitch.autoClaimChannelPoints",
+        "twitch.categories.farmAll",
+        "twitch.channels.excluded",
+        "twitch.compatibility.rows",
+        "kick.autoClaimChallenges",
+        "kick.categories.farmAll",
+        "kick.channels.excluded",
+        "kick.compatibility.rows",
+      ]
+    `);
+  });
+});

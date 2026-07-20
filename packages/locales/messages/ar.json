@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "الإعدادات"
   },
+  "settingsSearchPlaceholder": {
+    "message": "البحث في الإعدادات…"
+  },
+  "settingsSearchNoResults": {
+    "message": "لا توجد إعدادات تطابق «$1»."
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "عرض الإعدادات المتقدمة"
+  },
+  "settingsSectionGeneral": {
+    "message": "عام"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "النشاط"
   },
@@ -86,8 +104,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "watchQueueTab": {
-    "message": "قائمة المشاهدة"
+  "idleWatchlistTab": {
+    "message": "قائمة المشاهدة الخاملة"
   },
   "automationTitle": {
     "message": "أتمتة $1"
@@ -121,10 +139,10 @@
   },
   "hideTipsTitle": { "message": "إخفاء النصائح" },
   "hideTipsDescription": { "message": "يخفي النصائح المفيدة من النافذة الرئيسية." },
-  "tipCampaignPriority": { "message": "تأخذ Drops الأولوية على قائمة المشاهدة. اسحب الحملات من المقبض لترتيب الفارم." },
+  "tipCampaignPriority": { "message": "تأخذ Drops الأولوية على قائمة المشاهدة الخاملة. اسحب الحملات من المقبض لترتيب الفارم." },
   "tipMissingCampaigns": { "message": "هل هناك حملة مفقودة؟ تحقق من مخزون Drops في المنصة ثم من عوامل التصفية في الإعدادات." },
   "tipCategorySelection": { "message": "تريد ألعابًا محددة فقط؟ عطّل «فارم كل الفئات» واختر فئاتك." },
-  "tipWatchQueue": { "message": "تفارم قائمة المشاهدة القنوات المختارة عند عدم توفر Drops مؤهلة." },
+  "tipIdleWatchlist": { "message": "تفارم قائمة المشاهدة الخاملة القنوات المختارة عند عدم توفر Drops مؤهلة." },
   "tipTablessMode": { "message": "يستهلك الوضع بلا تبويبات موارد أقل ويفتح تبويبًا مكتومًا عند الحاجة." },
   "tipCli": { "message": "تفضّل العمل بلا إضافة؟ يتوفر Lurkloot أيضًا كواجهة CLI عبر Docker." },
   "tipCliAction": { "message": "اقرأ دليل CLI" },
@@ -263,8 +281,8 @@
   "excludeFromFarming": {
     "message": "استبعاد من الفارم"
   },
-  "noWatchQueue": {
-    "message": "لا توجد قنوات مهيأة في قائمة المشاهدة."
+  "noIdleWatchlist": {
+    "message": "لا توجد قنوات مهيأة في قائمة المشاهدة الخاملة."
   },
   "channelPlaceholder": {
     "message": "قناة"
@@ -275,7 +293,7 @@
   "addChannel": {
     "message": "إضافة قناة"
   },
-  "queued": {
+  "idleWatchlistChannel": {
     "message": "في القائمة"
   },
   "live": {
@@ -286,6 +304,9 @@
   },
   "settingsGeneralDescription": {
     "message": "ينطبق على Twitch وKick."
+  },
+  "settingsGroupAppearance": {
+    "message": "المظهر والسلوك"
   },
   "pauseManualTitle": {
     "message": "إيقاف مؤقت عند المشاهدة يدويًا"
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "ينطبق على كل المنصات المفعلة."
   },
+  "settingsGroupNotifications": {
+    "message": "الإشعارات"
+  },
   "rewardEarnedTitle": {
     "message": "تم الحصول على مكافأة"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "سلوك فارم الحملات المشترك."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
   },
   "autoClaimTitle": {
     "message": "استلام Drops تلقائيًا"
@@ -344,16 +371,16 @@
   "lowAvailabilityFirst": {
     "message": "الأقل توفرًا أولًا"
   },
-  "watchQueueSettingsTitle": {
-    "message": "قائمة المشاهدة"
+  "idleWatchlistSettingsTitle": {
+    "message": "قائمة المشاهدة الخاملة"
   },
-  "watchQueueSettingsDescription": {
+  "idleWatchlistSettingsDescription": {
     "message": "سلوك قائمة الاحتياط المشترك."
   },
-  "watchQueueFallbackOnlyTitle": {
-    "message": "فقط عند عدم وجود Drops نشطة"
+  "idleWatchlistFallbackOnlyTitle": {
+    "message": "فقط عند عدم توفر Drops مؤهلة"
   },
-  "watchQueueFallbackOnlyDescription": {
+  "idleWatchlistFallbackOnlyDescription": {
     "message": "يحافظ تلقائيًا على أولوية Drops."
   },
   "platformSettingsTitle": {
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "عناصر التحكم لفارم تبويبات الفيديو. تُعطّل عناصر التحكم الخاصة بالتبويب أثناء وضع منخفض الموارد بدون تبويب."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "علامات تبويب الفارم"
   },
   "tablessTitle": {
     "message": "وضع منخفض الموارد بدون تبويب"
@@ -384,7 +414,7 @@
     "message": "كتم تبويبات الفارم"
   },
   "muteTabsDescription": {
-    "message": "يبقي تبويبات Drops وقائمة المشاهدة مكتومة أثناء الفارم."
+    "message": "يبقي تبويبات Drops وقائمة المشاهدة الخاملة مكتومة أثناء الفارم."
   },
   "keepVideosUnmutedTitle": {
     "message": "إبقاء فيديوهات الفارم غير مكتومة"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "غيّرها فقط إذا كنت تعرف ما تفعل: تتحكم بالمجدول والتسجيل منخفض المستوى."
+  },
+  "settingsGroupAdvanced": {
+    "message": "متقدم"
   },
   "schedulerIntervalTitle": {
     "message": "فاصل المجدول"
@@ -459,8 +492,8 @@
   "enabled": {
     "message": "مفعل"
   },
-  "watchQueueEditHint": {
-    "message": "حررها من تبويب قائمة المشاهدة بعد اختيار $1."
+  "idleWatchlistEditHint": {
+    "message": "حررها من تبويب قائمة المشاهدة الخاملة بعد اختيار $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "استلام نقاط القناة تلقائيًا"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "استلم مكافأة تحدي Kick اليومي بمجرد تحقيق هدف وقت المشاهدة."
   },
+  "settingsGroupExcludedChannels": {
+    "message": "القنوات المستبعدة"
+  },
   "excludedChannelsTitle": {
     "message": "قنوات Drops المستبعدة"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "لا توجد قنوات Drops مستبعدة."
+  },
+  "settingsGroupCategories": {
+    "message": "الفئات"
   },
   "farmAllCategoriesTitle": {
     "message": "فارم كل الفئات"
@@ -582,10 +621,10 @@
   "screenshotKickSubcopy": {
     "message": "نفس الأتمتة وفحوصات الأهلية والاستلام التلقائي على Twitch، الآن لمكافآت منشئي Kick."
   },
-  "screenshotQueueHeadline": {
-    "message": "تحافظ قائمة المشاهدة الاحتياطية على استمرار الكسب."
+  "screenshotIdleWatchlistHeadline": {
+    "message": "تحافظ قائمة المشاهدة الخاملة الاحتياطية على استمرار الكسب."
   },
-  "screenshotQueueSubcopy": {
+  "screenshotIdleWatchlistSubcopy": {
     "message": "عند عدم وجود Drops نشطة، يشاهد Lurkloot قنواتك المفضلة حتى لا يضيع وقتك المتصل."
   },
   "screenshotSettingsHeadline": {
@@ -610,16 +649,22 @@
     "message": "روابط النسبة"
   },
   "githubAttribution": {
-    "message": "jamezrin على GitHub"
+    "message": "Lurkloot على GitHub"
   },
-  "xAttribution": {
-    "message": "jamezrin على X"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Lurkloot على متجر Chrome الإلكتروني"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "موقع Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "الموقع"
   },
   "updateNoticeTitle": { "message": "تم تحديث Lurkloot إلى الإصدار $1" },
   "updateNoticeBody": { "message": "تعرّف على الميزات الجديدة والتغييرات." },
@@ -715,8 +760,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "تم الانتقال إلى مكافأة ذات أولوية أعلى"
   },
-  "activityReasonHigherPriorityWatchQueue": {
-    "message": "أصبحت قائمة المشاهدة ذات أولوية"
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "أصبحت قائمة المشاهدة الخاملة ذات أولوية"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "اكتمل شرط المشاهدة"
@@ -747,6 +792,9 @@
   },
   "showDiagnosticLogs": {
     "message": "عرض التشخيص"
+  },
+  "settingsGroupCompatibility": {
+    "message": "التوافق"
   },
   "compatibilityAutomatic": {
     "message": "تلقائي"

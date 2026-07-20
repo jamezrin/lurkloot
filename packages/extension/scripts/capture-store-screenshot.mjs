@@ -14,7 +14,7 @@ const candidates = ["popup.html", "popup/index.html"];
 const variants = [
   { id: "twitch-drops", file: "01-twitch-drops" },
   { id: "kick-drops", file: "02-kick-drops" },
-  { id: "watch-queue", file: "03-watch-queue" },
+  { id: "idle-watchlist", file: "03-idle-watchlist" },
   { id: "settings", file: "04-settings" },
   { id: "activity", file: "05-activity" },
 ];

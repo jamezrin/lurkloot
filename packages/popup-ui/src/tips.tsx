@@ -16,7 +16,7 @@ const TIPS: TipDescriptor[] = [
   { messageKey: "tipCampaignPriority" },
   { messageKey: "tipMissingCampaigns" },
   { messageKey: "tipCategorySelection" },
-  { messageKey: "tipWatchQueue" },
+  { messageKey: "tipIdleWatchlist" },
   { messageKey: "tipTablessMode" },
   { messageKey: "tipCli", actionKey: "tipCliAction", href: CLI_DOCS_URL },
   { messageKey: "tipFeedback", actionKey: "tipFeedbackAction", href: GITHUB_NEW_ISSUE_URL },

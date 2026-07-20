@@ -20,7 +20,7 @@ Package-qualified paths below are written as `packages/<package>/...` when owner
 
 - `entrypoints/background.ts` registers extension lifecycle hooks, alarms, tab-removal handling, runtime message handling, and browser-specific adapters around `@lurkloot/core`.
 - `packages/core/src/background/controller.ts` coordinates settings/state persistence, scheduler ticks, popup messages, notifications, manual reward claims, and playback-control authorization.
-- `packages/core/src/core/scheduler.ts` owns platform-independent campaign selection, Watch Queue fallback selection, auto-claiming, retry/backoff, session state, manual-watch pauses, and watch-mode lifecycle decisions.
+- `packages/core/src/core/scheduler.ts` owns platform-independent campaign selection, Idle Watchlist fallback selection, auto-claiming, retry/backoff, session state, manual-watch pauses, and watch-mode lifecycle decisions.
 - `packages/core/src/platforms/adapter.ts` defines the `PlatformAdapter` contract. `packages/core/src/platforms/twitch/index.ts` and `packages/core/src/platforms/kick/index.ts` implement platform-specific discovery, progress, candidate, validation, claim, and tab preparation behavior.
 - `packages/core/src/core/tabs.ts` contains shared tab-management and page-context-fetch abstractions; `packages/extension/src/core/tabs.ts` binds those abstractions to live WXT/browser tab and cookie APIs.
 - `entrypoints/twitch.content.ts` and `entrypoints/kick.content.ts` start shared playback telemetry/control on platform pages.
@@ -39,17 +39,57 @@ The popup and content scripts do not call adapters directly. They send typed run
 
 ## Settings Model
 
-`mergeSettings` in `@lurkloot/shared/settings` is the source of truth for defaults, migrations, and persisted-setting normalization. It fills missing keys from `DEFAULT_SETTINGS`, clamps numeric values, normalizes channel/category/campaign lists, and removes duplicate list entries.
+`mergeSettings` in `@lurkloot/shared/settings` is the source of truth for defaults and persisted-setting normalization. It fills missing keys from `DEFAULT_SETTINGS`, clamps numeric values, normalizes channel/category/campaign lists, and removes duplicate list entries. It reads only current property names; legacy shapes are handled beforehand by the migration registry (see [Settings Migrations](#settings-migrations)).
 
 Important setting groups:
 
 - Global automation: `running`, `autoStartDropFarming`, per-platform `enabled`.
-- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `watchQueueFallbackOnly`, `priorityMode`, `campaignPriorities`, `excludedCampaignIds`.
-- Platform preferences: `platform[platform].watchQueueChannels`, `platform[platform].excludedChannels`, `platform[platform].farmAllCategories`, and `platform[platform].categories`.
+- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `idleWatchlistFallbackOnly`, `priorityMode`, `campaignPriorities`, `excludedCampaignIds`.
+- Platform preferences: `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].farmAllCategories`, and `platform[platform].categories`.
 - Tab/playback behavior: `tablessMode`, `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`, `autoCloseFinishedDrops`, `offlineRetryLimit`.
 - Notifications: `notifyRewardEarned`, `notifyNoDropsLeft`.
 
 The popup normalizes snapshots before rendering and normalizes patches before saving, so older stored settings get current defaults before they drive UI toggles.
+
+## Settings Migrations
+
+`packages/shared/src/settingsSchema.ts` is the only place legacy settings shapes
+are transformed. Both hosts call `migrateSettings(raw)` on the raw persisted
+payload and pass the result to normalization (`mergeSettings` in the extension,
+`parseCliSettings` in the CLI). Migration and normalization are deliberately
+separate: clamping and defaulting would erase the raw property information the
+deprecation diagnostics depend on.
+
+A stored document carries a reserved `schemaVersion`; an unversioned document is
+version 0. `migrateSettings` applies every migration from the stored version up
+to `CURRENT_SETTINGS_SCHEMA_VERSION`, returning the migrated payload, a `changed`
+flag, and structured diagnostics. A version newer than this build supports throws
+`UnsupportedSettingsVersionError`, and neither host writes after that error.
+
+Extension storage is upgraded automatically: `loadSettings` writes the canonical
+envelope once when `changed` is true, under the settings lock. The CLI's JSONC
+file is never rewritten, so its diagnostics surface as startup warnings that
+repeat until the user edits the file.
+
+To add version N+1:
+
+1. Increment `CURRENT_SETTINGS_SCHEMA_VERSION`.
+2. Add exactly one pure `N` → `N+1` entry to `MIGRATIONS`. It receives a deep
+   clone it owns outright, so it may mutate that object freely, but it must not
+   reach outside it or log.
+3. Emit a diagnostic for every deprecated or removed property it recognizes,
+   with the full dotted path and the replacement path when one exists.
+4. When an old and a current representation coexist, the current one wins and
+   the deprecated one still produces a diagnostic. Migrations never inspect
+   value types, so a wrong-typed current value is left for normalization to
+   default rather than falling back to the legacy value.
+5. Add fixtures to `packages/extension/tests/settingsMigrations.test.ts` for
+   version N input, mixed old/current input, and the fully migrated output.
+6. Update `defaultConfigJsonc()` in `packages/cli/src/config.ts` when public
+   property names change.
+
+Released migrations are never edited except to fix a data-loss defect. A later
+semantic change gets a new version and a new migration.
 
 ## Scheduler Flow
 
@@ -59,13 +99,13 @@ Each scheduler tick runs enabled platforms independently:
 2. Skip the platform while it is in exponential backoff after repeated platform errors.
 3. Discover campaigns through the adapter and merge progress.
 4. Auto-claim claimable rewards when enabled.
-5. Select the best eligible campaign channel, or a Watch Queue fallback when no eligible campaign channel is available.
+5. Select the best eligible campaign channel, or an Idle Watchlist fallback when no eligible campaign channel is available.
 6. Decide whether to keep the current target by checking channel liveness/category and recent playback or heartbeat telemetry.
 7. Use tabless watching when enabled and supported, or open, reuse, retarget, or stop the watch tab through the adapter.
 8. Claim channel points when enabled and supported by the adapter.
 9. Persist sessions, campaigns, managed-tab registrations, and backoff state, then publish activity records through the host event sink.
 
-Campaign ordering is shared across platforms: explicit campaign priority, platform game priority, campaign priority field, optional lowest-availability mode, ending soonest, then campaign name. Per-platform excluded drop channels filter campaign candidates only; they do not suppress Watch Queue fallback channels.
+Campaign ordering is shared across platforms: explicit campaign priority, platform game priority, campaign priority field, optional lowest-availability mode, ending soonest, then campaign name. Per-platform excluded drop channels filter campaign candidates only; they do not suppress Idle Watchlist fallback channels.
 
 ## Same-Origin Fetching
 
@@ -141,7 +181,7 @@ Repeated offline, category mismatch, unhealthy playback checks, or unhealthy tab
 
 The popup is a controller UI, not a platform client. It requests snapshots and sends setting/action messages to the background controller. Manual reward claims are routed through the platform adapter so state updates, notifications, and event logging stay consistent with automated claims.
 
-The popup exposes platform-specific queues, excluded drop channels, game order, campaign priorities, notifications, and advanced playback settings. Changes that can affect the active scheduler target can request a targeted tick for the affected platform.
+The popup exposes platform-specific idle watchlists, excluded drop channels, game order, campaign priorities, notifications, and advanced playback settings. Changes that can affect the active scheduler target can request a targeted tick for the affected platform.
 
 ## Activity and diagnostics
 

@@ -28,12 +28,12 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   notifyRewardEarned: true,
   notifyNoDropsLeft: true,
   autoStartDropFarming: true,
-  watchQueueFallbackOnly: true,
+  idleWatchlistFallbackOnly: true,
   priorityMode: "ending_soonest",
   platform: {
     twitch: {
       enabled: true,
-      watchQueueChannels: [],
+      idleWatchlistChannels: [],
       excludedChannels: [],
       farmAllCategories: true,
       categories: [],
@@ -41,7 +41,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
     },
     kick: {
       enabled: true,
-      watchQueueChannels: [],
+      idleWatchlistChannels: [],
       excludedChannels: [],
       farmAllCategories: true,
       categories: [],
@@ -97,12 +97,12 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
 
 // Normalizes the universal engine contract. The engine (packages/core) and any
 // non-extension host (CLI) merge through this; host-only fields are not touched.
+// Legacy property names are not read here. Hosts run migrateSettings() from
+// @lurkloot/shared/settingsSchema on the raw payload first; by the time a value
+// reaches normalization it only carries current names.
 export function mergeEngineSettings(value: Partial<EngineSettings> | undefined): EngineSettings {
   const platform = value?.platform;
   const compatibility = value?.compatibility;
-  // Pre-split configs stored this at the top level. Read it as the fallback for
-  // the Twitch platform block so an existing "off" survives; never written back.
-  const legacyChannelPoints = (value as (Partial<EngineSettings> & { autoClaimChannelPoints?: boolean }) | undefined)?.autoClaimChannelPoints;
   return {
     running: booleanOr(value?.running, DEFAULT_ENGINE_SETTINGS.running),
     autoClaim: booleanOr(value?.autoClaim, DEFAULT_ENGINE_SETTINGS.autoClaim),
@@ -111,25 +111,22 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     notifyRewardEarned: booleanOr(value?.notifyRewardEarned, DEFAULT_ENGINE_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_ENGINE_SETTINGS.notifyNoDropsLeft),
     autoStartDropFarming: booleanOr(value?.autoStartDropFarming, DEFAULT_ENGINE_SETTINGS.autoStartDropFarming),
-    watchQueueFallbackOnly: booleanOr(value?.watchQueueFallbackOnly, DEFAULT_ENGINE_SETTINGS.watchQueueFallbackOnly),
+    idleWatchlistFallbackOnly: booleanOr(value?.idleWatchlistFallbackOnly, DEFAULT_ENGINE_SETTINGS.idleWatchlistFallbackOnly),
     priorityMode: PRIORITY_MODES.includes(value?.priorityMode as PriorityMode)
       ? (value!.priorityMode as PriorityMode)
       : DEFAULT_ENGINE_SETTINGS.priorityMode,
     platform: {
       twitch: {
         enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_ENGINE_SETTINGS.platform.twitch.enabled),
-        watchQueueChannels: normalizeChannelList(platform?.twitch?.watchQueueChannels),
+        idleWatchlistChannels: normalizeChannelList(platform?.twitch?.idleWatchlistChannels),
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
         farmAllCategories: booleanOr(platform?.twitch?.farmAllCategories, DEFAULT_ENGINE_SETTINGS.platform.twitch.farmAllCategories),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
-        autoClaimChannelPoints: booleanOr(
-          platform?.twitch?.autoClaimChannelPoints,
-          booleanOr(legacyChannelPoints, DEFAULT_ENGINE_SETTINGS.platform.twitch.autoClaimChannelPoints),
-        ),
+        autoClaimChannelPoints: booleanOr(platform?.twitch?.autoClaimChannelPoints, DEFAULT_ENGINE_SETTINGS.platform.twitch.autoClaimChannelPoints),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),
-        watchQueueChannels: normalizeChannelList(platform?.kick?.watchQueueChannels),
+        idleWatchlistChannels: normalizeChannelList(platform?.kick?.idleWatchlistChannels),
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         farmAllCategories: booleanOr(platform?.kick?.farmAllCategories, DEFAULT_ENGINE_SETTINGS.platform.kick.farmAllCategories),
         categories: normalizeCategorySelections(platform?.kick?.categories),
@@ -168,10 +165,6 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
 // Normalizes the extension's full settings: the engine contract plus the
 // host-only fields the engine never reads.
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
-  const legacyVerbose = (value as (Partial<ExtensionSettings> & { verboseLogging?: boolean }) | undefined)?.verboseLogging;
-  const diagnosticLogging = typeof value?.diagnosticLogging === "boolean"
-    ? value.diagnosticLogging
-    : legacyVerbose === true;
   return {
     ...mergeEngineSettings(value),
     muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_SETTINGS.muteFarmingTabs),
@@ -186,7 +179,7 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
       ? (value!.rateNudgeStatus as RateNudgeStatus)
       : DEFAULT_SETTINGS.rateNudgeStatus,
     showTips: booleanOr(value?.showTips, DEFAULT_SETTINGS.showTips),
-    diagnosticLogging,
+    diagnosticLogging: booleanOr(value?.diagnosticLogging, DEFAULT_SETTINGS.diagnosticLogging),
   };
 }
 

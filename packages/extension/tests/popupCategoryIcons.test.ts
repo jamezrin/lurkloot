@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DropCampaign } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
-import { PlatformSettingsGroup } from "../../popup-ui/src/settingsPlatform";
+import { PlatformCategorySettings } from "../../popup-ui/src/settingsPlatform";
 import { gameItemsFromCampaigns } from "../../popup-ui/src/viewModels";
 
 const t = (key: string): string => key;
@@ -18,15 +18,13 @@ describe("popup category icons", () => {
       ...(imageUrl ? { imageUrl } : {}),
     }];
 
-    return renderToStaticMarkup(createElement(PlatformSettingsGroup, {
+    return renderToStaticMarkup(createElement(PlatformCategorySettings, {
       platform: "twitch",
       suggestions: [],
       settings,
       onFarmAllCategoriesChange: () => {},
       onCategoriesChange: () => {},
       onSearchCategories: async () => [],
-      onExcludedChannelsChange: () => {},
-      onAutoClaimBonusChange: () => {},
     }));
   }
 

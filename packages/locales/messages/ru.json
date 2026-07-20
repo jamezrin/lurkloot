@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "Настройки"
   },
+  "settingsSearchPlaceholder": {
+    "message": "Искать настройки…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Настройки, соответствующие «$1», не найдены."
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Показать дополнительные настройки"
+  },
+  "settingsSectionGeneral": {
+    "message": "Общие"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "Активность"
   },
@@ -86,8 +104,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "watchQueueTab": {
-    "message": "Очередь просмотра"
+  "idleWatchlistTab": {
+    "message": "Список просмотра в простое"
   },
   "automationTitle": {
     "message": "Автоматизация $1"
@@ -121,10 +139,10 @@
   },
   "hideTipsTitle": { "message": "Скрыть советы" },
   "hideTipsDescription": { "message": "Скрывает полезные советы в главном окне." },
-  "tipCampaignPriority": { "message": "Drops имеют приоритет над очередью. Перетаскивайте кампании за ручку, чтобы задать порядок." },
+  "tipCampaignPriority": { "message": "Drops имеют приоритет над списком. Перетаскивайте кампании за ручку, чтобы задать порядок." },
   "tipMissingCampaigns": { "message": "Нет кампании? Проверьте инвентарь Drops платформы и фильтры в настройках." },
   "tipCategorySelection": { "message": "Нужны только отдельные игры? Отключите «Фармить все категории» и выберите категории." },
-  "tipWatchQueue": { "message": "Очередь фармит выбранные каналы, когда нет доступных Drops." },
+  "tipIdleWatchlist": { "message": "Список фармит выбранные каналы, когда нет доступных Drops." },
   "tipTablessMode": { "message": "Режим без вкладок экономит ресурсы и при необходимости открывает вкладку без звука." },
   "tipCli": { "message": "Не хотите расширение? Lurkloot также доступен как CLI для Docker." },
   "tipCliAction": { "message": "Открыть руководство CLI" },
@@ -263,8 +281,8 @@
   "excludeFromFarming": {
     "message": "Исключить из фарма"
   },
-  "noWatchQueue": {
-    "message": "Каналы очереди просмотра не настроены."
+  "noIdleWatchlist": {
+    "message": "Каналы списка просмотра в простое не настроены."
   },
   "channelPlaceholder": {
     "message": "канал"
@@ -275,8 +293,8 @@
   "addChannel": {
     "message": "Добавить канал"
   },
-  "queued": {
-    "message": "в очереди"
+  "idleWatchlistChannel": {
+    "message": "в списке"
   },
   "live": {
     "message": "в эфире"
@@ -286,6 +304,9 @@
   },
   "settingsGeneralDescription": {
     "message": "Применяется к Twitch и Kick."
+  },
+  "settingsGroupAppearance": {
+    "message": "Внешний вид и поведение"
   },
   "pauseManualTitle": {
     "message": "Пауза при ручном просмотре"
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "Применяется ко всем включённым платформам."
   },
+  "settingsGroupNotifications": {
+    "message": "Уведомления"
+  },
   "rewardEarnedTitle": {
     "message": "Награда получена"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "Общее поведение фарма кампаний."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
   },
   "autoClaimTitle": {
     "message": "Автополучение drops"
@@ -344,16 +371,16 @@
   "lowAvailabilityFirst": {
     "message": "Сначала низкая доступность"
   },
-  "watchQueueSettingsTitle": {
-    "message": "Очередь просмотра"
+  "idleWatchlistSettingsTitle": {
+    "message": "Список просмотра в простое"
   },
-  "watchQueueSettingsDescription": {
-    "message": "Общее поведение резервной очереди."
+  "idleWatchlistSettingsDescription": {
+    "message": "Общее поведение резервного списка."
   },
-  "watchQueueFallbackOnlyTitle": {
-    "message": "Только когда нет активных drops"
+  "idleWatchlistFallbackOnlyTitle": {
+    "message": "Только когда нет доступных подходящих drops"
   },
-  "watchQueueFallbackOnlyDescription": {
+  "idleWatchlistFallbackOnlyDescription": {
     "message": "Автоматически сохраняет приоритет drops."
   },
   "platformSettingsTitle": {
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "Управление фармом через видеовкладки. Настройки вкладок отключены, пока активен режим без вкладки."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Вкладки фарма"
   },
   "tablessTitle": {
     "message": "Режим без вкладки с низким потреблением"
@@ -384,7 +414,7 @@
     "message": "Отключать звук вкладок фарма"
   },
   "muteTabsDescription": {
-    "message": "Оставляет вкладки Drops и очереди просмотра без звука во время фарма."
+    "message": "Оставляет вкладки Drops и списка просмотра в простое без звука во время фарма."
   },
   "keepVideosUnmutedTitle": {
     "message": "Не отключать звук видео фарма"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "Меняйте только если понимаете последствия: это низкоуровневые настройки планировщика и логов."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Дополнительно"
   },
   "schedulerIntervalTitle": {
     "message": "Интервал планировщика"
@@ -454,13 +487,13 @@
     "message": "Автоматизация"
   },
   "farmOnPlatform": {
-    "message": "Фармит drops и смотрит очередь на $1."
+    "message": "Фармит drops и смотрит список на $1."
   },
   "enabled": {
     "message": "Включено"
   },
-  "watchQueueEditHint": {
-    "message": "Редактируйте её на вкладке Очередь просмотра после выбора $1."
+  "idleWatchlistEditHint": {
+    "message": "Редактируйте её на вкладке Список просмотра в простое после выбора $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Автополучение баллов канала"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "Получает награду ежедневного испытания Kick, как только выполнена цель по времени просмотра."
   },
+  "settingsGroupExcludedChannels": {
+    "message": "Исключённые каналы"
+  },
   "excludedChannelsTitle": {
     "message": "Исключённые каналы drops"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "Нет исключённых каналов drops."
+  },
+  "settingsGroupCategories": {
+    "message": "Категории"
   },
   "farmAllCategoriesTitle": {
     "message": "Фармить все категории"
@@ -582,10 +621,10 @@
   "screenshotKickSubcopy": {
     "message": "Та же автоматизация, проверки eligibility и автополучение, что на Twitch, теперь для наград авторов Kick."
   },
-  "screenshotQueueHeadline": {
-    "message": "Резервная очередь просмотра продолжает приносить прогресс."
+  "screenshotIdleWatchlistHeadline": {
+    "message": "Резервный список просмотра в простое продолжает приносить прогресс."
   },
-  "screenshotQueueSubcopy": {
+  "screenshotIdleWatchlistSubcopy": {
     "message": "Когда активных drops нет, Lurkloot смотрит любимые каналы, чтобы время онлайн не пропадало."
   },
   "screenshotSettingsHeadline": {
@@ -610,16 +649,22 @@
     "message": "Ссылки на автора"
   },
   "githubAttribution": {
-    "message": "jamezrin на GitHub"
+    "message": "Lurkloot на GitHub"
   },
-  "xAttribution": {
-    "message": "jamezrin в X"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Lurkloot в Chrome Web Store"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "Сайт Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "Сайт"
   },
   "updateNoticeTitle": { "message": "Lurkloot обновлён до версии $1" },
   "updateNoticeBody": { "message": "Узнайте о новых функциях и изменениях." },
@@ -715,8 +760,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "выбрана награда с более высоким приоритетом"
   },
-  "activityReasonHigherPriorityWatchQueue": {
-    "message": "очередь просмотра получила приоритет"
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "список просмотра в простое получил приоритет"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "требование по просмотру выполнено"
@@ -747,6 +792,9 @@
   },
   "showDiagnosticLogs": {
     "message": "Показать диагностику"
+  },
+  "settingsGroupCompatibility": {
+    "message": "Совместимость"
   },
   "compatibilityAutomatic": {
     "message": "Автоматически"

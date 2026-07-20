@@ -9,6 +9,7 @@ export const PLATFORMS: Record<Platform, { label: string; mark: string; color: s
 
 export const SELECTED_PLATFORM_KEY = "popup:selectedPlatform";
 export const COLLAPSED_SETTINGS_SECTIONS_KEY = "popup:collapsedSettingsSections";
+export const SHOW_ADVANCED_SETTINGS_KEY = "popup:showAdvancedSettings";
 
 // Chrome Web Store listing for the rate/review nudge. Single source of truth for
 // the store id so the reviews URL stays correct if the listing slug changes.
@@ -17,6 +18,7 @@ export const CHROME_WEB_STORE_URL = `https://chromewebstore.google.com/detail/${
 export const CHROME_WEB_STORE_REVIEW_URL = `${CHROME_WEB_STORE_URL}/reviews`;
 // Canonical marketing/landing site for the extension.
 export const SITE_URL = "https://lurkloot.jamezrin.com";
+export const GITHUB_REPO_URL = "https://github.com/jamezrin/lurkloot";
 export const CLI_DOCS_URL = "https://github.com/jamezrin/lurkloot/tree/main/packages/cli#readme";
 export const GITHUB_NEW_ISSUE_URL = "https://github.com/jamezrin/lurkloot/issues/new/choose";
 // How long after install before the one-time "rate it" nudge appears.
@@ -83,12 +85,12 @@ export const SCREENSHOT_VARIANTS: Record<string, ScreenshotVariant> = {
     headlineKey: "screenshotKickHeadline",
     subcopyKey: "screenshotKickSubcopy",
   },
-  "watch-queue": {
+  "idle-watchlist": {
     platform: "twitch",
-    view: "watchQueue",
+    view: "idleWatchlist",
     accentGradient: TWITCH_GRADIENT,
-    headlineKey: "screenshotQueueHeadline",
-    subcopyKey: "screenshotQueueSubcopy",
+    headlineKey: "screenshotIdleWatchlistHeadline",
+    subcopyKey: "screenshotIdleWatchlistSubcopy",
   },
   settings: {
     platform: "twitch",

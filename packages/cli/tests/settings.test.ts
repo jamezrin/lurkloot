@@ -1,7 +1,67 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CLI_SETTINGS, parseCliSettings, toEngineSettings } from "../src/settings";
+import { mergeSettings } from "@lurkloot/shared/settings";
+import { migrateSettings } from "@lurkloot/shared/settingsSchema";
+import { DEFAULT_CLI_SETTINGS, parseCliSettings, parseCliSettingsWithDiagnostics, toEngineSettings } from "../src/settings";
 
 describe("parseCliSettings", () => {
+  it("migrates legacy Watch Queue settings and reports them", () => {
+    const { settings, diagnostics } = parseCliSettingsWithDiagnostics({
+      watchQueueFallbackOnly: false,
+      platform: { twitch: { watchQueueChannels: [" Legacy ", "legacy"] } },
+    });
+    expect(settings.idleWatchlistFallbackOnly).toBe(false);
+    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["legacy"]);
+    expect(settings).not.toHaveProperty("watchQueueFallbackOnly");
+    expect(diagnostics.map((d) => d.path)).toEqual(["watchQueueFallbackOnly", "platform.twitch.watchQueueChannels"]);
+  });
+
+  it("prefers current keys over legacy ones", () => {
+    const settings = parseCliSettings({
+      idleWatchlistFallbackOnly: true,
+      watchQueueFallbackOnly: false,
+      platform: {
+        twitch: { idleWatchlistChannels: [], watchQueueChannels: ["legacy"] },
+        kick: { idleWatchlistChannels: ["new"], watchQueueChannels: ["legacy"] },
+      },
+    });
+    expect(settings.idleWatchlistFallbackOnly).toBe(true);
+    expect(settings.platform.twitch.idleWatchlistChannels).toEqual([]);
+    expect(settings.platform.kick.idleWatchlistChannels).toEqual(["new"]);
+  });
+
+  it("accepts a deprecated top-level autoClaimChannelPoints instead of erroring", () => {
+    const { settings, diagnostics } = parseCliSettingsWithDiagnostics({ autoClaimChannelPoints: false });
+    expect(settings.platform.twitch.autoClaimChannelPoints).toBe(false);
+    expect(diagnostics.map((d) => d.path)).toEqual(["autoClaimChannelPoints"]);
+  });
+
+  it("still rejects unknown keys that are not registered aliases", () => {
+    expect(() => parseCliSettings({ nonsense: 1 })).toThrow(/unknown CLI setting "nonsense"/);
+  });
+
+  it("still rejects extension-only keys", () => {
+    expect(() => parseCliSettings({ muteFarmingTabs: true }))
+      .toThrow(/"muteFarmingTabs" is an extension-only setting/);
+  });
+
+  it("names the key the user actually wrote when a migration renamed it", () => {
+    // verboseLogging migrates to diagnosticLogging, which the CLI rejects as
+    // extension-only. The error has to name verboseLogging or the user cannot
+    // find the offending line in their config.
+    expect(() => parseCliSettings({ verboseLogging: true }))
+      .toThrow(/"verboseLogging" \(renamed to "diagnosticLogging"\) is an extension-only setting/);
+  });
+
+  it("accepts schemaVersion at the root of settings without exposing it", () => {
+    const settings = parseCliSettings({ schemaVersion: 1, autoClaim: false });
+    expect(settings.autoClaim).toBe(false);
+    expect(settings).not.toHaveProperty("schemaVersion");
+  });
+
+  it("rejects a future schema version", () => {
+    expect(() => parseCliSettings({ schemaVersion: 999 })).toThrow(/newer than this build supports/);
+  });
+
   it("returns defaults for an empty/undefined settings block", () => {
     expect(parseCliSettings(undefined)).toEqual(DEFAULT_CLI_SETTINGS);
     expect(parseCliSettings({})).toEqual(DEFAULT_CLI_SETTINGS);
@@ -12,7 +72,7 @@ describe("parseCliSettings", () => {
       autoClaim: false,
       pollIntervalMinutes: 9,
       excludedCampaignIds: [" Foo ", "Foo", "bar"],
-      platform: { twitch: { enabled: false, watchQueueChannels: ["@Streamer", "streamer"] } },
+      platform: { twitch: { enabled: false, idleWatchlistChannels: ["@Streamer", "streamer"] } },
     });
     expect(settings.autoClaim).toBe(false);
     expect(settings.pollIntervalMinutes).toBe(9);
@@ -20,7 +80,7 @@ describe("parseCliSettings", () => {
     expect(settings.excludedCampaignIds).toEqual(["Foo", "bar"]);
     // Channels are lowercased, @-stripped and deduped.
     expect(settings.platform.twitch.enabled).toBe(false);
-    expect(settings.platform.twitch.watchQueueChannels).toEqual(["streamer"]);
+    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["streamer"]);
     // Untouched platform keeps its default.
     expect(settings.platform.kick.enabled).toBe(DEFAULT_CLI_SETTINGS.platform.kick.enabled);
   });
@@ -92,11 +152,6 @@ describe("parseCliSettings", () => {
     expect(() => parseCliSettings({ turbo: true })).toThrow(/unknown CLI setting "turbo"/);
   });
 
-  it("points a moved top-level key at its new per-platform home", () => {
-    expect(() => parseCliSettings({ autoClaimChannelPoints: false }))
-      .toThrow(/"autoClaimChannelPoints" moved to "platform.twitch.autoClaimChannelPoints"/);
-  });
-
   it("accepts autoClaimChannelPoints under platform.twitch", () => {
     expect(parseCliSettings({ platform: { twitch: { autoClaimChannelPoints: false } } }).platform.twitch.autoClaimChannelPoints).toBe(false);
     expect(parseCliSettings({}).platform.twitch.autoClaimChannelPoints).toBe(true);
@@ -164,5 +219,29 @@ describe("toEngineSettings", () => {
     expect(engine.deadlineSafetyMarginMinutes).toBe(5);
     expect(engine.platform.kick.enabled).toBe(false);
     expect(engine.compatibility).toEqual(cli.compatibility);
+  });
+
+  // Guards the whole point of the shared registry: both hosts must derive the
+  // same engine-contract values from one legacy document. The extension reaches
+  // them via mergeSettings; the CLI via parseCliSettings + toEngineSettings. If
+  // a future migration diverged the two, this is where it would show up.
+  it("agrees with the extension on the engine contract for a legacy document", () => {
+    const legacy = {
+      watchQueueFallbackOnly: false,
+      autoClaimChannelPoints: false,
+      platform: {
+        twitch: { watchQueueChannels: ["A"] },
+        kick: { watchQueueChannels: ["B"] },
+      },
+    };
+    const cliEngine = toEngineSettings(parseCliSettings(legacy));
+    // The extension migrates then normalizes; replicate that exact pipeline.
+    const extension = mergeSettings(migrateSettings(legacy).settings as never);
+    expect(cliEngine.idleWatchlistFallbackOnly).toBe(extension.idleWatchlistFallbackOnly);
+    expect(cliEngine.idleWatchlistFallbackOnly).toBe(false);
+    expect(cliEngine.platform.twitch.idleWatchlistChannels).toEqual(extension.platform.twitch.idleWatchlistChannels);
+    expect(cliEngine.platform.kick.idleWatchlistChannels).toEqual(extension.platform.kick.idleWatchlistChannels);
+    expect(cliEngine.platform.twitch.autoClaimChannelPoints).toBe(extension.platform.twitch.autoClaimChannelPoints);
+    expect(cliEngine.platform.twitch.autoClaimChannelPoints).toBe(false);
   });
 });

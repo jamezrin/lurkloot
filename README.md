@@ -10,7 +10,7 @@
 - **Automatic rewards:** claim completed drops and, optionally, Twitch channel points without keeping track yourself.
 - **Smart channel switching:** move between eligible live channels as campaigns finish or streams go offline.
 - **Light on resources:** use low-resource tabless mode, with an automatic fallback to a pinned, muted tab if progress stalls.
-- **Twitch and Kick together:** manage both platforms from one popup, including campaign priorities, watch queues, and excluded channels.
+- **Twitch and Kick together:** manage both platforms from one popup, including campaign priorities, idle watchlists, and excluded channels.
 - **Private by design:** no Lurkloot account, no password requests, no telemetry, and no remote Lurkloot service handling your session.
 
 Lurkloot is free and open source under the [Apache License 2.0](LICENSE).

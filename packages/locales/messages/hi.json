@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "सेटिंग्स"
   },
+  "settingsSearchPlaceholder": {
+    "message": "सेटिंग्स खोजें…"
+  },
+  "settingsSearchNoResults": {
+    "message": "कोई सेटिंग “$1” से मेल नहीं खाती।"
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "उन्नत सेटिंग्स दिखाएँ"
+  },
+  "settingsSectionGeneral": {
+    "message": "सामान्य"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "गतिविधि"
   },
@@ -86,8 +104,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "watchQueueTab": {
-    "message": "देखने की कतार"
+  "idleWatchlistTab": {
+    "message": "निष्क्रिय वॉचलिस्ट"
   },
   "automationTitle": {
     "message": "$1 ऑटोमेशन"
@@ -121,10 +139,10 @@
   },
   "hideTipsTitle": { "message": "सुझाव छिपाएँ" },
   "hideTipsDescription": { "message": "मुख्य पॉपअप से उपयोगी सुझाव हटाएँ।" },
-  "tipCampaignPriority": { "message": "Drops को देखने की कतार पर प्राथमिकता मिलती है। क्रम तय करने के लिए कैंपेन को ग्रिप से खींचें।" },
+  "tipCampaignPriority": { "message": "Drops को निष्क्रिय वॉचलिस्ट पर प्राथमिकता मिलती है। क्रम तय करने के लिए कैंपेन को ग्रिप से खींचें।" },
   "tipMissingCampaigns": { "message": "कैंपेन नहीं दिख रहा? प्लेटफ़ॉर्म की Drops इन्वेंट्री और सेटिंग्स के फ़िल्टर जाँचें।" },
   "tipCategorySelection": { "message": "सिर्फ़ कुछ गेम चाहिए? ‘सभी श्रेणियाँ फ़ार्म करें’ बंद करके श्रेणियाँ चुनें।" },
-  "tipWatchQueue": { "message": "योग्य Drops न होने पर देखने की कतार चुने हुए चैनल फ़ार्म करती है।" },
+  "tipIdleWatchlist": { "message": "योग्य Drops न होने पर निष्क्रिय वॉचलिस्ट चुने हुए चैनल फ़ार्म करती है।" },
   "tipTablessMode": { "message": "टैबलेस मोड कम संसाधन इस्तेमाल करता है और ज़रूरत पर म्यूट टैब खोलता है।" },
   "tipCli": { "message": "एक्सटेंशन नहीं चाहिए? Lurkloot Docker-आधारित CLI के रूप में भी उपलब्ध है।" },
   "tipCliAction": { "message": "CLI गाइड पढ़ें" },
@@ -263,8 +281,8 @@
   "excludeFromFarming": {
     "message": "फ़ार्मिंग से हटाएँ"
   },
-  "noWatchQueue": {
-    "message": "देखने की कतार में कोई चैनल कॉन्फ़िगर नहीं है।"
+  "noIdleWatchlist": {
+    "message": "निष्क्रिय वॉचलिस्ट में कोई चैनल कॉन्फ़िगर नहीं है।"
   },
   "channelPlaceholder": {
     "message": "चैनल"
@@ -275,8 +293,8 @@
   "addChannel": {
     "message": "चैनल जोड़ें"
   },
-  "queued": {
-    "message": "कतार में"
+  "idleWatchlistChannel": {
+    "message": "वॉचलिस्ट में"
   },
   "live": {
     "message": "लाइव"
@@ -286,6 +304,9 @@
   },
   "settingsGeneralDescription": {
     "message": "Twitch और Kick पर लागू।"
+  },
+  "settingsGroupAppearance": {
+    "message": "रूप और व्यवहार"
   },
   "pauseManualTitle": {
     "message": "मैन्युअल देखने पर रोकें"
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "सभी सक्षम प्लेटफ़ॉर्म पर लागू।"
   },
+  "settingsGroupNotifications": {
+    "message": "सूचनाएँ"
+  },
   "rewardEarnedTitle": {
     "message": "इनाम मिला"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "साझा कैंपेन फ़ार्मिंग व्यवहार।"
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
   },
   "autoClaimTitle": {
     "message": "Drops अपने आप क्लेम करें"
@@ -344,16 +371,16 @@
   "lowAvailabilityFirst": {
     "message": "कम उपलब्धता पहले"
   },
-  "watchQueueSettingsTitle": {
-    "message": "देखने की कतार"
+  "idleWatchlistSettingsTitle": {
+    "message": "निष्क्रिय वॉचलिस्ट"
   },
-  "watchQueueSettingsDescription": {
-    "message": "साझा fallback queue व्यवहार।"
+  "idleWatchlistSettingsDescription": {
+    "message": "साझा फ़ॉलबैक वॉचलिस्ट व्यवहार।"
   },
-  "watchQueueFallbackOnlyTitle": {
-    "message": "केवल जब कोई सक्रिय drops न हों"
+  "idleWatchlistFallbackOnlyTitle": {
+    "message": "केवल जब कोई योग्य drops उपलब्ध न हों"
   },
-  "watchQueueFallbackOnlyDescription": {
+  "idleWatchlistFallbackOnlyDescription": {
     "message": "Drops प्राथमिकता अपने आप सुरक्षित रखता है।"
   },
   "platformSettingsTitle": {
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "वीडियो-टैब फ़ार्मिंग के नियंत्रण। टैबलेस लो-रिसोर्स मोड में टैब-विशिष्ट नियंत्रण अक्षम रहते हैं।"
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "फ़ार्मिंग टैब"
   },
   "tablessTitle": {
     "message": "टैबलेस लो-रिसोर्स मोड"
@@ -384,7 +414,7 @@
     "message": "फ़ार्मिंग टैब म्यूट करें"
   },
   "muteTabsDescription": {
-    "message": "फ़ार्मिंग के दौरान Drops और देखने की कतार वाले टैब म्यूट रखें।"
+    "message": "फ़ार्मिंग के दौरान Drops और निष्क्रिय वॉचलिस्ट वाले टैब म्यूट रखें।"
   },
   "keepVideosUnmutedTitle": {
     "message": "फ़ार्मिंग वीडियो अनम्यूट रखें"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "इन्हें तभी बदलें जब आप जानते हों: ये low-level scheduler और logging नियंत्रित करते हैं।"
+  },
+  "settingsGroupAdvanced": {
+    "message": "उन्नत"
   },
   "schedulerIntervalTitle": {
     "message": "शेड्यूलर अंतराल"
@@ -454,13 +487,13 @@
     "message": "ऑटोमेशन"
   },
   "farmOnPlatform": {
-    "message": "$1 पर drops फ़ार्म करें और queue देखें।"
+    "message": "$1 पर drops फ़ार्म करें और निष्क्रिय वॉचलिस्ट देखें।"
   },
   "enabled": {
     "message": "सक्षम"
   },
-  "watchQueueEditHint": {
-    "message": "$1 चुनने के बाद देखने की कतार टैब से संपादित करें।"
+  "idleWatchlistEditHint": {
+    "message": "$1 चुनने के बाद निष्क्रिय वॉचलिस्ट टैब से संपादित करें।"
   },
   "autoClaimChannelPointsTitle": {
     "message": "चैनल पॉइंट अपने आप क्लेम करें"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "देखने के समय का लक्ष्य पूरा होते ही Kick का दैनिक चैलेंज इनाम प्राप्त करें।"
   },
+  "settingsGroupExcludedChannels": {
+    "message": "हटाए गए चैनल"
+  },
   "excludedChannelsTitle": {
     "message": "हटाए गए drop चैनल"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "कोई हटाया गया drop चैनल नहीं।"
+  },
+  "settingsGroupCategories": {
+    "message": "श्रेणियाँ"
   },
   "farmAllCategoriesTitle": {
     "message": "सभी श्रेणियाँ फ़ार्म करें"
@@ -582,10 +621,10 @@
   "screenshotKickSubcopy": {
     "message": "Twitch वाली automation, eligibility checks और auto-claim अब Kick creator rewards के लिए भी।"
   },
-  "screenshotQueueHeadline": {
-    "message": "बैकअप देखने की कतार आपको कमाई जारी रखने देती है।"
+  "screenshotIdleWatchlistHeadline": {
+    "message": "बैकअप निष्क्रिय वॉचलिस्ट आपको कमाई जारी रखने देती है।"
   },
-  "screenshotQueueSubcopy": {
+  "screenshotIdleWatchlistSubcopy": {
     "message": "जब कोई active drops नहीं होते, Lurkloot आपके पसंदीदा चैनल देखता है ताकि ऑनलाइन समय बेकार न जाए।"
   },
   "screenshotSettingsHeadline": {
@@ -610,16 +649,22 @@
     "message": "श्रेय लिंक"
   },
   "githubAttribution": {
-    "message": "GitHub पर jamezrin"
+    "message": "GitHub पर Lurkloot"
   },
-  "xAttribution": {
-    "message": "X पर jamezrin"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Chrome वेब स्टोर पर Lurkloot"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "Lurkloot वेबसाइट"
+  },
+  "siteAttributionShort": {
+    "message": "वेबसाइट"
   },
   "updateNoticeTitle": { "message": "Lurkloot को $1 में अपडेट किया गया" },
   "updateNoticeBody": { "message": "नई सुविधाएँ और बदलाव देखें।" },
@@ -715,8 +760,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "अधिक प्राथमिकता वाला इनाम चुना गया"
   },
-  "activityReasonHigherPriorityWatchQueue": {
-    "message": "वॉच क्यू को प्राथमिकता मिली"
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "निष्क्रिय वॉचलिस्ट को प्राथमिकता मिली"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "देखने की आवश्यकता पूरी हुई"
@@ -747,6 +792,9 @@
   },
   "showDiagnosticLogs": {
     "message": "डायग्नोस्टिक दिखाएँ"
+  },
+  "settingsGroupCompatibility": {
+    "message": "संगतता"
   },
   "compatibilityAutomatic": {
     "message": "स्वचालित"
