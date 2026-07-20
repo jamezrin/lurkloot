@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import {
   DndContext,
   DragOverlay,
@@ -12,7 +11,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, Ban, GripVertical, Plus, Search } from "lucide-react";
+import { AlertTriangle, GripVertical, Plus, Search } from "lucide-react";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { GAME_ACCENTS, PLATFORMS } from "./constants";
 import { useT } from "./context";
@@ -24,117 +23,66 @@ import {
   Pill,
   RemoveRowButton,
   Toggle,
-  cn,
   moveById,
   useDndSensors,
 } from "./primitives";
-import { SettingRow } from "./settingsControls";
 
-export function PlatformSettingsGroup({ platform, suggestions, settings, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories, onExcludedChannelsChange, onAutoClaimBonusChange }: {
+export function PlatformCategorySettings({ platform, suggestions, settings, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories }: {
   platform: Platform;
   suggestions: GameItem[];
   settings: ExtensionSettings;
   onFarmAllCategoriesChange(farmAll: boolean): void | Promise<void>;
   onCategoriesChange(categories: CategorySelection[]): void | Promise<void>;
   onSearchCategories(query: string): Promise<CategorySelection[]>;
-  onExcludedChannelsChange(channels: string[]): void | Promise<void>;
-  // The platform's own claim toggle: channel points on Twitch, daily challenges
-  // on Kick. Each platform has exactly one, so a single callback covers both.
-  onAutoClaimBonusChange(value: boolean): void | Promise<void>;
 }) {
   const t = useT();
   const details = PLATFORMS[platform];
   const platformSettings = settings.platform[platform];
-  const watchlistCount = platformSettings.idleWatchlistChannels.length;
-  const excludedChannels = platformSettings.excludedChannels ?? [];
 
   return (
     <>
-      <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
-        <div className="flex items-center gap-3 py-2.5">
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("automationSectionTitle")}</div>
-            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("farmOnPlatform", details.label)}</div>
-          </div>
-          <Pill tone={platformSettings.enabled ? "live" : "muted"}>{platformSettings.enabled ? t("enabled") : t("pausedStatus")}</Pill>
-        </div>
-        <div className="flex items-center gap-3 py-2.5">
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("idleWatchlistTab")}</div>
-            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("idleWatchlistEditHint", details.label)}</div>
-          </div>
-          <Pill tone="outline">{watchlistCount}/20</Pill>
-        </div>
-        {platform === "twitch" ? (
-          <SettingRow
-            title={t("autoClaimChannelPointsTitle")}
-            description={t("autoClaimChannelPointsDescription")}
-            checked={settings.platform.twitch.autoClaimChannelPoints}
-            onChange={onAutoClaimBonusChange}
-          />
-        ) : (
-          <SettingRow
-            title={t("autoClaimChallengesTitle")}
-            description={t("autoClaimChallengesDescription")}
-            checked={settings.platform.kick.autoClaimChallenges}
-            onChange={onAutoClaimBonusChange}
-          />
-        )}
-      </div>
-      <ChannelListEditor
-        title={t("excludedChannelsTitle")}
-        description={t("excludedChannelsDescription")}
-        empty={t("excludedChannelsEmpty")}
-        channels={excludedChannels}
-        onChange={onExcludedChannelsChange}
-      />
-      <div className="flex items-center gap-3 py-1">
+      <div className="flex items-center gap-3 py-2.5">
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("farmAllCategoriesTitle")}</div>
           <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("farmAllCategoriesDescription", details.label)}</div>
         </div>
-        <Toggle checked={platformSettings.farmAllCategories} onChange={onFarmAllCategoriesChange} label={`Farm all ${details.label} categories`} />
+        <Toggle checked={platformSettings.farmAllCategories} onChange={onFarmAllCategoriesChange} label={t("farmAllCategoriesTitle")} />
       </div>
       {platformSettings.farmAllCategories ? null : (
-        <CategoryFilterEditor
-          platform={platform}
-          categories={platformSettings.categories}
-          suggestions={suggestions}
-          onChange={onCategoriesChange}
-          onSearch={onSearchCategories}
-        />
+        <div className="py-2">
+          <CategoryFilterEditor
+            platform={platform}
+            categories={platformSettings.categories}
+            suggestions={suggestions}
+            onChange={onCategoriesChange}
+            onSearch={onSearchCategories}
+          />
+        </div>
       )}
     </>
   );
 }
 
-export function SettingsPlatformSwitch({ active, onChange }: { active: Platform; onChange(platform: Platform): void }) {
+export function PlatformExcludedChannels({ platform, settings, onExcludedChannelsChange }: {
+  platform: Platform;
+  settings: ExtensionSettings;
+  onExcludedChannelsChange(channels: string[]): void | Promise<void>;
+}) {
+  const t = useT();
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
-      {Object.entries(PLATFORMS).map(([id, platform]) => {
-        const selected = active === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onChange(id as Platform)}
-            className={cn("relative flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors outline-none", selected ? "text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200")}
-          >
-            {selected && <motion.span layoutId="settings-platform-pill" transition={{ type: "spring", stiffness: 520, damping: 38 }} className="absolute inset-0 rounded-lg bg-white shadow-sm dark:bg-zinc-700" />}
-            <span className="relative z-10 flex h-4 w-4 items-center justify-center rounded text-[10px] font-black" style={{ backgroundColor: selected ? platform.color : "transparent", color: selected ? (id === "kick" ? "#07140a" : "#fff") : platform.color }}>
-              {platform.mark}
-            </span>
-            <span className="relative z-10">{platform.label}</span>
-          </button>
-        );
-      })}
+    <div className="py-2">
+      <ChannelListEditor
+        empty={t("excludedChannelsEmpty")}
+        channels={settings.platform[platform].excludedChannels ?? []}
+        onChange={onExcludedChannelsChange}
+      />
     </div>
   );
 }
 
-function ChannelListEditor({ title, description, empty, channels, onChange }: {
-  title: string;
-  description: string;
+// Renders bare: the enclosing SettingsGroup supplies the heading, the
+// description and the channel count.
+function ChannelListEditor({ empty, channels, onChange }: {
   empty: string;
   channels: string[];
   onChange(channels: string[]): void | Promise<void>;
@@ -160,15 +108,7 @@ function ChannelListEditor({ title, description, empty, channels, onChange }: {
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-zinc-200/70 p-2.5 dark:border-zinc-800">
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-400"><Ban size={12} /></span>
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
-          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</p>
-        </div>
-        <Pill tone="outline">{channels.length}</Pill>
-      </div>
+    <div className="space-y-2">
       {channels.length === 0 ? <div className="text-[11px] text-zinc-400">{empty}</div> : (
         <div className="flex flex-wrap gap-1.5">
           {channels.map((channel) => (
@@ -254,11 +194,12 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
   const accentFor = (index: number): string => GAME_ACCENTS[index % GAME_ACCENTS.length];
 
   return (
-    <div className="space-y-2.5 rounded-xl border border-zinc-200/70 p-2.5 dark:border-zinc-800">
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{t("categoriesToFarm")}</div>
-        {categories.length > 0 ? <Pill tone="accent">{t("dragToPrioritize")}</Pill> : <Pill tone="outline">0</Pill>}
-      </div>
+    <div className="space-y-2.5">
+      {/* The group header carries the label and the count; only the reordering
+          hint is left, and it only means anything once there is a list. */}
+      {categories.length > 0 ? (
+        <div className="flex justify-end"><Pill tone="accent">{t("dragToPrioritize")}</Pill></div>
+      ) : null}
       {categories.length === 0 ? (
         <div className="flex items-start gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           <AlertTriangle size={13} className="mt-0.5 shrink-0" />

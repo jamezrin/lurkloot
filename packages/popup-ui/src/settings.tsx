@@ -1,219 +1,111 @@
-import React, { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import {
-  Bell,
-  Gift,
-  Play,
-  Radio,
-  Settings as SettingsIcon,
-  SlidersHorizontal,
-  Terminal,
-} from "lucide-react";
-import type {
-  CategorySelection,
-  ExtensionSettings,
-  LanguageOverride,
-  Platform,
-} from "@lurkloot/shared/models";
+import React, { useEffect, useMemo, useState } from "react";
+import { Terminal } from "lucide-react";
+import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
-import {
-  CampaignFilterSettingRow,
-  ForgetExcludedCampaignsRow,
-  NumberSettingRow,
-  SelectSettingRow,
-  SettingRow,
-  SettingsSection,
-} from "./settingsControls";
-import { PlatformSettingsGroup, SettingsPlatformSwitch } from "./settingsPlatform";
-import { useT } from "./context";
+import { SHOW_ADVANCED_SETTINGS_KEY } from "./constants";
+import { AdvancedSettingsSwitch, SettingsGroup, SettingsSearchBox, SettingsSection } from "./settingsControls";
+import { buildSettingsRegistry, type SettingsChangeOptions } from "./settingsRegistry";
+import { filterSettingsTree } from "./settingsSearch";
+import { usePopupRuntime, useT } from "./context";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
-import { CompatibilitySettings } from "./compatibilitySettings";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, initialPlatform = "twitch" }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
-  onSettingsChange(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void>;
+  onSettingsChange(patch: SettingsPatch, options?: SettingsChangeOptions): Promise<void>;
   // Optional: when provided, the settings view shows an "Export credentials"
   // action for the headless CLI. The extension wires it; the demo omits it.
   onExportCredentials?: () => void | Promise<void>;
   exportConfirmationResetKey: number;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
-  initialPlatform?: Platform;
 }) {
   const t = useT();
-  const [platformTab, setPlatformTab] = useState<Platform>(initialPlatform);
+  const { adapter, preview } = usePopupRuntime();
+  const [query, setQuery] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [exportArmed, setExportArmed] = useState(false);
   useEffect(() => setExportArmed(false), [exportConfirmationResetKey]);
-  const set = (key: keyof ExtensionSettings) => (value: boolean) => onSettingsChange({ [key]: value } as SettingsPatch);
-  const pollIntervalSeconds = Math.round(settings.pollIntervalMinutes * 60);
-  const tabPlaybackDisabled = settings.tablessMode;
-  const tabPlaybackDisabledReason = t("tablessDisabledReason");
-  const setPlatformFarmAllCategories = (platform: Platform) => (farmAllCategories: boolean) => onSettingsChange(
-    {
-      platform: {
-        [platform]: {
-          farmAllCategories,
-        },
-      },
-    },
-    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+
+  useEffect(() => {
+    if (preview) return;
+    let mounted = true;
+    void adapter.getStorage(SHOW_ADVANCED_SETTINGS_KEY).then((stored) => {
+      if (mounted) setShowAdvanced(stored[SHOW_ADVANCED_SETTINGS_KEY] === true);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [adapter, preview]);
+
+  function toggleAdvanced(value: boolean): void {
+    setShowAdvanced(value);
+    if (preview) return;
+    void adapter.setStorage({ [SHOW_ADVANCED_SETTINGS_KEY]: value });
+  }
+
+  const sections = useMemo(
+    () => buildSettingsRegistry({ t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution }),
+    [t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution],
   );
-  const setPlatformCategories = (platform: Platform) => (categories: CategorySelection[]) => onSettingsChange(
-    {
-      platform: {
-        [platform]: {
-          categories,
-        },
-      },
-    },
-    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+  const visible = useMemo(
+    () => filterSettingsTree(sections, { t, query, showAdvanced }),
+    [sections, t, query, showAdvanced],
   );
-  const setPlatformExcludedChannels = (platform: Platform) => (excludedChannels: string[]) => onSettingsChange(
-    {
-      platform: {
-        [platform]: {
-          excludedChannels,
-        },
-      },
-    },
-    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
-  );
-  const setPlatformAutoClaimBonus = (platform: Platform) => (value: boolean) => onSettingsChange(
-    platform === "twitch"
-      ? { platform: { twitch: { autoClaimChannelPoints: value } } }
-      : { platform: { kick: { autoClaimChallenges: value } } },
-  );
+  const searching = query.trim().length > 0;
 
   return (
-    <div className="space-y-6">
-      <SettingsSection title={t("settingsGeneralTitle")} description={t("settingsGeneralDescription")} icon={SettingsIcon}>
-        <SelectSettingRow<LanguageOverride>
-          title={t("settingsLanguageTitle")}
-          description={t("settingsLanguageDescription")}
-          value={settings.languageOverride}
-          options={LOCALE_OPTIONS.map((option) => ({
-            value: option.value,
-            label: option.value === "browser" ? t(option.labelKey) : `${option.nativeName} (${t(option.labelKey)})`,
-          }))}
-          onChange={(value) => onSettingsChange({ languageOverride: value })}
-        />
-        <SettingRow title={t("pauseManualTitle")} description={t("pauseManualDescription")} checked={settings.pauseOnManualWatch} onChange={set("pauseOnManualWatch")} />
-        <SettingRow title={t("autoStartTitle")} description={t("autoStartDescription")} checked={settings.autoStartDropFarming} onChange={set("autoStartDropFarming")} />
-        <SettingRow title={t("hideTipsTitle")} description={t("hideTipsDescription")} checked={!settings.showTips} onChange={(hideTips) => onSettingsChange({ showTips: !hideTips })} />
-      </SettingsSection>
-      <SettingsSection title={t("notificationsTitle")} description={t("notificationsDescription")} icon={Bell}>
-        <SettingRow title={t("rewardEarnedTitle")} description={t("rewardEarnedDescription")} checked={settings.notifyRewardEarned} onChange={set("notifyRewardEarned")} />
-        <SettingRow title={t("noDropsLeftTitle")} description={t("noDropsLeftDescription")} checked={settings.notifyNoDropsLeft} onChange={set("notifyNoDropsLeft")} />
-      </SettingsSection>
-      <SettingsSection title={t("dropsSettingsTitle")} description={t("dropsSettingsDescription")} icon={Gift}>
-        <SettingRow title={t("autoClaimTitle")} description={t("autoClaimDescription")} checked={settings.autoClaim} onChange={set("autoClaim")} />
-        <SelectSettingRow
-          title={t("campaignPriorityTitle")}
-          description={t("campaignPriorityDescription")}
-          value={settings.priorityMode}
-          options={[
-            { value: "priority_list_only", label: t("priorityListOnly") },
-            { value: "ending_soonest", label: t("endingSoonest") },
-            { value: "lowest_availability", label: t("lowAvailabilityFirst") },
-          ]}
-          onChange={(value) => onSettingsChange({ priorityMode: value }, { tickAfterSave: true })}
-        />
-        <CampaignFilterSettingRow value={settings.campaignVisibility} onChange={(campaignVisibility) => onSettingsChange({ campaignVisibility })} />
-        <ForgetExcludedCampaignsRow
-          count={settings.excludedCampaignIds.length}
-          onForget={() => onSettingsChange({ excludedCampaignIds: [] }, { tickAfterSave: true })}
-        />
-      </SettingsSection>
-      <SettingsSection title={t("idleWatchlistSettingsTitle")} description={t("idleWatchlistSettingsDescription")} icon={Play}>
-        <SettingRow title={t("idleWatchlistFallbackOnlyTitle")} description={t("idleWatchlistFallbackOnlyDescription")} checked={settings.idleWatchlistFallbackOnly} onChange={set("idleWatchlistFallbackOnly")} />
-      </SettingsSection>
-      <SettingsSection title={t("platformSettingsTitle")} description={t("platformSettingsDescription")} icon={Radio} divided={false}>
-        <SettingsPlatformSwitch active={platformTab} onChange={setPlatformTab} />
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={platformTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="space-y-3">
-            <PlatformSettingsGroup platform={platformTab} suggestions={suggestions[platformTab]} settings={settings} onFarmAllCategoriesChange={setPlatformFarmAllCategories(platformTab)} onCategoriesChange={setPlatformCategories(platformTab)} onSearchCategories={(query) => onSearchCategories(platformTab, query)} onExcludedChannelsChange={setPlatformExcludedChannels(platformTab)} onAutoClaimBonusChange={setPlatformAutoClaimBonus(platformTab)} />
-          </motion.div>
-        </AnimatePresence>
-      </SettingsSection>
-      <SettingsSection title={t("farmingTabsTitle")} description={t("farmingTabsDescription")} icon={Play}>
-        <SettingRow title={t("tablessTitle")} description={t("tablessDescription")} checked={settings.tablessMode} onChange={(value) => onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />
-        <SettingRow title={t("autoCloseTabsTitle")} description={t("autoCloseTabsDescription")} checked={settings.autoCloseFinishedDrops} onChange={set("autoCloseFinishedDrops")} />
-        <SettingRow title={t("muteTabsTitle")} description={t("muteTabsDescription")} checked={settings.muteFarmingTabs} onChange={set("muteFarmingTabs")} disabled={tabPlaybackDisabled} disabledReason={tabPlaybackDisabledReason} />
-        <SettingRow title={t("keepVideosUnmutedTitle")} description={t("keepVideosUnmutedDescription")} checked={settings.keepFarmingVideosUnmuted !== false} onChange={set("keepFarmingVideosUnmuted")} disabled={tabPlaybackDisabled} disabledReason={tabPlaybackDisabledReason} />
-        <SelectSettingRow
-          title={t("adFocusTitle")}
-          description={t("adFocusDescription")}
-          value={settings.adFocusMode ?? "window"}
-          options={[
-            { value: "none", label: t("off") },
-            { value: "tab", label: t("tabOnly") },
-            { value: "window", label: t("tabAndWindow") },
-          ]}
-          onChange={(value) => onSettingsChange({ adFocusMode: value })}
-          disabled={tabPlaybackDisabled}
-          disabledReason={tabPlaybackDisabledReason}
-        />
-      </SettingsSection>
-      <SettingsSection title={t("advancedTitle")} description={t("advancedDescription")} icon={SlidersHorizontal}>
-        <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={pollIntervalSeconds} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => onSettingsChange({ pollIntervalMinutes: value / 60 })} />
-        <SettingRow
-          title={t("postClaimHandoffTitle")}
-          description={t("postClaimHandoffDescription")}
-          checked={settings.postClaimHandoff}
-          onChange={set("postClaimHandoff")}
-        />
-        <NumberSettingRow
-          title={t("postClaimHandoffIntervalTitle")}
-          description={t("postClaimHandoffIntervalDescription")}
-          value={settings.postClaimHandoffIntervalSeconds}
-          min={1}
-          max={30}
-          suffix={t("secondsSuffix")}
-          disabled={!settings.postClaimHandoff}
-          disabledReason={t("postClaimHandoffDescription")}
-          onChange={(value) => onSettingsChange({ postClaimHandoffIntervalSeconds: value })}
-        />
-        <NumberSettingRow
-          title={t("postClaimHandoffMaxTitle")}
-          description={t("postClaimHandoffMaxDescription")}
-          value={settings.postClaimHandoffMaxSeconds}
-          min={5}
-          max={120}
-          suffix={t("secondsSuffix")}
-          disabled={!settings.postClaimHandoff}
-          disabledReason={t("postClaimHandoffDescription")}
-          onChange={(value) => onSettingsChange({ postClaimHandoffMaxSeconds: value })}
-        />
-        <SettingRow
-          title={t("skipUnfinishableRewardsTitle")}
-          description={t("skipUnfinishableRewardsDescription")}
-          checked={settings.skipUnfinishableRewards}
-          onChange={(value) => onSettingsChange({ skipUnfinishableRewards: value }, { tickAfterSave: true })}
-        />
-        <NumberSettingRow
-          title={t("deadlineSafetyMarginTitle")}
-          description={t("deadlineSafetyMarginDescription")}
-          value={settings.deadlineSafetyMarginMinutes}
-          min={0}
-          max={60}
-          suffix={t("minutesSuffix")}
-          onChange={(value) => onSettingsChange({ deadlineSafetyMarginMinutes: value }, { tickAfterSave: true })}
-          disabled={!settings.skipUnfinishableRewards}
-          disabledReason={t("deadlineSafetyMarginDisabledReason")}
-        />
-        <SettingRow title={t("diagnosticLoggingTitle")} description={t("diagnosticLoggingDescription")} checked={settings.diagnosticLogging} onChange={set("diagnosticLogging")} />
-        {compatibilityRegistry && compatibilityResolution ? <CompatibilitySettings settings={settings.compatibility} registry={compatibilityRegistry} resolution={compatibilityResolution} onChange={onSettingsChange} /> : null}
-      </SettingsSection>
-      {onExportCredentials && (
-        <SettingsSection title={t("cliExportTitle")} description={t("cliExportDescription")} icon={Terminal}>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <SettingsSearchBox value={query} onChange={setQuery} />
+        <AdvancedSettingsSwitch checked={showAdvanced} onChange={toggleAdvanced} />
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("settingsSearchNoResults", query.trim())}</p>
+      ) : (
+        <div className="space-y-6">
+          {visible.map((section) => (
+            <SettingsSection
+              key={section.id}
+              id={section.id}
+              title={t(section.titleKey)}
+              icon={section.icon}
+              iconNode={section.iconNode}
+              // While searching, a section holding matches opens regardless of
+              // the state the user left it in, and that state is not overwritten.
+              forceExpanded={searching}
+            >
+              {section.rows.length > 0 ? (
+                <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                  {section.rows.map((row) => <React.Fragment key={row.id}>{row.render()}</React.Fragment>)}
+                </div>
+              ) : null}
+              {section.groups.map((group) => (
+                <SettingsGroup key={group.id} title={t(group.titleKey)} description={group.description} badge={group.badge} advanced={group.advanced}>
+                  {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
+                </SettingsGroup>
+              ))}
+            </SettingsSection>
+          ))}
+        </div>
+      )}
+
+      {onExportCredentials && !searching ? (
+        <div className="pt-2">
+          {/* Labelled like a group header so the action reads as deliberate
+              rather than orphaned, without becoming a settings section: this is
+              an action, not a setting. The header's own trailing rule is the
+              separator — a border on this wrapper would stack a second line
+              directly above it. */}
+          <div className="mb-1 flex items-center gap-1.5 px-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("cliExportTitle")}</span>
+            <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/70" />
+          </div>
           {exportArmed ? (
             <div className="space-y-2 px-1 py-1">
-              <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">
-                {t("cliExportConfirm")}
-              </p>
+              <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">{t("cliExportConfirm")}</p>
               <div className="flex flex-wrap justify-end gap-2">
                 <button
                   type="button"
@@ -235,19 +127,26 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-3 px-1 py-1">
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("cliExportHint")}</p>
-              <button
-                type="button"
-                className="shrink-0 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-                onClick={() => setExportArmed(true)}
-              >
-                {t("cliExportButton")}
-              </button>
+            // The hint gets the full width so it wraps as prose instead of a
+            // ragged column beside the button. The button stays secondary here
+            // and the accent is spent on the confirm step, which is the one
+            // that actually writes session tokens to disk.
+            <div className="space-y-2 px-1 pb-1">
+              <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("cliExportHint")}</p>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  onClick={() => setExportArmed(true)}
+                >
+                  <Terminal size={13} />
+                  {t("cliExportButton")}
+                </button>
+              </div>
             </div>
           )}
-        </SettingsSection>
-      )}
+        </div>
+      ) : null}
     </div>
   );
 }

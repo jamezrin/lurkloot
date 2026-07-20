@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "Paramètres"
   },
+  "settingsSearchPlaceholder": {
+    "message": "Rechercher des paramètres…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Aucun paramètre ne correspond à « $1 »."
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Afficher les paramètres avancés"
+  },
+  "settingsSectionGeneral": {
+    "message": "Général"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "Activité"
   },
@@ -287,6 +305,9 @@
   "settingsGeneralDescription": {
     "message": "S’applique à Twitch et Kick."
   },
+  "settingsGroupAppearance": {
+    "message": "Apparence et comportement"
+  },
   "pauseManualTitle": {
     "message": "Pause pendant le visionnage manuel"
   },
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "S’applique à toutes les plateformes activées."
   },
+  "settingsGroupNotifications": {
+    "message": "Notifications"
+  },
   "rewardEarnedTitle": {
     "message": "Récompense obtenue"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "Comportement partagé de farm des campagnes."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
   },
   "autoClaimTitle": {
     "message": "Réclamer automatiquement les drops"
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "Contrôles du farm avec onglets vidéo. Les contrôles propres aux onglets sont désactivés en mode sans onglet basse consommation."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Onglets de farm"
   },
   "tablessTitle": {
     "message": "Mode basse consommation sans onglet"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "Ne modifiez ces options que si vous savez ce que vous faites : elles contrôlent le planificateur et les journaux bas niveau."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Avancé"
   },
   "schedulerIntervalTitle": {
     "message": "Intervalle du planificateur"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "Réclame la récompense du défi quotidien de Kick une fois l’objectif de temps de visionnage atteint."
   },
+  "settingsGroupExcludedChannels": {
+    "message": "Chaînes exclues"
+  },
   "excludedChannelsTitle": {
     "message": "Chaînes de drops exclues"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "Aucune chaîne de drops exclue."
+  },
+  "settingsGroupCategories": {
+    "message": "Catégories"
   },
   "farmAllCategoriesTitle": {
     "message": "Farmer toutes les catégories"
@@ -610,16 +649,22 @@
     "message": "Liens d’attribution"
   },
   "githubAttribution": {
-    "message": "jamezrin sur GitHub"
+    "message": "Lurkloot sur GitHub"
   },
-  "xAttribution": {
-    "message": "jamezrin sur X"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Lurkloot sur le Chrome Web Store"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "Site web de Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "Site web"
   },
   "updateNoticeTitle": { "message": "Lurkloot a été mis à jour vers la version $1" },
   "updateNoticeBody": { "message": "Découvrez les nouveautés et les changements." },
@@ -747,6 +792,9 @@
   },
   "showDiagnosticLogs": {
     "message": "Afficher les diagnostics"
+  },
+  "settingsGroupCompatibility": {
+    "message": "Compatibilité"
   },
   "compatibilityAutomatic": {
     "message": "Automatique"

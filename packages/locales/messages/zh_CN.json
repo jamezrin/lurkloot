@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "设置"
   },
+  "settingsSearchPlaceholder": {
+    "message": "搜索设置…"
+  },
+  "settingsSearchNoResults": {
+    "message": "未找到与“$1”匹配的设置。"
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "显示高级设置"
+  },
+  "settingsSectionGeneral": {
+    "message": "常规"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "活动"
   },
@@ -287,6 +305,9 @@
   "settingsGeneralDescription": {
     "message": "适用于 Twitch 和 Kick。"
   },
+  "settingsGroupAppearance": {
+    "message": "外观和行为"
+  },
   "pauseManualTitle": {
     "message": "手动观看时暂停"
   },
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "适用于所有已启用的平台。"
   },
+  "settingsGroupNotifications": {
+    "message": "通知"
+  },
   "rewardEarnedTitle": {
     "message": "已获得奖励"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "共享的活动刷取行为。"
+  },
+  "settingsGroupDrops": {
+    "message": "掉宝"
   },
   "autoClaimTitle": {
     "message": "自动领取掉宝"
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "视频标签页刷取控制。启用无标签低资源模式时，标签页相关控制会禁用。"
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "刷取标签页"
   },
   "tablessTitle": {
     "message": "无标签低资源模式"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "仅在了解后果时更改：这些控制底层调度和日志。"
+  },
+  "settingsGroupAdvanced": {
+    "message": "高级"
   },
   "schedulerIntervalTitle": {
     "message": "调度间隔"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "达到观看时长目标后自动领取 Kick 每日挑战奖励。"
   },
+  "settingsGroupExcludedChannels": {
+    "message": "排除的频道"
+  },
   "excludedChannelsTitle": {
     "message": "排除的掉宝频道"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "没有排除的掉宝频道。"
+  },
+  "settingsGroupCategories": {
+    "message": "分类"
   },
   "farmAllCategoriesTitle": {
     "message": "刷所有分类"
@@ -610,16 +649,22 @@
     "message": "署名链接"
   },
   "githubAttribution": {
-    "message": "GitHub 上的 jamezrin"
+    "message": "GitHub 上的 Lurkloot"
   },
-  "xAttribution": {
-    "message": "X 上的 jamezrin"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Chrome 应用商店中的 Lurkloot"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "Lurkloot 网站"
+  },
+  "siteAttributionShort": {
+    "message": "网站"
   },
   "updateNoticeTitle": { "message": "Lurkloot 已更新至 $1" },
   "updateNoticeBody": { "message": "查看新增内容和改动。" },
@@ -747,6 +792,9 @@
   },
   "showDiagnosticLogs": {
     "message": "显示诊断信息"
+  },
+  "settingsGroupCompatibility": {
+    "message": "兼容性"
   },
   "compatibilityAutomatic": {
     "message": "自动"

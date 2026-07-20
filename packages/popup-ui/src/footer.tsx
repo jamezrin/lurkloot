@@ -1,64 +1,48 @@
 import React from "react";
 import { Globe } from "lucide-react";
 import { useT } from "./context";
-import { CHROME_WEB_STORE_URL, SITE_URL } from "./constants";
+import { CHROME_WEB_STORE_URL, GITHUB_REPO_URL, SITE_URL } from "./constants";
 
 export function AttributionFooter({ version }: { version: string }): React.ReactElement {
   const t = useT();
   return (
     <footer className="flex h-9 shrink-0 items-center justify-between border-t border-zinc-200/70 bg-white/85 px-3 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-500">
       <span className="text-[10px] font-medium tabular">v{version}</span>
-      <nav aria-label={t("attributionLinks")} className="flex items-center gap-1.5">
-        <a
-          href={SITE_URL}
-          target="_blank"
-          rel="noreferrer"
-          title={t("siteAttribution")}
-          aria-label={t("siteAttribution")}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-        >
-          <Globe size={15} />
-        </a>
-        <a
-          href={CHROME_WEB_STORE_URL}
-          target="_blank"
-          rel="noreferrer"
-          title={t("chromeWebStoreAttribution")}
-          aria-label={t("chromeWebStoreAttribution")}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-        >
+      <nav aria-label={t("attributionLinks")} className="flex items-center gap-0.5">
+        <AttributionLink href={SITE_URL} label={t("siteAttribution")} text={t("siteAttributionShort")}>
+          <Globe size={13} />
+        </AttributionLink>
+        <AttributionLink href={CHROME_WEB_STORE_URL} label={t("chromeWebStoreAttribution")} text={t("chromeWebStoreAttributionShort")}>
           <ChromeIcon />
-        </a>
-        <a
-          href="https://github.com/jamezrin"
-          target="_blank"
-          rel="noreferrer"
-          title={t("githubAttribution")}
-          aria-label={t("githubAttribution")}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-        >
+        </AttributionLink>
+        <AttributionLink href={GITHUB_REPO_URL} label={t("githubAttribution")} text={t("githubAttributionShort")}>
           <GithubIcon />
-        </a>
-        <a
-          href="https://x.com/jamezrin"
-          target="_blank"
-          rel="noreferrer"
-          title={t("xAttribution")}
-          aria-label={t("xAttribution")}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-        >
-          <XLogoIcon />
-        </a>
+        </AttributionLink>
       </nav>
     </footer>
   );
 }
 
-function XLogoIcon(): React.ReactElement {
+// The visible text is a short brand word so three links fit a 36px footer; the
+// descriptive string stays as the accessible name and the tooltip.
+function AttributionLink({ href, label, text, children }: {
+  href: string;
+  label: string;
+  text: string;
+  children: React.ReactNode;
+}): React.ReactElement {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-      <path d="M17.53 3h3.06l-6.68 7.64L21.77 21h-6.16l-4.82-6.3L5.27 21H2.21l7.15-8.17L1.83 3h6.32l4.36 5.76L17.53 3Zm-1.07 16.18h1.7L7.23 4.72H5.41l11.05 14.46Z" />
-    </svg>
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      title={label}
+      aria-label={label}
+      className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+    >
+      {children}
+      <span>{text}</span>
+    </a>
   );
 }
 

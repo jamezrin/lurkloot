@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "الإعدادات"
   },
+  "settingsSearchPlaceholder": {
+    "message": "البحث في الإعدادات…"
+  },
+  "settingsSearchNoResults": {
+    "message": "لا توجد إعدادات تطابق «$1»."
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "عرض الإعدادات المتقدمة"
+  },
+  "settingsSectionGeneral": {
+    "message": "عام"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "النشاط"
   },
@@ -287,6 +305,9 @@
   "settingsGeneralDescription": {
     "message": "ينطبق على Twitch وKick."
   },
+  "settingsGroupAppearance": {
+    "message": "المظهر والسلوك"
+  },
   "pauseManualTitle": {
     "message": "إيقاف مؤقت عند المشاهدة يدويًا"
   },
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "ينطبق على كل المنصات المفعلة."
   },
+  "settingsGroupNotifications": {
+    "message": "الإشعارات"
+  },
   "rewardEarnedTitle": {
     "message": "تم الحصول على مكافأة"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "سلوك فارم الحملات المشترك."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
   },
   "autoClaimTitle": {
     "message": "استلام Drops تلقائيًا"
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "عناصر التحكم لفارم تبويبات الفيديو. تُعطّل عناصر التحكم الخاصة بالتبويب أثناء وضع منخفض الموارد بدون تبويب."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "علامات تبويب الفارم"
   },
   "tablessTitle": {
     "message": "وضع منخفض الموارد بدون تبويب"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "غيّرها فقط إذا كنت تعرف ما تفعل: تتحكم بالمجدول والتسجيل منخفض المستوى."
+  },
+  "settingsGroupAdvanced": {
+    "message": "متقدم"
   },
   "schedulerIntervalTitle": {
     "message": "فاصل المجدول"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "استلم مكافأة تحدي Kick اليومي بمجرد تحقيق هدف وقت المشاهدة."
   },
+  "settingsGroupExcludedChannels": {
+    "message": "القنوات المستبعدة"
+  },
   "excludedChannelsTitle": {
     "message": "قنوات Drops المستبعدة"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "لا توجد قنوات Drops مستبعدة."
+  },
+  "settingsGroupCategories": {
+    "message": "الفئات"
   },
   "farmAllCategoriesTitle": {
     "message": "فارم كل الفئات"
@@ -610,16 +649,22 @@
     "message": "روابط النسبة"
   },
   "githubAttribution": {
-    "message": "jamezrin على GitHub"
+    "message": "Lurkloot على GitHub"
   },
-  "xAttribution": {
-    "message": "jamezrin على X"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Lurkloot على متجر Chrome الإلكتروني"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "موقع Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "الموقع"
   },
   "updateNoticeTitle": { "message": "تم تحديث Lurkloot إلى الإصدار $1" },
   "updateNoticeBody": { "message": "تعرّف على الميزات الجديدة والتغييرات." },
@@ -747,6 +792,9 @@
   },
   "showDiagnosticLogs": {
     "message": "عرض التشخيص"
+  },
+  "settingsGroupCompatibility": {
+    "message": "التوافق"
   },
   "compatibilityAutomatic": {
     "message": "تلقائي"
