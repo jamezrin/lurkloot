@@ -18,7 +18,7 @@ import {
   useDndSensors,
 } from "./primitives";
 
-export function WatchQueuePanel({ platform, streamers, onChange }: { platform: Platform; streamers: StreamerItem[]; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
+export function IdleWatchlistPanel({ platform, streamers, onChange }: { platform: Platform; streamers: StreamerItem[]; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
   const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -53,15 +53,15 @@ export function WatchQueuePanel({ platform, streamers, onChange }: { platform: P
 
   return (
     <div className="space-y-2.5">
-      {streamers.length === 0 ? <EmptyPanel>{t("noWatchQueue")}</EmptyPanel> : (
+      {streamers.length === 0 ? <EmptyPanel>{t("noIdleWatchlist")}</EmptyPanel> : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
           <SortableContext items={streamers.map((streamer) => streamer.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
-              {streamers.map((streamer, index) => <SortableWatchQueue key={streamer.id} streamer={streamer} index={index} platform={platform} onRemove={() => removeChannel(streamer.id)} />)}
+              {streamers.map((streamer, index) => <SortableIdleWatchlist key={streamer.id} streamer={streamer} index={index} platform={platform} onRemove={() => removeChannel(streamer.id)} />)}
             </div>
           </SortableContext>
           <DragOverlay dropAnimation={null}>
-            {active ? <CompactRow isOverlay index={activeIndex} avatar={active.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={active.name} titleHref={channelUrl(platform, active.id)} subtitle={active.subtitle} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<WatchQueueStatus streamer={active} />} /> : null}
+            {active ? <CompactRow isOverlay index={activeIndex} avatar={active.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={active.name} titleHref={channelUrl(platform, active.id)} subtitle={active.subtitle} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<IdleWatchlistStatus streamer={active} />} /> : null}
           </DragOverlay>
         </DndContext>
       )}
@@ -79,9 +79,9 @@ export function WatchQueuePanel({ platform, streamers, onChange }: { platform: P
   );
 }
 
-function SortableWatchQueue({ streamer, index, platform, onRemove }: { streamer: StreamerItem; index: number; platform: Platform; onRemove(): void }) {
+function SortableIdleWatchlist({ streamer, index, platform, onRemove }: { streamer: StreamerItem; index: number; platform: Platform; onRemove(): void }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: streamer.id });
-  const status = <WatchQueueStatus streamer={streamer} />;
+  const status = <IdleWatchlistStatus streamer={streamer} />;
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
       <CompactRow index={index} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} titleHref={channelUrl(platform, streamer.id)} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${streamer.name}`} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={`Remove ${streamer.name}`} onClick={onRemove} /></span>} />
@@ -89,10 +89,10 @@ function SortableWatchQueue({ streamer, index, platform, onRemove }: { streamer:
   );
 }
 
-function WatchQueueStatus({ streamer }: { streamer: StreamerItem }): React.ReactElement {
+function IdleWatchlistStatus({ streamer }: { streamer: StreamerItem }): React.ReactElement {
   const t = useT();
   if (streamer.live) {
     return <Pill tone="live"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{streamer.viewers != null ? formatViewers(streamer.viewers) : t("live")}</Pill>;
   }
-  return <Pill tone="muted">{t("queued")}</Pill>;
+  return <Pill tone="muted">{t("idleWatchlistChannel")}</Pill>;
 }

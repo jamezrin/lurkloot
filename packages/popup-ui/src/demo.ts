@@ -96,7 +96,7 @@ function demoSnapshot(): RuntimeSnapshot {
     platform: {
       twitch: {
         enabled: true,
-        watchQueueChannels: ["rivalspilot", "lootforge", "nightrunlive"],
+        idleWatchlistChannels: ["rivalspilot", "lootforge", "nightrunlive"],
         excludedChannels: ["spoilerboss"],
         farmAllCategories: false,
         categories: [
@@ -108,7 +108,7 @@ function demoSnapshot(): RuntimeSnapshot {
       },
       kick: {
         enabled: true,
-        watchQueueChannels: ["greenroomgg", "pixelboost"],
+        idleWatchlistChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
         farmAllCategories: true,
         categories: [],

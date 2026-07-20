@@ -45,7 +45,7 @@ export function PlatformSettingsGroup({ platform, suggestions, settings, onFarmA
   const t = useT();
   const details = PLATFORMS[platform];
   const platformSettings = settings.platform[platform];
-  const queueCount = platformSettings.watchQueueChannels.length;
+  const watchlistCount = platformSettings.idleWatchlistChannels.length;
   const excludedChannels = platformSettings.excludedChannels ?? [];
 
   return (
@@ -60,10 +60,10 @@ export function PlatformSettingsGroup({ platform, suggestions, settings, onFarmA
         </div>
         <div className="flex items-center gap-3 py-2.5">
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("watchQueueTab")}</div>
-            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("watchQueueEditHint", details.label)}</div>
+            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("idleWatchlistTab")}</div>
+            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("idleWatchlistEditHint", details.label)}</div>
           </div>
-          <Pill tone="outline">{queueCount}/20</Pill>
+          <Pill tone="outline">{watchlistCount}/20</Pill>
         </div>
         {platform === "twitch" ? (
           <SettingRow

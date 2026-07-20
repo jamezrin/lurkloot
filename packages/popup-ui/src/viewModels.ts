@@ -234,7 +234,7 @@ export function channelViewFromSession(session: WatchSession): FarmingChannelVie
 export function streamerItemFromFallback(username: string, session: WatchSession, t: TFunction): StreamerItem {
   const channel = session.channel;
   const live = channel != null && channel.username.toLowerCase() === username.toLowerCase() && session.status === "watching";
-  if (!live) return { id: username, name: username, live: false, subtitle: t("queued") };
+  if (!live) return { id: username, name: username, live: false, subtitle: t("idleWatchlistChannel") };
   return {
     id: username,
     name: channel.displayName ?? username,

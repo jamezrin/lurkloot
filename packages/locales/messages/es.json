@@ -86,8 +86,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "watchQueueTab": {
-    "message": "Cola de visualización"
+  "idleWatchlistTab": {
+    "message": "Lista de visualización inactiva"
   },
   "automationTitle": {
     "message": "Automatización de $1"
@@ -121,10 +121,10 @@
   },
   "hideTipsTitle": { "message": "Ocultar consejos" },
   "hideTipsDescription": { "message": "Oculta los consejos de la ventana principal." },
-  "tipCampaignPriority": { "message": "Los drops tienen prioridad sobre la cola. Arrastra las campañas por el agarre para ordenar el farmeo." },
+  "tipCampaignPriority": { "message": "Los drops tienen prioridad sobre la lista. Arrastra las campañas por el agarre para ordenar el farmeo." },
   "tipMissingCampaigns": { "message": "¿Falta una campaña? Comprueba el inventario de drops de la plataforma y los filtros en Ajustes." },
   "tipCategorySelection": { "message": "¿Solo quieres ciertos juegos? Desactiva «Farmear todas las categorías» y elige las categorías." },
-  "tipWatchQueue": { "message": "La cola farmea los canales elegidos cuando no hay drops disponibles." },
+  "tipIdleWatchlist": { "message": "La lista farmea los canales elegidos cuando no hay drops disponibles." },
   "tipTablessMode": { "message": "El modo sin pestañas usa menos recursos y recurre a una pestaña silenciada cuando hace falta." },
   "tipCli": { "message": "¿Prefieres no usar una extensión? Lurkloot también ofrece una CLI para Docker." },
   "tipCliAction": { "message": "Ver guía de la CLI" },
@@ -263,8 +263,8 @@
   "excludeFromFarming": {
     "message": "Excluir del farmeo"
   },
-  "noWatchQueue": {
-    "message": "No hay canales configurados en la cola."
+  "noIdleWatchlist": {
+    "message": "No hay canales configurados en la lista."
   },
   "channelPlaceholder": {
     "message": "canal"
@@ -275,8 +275,8 @@
   "addChannel": {
     "message": "Añadir canal"
   },
-  "queued": {
-    "message": "en cola"
+  "idleWatchlistChannel": {
+    "message": "en lista"
   },
   "live": {
     "message": "en vivo"
@@ -344,16 +344,16 @@
   "lowAvailabilityFirst": {
     "message": "Baja disponibilidad primero"
   },
-  "watchQueueSettingsTitle": {
-    "message": "Cola de visualización"
+  "idleWatchlistSettingsTitle": {
+    "message": "Lista de visualización inactiva"
   },
-  "watchQueueSettingsDescription": {
-    "message": "Comportamiento compartido de la cola alternativa."
+  "idleWatchlistSettingsDescription": {
+    "message": "Comportamiento compartido de la lista alternativa."
   },
-  "watchQueueFallbackOnlyTitle": {
-    "message": "Solo cuando no hay drops activos"
+  "idleWatchlistFallbackOnlyTitle": {
+    "message": "Solo cuando no hay drops elegibles disponibles"
   },
-  "watchQueueFallbackOnlyDescription": {
+  "idleWatchlistFallbackOnlyDescription": {
     "message": "Conserva automáticamente la prioridad de los drops."
   },
   "platformSettingsTitle": {
@@ -384,7 +384,7 @@
     "message": "Silenciar pestañas de farmeo"
   },
   "muteTabsDescription": {
-    "message": "Mantén silenciadas las pestañas de Drops y de la cola de visualización mientras farmeas."
+    "message": "Mantén silenciadas las pestañas de Drops y de la lista de visualización inactiva mientras farmeas."
   },
   "keepVideosUnmutedTitle": {
     "message": "Mantener vídeos de farmeo con sonido"
@@ -454,13 +454,13 @@
     "message": "Automatización"
   },
   "farmOnPlatform": {
-    "message": "Farmea drops y mira la cola en $1."
+    "message": "Farmea drops y mira la lista en $1."
   },
   "enabled": {
     "message": "Habilitado"
   },
-  "watchQueueEditHint": {
-    "message": "Edítala desde la pestaña Cola de visualización después de seleccionar $1."
+  "idleWatchlistEditHint": {
+    "message": "Edítala desde la pestaña Lista de visualización inactiva después de seleccionar $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Auto-reclamar puntos de canal"
@@ -582,10 +582,10 @@
   "screenshotKickSubcopy": {
     "message": "La misma automatización, comprobaciones de elegibilidad y auto-reclamo que usas en Twitch, ahora para recompensas de creadores en Kick."
   },
-  "screenshotQueueHeadline": {
-    "message": "Una cola de visualización alternativa mantiene las ganancias."
+  "screenshotIdleWatchlistHeadline": {
+    "message": "Una lista de visualización inactiva alternativa mantiene las ganancias."
   },
-  "screenshotQueueSubcopy": {
+  "screenshotIdleWatchlistSubcopy": {
     "message": "Cuando no hay drops activos, Lurkloot ve tus canales favoritos para que tu tiempo conectado no se desperdicie."
   },
   "screenshotSettingsHeadline": {
@@ -715,8 +715,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "se priorizó una recompensa más importante"
   },
-  "activityReasonHigherPriorityWatchQueue": {
-    "message": "se priorizó la cola de visualización"
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "se priorizó la lista de visualización inactiva"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "se completó el requisito de visualización"

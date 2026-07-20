@@ -86,8 +86,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "watchQueueTab": {
-    "message": "Fila de visualização"
+  "idleWatchlistTab": {
+    "message": "Lista de visualização ociosa"
   },
   "automationTitle": {
     "message": "Automação de $1"
@@ -121,10 +121,10 @@
   },
   "hideTipsTitle": { "message": "Ocultar dicas" },
   "hideTipsDescription": { "message": "Oculta as dicas úteis da janela principal." },
-  "tipCampaignPriority": { "message": "Drops têm prioridade sobre a fila. Arraste as campanhas pela alça para definir a ordem." },
+  "tipCampaignPriority": { "message": "Drops têm prioridade sobre a lista. Arraste as campanhas pela alça para definir a ordem." },
   "tipMissingCampaigns": { "message": "Não encontrou uma campanha? Confira o inventário de Drops da plataforma e os filtros nas configurações." },
   "tipCategorySelection": { "message": "Quer apenas certos jogos? Desative “Farmar todas as categorias” e escolha as categorias." },
-  "tipWatchQueue": { "message": "A fila farma os canais escolhidos quando não há Drops elegíveis." },
+  "tipIdleWatchlist": { "message": "A lista farma os canais escolhidos quando não há Drops elegíveis." },
   "tipTablessMode": { "message": "O modo sem abas usa menos recursos e abre uma aba silenciada quando necessário." },
   "tipCli": { "message": "Prefere não usar uma extensão? O Lurkloot também oferece uma CLI para Docker." },
   "tipCliAction": { "message": "Ler o guia da CLI" },
@@ -263,8 +263,8 @@
   "excludeFromFarming": {
     "message": "Excluir do farming"
   },
-  "noWatchQueue": {
-    "message": "Nenhum canal configurado na fila."
+  "noIdleWatchlist": {
+    "message": "Nenhum canal configurado na lista."
   },
   "channelPlaceholder": {
     "message": "canal"
@@ -275,8 +275,8 @@
   "addChannel": {
     "message": "Adicionar canal"
   },
-  "queued": {
-    "message": "na fila"
+  "idleWatchlistChannel": {
+    "message": "na lista"
   },
   "live": {
     "message": "ao vivo"
@@ -344,16 +344,16 @@
   "lowAvailabilityFirst": {
     "message": "Baixa disponibilidade primeiro"
   },
-  "watchQueueSettingsTitle": {
-    "message": "Fila de visualização"
+  "idleWatchlistSettingsTitle": {
+    "message": "Lista de visualização ociosa"
   },
-  "watchQueueSettingsDescription": {
-    "message": "Comportamento compartilhado da fila alternativa."
+  "idleWatchlistSettingsDescription": {
+    "message": "Comportamento compartilhado da lista alternativa."
   },
-  "watchQueueFallbackOnlyTitle": {
-    "message": "Somente quando não há drops ativos"
+  "idleWatchlistFallbackOnlyTitle": {
+    "message": "Somente quando não há drops elegíveis disponíveis"
   },
-  "watchQueueFallbackOnlyDescription": {
+  "idleWatchlistFallbackOnlyDescription": {
     "message": "Preserva automaticamente a prioridade dos drops."
   },
   "platformSettingsTitle": {
@@ -384,7 +384,7 @@
     "message": "Silenciar abas de farming"
   },
   "muteTabsDescription": {
-    "message": "Mantém abas de Drops e da fila de visualização silenciadas durante o farming."
+    "message": "Mantém abas de Drops e da lista de visualização ociosa silenciadas durante o farming."
   },
   "keepVideosUnmutedTitle": {
     "message": "Manter vídeos de farming sem mudo"
@@ -454,13 +454,13 @@
     "message": "Automação"
   },
   "farmOnPlatform": {
-    "message": "Farma drops e assiste à fila no $1."
+    "message": "Farma drops e assiste à lista no $1."
   },
   "enabled": {
     "message": "Ativado"
   },
-  "watchQueueEditHint": {
-    "message": "Edite na aba Fila de visualização depois de selecionar $1."
+  "idleWatchlistEditHint": {
+    "message": "Edite na aba Lista de visualização ociosa depois de selecionar $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Resgatar pontos de canal automaticamente"
@@ -582,10 +582,10 @@
   "screenshotKickSubcopy": {
     "message": "A mesma automação, verificação de elegibilidade e auto-resgate da Twitch, agora para recompensas de criadores na Kick."
   },
-  "screenshotQueueHeadline": {
-    "message": "Uma fila de visualização alternativa mantém seus ganhos."
+  "screenshotIdleWatchlistHeadline": {
+    "message": "Uma lista de visualização ociosa alternativa mantém seus ganhos."
   },
-  "screenshotQueueSubcopy": {
+  "screenshotIdleWatchlistSubcopy": {
     "message": "Quando não há drops ativos, Lurkloot assiste seus canais favoritos para seu tempo online render."
   },
   "screenshotSettingsHeadline": {
@@ -715,8 +715,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "uma recompensa de maior prioridade assumiu"
   },
-  "activityReasonHigherPriorityWatchQueue": {
-    "message": "a fila de exibição teve prioridade"
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "a lista de visualização teve prioridade"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "o requisito de exibição foi concluído"

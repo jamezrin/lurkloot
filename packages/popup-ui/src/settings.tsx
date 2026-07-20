@@ -127,8 +127,8 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
           onForget={() => onSettingsChange({ excludedCampaignIds: [] }, { tickAfterSave: true })}
         />
       </SettingsSection>
-      <SettingsSection title={t("watchQueueSettingsTitle")} description={t("watchQueueSettingsDescription")} icon={Play}>
-        <SettingRow title={t("watchQueueFallbackOnlyTitle")} description={t("watchQueueFallbackOnlyDescription")} checked={settings.watchQueueFallbackOnly} onChange={set("watchQueueFallbackOnly")} />
+      <SettingsSection title={t("idleWatchlistSettingsTitle")} description={t("idleWatchlistSettingsDescription")} icon={Play}>
+        <SettingRow title={t("idleWatchlistFallbackOnlyTitle")} description={t("idleWatchlistFallbackOnlyDescription")} checked={settings.idleWatchlistFallbackOnly} onChange={set("idleWatchlistFallbackOnly")} />
       </SettingsSection>
       <SettingsSection title={t("platformSettingsTitle")} description={t("platformSettingsDescription")} icon={Radio} divided={false}>
         <SettingsPlatformSwitch active={platformTab} onChange={setPlatformTab} />

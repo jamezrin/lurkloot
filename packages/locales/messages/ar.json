@@ -86,8 +86,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "watchQueueTab": {
-    "message": "قائمة المشاهدة"
+  "idleWatchlistTab": {
+    "message": "قائمة المشاهدة الخاملة"
   },
   "automationTitle": {
     "message": "أتمتة $1"
@@ -121,10 +121,10 @@
   },
   "hideTipsTitle": { "message": "إخفاء النصائح" },
   "hideTipsDescription": { "message": "يخفي النصائح المفيدة من النافذة الرئيسية." },
-  "tipCampaignPriority": { "message": "تأخذ Drops الأولوية على قائمة المشاهدة. اسحب الحملات من المقبض لترتيب الفارم." },
+  "tipCampaignPriority": { "message": "تأخذ Drops الأولوية على قائمة المشاهدة الخاملة. اسحب الحملات من المقبض لترتيب الفارم." },
   "tipMissingCampaigns": { "message": "هل هناك حملة مفقودة؟ تحقق من مخزون Drops في المنصة ثم من عوامل التصفية في الإعدادات." },
   "tipCategorySelection": { "message": "تريد ألعابًا محددة فقط؟ عطّل «فارم كل الفئات» واختر فئاتك." },
-  "tipWatchQueue": { "message": "تفارم قائمة المشاهدة القنوات المختارة عند عدم توفر Drops مؤهلة." },
+  "tipIdleWatchlist": { "message": "تفارم قائمة المشاهدة الخاملة القنوات المختارة عند عدم توفر Drops مؤهلة." },
   "tipTablessMode": { "message": "يستهلك الوضع بلا تبويبات موارد أقل ويفتح تبويبًا مكتومًا عند الحاجة." },
   "tipCli": { "message": "تفضّل العمل بلا إضافة؟ يتوفر Lurkloot أيضًا كواجهة CLI عبر Docker." },
   "tipCliAction": { "message": "اقرأ دليل CLI" },
@@ -263,8 +263,8 @@
   "excludeFromFarming": {
     "message": "استبعاد من الفارم"
   },
-  "noWatchQueue": {
-    "message": "لا توجد قنوات مهيأة في قائمة المشاهدة."
+  "noIdleWatchlist": {
+    "message": "لا توجد قنوات مهيأة في قائمة المشاهدة الخاملة."
   },
   "channelPlaceholder": {
     "message": "قناة"
@@ -275,7 +275,7 @@
   "addChannel": {
     "message": "إضافة قناة"
   },
-  "queued": {
+  "idleWatchlistChannel": {
     "message": "في القائمة"
   },
   "live": {
@@ -344,16 +344,16 @@
   "lowAvailabilityFirst": {
     "message": "الأقل توفرًا أولًا"
   },
-  "watchQueueSettingsTitle": {
-    "message": "قائمة المشاهدة"
+  "idleWatchlistSettingsTitle": {
+    "message": "قائمة المشاهدة الخاملة"
   },
-  "watchQueueSettingsDescription": {
+  "idleWatchlistSettingsDescription": {
     "message": "سلوك قائمة الاحتياط المشترك."
   },
-  "watchQueueFallbackOnlyTitle": {
-    "message": "فقط عند عدم وجود Drops نشطة"
+  "idleWatchlistFallbackOnlyTitle": {
+    "message": "فقط عند عدم توفر Drops مؤهلة"
   },
-  "watchQueueFallbackOnlyDescription": {
+  "idleWatchlistFallbackOnlyDescription": {
     "message": "يحافظ تلقائيًا على أولوية Drops."
   },
   "platformSettingsTitle": {
@@ -384,7 +384,7 @@
     "message": "كتم تبويبات الفارم"
   },
   "muteTabsDescription": {
-    "message": "يبقي تبويبات Drops وقائمة المشاهدة مكتومة أثناء الفارم."
+    "message": "يبقي تبويبات Drops وقائمة المشاهدة الخاملة مكتومة أثناء الفارم."
   },
   "keepVideosUnmutedTitle": {
     "message": "إبقاء فيديوهات الفارم غير مكتومة"
@@ -459,8 +459,8 @@
   "enabled": {
     "message": "مفعل"
   },
-  "watchQueueEditHint": {
-    "message": "حررها من تبويب قائمة المشاهدة بعد اختيار $1."
+  "idleWatchlistEditHint": {
+    "message": "حررها من تبويب قائمة المشاهدة الخاملة بعد اختيار $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "استلام نقاط القناة تلقائيًا"
@@ -582,10 +582,10 @@
   "screenshotKickSubcopy": {
     "message": "نفس الأتمتة وفحوصات الأهلية والاستلام التلقائي على Twitch، الآن لمكافآت منشئي Kick."
   },
-  "screenshotQueueHeadline": {
-    "message": "تحافظ قائمة المشاهدة الاحتياطية على استمرار الكسب."
+  "screenshotIdleWatchlistHeadline": {
+    "message": "تحافظ قائمة المشاهدة الخاملة الاحتياطية على استمرار الكسب."
   },
-  "screenshotQueueSubcopy": {
+  "screenshotIdleWatchlistSubcopy": {
     "message": "عند عدم وجود Drops نشطة، يشاهد Lurkloot قنواتك المفضلة حتى لا يضيع وقتك المتصل."
   },
   "screenshotSettingsHeadline": {
@@ -715,8 +715,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "تم الانتقال إلى مكافأة ذات أولوية أعلى"
   },
-  "activityReasonHigherPriorityWatchQueue": {
-    "message": "أصبحت قائمة المشاهدة ذات أولوية"
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "أصبحت قائمة المشاهدة الخاملة ذات أولوية"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "اكتمل شرط المشاهدة"
