@@ -133,7 +133,7 @@ describe("CLI engine event reporting", () => {
     const reasons: FarmingStopReason[] = [
       "automation_disabled", "platform_disabled", "platform_backoff", "platform_error",
       "campaign_ineligible", "channel_excluded", "channel_offline", "channel_mismatch",
-      "watch_unhealthy", "higher_priority_reward", "higher_priority_watch_queue",
+      "watch_unhealthy", "higher_priority_reward", "higher_priority_idle_watchlist",
       "watch_requirement_completed", "runtime_restart", "target_changed", "manual_watch",
     ];
     for (const reason of reasons) {
