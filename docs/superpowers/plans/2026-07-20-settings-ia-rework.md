@@ -62,7 +62,7 @@ These were settled during brainstorming. Do not re-litigate them mid-implementat
 | `packages/popup-ui/src/Popup.tsx:581` | Drop the `initialPlatform` prop. |
 | `packages/locales/messages/*.json` (×10) | New section/group labels. |
 | `packages/extension/tests/settingsView.test.tsx` | Advanced settings now need the switch enabled. |
-| `packages/extension/tests/compatibilitySettingsView.test.tsx` | New per-platform component signature. |
+| `packages/extension/tests/compatibilitySettingsView.test.tsxx` | New per-platform component signature. |
 | `packages/extension/tests/settingsCredentialExport.test.tsx` | Export is a standalone button, not a `SettingsSection`. |
 
 **All commands run from the worktree root:** `/home/jamezrin/dev/lurkloot/.worktrees/settings-ia-rework`
@@ -132,7 +132,7 @@ describe("matchesSearch", () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-pnpm test -- settingsSearch
+cd packages/extension && pnpm exec vitest run tests/settingsSearch.test.ts
 ```
 
 Expected: FAIL — `Failed to resolve import "../../popup-ui/src/settingsSearch"`.
@@ -169,7 +169,7 @@ export function matchesSearch(haystacks: readonly string[], query: string): bool
 - [ ] **Step 4: Run the test to verify it passes**
 
 ```bash
-pnpm test -- settingsSearch
+cd packages/extension && pnpm exec vitest run tests/settingsSearch.test.ts
 ```
 
 Expected: PASS, 8 tests.
@@ -292,7 +292,7 @@ describe("filterSettingsTree", () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-pnpm test -- settingsSearch
+cd packages/extension && pnpm exec vitest run tests/settingsSearch.test.ts
 ```
 
 Expected: FAIL — `filterSettingsTree is not a function`.
@@ -407,7 +407,7 @@ export function filterSettingsTree<TEntry extends SettingsEntryNode>(
 - [ ] **Step 4: Run the test to verify it passes**
 
 ```bash
-pnpm test -- settingsSearch
+cd packages/extension && pnpm exec vitest run tests/settingsSearch.test.ts
 ```
 
 Expected: PASS, 15 tests total.
@@ -483,7 +483,7 @@ Append to `packages/extension/tests/i18n.test.ts`, inside the top-level `describ
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-pnpm test -- i18n
+cd packages/extension && pnpm exec vitest run tests/i18n.test.ts
 ```
 
 Expected: FAIL — `en.settingsSearchPlaceholder` is undefined.
@@ -497,7 +497,7 @@ Translate the values properly; do not copy English into the other nine catalogs.
 - [ ] **Step 4: Run the tests to verify they pass**
 
 ```bash
-pnpm test -- i18n
+cd packages/extension && pnpm exec vitest run tests/i18n.test.ts
 ```
 
 Expected: PASS. Both the new test and the pre-existing "keeps locale catalog keys in sync" test must pass — the latter proves no catalog was missed.
@@ -680,13 +680,13 @@ git commit -m "refactor(popup): key settings sections by stable id and add group
 
 **Files:**
 - Modify: `packages/popup-ui/src/compatibilitySettings.tsx:132-217`
-- Modify: `packages/extension/tests/compatibilitySettingsView.test.tsx`
+- Modify: `packages/extension/tests/compatibilitySettingsView.test.tsxx`
 
 The current `CompatibilitySettings` renders its own section header plus both platforms' `PlatformGroup` blocks. In the new tree each platform section renders only its own rows, so the component is parameterized by platform and loses both the header and the platform grouping.
 
 - [ ] **Step 1: Write the failing test**
 
-In `packages/extension/tests/compatibilitySettingsView.test.tsx`, change the import at line 9 to:
+In `packages/extension/tests/compatibilitySettingsView.test.tsxx`, change the import at line 9 to:
 
 ```tsx
 import { PlatformCompatibilitySettings } from "../../popup-ui/src/compatibilitySettings";
@@ -722,7 +722,7 @@ Adapt `mountCompatibility` to accept and forward a `platform` option — match w
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-pnpm test -- compatibilitySettingsView
+cd packages/extension && pnpm exec vitest run tests/compatibilitySettingsView.test.tsx
 ```
 
 Expected: FAIL — `PlatformCompatibilitySettings` is not exported.
@@ -851,7 +851,7 @@ Update every hit to `automaticPatchFor(platform)`.
 - [ ] **Step 4: Run the test to verify it passes**
 
 ```bash
-pnpm test -- compatibilitySettingsView
+cd packages/extension && pnpm exec vitest run tests/compatibilitySettingsView.test.tsx
 ```
 
 Expected: PASS.
@@ -859,7 +859,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/popup-ui/src/compatibilitySettings.tsx packages/extension/tests/compatibilitySettingsView.test.tsx
+git add packages/popup-ui/src/compatibilitySettings.tsx packages/extension/tests/compatibilitySettingsView.test.tsxx
 git commit -m "refactor(popup): scope compatibility settings to a single platform"
 ```
 
@@ -1063,7 +1063,7 @@ describe("settings registry", () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-pnpm test -- settingsRegistry
+cd packages/extension && pnpm exec vitest run tests/settingsRegistry.test.ts
 ```
 
 Expected: FAIL — cannot resolve `../../popup-ui/src/settingsRegistry`.
@@ -1447,7 +1447,7 @@ group with a single logging switch.
 - [ ] **Step 4: Run the test to verify it passes**
 
 ```bash
-pnpm test -- settingsRegistry
+cd packages/extension && pnpm exec vitest run tests/settingsRegistry.test.ts
 ```
 
 Expected: PASS.
@@ -1469,7 +1469,7 @@ git commit -m "feat(popup): declare settings as a searchable registry"
 
 - [ ] **Step 1: Write the failing test**
 
-Create a new test file `packages/extension/tests/settingsSearchView.test.tsx`. Model the mount helper on `packages/extension/tests/settingsView.test.tsx:20-56` — read that file first and copy its `parseHTML` / `stubGlobal` / `createRoot` setup exactly, including the `PopupRuntimeContext` with `preview: true`.
+Create a new test file `packages/extension/tests/settingsSearchView.test.tsxx`. Model the mount helper on `packages/extension/tests/settingsView.test.tsx:20-56` — read that file first and copy its `parseHTML` / `stubGlobal` / `createRoot` setup exactly, including the `PopupRuntimeContext` with `preview: true`.
 
 ```tsx
   it("hides advanced groups until the advanced switch is turned on", () => {
@@ -1532,7 +1532,7 @@ The `labels` map in the mount helper must cover every key the registry resolves.
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-pnpm test -- settingsSearchView
+cd packages/extension && pnpm exec vitest run tests/settingsSearchView.test.tsx
 ```
 
 Expected: FAIL — no search input exists yet.
@@ -1692,7 +1692,7 @@ It is used by other views, so it stays — only the prop passed to `SettingsView
 - [ ] **Step 5: Run the tests**
 
 ```bash
-pnpm test -- settingsSearchView
+cd packages/extension && pnpm exec vitest run tests/settingsSearchView.test.tsx
 ```
 
 Expected: PASS.
@@ -1700,7 +1700,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add packages/popup-ui/src/settings.tsx packages/popup-ui/src/Popup.tsx packages/extension/tests/settingsSearchView.test.tsx
+git add packages/popup-ui/src/settings.tsx packages/popup-ui/src/Popup.tsx packages/extension/tests/settingsSearchView.test.tsxx
 git commit -m "feat(popup): rework settings into searchable general, twitch and kick sections"
 ```
 
