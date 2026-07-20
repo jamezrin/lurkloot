@@ -39,9 +39,17 @@ export async function loadSettings(): Promise<ExtensionSettings> {
   return withSettingsStorageLock(async () => {
     const data = await browser.storage.local.get(SETTINGS_KEY);
     const migration = migrateSettings(data[SETTINGS_KEY]);
+    // migration.diagnostics is deliberately unused: browser storage upgrades
+    // itself, so there is nothing for a user to act on. The CLI surfaces its
+    // diagnostics as startup warnings because its config file is never rewritten.
     const settings = mergeSettings(migration.settings as Partial<ExtensionSettings>);
     if (migration.changed) {
       try {
+        // Persists the normalized settings, not the migrated raw payload, so a
+        // property mergeSettings does not recognize is dropped here. That is
+        // not new: saveSettings has always written the normalized object
+        // wholesale, so an unrecognized property would not have survived the
+        // user's next settings change either.
         await browser.storage.local.set({ [SETTINGS_KEY]: withSchemaVersion(settings) });
       } catch {
         // Startup continues on the canonical in-memory settings. The stored
