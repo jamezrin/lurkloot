@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Ban, ChevronDown, type LucideIcon } from "lucide-react";
+import { Ban, ChevronDown, Search, TriangleAlert, type LucideIcon } from "lucide-react";
 import type { CampaignFilterKey } from "@lurkloot/shared/models";
 import {
   CAMPAIGN_FILTERS,
@@ -8,35 +8,48 @@ import {
 import { usePopupRuntime, useT } from "./context";
 import { Toggle, cn } from "./primitives";
 
-export function SettingsSection({ title, description, icon: Icon, iconNode, divided = true, children }: { title: string; description?: string; icon?: LucideIcon; iconNode?: React.ReactNode; divided?: boolean; children: React.ReactNode }) {
+export function SettingsSection({ id, title, description, icon: Icon, iconNode, badge, forceExpanded, children }: {
+  // Stable, locale-independent identity. Collapse state is keyed by this, not by
+  // the translated title, so changing language does not reset the accordion.
+  id: string;
+  title: string;
+  description?: string;
+  icon?: LucideIcon;
+  iconNode?: React.ReactNode;
+  badge?: React.ReactNode;
+  // While searching, sections holding matches are opened regardless of the
+  // persisted state, and the persisted state is left untouched.
+  forceExpanded?: boolean;
+  children: React.ReactNode;
+}) {
   const { adapter, preview } = usePopupRuntime();
-  const [expanded, setExpanded] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (preview) return;
     let mounted = true;
     void adapter.getStorage(COLLAPSED_SETTINGS_SECTIONS_KEY).then((stored) => {
       if (!mounted) return;
-      const collapsed = stored[COLLAPSED_SETTINGS_SECTIONS_KEY] as Record<string, boolean | undefined> | undefined;
-      setExpanded(collapsed?.[title] === false);
+      const map = stored[COLLAPSED_SETTINGS_SECTIONS_KEY] as Record<string, boolean | undefined> | undefined;
+      setCollapsed(map?.[id] === true);
     });
     return () => {
       mounted = false;
     };
-  }, [adapter, preview, title]);
+  }, [adapter, preview, id]);
 
-  function toggleExpanded(): void {
-    const nextExpanded = !expanded;
-    setExpanded(nextExpanded);
+  function toggleCollapsed(): void {
+    const nextCollapsed = !collapsed;
+    setCollapsed(nextCollapsed);
     if (preview) return;
     void adapter.getStorage(COLLAPSED_SETTINGS_SECTIONS_KEY).then((stored) => {
-      const collapsed = {
-        ...((stored[COLLAPSED_SETTINGS_SECTIONS_KEY] as Record<string, boolean> | undefined) ?? {}),
-        [title]: !nextExpanded,
-      };
-      void adapter.setStorage({ [COLLAPSED_SETTINGS_SECTIONS_KEY]: collapsed });
+      const map = (stored[COLLAPSED_SETTINGS_SECTIONS_KEY] as Record<string, boolean> | undefined) ?? {};
+      const next = { ...map, [id]: nextCollapsed };
+      void adapter.setStorage({ [COLLAPSED_SETTINGS_SECTIONS_KEY]: next });
     });
   }
+
+  const expanded = forceExpanded || !collapsed;
 
   return (
     <section>
@@ -44,21 +57,70 @@ export function SettingsSection({ title, description, icon: Icon, iconNode, divi
         <button
           type="button"
           aria-expanded={expanded}
-          onClick={toggleExpanded}
+          onClick={toggleCollapsed}
           className="flex w-full items-start justify-between gap-3 rounded-lg px-1 py-1 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-900/70"
         >
           <span className="min-w-0">
             <span className="flex items-center gap-1.5">
               {iconNode ?? (Icon ? <Icon size={13} className="text-zinc-400 dark:text-zinc-500" /> : null)}
               <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</span>
+              {badge}
             </span>
             {description ? <span className="mt-1 block text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">{description}</span> : null}
           </span>
           <ChevronDown size={14} className={cn("mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded && "rotate-180")} />
         </button>
       </header>
-      {expanded ? <div className={divided ? "divide-y divide-zinc-100 px-0.5 dark:divide-zinc-800/70" : "space-y-3 px-0.5"}>{children}</div> : null}
+      {expanded ? <div className="space-y-3 px-0.5">{children}</div> : null}
     </section>
+  );
+}
+
+// A labelled divider inside a section. Groups do not collapse: two levels of
+// accordion in a 600px popup is tedious, and search is the real answer to a long
+// page. Advanced groups are visually demoted so they read as advanced even once
+// the "show advanced" switch has revealed them.
+export function SettingsGroup({ title, advanced = false, children }: {
+  title: string;
+  advanced?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("mt-3 first:mt-0", advanced && "rounded-lg border border-amber-500/20 bg-amber-500/[0.03] px-2 pb-1 dark:border-amber-500/20")}>
+      <div className="mb-0.5 flex items-center gap-1.5 pt-1">
+        {advanced ? <TriangleAlert size={11} className="shrink-0 text-amber-500/80" /> : null}
+        <span className={cn("text-[10px] font-semibold uppercase tracking-wide", advanced ? "text-amber-600/90 dark:text-amber-400/90" : "text-zinc-400 dark:text-zinc-500")}>{title}</span>
+        <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/70" />
+      </div>
+      <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">{children}</div>
+    </div>
+  );
+}
+
+export function SettingsSearchBox({ value, onChange }: { value: string; onChange(value: string): void }) {
+  const t = useT();
+  return (
+    <div className="relative">
+      <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label={t("settingsSearchPlaceholder")}
+        placeholder={t("settingsSearchPlaceholder")}
+        className="w-full rounded-xl border border-zinc-200 bg-white py-2 pl-8 pr-3 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+      />
+    </div>
+  );
+}
+
+export function AdvancedSettingsSwitch({ checked, onChange }: { checked: boolean; onChange(value: boolean): void }) {
+  const t = useT();
+  return (
+    <div className="flex items-center justify-between gap-3 px-1">
+      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">{t("settingsShowAdvancedTitle")}</span>
+      <Toggle checked={checked} onChange={onChange} label={t("settingsShowAdvancedTitle")} />
+    </div>
   );
 }
 
