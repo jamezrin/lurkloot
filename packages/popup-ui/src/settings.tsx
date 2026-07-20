@@ -93,10 +93,12 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
       )}
 
       {onExportCredentials && !searching ? (
-        <div className="border-t border-zinc-100 pt-3 dark:border-zinc-800/70">
+        <div className="pt-2">
           {/* Labelled like a group header so the action reads as deliberate
               rather than orphaned, without becoming a settings section: this is
-              an action, not a setting. */}
+              an action, not a setting. The header's own trailing rule is the
+              separator — a border on this wrapper would stack a second line
+              directly above it. */}
           <div className="mb-1 flex items-center gap-1.5 px-1">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("cliExportTitle")}</span>
             <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/70" />
