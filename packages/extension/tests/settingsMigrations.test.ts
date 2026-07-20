@@ -135,15 +135,36 @@ describe("migration 1: legacy aliases", () => {
     expect(migrateSettings({ verboseLogging: false }).settings).toEqual({ diagnosticLogging: false });
   });
 
-  it("keeps a legacy autoClaimChannelPoints when the platform block is malformed", () => {
+  it("keeps a legacy autoClaimChannelPoints when platform is not an object", () => {
     // The old mergeEngineSettings read this independently of platform's shape.
     // Dropping it here would silently re-enable channel-point claiming.
-    for (const platform of ["nope", { twitch: null }]) {
-      const result = migrateSettings({ autoClaimChannelPoints: false, platform });
-      expect(result.settings.autoClaimChannelPoints).toBe(false);
-      expect(result.settings.platform).toEqual(platform);
-      expect(result.diagnostics).toEqual([]);
-    }
+    const result = migrateSettings({ autoClaimChannelPoints: false, platform: "nope" });
+    expect(result.settings.autoClaimChannelPoints).toBe(false);
+    expect(result.settings.platform).toBe("nope");
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("keeps a legacy autoClaimChannelPoints when platform.twitch is not an object", () => {
+    const result = migrateSettings({ autoClaimChannelPoints: false, platform: { twitch: null } });
+    expect(result.settings.autoClaimChannelPoints).toBe(false);
+    expect(result.settings.platform).toEqual({ twitch: null });
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("lets a wrong-typed current value win over a legacy one", () => {
+    // Deliberate: migrations never inspect types, so normalization sees the
+    // wrong-typed current value and applies its default. The pre-registry
+    // inline fallbacks instead fell through to the legacy value here.
+    const logging = migrateSettings({ diagnosticLogging: "yes", verboseLogging: true });
+    expect(logging.settings).toEqual({ diagnosticLogging: "yes" });
+    expect(logging.diagnostics.map((d) => d.path)).toEqual(["verboseLogging"]);
+
+    const points = migrateSettings({
+      autoClaimChannelPoints: false,
+      platform: { twitch: { autoClaimChannelPoints: "yes" } },
+    });
+    expect(points.settings).toEqual({ platform: { twitch: { autoClaimChannelPoints: "yes" } } });
+    expect(points.diagnostics.map((d) => d.path)).toEqual(["autoClaimChannelPoints"]);
   });
 
   it("keeps a non-boolean legacy value verbatim so normalization decides", () => {

@@ -62,16 +62,16 @@ interface SettingsMigration {
   migrate: (raw: Record<string, unknown>, diagnose: Diagnose) => Record<string, unknown>;
 }
 
-// Migration 1 consolidates every legacy shape that predates the registry: the
-// Idle Watchlist rename (PR #177), the pre-split top-level channel-points
-// toggle, and the verboseLogging rename. Diagnostics are emitted in a fixed
-// order so host warnings are stable across runs.
 // Ordered registry. Entry i upgrades version i to version i + 1. Never edit a
 // released migration except to fix data loss; add a new version instead.
 const MIGRATIONS: SettingsMigration[] = [
   { to: 1, migrate: migrateToV1 },
 ];
 
+// Migration 1 consolidates every legacy shape that predates the registry: the
+// Idle Watchlist rename (PR #177), the pre-split top-level channel-points
+// toggle, and the verboseLogging rename. Diagnostics are emitted in a fixed
+// order so host warnings are stable across runs.
 function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
   renameProperty(raw, "watchQueueFallbackOnly", "idleWatchlistFallbackOnly", "", diagnose);
   renameProperty(raw, "verboseLogging", "diagnosticLogging", "", diagnose);
@@ -103,8 +103,13 @@ function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   return raw;
 }
 
-// Drops the legacy key and reports it. The current key wins when both exist,
-// including when its value is `false` or an empty array.
+// Drops the legacy key and reports it. The current key wins whenever it is
+// present, whatever its value — including `false`, `[]`, or a wrong-typed
+// value. Migrations reshape; they never inspect types. Normalization decides
+// what a value means afterwards, so a wrong-typed current value falls to its
+// default rather than resurrecting the deprecated one. That is a deliberate
+// narrow change from the pre-registry inline fallbacks, which fell back to the
+// legacy value when the current one failed a typeof check.
 function renameProperty(
   owner: Record<string, unknown>,
   legacyKey: string,
