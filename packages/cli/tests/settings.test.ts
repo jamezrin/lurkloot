@@ -1,31 +1,55 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CLI_SETTINGS, parseCliSettings, toEngineSettings } from "../src/settings";
+import { DEFAULT_CLI_SETTINGS, parseCliSettings, parseCliSettingsWithDiagnostics, toEngineSettings } from "../src/settings";
 
 describe("parseCliSettings", () => {
-  it("accepts legacy Watch Queue keys and normalizes them to Idle Watchlist keys", () => {
-    const settings = parseCliSettings({
+  it("migrates legacy Watch Queue settings and reports them", () => {
+    const { settings, diagnostics } = parseCliSettingsWithDiagnostics({
       watchQueueFallbackOnly: false,
       platform: { twitch: { watchQueueChannels: [" Legacy ", "legacy"] } },
     });
-
     expect(settings.idleWatchlistFallbackOnly).toBe(false);
     expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["legacy"]);
     expect(settings).not.toHaveProperty("watchQueueFallbackOnly");
+    expect(diagnostics.map((d) => d.path)).toEqual(["watchQueueFallbackOnly", "platform.twitch.watchQueueChannels"]);
   });
 
-  it("prefers Idle Watchlist keys over legacy CLI aliases", () => {
+  it("prefers current keys over legacy ones", () => {
     const settings = parseCliSettings({
-      idleWatchlistFallbackOnly: false,
-      watchQueueFallbackOnly: true,
+      idleWatchlistFallbackOnly: true,
+      watchQueueFallbackOnly: false,
       platform: {
         twitch: { idleWatchlistChannels: [], watchQueueChannels: ["legacy"] },
         kick: { idleWatchlistChannels: ["new"], watchQueueChannels: ["legacy"] },
       },
     });
-
-    expect(settings.idleWatchlistFallbackOnly).toBe(false);
+    expect(settings.idleWatchlistFallbackOnly).toBe(true);
     expect(settings.platform.twitch.idleWatchlistChannels).toEqual([]);
     expect(settings.platform.kick.idleWatchlistChannels).toEqual(["new"]);
+  });
+
+  it("accepts a deprecated top-level autoClaimChannelPoints instead of erroring", () => {
+    const { settings, diagnostics } = parseCliSettingsWithDiagnostics({ autoClaimChannelPoints: false });
+    expect(settings.platform.twitch.autoClaimChannelPoints).toBe(false);
+    expect(diagnostics.map((d) => d.path)).toEqual(["autoClaimChannelPoints"]);
+  });
+
+  it("still rejects unknown keys that are not registered aliases", () => {
+    expect(() => parseCliSettings({ nonsense: 1 })).toThrow(/unknown CLI setting "nonsense"/);
+  });
+
+  it("still rejects extension-only keys", () => {
+    expect(() => parseCliSettings({ muteFarmingTabs: true }))
+      .toThrow(/"muteFarmingTabs" is an extension-only setting/);
+  });
+
+  it("accepts schemaVersion at the root of settings without exposing it", () => {
+    const settings = parseCliSettings({ schemaVersion: 1, autoClaim: false });
+    expect(settings.autoClaim).toBe(false);
+    expect(settings).not.toHaveProperty("schemaVersion");
+  });
+
+  it("rejects a future schema version", () => {
+    expect(() => parseCliSettings({ schemaVersion: 999 })).toThrow(/newer than this build supports/);
   });
 
   it("returns defaults for an empty/undefined settings block", () => {
@@ -116,11 +140,6 @@ describe("parseCliSettings", () => {
 
   it("hard-errors on a truly unknown key", () => {
     expect(() => parseCliSettings({ turbo: true })).toThrow(/unknown CLI setting "turbo"/);
-  });
-
-  it("points a moved top-level key at its new per-platform home", () => {
-    expect(() => parseCliSettings({ autoClaimChannelPoints: false }))
-      .toThrow(/"autoClaimChannelPoints" moved to "platform.twitch.autoClaimChannelPoints"/);
   });
 
   it("accepts autoClaimChannelPoints under platform.twitch", () => {

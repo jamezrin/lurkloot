@@ -3,7 +3,8 @@ import { dirname, resolve } from "node:path";
 import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { CompatibilityWarning } from "@lurkloot/shared/compatibility";
-import { DEFAULT_CLI_SETTINGS, parseCliSettings, type CliSettings } from "./settings";
+import { CURRENT_SETTINGS_SCHEMA_VERSION, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
+import { DEFAULT_CLI_SETTINGS, parseCliSettingsWithDiagnostics, type CliSettings } from "./settings";
 
 export const TRANSPORTS = ["http", "impersonate"] as const;
 export type Transport = (typeof TRANSPORTS)[number];
@@ -42,6 +43,10 @@ export function defaultConfigJsonc(): string {
   "authDir": "auth",
 
   "settings": {
+    // Schema version of this settings block. Leave it alone unless a release
+    // note tells you otherwise; it lets LurkLoot skip replaying old migrations.
+    "schemaVersion": ${CURRENT_SETTINGS_SCHEMA_VERSION},
+
     // Automatically claim completed drops.
     "autoClaim": ${json(defaults.autoClaim)},
 
@@ -139,7 +144,9 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
     && Object.hasOwn(rawSettings, "enabledLogLevels")
     ? [ENABLED_LOG_LEVELS_WARNING]
     : [];
-  const settings = parseCliSettings(data.settings);
+  const parsed = parseCliSettingsWithDiagnostics(data.settings);
+  const settings = parsed.settings;
+  warnings.push(...parsed.diagnostics.map(formatMigrationWarning));
   const webWarnings = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "web" }).warnings;
   const androidWarnings = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" }).warnings;
   warnings.push(...webWarnings.filter((candidate) => androidWarnings.some((warning) =>
@@ -156,6 +163,14 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
     configPath,
     warnings,
   };
+}
+
+// Warnings name the complete deprecated path and its replacement so the user
+// can find and fix the exact line. The CLI config file is intentionally never
+// rewritten, so these repeat on every startup until the file is edited.
+function formatMigrationWarning(diagnostic: SettingsMigrationDiagnostic): string {
+  const verb = diagnostic.code === "moved_property" ? "moved to" : "is deprecated; use";
+  return `settings.${diagnostic.path} ${verb} settings.${diagnostic.replacement}`;
 }
 
 function formatCompatibilityWarning(warning: CompatibilityWarning): string {
