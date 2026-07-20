@@ -1,0 +1,101 @@
+import { describe, expect, it } from "vitest";
+import {
+  CURRENT_SETTINGS_SCHEMA_VERSION,
+  SETTINGS_SCHEMA_VERSION_KEY,
+  UnsupportedSettingsVersionError,
+  migrateSettings,
+  withSchemaVersion,
+} from "@lurkloot/shared/settingsSchema";
+
+describe("settings schema versions", () => {
+  it("treats an unversioned object as version 0", () => {
+    const result = migrateSettings({ autoClaim: false });
+    expect(result.fromVersion).toBe(0);
+    expect(result.toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(result.changed).toBe(true);
+  });
+
+  it("treats a missing or non-object payload as an empty version 0 document", () => {
+    for (const raw of [undefined, null, "nope", 42, ["a"]]) {
+      const result = migrateSettings(raw);
+      expect(result.settings).toEqual({});
+      expect(result.fromVersion).toBe(0);
+      expect(result.diagnostics).toEqual([]);
+    }
+  });
+
+  it("is a no-op for a current-version document", () => {
+    const stored = withSchemaVersion({ autoClaim: false });
+    const result = migrateSettings(stored);
+    expect(result.changed).toBe(false);
+    expect(result.fromVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.settings).toEqual({ autoClaim: false });
+  });
+
+  it("strips the reserved schemaVersion property from the migrated payload", () => {
+    const result = migrateSettings(withSchemaVersion({ autoClaim: true }));
+    expect(result.settings).not.toHaveProperty(SETTINGS_SCHEMA_VERSION_KEY);
+  });
+
+  it("never mutates its input", () => {
+    const stored = { watchQueueFallbackOnly: false, platform: { twitch: { watchQueueChannels: ["A"] } } };
+    const snapshot = structuredClone(stored);
+    migrateSettings(stored);
+    expect(stored).toEqual(snapshot);
+  });
+
+  it("is idempotent when re-run on its own output", () => {
+    const first = migrateSettings({ watchQueueFallbackOnly: false });
+    const second = migrateSettings(withSchemaVersion(first.settings));
+    expect(second.settings).toEqual(first.settings);
+    expect(second.changed).toBe(false);
+  });
+
+  it("rejects a future schema version", () => {
+    const future = CURRENT_SETTINGS_SCHEMA_VERSION + 1;
+    expect(() => migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: future }))
+      .toThrow(UnsupportedSettingsVersionError);
+    try {
+      migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: future });
+    } catch (error) {
+      expect(error).toBeInstanceOf(UnsupportedSettingsVersionError);
+      expect((error as UnsupportedSettingsVersionError).version).toBe(future);
+      expect((error as UnsupportedSettingsVersionError).reason).toBe("future");
+    }
+  });
+
+  it("rejects a malformed schema version", () => {
+    for (const version of [-1, 1.5, Number.NaN, "1", null]) {
+      expect(() => migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: version }))
+        .toThrow(UnsupportedSettingsVersionError);
+    }
+  });
+
+  it("stamps the current version with withSchemaVersion", () => {
+    expect(withSchemaVersion({ autoClaim: true })).toEqual({
+      autoClaim: true,
+      [SETTINGS_SCHEMA_VERSION_KEY]: CURRENT_SETTINGS_SCHEMA_VERSION,
+    });
+  });
+
+  it("upgrades a version 0 document all the way to the current version", () => {
+    // Guards sequential application: whatever CURRENT_SETTINGS_SCHEMA_VERSION
+    // becomes, entering at 0 must land on it. The contiguity of the registry
+    // itself is asserted at module load, so a missing step throws on import
+    // rather than letting a host write a half-migrated document.
+    expect(migrateSettings({}).toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(migrateSettings({}).fromVersion).toBe(0);
+  });
+
+  it("enters at every intermediate version without skipping steps", () => {
+    // Re-migrating from each supported version must converge on the same
+    // document as migrating the whole way from 0.
+    const target = migrateSettings({ autoClaim: false }).settings;
+    for (let version = 0; version <= CURRENT_SETTINGS_SCHEMA_VERSION; version += 1) {
+      const result = migrateSettings({ ...target, [SETTINGS_SCHEMA_VERSION_KEY]: version });
+      expect(result.settings).toEqual(target);
+      expect(result.toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    }
+  });
+});
