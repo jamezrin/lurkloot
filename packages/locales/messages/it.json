@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "Impostazioni"
   },
+  "settingsSearchPlaceholder": {
+    "message": "Cerca impostazioni…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Nessuna impostazione corrisponde a «$1»."
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Mostra impostazioni avanzate"
+  },
+  "settingsSectionGeneral": {
+    "message": "Generale"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "Attività"
   },
@@ -287,6 +305,9 @@
   "settingsGeneralDescription": {
     "message": "Si applica a Twitch e Kick."
   },
+  "settingsGroupAppearance": {
+    "message": "Aspetto e comportamento"
+  },
   "pauseManualTitle": {
     "message": "Pausa quando guardi manualmente"
   },
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "Si applica a tutte le piattaforme abilitate."
   },
+  "settingsGroupNotifications": {
+    "message": "Notifiche"
+  },
   "rewardEarnedTitle": {
     "message": "Ricompensa ottenuta"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "Comportamento condiviso del farming campagne."
+  },
+  "settingsGroupDrops": {
+    "message": "Drop"
   },
   "autoClaimTitle": {
     "message": "Riscatto automatico dei drop"
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "Controlli per farming con schede video. I controlli specifici delle schede sono disabilitati in modalità tabless a basso consumo."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Schede di farming"
   },
   "tablessTitle": {
     "message": "Modalità tabless a basso consumo"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "Modifica solo se sai cosa stai facendo: controlla scheduler e log di basso livello."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Avanzate"
   },
   "schedulerIntervalTitle": {
     "message": "Intervallo scheduler"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "Riscatta la ricompensa della sfida giornaliera di Kick al raggiungimento del suo obiettivo di tempo di visione."
   },
+  "settingsGroupExcludedChannels": {
+    "message": "Canali esclusi"
+  },
   "excludedChannelsTitle": {
     "message": "Canali drop esclusi"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "Nessun canale drop escluso."
+  },
+  "settingsGroupCategories": {
+    "message": "Categorie"
   },
   "farmAllCategoriesTitle": {
     "message": "Farma tutte le categorie"
@@ -747,6 +786,9 @@
   },
   "showDiagnosticLogs": {
     "message": "Mostra diagnostica"
+  },
+  "settingsGroupCompatibility": {
+    "message": "Compatibilità"
   },
   "compatibilityAutomatic": {
     "message": "Automatica"

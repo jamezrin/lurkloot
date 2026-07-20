@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "Configuración"
   },
+  "settingsSearchPlaceholder": {
+    "message": "Buscar configuración…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Ninguna configuración coincide con «$1»."
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Mostrar configuración avanzada"
+  },
+  "settingsSectionGeneral": {
+    "message": "General"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "Actividad"
   },
@@ -287,6 +305,9 @@
   "settingsGeneralDescription": {
     "message": "Se aplica a Twitch y Kick."
   },
+  "settingsGroupAppearance": {
+    "message": "Apariencia y comportamiento"
+  },
   "pauseManualTitle": {
     "message": "Pausar al mirar manualmente"
   },
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "Se aplica a todas las plataformas habilitadas."
   },
+  "settingsGroupNotifications": {
+    "message": "Notificaciones"
+  },
   "rewardEarnedTitle": {
     "message": "Recompensa obtenida"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "Comportamiento compartido de farmeo de campañas."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
   },
   "autoClaimTitle": {
     "message": "Auto-reclamar drops"
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "Controles para farmeo con pestañas de vídeo. Los controles de pestaña se deshabilitan mientras el modo sin pestaña de bajo consumo está activo."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Pestañas de farmeo"
   },
   "tablessTitle": {
     "message": "Modo de bajo consumo sin pestaña"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "Cambia esto solo si sabes lo que haces: controla el planificador y el registro de bajo nivel."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Avanzado"
   },
   "schedulerIntervalTitle": {
     "message": "Intervalo del planificador"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "Reclama la recompensa del desafío diario de Kick en cuanto se cumple su objetivo de tiempo de visualización."
   },
+  "settingsGroupExcludedChannels": {
+    "message": "Canales excluidos"
+  },
   "excludedChannelsTitle": {
     "message": "Canales de drops excluidos"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "No hay canales de drops excluidos."
+  },
+  "settingsGroupCategories": {
+    "message": "Categorías"
   },
   "farmAllCategoriesTitle": {
     "message": "Farmear todas las categorías"
@@ -747,6 +786,9 @@
   },
   "showDiagnosticLogs": {
     "message": "Mostrar diagnósticos"
+  },
+  "settingsGroupCompatibility": {
+    "message": "Compatibilidad"
   },
   "compatibilityAutomatic": {
     "message": "Automático"

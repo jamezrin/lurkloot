@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "Einstellungen"
   },
+  "settingsSearchPlaceholder": {
+    "message": "Einstellungen durchsuchen…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Keine Einstellungen entsprechen „$1“."
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Erweiterte Einstellungen anzeigen"
+  },
+  "settingsSectionGeneral": {
+    "message": "Allgemein"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "Aktivität"
   },
@@ -287,6 +305,9 @@
   "settingsGeneralDescription": {
     "message": "Gilt für Twitch und Kick."
   },
+  "settingsGroupAppearance": {
+    "message": "Erscheinungsbild und Verhalten"
+  },
   "pauseManualTitle": {
     "message": "Bei manuellem Schauen pausieren"
   },
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "Gilt für alle aktivierten Plattformen."
   },
+  "settingsGroupNotifications": {
+    "message": "Benachrichtigungen"
+  },
   "rewardEarnedTitle": {
     "message": "Belohnung verdient"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "Gemeinsames Verhalten für Kampagnen-Farming."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
   },
   "autoClaimTitle": {
     "message": "Drops automatisch beanspruchen"
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "Steuerung für Video-Tab-Farming. Tab-spezifische Optionen sind im tablosen Energiesparmodus deaktiviert."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Farming-Tabs"
   },
   "tablessTitle": {
     "message": "Tabloser Energiesparmodus"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "Nur ändern, wenn du weißt, was du tust: steuert Scheduler und Low-Level-Logging."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Erweitert"
   },
   "schedulerIntervalTitle": {
     "message": "Scheduler-Intervall"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "Beansprucht Kicks tägliche Challenge-Belohnung, sobald das Sehdauer-Ziel erreicht ist."
   },
+  "settingsGroupExcludedChannels": {
+    "message": "Ausgeschlossene Kanäle"
+  },
   "excludedChannelsTitle": {
     "message": "Ausgeschlossene Drop-Kanäle"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "Keine ausgeschlossenen Drop-Kanäle."
+  },
+  "settingsGroupCategories": {
+    "message": "Kategorien"
   },
   "farmAllCategoriesTitle": {
     "message": "Alle Kategorien farmen"
@@ -747,6 +786,9 @@
   },
   "showDiagnosticLogs": {
     "message": "Diagnose anzeigen"
+  },
+  "settingsGroupCompatibility": {
+    "message": "Kompatibilität"
   },
   "compatibilityAutomatic": {
     "message": "Automatisch"

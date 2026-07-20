@@ -114,6 +114,11 @@ describe("i18n", () => {
       "notificationsTitle",
       "farmingLabel",
       "off",
+      "settingsSectionTwitch",
+      "settingsSectionKick",
+      "settingsSectionGeneral",
+      "settingsGroupDrops",
+      "settingsGroupNotifications",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {
@@ -121,6 +126,31 @@ describe("i18n", () => {
       const unchanged = Object.keys(english).filter((key) =>
         catalog[key]?.message === english[key]?.message && !allowedSameAsEnglish.has(key));
       expect(unchanged, locale).toEqual([]);
+    }
+  });
+
+  it("localizes the new settings section labels in every catalog", () => {
+    const required = [
+      "settingsSearchPlaceholder",
+      "settingsSearchNoResults",
+      "settingsShowAdvancedTitle",
+      "settingsSectionGeneral",
+      "settingsSectionTwitch",
+      "settingsSectionKick",
+      "settingsGroupAppearance",
+      "settingsGroupNotifications",
+      "settingsGroupDrops",
+      "settingsGroupFarmingTabs",
+      "settingsGroupAdvanced",
+      "settingsGroupCategories",
+      "settingsGroupExcludedChannels",
+      "settingsGroupCompatibility",
+    ];
+    for (const locale of localeCodes()) {
+      const catalog = readCatalog(locale);
+      for (const key of required) {
+        expect(catalog[key]?.message, `${locale}.${key}`).toBeTruthy();
+      }
     }
   });
 });

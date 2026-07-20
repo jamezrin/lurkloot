@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "Настройки"
   },
+  "settingsSearchPlaceholder": {
+    "message": "Искать настройки…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Настройки, соответствующие «$1», не найдены."
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Показать дополнительные настройки"
+  },
+  "settingsSectionGeneral": {
+    "message": "Общие"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "Активность"
   },
@@ -287,6 +305,9 @@
   "settingsGeneralDescription": {
     "message": "Применяется к Twitch и Kick."
   },
+  "settingsGroupAppearance": {
+    "message": "Внешний вид и поведение"
+  },
   "pauseManualTitle": {
     "message": "Пауза при ручном просмотре"
   },
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "Применяется ко всем включённым платформам."
   },
+  "settingsGroupNotifications": {
+    "message": "Уведомления"
+  },
   "rewardEarnedTitle": {
     "message": "Награда получена"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "Общее поведение фарма кампаний."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
   },
   "autoClaimTitle": {
     "message": "Автополучение drops"
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "Управление фармом через видеовкладки. Настройки вкладок отключены, пока активен режим без вкладки."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Вкладки фарма"
   },
   "tablessTitle": {
     "message": "Режим без вкладки с низким потреблением"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "Меняйте только если понимаете последствия: это низкоуровневые настройки планировщика и логов."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Дополнительно"
   },
   "schedulerIntervalTitle": {
     "message": "Интервал планировщика"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "Получает награду ежедневного испытания Kick, как только выполнена цель по времени просмотра."
   },
+  "settingsGroupExcludedChannels": {
+    "message": "Исключённые каналы"
+  },
   "excludedChannelsTitle": {
     "message": "Исключённые каналы drops"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "Нет исключённых каналов drops."
+  },
+  "settingsGroupCategories": {
+    "message": "Категории"
   },
   "farmAllCategoriesTitle": {
     "message": "Фармить все категории"
@@ -747,6 +786,9 @@
   },
   "showDiagnosticLogs": {
     "message": "Показать диагностику"
+  },
+  "settingsGroupCompatibility": {
+    "message": "Совместимость"
   },
   "compatibilityAutomatic": {
     "message": "Автоматически"

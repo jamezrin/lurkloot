@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "Settings"
   },
+  "settingsSearchPlaceholder": {
+    "message": "Search settings…"
+  },
+  "settingsSearchNoResults": {
+    "message": "No settings match “$1”."
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Show advanced settings"
+  },
+  "settingsSectionGeneral": {
+    "message": "General"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "Activity"
   },
@@ -287,6 +305,9 @@
   "settingsGeneralDescription": {
     "message": "Applies to Twitch and Kick."
   },
+  "settingsGroupAppearance": {
+    "message": "Appearance & behavior"
+  },
   "pauseManualTitle": {
     "message": "Pause when watching manually"
   },
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "Applies to all enabled platforms."
   },
+  "settingsGroupNotifications": {
+    "message": "Notifications"
+  },
   "rewardEarnedTitle": {
     "message": "Reward earned"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "Shared campaign farming behavior."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
   },
   "autoClaimTitle": {
     "message": "Auto-claim drops"
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "Controls for video-tab farming. Tab-specific controls are disabled while tabless low-resource mode is enabled."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Farming tabs"
   },
   "tablessTitle": {
     "message": "Tabless low-resource mode"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "Only change these if you know what you are doing — they control low-level scheduler and logging behavior."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Advanced"
   },
   "schedulerIntervalTitle": {
     "message": "Scheduler interval"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "Claim Kick's daily challenge reward once its watch-time goal is met."
   },
+  "settingsGroupExcludedChannels": {
+    "message": "Excluded channels"
+  },
   "excludedChannelsTitle": {
     "message": "Excluded drop channels"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "No excluded drop channels."
+  },
+  "settingsGroupCategories": {
+    "message": "Categories"
   },
   "farmAllCategoriesTitle": {
     "message": "Farm all categories"
@@ -747,6 +786,9 @@
   },
   "showDiagnosticLogs": {
     "message": "Show diagnostics"
+  },
+  "settingsGroupCompatibility": {
+    "message": "Compatibility"
   },
   "compatibilityAutomatic": {
     "message": "Automatic"

@@ -53,6 +53,24 @@
   "settingsTitle": {
     "message": "Configurações"
   },
+  "settingsSearchPlaceholder": {
+    "message": "Pesquisar configurações…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Nenhuma configuração corresponde a “$1”."
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Mostrar configurações avançadas"
+  },
+  "settingsSectionGeneral": {
+    "message": "Geral"
+  },
+  "settingsSectionTwitch": {
+    "message": "Twitch"
+  },
+  "settingsSectionKick": {
+    "message": "Kick"
+  },
   "activityTitle": {
     "message": "Atividade"
   },
@@ -287,6 +305,9 @@
   "settingsGeneralDescription": {
     "message": "Aplica-se à Twitch e Kick."
   },
+  "settingsGroupAppearance": {
+    "message": "Aparência e comportamento"
+  },
   "pauseManualTitle": {
     "message": "Pausar ao assistir manualmente"
   },
@@ -305,6 +326,9 @@
   "notificationsDescription": {
     "message": "Aplica-se a todas as plataformas ativadas."
   },
+  "settingsGroupNotifications": {
+    "message": "Notificações"
+  },
   "rewardEarnedTitle": {
     "message": "Recompensa obtida"
   },
@@ -322,6 +346,9 @@
   },
   "dropsSettingsDescription": {
     "message": "Comportamento compartilhado de farming de campanhas."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
   },
   "autoClaimTitle": {
     "message": "Resgatar drops automaticamente"
@@ -367,6 +394,9 @@
   },
   "farmingTabsDescription": {
     "message": "Controles para farming com abas de vídeo. Controles específicos de aba ficam desativados no modo sem aba de baixo consumo."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Abas de farming"
   },
   "tablessTitle": {
     "message": "Modo sem aba de baixo consumo"
@@ -415,6 +445,9 @@
   },
   "advancedDescription": {
     "message": "Altere apenas se souber o que está fazendo: controla agendador e logs de baixo nível."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Avançado"
   },
   "schedulerIntervalTitle": {
     "message": "Intervalo do agendador"
@@ -474,6 +507,9 @@
   "autoClaimChallengesDescription": {
     "message": "Resgata a recompensa do desafio diário da Kick assim que a meta de tempo assistido é atingida."
   },
+  "settingsGroupExcludedChannels": {
+    "message": "Canais excluídos"
+  },
   "excludedChannelsTitle": {
     "message": "Canais de drops excluídos"
   },
@@ -482,6 +518,9 @@
   },
   "excludedChannelsEmpty": {
     "message": "Nenhum canal de drops excluído."
+  },
+  "settingsGroupCategories": {
+    "message": "Categorias"
   },
   "farmAllCategoriesTitle": {
     "message": "Farmar todas as categorias"
@@ -747,6 +786,9 @@
   },
   "showDiagnosticLogs": {
     "message": "Mostrar diagnósticos"
+  },
+  "settingsGroupCompatibility": {
+    "message": "Compatibilidade"
   },
   "compatibilityAutomatic": {
     "message": "Automática"
