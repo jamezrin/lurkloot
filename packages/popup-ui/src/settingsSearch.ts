@@ -53,12 +53,6 @@ export interface SettingsSectionNode<TEntry extends SettingsEntryNode = Settings
   groups: Array<SettingsGroupNode<TEntry>>;
 }
 
-export interface FilteredSection<TEntry extends SettingsEntryNode = SettingsEntryNode>
-  extends SettingsSectionNode<TEntry> {
-  // Zero when there is no active query. Only meaningful while searching.
-  matchCount: number;
-}
-
 export interface FilterOptions {
   t: TranslateFn;
   query: string;
@@ -75,13 +69,22 @@ function advancedVisible(isAdvanced: boolean, showAdvanced: boolean, searching: 
   return !isAdvanced || showAdvanced || searching;
 }
 
-export function filterSettingsTree<TEntry extends SettingsEntryNode>(
-  sections: ReadonlyArray<SettingsSectionNode<TEntry>>,
+// Generic over the concrete section type (not just the entry type) so that
+// extra properties a caller's section carries — icon, iconNode, whatever a
+// future registry adds — survive the round trip. The `{ ...section, ... }`
+// construction below already produces exactly this type at runtime; being
+// generic over TSection just lets the type system say so, instead of forcing
+// every caller to cast the extra properties back in.
+export function filterSettingsTree<
+  TEntry extends SettingsEntryNode,
+  TSection extends SettingsSectionNode<TEntry>,
+>(
+  sections: ReadonlyArray<TSection>,
   { t, query, showAdvanced }: FilterOptions,
-): Array<FilteredSection<TEntry>> {
+): Array<TSection & { matchCount: number }> {
   const searching = normalizeSearchText(query).length > 0;
 
-  const result: Array<FilteredSection<TEntry>> = [];
+  const result: Array<TSection & { matchCount: number }> = [];
   for (const section of sections) {
     // A section title match keeps the whole section, so "twitch" surfaces
     // everything Twitch-related rather than only rows containing the word.

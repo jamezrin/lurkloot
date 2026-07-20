@@ -72,10 +72,10 @@ describe("TipsBanner", () => {
   });
 
   it("has a Hide tips control in General settings", () => {
-    const settingsSource = readFileSync(resolve(import.meta.dirname, "../../popup-ui/src/settings.tsx"), "utf8");
+    const settingsSource = readFileSync(resolve(import.meta.dirname, "../../popup-ui/src/settingsRegistry.tsx"), "utf8");
     expect(settingsSource).toContain('title={t("hideTipsTitle")}');
     expect(settingsSource).toContain('checked={!settings.showTips}');
-    expect(settingsSource).toContain('onChange={(hideTips) => onSettingsChange({ showTips: !hideTips })}');
+    expect(settingsSource).toContain('onChange={(hideTips) => void onSettingsChange({ showTips: !hideTips })}');
   });
 
   it("localizes every tip and the Hide tips setting in every catalog", () => {
