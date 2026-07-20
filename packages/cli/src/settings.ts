@@ -122,10 +122,17 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "diagnosticLogging",
 ]);
 
-function describeOffender(key: string): string {
+// A migration may rename a legacy key onto one the CLI rejects — `verboseLogging`
+// becomes `diagnosticLogging`, which is extension-only. Name the key the user
+// actually wrote, or the error points at a line their file does not contain. The
+// match is by `replacement`; a nested rename's replacement is a dotted path that
+// never equals a bare top-level key, so this only fires for top-level offenders.
+function describeOffender(key: string, diagnostics: SettingsMigrationDiagnostic[]): string {
+  const renamedFrom = diagnostics.find((diagnostic) => diagnostic.replacement === key)?.path;
+  const subject = renamedFrom ? `"${renamedFrom}" (renamed to "${key}")` : `"${key}"`;
   return EXTENSION_ONLY_KEYS.has(key)
-    ? `"${key}" is an extension-only setting with no effect in the CLI; remove it`
-    : `unknown CLI setting "${key}"`;
+    ? `${subject} is an extension-only setting with no effect in the CLI; remove it`
+    : `unknown CLI setting ${subject}`;
 }
 
 export interface CliSettingsParseResult {
@@ -142,7 +149,7 @@ export function parseCliSettingsWithDiagnostics(raw: unknown): CliSettingsParseR
     throw new Error('Config "settings" must be a JSON object');
   }
   const migration = migrateSettings(raw);
-  return { settings: parseMigratedCliSettings(migration.settings), diagnostics: migration.diagnostics };
+  return { settings: parseMigratedCliSettings(migration.settings, migration.diagnostics), diagnostics: migration.diagnostics };
 }
 
 export function parseCliSettings(raw: unknown): CliSettings {
@@ -153,11 +160,11 @@ export function parseCliSettings(raw: unknown): CliSettings {
 // extension-only keys (top-level or per-platform) are a hard error listing every
 // offender at once; recognized values are normalized through the shared
 // primitives (range clamps, channel/category/id dedupe, log-level canonicalize).
-function parseMigratedCliSettings(value: Record<string, unknown>): CliSettings {
+function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: SettingsMigrationDiagnostic[]): CliSettings {
   const offenders: string[] = [];
 
   for (const key of Object.keys(value)) {
-    if (!CLI_SETTING_KEYS.has(key)) offenders.push(describeOffender(key));
+    if (!CLI_SETTING_KEYS.has(key)) offenders.push(describeOffender(key, diagnostics));
   }
 
   const platformRaw = value.platform;

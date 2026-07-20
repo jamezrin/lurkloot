@@ -42,6 +42,14 @@ describe("parseCliSettings", () => {
       .toThrow(/"muteFarmingTabs" is an extension-only setting/);
   });
 
+  it("names the key the user actually wrote when a migration renamed it", () => {
+    // verboseLogging migrates to diagnosticLogging, which the CLI rejects as
+    // extension-only. The error has to name verboseLogging or the user cannot
+    // find the offending line in their config.
+    expect(() => parseCliSettings({ verboseLogging: true }))
+      .toThrow(/"verboseLogging" \(renamed to "diagnosticLogging"\) is an extension-only setting/);
+  });
+
   it("accepts schemaVersion at the root of settings without exposing it", () => {
     const settings = parseCliSettings({ schemaVersion: 1, autoClaim: false });
     expect(settings.autoClaim).toBe(false);
