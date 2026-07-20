@@ -8,8 +8,8 @@ import { Popup, createDemoPopupAdapter, screenshotVariant, type PopupAdapter } f
 const labels: Record<string, string> = {
   openSettings: "Open settings",
   back: "Back",
-  cliExportTitle: "Headless CLI",
-  cliExportDescription: "Use this browser session with the CLI.",
+  settingsSearchPlaceholder: "Search settings…",
+  settingsShowAdvancedTitle: "Show advanced settings",
   cliExportHint: "Keep the exported session credentials private.",
   cliExportConfirm: "Anyone with this file can use your sessions.",
   cliExportButton: "Export credentials",
@@ -67,17 +67,9 @@ function openSettings(container: Element): void {
   act(() => byLabel(container, "Open settings").click());
 }
 
-function openCliSection(container: Element): void {
-  const sectionButton = byText(container, "Headless CLI");
-  if (sectionButton.getAttribute("aria-expanded") !== "true") {
-    act(() => sectionButton.click());
-  }
-}
-
 describe("settings credential export", () => {
   it("requires an inline confirmation and supports explicit cancellation", async () => {
     const { confirm, container, exportCredentials } = await mount();
-    openCliSection(container);
 
     expect(container.textContent).toContain("Export credentials");
     expect(container.textContent).not.toContain("Confirm export");
@@ -104,14 +96,12 @@ describe("settings credential export", () => {
 
   it("cancels an armed export after Back followed by immediate reopen", async () => {
     const { container, exportCredentials } = await mount();
-    openCliSection(container);
 
     act(() => byText(container, "Export credentials").click());
     expect(container.textContent).toContain("Confirm export");
 
     act(() => byLabel(container, "Back").click());
     openSettings(container);
-    openCliSection(container);
 
     expect(container.textContent).toContain("Export credentials");
     expect(container.textContent).not.toContain("Confirm export");
