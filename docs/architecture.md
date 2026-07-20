@@ -39,7 +39,7 @@ The popup and content scripts do not call adapters directly. They send typed run
 
 ## Settings Model
 
-`mergeSettings` in `@lurkloot/shared/settings` is the source of truth for defaults, migrations, and persisted-setting normalization. It fills missing keys from `DEFAULT_SETTINGS`, clamps numeric values, normalizes channel/category/campaign lists, and removes duplicate list entries.
+`mergeSettings` in `@lurkloot/shared/settings` is the source of truth for defaults and persisted-setting normalization. It fills missing keys from `DEFAULT_SETTINGS`, clamps numeric values, normalizes channel/category/campaign lists, and removes duplicate list entries. It reads only current property names; legacy shapes are handled beforehand by the migration registry (see [Settings Migrations](#settings-migrations)).
 
 Important setting groups:
 
@@ -50,6 +50,46 @@ Important setting groups:
 - Notifications: `notifyRewardEarned`, `notifyNoDropsLeft`.
 
 The popup normalizes snapshots before rendering and normalizes patches before saving, so older stored settings get current defaults before they drive UI toggles.
+
+## Settings Migrations
+
+`packages/shared/src/settingsSchema.ts` is the only place legacy settings shapes
+are transformed. Both hosts call `migrateSettings(raw)` on the raw persisted
+payload and pass the result to normalization (`mergeSettings` in the extension,
+`parseCliSettings` in the CLI). Migration and normalization are deliberately
+separate: clamping and defaulting would erase the raw property information the
+deprecation diagnostics depend on.
+
+A stored document carries a reserved `schemaVersion`; an unversioned document is
+version 0. `migrateSettings` applies every migration from the stored version up
+to `CURRENT_SETTINGS_SCHEMA_VERSION`, returning the migrated payload, a `changed`
+flag, and structured diagnostics. A version newer than this build supports throws
+`UnsupportedSettingsVersionError`, and neither host writes after that error.
+
+Extension storage is upgraded automatically: `loadSettings` writes the canonical
+envelope once when `changed` is true, under the settings lock. The CLI's JSONC
+file is never rewritten, so its diagnostics surface as startup warnings that
+repeat until the user edits the file.
+
+To add version N+1:
+
+1. Increment `CURRENT_SETTINGS_SCHEMA_VERSION`.
+2. Add exactly one pure `N` → `N+1` entry to `MIGRATIONS`. It receives a deep
+   clone it owns outright, so it may mutate that object freely, but it must not
+   reach outside it or log.
+3. Emit a diagnostic for every deprecated or removed property it recognizes,
+   with the full dotted path and the replacement path when one exists.
+4. When an old and a current representation coexist, the current one wins and
+   the deprecated one still produces a diagnostic. Migrations never inspect
+   value types, so a wrong-typed current value is left for normalization to
+   default rather than falling back to the legacy value.
+5. Add fixtures to `packages/extension/tests/settingsMigrations.test.ts` for
+   version N input, mixed old/current input, and the fully migrated output.
+6. Update `defaultConfigJsonc()` in `packages/cli/src/config.ts` when public
+   property names change.
+
+Released migrations are never edited except to fix a data-loss defect. A later
+semantic change gets a new version and a new migration.
 
 ## Scheduler Flow
 

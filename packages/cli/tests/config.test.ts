@@ -1,11 +1,13 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { parse as parseJsonc } from "jsonc-parser";
 import { defaultConfigJsonc, loadConfig, parseConfig } from "../src/config";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
+import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 
 const CONFIG_PATH = "/tmp/lurkloot/config.json";
 const CLI_PACKAGE_DIR = fileURLToPath(new URL("..", import.meta.url));
@@ -123,6 +125,48 @@ describe("parseConfig", () => {
   it("rejects a non-object config", () => {
     expect(() => parseConfig([], CONFIG_PATH)).toThrow(/must be a JSON object/);
     expect(() => parseConfig(null, CONFIG_PATH)).toThrow(/must be a JSON object/);
+  });
+
+  it("warns with the full deprecated and replacement paths", () => {
+    const config = parseConfig({
+      settings: { watchQueueFallbackOnly: false, platform: { kick: { watchQueueChannels: ["a"] } } },
+    }, CONFIG_PATH);
+    expect(config.warnings).toContain("settings.watchQueueFallbackOnly is deprecated; use settings.idleWatchlistFallbackOnly");
+    expect(config.warnings).toContain("settings.platform.kick.watchQueueChannels is deprecated; use settings.platform.kick.idleWatchlistChannels");
+  });
+
+  it("warns about a moved property with its destination path", () => {
+    const config = parseConfig({ settings: { autoClaimChannelPoints: false } }, CONFIG_PATH);
+    expect(config.warnings).toContain("settings.autoClaimChannelPoints moved to settings.platform.twitch.autoClaimChannelPoints");
+  });
+
+  it("repeats the warnings on every independent load", () => {
+    const raw = { settings: { watchQueueFallbackOnly: false } };
+    expect(parseConfig(raw, CONFIG_PATH).warnings).toEqual(parseConfig(raw, CONFIG_PATH).warnings);
+  });
+
+  it("emits no migration warnings for a current config", () => {
+    expect(parseConfig({ settings: { schemaVersion: 1, autoClaim: true } }, CONFIG_PATH).warnings).toEqual([]);
+  });
+
+  it("generates a template that carries the current schema version", () => {
+    expect(defaultConfigJsonc()).toContain(`"schemaVersion": ${CURRENT_SETTINGS_SCHEMA_VERSION}`);
+    expect(parseConfig(parseJsonc(defaultConfigJsonc()), CONFIG_PATH).warnings).toEqual([]);
+  });
+
+  it("never rewrites the config file while migrating", () => {
+    const dir = mkdtempSync(join(tmpdir(), "lurkloot-config-"));
+    const path = join(dir, "config.jsonc");
+    writeFileSync(path, '{ "settings": { "watchQueueFallbackOnly": false } }\n');
+    const before = readFileSync(path, "utf8");
+    const beforeStat = statSync(path).mtimeMs;
+
+    const config = loadConfig(path);
+
+    expect(config.settings.idleWatchlistFallbackOnly).toBe(false);
+    expect(readFileSync(path, "utf8")).toBe(before);
+    expect(statSync(path).mtimeMs).toBe(beforeStat);
+    rmSync(dir, { recursive: true, force: true });
   });
 });
 

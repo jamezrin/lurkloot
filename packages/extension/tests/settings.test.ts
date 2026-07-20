@@ -34,34 +34,18 @@ describe("engine settings", () => {
 });
 
 describe("settings", () => {
-  it("migrates legacy Watch Queue settings to Idle Watchlist settings", () => {
-    const settings = mergeSettings({
+  it("ignores legacy property names, which the migration registry handles first", () => {
+    const merged = mergeSettings({
       watchQueueFallbackOnly: false,
-      platform: {
-        twitch: { watchQueueChannels: [" LegacyOne ", "legacyone", "Second"] },
-        kick: { watchQueueChannels: ["KickLegacy"] },
-      },
+      verboseLogging: true,
+      autoClaimChannelPoints: false,
+      platform: { ...DEFAULT_SETTINGS.platform, twitch: { ...DEFAULT_SETTINGS.platform.twitch, watchQueueChannels: ["legacy"] } },
     } as never);
-
-    expect(settings.idleWatchlistFallbackOnly).toBe(false);
-    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["legacyone", "second"]);
-    expect(settings.platform.kick.idleWatchlistChannels).toEqual(["kicklegacy"]);
-    expect(settings).not.toHaveProperty("watchQueueFallbackOnly");
-  });
-
-  it("prefers new Idle Watchlist settings over legacy aliases", () => {
-    const settings = mergeSettings({
-      idleWatchlistFallbackOnly: false,
-      watchQueueFallbackOnly: true,
-      platform: {
-        twitch: { idleWatchlistChannels: [], watchQueueChannels: ["legacy"] },
-        kick: { idleWatchlistChannels: ["new"], watchQueueChannels: ["legacy"] },
-      },
-    } as never);
-
-    expect(settings.idleWatchlistFallbackOnly).toBe(false);
-    expect(settings.platform.twitch.idleWatchlistChannels).toEqual([]);
-    expect(settings.platform.kick.idleWatchlistChannels).toEqual(["new"]);
+    expect(merged.idleWatchlistFallbackOnly).toBe(DEFAULT_SETTINGS.idleWatchlistFallbackOnly);
+    expect(merged.diagnosticLogging).toBe(false);
+    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(true);
+    expect(merged.platform.twitch.idleWatchlistChannels).toEqual([]);
+    expect(merged).not.toHaveProperty("watchQueueFallbackOnly");
   });
 
   it("defaults compatibility selections to automatic detection", () => {
@@ -183,11 +167,6 @@ describe("settings", () => {
     expect("enabledLogLevels" in mergeSettings({ enabledLogLevels: ["debug"] } as never)).toBe(false);
   });
 
-  it("migrates the legacy verboseLogging flag", () => {
-    expect(mergeSettings({ verboseLogging: true } as never).diagnosticLogging).toBe(true);
-    expect(mergeSettings({ verboseLogging: false } as never).diagnosticLogging).toBe(false);
-  });
-
   it("normalizes imported list, priority, mode, and boolean settings", () => {
     const settings = mergeSettings({
       running: "yes",
@@ -297,32 +276,6 @@ describe("settings", () => {
 describe("per-platform claim settings", () => {
   it("defaults autoClaimChannelPoints on for Twitch", () => {
     expect(mergeSettings(undefined).platform.twitch.autoClaimChannelPoints).toBe(true);
-  });
-
-  it("migrates a legacy top-level autoClaimChannelPoints onto platform.twitch", () => {
-    const merged = mergeSettings({ autoClaimChannelPoints: false } as never);
-    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(false);
-  });
-
-  it("prefers an explicit platform.twitch value over the legacy top-level one", () => {
-    const merged = mergeSettings({
-      autoClaimChannelPoints: false,
-      platform: { ...DEFAULT_SETTINGS.platform, twitch: { ...DEFAULT_SETTINGS.platform.twitch, autoClaimChannelPoints: true } },
-    } as never);
-    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(true);
-  });
-
-  it("drops the legacy top-level key from the merged result", () => {
-    // Passing the legacy key is the whole point: merging must consume it into
-    // platform.twitch rather than carrying it through to the merged object.
-    const merged = mergeSettings({ autoClaimChannelPoints: false } as never);
-    expect("autoClaimChannelPoints" in merged).toBe(false);
-    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(false);
-  });
-
-  it("falls back to the default when the legacy top-level value is not a boolean", () => {
-    const merged = mergeSettings({ autoClaimChannelPoints: "yes" } as never);
-    expect(merged.platform.twitch.autoClaimChannelPoints).toBe(true);
   });
 
   it("defaults autoClaimChallenges on for Kick", () => {

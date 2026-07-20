@@ -1,0 +1,228 @@
+import { describe, expect, it } from "vitest";
+import {
+  CURRENT_SETTINGS_SCHEMA_VERSION,
+  SETTINGS_SCHEMA_VERSION_KEY,
+  UnsupportedSettingsVersionError,
+  migrateSettings,
+  withSchemaVersion,
+} from "@lurkloot/shared/settingsSchema";
+
+describe("settings schema versions", () => {
+  it("treats an unversioned object as version 0", () => {
+    const result = migrateSettings({ autoClaim: false });
+    expect(result.fromVersion).toBe(0);
+    expect(result.toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(result.changed).toBe(true);
+  });
+
+  it("treats a missing or non-object payload as an empty version 0 document", () => {
+    for (const raw of [undefined, null, "nope", 42, ["a"]]) {
+      const result = migrateSettings(raw);
+      expect(result.settings).toEqual({});
+      expect(result.fromVersion).toBe(0);
+      expect(result.diagnostics).toEqual([]);
+    }
+  });
+
+  it("is a no-op for a current-version document", () => {
+    const stored = withSchemaVersion({ autoClaim: false });
+    const result = migrateSettings(stored);
+    expect(result.changed).toBe(false);
+    expect(result.fromVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.settings).toEqual({ autoClaim: false });
+  });
+
+  it("strips the reserved schemaVersion property from the migrated payload", () => {
+    const result = migrateSettings(withSchemaVersion({ autoClaim: true }));
+    expect(result.settings).not.toHaveProperty(SETTINGS_SCHEMA_VERSION_KEY);
+  });
+
+  it("never mutates its input", () => {
+    const stored = { watchQueueFallbackOnly: false, platform: { twitch: { watchQueueChannels: ["A"] } } };
+    const snapshot = structuredClone(stored);
+    migrateSettings(stored);
+    expect(stored).toEqual(snapshot);
+  });
+
+  it("is idempotent when re-run on its own output", () => {
+    const first = migrateSettings({ watchQueueFallbackOnly: false });
+    const second = migrateSettings(withSchemaVersion(first.settings));
+    expect(second.settings).toEqual(first.settings);
+    expect(second.changed).toBe(false);
+  });
+
+  it("rejects a future schema version", () => {
+    const future = CURRENT_SETTINGS_SCHEMA_VERSION + 1;
+    expect(() => migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: future }))
+      .toThrow(UnsupportedSettingsVersionError);
+    try {
+      migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: future });
+    } catch (error) {
+      expect(error).toBeInstanceOf(UnsupportedSettingsVersionError);
+      expect((error as UnsupportedSettingsVersionError).version).toBe(future);
+      expect((error as UnsupportedSettingsVersionError).reason).toBe("future");
+    }
+  });
+
+  it("rejects a malformed schema version", () => {
+    for (const version of [-1, 1.5, Number.NaN, "1", null]) {
+      expect(() => migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: version }))
+        .toThrow(UnsupportedSettingsVersionError);
+    }
+  });
+
+  it("stamps the current version with withSchemaVersion", () => {
+    expect(withSchemaVersion({ autoClaim: true })).toEqual({
+      autoClaim: true,
+      [SETTINGS_SCHEMA_VERSION_KEY]: CURRENT_SETTINGS_SCHEMA_VERSION,
+    });
+  });
+
+  it("upgrades a version 0 document all the way to the current version", () => {
+    // Guards sequential application: whatever CURRENT_SETTINGS_SCHEMA_VERSION
+    // becomes, entering at 0 must land on it. The contiguity of the registry
+    // itself is asserted at module load, so a missing step throws on import
+    // rather than letting a host write a half-migrated document.
+    expect(migrateSettings({}).toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(migrateSettings({}).fromVersion).toBe(0);
+  });
+
+  it("enters at every intermediate version without skipping steps", () => {
+    // Re-migrating from each supported version must converge on the same
+    // document as migrating the whole way from 0.
+    const target = migrateSettings({ autoClaim: false }).settings;
+    for (let version = 0; version <= CURRENT_SETTINGS_SCHEMA_VERSION; version += 1) {
+      const result = migrateSettings({ ...target, [SETTINGS_SCHEMA_VERSION_KEY]: version });
+      expect(result.settings).toEqual(target);
+      expect(result.toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    }
+  });
+});
+
+describe("migration 1: legacy aliases", () => {
+  it("renames the Watch Queue properties", () => {
+    const result = migrateSettings({
+      watchQueueFallbackOnly: false,
+      platform: {
+        twitch: { watchQueueChannels: ["Legacy"] },
+        kick: { watchQueueChannels: ["KickLegacy"] },
+      },
+    });
+    expect(result.settings).toEqual({
+      idleWatchlistFallbackOnly: false,
+      platform: {
+        twitch: { idleWatchlistChannels: ["Legacy"] },
+        kick: { idleWatchlistChannels: ["KickLegacy"] },
+      },
+    });
+    expect(result.settings).not.toHaveProperty("watchQueueFallbackOnly");
+  });
+
+  it("moves a top-level autoClaimChannelPoints onto platform.twitch", () => {
+    const result = migrateSettings({ autoClaimChannelPoints: false });
+    expect(result.settings).toEqual({ platform: { twitch: { autoClaimChannelPoints: false } } });
+    expect(result.diagnostics).toContainEqual({
+      code: "moved_property",
+      path: "autoClaimChannelPoints",
+      replacement: "platform.twitch.autoClaimChannelPoints",
+      message: "autoClaimChannelPoints moved to platform.twitch.autoClaimChannelPoints",
+    });
+  });
+
+  it("renames verboseLogging to diagnosticLogging", () => {
+    expect(migrateSettings({ verboseLogging: true }).settings).toEqual({ diagnosticLogging: true });
+    expect(migrateSettings({ verboseLogging: false }).settings).toEqual({ diagnosticLogging: false });
+  });
+
+  it("drops an unhomeable legacy autoClaimChannelPoints when platform is not an object", () => {
+    // The value cannot be rehomed into a corrupt platform block, and leaving it
+    // at the top level would be dead data. Normalization defaults the whole
+    // corrupt block anyway, so this is consistent, not a meaningful loss. The
+    // malformed platform is left verbatim for each host to surface.
+    const result = migrateSettings({ autoClaimChannelPoints: false, platform: "nope" });
+    expect(result.settings).toEqual({ platform: "nope" });
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("drops an unhomeable legacy autoClaimChannelPoints when platform.twitch is not an object", () => {
+    const result = migrateSettings({ autoClaimChannelPoints: false, platform: { twitch: null } });
+    expect(result.settings).toEqual({ platform: { twitch: null } });
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("lets a wrong-typed current value win over a legacy one", () => {
+    // Deliberate: migrations never inspect types, so normalization sees the
+    // wrong-typed current value and applies its default. The pre-registry
+    // inline fallbacks instead fell through to the legacy value here.
+    const logging = migrateSettings({ diagnosticLogging: "yes", verboseLogging: true });
+    expect(logging.settings).toEqual({ diagnosticLogging: "yes" });
+    expect(logging.diagnostics.map((d) => d.path)).toEqual(["verboseLogging"]);
+
+    const points = migrateSettings({
+      autoClaimChannelPoints: false,
+      platform: { twitch: { autoClaimChannelPoints: "yes" } },
+    });
+    expect(points.settings).toEqual({ platform: { twitch: { autoClaimChannelPoints: "yes" } } });
+    expect(points.diagnostics.map((d) => d.path)).toEqual(["autoClaimChannelPoints"]);
+  });
+
+  it("keeps a non-boolean legacy value verbatim so normalization decides", () => {
+    // mergeSettings applies booleanOr afterwards; the migration only reshapes.
+    expect(migrateSettings({ autoClaimChannelPoints: "yes" }).settings)
+      .toEqual({ platform: { twitch: { autoClaimChannelPoints: "yes" } } });
+  });
+
+  it("lets the current property win while still reporting the deprecated one", () => {
+    const result = migrateSettings({
+      idleWatchlistFallbackOnly: true,
+      watchQueueFallbackOnly: false,
+      diagnosticLogging: false,
+      verboseLogging: true,
+      autoClaimChannelPoints: false,
+      platform: {
+        twitch: { idleWatchlistChannels: [], watchQueueChannels: ["legacy"], autoClaimChannelPoints: true },
+        kick: { idleWatchlistChannels: ["new"], watchQueueChannels: ["legacy"] },
+      },
+    });
+    expect(result.settings).toEqual({
+      idleWatchlistFallbackOnly: true,
+      diagnosticLogging: false,
+      platform: {
+        twitch: { idleWatchlistChannels: [], autoClaimChannelPoints: true },
+        kick: { idleWatchlistChannels: ["new"] },
+      },
+    });
+    expect(result.diagnostics.map((d) => d.path)).toEqual([
+      "watchQueueFallbackOnly",
+      "verboseLogging",
+      "autoClaimChannelPoints",
+      "platform.twitch.watchQueueChannels",
+      "platform.kick.watchQueueChannels",
+    ]);
+  });
+
+  it("emits a stable, deduplicated diagnostic per deprecated property", () => {
+    const result = migrateSettings({ watchQueueFallbackOnly: false });
+    expect(result.diagnostics).toEqual([{
+      code: "deprecated_property",
+      path: "watchQueueFallbackOnly",
+      replacement: "idleWatchlistFallbackOnly",
+      message: "watchQueueFallbackOnly is deprecated; use idleWatchlistFallbackOnly",
+    }]);
+  });
+
+  it("reports nothing for a payload that only uses current names", () => {
+    const result = migrateSettings({
+      idleWatchlistFallbackOnly: true,
+      platform: { twitch: { idleWatchlistChannels: ["a"] } },
+    });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.changed).toBe(true); // unversioned input still gets stamped
+  });
+
+  it("leaves unrelated and malformed platform blocks alone", () => {
+    expect(migrateSettings({ platform: "nope", other: 1 }).settings).toEqual({ platform: "nope", other: 1 });
+    expect(migrateSettings({ platform: { twitch: null } }).settings).toEqual({ platform: { twitch: null } });
+  });
+});
