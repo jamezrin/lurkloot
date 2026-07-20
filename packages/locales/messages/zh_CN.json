@@ -649,16 +649,22 @@
     "message": "署名链接"
   },
   "githubAttribution": {
-    "message": "GitHub 上的 jamezrin"
+    "message": "GitHub 上的 Lurkloot"
   },
-  "xAttribution": {
-    "message": "X 上的 jamezrin"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Chrome 应用商店中的 Lurkloot"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "Lurkloot 网站"
+  },
+  "siteAttributionShort": {
+    "message": "网站"
   },
   "updateNoticeTitle": { "message": "Lurkloot 已更新至 $1" },
   "updateNoticeBody": { "message": "查看新增内容和改动。" },

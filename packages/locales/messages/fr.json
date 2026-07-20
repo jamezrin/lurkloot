@@ -649,16 +649,22 @@
     "message": "Liens d’attribution"
   },
   "githubAttribution": {
-    "message": "jamezrin sur GitHub"
+    "message": "Lurkloot sur GitHub"
   },
-  "xAttribution": {
-    "message": "jamezrin sur X"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Lurkloot sur le Chrome Web Store"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "Site web de Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "Site web"
   },
   "updateNoticeTitle": { "message": "Lurkloot a été mis à jour vers la version $1" },
   "updateNoticeBody": { "message": "Découvrez les nouveautés et les changements." },

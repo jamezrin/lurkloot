@@ -649,16 +649,22 @@
     "message": "Ссылки на автора"
   },
   "githubAttribution": {
-    "message": "jamezrin на GitHub"
+    "message": "Lurkloot на GitHub"
   },
-  "xAttribution": {
-    "message": "jamezrin в X"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Lurkloot в Chrome Web Store"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "Сайт Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "Сайт"
   },
   "updateNoticeTitle": { "message": "Lurkloot обновлён до версии $1" },
   "updateNoticeBody": { "message": "Узнайте о новых функциях и изменениях." },

@@ -649,16 +649,22 @@
     "message": "روابط النسبة"
   },
   "githubAttribution": {
-    "message": "jamezrin على GitHub"
+    "message": "Lurkloot على GitHub"
   },
-  "xAttribution": {
-    "message": "jamezrin على X"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Lurkloot على متجر Chrome الإلكتروني"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "موقع Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "الموقع"
   },
   "updateNoticeTitle": { "message": "تم تحديث Lurkloot إلى الإصدار $1" },
   "updateNoticeBody": { "message": "تعرّف على الميزات الجديدة والتغييرات." },

@@ -649,16 +649,22 @@
     "message": "Attribution links"
   },
   "githubAttribution": {
-    "message": "jamezrin on GitHub"
+    "message": "Lurkloot on GitHub"
   },
-  "xAttribution": {
-    "message": "jamezrin on X"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Lurkloot on Chrome Web Store"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "Lurkloot website"
+  },
+  "siteAttributionShort": {
+    "message": "Website"
   },
   "updateNoticeTitle": { "message": "Lurkloot was updated to $1" },
   "updateNoticeBody": { "message": "See what's new and what changed." },

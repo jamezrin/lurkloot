@@ -119,6 +119,11 @@ describe("i18n", () => {
       "settingsSectionGeneral",
       "settingsGroupDrops",
       "settingsGroupNotifications",
+      // Footer link labels: two are brand names, and "Website" is the German
+      // word as well as the English one.
+      "chromeWebStoreAttributionShort",
+      "githubAttributionShort",
+      "siteAttributionShort",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

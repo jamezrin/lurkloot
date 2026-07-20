@@ -649,16 +649,22 @@
     "message": "श्रेय लिंक"
   },
   "githubAttribution": {
-    "message": "GitHub पर jamezrin"
+    "message": "GitHub पर Lurkloot"
   },
-  "xAttribution": {
-    "message": "X पर jamezrin"
+  "githubAttributionShort": {
+    "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
     "message": "Chrome वेब स्टोर पर Lurkloot"
   },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
   "siteAttribution": {
     "message": "Lurkloot वेबसाइट"
+  },
+  "siteAttributionShort": {
+    "message": "वेबसाइट"
   },
   "updateNoticeTitle": { "message": "Lurkloot को $1 में अपडेट किया गया" },
   "updateNoticeBody": { "message": "नई सुविधाएँ और बदलाव देखें।" },
