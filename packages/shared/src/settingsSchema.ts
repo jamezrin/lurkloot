@@ -77,13 +77,20 @@ function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   renameProperty(raw, "verboseLogging", "diagnosticLogging", "", diagnose);
 
   if (Object.hasOwn(raw, "autoClaimChannelPoints")) {
-    // Only consume the legacy key once there is somewhere to put it. A
-    // malformed `platform` is left verbatim for validation to report, so
-    // deleting the value here would lose it and the diagnostic would lie.
+    // Move the pre-split top-level toggle under platform.twitch. A genuinely
+    // absent platform block is created here; a malformed one (a non-object, or
+    // platform.twitch not an object) cannot take the value, so it is dropped.
+    // That is consistent, not a loss worth preserving: normalization defaults
+    // the entire corrupt platform block regardless, so keeping this one field
+    // of it would be arbitrary, and a leftover top-level key is dead data the
+    // extension no longer reads and the CLI would reject as unknown. The
+    // malformed platform itself is surfaced by each host — the extension
+    // defaults it, the CLI reports it. Only a manually corrupted document can
+    // reach this; every real prior version wrote platform as an object.
+    const legacy = raw.autoClaimChannelPoints;
+    delete raw.autoClaimChannelPoints;
     const twitch = ensurePlatformBlock(raw, "twitch");
     if (twitch) {
-      const legacy = raw.autoClaimChannelPoints;
-      delete raw.autoClaimChannelPoints;
       diagnose({
         code: "moved_property",
         path: "autoClaimChannelPoints",

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { mergeSettings } from "@lurkloot/shared/settings";
+import { migrateSettings } from "@lurkloot/shared/settingsSchema";
 import { DEFAULT_CLI_SETTINGS, parseCliSettings, parseCliSettingsWithDiagnostics, toEngineSettings } from "../src/settings";
 
 describe("parseCliSettings", () => {
@@ -217,5 +219,29 @@ describe("toEngineSettings", () => {
     expect(engine.deadlineSafetyMarginMinutes).toBe(5);
     expect(engine.platform.kick.enabled).toBe(false);
     expect(engine.compatibility).toEqual(cli.compatibility);
+  });
+
+  // Guards the whole point of the shared registry: both hosts must derive the
+  // same engine-contract values from one legacy document. The extension reaches
+  // them via mergeSettings; the CLI via parseCliSettings + toEngineSettings. If
+  // a future migration diverged the two, this is where it would show up.
+  it("agrees with the extension on the engine contract for a legacy document", () => {
+    const legacy = {
+      watchQueueFallbackOnly: false,
+      autoClaimChannelPoints: false,
+      platform: {
+        twitch: { watchQueueChannels: ["A"] },
+        kick: { watchQueueChannels: ["B"] },
+      },
+    };
+    const cliEngine = toEngineSettings(parseCliSettings(legacy));
+    // The extension migrates then normalizes; replicate that exact pipeline.
+    const extension = mergeSettings(migrateSettings(legacy).settings as never);
+    expect(cliEngine.idleWatchlistFallbackOnly).toBe(extension.idleWatchlistFallbackOnly);
+    expect(cliEngine.idleWatchlistFallbackOnly).toBe(false);
+    expect(cliEngine.platform.twitch.idleWatchlistChannels).toEqual(extension.platform.twitch.idleWatchlistChannels);
+    expect(cliEngine.platform.kick.idleWatchlistChannels).toEqual(extension.platform.kick.idleWatchlistChannels);
+    expect(cliEngine.platform.twitch.autoClaimChannelPoints).toBe(extension.platform.twitch.autoClaimChannelPoints);
+    expect(cliEngine.platform.twitch.autoClaimChannelPoints).toBe(false);
   });
 });

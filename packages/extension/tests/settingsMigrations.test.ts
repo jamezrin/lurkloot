@@ -135,19 +135,19 @@ describe("migration 1: legacy aliases", () => {
     expect(migrateSettings({ verboseLogging: false }).settings).toEqual({ diagnosticLogging: false });
   });
 
-  it("keeps a legacy autoClaimChannelPoints when platform is not an object", () => {
-    // The old mergeEngineSettings read this independently of platform's shape.
-    // Dropping it here would silently re-enable channel-point claiming.
+  it("drops an unhomeable legacy autoClaimChannelPoints when platform is not an object", () => {
+    // The value cannot be rehomed into a corrupt platform block, and leaving it
+    // at the top level would be dead data. Normalization defaults the whole
+    // corrupt block anyway, so this is consistent, not a meaningful loss. The
+    // malformed platform is left verbatim for each host to surface.
     const result = migrateSettings({ autoClaimChannelPoints: false, platform: "nope" });
-    expect(result.settings.autoClaimChannelPoints).toBe(false);
-    expect(result.settings.platform).toBe("nope");
+    expect(result.settings).toEqual({ platform: "nope" });
     expect(result.diagnostics).toEqual([]);
   });
 
-  it("keeps a legacy autoClaimChannelPoints when platform.twitch is not an object", () => {
+  it("drops an unhomeable legacy autoClaimChannelPoints when platform.twitch is not an object", () => {
     const result = migrateSettings({ autoClaimChannelPoints: false, platform: { twitch: null } });
-    expect(result.settings.autoClaimChannelPoints).toBe(false);
-    expect(result.settings.platform).toEqual({ twitch: null });
+    expect(result.settings).toEqual({ platform: { twitch: null } });
     expect(result.diagnostics).toEqual([]);
   });
 
