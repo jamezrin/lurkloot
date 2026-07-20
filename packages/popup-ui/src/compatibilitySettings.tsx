@@ -3,7 +3,6 @@ import type { CompatibilitySettings as CompatibilitySelections } from "@lurkloot
 import type { Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { RotateCcw, TriangleAlert } from "lucide-react";
-import { PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { SelectControl } from "./settingsControls";
 import { cn } from "./primitives";
@@ -15,12 +14,17 @@ import type {
   TFunction,
 } from "./types";
 
-export const AUTOMATIC_COMPATIBILITY_PATCH: SettingsPatch = Object.freeze({
-  compatibility: Object.freeze({
-    twitch: Object.freeze({ profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "auto" }),
-    kick: Object.freeze({ profile: "auto", claimLinkHandling: "auto" }),
-  }),
+const AUTOMATIC_TWITCH: SettingsPatch = Object.freeze({
+  compatibility: Object.freeze({ twitch: Object.freeze({ profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "auto" }) }),
 });
+
+const AUTOMATIC_KICK: SettingsPatch = Object.freeze({
+  compatibility: Object.freeze({ kick: Object.freeze({ profile: "auto", claimLinkHandling: "auto" }) }),
+});
+
+export function automaticPatchFor(platform: Platform): SettingsPatch {
+  return platform === "twitch" ? AUTOMATIC_TWITCH : AUTOMATIC_KICK;
+}
 
 const LIFECYCLE_KEYS: Record<CompatibilityLifecycle, string> = {
   recommended: "compatibilityLifecycleRecommended",
@@ -49,11 +53,6 @@ function optionTitle(translate: TFunction, id: string): string {
   return titleKey ? translate(titleKey) : id;
 }
 
-function isOverridden(settings: CompatibilitySelections): boolean {
-  return Object.values(settings.twitch).some((value) => value !== "auto")
-    || Object.values(settings.kick).some((value) => value !== "auto");
-}
-
 // Lifecycle rides along in the option label: a native <option> cannot carry a
 // badge, and the tradeoff between choices is exactly what you need at the
 // moment you open the dropdown.
@@ -72,20 +71,6 @@ function options(records: OptionRecords, automatic: string, translate: TFunction
 function LifecycleBadge({ lifecycle }: { lifecycle: CompatibilityLifecycle }) {
   const t = useT();
   return <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none whitespace-nowrap", lifecycle === "recommended" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : lifecycle === "legacy" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-violet-500/10 text-violet-600 dark:text-violet-400")}>{t(LIFECYCLE_KEYS[lifecycle])}</span>;
-}
-
-function PlatformGroup({ platform, children }: { platform: Platform; children: React.ReactNode }) {
-  const details = PLATFORMS[platform];
-  return (
-    <div className="mt-3 first:mt-2">
-      <div className="mb-0.5 flex items-center gap-1.5">
-        <span className="flex h-4 w-4 items-center justify-center rounded text-[10px] font-black" style={{ backgroundColor: details.color, color: platform === "kick" ? "#07140a" : "#fff" }}>{details.mark}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{details.label}</span>
-        <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/70" />
-      </div>
-      <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">{children}</div>
-    </div>
-  );
 }
 
 // One resolved capability. The control and the value it produced sit together, so
@@ -129,7 +114,8 @@ function CompatibilityRow({ title, ariaLabel, description, selection, resolvedId
   );
 }
 
-export function CompatibilitySettings({ settings, registry, resolution, onChange }: {
+export function PlatformCompatibilitySettings({ platform, settings, registry, resolution, onChange }: {
+  platform: Platform;
   settings: CompatibilitySelections;
   registry: PopupCompatibilityRegistry;
   resolution: PopupCompatibilityResolution;
@@ -138,80 +124,79 @@ export function CompatibilitySettings({ settings, registry, resolution, onChange
   const t = useT();
   const automatic = t("compatibilityAutomatic");
   const effective = resolution.compatibility;
-  const overridden = isOverridden(settings);
+  // The reset button and the override warning are scoped to this platform, so a
+  // Twitch override does not light up a warning in the Kick section.
+  const overridden = Object.values(settings[platform]).some((value) => value !== "auto");
   const metadata = (records: OptionRecords, id: string) => records[id];
 
-  return <div className="border-t border-zinc-100 py-2.5 dark:border-zinc-800/70">
-    <div className="flex items-start gap-3">
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("compatibilitySectionTitle")}</div>
-        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("compatibilitySectionDescription")}</div>
+  return (
+    <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+      {platform === "twitch" ? (
+        <>
+          <CompatibilityRow
+            title={t("compatibilityComponentProfile")}
+            ariaLabel={t("compatibilityTwitchProfileTitle")}
+            description={t("compatibilityTwitchProfileDescription")}
+            selection={settings.twitch.profile}
+            resolvedId={effective.twitch.profile}
+            metadata={metadata(registry.twitch.profiles, effective.twitch.profile)}
+            options={options(registry.twitch.profiles, automatic, t, true)}
+            onChange={(profile) => onChange({ compatibility: { twitch: { profile } } })}
+            component={false}
+          />
+          <CompatibilityRow
+            title={t("compatibilityComponentHeartbeat")}
+            ariaLabel={t("compatibilityTwitchHeartbeatTitle")}
+            description={t("compatibilityTwitchHeartbeatDescription")}
+            selection={settings.twitch.heartbeatTransport}
+            resolvedId={effective.twitch.heartbeat}
+            metadata={metadata(registry.twitch.heartbeat, effective.twitch.heartbeat)}
+            options={options(registry.twitch.heartbeat, automatic, t, true)}
+            onChange={(heartbeatTransport) => onChange({ compatibility: { twitch: { heartbeatTransport } } })}
+            component
+          />
+          <CompatibilityRow
+            title={t("compatibilityComponentInventory")}
+            ariaLabel={t("compatibilityTwitchInventoryTitle")}
+            description={t("compatibilityTwitchInventoryDescription")}
+            selection={settings.twitch.inventoryQueryVersion}
+            resolvedId={effective.twitch.inventory}
+            metadata={metadata(registry.twitch.inventory, effective.twitch.inventory)}
+            options={options(registry.twitch.inventory, automatic, t, true)}
+            onChange={(inventoryQueryVersion) => onChange({ compatibility: { twitch: { inventoryQueryVersion } } })}
+            component
+          />
+        </>
+      ) : (
+        <>
+          <CompatibilityRow
+            title={t("compatibilityComponentProfile")}
+            ariaLabel={t("compatibilityKickProfileTitle")}
+            description={t("compatibilityKickProfileDescription")}
+            selection={settings.kick.profile}
+            resolvedId={effective.kick.profile}
+            metadata={metadata(registry.kick.profiles, effective.kick.profile)}
+            options={options(registry.kick.profiles, automatic, t)}
+            onChange={(profile) => onChange({ compatibility: { kick: { profile } } })}
+            component={false}
+          />
+          <CompatibilityRow
+            title={t("compatibilityComponentClaim")}
+            ariaLabel={t("compatibilityKickClaimTitle")}
+            description={t("compatibilityKickClaimDescription")}
+            selection={settings.kick.claimLinkHandling}
+            resolvedId={effective.kick.claim}
+            metadata={metadata(registry.kick.claim, effective.kick.claim)}
+            options={options(registry.kick.claim, automatic, t)}
+            onChange={(claimLinkHandling) => onChange({ compatibility: { kick: { claimLinkHandling } } })}
+            component
+          />
+        </>
+      )}
+      <div className="py-2">
+        {overridden ? <div className="mb-2 flex items-start gap-1.5 rounded-lg bg-amber-500/10 p-2 text-[10px] text-amber-700 dark:text-amber-300"><TriangleAlert size={12} className="mt-0.5 shrink-0" /><span>{t("compatibilityOverrideWarning")}</span></div> : null}
+        <button type="button" disabled={!overridden} onClick={() => void onChange(automaticPatchFor(platform))} className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-40 dark:border-zinc-700"><RotateCcw size={12} />{t("compatibilityRestoreAutomatic")}</button>
       </div>
-      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none whitespace-nowrap", overridden ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400")}>{overridden ? t("compatibilityOverridden") : automatic}</span>
     </div>
-
-    <PlatformGroup platform="twitch">
-      <CompatibilityRow
-        title={t("compatibilityComponentProfile")}
-        ariaLabel={t("compatibilityTwitchProfileTitle")}
-        description={t("compatibilityTwitchProfileDescription")}
-        selection={settings.twitch.profile}
-        resolvedId={effective.twitch.profile}
-        metadata={metadata(registry.twitch.profiles, effective.twitch.profile)}
-        options={options(registry.twitch.profiles, automatic, t, true)}
-        onChange={(profile) => onChange({ compatibility: { twitch: { profile } } })}
-        component={false}
-      />
-      <CompatibilityRow
-        title={t("compatibilityComponentHeartbeat")}
-        ariaLabel={t("compatibilityTwitchHeartbeatTitle")}
-        description={t("compatibilityTwitchHeartbeatDescription")}
-        selection={settings.twitch.heartbeatTransport}
-        resolvedId={effective.twitch.heartbeat}
-        metadata={metadata(registry.twitch.heartbeat, effective.twitch.heartbeat)}
-        options={options(registry.twitch.heartbeat, automatic, t, true)}
-        onChange={(heartbeatTransport) => onChange({ compatibility: { twitch: { heartbeatTransport } } })}
-        component
-      />
-      <CompatibilityRow
-        title={t("compatibilityComponentInventory")}
-        ariaLabel={t("compatibilityTwitchInventoryTitle")}
-        description={t("compatibilityTwitchInventoryDescription")}
-        selection={settings.twitch.inventoryQueryVersion}
-        resolvedId={effective.twitch.inventory}
-        metadata={metadata(registry.twitch.inventory, effective.twitch.inventory)}
-        options={options(registry.twitch.inventory, automatic, t, true)}
-        onChange={(inventoryQueryVersion) => onChange({ compatibility: { twitch: { inventoryQueryVersion } } })}
-        component
-      />
-    </PlatformGroup>
-
-    <PlatformGroup platform="kick">
-      <CompatibilityRow
-        title={t("compatibilityComponentProfile")}
-        ariaLabel={t("compatibilityKickProfileTitle")}
-        description={t("compatibilityKickProfileDescription")}
-        selection={settings.kick.profile}
-        resolvedId={effective.kick.profile}
-        metadata={metadata(registry.kick.profiles, effective.kick.profile)}
-        options={options(registry.kick.profiles, automatic, t)}
-        onChange={(profile) => onChange({ compatibility: { kick: { profile } } })}
-        component={false}
-      />
-      <CompatibilityRow
-        title={t("compatibilityComponentClaim")}
-        ariaLabel={t("compatibilityKickClaimTitle")}
-        description={t("compatibilityKickClaimDescription")}
-        selection={settings.kick.claimLinkHandling}
-        resolvedId={effective.kick.claim}
-        metadata={metadata(registry.kick.claim, effective.kick.claim)}
-        options={options(registry.kick.claim, automatic, t)}
-        onChange={(claimLinkHandling) => onChange({ compatibility: { kick: { claimLinkHandling } } })}
-        component
-      />
-    </PlatformGroup>
-
-    {overridden ? <div className="mt-3 flex items-start gap-1.5 rounded-lg bg-amber-500/10 p-2 text-[10px] text-amber-700 dark:text-amber-300"><TriangleAlert size={12} className="mt-0.5 shrink-0" /><span>{t("compatibilityOverrideWarning")}</span></div> : null}
-    <button type="button" disabled={!overridden} onClick={() => void onChange(AUTOMATIC_COMPATIBILITY_PATCH)} className="mt-2 flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-40 dark:border-zinc-700"><RotateCcw size={12} />{t("compatibilityRestoreAutomatic")}</button>
-  </div>;
+  );
 }
