@@ -80,8 +80,12 @@ export function SettingsSection({ id, title, description, icon: Icon, iconNode, 
 // accordion in a 600px popup is tedious, and search is the real answer to a long
 // page. Advanced groups are visually demoted so they read as advanced even once
 // the "show advanced" switch has revealed them.
-export function SettingsGroup({ title, advanced = false, children }: {
+export function SettingsGroup({ title, description, badge, advanced = false, children }: {
   title: string;
+  // Groups whose whole body is one editor carry that editor's subtitle and count
+  // here, so the editor itself renders bare instead of repeating the heading.
+  description?: string;
+  badge?: React.ReactNode;
   advanced?: boolean;
   children: React.ReactNode;
 }) {
@@ -91,7 +95,9 @@ export function SettingsGroup({ title, advanced = false, children }: {
         {advanced ? <TriangleAlert size={11} className="shrink-0 text-amber-500/80" /> : null}
         <span className={cn("text-[10px] font-semibold uppercase tracking-wide", advanced ? "text-amber-600/90 dark:text-amber-400/90" : "text-zinc-400 dark:text-zinc-500")}>{title}</span>
         <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/70" />
+        {badge}
       </div>
+      {description ? <p className="mb-1.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</p> : null}
       <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">{children}</div>
     </div>
   );

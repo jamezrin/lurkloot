@@ -106,7 +106,9 @@ export function filterSettingsTree<
       return kept;
     });
 
-    const groups: Array<SettingsGroupNode<TEntry>> = [];
+    // Typed off the caller's section so extra group properties (description,
+    // badge) survive the filter instead of being erased to the node shape.
+    const groups: TSection["groups"] = [];
     for (const group of section.groups) {
       const groupAdvanced = Boolean(group.advanced);
       if (!advancedVisible(groupAdvanced, showAdvanced, searching)) continue;

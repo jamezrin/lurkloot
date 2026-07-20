@@ -4,6 +4,7 @@ import type { CategorySelection, ExtensionSettings, LanguageOverride, Platform }
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import { PLATFORMS } from "./constants";
+import { Pill } from "./primitives";
 import {
   CampaignFilterSettingRow,
   ForgetExcludedCampaignsRow,
@@ -39,9 +40,19 @@ export interface SettingsEntryDef extends SettingsEntryNode {
   render(): React.ReactNode;
 }
 
-export type SettingsGroupDef = SettingsGroupNode<SettingsEntryDef>;
+export interface SettingsGroupDef extends SettingsGroupNode<SettingsEntryDef> {
+  // Set only by groups whose whole body is a single editor. The group header
+  // then carries the editor's subtitle and count, so the editor renders bare
+  // rather than repeating the heading inside a nested card.
+  description?: string;
+  badge?: React.ReactNode;
+}
 
 export interface SettingsSectionDef extends SettingsSectionNode<SettingsEntryDef> {
+  // Narrowed from the node shape so the walker can read description/badge off a
+  // group without a cast. SettingsGroupDef is assignable to the node type, so
+  // filterSettingsTree still accepts these sections.
+  groups: SettingsGroupDef[];
   // Exactly one of icon/iconNode is set per section: General uses a plain
   // lucide icon, while Twitch/Kick use a colored platform mark (iconNode) so
   // the two sections don't render identically.
@@ -314,6 +325,11 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       {
         id: `${platform}.categories`,
         titleKey: "settingsGroupCategories",
+        // No description: the farm-all row directly below carries its own. The
+        // count only means anything while an explicit allowlist is in use.
+        badge: settings.platform[platform].farmAllCategories
+          ? undefined
+          : <Pill tone="outline">{settings.platform[platform].categories.length}</Pill>,
         entries: [
           {
             id: `${platform}.categories.farmAll`,
@@ -339,6 +355,8 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       {
         id: `${platform}.channels`,
         titleKey: "settingsGroupExcludedChannels",
+        description: t("excludedChannelsDescription"),
+        badge: <Pill tone="outline">{(settings.platform[platform].excludedChannels ?? []).length}</Pill>,
         entries: [
           {
             id: `${platform}.channels.excluded`,

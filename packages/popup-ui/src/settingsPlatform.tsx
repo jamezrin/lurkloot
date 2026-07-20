@@ -11,7 +11,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, Ban, GripVertical, Plus, Search } from "lucide-react";
+import { AlertTriangle, GripVertical, Plus, Search } from "lucide-react";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { GAME_ACCENTS, PLATFORMS } from "./constants";
 import { useT } from "./context";
@@ -72,8 +72,6 @@ export function PlatformExcludedChannels({ platform, settings, onExcludedChannel
   return (
     <div className="py-2">
       <ChannelListEditor
-        title={t("excludedChannelsTitle")}
-        description={t("excludedChannelsDescription")}
         empty={t("excludedChannelsEmpty")}
         channels={settings.platform[platform].excludedChannels ?? []}
         onChange={onExcludedChannelsChange}
@@ -82,9 +80,9 @@ export function PlatformExcludedChannels({ platform, settings, onExcludedChannel
   );
 }
 
-function ChannelListEditor({ title, description, empty, channels, onChange }: {
-  title: string;
-  description: string;
+// Renders bare: the enclosing SettingsGroup supplies the heading, the
+// description and the channel count.
+function ChannelListEditor({ empty, channels, onChange }: {
   empty: string;
   channels: string[];
   onChange(channels: string[]): void | Promise<void>;
@@ -110,15 +108,7 @@ function ChannelListEditor({ title, description, empty, channels, onChange }: {
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-zinc-200/70 p-2.5 dark:border-zinc-800">
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-400"><Ban size={12} /></span>
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
-          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</p>
-        </div>
-        <Pill tone="outline">{channels.length}</Pill>
-      </div>
+    <div className="space-y-2">
       {channels.length === 0 ? <div className="text-[11px] text-zinc-400">{empty}</div> : (
         <div className="flex flex-wrap gap-1.5">
           {channels.map((channel) => (
@@ -204,11 +194,12 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
   const accentFor = (index: number): string => GAME_ACCENTS[index % GAME_ACCENTS.length];
 
   return (
-    <div className="space-y-2.5 rounded-xl border border-zinc-200/70 p-2.5 dark:border-zinc-800">
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-medium text-zinc-800 dark:text-zinc-100">{t("categoriesToFarm")}</div>
-        {categories.length > 0 ? <Pill tone="accent">{t("dragToPrioritize")}</Pill> : <Pill tone="outline">0</Pill>}
-      </div>
+    <div className="space-y-2.5">
+      {/* The group header carries the label and the count; only the reordering
+          hint is left, and it only means anything once there is a list. */}
+      {categories.length > 0 ? (
+        <div className="flex justify-end"><Pill tone="accent">{t("dragToPrioritize")}</Pill></div>
+      ) : null}
       {categories.length === 0 ? (
         <div className="flex items-start gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           <AlertTriangle size={13} className="mt-0.5 shrink-0" />

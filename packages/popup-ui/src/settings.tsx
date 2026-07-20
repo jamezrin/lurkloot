@@ -83,7 +83,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                 </div>
               ) : null}
               {section.groups.map((group) => (
-                <SettingsGroup key={group.id} title={t(group.titleKey)} advanced={group.advanced}>
+                <SettingsGroup key={group.id} title={t(group.titleKey)} description={group.description} badge={group.badge} advanced={group.advanced}>
                   {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
                 </SettingsGroup>
               ))}
