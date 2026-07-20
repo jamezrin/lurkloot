@@ -107,11 +107,16 @@ export async function saveTwitchIntegrity(value: TwitchIntegrity): Promise<void>
 }
 
 export async function resetStorage(): Promise<void> {
+  // Both keys are reset in one atomic write, so a reset never lands halfway.
+  // Both locks are held because the write touches both keys; nothing else ever
+  // acquires them in the opposite order, so the nesting cannot deadlock.
   await withSettingsStorageLock(async () => {
-    await browser.storage.local.set({ [SETTINGS_KEY]: withSchemaVersion(DEFAULT_SETTINGS) });
-  });
-  await withStateStorageLock(async () => {
-    await browser.storage.local.set({ [STATE_KEY]: DEFAULT_STATE });
+    await withStateStorageLock(async () => {
+      await browser.storage.local.set({
+        [SETTINGS_KEY]: withSchemaVersion(DEFAULT_SETTINGS),
+        [STATE_KEY]: DEFAULT_STATE,
+      });
+    });
   });
   try {
     await clearActivityEvents();

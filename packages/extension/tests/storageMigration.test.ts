@@ -99,12 +99,9 @@ describe("legacy activity migration", () => {
     const loading = loadState();
     await vi.waitFor(() => expect(mocks.importLegacyActivityEvents).toHaveBeenCalledOnce());
     const resetting = resetStorage();
+    await Promise.resolve();
 
-    // The settings write takes its own, independent lock, so it is free to
-    // complete right away. Only the scheduler-state write is serialized behind
-    // the in-flight legacy migration below.
-    await vi.waitFor(() => expect(mocks.values.settings).toBeDefined());
-    expect(mocks.values.schedulerState).toEqual(expect.objectContaining({ events: legacyEvents }));
+    expect(mocks.set).not.toHaveBeenCalled();
 
     finishImport();
     await Promise.all([loading, resetting]);
