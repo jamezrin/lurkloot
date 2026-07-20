@@ -77,17 +77,20 @@ function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   renameProperty(raw, "verboseLogging", "diagnosticLogging", "", diagnose);
 
   if (Object.hasOwn(raw, "autoClaimChannelPoints")) {
-    const legacy = raw.autoClaimChannelPoints;
-    delete raw.autoClaimChannelPoints;
-    diagnose({
-      code: "moved_property",
-      path: "autoClaimChannelPoints",
-      replacement: "platform.twitch.autoClaimChannelPoints",
-      message: "autoClaimChannelPoints moved to platform.twitch.autoClaimChannelPoints",
-    });
+    // Only consume the legacy key once there is somewhere to put it. A
+    // malformed `platform` is left verbatim for validation to report, so
+    // deleting the value here would lose it and the diagnostic would lie.
     const twitch = ensurePlatformBlock(raw, "twitch");
-    if (twitch && !Object.hasOwn(twitch, "autoClaimChannelPoints")) {
-      twitch.autoClaimChannelPoints = legacy;
+    if (twitch) {
+      const legacy = raw.autoClaimChannelPoints;
+      delete raw.autoClaimChannelPoints;
+      diagnose({
+        code: "moved_property",
+        path: "autoClaimChannelPoints",
+        replacement: "platform.twitch.autoClaimChannelPoints",
+        message: "autoClaimChannelPoints moved to platform.twitch.autoClaimChannelPoints",
+      });
+      if (!Object.hasOwn(twitch, "autoClaimChannelPoints")) twitch.autoClaimChannelPoints = legacy;
     }
   }
 

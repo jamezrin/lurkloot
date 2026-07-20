@@ -135,6 +135,17 @@ describe("migration 1: legacy aliases", () => {
     expect(migrateSettings({ verboseLogging: false }).settings).toEqual({ diagnosticLogging: false });
   });
 
+  it("keeps a legacy autoClaimChannelPoints when the platform block is malformed", () => {
+    // The old mergeEngineSettings read this independently of platform's shape.
+    // Dropping it here would silently re-enable channel-point claiming.
+    for (const platform of ["nope", { twitch: null }]) {
+      const result = migrateSettings({ autoClaimChannelPoints: false, platform });
+      expect(result.settings.autoClaimChannelPoints).toBe(false);
+      expect(result.settings.platform).toEqual(platform);
+      expect(result.diagnostics).toEqual([]);
+    }
+  });
+
   it("keeps a non-boolean legacy value verbatim so normalization decides", () => {
     // mergeSettings applies booleanOr afterwards; the migration only reshapes.
     expect(migrateSettings({ autoClaimChannelPoints: "yes" }).settings)
