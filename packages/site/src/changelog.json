@@ -14,7 +14,8 @@
         "kind": "improved",
         "text": "Settings now migrate more reliably between version upgrades, preserving your preferences as configuration evolves."
       }
-    ]
+    ],
+    "date": "2026-07-20"
   },
   {
     "version": "1.7.0",
