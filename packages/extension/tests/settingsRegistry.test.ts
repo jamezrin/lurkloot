@@ -121,7 +121,7 @@ describe("settings registry", () => {
         "general.notifications.noDropsLeft",
         "general.drops.autoClaim",
         "general.drops.priorityMode",
-        "general.drops.watchQueueFallbackOnly",
+        "general.drops.idleWatchlistFallbackOnly",
         "general.drops.campaignVisibility",
         "general.drops.forgetExcluded",
         "general.farmingTabs.tabless",

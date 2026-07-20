@@ -159,10 +159,10 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             ),
           },
           {
-            id: "general.drops.watchQueueFallbackOnly",
-            titleKey: "watchQueueFallbackOnlyTitle",
-            descriptionKey: "watchQueueFallbackOnlyDescription",
-            render: () => <SettingRow title={t("watchQueueFallbackOnlyTitle")} description={t("watchQueueFallbackOnlyDescription")} checked={settings.watchQueueFallbackOnly} onChange={setFlag("watchQueueFallbackOnly")} />,
+            id: "general.drops.idleWatchlistFallbackOnly",
+            titleKey: "idleWatchlistFallbackOnlyTitle",
+            descriptionKey: "idleWatchlistFallbackOnlyDescription",
+            render: () => <SettingRow title={t("idleWatchlistFallbackOnlyTitle")} description={t("idleWatchlistFallbackOnlyDescription")} checked={settings.idleWatchlistFallbackOnly} onChange={setFlag("idleWatchlistFallbackOnly")} />,
           },
           {
             id: "general.drops.campaignVisibility",
