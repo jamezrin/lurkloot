@@ -99,3 +99,98 @@ describe("settings schema versions", () => {
     }
   });
 });
+
+describe("migration 1: legacy aliases", () => {
+  it("renames the Watch Queue properties", () => {
+    const result = migrateSettings({
+      watchQueueFallbackOnly: false,
+      platform: {
+        twitch: { watchQueueChannels: ["Legacy"] },
+        kick: { watchQueueChannels: ["KickLegacy"] },
+      },
+    });
+    expect(result.settings).toEqual({
+      idleWatchlistFallbackOnly: false,
+      platform: {
+        twitch: { idleWatchlistChannels: ["Legacy"] },
+        kick: { idleWatchlistChannels: ["KickLegacy"] },
+      },
+    });
+    expect(result.settings).not.toHaveProperty("watchQueueFallbackOnly");
+  });
+
+  it("moves a top-level autoClaimChannelPoints onto platform.twitch", () => {
+    const result = migrateSettings({ autoClaimChannelPoints: false });
+    expect(result.settings).toEqual({ platform: { twitch: { autoClaimChannelPoints: false } } });
+    expect(result.diagnostics).toContainEqual({
+      code: "moved_property",
+      path: "autoClaimChannelPoints",
+      replacement: "platform.twitch.autoClaimChannelPoints",
+      message: "autoClaimChannelPoints moved to platform.twitch.autoClaimChannelPoints",
+    });
+  });
+
+  it("renames verboseLogging to diagnosticLogging", () => {
+    expect(migrateSettings({ verboseLogging: true }).settings).toEqual({ diagnosticLogging: true });
+    expect(migrateSettings({ verboseLogging: false }).settings).toEqual({ diagnosticLogging: false });
+  });
+
+  it("keeps a non-boolean legacy value verbatim so normalization decides", () => {
+    // mergeSettings applies booleanOr afterwards; the migration only reshapes.
+    expect(migrateSettings({ autoClaimChannelPoints: "yes" }).settings)
+      .toEqual({ platform: { twitch: { autoClaimChannelPoints: "yes" } } });
+  });
+
+  it("lets the current property win while still reporting the deprecated one", () => {
+    const result = migrateSettings({
+      idleWatchlistFallbackOnly: true,
+      watchQueueFallbackOnly: false,
+      diagnosticLogging: false,
+      verboseLogging: true,
+      autoClaimChannelPoints: false,
+      platform: {
+        twitch: { idleWatchlistChannels: [], watchQueueChannels: ["legacy"], autoClaimChannelPoints: true },
+        kick: { idleWatchlistChannels: ["new"], watchQueueChannels: ["legacy"] },
+      },
+    });
+    expect(result.settings).toEqual({
+      idleWatchlistFallbackOnly: true,
+      diagnosticLogging: false,
+      platform: {
+        twitch: { idleWatchlistChannels: [], autoClaimChannelPoints: true },
+        kick: { idleWatchlistChannels: ["new"] },
+      },
+    });
+    expect(result.diagnostics.map((d) => d.path)).toEqual([
+      "watchQueueFallbackOnly",
+      "verboseLogging",
+      "autoClaimChannelPoints",
+      "platform.twitch.watchQueueChannels",
+      "platform.kick.watchQueueChannels",
+    ]);
+  });
+
+  it("emits a stable, deduplicated diagnostic per deprecated property", () => {
+    const result = migrateSettings({ watchQueueFallbackOnly: false });
+    expect(result.diagnostics).toEqual([{
+      code: "deprecated_property",
+      path: "watchQueueFallbackOnly",
+      replacement: "idleWatchlistFallbackOnly",
+      message: "watchQueueFallbackOnly is deprecated; use idleWatchlistFallbackOnly",
+    }]);
+  });
+
+  it("reports nothing for a payload that only uses current names", () => {
+    const result = migrateSettings({
+      idleWatchlistFallbackOnly: true,
+      platform: { twitch: { idleWatchlistChannels: ["a"] } },
+    });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.changed).toBe(true); // unversioned input still gets stamped
+  });
+
+  it("leaves unrelated and malformed platform blocks alone", () => {
+    expect(migrateSettings({ platform: "nope", other: 1 }).settings).toEqual({ platform: "nope", other: 1 });
+    expect(migrateSettings({ platform: { twitch: null } }).settings).toEqual({ platform: { twitch: null } });
+  });
+});

@@ -62,11 +62,82 @@ interface SettingsMigration {
   migrate: (raw: Record<string, unknown>, diagnose: Diagnose) => Record<string, unknown>;
 }
 
+// Migration 1 consolidates every legacy shape that predates the registry: the
+// Idle Watchlist rename (PR #177), the pre-split top-level channel-points
+// toggle, and the verboseLogging rename. Diagnostics are emitted in a fixed
+// order so host warnings are stable across runs.
 // Ordered registry. Entry i upgrades version i to version i + 1. Never edit a
 // released migration except to fix data loss; add a new version instead.
 const MIGRATIONS: SettingsMigration[] = [
-  { to: 1, migrate: (raw) => raw },
+  { to: 1, migrate: migrateToV1 },
 ];
+
+function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  renameProperty(raw, "watchQueueFallbackOnly", "idleWatchlistFallbackOnly", "", diagnose);
+  renameProperty(raw, "verboseLogging", "diagnosticLogging", "", diagnose);
+
+  if (Object.hasOwn(raw, "autoClaimChannelPoints")) {
+    const legacy = raw.autoClaimChannelPoints;
+    delete raw.autoClaimChannelPoints;
+    diagnose({
+      code: "moved_property",
+      path: "autoClaimChannelPoints",
+      replacement: "platform.twitch.autoClaimChannelPoints",
+      message: "autoClaimChannelPoints moved to platform.twitch.autoClaimChannelPoints",
+    });
+    const twitch = ensurePlatformBlock(raw, "twitch");
+    if (twitch && !Object.hasOwn(twitch, "autoClaimChannelPoints")) {
+      twitch.autoClaimChannelPoints = legacy;
+    }
+  }
+
+  for (const platform of ["twitch", "kick"] as const) {
+    const block = platformBlock(raw, platform);
+    if (!block) continue;
+    renameProperty(block, "watchQueueChannels", "idleWatchlistChannels", `platform.${platform}.`, diagnose);
+  }
+
+  return raw;
+}
+
+// Drops the legacy key and reports it. The current key wins when both exist,
+// including when its value is `false` or an empty array.
+function renameProperty(
+  owner: Record<string, unknown>,
+  legacyKey: string,
+  currentKey: string,
+  pathPrefix: string,
+  diagnose: Diagnose,
+): void {
+  if (!Object.hasOwn(owner, legacyKey)) return;
+  const legacy = owner[legacyKey];
+  delete owner[legacyKey];
+  diagnose({
+    code: "deprecated_property",
+    path: `${pathPrefix}${legacyKey}`,
+    replacement: `${pathPrefix}${currentKey}`,
+    message: `${pathPrefix}${legacyKey} is deprecated; use ${pathPrefix}${currentKey}`,
+  });
+  if (!Object.hasOwn(owner, currentKey)) owner[currentKey] = legacy;
+}
+
+function platformBlock(raw: Record<string, unknown>, platform: string): Record<string, unknown> | undefined {
+  const platforms = raw.platform;
+  if (!isPlainObject(platforms)) return undefined;
+  const block = platforms[platform];
+  return isPlainObject(block) ? block : undefined;
+}
+
+// Creates `platform.<name>` only when it is safe to do so; a malformed block is
+// left untouched so validation can report it verbatim.
+function ensurePlatformBlock(raw: Record<string, unknown>, platform: string): Record<string, unknown> | undefined {
+  if (!Object.hasOwn(raw, "platform")) raw.platform = {};
+  const platforms = raw.platform;
+  if (!isPlainObject(platforms)) return undefined;
+  if (!Object.hasOwn(platforms, platform)) platforms[platform] = {};
+  const block = platforms[platform];
+  return isPlainObject(block) ? block : undefined;
+}
 
 if (MIGRATIONS.length !== CURRENT_SETTINGS_SCHEMA_VERSION
   || MIGRATIONS.some((migration, index) => migration.to !== index + 1)) {
