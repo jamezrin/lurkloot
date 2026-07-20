@@ -86,8 +86,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "watchQueueTab": {
-    "message": "Warteschlange"
+  "idleWatchlistTab": {
+    "message": "Leerlauf-Watchlist"
   },
   "automationTitle": {
     "message": "$1-Automatisierung"
@@ -121,10 +121,10 @@
   },
   "hideTipsTitle": { "message": "Tipps ausblenden" },
   "hideTipsDescription": { "message": "Blendet hilfreiche Tipps im Hauptfenster aus." },
-  "tipCampaignPriority": { "message": "Drops haben Vorrang vor der Warteschlange. Ziehe Kampagnen am Griff, um sie zu ordnen." },
+  "tipCampaignPriority": { "message": "Drops haben Vorrang vor der Leerlauf-Watchlist. Ziehe Kampagnen am Griff, um sie zu ordnen." },
   "tipMissingCampaigns": { "message": "Fehlt eine Kampagne? Prüfe das Drops-Inventar der Plattform und die Filter in den Einstellungen." },
   "tipCategorySelection": { "message": "Nur bestimmte Spiele? Deaktiviere „Alle Kategorien farmen“ und wähle deine Kategorien." },
-  "tipWatchQueue": { "message": "Die Warteschlange farmt ausgewählte Kanäle, wenn keine geeigneten Drops verfügbar sind." },
+  "tipIdleWatchlist": { "message": "Die Leerlauf-Watchlist farmt ausgewählte Kanäle, wenn keine geeigneten Drops verfügbar sind." },
   "tipTablessMode": { "message": "Der tablose Modus spart Ressourcen und öffnet bei Bedarf einen stummgeschalteten Tab." },
   "tipCli": { "message": "Lieber ohne Erweiterung? Lurkloot ist auch als Docker-CLI verfügbar." },
   "tipCliAction": { "message": "CLI-Anleitung lesen" },
@@ -263,8 +263,8 @@
   "excludeFromFarming": {
     "message": "Vom Farming ausschließen"
   },
-  "noWatchQueue": {
-    "message": "Keine Kanäle in der Warteschlange konfiguriert."
+  "noIdleWatchlist": {
+    "message": "Keine Kanäle in der Leerlauf-Watchlist konfiguriert."
   },
   "channelPlaceholder": {
     "message": "Kanal"
@@ -275,8 +275,8 @@
   "addChannel": {
     "message": "Kanal hinzufügen"
   },
-  "queued": {
-    "message": "in Warteschlange"
+  "idleWatchlistChannel": {
+    "message": "in Leerlauf-Watchlist"
   },
   "live": {
     "message": "live"
@@ -344,16 +344,16 @@
   "lowAvailabilityFirst": {
     "message": "Geringe Verfügbarkeit zuerst"
   },
-  "watchQueueSettingsTitle": {
-    "message": "Warteschlange"
+  "idleWatchlistSettingsTitle": {
+    "message": "Leerlauf-Watchlist"
   },
-  "watchQueueSettingsDescription": {
-    "message": "Gemeinsames Verhalten der Ersatz-Warteschlange."
+  "idleWatchlistSettingsDescription": {
+    "message": "Gemeinsames Verhalten der Ersatz-Leerlauf-Watchlist."
   },
-  "watchQueueFallbackOnlyTitle": {
-    "message": "Nur wenn keine Drops aktiv sind"
+  "idleWatchlistFallbackOnlyTitle": {
+    "message": "Nur wenn keine geeigneten Drops verfügbar sind"
   },
-  "watchQueueFallbackOnlyDescription": {
+  "idleWatchlistFallbackOnlyDescription": {
     "message": "Bewahrt automatisch die Drop-Priorität."
   },
   "platformSettingsTitle": {
@@ -384,7 +384,7 @@
     "message": "Farming-Tabs stummschalten"
   },
   "muteTabsDescription": {
-    "message": "Hält Drop- und Warteschlangen-Tabs beim Farming stumm."
+    "message": "Hält Drop- und Leerlauf-Watchlist-Tabs beim Farming stumm."
   },
   "keepVideosUnmutedTitle": {
     "message": "Farming-Videos nicht stummschalten"
@@ -454,13 +454,13 @@
     "message": "Automatisierung"
   },
   "farmOnPlatform": {
-    "message": "Farmt Drops und schaut die Warteschlange auf $1."
+    "message": "Farmt Drops und schaut die Leerlauf-Watchlist auf $1."
   },
   "enabled": {
     "message": "Aktiviert"
   },
-  "watchQueueEditHint": {
-    "message": "Nach Auswahl von $1 im Warteschlangen-Tab bearbeiten."
+  "idleWatchlistEditHint": {
+    "message": "Nach Auswahl von $1 im Leerlauf-Watchlist-Tab bearbeiten."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Kanalpunkte automatisch beanspruchen"
@@ -582,10 +582,10 @@
   "screenshotKickSubcopy": {
     "message": "Dieselbe Automatisierung, Eligibility-Prüfung und Auto-Beanspruchung wie für Twitch, jetzt auch für Kick-Creator-Belohnungen."
   },
-  "screenshotQueueHeadline": {
-    "message": "Eine Ersatz-Warteschlange hält dich am Verdienen."
+  "screenshotIdleWatchlistHeadline": {
+    "message": "Eine Ersatz-Leerlauf-Watchlist hält dich am Verdienen."
   },
-  "screenshotQueueSubcopy": {
+  "screenshotIdleWatchlistSubcopy": {
     "message": "Wenn keine Drops aktiv sind, schaut Lurkloot deine Lieblingskanäle, damit Online-Zeit nicht ungenutzt bleibt."
   },
   "screenshotSettingsHeadline": {
@@ -715,8 +715,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "eine höher priorisierte Belohnung wurde übernommen"
   },
-  "activityReasonHigherPriorityWatchQueue": {
-    "message": "die Wiedergabewarteschlange hatte Vorrang"
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "die Leerlauf-Watchlist hatte Vorrang"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "die Wiedergabeanforderung wurde erfüllt"

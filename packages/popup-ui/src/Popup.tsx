@@ -55,7 +55,7 @@ import { AttributionFooter } from "./footer";
 import { RateNudge, shouldShowRateNudge } from "./rateNudge";
 import { UpdateNotice } from "./updateNotice";
 import { DropsPanel } from "./drops";
-import { WatchQueuePanel } from "./watchQueue";
+import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AutomationHero, PlatformSwitcher } from "./automation";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
@@ -74,7 +74,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [overrideCatalog, setOverrideCatalog] = useState<MessageCatalog | undefined>();
   const [fallbackCatalog, setFallbackCatalog] = useState<MessageCatalog | undefined>();
   const [platform, setPlatform] = useState<Platform>(preview ? initialVariant.platform : "twitch");
-  const [tab, setTab] = useState<PopupTab>(preview && initialVariant.view === "watchQueue" ? "watchQueue" : "drops");
+  const [tab, setTab] = useState<PopupTab>(preview && initialVariant.view === "idleWatchlist" ? "idleWatchlist" : "drops");
   const [settingsOpen, setSettingsOpen] = useState(preview && initialVariant.view === "settings");
   const [settingsOpenGeneration, setSettingsOpenGeneration] = useState(0);
   const [activityOpen, setActivityOpen] = useState(preview && initialVariant.view === "activity");
@@ -500,8 +500,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     kick: gameItemsFromCampaigns(snapshot.state.campaigns.kick, t),
   };
   const gameMap = Object.fromEntries(games.map((game) => [game.id, game]));
-  const watchQueueChannels = settings.platform[platform].watchQueueChannels;
-  const watchQueue = watchQueueChannels.map((username) => streamerItemFromFallback(username, session, t));
+  const idleWatchlistChannels = settings.platform[platform].idleWatchlistChannels;
+  const idleWatchlist = idleWatchlistChannels.map((username) => streamerItemFromFallback(username, session, t));
   const automation = {
     twitch: pendingAutomation.twitch ?? (settings.running && settings.platform.twitch.enabled),
     kick: pendingAutomation.kick ?? (settings.running && settings.platform.kick.enabled),
@@ -623,7 +623,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                 <SubTabs
                   tabs={[
                     { id: "drops", label: t("dropsTab"), icon: Gift, count: campaigns.length },
-                    { id: "watchQueue", label: t("watchQueueTab"), icon: Play, count: `${watchQueue.length}/20` },
+                    { id: "idleWatchlist", label: t("idleWatchlistTab"), icon: Play, count: `${idleWatchlist.length}/20` },
                   ]}
                   active={tab}
                   onChange={setTab}
@@ -646,14 +646,14 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                         }}
                       />
                     ) : (
-                      <WatchQueuePanel
+                      <IdleWatchlistPanel
                         platform={platform}
-                        streamers={watchQueue}
+                        streamers={idleWatchlist}
                         onChange={(ordered) => updateSettings(
                           {
                             platform: {
                               [platform]: {
-                                watchQueueChannels: ordered.map((streamer) => streamer.id),
+                                idleWatchlistChannels: ordered.map((streamer) => streamer.id),
                               },
                             },
                           },

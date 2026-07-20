@@ -32,7 +32,7 @@ export interface PopupCompatibilityResolution {
   readonly warnings: readonly unknown[];
 }
 
-export type PopupTab = "drops" | "watchQueue";
+export type PopupTab = "drops" | "idleWatchlist";
 export type GameItem = {
   id: string;
   name: string;
@@ -100,7 +100,7 @@ export type CampaignView = {
 
 export type TFunction = (key: string, substitutions?: string | string[]) => string;
 
-export type ScreenshotView = "drops" | "watchQueue" | "settings" | "activity";
+export type ScreenshotView = "drops" | "idleWatchlist" | "settings" | "activity";
 
 export type ScreenshotVariant = {
   platform: Platform;

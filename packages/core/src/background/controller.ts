@@ -44,7 +44,7 @@ const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   channel_mismatch: true,
   watch_unhealthy: true,
   higher_priority_reward: true,
-  higher_priority_watch_queue: true,
+  higher_priority_idle_watchlist: true,
   watch_requirement_completed: true,
   runtime_restart: true,
   target_changed: true,

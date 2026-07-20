@@ -86,8 +86,8 @@
   "dropsTab": {
     "message": "掉宝"
   },
-  "watchQueueTab": {
-    "message": "观看队列"
+  "idleWatchlistTab": {
+    "message": "空闲观看列表"
   },
   "automationTitle": {
     "message": "$1 自动化"
@@ -121,10 +121,10 @@
   },
   "hideTipsTitle": { "message": "隐藏提示" },
   "hideTipsDescription": { "message": "在主弹窗中隐藏实用提示。" },
-  "tipCampaignPriority": { "message": "Drops 优先于观看队列。拖动活动把手即可设置刷取顺序。" },
+  "tipCampaignPriority": { "message": "Drops 优先于空闲观看列表。拖动活动把手即可设置刷取顺序。" },
   "tipMissingCampaigns": { "message": "找不到活动？请检查平台的 Drops 库存，然后查看设置中的活动筛选器。" },
   "tipCategorySelection": { "message": "只刷特定游戏？关闭平台设置中的“刷取所有类别”，然后选择类别。" },
-  "tipWatchQueue": { "message": "没有符合条件的 Drops 时，观看队列会刷取所选频道。" },
+  "tipIdleWatchlist": { "message": "没有符合条件的 Drops 时，空闲观看列表会刷取所选频道。" },
   "tipTablessMode": { "message": "无标签页模式占用更少资源，并在需要时回退到静音标签页。" },
   "tipCli": { "message": "不想使用扩展？Lurkloot 也提供基于 Docker 的 CLI。" },
   "tipCliAction": { "message": "阅读 CLI 指南" },
@@ -263,8 +263,8 @@
   "excludeFromFarming": {
     "message": "从刷取中排除"
   },
-  "noWatchQueue": {
-    "message": "未配置观看队列频道。"
+  "noIdleWatchlist": {
+    "message": "未配置空闲观看列表频道。"
   },
   "channelPlaceholder": {
     "message": "频道"
@@ -275,8 +275,8 @@
   "addChannel": {
     "message": "添加频道"
   },
-  "queued": {
-    "message": "已排队"
+  "idleWatchlistChannel": {
+    "message": "已加入列表"
   },
   "live": {
     "message": "直播"
@@ -344,16 +344,16 @@
   "lowAvailabilityFirst": {
     "message": "低可用性优先"
   },
-  "watchQueueSettingsTitle": {
-    "message": "观看队列"
+  "idleWatchlistSettingsTitle": {
+    "message": "空闲观看列表"
   },
-  "watchQueueSettingsDescription": {
-    "message": "共享的备用队列行为。"
+  "idleWatchlistSettingsDescription": {
+    "message": "共享的备用列表行为。"
   },
-  "watchQueueFallbackOnlyTitle": {
-    "message": "仅在没有活动掉宝时"
+  "idleWatchlistFallbackOnlyTitle": {
+    "message": "仅在没有可刷取的合格掉宝时"
   },
-  "watchQueueFallbackOnlyDescription": {
+  "idleWatchlistFallbackOnlyDescription": {
     "message": "自动保留掉宝优先级。"
   },
   "platformSettingsTitle": {
@@ -384,7 +384,7 @@
     "message": "静对刷取标签页音"
   },
   "muteTabsDescription": {
-    "message": "刷取时保持 Drops 和观看队列标签页静音。"
+    "message": "刷取时保持 Drops 和空闲观看列表标签页静音。"
   },
   "keepVideosUnmutedTitle": {
     "message": "保持刷取视频不静音"
@@ -454,13 +454,13 @@
     "message": "自动化"
   },
   "farmOnPlatform": {
-    "message": "在 $1 上刷掉宝并观看队列。"
+    "message": "在 $1 上刷掉宝并空闲观看列表。"
   },
   "enabled": {
     "message": "已启用"
   },
-  "watchQueueEditHint": {
-    "message": "选择 $1 后，在观看队列标签页编辑。"
+  "idleWatchlistEditHint": {
+    "message": "选择 $1 后，在空闲观看列表标签页编辑。"
   },
   "autoClaimChannelPointsTitle": {
     "message": "自动领取频道积分"
@@ -582,10 +582,10 @@
   "screenshotKickSubcopy": {
     "message": "你在 Twitch 依赖的自动化、资格检查和自动领取，现在也覆盖 Kick 创作者奖励。"
   },
-  "screenshotQueueHeadline": {
-    "message": "备用观看队列让你持续获得收益。"
+  "screenshotIdleWatchlistHeadline": {
+    "message": "备用空闲观看列表让你持续获得收益。"
   },
-  "screenshotQueueSubcopy": {
+  "screenshotIdleWatchlistSubcopy": {
     "message": "没有活动掉宝时，Lurkloot 会观看你喜欢的频道，让在线时间不浪费。"
   },
   "screenshotSettingsHeadline": {
@@ -715,8 +715,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "已切换到更高优先级的奖励"
   },
-  "activityReasonHigherPriorityWatchQueue": {
-    "message": "观看队列获得了优先级"
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "空闲观看列表获得了优先级"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "观看要求已完成"

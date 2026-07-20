@@ -13,7 +13,7 @@ function formatStopReason(reason: FarmingStopReason): string {
     case "channel_mismatch": return "channel mismatch";
     case "watch_unhealthy": return "watch unhealthy";
     case "higher_priority_reward": return "higher priority reward";
-    case "higher_priority_watch_queue": return "higher priority watch queue";
+    case "higher_priority_idle_watchlist": return "higher priority idle watchlist";
     case "watch_requirement_completed": return "watch requirement completed";
     case "runtime_restart": return "runtime restart";
     case "target_changed": return "target changed";
