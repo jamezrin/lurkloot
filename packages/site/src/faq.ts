@@ -41,6 +41,6 @@ export const faqItems: FaqItem[] = [
   },
   {
     q: "Can I control which campaigns it prioritizes?",
-    a: "Fully. Drag campaigns to set an explicit farming order, or pick a strategy: ending soonest first, lowest availability first, or priority-list only. You can exclude specific campaigns and channels, choose which games to farm, and keep a per-platform Watch Queue as a fallback so you keep earning even when no drops are active.",
+    a: "Fully. Drag campaigns to set an explicit farming order, or pick a strategy: ending soonest first, lowest availability first, or priority-list only. You can exclude specific campaigns and channels, choose which games to farm, and keep a per-platform Idle Watchlist as a fallback for when no eligible drops are available.",
   },
 ];

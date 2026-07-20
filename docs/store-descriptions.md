@@ -27,7 +27,7 @@ By default it runs a lightweight tabless mode that sends watch heartbeats in the
 
 Your data stays yours: no passwords, no exported cookies or tokens, and everything stays on your device.
 
-From the popup you can enable each platform, prioritize the campaigns and games you care about, manage per-platform watch queues and excluded channels, and toggle auto-claim and notifications.
+From the popup you can enable each platform, prioritize the campaigns and games you care about, manage per-platform idle watchlists and excluded channels, and toggle auto-claim and notifications.
 
 ---
 
@@ -43,7 +43,7 @@ De forma predeterminada usa un modo ligero sin pestañas que envía señales de 
 
 Tus datos son tuyos: sin contraseñas, sin exportar cookies ni tokens, y todo se queda en tu dispositivo.
 
-Desde el popup puedes activar cada plataforma, priorizar las campañas y los juegos que te interesan, gestionar las colas de visualización y los canales excluidos de cada plataforma, y activar la reclamación automática y las notificaciones.
+Desde el popup puedes activar cada plataforma, priorizar las campañas y los juegos que te interesan, gestionar las listas de visualización inactivas y los canales excluidos de cada plataforma, y activar la reclamación automática y las notificaciones.
 
 ---
 
@@ -59,7 +59,7 @@ Par défaut, il utilise un mode léger sans onglet qui envoie des signaux de vis
 
 Vos données restent les vôtres : aucun mot de passe, aucun cookie ni token exporté, et tout reste sur votre appareil.
 
-Depuis le popup, vous pouvez activer chaque plateforme, prioriser les campagnes et les jeux qui vous intéressent, gérer les files de visionnage et les chaînes exclues par plateforme, et activer la réclamation automatique et les notifications.
+Depuis le popup, vous pouvez activer chaque plateforme, prioriser les campagnes et les jeux qui vous intéressent, gérer les listes de veille inactives et les chaînes exclues par plateforme, et activer la réclamation automatique et les notifications.
 
 ---
 
@@ -75,7 +75,7 @@ Per impostazione predefinita usa una leggera modalità senza schede che invia se
 
 I tuoi dati restano tuoi: niente password, nessun cookie o token esportato, e tutto rimane sul tuo dispositivo.
 
-Dal popup puoi attivare ogni piattaforma, dare priorità alle campagne e ai giochi che ti interessano, gestire le code di visione e i canali esclusi per ogni piattaforma, e attivare il riscatto automatico e le notifiche.
+Dal popup puoi attivare ogni piattaforma, dare priorità alle campagne e ai giochi che ti interessano, gestire le liste di visione inattive e i canali esclusi per ogni piattaforma, e attivare il riscatto automatico e le notifiche.
 
 ---
 
@@ -91,7 +91,7 @@ Lurkloot фармит дропы Twitch и Kick за вас, чтобы вы п�
 
 Ваши данные остаются вашими: никаких паролей, никакого экспорта cookie или токенов — всё хранится на вашем устройстве.
 
-В попапе можно включать каждую платформу, задавать приоритет кампаниям и играм, управлять очередями просмотра и исключёнными каналами для каждой платформы, а также включать автозабор наград и уведомления.
+В попапе можно включать каждую платформу, задавать приоритет кампаниям и играм, управлять списками просмотра в простое и исключёнными каналами для каждой платформы, а также включать автозабор наград и уведомления.
 
 ---
 
@@ -107,7 +107,7 @@ Standardmäßig läuft ein ressourcenschonender Modus ohne Tab, der Watch-Signal
 
 Deine Daten bleiben deine: keine Passwörter, kein Export von Cookies oder Tokens, und alles bleibt auf deinem Gerät.
 
-Über das Popup kannst du jede Plattform aktivieren, die Kampagnen und Spiele priorisieren, die dir wichtig sind, Watch-Queues und ausgeschlossene Kanäle pro Plattform verwalten und Auto-Claim sowie Benachrichtigungen umschalten.
+Über das Popup kannst du jede Plattform aktivieren, die Kampagnen und Spiele priorisieren, die dir wichtig sind, Leerlauf-Watchlists und ausgeschlossene Kanäle pro Plattform verwalten und Auto-Claim sowie Benachrichtigungen umschalten.
 
 ---
 
@@ -123,7 +123,7 @@ Lurkloot 替你刷 Twitch 和 Kick 掉宝，让你无需亲自盯着直播就能
 
 你的数据归你所有：不要密码，不导出 Cookie 或令牌，所有数据都保留在你的设备上。
 
-在弹窗中，你可以启用各个平台，优先安排你关注的活动和游戏，管理每个平台的观看队列和已排除的频道，并开关自动领取与通知。
+在弹窗中，你可以启用各个平台，优先安排你关注的活动和游戏，管理每个平台的空闲观看列表和已排除的频道，并开关自动领取与通知。
 
 ---
 
