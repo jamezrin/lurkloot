@@ -126,7 +126,7 @@ export interface WatchSession {
 
 export type WatchReasonCode =
   | "eligible_campaign"
-  | "watch_queue_selected"
+  | "idle_watchlist_selected"
   | "no_eligible_channel"
   | "no_existing_session"
   | "manual_watch"
@@ -140,9 +140,9 @@ export type WatchReasonCode =
   | "channel_mismatch"
   | "watch_unhealthy"
   | "higher_priority_reward"
-  | "higher_priority_watch_queue"
+  | "higher_priority_idle_watchlist"
   | "keeping_current_watch"
-  | "keeping_watch_queue"
+  | "keeping_idle_watchlist"
   | "watch_requirement_completed"
   | "runtime_restart"
   | "target_changed";
@@ -211,7 +211,7 @@ export interface CategorySelection {
 
 export interface PlatformSettings {
   enabled: boolean;
-  watchQueueChannels: string[];
+  idleWatchlistChannels: string[];
   excludedChannels?: string[];
   // When true, every category is farmable. When false, only `categories` are
   // farmed (an empty list then means nothing is farmed). The list is ordered:
@@ -266,7 +266,7 @@ export interface EngineSettings {
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;
   autoStartDropFarming: boolean;
-  watchQueueFallbackOnly: boolean;
+  idleWatchlistFallbackOnly: boolean;
   priorityMode: PriorityMode;
   platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;

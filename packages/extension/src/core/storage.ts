@@ -24,7 +24,26 @@ function withStateStorageLock<T>(operation: () => Promise<T>): Promise<T> {
 
 export async function loadSettings(): Promise<ExtensionSettings> {
   const data = await browser.storage.local.get(SETTINGS_KEY);
-  return mergeSettings(data[SETTINGS_KEY] as Partial<ExtensionSettings> | undefined);
+  const stored = data[SETTINGS_KEY] as Partial<ExtensionSettings> | undefined;
+  const settings = mergeSettings(stored);
+  if (hasLegacyWatchQueueSettings(stored)) {
+    await browser.storage.local.set({ [SETTINGS_KEY]: settings });
+  }
+  return settings;
+}
+
+function hasLegacyWatchQueueSettings(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const settings = value as Record<string, unknown>;
+  if (Object.prototype.hasOwnProperty.call(settings, "watchQueueFallbackOnly")) return true;
+  if (!settings.platform || typeof settings.platform !== "object" || Array.isArray(settings.platform)) return false;
+  return Object.values(settings.platform as Record<string, unknown>).some((platform) =>
+    Boolean(
+      platform
+      && typeof platform === "object"
+      && !Array.isArray(platform)
+      && Object.prototype.hasOwnProperty.call(platform, "watchQueueChannels"),
+    ));
 }
 
 export async function saveSettings(settings: ExtensionSettings): Promise<void> {
