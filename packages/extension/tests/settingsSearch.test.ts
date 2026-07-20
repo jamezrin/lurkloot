@@ -151,4 +151,41 @@ describe("filterSettingsTree", () => {
     const result = filterSettingsTree(tree, { t, query: "general", showAdvanced: false });
     expect(result[0]!.groups.map((group) => group.id)).toEqual(["general.drops"]);
   });
+
+  it("finds an entry by the word substituted into its description placeholder", () => {
+    const substitutionLabels: Record<string, string> = {
+      kickSectionTitle: "Kick",
+      categoriesGroupTitle: "Categories",
+      farmAllTitle: "Farm all categories",
+      farmAllDescription: "Farm drops in every $1 category.",
+    };
+    const substitutionT = (key: string, substitution?: string) => {
+      const message = substitutionLabels[key] ?? key;
+      return substitution ? message.replace("$1", substitution) : message;
+    };
+    const substitutionTree: SettingsSectionNode[] = [
+      {
+        id: "kick",
+        titleKey: "kickSectionTitle",
+        rows: [],
+        groups: [
+          {
+            id: "kick.categories",
+            titleKey: "categoriesGroupTitle",
+            entries: [{
+              id: "kick.categories.farmAll",
+              titleKey: "farmAllTitle",
+              descriptionKey: "farmAllDescription",
+              descriptionSubstitution: "Kick",
+            }],
+          },
+        ],
+      },
+    ];
+
+    // Without the substitution wired up, the haystack would contain the
+    // literal "$1" instead of "Kick" and this query would find nothing.
+    const result = filterSettingsTree(substitutionTree, { t: substitutionT, query: "kick categories", showAdvanced: false });
+    expect(result[0]?.groups[0]?.entries.map((entry) => entry.id)).toEqual(["kick.categories.farmAll"]);
+  });
 });

@@ -31,6 +31,12 @@ export interface SettingsEntryNode {
   titleKey: string;
   descriptionKey: string;
   advanced?: boolean;
+  // Substitutions for entries whose title/description carries a `$1`-style
+  // placeholder (e.g. "Farm drops in every $1 category"). Without these, the
+  // search haystack contains the literal placeholder instead of the word the
+  // user actually sees, and a query for that word finds nothing.
+  titleSubstitution?: string;
+  descriptionSubstitution?: string;
 }
 
 export interface SettingsGroupNode<TEntry extends SettingsEntryNode = SettingsEntryNode> {
@@ -60,7 +66,7 @@ export interface FilterOptions {
 }
 
 function entryText(entry: SettingsEntryNode, t: TranslateFn): string[] {
-  return [t(entry.titleKey), t(entry.descriptionKey)];
+  return [t(entry.titleKey, entry.titleSubstitution), t(entry.descriptionKey, entry.descriptionSubstitution)];
 }
 
 // An advanced entry is reachable in exactly two situations: the user asked for
