@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import {
   DndContext,
   DragOverlay,
@@ -24,110 +23,61 @@ import {
   Pill,
   RemoveRowButton,
   Toggle,
-  cn,
   moveById,
   useDndSensors,
 } from "./primitives";
-import { SettingRow } from "./settingsControls";
 
-export function PlatformSettingsGroup({ platform, suggestions, settings, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories, onExcludedChannelsChange, onAutoClaimBonusChange }: {
+export function PlatformCategorySettings({ platform, suggestions, settings, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories }: {
   platform: Platform;
   suggestions: GameItem[];
   settings: ExtensionSettings;
   onFarmAllCategoriesChange(farmAll: boolean): void | Promise<void>;
   onCategoriesChange(categories: CategorySelection[]): void | Promise<void>;
   onSearchCategories(query: string): Promise<CategorySelection[]>;
-  onExcludedChannelsChange(channels: string[]): void | Promise<void>;
-  // The platform's own claim toggle: channel points on Twitch, daily challenges
-  // on Kick. Each platform has exactly one, so a single callback covers both.
-  onAutoClaimBonusChange(value: boolean): void | Promise<void>;
 }) {
   const t = useT();
   const details = PLATFORMS[platform];
   const platformSettings = settings.platform[platform];
-  const queueCount = platformSettings.watchQueueChannels.length;
-  const excludedChannels = platformSettings.excludedChannels ?? [];
 
   return (
     <>
-      <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
-        <div className="flex items-center gap-3 py-2.5">
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("automationSectionTitle")}</div>
-            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("farmOnPlatform", details.label)}</div>
-          </div>
-          <Pill tone={platformSettings.enabled ? "live" : "muted"}>{platformSettings.enabled ? t("enabled") : t("pausedStatus")}</Pill>
-        </div>
-        <div className="flex items-center gap-3 py-2.5">
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("watchQueueTab")}</div>
-            <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("watchQueueEditHint", details.label)}</div>
-          </div>
-          <Pill tone="outline">{queueCount}/20</Pill>
-        </div>
-        {platform === "twitch" ? (
-          <SettingRow
-            title={t("autoClaimChannelPointsTitle")}
-            description={t("autoClaimChannelPointsDescription")}
-            checked={settings.platform.twitch.autoClaimChannelPoints}
-            onChange={onAutoClaimBonusChange}
-          />
-        ) : (
-          <SettingRow
-            title={t("autoClaimChallengesTitle")}
-            description={t("autoClaimChallengesDescription")}
-            checked={settings.platform.kick.autoClaimChallenges}
-            onChange={onAutoClaimBonusChange}
-          />
-        )}
-      </div>
-      <ChannelListEditor
-        title={t("excludedChannelsTitle")}
-        description={t("excludedChannelsDescription")}
-        empty={t("excludedChannelsEmpty")}
-        channels={excludedChannels}
-        onChange={onExcludedChannelsChange}
-      />
-      <div className="flex items-center gap-3 py-1">
+      <div className="flex items-center gap-3 py-2.5">
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("farmAllCategoriesTitle")}</div>
           <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("farmAllCategoriesDescription", details.label)}</div>
         </div>
-        <Toggle checked={platformSettings.farmAllCategories} onChange={onFarmAllCategoriesChange} label={`Farm all ${details.label} categories`} />
+        <Toggle checked={platformSettings.farmAllCategories} onChange={onFarmAllCategoriesChange} label={t("farmAllCategoriesTitle")} />
       </div>
       {platformSettings.farmAllCategories ? null : (
-        <CategoryFilterEditor
-          platform={platform}
-          categories={platformSettings.categories}
-          suggestions={suggestions}
-          onChange={onCategoriesChange}
-          onSearch={onSearchCategories}
-        />
+        <div className="py-2">
+          <CategoryFilterEditor
+            platform={platform}
+            categories={platformSettings.categories}
+            suggestions={suggestions}
+            onChange={onCategoriesChange}
+            onSearch={onSearchCategories}
+          />
+        </div>
       )}
     </>
   );
 }
 
-export function SettingsPlatformSwitch({ active, onChange }: { active: Platform; onChange(platform: Platform): void }) {
+export function PlatformExcludedChannels({ platform, settings, onExcludedChannelsChange }: {
+  platform: Platform;
+  settings: ExtensionSettings;
+  onExcludedChannelsChange(channels: string[]): void | Promise<void>;
+}) {
+  const t = useT();
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
-      {Object.entries(PLATFORMS).map(([id, platform]) => {
-        const selected = active === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onChange(id as Platform)}
-            className={cn("relative flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors outline-none", selected ? "text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200")}
-          >
-            {selected && <motion.span layoutId="settings-platform-pill" transition={{ type: "spring", stiffness: 520, damping: 38 }} className="absolute inset-0 rounded-lg bg-white shadow-sm dark:bg-zinc-700" />}
-            <span className="relative z-10 flex h-4 w-4 items-center justify-center rounded text-[10px] font-black" style={{ backgroundColor: selected ? platform.color : "transparent", color: selected ? (id === "kick" ? "#07140a" : "#fff") : platform.color }}>
-              {platform.mark}
-            </span>
-            <span className="relative z-10">{platform.label}</span>
-          </button>
-        );
-      })}
+    <div className="py-2">
+      <ChannelListEditor
+        title={t("excludedChannelsTitle")}
+        description={t("excludedChannelsDescription")}
+        empty={t("excludedChannelsEmpty")}
+        channels={settings.platform[platform].excludedChannels ?? []}
+        onChange={onExcludedChannelsChange}
+      />
     </div>
   );
 }
