@@ -1715,10 +1715,16 @@ git commit -m "feat(popup): rework settings into searchable general, twitch and 
 - [ ] **Step 1: Run the full suite to see the damage**
 
 ```bash
-pnpm test
+cd packages/extension && pnpm exec vitest run
 ```
 
-Expected: FAIL in `settingsView.test.tsx` and `settingsCredentialExport.test.tsx`. Read every failure before changing anything.
+Expected at the start of this task: **4 failures across 2 files** — `tests/settingsView.test.tsx` (2) and
+`tests/settingsCredentialExport.test.tsx` (2). Both mount the full `SettingsView`, so both went red the
+moment task 6 deleted `PlatformSettingsGroup`, and both stay red until task 8's rewrite plus the repairs
+below. `tests/popupCategoryIcons.test.ts` also imported the deleted export directly; task 6 already
+repointed it at `PlatformCategorySettings`, so it should be green — if it is not, that is a regression.
+
+Read every failure before changing anything.
 
 - [ ] **Step 2: Fix `settingsView.test.tsx`**
 
