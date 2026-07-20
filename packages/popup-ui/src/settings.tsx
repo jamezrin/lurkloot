@@ -94,6 +94,13 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
 
       {onExportCredentials && !searching ? (
         <div className="border-t border-zinc-100 pt-3 dark:border-zinc-800/70">
+          {/* Labelled like a group header so the action reads as deliberate
+              rather than orphaned, without becoming a settings section: this is
+              an action, not a setting. */}
+          <div className="mb-1 flex items-center gap-1.5 px-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("cliExportTitle")}</span>
+            <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/70" />
+          </div>
           {exportArmed ? (
             <div className="space-y-2 px-1 py-1">
               <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">{t("cliExportConfirm")}</p>
@@ -118,16 +125,22 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-3 px-1 py-1">
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("cliExportHint")}</p>
-              <button
-                type="button"
-                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-                onClick={() => setExportArmed(true)}
-              >
-                <Terminal size={13} />
-                {t("cliExportButton")}
-              </button>
+            // The hint gets the full width so it wraps as prose instead of a
+            // ragged column beside the button. The button stays secondary here
+            // and the accent is spent on the confirm step, which is the one
+            // that actually writes session tokens to disk.
+            <div className="space-y-2 px-1 pb-1">
+              <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("cliExportHint")}</p>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  onClick={() => setExportArmed(true)}
+                >
+                  <Terminal size={13} />
+                  {t("cliExportButton")}
+                </button>
+              </div>
             </div>
           )}
         </div>
