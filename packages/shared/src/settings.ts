@@ -95,11 +95,11 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   diagnosticLogging: false,
 };
 
+// Normalizes the universal engine contract. The engine (packages/core) and any
+// non-extension host (CLI) merge through this; host-only fields are not touched.
 // Legacy property names are not read here. Hosts run migrateSettings() from
 // @lurkloot/shared/settingsSchema on the raw payload first; by the time a value
 // reaches normalization it only carries current names.
-// Normalizes the universal engine contract. The engine (packages/core) and any
-// non-extension host (CLI) merge through this; host-only fields are not touched.
 export function mergeEngineSettings(value: Partial<EngineSettings> | undefined): EngineSettings {
   const platform = value?.platform;
   const compatibility = value?.compatibility;
