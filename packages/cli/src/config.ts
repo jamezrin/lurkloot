@@ -167,8 +167,13 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
 
 // Warnings name the complete deprecated path and its replacement so the user
 // can find and fix the exact line. The CLI config file is intentionally never
-// rewritten, so these repeat on every startup until the file is edited.
+// rewritten, so these repeat on every startup until the file is edited. A future
+// migration that removes a property outright carries no replacement, so fall
+// back to a bare deprecation notice rather than printing "settings.undefined".
 function formatMigrationWarning(diagnostic: SettingsMigrationDiagnostic): string {
+  if (!diagnostic.replacement) {
+    return `settings.${diagnostic.path} is deprecated and ignored`;
+  }
   const verb = diagnostic.code === "moved_property" ? "moved to" : "is deprecated; use";
   return `settings.${diagnostic.path} ${verb} settings.${diagnostic.replacement}`;
 }

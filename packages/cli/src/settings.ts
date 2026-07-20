@@ -127,6 +127,10 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
 // actually wrote, or the error points at a line their file does not contain. The
 // match is by `replacement`; a nested rename's replacement is a dotted path that
 // never equals a bare top-level key, so this only fires for top-level offenders.
+// A user who writes BOTH the legacy and the current form of such a key sees the
+// "renamed from" framing even though they also wrote the current name directly;
+// that collision is pathological (an extension-only key in two forms in a CLI
+// config) and still names a real offending line, so it is left as-is.
 function describeOffender(key: string, diagnostics: SettingsMigrationDiagnostic[]): string {
   const renamedFrom = diagnostics.find((diagnostic) => diagnostic.replacement === key)?.path;
   const subject = renamedFrom ? `"${renamedFrom}" (renamed to "${key}")` : `"${key}"`;
@@ -140,9 +144,13 @@ export interface CliSettingsParseResult {
   diagnostics: SettingsMigrationDiagnostic[];
 }
 
-// Runs the shared migration registry first, so deprecated aliases are renamed
-// away before validation and only genuinely unknown keys become errors. The
-// caller's object is never mutated and the config file is never rewritten.
+// Parses and validates the `settings` block of a CLI config. Runs the shared
+// migration registry first, so deprecated aliases are renamed away before
+// validation and only genuinely unknown keys become errors; the caller's object
+// is never mutated and the config file is never rewritten. Unknown or
+// extension-only keys (top-level or per-platform) are a hard error listing every
+// offender at once; recognized values are normalized through the shared
+// primitives (range clamps, channel/category/id dedupe, log-level canonicalize).
 export function parseCliSettingsWithDiagnostics(raw: unknown): CliSettingsParseResult {
   if (raw === undefined) return { settings: structuredClone(DEFAULT_CLI_SETTINGS), diagnostics: [] };
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
@@ -156,10 +164,9 @@ export function parseCliSettings(raw: unknown): CliSettings {
   return parseCliSettingsWithDiagnostics(raw).settings;
 }
 
-// Parses and validates the `settings` block of a CLI config. Unknown or
-// extension-only keys (top-level or per-platform) are a hard error listing every
-// offender at once; recognized values are normalized through the shared
-// primitives (range clamps, channel/category/id dedupe, log-level canonicalize).
+// Validates and normalizes an already-migrated settings payload. See
+// parseCliSettingsWithDiagnostics for the full contract; `diagnostics` is passed
+// through only so a renamed-away key can be named by its original path in errors.
 function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: SettingsMigrationDiagnostic[]): CliSettings {
   const offenders: string[] = [];
 
