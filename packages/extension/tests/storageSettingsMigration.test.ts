@@ -56,4 +56,19 @@ describe("settings storage migration", () => {
 
     expect(set).not.toHaveBeenCalled();
   });
+
+  it("still loads migrated settings when the one-time write-back fails", async () => {
+    get.mockResolvedValue({
+      settings: {
+        watchQueueFallbackOnly: false,
+        platform: { twitch: { watchQueueChannels: ["Legacy"] } },
+      },
+    });
+    set.mockRejectedValue(new Error("storage unavailable"));
+
+    await expect(loadSettings()).resolves.toMatchObject({
+      idleWatchlistFallbackOnly: false,
+      platform: { twitch: { idleWatchlistChannels: ["legacy"] } },
+    });
+  });
 });

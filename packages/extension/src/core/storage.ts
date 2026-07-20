@@ -27,7 +27,12 @@ export async function loadSettings(): Promise<ExtensionSettings> {
   const stored = data[SETTINGS_KEY] as Partial<ExtensionSettings> | undefined;
   const settings = mergeSettings(stored);
   if (hasLegacyWatchQueueSettings(stored)) {
-    await browser.storage.local.set({ [SETTINGS_KEY]: settings });
+    try {
+      await browser.storage.local.set({ [SETTINGS_KEY]: settings });
+    } catch {
+      // Loading remains available if the one-time migration write fails. The
+      // legacy aliases stay readable, so a later load can safely retry it.
+    }
   }
   return settings;
 }
