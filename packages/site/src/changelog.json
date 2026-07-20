@@ -1,5 +1,22 @@
 [
   {
+    "version": "1.8.0",
+    "changes": [
+      {
+        "kind": "improved",
+        "text": "Reorganized Settings to make options easier to navigate, and refreshed the footer attribution links."
+      },
+      {
+        "kind": "improved",
+        "text": "Renamed “Watch Queue” to “Idle Watchlist” to make its purpose clearer."
+      },
+      {
+        "kind": "improved",
+        "text": "Settings now migrate more reliably between version upgrades, preserving your preferences as configuration evolves."
+      }
+    ]
+  },
+  {
     "version": "1.7.0",
     "changes": [
       {
