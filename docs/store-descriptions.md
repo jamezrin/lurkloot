@@ -139,7 +139,7 @@ Lurkloot आपके लिए Twitch और Kick के drops फ़ार्�
 
 आपका डेटा आपका ही रहता है: कोई पासवर्ड नहीं, कोई कुकी या टोकन एक्सपोर्ट नहीं, और सब कुछ आपके डिवाइस पर ही रहता है।
 
-पॉपअप से आप हर प्लेटफ़ॉर्म चालू कर सकते हैं, अपनी पसंद के कैंपेन और गेम को प्राथमिकता दे सकते हैं, हर प्लेटफ़ॉर्म की watch क्यू और बहिष्कृत चैनल प्रबंधित कर सकते हैं, और ऑटो-क्लेम तथा नोटिफ़िकेशन टॉगल कर सकते हैं।
+पॉपअप से आप हर प्लेटफ़ॉर्म चालू कर सकते हैं, अपनी पसंद के कैंपेन और गेम को प्राथमिकता दे सकते हैं, हर प्लेटफ़ॉर्म की निष्क्रिय वॉचलिस्ट और बहिष्कृत चैनल प्रबंधित कर सकते हैं, और ऑटो-क्लेम तथा नोटिफ़िकेशन टॉगल कर सकते हैं।
 
 ---
 
@@ -155,7 +155,7 @@ Por padrão, ele usa um modo leve sem abas que envia sinais de exibição em seg
 
 Seus dados continuam seus: sem senhas, sem exportar cookies ou tokens, e tudo fica no seu dispositivo.
 
-Pelo popup você pode ativar cada plataforma, priorizar as campanhas e os jogos que importam para você, gerenciar as filas de exibição e os canais excluídos de cada plataforma, e alternar o resgate automático e as notificações.
+Pelo popup você pode ativar cada plataforma, priorizar as campanhas e os jogos que importam para você, gerenciar as listas de visualização ociosas e os canais excluídos de cada plataforma, e alternar o resgate automático e as notificações.
 
 ---
 
@@ -171,4 +171,4 @@ Pelo popup você pode ativar cada plataforma, priorizar as campanhas e os jogos 
 
 تبقى بياناتك ملكك: بلا كلمات مرور، وبلا تصدير لملفات تعريف الارتباط أو الرموز، ويبقى كل شيء على جهازك.
 
-من النافذة المنبثقة يمكنك تفعيل كل منصة، وتحديد أولوية الحملات والألعاب التي تهمّك، وإدارة قوائم المشاهدة والقنوات المستبعَدة لكل منصة، وتبديل المطالبة التلقائية والإشعارات.
+من النافذة المنبثقة يمكنك تفعيل كل منصة، وتحديد أولوية الحملات والألعاب التي تهمّك، وإدارة قوائم المشاهدة الخاملة والقنوات المستبعَدة لكل منصة، وتبديل المطالبة التلقائية والإشعارات.

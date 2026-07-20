@@ -944,7 +944,7 @@ async function shouldKeepWatching(
 
   // When watching an Idle Watchlist fallback, a different selection means a
   // higher-priority idle watchlist channel is now live (e.g. after reordering the
-  // queue or one coming online), so switch to it instead of staying put.
+  // watchlist or one coming online), so switch to it instead of staying put.
   const differentFallbackAvailable = changedTarget
     && nextDecision.action === "fallback"
     && !previous.campaignId;

@@ -583,7 +583,7 @@
     "message": "Та же автоматизация, проверки eligibility и автополучение, что на Twitch, теперь для наград авторов Kick."
   },
   "screenshotIdleWatchlistHeadline": {
-    "message": "Резервная список просмотра в простое продолжает приносить прогресс."
+    "message": "Резервный список просмотра в простое продолжает приносить прогресс."
   },
   "screenshotIdleWatchlistSubcopy": {
     "message": "Когда активных drops нет, Lurkloot смотрит любимые каналы, чтобы время онлайн не пропадало."
@@ -716,7 +716,7 @@
     "message": "выбрана награда с более высоким приоритетом"
   },
   "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "список просмотра в простое получила приоритет"
+    "message": "список просмотра в простое получил приоритет"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "требование по просмотру выполнено"

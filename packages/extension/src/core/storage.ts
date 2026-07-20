@@ -14,7 +14,14 @@ const STATE_KEY = "schedulerState";
 // it is transient device/session-scoped auth rather than farming progress.
 const TWITCH_INTEGRITY_KEY = "twitchIntegrity";
 type LegacyStoredSchedulerState = Partial<SchedulerState> & { events?: LegacyEventLogEntry[] };
+let settingsStorageMutation: Promise<void> = Promise.resolve();
 let stateStorageMutation: Promise<void> = Promise.resolve();
+
+function withSettingsStorageLock<T>(operation: () => Promise<T>): Promise<T> {
+  const run = settingsStorageMutation.then(operation, operation);
+  settingsStorageMutation = run.then(() => undefined, () => undefined);
+  return run;
+}
 
 function withStateStorageLock<T>(operation: () => Promise<T>): Promise<T> {
   const run = stateStorageMutation.then(operation, operation);
@@ -23,18 +30,20 @@ function withStateStorageLock<T>(operation: () => Promise<T>): Promise<T> {
 }
 
 export async function loadSettings(): Promise<ExtensionSettings> {
-  const data = await browser.storage.local.get(SETTINGS_KEY);
-  const stored = data[SETTINGS_KEY] as Partial<ExtensionSettings> | undefined;
-  const settings = mergeSettings(stored);
-  if (hasLegacyWatchQueueSettings(stored)) {
-    try {
-      await browser.storage.local.set({ [SETTINGS_KEY]: settings });
-    } catch {
-      // Loading remains available if the one-time migration write fails. The
-      // legacy aliases stay readable, so a later load can safely retry it.
+  return withSettingsStorageLock(async () => {
+    const data = await browser.storage.local.get(SETTINGS_KEY);
+    const stored = data[SETTINGS_KEY] as Partial<ExtensionSettings> | undefined;
+    const settings = mergeSettings(stored);
+    if (hasLegacyWatchQueueSettings(stored)) {
+      try {
+        await browser.storage.local.set({ [SETTINGS_KEY]: settings });
+      } catch {
+        // Loading remains available if the one-time migration write fails. The
+        // legacy aliases stay readable, so a later load can safely retry it.
+      }
     }
-  }
-  return settings;
+    return settings;
+  });
 }
 
 function hasLegacyWatchQueueSettings(value: unknown): boolean {
@@ -52,7 +61,9 @@ function hasLegacyWatchQueueSettings(value: unknown): boolean {
 }
 
 export async function saveSettings(settings: ExtensionSettings): Promise<void> {
-  await browser.storage.local.set({ [SETTINGS_KEY]: settings });
+  await withSettingsStorageLock(async () => {
+    await browser.storage.local.set({ [SETTINGS_KEY]: settings });
+  });
 }
 
 export async function loadState(): Promise<SchedulerState> {

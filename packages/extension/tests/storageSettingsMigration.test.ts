@@ -13,7 +13,7 @@ vi.mock("wxt/browser", () => ({
   },
 }));
 
-import { loadSettings } from "../src/core/storage";
+import { loadSettings, saveSettings } from "../src/core/storage";
 
 describe("settings storage migration", () => {
   beforeEach(() => {
@@ -70,5 +70,33 @@ describe("settings storage migration", () => {
       idleWatchlistFallbackOnly: false,
       platform: { twitch: { idleWatchlistChannels: ["legacy"] } },
     });
+  });
+
+  it("serializes a migration write with a concurrent settings save", async () => {
+    let finishMigration: (() => void) | undefined;
+    const migrationPending = new Promise<void>((resolve) => {
+      finishMigration = resolve;
+    });
+    get.mockResolvedValue({
+      settings: {
+        watchQueueFallbackOnly: false,
+        platform: { twitch: { watchQueueChannels: ["Legacy"] } },
+      },
+    });
+    set.mockImplementationOnce(() => migrationPending).mockResolvedValue(undefined);
+
+    const migration = loadSettings();
+    await vi.waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+
+    const current = await import("@lurkloot/shared/settings").then(({ mergeSettings }) =>
+      mergeSettings({ idleWatchlistFallbackOnly: true }));
+    const save = saveSettings(current);
+
+    expect(set).toHaveBeenCalledTimes(1);
+    finishMigration?.();
+    await migration;
+    await save;
+    expect(set).toHaveBeenCalledTimes(2);
+    expect(set.mock.calls[1]?.[0]).toEqual({ settings: current });
   });
 });

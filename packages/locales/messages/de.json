@@ -384,7 +384,7 @@
     "message": "Farming-Tabs stummschalten"
   },
   "muteTabsDescription": {
-    "message": "Hält Drop- und Leerlauf-Watchlistn-Tabs beim Farming stumm."
+    "message": "Hält Drop- und Leerlauf-Watchlist-Tabs beim Farming stumm."
   },
   "keepVideosUnmutedTitle": {
     "message": "Farming-Videos nicht stummschalten"
@@ -460,7 +460,7 @@
     "message": "Aktiviert"
   },
   "idleWatchlistEditHint": {
-    "message": "Nach Auswahl von $1 im Leerlauf-Watchlistn-Tab bearbeiten."
+    "message": "Nach Auswahl von $1 im Leerlauf-Watchlist-Tab bearbeiten."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Kanalpunkte automatisch beanspruchen"

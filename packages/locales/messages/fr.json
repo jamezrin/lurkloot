@@ -276,7 +276,7 @@
     "message": "Ajouter une chaîne"
   },
   "idleWatchlistChannel": {
-    "message": "en file"
+    "message": "dans la liste de veille"
   },
   "live": {
     "message": "en direct"
@@ -351,7 +351,7 @@
     "message": "Comportement partagé de la liste de secours."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Seulement sans drops éligibles disponibles"
+    "message": "Uniquement lorsqu’aucun drop éligible n’est disponible"
   },
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Préserve automatiquement la priorité des drops."
