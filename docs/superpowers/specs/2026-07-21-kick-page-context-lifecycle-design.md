@@ -46,6 +46,17 @@ The registry will expose focused lifecycle operations to:
 
 All registry mutations update the state returned by `currentManagedPageContextTabs`, allowing the controller's normal state save to synchronize browser and persisted state.
 
+### User-visible activity events
+
+Opening or closing an extension-managed page-context tab is a user-visible side effect, not merely a debugging detail. Each successful browser create or close operation will therefore emit a typed activity event that is stored and shown in the Activity view regardless of whether diagnostic logging is enabled:
+
+- `page_context_opened`, with the platform, safe hostname, and reason the page context became necessary;
+- `page_context_closed`, with the platform, safe hostname, and reason the page context was released.
+
+The reason is structured data rendered through localized messages. Opening reasons include a rejected background request and recovery from a missing or unusable managed context. Closure reasons include stable background recovery, a user-owned tab becoming available, platform disablement, automation stopping, manual-watch takeover, and unusable-context replacement.
+
+Only successful, real browser mutations create these activity records. Reusing or retaining an existing tab does not claim that a tab was opened, and discovering that a user already closed a tab does not claim that LurkLoot closed it. Those non-mutating decisions remain diagnostics.
+
 ### Scheduler ownership
 
 The scheduler stops treating watch-tab preparation as a reason to tear down page contexts. It continues to request immediate cleanup for explicit platform lifecycle changes. This keeps page-context tabs distinct from farming/watch tabs.
@@ -58,7 +69,7 @@ Startup while automation is stopped retains the existing stale-state cleanup pol
 
 ## Diagnostics and Privacy
 
-Each lifecycle decision emits a diagnostic with:
+Each lifecycle decision also emits a diagnostic with:
 
 - platform (`kick`);
 - safe hostname only (`kick.com`, `web.kick.com`, or `websockets.kick.com`);
@@ -66,6 +77,8 @@ Each lifecycle decision emits a diagnostic with:
 - functional reason such as `background rejected`, `recovery threshold pending`, `background transport stable`, `user tab available`, `tab missing`, `platform disabled`, or `automation stopped`.
 
 Diagnostics must not contain URL paths, query strings, cookies, authorization values, request headers, request or response bodies, or raw platform errors that may contain those values.
+
+The corresponding user-visible open/close activity events follow the same privacy rule. Their formatter uses only the platform, safe hostname, and enumerated reason; it never displays raw error text.
 
 ## Error Handling
 
@@ -89,6 +102,8 @@ Deterministic tests will cover:
 - a manually closed or navigated context is forgotten and replaced without duplication;
 - disabling Kick, stopping automation, and manual-watch takeover close only managed contexts;
 - every lifecycle action has a safe reason and diagnostics contain hostnames but no sensitive URL or request details.
+- every successful managed page-context creation and closure appears in the Activity view even with diagnostic logging disabled, with the correct localized reason;
+- reuse, retention, failed close attempts, and user-initiated tab closure do not produce false open/close activity events.
 
 After focused tests, the complete `pnpm verify` command must pass before publication.
 
