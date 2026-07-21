@@ -102,4 +102,3 @@ The pull request must call out the three added Twitch host permissions and why
 each is required. No new user setting is introduced. Store-listing permission
 notes should be updated if the existing documentation enumerates individual
 Twitch hosts.
-
