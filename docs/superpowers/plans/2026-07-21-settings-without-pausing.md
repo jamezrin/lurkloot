@@ -58,6 +58,8 @@ it("keeps active farming untouched when saving a non-scheduling setting", async 
 });
 ```
 
+Add a handoff regression beside the post-claim handoff tests. Start a handoff, wait until its manual timer is parked, save a non-scheduling setting, and assert the timer remains parked before flushing the loop to its deadline. This proves an ordinary save does not abort the active handoff while the existing `setRunning(false)` test continues to prove explicit shutdown does.
+
 - [ ] **Step 2: Run the focused test and confirm the old lifecycle still exists**
 
 Run:
@@ -293,6 +295,10 @@ pnpm --filter @lurkloot/extension test -- settingsView.test.tsx dropsView.test.t
 ```
 
 Expected: all selected files pass.
+
+- [ ] **Step 5a: Cover rapid serialized reconciliation**
+
+Add a controller test that blocks the first targeted Twitch discovery, sends a second scheduling save while the first reconciliation is active, then releases the first call. Assert both setting patches are present, Twitch discovery ran twice, and an active-discovery counter never exceeded one. Run `backgroundController.test.ts` and expect it to pass.
 
 - [ ] **Step 6: Commit refresh classification**
 

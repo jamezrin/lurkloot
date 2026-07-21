@@ -859,6 +859,59 @@ describe("background controller", () => {
     expect(env.settings.platform.kick.enabled).toBe(false);
   });
 
+  it("preserves rapid scheduling patches without overlapping reconciliation", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      notifyRewardEarned: true,
+      notifyNoDropsLeft: true,
+    });
+    let activeDiscoveries = 0;
+    let maxActiveDiscoveries = 0;
+    let discoveryCalls = 0;
+    let markFirstStarted!: () => void;
+    let releaseFirst!: () => void;
+    const firstStarted = new Promise<void>((resolve) => {
+      markFirstStarted = resolve;
+    });
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    vi.mocked(env.twitch.discoverCampaigns).mockImplementation(async () => {
+      discoveryCalls += 1;
+      activeDiscoveries += 1;
+      maxActiveDiscoveries = Math.max(maxActiveDiscoveries, activeDiscoveries);
+      if (discoveryCalls === 1) {
+        markFirstStarted();
+        await firstGate;
+      }
+      activeDiscoveries -= 1;
+      return [];
+    });
+
+    const first = env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { notifyRewardEarned: false },
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["twitch"],
+    });
+    await firstStarted;
+    const second = env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { notifyNoDropsLeft: false },
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["twitch"],
+    });
+    await drainMicrotasks();
+    releaseFirst();
+    await Promise.all([first, second]);
+
+    expect(env.settings.notifyRewardEarned).toBe(false);
+    expect(env.settings.notifyNoDropsLeft).toBe(false);
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(2);
+    expect(maxActiveDiscoveries).toBe(1);
+  });
+
   it("runs a scheduler tick after saving settings when requested and automation is active", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
     const nextSettings = {
@@ -2197,6 +2250,25 @@ describe("background controller", () => {
       await handoff;
 
       expect(env.timer.wait.mock.calls.length).toBeLessThanOrEqual(3);
+    });
+
+    it("keeps an active handoff running during an ordinary settings save", async () => {
+      const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
+      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+
+      const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
+      await drainMicrotasks();
+      expect(env.timer.parked).toBe(1);
+
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { notifyRewardEarned: false },
+      });
+
+      expect(env.timer.parked).toBe(1);
+      for (let index = 0; index < 4; index += 1) await env.timer.flush();
+      await handoff;
+      expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
     });
 
     it("aborts running handoffs when farming is switched off", async () => {

@@ -60,7 +60,7 @@ No paused fallback state is introduced when saving or reconciliation fails. The 
 
 ## Testing
 
-Controller tests will replace the temporary-settings-pause expectations with coverage that opening Settings has no controller lifecycle at all. Existing save tests will continue to prove patch merging, alarm recreation, global ticks, targeted ticks, and paused-automation behavior. Handoff coverage will confirm that Settings no longer owns an abort path, while explicit automation shutdown retains it.
+Controller tests will replace the temporary-settings-pause expectations with coverage that opening Settings has no controller lifecycle at all. Existing save tests will continue to prove patch merging, alarm recreation, global ticks, targeted ticks, and paused-automation behavior. Handoff coverage will confirm that an ordinary settings save preserves an active handoff, while explicit automation shutdown still aborts it. A gated rapid-edit regression will prove that every patch is preserved and reconciliation calls remain serialized.
 
 Popup and settings tests will verify:
 
@@ -68,7 +68,7 @@ Popup and settings tests will verify:
 - global scheduling controls request a global post-save tick;
 - platform controls request a post-save tick scoped to their platform;
 - save-only controls do not request reconciliation;
-- serialized rapid changes preserve all patches.
+- serialized rapid changes preserve all patches without overlapping reconciliation.
 
 Focused tests will run during development. Final verification is `pnpm verify` from the isolated worktree.
 
