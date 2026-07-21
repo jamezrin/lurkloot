@@ -18,8 +18,9 @@ cause.
 ## Goals
 
 - Restore the recommended Twitch Spade heartbeat in Chromium and Firefox.
-- Prevent future Twitch or Kick service-subdomain additions from requiring a
-  warning-triggering mandatory permission update.
+- Grant required first-party Twitch and Kick wildcard access now, while the
+  install base is small, so future service-subdomain additions require no
+  permission migration.
 - Make destination discovery and heartbeat delivery failures identify their
   stage and safe hostname.
 - Never log request paths, query strings, headers, cookies, tokens, or payloads.
@@ -33,38 +34,33 @@ cause.
 - Change scheduler retry counts or tab fallback policy.
 - Address Kick page-context tabs or settings-session pausing in this branch;
   those form the second deliverable after this regression fix.
-- Remove the existing exact permissions required by working Twitch and Kick
-  features.
+- Avoid the browser's one-time expanded-access approval on this release. This
+  migration intentionally accepts that rollout cost.
 
 ## Design
 
-### Optional platform wildcard permissions
+### Required platform wildcard permissions
 
-Keep the currently shipped exact Twitch and Kick hosts in `host_permissions`.
-This preserves all existing capabilities after the update and means declining
-additional access never regresses Kick or Twitch's established GraphQL and
-watch-tab behavior.
+Replace all exact Twitch and Kick host entries with these two required
+`host_permissions`:
 
-Declare `https://*.twitch.tv/*` and `https://*.kick.com/*` in
-`optional_host_permissions`. Request each platform independently from an
-explicit button in that platform's settings section. The broad optional grant
-is justified because both services may move browser-session APIs and telemetry
-to new first-party subdomains; granting it once prevents a later mandatory
-permission expansion from disabling the extension during an update.
+- `https://*.twitch.tv/*`
+- `https://*.kick.com/*`
 
-Chrome requires optional permission requests to originate from a user gesture.
-The extension therefore checks grant state when settings opens but never opens
-the browser prompt automatically. An already-enabled provider shows an action
-to grant access. The Twitch action immediately makes Spade available; the Kick
-action future-proofs Kick while its current exact hosts continue to work.
+WebExtension match patterns cover each base domain and its subdomains, so the
+existing `www.twitch.tv`, `gql.twitch.tv`, `kick.com`, `web.kick.com`, and
+`websockets.kick.com` entries are redundant. Do not retain them and do not
+declare `optional_host_permissions` or Firefox MV2 `optional_permissions`.
 
-The three newly discovered Twitch hosts are not mandatory permissions. They are
-covered by the optional Twitch wildcard after consent.
+This intentionally causes Chrome to treat the update as an expanded-access
+migration. Chrome may disable the extension until the user approves the new
+access. The project accepts that one-time attrition risk at the current small
+install base to avoid repeating the migration after the audience grows.
 
-If a request is denied or dismissed, keep the action available and record a
-safe diagnostic. Twitch retains the managed muted-tab fallback; Kick continues
-on its exact current hosts. Never disable a provider because optional access was
-declined.
+Remove the provider permission actions and all supporting adapter APIs, runtime
+messages, diagnostics, localized copy, state management, and tests. There is no
+consent state or fallback behavior specific to permissions after this change;
+normal heartbeat failure fallback remains unchanged.
 
 ### Stage-aware transport errors
 
@@ -102,12 +98,10 @@ Successful heartbeats and recovery behavior remain unchanged.
 
 ## Testing
 
-- Manifest coverage tests assert both wildcards are optional, the three new
-  Twitch hosts are not mandatory, and all previously shipped exact Twitch and
-  Kick permissions remain mandatory.
-- Popup adapter tests cover permission checks and independent requests for each
-  platform.
-- Settings tests cover granted, missing, pending, denied, and retry states.
+- Manifest coverage tests assert the two required wildcards are present, exact
+  platform hosts are absent, and neither optional-permission key is configured.
+- Remove popup adapter, settings consent, and permission-result routing tests
+  with the production behavior they covered.
 - Spade strategy tests cover contextual destination-fetch failure, contextual
   POST failure, and unchanged success behavior.
 - Extension transport tests verify safe hostname formatting and ensure paths,
@@ -119,8 +113,8 @@ Successful heartbeats and recovery behavior remain unchanged.
 
 ## Release and user-facing documentation
 
-The pull request and store-readiness notes must explain both optional wildcard
-permissions, their provider-specific user gesture, and the unchanged behavior
-after denial. The patch changelog describes restoring Twitch tabless farming;
-package versions remain unchanged because the release workflow owns the patch
-version bump.
+The pull request and store-readiness notes must explain why required first-party
+wildcards are necessary and warn that existing Chrome users may need to approve
+expanded access after updating. The patch changelog continues to describe the
+Twitch tabless farming fix; package versions remain unchanged because the
+release workflow owns the patch version bump.
