@@ -241,6 +241,38 @@ describe("Twitch heartbeat strategies", () => {
       expect(fetchText).toHaveBeenCalledTimes(2);
     });
 
+    it("preserves a contextual destination-fetch failure", async () => {
+      const strategy = createSpadeHeartbeat({
+        fetchText: vi.fn(async () => {
+          throw new Error("Twitch Spade destination fetch failed for assets.twitch.tv: Failed to fetch");
+        }),
+        post: vi.fn(),
+      });
+
+      await expect(strategy.tick(context())).resolves.toEqual({
+        ok: false,
+        live: true,
+        message: "Twitch Spade destination fetch failed for assets.twitch.tv: Failed to fetch",
+      });
+    });
+
+    it("preserves the final contextual POST failure after one retry", async () => {
+      const fetchText = vi.fn()
+        .mockResolvedValueOnce('{"spade_url":"https://spade.twitch.tv/stale"}')
+        .mockResolvedValueOnce('{"spade_url":"https://beacon.twitch.tv/fresh"}');
+      const post = vi.fn(async (url: string) => {
+        throw new Error(`Twitch Spade heartbeat POST failed for ${new URL(url).hostname}: Failed to fetch`);
+      });
+      const strategy = createSpadeHeartbeat({ fetchText, post });
+
+      await expect(strategy.tick(context())).resolves.toEqual({
+        ok: false,
+        live: true,
+        message: "Twitch Spade heartbeat POST failed for beacon.twitch.tv: Failed to fetch",
+      });
+      expect(post).toHaveBeenCalledTimes(2);
+    });
+
     it("caches destinations per normalized channel login", async () => {
       const fetchText = vi.fn(async (url: string) => `{"spade_url":"https://spade.twitch.tv/${url.toLowerCase().includes("other") ? "other" : "creator"}"}`);
       const post = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));

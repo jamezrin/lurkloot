@@ -48,6 +48,8 @@ function failed(message: string): HeartbeatResult {
   return { ok: false, live: true, message };
 }
 
+type SpadeSendResult = { ok: true } | { ok: false; message: string };
+
 export function createSpadeHeartbeat(options: SpadeHeartbeatOptions): TwitchHeartbeatStrategy {
   const destinations = new Map<string, string>();
 
@@ -64,8 +66,8 @@ export function createSpadeHeartbeat(options: SpadeHeartbeatOptions): TwitchHear
     return bundled && isAllowedTwitchUrl(bundled) ? bundled : undefined;
   };
 
-  const send = async (destination: string, context: TwitchHeartbeatContext): Promise<boolean> => {
-    if (!isAllowedTwitchUrl(destination)) return false;
+  const send = async (destination: string, context: TwitchHeartbeatContext): Promise<SpadeSendResult> => {
+    if (!isAllowedTwitchUrl(destination)) return { ok: false, message: "Unsafe Twitch Spade destination" };
     const event = buildMinuteWatchedEvent({
       broadcastId: context.broadcastId,
       channelId: context.channelId,
@@ -83,9 +85,14 @@ export function createSpadeHeartbeat(options: SpadeHeartbeatOptions): TwitchHear
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: `data=${encodeURIComponent(encoded)}`,
       });
-      return response.status === 204;
-    } catch {
-      return false;
+      return response.status === 204
+        ? { ok: true }
+        : { ok: false, message: `Twitch Spade heartbeat returned HTTP ${response.status}` };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : "Twitch Spade heartbeat POST failed",
+      };
     }
   };
 
@@ -97,15 +104,17 @@ export function createSpadeHeartbeat(options: SpadeHeartbeatOptions): TwitchHear
         const destination = destinations.get(channel) ?? await resolveDestination(context);
         if (!destination) return failed("Unable to resolve a secure Twitch Spade destination");
         destinations.set(channel, destination);
-        if (await send(destination, context)) return { ok: true, live: true };
+        const first = await send(destination, context);
+        if (first.ok) return { ok: true, live: true };
 
         destinations.delete(channel);
         const refreshed = await resolveDestination(context);
         if (!refreshed) return failed("Unable to refresh the Twitch Spade destination");
         destinations.set(channel, refreshed);
-        if (await send(refreshed, context)) return { ok: true, live: true };
+        const second = await send(refreshed, context);
+        if (second.ok) return { ok: true, live: true };
         destinations.delete(channel);
-        return failed("Twitch Spade heartbeat returned an unexpected status");
+        return failed(second.message);
       } catch (error) {
         destinations.delete(channel);
         return failed(error instanceof Error ? error.message : "Twitch Spade heartbeat failed");
