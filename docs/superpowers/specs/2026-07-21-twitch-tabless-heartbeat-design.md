@@ -73,8 +73,10 @@ safe context before returning them to the core heartbeat strategy:
 - Non-success page responses retain their HTTP status and hostname.
 
 Only `new URL(url).hostname` is exposed. If URL parsing unexpectedly fails, use
-`unknown Twitch host`. The original error message is retained because browser
-errors such as `Failed to fetch` are useful once the stage and hostname are
+`unknown Twitch host`. Only generic browser failures and extension-created HTTP
+status messages are retained; arbitrary exception text is replaced with a fixed
+cause so paths, query values, or credentials cannot appear in diagnostics.
+Messages such as `Failed to fetch` remain useful once the stage and hostname are
 known.
 
 The `TwitchHeartbeatPost` contract will carry a transport error rather than

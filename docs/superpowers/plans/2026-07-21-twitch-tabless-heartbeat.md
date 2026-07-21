@@ -4,7 +4,7 @@
 
 **Goal:** Require first-party Twitch and Kick wildcard access in the 1.8.1 hotfix and remove the now-unnecessary optional-consent feature.
 
-**Architecture:** Replace every exact platform host and both optional wildcard declarations with two required wildcard match patterns. Delete the permission adapter, consent UI, runtime reporting, locale copy, and their focused tests as one vertical feature removal. Preserve Twitch heartbeat diagnostics and ordinary muted-tab fallback.
+**Architecture:** Replace every exact platform host and both optional wildcard declarations with two required wildcard match patterns. Delete the permission adapter, consent UI, runtime reporting, locale copy, and their focused tests as one vertical feature removal. Preserve credential-safe Twitch heartbeat diagnostics and ordinary muted-tab fallback; retain only allowlisted generic failures or HTTP status causes.
 
 **Tech Stack:** TypeScript 7, React 19, WXT 0.20, WebExtension manifests, Vitest 4, pnpm 11.
 

@@ -6,8 +6,12 @@ function safeHostname(url: string): string {
   }
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "unknown network error";
+function safeErrorCause(error: unknown): string {
+  if (!(error instanceof Error)) return "unknown network error";
+  if (error.message === "Failed to fetch" || /^HTTP \d{3}$/.test(error.message)) {
+    return error.message;
+  }
+  return "network request failed";
 }
 
 export async function twitchHeartbeatFetchText(url: string, init?: RequestInit): Promise<string> {
@@ -17,7 +21,7 @@ export async function twitchHeartbeatFetchText(url: string, init?: RequestInit):
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.text();
   } catch (error) {
-    throw new Error(`Twitch Spade destination fetch failed for ${hostname}: ${errorMessage(error)}`);
+    throw new Error(`Twitch Spade destination fetch failed for ${hostname}: ${safeErrorCause(error)}`);
   }
 }
 
@@ -27,6 +31,6 @@ export async function twitchHeartbeatPost(url: string, init: RequestInit): Promi
     const response = await fetch(url, init);
     return { status: response.status };
   } catch (error) {
-    throw new Error(`Twitch Spade heartbeat POST failed for ${hostname}: ${errorMessage(error)}`);
+    throw new Error(`Twitch Spade heartbeat POST failed for ${hostname}: ${safeErrorCause(error)}`);
   }
 }
