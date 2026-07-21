@@ -142,6 +142,7 @@ function formatPageContextCloseReason(reason: PageContextCloseReason, t: TFuncti
     case "platform_disabled": return t("activityReasonPlatformDisabled");
     case "automation_disabled": return t("activityReasonAutomationDisabled");
     case "manual_watch": return t("activityReasonManualWatch");
+    case "runtime_restart": return t("activityReasonRuntimeRestart");
     case "managed_context_unusable": return t("activityPageContextReasonManagedContextUnusable");
     default: {
       const exhaustive: never = reason;

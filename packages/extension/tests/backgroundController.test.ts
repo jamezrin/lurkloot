@@ -9,6 +9,8 @@ import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
+import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
+import { forgetManagedPageContextTabs, recordManagedPageContextFallback, registerManagedPageContextTabs } from "@lurkloot/core/tabs";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: "reward",
@@ -54,6 +56,7 @@ function harness(
   overrides: {
     saveState?: (state: SchedulerState) => Promise<void>;
     reportEvents?: (events: readonly EngineEvent[]) => Promise<void>;
+    stopPageContextTabs?: StopPageContextTabs;
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
   } = {},
 ) {
@@ -89,6 +92,7 @@ function harness(
       ...resolveCompatibility(nextSettings.compatibility, { host: "extension", twitchIdentity: "web" }),
     })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
+    stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? forgetManagedPageContextTabs),
     wait: overrides.wait,
   };
 
@@ -687,7 +691,11 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/drops/inventory"]);
+    expect(env.deps.closeManagedTabsByUrl).not.toHaveBeenCalled();
+    expect(env.deps.stopPageContextTabs).toHaveBeenCalledWith(
+      expect.objectContaining({ twitch: expect.objectContaining({ tabId: 66 }) }),
+      expect.objectContaining({ platforms: ["twitch", "kick"], reason: "runtime_restart", emit: expect.any(Function) }),
+    );
     expect(env.state.managedPageContextTabs).toEqual({});
     expect(env.state.sessions.twitch).toMatchObject({
       status: "paused",
@@ -1807,6 +1815,34 @@ describe("background controller", () => {
     expect(watcher.tick).toHaveBeenCalled();
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
     expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
+  });
+
+  it("persists page-context lifecycle metadata changed during a heartbeat", async () => {
+    const watcher = fakeTablessWatcher(async () => {
+      recordManagedPageContextFallback("twitch", "gql.twitch.tv", undefined, Date.parse("2026-07-21T12:00:00.000Z"));
+      return { ok: true, live: true };
+    });
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    await env.controller.tick();
+    const context = {
+      platform: "twitch" as const,
+      tabId: 66,
+      originUrl: "https://www.twitch.tv/drops/inventory",
+      origin: "https://www.twitch.tv",
+      ownedByExtension: true as const,
+    };
+    env.state.managedPageContextTabs = { twitch: context };
+    registerManagedPageContextTabs({ twitch: context });
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(env.state.managedPageContextTabs?.twitch).toMatchObject({
+      tabId: 66,
+      fallbackHost: "gql.twitch.tv",
+      backgroundSuccesses: 0,
+      lastFallbackAt: "2026-07-21T12:00:00.000Z",
+    });
   });
 
   it("publishes persistent watcher diagnostics once through the current operation batch", async () => {

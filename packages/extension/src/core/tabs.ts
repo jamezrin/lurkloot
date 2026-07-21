@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
 import type { AdFocusMode, ChannelCandidate, Platform, WatchSession } from "@lurkloot/shared/models";
-import type { EventEmitter } from "@lurkloot/shared/events";
+import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
 import {
   applyAdFocusWithBrowser,
   ensureTwitchIntegrityWithBrowser,
@@ -8,6 +8,8 @@ import {
   fetchKickInBackgroundWith,
   fetchTwitchInBackgroundWith,
   openPinnedMutedTabWithBrowser,
+  recordManagedPageContextBackgroundSuccessWithBrowser,
+  recordManagedPageContextFallback as recordManagedPageContextFallbackInRegistry,
   stopManagedPageContextTabsWithBrowser,
   stopWatchTabWithBrowser,
   TWITCH_PAGE_CONTEXT_URL,
@@ -52,9 +54,17 @@ export function fetchJsonInPage<T>(originUrl: string, url: string, init?: Reques
   return fetchJsonInPageWithBrowser<T>(browser as BrowserTabApi, originUrl, url, init, options);
 }
 
+export function recordManagedPageContextBackgroundSuccess(host: string, emit?: EventEmitter): Promise<void> {
+  return recordManagedPageContextBackgroundSuccessWithBrowser(browser as BrowserTabApi, "kick", host, emit);
+}
+
+export function recordManagedPageContextFallback(host: string, emit?: EventEmitter): void {
+  recordManagedPageContextFallbackInRegistry("kick", host, emit);
+}
+
 export function stopManagedPageContextTabs(
   contexts: SchedulerManagedPageContexts,
-  options: { platforms?: Platform[] } = {},
+  options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
 ): Promise<SchedulerManagedPageContexts> {
   return stopManagedPageContextTabsWithBrowser(browser as BrowserTabApi, contexts, options);
 }

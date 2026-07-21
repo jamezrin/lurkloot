@@ -5,7 +5,7 @@ import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
-import { setTwitchIntegrity } from "../core/tabs";
+import { currentManagedPageContextTabs, registerManagedPageContextTabs, setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
@@ -361,8 +361,18 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       return;
     }
 
-    if (deps.closeManagedTabsByUrl) {
+    if (deps.closeManagedTabsByUrl && cleanup.managedUrls.length > 0) {
       await deps.closeManagedTabsByUrl(cleanup.managedUrls);
+    }
+    if (deps.stopPageContextTabs && Object.keys(state.managedPageContextTabs ?? {}).length > 0) {
+      await withEventCollector(async (emit, events) => {
+        await deps.stopPageContextTabs!(state.managedPageContextTabs ?? {}, {
+          platforms: ["twitch", "kick"],
+          reason: "runtime_restart",
+          emit,
+        });
+        await reportBestEffort(events);
+      });
     }
 
     let nextSettings = settings;
@@ -578,6 +588,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (!settings.running) return;
     const fallbackPlatforms = await withStateLock<Platform[]>(() => withEventCollector(async (emit, events) => {
       let nextState = await deps.loadState();
+      registerManagedPageContextTabs(nextState.managedPageContextTabs ?? {});
       // After a service-worker restart the in-memory watcher map is empty, so
       // rebuild it from persisted tabless sessions before the size check below.
       // Otherwise the 1-minute watch alarm would do nothing until the next
@@ -639,6 +650,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
         }
       }
+
+      nextState = {
+        ...nextState,
+        managedPageContextTabs: currentManagedPageContextTabs(),
+      };
 
       if (changed) await persistAndReport(nextState, events);
       else await reportBestEffort(events);
@@ -1299,7 +1315,6 @@ function staleStartupCleanup(state: SchedulerState): {
     const managedTab = state.managedWatchTabs?.[platform];
     const managedPageContextTab = state.managedPageContextTabs?.[platform];
     if (managedTab?.channelUrl) managedUrls.add(managedTab.channelUrl);
-    if (managedPageContextTab?.originUrl) managedUrls.add(managedPageContextTab.originUrl);
     if (session.tabManagedByExtension && session.channel?.url) managedUrls.add(session.channel.url);
 
     if (session.status === "watching" || session.tabId != null || managedTab || managedPageContextTab) {

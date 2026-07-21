@@ -8,6 +8,8 @@ import {
   fetchKickInBackground,
   fetchTwitchInBackground,
   openPinnedMutedTab,
+  recordManagedPageContextBackgroundSuccess,
+  recordManagedPageContextFallback,
   stopManagedPageContextTabs,
   stopWatchTab,
 } from "../src/core/tabs";
@@ -131,7 +133,13 @@ const controller = createBackgroundController<ExtensionSettings>({
         kick: new KickAdapter(
           createKickFetcher({
             background: (url, init) => fetchKickInBackground<unknown>(url, init),
-            pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
+            pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, {
+              retainPageContext: { platform: "kick" },
+              emit,
+              openReason: "background_rejected",
+            }),
+            onBackgroundSuccess: (host, operationEmit) => recordManagedPageContextBackgroundSuccess(host, operationEmit),
+            onPageFallback: (host, operationEmit) => recordManagedPageContextFallback(host, operationEmit),
           }),
           watchTabPort,
           undefined,

@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: `reward-${status}`,
@@ -1720,6 +1721,37 @@ describe("scheduler tick", () => {
     });
   });
 
+  it("retains a required Kick page context across ordinary watch preparation", async () => {
+    const kickCandidate = { ...channel("kick-allowed"), platform: "kick" as const, url: "https://kick.com/kick-allowed" };
+    const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [kickCandidate]);
+    const stopPageContextTabs = vi.fn(forgetManagedPageContextTabs);
+    const managedContext = {
+      platform: "kick" as const,
+      tabId: 91,
+      originUrl: "https://kick.com",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+    };
+
+    const result = await runSchedulerTick(
+      {
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+        managedPageContextTabs: { kick: managedContext },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+      { platforms: ["kick"], stopPageContextTabs },
+    );
+
+    expect(kick.prepareWatchTab).toHaveBeenCalledOnce();
+    expect(stopPageContextTabs).not.toHaveBeenCalled();
+    expect(result.state.managedPageContextTabs?.kick).toEqual(managedContext);
+  });
+
   it("only evaluates requested platforms during a targeted tick", async () => {
     const twitch = adapter("twitch", [campaign("twitch-drops")], [channel("twitch-allowed")]);
     const kickCandidate = { ...channel("kick-allowed"), platform: "kick" as const, url: "https://kick.com/kick-allowed" };
@@ -1776,6 +1808,7 @@ describe("scheduler tick", () => {
 
   it("stops the previous watch tab when automation is disabled", async () => {
     const twitch = adapter("twitch", [], []);
+    const stopPageContextTabs = vi.fn(forgetManagedPageContextTabs);
 
     const result = await runSchedulerTick(
       {
@@ -1796,12 +1829,17 @@ describe("scheduler tick", () => {
       },
       settings({ running: false }),
       { twitch, kick: adapter("kick", [], []) },
+      { stopPageContextTabs },
     );
 
     expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7, tabManagedByExtension: true }));
     expect(result.state.sessions.twitch.tabId).toBeUndefined();
     expect(result.state.sessions.twitch.channel).toBeUndefined();
     expect(result.state.managedPageContextTabs?.twitch).toBeUndefined();
+    expect(stopPageContextTabs).toHaveBeenCalledWith(
+      expect.objectContaining({ twitch: expect.objectContaining({ tabId: 9 }) }),
+      expect.objectContaining({ platforms: ["twitch"], reason: "automation_disabled", emit: expect.any(Function) }),
+    );
   });
 
   it("stops the previous watch tab when no eligible campaigns or fallback remain", async () => {

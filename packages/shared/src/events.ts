@@ -33,6 +33,7 @@ export type PageContextCloseReason =
   | "platform_disabled"
   | "automation_disabled"
   | "manual_watch"
+  | "runtime_restart"
   | "managed_context_unusable";
 
 export type ActivityEvent =
