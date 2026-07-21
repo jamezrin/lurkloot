@@ -28,6 +28,7 @@ import {
   createActivityMessageHandler,
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";
+import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -122,15 +123,8 @@ const controller = createBackgroundController<ExtensionSettings>({
           {
             compatibility: resolution.compatibility.twitch,
             heartbeatIdentity: "web",
-            heartbeatFetchText: async (url, init) => {
-              const response = await fetch(url, init);
-              if (!response.ok) throw new Error(`Twitch page request returned HTTP ${response.status}`);
-              return await response.text();
-            },
-            heartbeatPost: async (url, init) => {
-              const response = await fetch(url, init);
-              return { status: response.status };
-            },
+            heartbeatFetchText: twitchHeartbeatFetchText,
+            heartbeatPost: twitchHeartbeatPost,
           },
           emit,
         ),
