@@ -8,7 +8,7 @@ Lurkloot is designed as a normal-session WebExtension:
 - It reads Kick's `session_token` cookie only inside Kick's own page context to authorize same-session requests to `web.kick.com`; the token is never persisted, logged, exported, or sent anywhere except Kick's API.
 - It captures and stores Twitch's short-lived `Client-Integrity` bundle locally so claim mutations can replay the same page-issued headers; the bundle expires and is not exported.
 - It does not run Selenium, hidden browser profiles, CAPTCHA handling, or anti-detection bypasses.
-- It keeps required host permissions limited to the established Twitch and Kick pages and APIs. Users can separately grant optional Twitch or Kick wildcard access from provider settings so future first-party service subdomains do not require a disruptive mandatory-permission update.
+- It limits required host permissions to Twitch and Kick first-party domains. Platform features can move between first-party service subdomains, so domain wildcards prevent farming from breaking whenever either platform changes that internal layout.
 - It stores local extension settings, scheduler state, campaign metadata, a compact local event log, and the transient Twitch integrity bundle described above.
 - The popup is the only public extension surface. It does not expose diagnostics, acceptance reports, settings import/export, cookies, tokens, or credentials.
 - Platform failures use per-platform retry backoff so a broken Twitch or Kick API path is not hammered every scheduler tick.
@@ -38,18 +38,10 @@ Paste-ready justifications for the Chrome Web Store privacy tab. Each maps to ac
 
 ## Host permission justifications
 
-- **`https://www.twitch.tv/*`** — Playback telemetry/control content script on watch tabs, opening and managing watch tabs, same-origin page-context API fetches, and reading the Twitch session cookies above.
-- **`https://gql.twitch.tv/*`** — Twitch's GraphQL API for campaign discovery, progress, channel validation, and drop/channel-point claims, plus the read-only `Client-Integrity` header capture.
-- **`https://kick.com/*`** — Kick content script, watch tabs, and the `kick.com` channel API (v2) for channel validation.
-- **`https://web.kick.com/*`** — Kick's drops and livestream JSON APIs (campaigns, progress, claim, livestreams).
-- **`https://websockets.kick.com/*`** — Kick's viewer WebSocket used by tabless low-resource mode to send watch events.
+- **`https://*.twitch.tv/*`** — Supports Twitch watch pages, campaign and reward APIs, session authentication, and tabless farming signals. Twitch selects some of these services dynamically and may move them between its own subdomains; domain-wide first-party access keeps farming functional across those changes.
+- **`https://*.kick.com/*`** — Supports Kick watch pages, campaign and reward APIs, session authentication, and tabless watch events. Kick uses multiple first-party service subdomains and may add or replace them as the platform evolves.
 
-## Optional host permission justifications
-
-- **`https://*.twitch.tv/*`** — Requested only from an explicit button in Twitch settings. Twitch's web client dynamically selects first-party asset and heartbeat subdomains, currently including `assets.twitch.tv`, `spade.twitch.tv`, and `beacon.twitch.tv`. The optional wildcard restores tabless minute-watched heartbeats and prevents a future Twitch subdomain change from disabling the extension during an update.
-- **`https://*.kick.com/*`** — Requested only from an explicit button in Kick settings. It allows Lurkloot to follow future first-party Kick service-subdomain changes without expanding mandatory permissions in an update. Current Kick functionality continues through the exact required hosts if the user declines.
-
-The two grants are independent. The browser prompt is never opened automatically, and declining either grant leaves the provider enabled. Twitch retains its managed muted-tab fallback; Kick continues using its currently required exact hosts. Grant or denial is recorded only as a local diagnostic when diagnostic logging is enabled.
+These required wildcards replace the previous exact-host list. Existing Chrome users may need to approve the expanded site access after updating before the extension is re-enabled. The access remains restricted to Twitch and Kick domains and is used only for the extension's drop-farming purpose.
 
 ## Release verification
 
