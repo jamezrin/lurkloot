@@ -722,7 +722,12 @@ async function findOrCreatePageContextTab(
       platform: retain.platform,
       data: { host: new URL(origin).host, reason: openReason },
     });
-    diagnostic(options?.emit ?? ignoreEvent, "info", `Created managed page context on ${new URL(origin).host} because background access was rejected`, retain.platform);
+    diagnostic(
+      options?.emit ?? ignoreEvent,
+      "info",
+      `Created managed page context on ${new URL(origin).host} because ${openReason === "managed_context_unusable" ? "the previous context was unusable" : "background access was rejected"}`,
+      retain.platform,
+    );
     return { tabId: tab.id, createdByExtension: true, retainedContext };
   }
   return { tabId: tab.id, createdByExtension: true };

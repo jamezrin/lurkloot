@@ -562,6 +562,11 @@ describe("tab manager", () => {
       { category: "activity", code: "page_context_closed", level: "info", platform: "kick", data: { host: "kick.com", reason: "managed_context_unusable" } },
       { category: "activity", code: "page_context_opened", level: "info", platform: "kick", data: { host: "kick.com", reason: "managed_context_unusable" } },
     ]);
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "kick",
+      message: expect.stringContaining("because the previous context was unusable"),
+    }));
   });
 
   it("does not close an existing user tab reused for a page-context fetch", async () => {
