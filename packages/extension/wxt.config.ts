@@ -36,12 +36,13 @@ export default defineConfig({
     host_permissions: [
       "https://www.twitch.tv/*",
       "https://gql.twitch.tv/*",
-      "https://assets.twitch.tv/*",
-      "https://spade.twitch.tv/*",
-      "https://beacon.twitch.tv/*",
       "https://kick.com/*",
       "https://web.kick.com/*",
       "https://websockets.kick.com/*"
+    ],
+    optional_host_permissions: [
+      "https://*.twitch.tv/*",
+      "https://*.kick.com/*"
     ],
     icons: {
       "16": "icon/16.png",
