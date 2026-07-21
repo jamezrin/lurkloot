@@ -34,11 +34,8 @@ export default defineConfig({
     description: "__MSG_extensionDescription__",
     permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest"],
     host_permissions: [
-      "https://www.twitch.tv/*",
-      "https://gql.twitch.tv/*",
-      "https://kick.com/*",
-      "https://web.kick.com/*",
-      "https://websockets.kick.com/*"
+      "https://*.twitch.tv/*",
+      "https://*.kick.com/*"
     ],
     icons: {
       "16": "icon/16.png",

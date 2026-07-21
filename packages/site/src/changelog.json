@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.8.1",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Fixed Twitch tabless farming falling back to muted watch tabs because required heartbeat services could not be reached."
+      },
+      {
+        "kind": "improved",
+        "text": "Expanded Twitch and Kick site access so farming keeps working when either platform moves features between its own services. Your browser may ask you to approve the updated access after installing this update."
+      }
+    ]
+  },
+  {
     "version": "1.8.0",
     "changes": [
       {
