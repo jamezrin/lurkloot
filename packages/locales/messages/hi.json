@@ -894,5 +894,23 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "लिंक प्रबंधन v2"
+  },
+  "platformHostAccessTitle": {
+    "message": "भविष्य के लिए प्लेटफ़ॉर्म एक्सेस"
+  },
+  "platformHostAccessDescription": {
+    "message": "Lurkloot को बिना किसी अन्य बाधित अपडेट के $1 की मौजूदा और भविष्य की सेवाओं का उपयोग करने दें।"
+  },
+  "platformHostAccessGrant": {
+    "message": "एक्सेस दें"
+  },
+  "platformHostAccessGranted": {
+    "message": "अनुमति दी गई"
+  },
+  "platformHostAccessPending": {
+    "message": "अनुरोध जारी…"
+  },
+  "platformHostAccessDenied": {
+    "message": "एक्सेस नहीं दिया गया। मौजूदा सेवाएँ काम करती रहेंगी; आप फिर कोशिश कर सकते हैं।"
   }
 }

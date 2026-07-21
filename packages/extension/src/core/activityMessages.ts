@@ -19,6 +19,7 @@ interface RuntimeMessageDispatcherDeps {
   exportCliCredentials(): Promise<unknown>;
   handleActivityMessage(message: RuntimeMessage): Promise<unknown>;
   handleCoreMessage(message: CoreRuntimeMessage, sender?: RuntimeMessageSender): Promise<unknown>;
+  reportPlatformHostAccess?(platform: "twitch" | "kick", granted: boolean): Promise<void>;
 }
 
 export function createActivityMessageHandler(repository: ActivityMessageRepository) {
@@ -55,6 +56,9 @@ export function createRuntimeMessageDispatcher(deps: RuntimeMessageDispatcherDep
     if (message.type === "exportCliCredentials") return deps.exportCliCredentials();
     if (message.type === "getActivity" || message.type === "clearActivity") {
       return deps.handleActivityMessage(message);
+    }
+    if (message.type === "reportPlatformHostAccess") {
+      return deps.reportPlatformHostAccess?.(message.platform, message.granted) ?? Promise.resolve();
     }
     return deps.handleCoreMessage(message, sender);
   };

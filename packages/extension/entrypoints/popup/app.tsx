@@ -46,7 +46,15 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     getStorage: (keys) => browser.storage.local.get(keys),
     setStorage: (values) => browser.storage.local.set(values),
     getPlatformHostAccess: (platform) => browser.permissions.contains({ origins: [PLATFORM_HOST_ORIGINS[platform]] }),
-    requestPlatformHostAccess: (platform) => browser.permissions.request({ origins: [PLATFORM_HOST_ORIGINS[platform]] }),
+    requestPlatformHostAccess: async (platform) => {
+      let granted = false;
+      try {
+        granted = await browser.permissions.request({ origins: [PLATFORM_HOST_ORIGINS[platform]] });
+      } finally {
+        await browser.runtime.sendMessage({ type: "reportPlatformHostAccess", platform, granted });
+      }
+      return granted;
+    },
     connectSettingsSession: () => {
       const port = browser.runtime.connect({ name: SETTINGS_SESSION_PORT });
       return () => port.disconnect();

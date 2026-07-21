@@ -894,5 +894,23 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Gestione link v2"
+  },
+  "platformHostAccessTitle": {
+    "message": "Accesso alla piattaforma a prova di futuro"
+  },
+  "platformHostAccessDescription": {
+    "message": "Consenti a Lurkloot di usare i servizi $1 attuali e futuri senza un altro aggiornamento problematico."
+  },
+  "platformHostAccessGrant": {
+    "message": "Consenti accesso"
+  },
+  "platformHostAccessGranted": {
+    "message": "Consentito"
+  },
+  "platformHostAccessPending": {
+    "message": "Richiesta in corso…"
+  },
+  "platformHostAccessDenied": {
+    "message": "L’accesso non è stato concesso. I servizi attuali continuano a funzionare; puoi riprovare."
   }
 }

@@ -109,14 +109,17 @@ describe("runtime message dispatch", () => {
     const exportCliCredentials = vi.fn(async () => "credentials");
     const handleActivityMessage = vi.fn(async () => "activity");
     const handleCoreMessage = vi.fn(async () => "core");
+    const reportPlatformHostAccess = vi.fn(async () => undefined);
     return {
       exportCliCredentials,
       handleActivityMessage,
       handleCoreMessage,
+      reportPlatformHostAccess,
       dispatch: createRuntimeMessageDispatcher({
         exportCliCredentials,
         handleActivityMessage,
         handleCoreMessage,
+        reportPlatformHostAccess,
       }),
     };
   }
@@ -128,6 +131,15 @@ describe("runtime message dispatch", () => {
 
     expect(env.exportCliCredentials).toHaveBeenCalledOnce();
     expect(env.handleActivityMessage).not.toHaveBeenCalled();
+    expect(env.handleCoreMessage).not.toHaveBeenCalled();
+  });
+
+  it("routes platform host access results to diagnostics instead of core", async () => {
+    const env = setup();
+
+    await expect(env.dispatch({ type: "reportPlatformHostAccess", platform: "twitch", granted: false })).resolves.toBeUndefined();
+
+    expect(env.reportPlatformHostAccess).toHaveBeenCalledWith("twitch", false);
     expect(env.handleCoreMessage).not.toHaveBeenCalled();
   });
 

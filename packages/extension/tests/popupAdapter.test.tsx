@@ -39,5 +39,6 @@ describe("extension popup platform host access", () => {
     await expect(createExtensionPopupAdapter().requestPlatformHostAccess?.(platform)).resolves.toBe(false);
 
     expect(browser.permissions.request).toHaveBeenCalledWith({ origins: [origin] });
+    expect(browser.runtime.sendMessage).toHaveBeenCalledWith({ type: "reportPlatformHostAccess", platform, granted: false });
   });
 });

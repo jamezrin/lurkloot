@@ -9,6 +9,7 @@ import {
   CampaignFilterSettingRow,
   ForgetExcludedCampaignsRow,
   NumberSettingRow,
+  PlatformHostAccessRow,
   SelectSettingRow,
   SettingRow,
 } from "./settingsControls";
@@ -34,6 +35,12 @@ export interface SettingsRegistryContext {
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
+  platformHostAccess?: Record<Platform, {
+    granted?: boolean;
+    pending: boolean;
+    denied: boolean;
+    request(): void | Promise<void>;
+  }>;
 }
 
 export interface SettingsEntryDef extends SettingsEntryNode {
@@ -400,7 +407,22 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       });
     }
 
-    return { id: platform, titleKey, iconNode, rows: [claimEntry], groups };
+    const accessEntry: SettingsEntryDef | undefined = ctx.platformHostAccess
+      ? {
+        id: `${platform}.hostAccess`,
+        titleKey: "platformHostAccessTitle",
+        descriptionKey: "platformHostAccessDescription",
+        render: () => (
+          <PlatformHostAccessRow
+            platformLabel={details.label}
+            {...ctx.platformHostAccess![platform]}
+            onRequest={ctx.platformHostAccess![platform].request}
+          />
+        ),
+      }
+      : undefined;
+
+    return { id: platform, titleKey, iconNode, rows: accessEntry ? [accessEntry, claimEntry] : [claimEntry], groups };
   };
 
   return [
