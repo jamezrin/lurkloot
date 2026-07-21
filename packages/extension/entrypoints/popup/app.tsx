@@ -13,6 +13,7 @@ import {
 import { SETTINGS_SESSION_PORT } from "@lurkloot/shared/messages";
 import { SUPPORTED_LOCALES } from "@lurkloot/shared/settings";
 import type { SupportedLocale } from "@lurkloot/shared/models";
+import type { Platform } from "@lurkloot/shared/models";
 import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
 import {
   changelogUrl,
@@ -21,6 +22,10 @@ import {
 } from "../../src/core/updateNotice";
 
 const URL_PARAMS = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+const PLATFORM_HOST_ORIGINS: Record<Platform, string> = {
+  twitch: "https://*.twitch.tv/*",
+  kick: "https://*.kick.com/*",
+};
 
 function localeFromUrl(): SupportedLocale | undefined {
   const value = URL_PARAMS.get("locale");
@@ -40,6 +45,8 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     send: (message) => browser.runtime.sendMessage(message),
     getStorage: (keys) => browser.storage.local.get(keys),
     setStorage: (values) => browser.storage.local.set(values),
+    getPlatformHostAccess: (platform) => browser.permissions.contains({ origins: [PLATFORM_HOST_ORIGINS[platform]] }),
+    requestPlatformHostAccess: (platform) => browser.permissions.request({ origins: [PLATFORM_HOST_ORIGINS[platform]] }),
     connectSettingsSession: () => {
       const port = browser.runtime.connect({ name: SETTINGS_SESSION_PORT });
       return () => port.disconnect();
