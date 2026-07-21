@@ -9,7 +9,7 @@ const source = readFileSync(resolve(here, "../wxt.config.ts"), "utf8");
 describe("extension host permissions", () => {
   it("keeps established hosts required and platform wildcards optional", () => {
     const required = source.match(/host_permissions:\s*\[([\s\S]*?)\]/)?.[1] ?? "";
-    const optional = source.match(/optional_host_permissions:\s*\[([\s\S]*?)\]/)?.[1] ?? "";
+    const optional = source.match(/const OPTIONAL_PLATFORM_HOSTS = \[([\s\S]*?)\]/)?.[1] ?? "";
 
     for (const origin of [
       "https://www.twitch.tv/*",
@@ -31,5 +31,7 @@ describe("extension host permissions", () => {
     }
     expect(optional).toContain('"https://*.twitch.tv/*"');
     expect(optional).toContain('"https://*.kick.com/*"');
+    expect(source).toContain("optional_host_permissions: OPTIONAL_PLATFORM_HOSTS");
+    expect(source).toContain("optional_permissions: OPTIONAL_PLATFORM_HOSTS");
   });
 });

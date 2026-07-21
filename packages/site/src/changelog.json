@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.8.1",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Fixed Twitch tabless farming falling back to muted watch tabs because required heartbeat services could not be reached."
+      }
+    ]
+  },
+  {
     "version": "1.8.0",
     "changes": [
       {

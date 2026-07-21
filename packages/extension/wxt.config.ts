@@ -8,6 +8,7 @@ import tailwindcss from "@tailwindcss/vite";
 // (default_locale + __MSG__). They are not committed; we materialize them from
 // the single source of truth, the @lurkloot/locales package, at build time.
 const messagesDir = dirname(createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"));
+const OPTIONAL_PLATFORM_HOSTS = ["https://*.twitch.tv/*", "https://*.kick.com/*"];
 
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
@@ -28,7 +29,7 @@ export default defineConfig({
     },
     plugins: [tailwindcss()],
   }),
-  manifest: {
+  manifest: ({ manifestVersion }) => ({
     default_locale: "en",
     name: "__MSG_extensionStoreName__",
     description: "__MSG_extensionDescription__",
@@ -40,10 +41,9 @@ export default defineConfig({
       "https://web.kick.com/*",
       "https://websockets.kick.com/*"
     ],
-    optional_host_permissions: [
-      "https://*.twitch.tv/*",
-      "https://*.kick.com/*"
-    ],
+    ...(manifestVersion === 2
+      ? { optional_permissions: OPTIONAL_PLATFORM_HOSTS }
+      : { optional_host_permissions: OPTIONAL_PLATFORM_HOSTS }),
     icons: {
       "16": "icon/16.png",
       "32": "icon/32.png",
@@ -66,7 +66,7 @@ export default defineConfig({
         }
       }
     }
-  },
+  }),
   zip: {
     sourcesRoot: ".",
     artifactTemplate: "{{name}}-{{version}}-{{browser}}.zip",
