@@ -642,9 +642,6 @@
   "autoClaimReady": {
     "message": "Auto-resgate pronto"
   },
-  "resumingAutomation": {
-    "message": "Retomando automação..."
-  },
   "attributionLinks": {
     "message": "Links de atribuição"
   },

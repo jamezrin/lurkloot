@@ -269,7 +269,7 @@ Change campaign visibility to:
 />
 ```
 
-Retain the existing global tick options for priority mode, excluded-campaign reset, tabless mode, skip-unfinishable rewards, and deadline margin. Retain `platformPatch()` for category and excluded-channel targeting.
+Retain the existing global tick options for priority mode, excluded-campaign reset, tabless mode, skip-unfinishable rewards, and deadline margin. Add the same global tick option to Idle Watchlist fallback policy because it changes scheduler selection for both platforms. Retain `platformPatch()` for category and excluded-channel targeting.
 
 - [ ] **Step 4: Make drag priority changes request global reconciliation**
 

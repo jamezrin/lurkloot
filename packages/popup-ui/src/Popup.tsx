@@ -587,7 +587,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                         focus={campaignFocus}
                         refreshing={refreshing}
                         onRefreshCampaign={() => refreshNow()}
-                        onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) })}
+                        onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) }, { tickAfterSave: true })}
                         onToggleExclude={(id) => {
                           const next = new Set(settings.excludedCampaignIds);
                           if (next.has(id)) next.delete(id);

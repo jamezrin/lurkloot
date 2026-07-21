@@ -38,7 +38,7 @@ The popup will remove its close-time resume polling, `resumingAutomation` state,
 Global scheduling changes request an immediate reconciliation of all enabled platforms:
 
 - campaign priority mode and priority ordering;
-- campaign visibility and excluded-campaign changes;
+- campaign visibility, excluded-campaign changes, and Idle Watchlist fallback policy;
 - tabless mode;
 - skip-unfinishable-rewards and deadline safety margin.
 
