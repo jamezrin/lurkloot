@@ -1,4 +1,4 @@
-import type { EngineEvent, FarmingStopReason } from "@lurkloot/shared/events";
+import type { EngineEvent, FarmingStopReason, PageContextCloseReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { Logger } from "./logger";
 
 function formatStopReason(reason: FarmingStopReason): string {
@@ -25,6 +25,32 @@ function formatStopReason(reason: FarmingStopReason): string {
   }
 }
 
+function formatPageContextOpenReason(reason: PageContextOpenReason): string {
+  switch (reason) {
+    case "background_rejected": return "background request rejected";
+    case "managed_context_unusable": return "previous background context unusable";
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
+
+function formatPageContextCloseReason(reason: PageContextCloseReason): string {
+  switch (reason) {
+    case "background_recovered": return "background requests recovered";
+    case "user_tab_available": return "user Kick tab available";
+    case "platform_disabled": return "platform disabled";
+    case "automation_disabled": return "automation disabled";
+    case "manual_watch": return "manual watch detected";
+    case "managed_context_unusable": return "background context unusable";
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
+
 export function formatCliEvent(event: EngineEvent): string {
   if (event.category === "diagnostic") return event.message;
 
@@ -41,6 +67,10 @@ export function formatCliEvent(event: EngineEvent): string {
     }
     case "challenge_claimed":
       return `Claimed a ${event.data.rarity} ${event.data.recurrence} challenge`;
+    case "page_context_opened":
+      return `Opened background context on ${event.data.host}: ${formatPageContextOpenReason(event.data.reason)}`;
+    case "page_context_closed":
+      return `Closed background context on ${event.data.host}: ${formatPageContextCloseReason(event.data.reason)}`;
     default: {
       const exhaustive: never = event;
       return exhaustive;

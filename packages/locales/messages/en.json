@@ -724,6 +724,12 @@
   "activityChallengeClaimed": {
     "message": "Claimed a $1 card from the $2 challenge"
   },
+  "activityPageContextOpened": { "message": "Opened a background context on $1 because $2." },
+  "activityPageContextClosed": { "message": "Closed the background context on $1 because $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rejected the tabless request" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "the previous background context was unusable" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "tabless requests recovered" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "an existing Kick tab became available" },
   "activityInterruption": {
     "message": "Farming interrupted: $1."
   },

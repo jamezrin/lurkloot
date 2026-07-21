@@ -724,6 +724,12 @@
   "activityChallengeClaimed": {
     "message": "Riscattata una carta $1 dalla sfida $2"
   },
+  "activityPageContextOpened": { "message": "È stato aperto un contesto in background su $1 perché $2." },
+  "activityPageContextClosed": { "message": "Il contesto in background su $1 è stato chiuso perché $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick ha rifiutato la richiesta senza scheda" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "il contesto precedente non era utilizzabile" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "le richieste senza scheda sono state ripristinate" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "è diventata disponibile una scheda Kick esistente" },
   "activityInterruption": {
     "message": "Raccolta interrotta: $1."
   },

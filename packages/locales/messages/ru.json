@@ -724,6 +724,12 @@
   "activityChallengeClaimed": {
     "message": "Получена карта $1 за испытание $2"
   },
+  "activityPageContextOpened": { "message": "Фоновый контекст на $1 открыт, потому что $2." },
+  "activityPageContextClosed": { "message": "Фоновый контекст на $1 закрыт, потому что $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick отклонил запрос без вкладки" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "предыдущий фоновый контекст был непригоден" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "запросы без вкладки снова работают" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "стала доступна существующая вкладка Kick" },
   "activityInterruption": {
     "message": "Сбор прерван: $1."
   },

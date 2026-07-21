@@ -724,6 +724,12 @@
   "activityChallengeClaimed": {
     "message": "Carta $1 resgatada do desafio $2"
   },
+  "activityPageContextOpened": { "message": "Um contexto em segundo plano foi aberto em $1 porque $2." },
+  "activityPageContextClosed": { "message": "O contexto em segundo plano em $1 foi fechado porque $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "a Kick rejeitou a solicitação sem aba" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "o contexto anterior não podia ser usado" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "as solicitações sem aba voltaram a funcionar" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "uma aba existente da Kick ficou disponível" },
   "activityInterruption": {
     "message": "Coleta interrompida: $1."
   },
