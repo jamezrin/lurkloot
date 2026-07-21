@@ -1,319 +1,106 @@
-# Twitch Tabless Heartbeat Recovery Implementation Plan
+# Optional Platform Host Access Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restore Twitch's recommended Spade tabless heartbeat and replace bare network errors with credential-safe stage and hostname diagnostics.
+**Goal:** Restore Twitch's Spade heartbeat without disabling the extension on upgrade, while allowing users to pre-authorize future first-party Twitch and Kick subdomains.
 
-**Architecture:** Keep compatibility resolution and scheduler fallback unchanged. Grant the extension exact access to the three Twitch service hosts used by Spade, wrap extension-owned fetches with safe hostname context, and preserve POST transport failures through the Spade strategy's existing one-retry path.
+**Architecture:** Preserve the exact hosts already shipped as required permissions and declare one optional wildcard per provider. The extension popup owns permission checks and user-gesture requests through optional adapter methods; shared popup/demo code receives state and callbacks without importing browser APIs. Twitch transport diagnostics and the existing muted-tab fallback remain unchanged.
 
-**Tech Stack:** TypeScript 7, WXT 0.20, WebExtension manifests, Vitest 4, pnpm 11.
+**Tech Stack:** TypeScript 7, React 19, WXT 0.20, WebExtension permissions API, Vitest 4, pnpm 11.
 
 ## Global Constraints
 
-- Add only `https://assets.twitch.tv/*`, `https://spade.twitch.tv/*`, and `https://beacon.twitch.tv/*`; do not add `https://*.twitch.tv/*`.
-- Never log URL paths, query strings, headers, cookies, tokens, or request payloads.
-- Preserve the current Spade retry count, scheduler `offlineRetryLimit`, and managed watch-tab fallback.
-- Keep `@lurkloot/core` browser-free and do not add dependencies or settings.
-- Keep the Kick and settings-session improvements out of this branch.
+- Keep `www.twitch.tv`, `gql.twitch.tv`, `kick.com`, `web.kick.com`, and `websockets.kick.com` mandatory.
+- Declare `https://*.twitch.tv/*` and `https://*.kick.com/*` only in `optional_host_permissions`.
+- Request Twitch and Kick independently and only from an explicit user click.
+- Denial must not disable a provider or remove current exact-host behavior.
+- Never log paths, query strings, headers, cookies, tokens, or payloads.
+- Do not modify package versions; the release workflow owns the `1.8.1` bump.
 
 ---
 
-### Task 1: Preserve contextual Spade POST failures
+### Task 1: Preserve contextual Twitch heartbeat failures
 
 **Files:**
 - Modify: `packages/core/src/platforms/twitch/heartbeat/spade.ts`
 - Test: `packages/extension/tests/twitchHeartbeat.test.ts`
-
-**Interfaces:**
-- Consumes: existing `TwitchHeartbeatPost(url, init): Promise<{ status: number }>`.
-- Produces: internal `SpadeSendResult = { ok: true } | { ok: false; message: string }`; no public contract change.
-
-- [ ] **Step 1: Add failing tests for destination and POST failures**
-
-Add these cases inside `describe("Spade v1")`:
-
-```ts
-it("preserves a contextual destination-fetch failure", async () => {
-  const strategy = createSpadeHeartbeat({
-    fetchText: vi.fn(async () => { throw new Error("Twitch Spade destination fetch failed for assets.twitch.tv: Failed to fetch"); }),
-    post: vi.fn(),
-  });
-
-  await expect(strategy.tick(context())).resolves.toEqual({
-    ok: false,
-    live: true,
-    message: "Twitch Spade destination fetch failed for assets.twitch.tv: Failed to fetch",
-  });
-});
-
-it("preserves the final contextual POST failure after one retry", async () => {
-  const fetchText = vi.fn()
-    .mockResolvedValueOnce('{"spade_url":"https://spade.twitch.tv/stale"}')
-    .mockResolvedValueOnce('{"spade_url":"https://beacon.twitch.tv/fresh"}');
-  const post = vi.fn(async (url: string) => {
-    throw new Error(`Twitch Spade heartbeat POST failed for ${new URL(url).hostname}: Failed to fetch`);
-  });
-  const strategy = createSpadeHeartbeat({ fetchText, post });
-
-  await expect(strategy.tick(context())).resolves.toEqual({
-    ok: false,
-    live: true,
-    message: "Twitch Spade heartbeat POST failed for beacon.twitch.tv: Failed to fetch",
-  });
-  expect(post).toHaveBeenCalledTimes(2);
-});
-```
-
-- [ ] **Step 2: Run the focused test and confirm the POST assertion fails**
-
-Run: `pnpm --filter @lurkloot/extension test -- twitchHeartbeat.test.ts`
-
-Expected: destination-fetch test passes through the existing outer catch; POST test fails because the strategy currently returns `Twitch Spade heartbeat returned an unexpected status`.
-
-- [ ] **Step 3: Return structured results from the private send helper**
-
-In `spade.ts`, add:
-
-```ts
-type SpadeSendResult = { ok: true } | { ok: false; message: string };
-```
-
-Change `send` to return `Promise<SpadeSendResult>`. Return `{ ok: true }` only for HTTP 204, return a status-specific message for other responses, and return the thrown error message from `catch`:
-
-```ts
-const send = async (destination: string, context: TwitchHeartbeatContext): Promise<SpadeSendResult> => {
-  if (!isAllowedTwitchUrl(destination)) return { ok: false, message: "Unsafe Twitch Spade destination" };
-  // Build the existing event and request unchanged.
-  try {
-    const response = await options.post(destination, existingRequest);
-    return response.status === 204
-      ? { ok: true }
-      : { ok: false, message: `Twitch Spade heartbeat returned HTTP ${response.status}` };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Twitch Spade heartbeat POST failed",
-    };
-  }
-};
-```
-
-In `tick`, retain the first result only long enough to decide whether to refresh. After the second send, return its message:
-
-```ts
-const first = await send(destination, context);
-if (first.ok) return { ok: true, live: true };
-
-destinations.delete(channel);
-const refreshed = await resolveDestination(context);
-if (!refreshed) return failed("Unable to refresh the Twitch Spade destination");
-destinations.set(channel, refreshed);
-const second = await send(refreshed, context);
-if (second.ok) return { ok: true, live: true };
-destinations.delete(channel);
-return failed(second.message);
-```
-
-- [ ] **Step 4: Run heartbeat tests**
-
-Run: `pnpm --filter @lurkloot/extension test -- twitchHeartbeat.test.ts`
-
-Expected: all Twitch heartbeat tests pass, including the two new contextual failure cases and the existing retry tests.
-
-- [ ] **Step 5: Commit the core behavior**
-
-```bash
-git add packages/core/src/platforms/twitch/heartbeat/spade.ts packages/extension/tests/twitchHeartbeat.test.ts
-git commit -m "fix(twitch): preserve spade heartbeat failures"
-```
-
-### Task 2: Add safe extension transport context and exact permissions
-
-**Files:**
-- Modify: `packages/extension/entrypoints/background.ts`
-- Modify: `packages/extension/wxt.config.ts`
 - Create: `packages/extension/src/core/twitchHeartbeatTransport.ts`
 - Create: `packages/extension/tests/heartbeatTransport.test.ts`
-- Create: `packages/extension/tests/manifestPermissions.test.ts`
+- Modify: `packages/extension/entrypoints/background.ts`
 
 **Interfaces:**
-- Consumes: `TwitchHeartbeatFetchText` and `TwitchHeartbeatPost` injected into `TwitchAdapter`.
-- Produces: `twitchHeartbeatFetchText(url, init)` and `twitchHeartbeatPost(url, init)` from the focused extension transport module, used unchanged by the adapter.
+- Produces: `twitchHeartbeatFetchText(url, init): Promise<string>` and `twitchHeartbeatPost(url, init): Promise<{ status: number }>`.
+- Produces: private `SpadeSendResult = { ok: true } | { ok: false; message: string }`.
 
-- [ ] **Step 1: Write failing transport tests**
+- [x] **Step 1: Add failing tests for destination fetch and final POST errors**
+- [x] **Step 2: Confirm the old POST path collapses the thrown message**
+- [x] **Step 3: Preserve safe stage/hostname context through one Spade retry**
+- [x] **Step 4: Run `pnpm --filter @lurkloot/extension test -- twitchHeartbeat.test.ts heartbeatTransport.test.ts` and confirm PASS**
+- [x] **Step 5: Commit the core and extension transport changes**
 
-Create `heartbeatTransport.test.ts` with mocked `globalThis.fetch` and assertions that errors contain only safe hostname context:
+### Task 2: Declare optional provider wildcards
 
-```ts
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
+**Files:**
+- Modify: `packages/extension/wxt.config.ts`
+- Test: `packages/extension/tests/manifestPermissions.test.ts`
 
-afterEach(() => vi.unstubAllGlobals());
+**Interfaces:**
+- Produces required exact hosts plus `optional_host_permissions: ["https://*.twitch.tv/*", "https://*.kick.com/*"]`.
 
-describe("Twitch heartbeat extension transport", () => {
-  it("identifies destination-fetch failures without leaking URL details", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
-    const url = "https://assets.twitch.tv/config/settings.secret.js?token=do-not-log";
+- [ ] **Step 1: Change the manifest test to assert the new Twitch heartbeat exact hosts are absent from `host_permissions`, both wildcards occur under `optional_host_permissions`, and all five previously shipped exact hosts remain required**
+- [ ] **Step 2: Run `pnpm --filter @lurkloot/extension test -- manifestPermissions.test.ts` and confirm it fails against the current mandatory hosts**
+- [ ] **Step 3: Remove `assets`, `spade`, and `beacon` from required hosts and add the two optional wildcards**
+- [ ] **Step 4: Rerun the focused test and confirm PASS**
+- [ ] **Step 5: Commit as `fix(extension): make platform wildcard access optional`**
 
-    await expect(twitchHeartbeatFetchText(url)).rejects.toThrow(
-      "Twitch Spade destination fetch failed for assets.twitch.tv: Failed to fetch",
-    );
-    await expect(twitchHeartbeatFetchText(url)).rejects.not.toThrow(/settings\.secret|do-not-log/);
-  });
+### Task 3: Add the permission adapter boundary
 
-  it("identifies heartbeat POST failures without leaking URL details", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
-    const url = "https://spade.twitch.tv/track?token=do-not-log";
+**Files:**
+- Modify: `packages/popup-ui/src/types.ts`
+- Modify: `packages/extension/entrypoints/popup/app.tsx`
+- Test: `packages/extension/tests/popupAdapter.test.tsx`
 
-    await expect(twitchHeartbeatPost(url, { method: "POST" })).rejects.toThrow(
-      "Twitch Spade heartbeat POST failed for spade.twitch.tv: Failed to fetch",
-    );
-    await expect(twitchHeartbeatPost(url, { method: "POST" })).rejects.not.toThrow(/track|do-not-log/);
-  });
+**Interfaces:**
+- Produces: `getPlatformHostAccess?(platform: Platform): Promise<boolean>`.
+- Produces: `requestPlatformHostAccess?(platform: Platform): Promise<boolean>`.
+- Maps Twitch to only `https://*.twitch.tv/*` and Kick to only `https://*.kick.com/*`.
 
-  it("reports non-success destination responses with hostname and status", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("blocked", { status: 403 })));
-    await expect(twitchHeartbeatFetchText("https://assets.twitch.tv/config/settings.js"))
-      .rejects.toThrow("Twitch Spade destination fetch failed for assets.twitch.tv: HTTP 403");
-  });
-});
-```
+- [ ] **Step 1: Add failing adapter tests asserting exact `permissions.contains` and `permissions.request` calls for each provider**
+- [ ] **Step 2: Run `pnpm --filter @lurkloot/extension test -- popupAdapter.test.tsx` and confirm FAIL**
+- [ ] **Step 3: Add the optional adapter methods and the provider-to-origin mapping without adding browser imports to `popup-ui`**
+- [ ] **Step 4: Rerun the focused test and confirm PASS**
+- [ ] **Step 5: Commit as `feat(popup): expose optional platform host access`**
 
-- [ ] **Step 2: Write the failing manifest permission test**
+### Task 4: Add provider-specific consent UI
 
-Create `manifestPermissions.test.ts` using `readFileSync` and `fileURLToPath` to read `../wxt.config.ts`, following `coreBoundary.test.ts`. Assert the source contains the three exact quoted entries and does not contain the wildcard:
+**Files:**
+- Modify: `packages/popup-ui/src/settings.tsx`
+- Modify: `packages/popup-ui/src/settingsRegistry.tsx`
+- Modify: `packages/popup-ui/src/settingsControls.tsx`
+- Modify: `packages/locales/messages/*.json`
+- Test: `packages/extension/tests/settingsRegistry.test.tsx`
 
-```ts
-expect(source).toContain('"https://assets.twitch.tv/*"');
-expect(source).toContain('"https://spade.twitch.tv/*"');
-expect(source).toContain('"https://beacon.twitch.tv/*"');
-expect(source).not.toContain('"https://*.twitch.tv/*"');
-```
+**Interfaces:**
+- `SettingsView` loads permission state for each provider when mounted.
+- `PlatformHostAccessRow` displays available, pending, granted, or denied state and invokes only the selected provider callback.
+- Demo adapters omit permission methods, so screenshots and the site demo render no permission action.
 
-- [ ] **Step 3: Run the new tests and confirm failure**
+- [ ] **Step 1: Add failing tests for missing/granted state, a disabled pending button, denial retry, and absence when adapter methods are unavailable**
+- [ ] **Step 2: Run `pnpm --filter @lurkloot/extension test -- settingsRegistry.test.tsx` and confirm FAIL**
+- [ ] **Step 3: Implement the focused action row and pass permission state/callbacks into the settings registry**
+- [ ] **Step 4: Add catalog-complete copy for access title, explanation, grant, granted, pending, and denied states**
+- [ ] **Step 5: Rerun the focused test and locale validation and confirm PASS**
+- [ ] **Step 6: Commit as `feat(popup): request optional platform access`**
 
-Run: `pnpm --filter @lurkloot/extension test -- heartbeatTransport.test.ts manifestPermissions.test.ts`
-
-Expected: FAIL because the named transport functions are not exported and the three manifest hosts are absent.
-
-- [ ] **Step 4: Implement credential-safe transport wrappers**
-
-Create `src/core/twitchHeartbeatTransport.ts` with the hostname formatter and exported wrappers:
-
-```ts
-function safeHostname(url: string): string {
-  try {
-    return new URL(url).hostname || "unknown Twitch host";
-  } catch {
-    return "unknown Twitch host";
-  }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "unknown network error";
-}
-
-export async function twitchHeartbeatFetchText(url: string, init?: RequestInit): Promise<string> {
-  const hostname = safeHostname(url);
-  try {
-    const response = await fetch(url, init);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.text();
-  } catch (error) {
-    throw new Error(`Twitch Spade destination fetch failed for ${hostname}: ${errorMessage(error)}`);
-  }
-}
-
-export async function twitchHeartbeatPost(url: string, init: RequestInit): Promise<{ status: number }> {
-  const hostname = safeHostname(url);
-  try {
-    const response = await fetch(url, init);
-    return { status: response.status };
-  } catch (error) {
-    throw new Error(`Twitch Spade heartbeat POST failed for ${hostname}: ${errorMessage(error)}`);
-  }
-}
-```
-
-Replace the two inline transport closures in `createAdapters` with these functions.
-
-- [ ] **Step 5: Add exact manifest permissions**
-
-Add these entries after `gql.twitch.tv` in `host_permissions`:
-
-```ts
-"https://assets.twitch.tv/*",
-"https://spade.twitch.tv/*",
-"https://beacon.twitch.tv/*",
-```
-
-- [ ] **Step 6: Run focused tests**
-
-Run: `pnpm --filter @lurkloot/extension test -- heartbeatTransport.test.ts manifestPermissions.test.ts twitchHeartbeat.test.ts`
-
-Expected: all focused tests pass with no URL path or query-string leakage.
-
-- [ ] **Step 7: Commit extension transport and permissions**
-
-```bash
-git add packages/extension/entrypoints/background.ts packages/extension/wxt.config.ts packages/extension/src/core/twitchHeartbeatTransport.ts packages/extension/tests/heartbeatTransport.test.ts packages/extension/tests/manifestPermissions.test.ts
-git commit -m "fix(extension): allow twitch spade heartbeat hosts"
-```
-
-### Task 3: Document permissions and verify browser output
+### Task 5: Document and publish the patch PR update
 
 **Files:**
 - Modify: `docs/store-readiness.md`
+- Modify: `packages/site/src/changelog.json`
 
-**Interfaces:**
-- Consumes: the exact manifest host list from Task 2.
-- Produces: store-review justifications for every newly requested host.
-
-- [ ] **Step 1: Update host permission justifications**
-
-Add these bullets after `gql.twitch.tv`:
-
-```md
-- **`https://assets.twitch.tv/*`** — Reads Twitch's public web settings bundle to discover the current Spade/beacon endpoint used by tabless minute-watched heartbeats.
-- **`https://spade.twitch.tv/*`** — Sends Twitch's web minute-watched heartbeat in tabless low-resource mode.
-- **`https://beacon.twitch.tv/*`** — Sends the same tabless heartbeat when Twitch's settings select its supported beacon endpoint.
-```
-
-Update the summary near the top of `docs/store-readiness.md` so it describes the Twitch page, GQL, settings asset, and heartbeat origins rather than only “Twitch” and “Twitch GQL.”
-
-- [ ] **Step 2: Run documentation and diff checks**
-
-Run: `git diff --check && rg -n 'assets\.twitch|spade\.twitch|beacon\.twitch' packages/extension/wxt.config.ts docs/store-readiness.md`
-
-Expected: no whitespace errors; every new host appears in both manifest and store-readiness documentation.
-
-- [ ] **Step 3: Run the full verification suite**
-
-Run: `pnpm verify`
-
-Expected: script tests, all workspace typechecks, extension tests, site build, and Chromium/Firefox extension builds pass.
-
-- [ ] **Step 4: Inspect generated manifests**
-
-Run:
-
-```bash
-rg -n 'assets\.twitch\.tv|spade\.twitch\.tv|beacon\.twitch\.tv|\*\.twitch\.tv' \
-  packages/extension/.output/chrome-mv3/manifest.json \
-  packages/extension/.output/firefox-mv2/manifest.json
-```
-
-Expected: both generated manifests contain the three exact hosts and neither contains a wildcard Twitch host.
-
-- [ ] **Step 5: Commit documentation**
-
-```bash
-git add docs/store-readiness.md
-git commit -m "docs(store): justify twitch heartbeat hosts"
-```
-
-- [ ] **Step 6: Confirm final branch state**
-
-Run: `git status --short --branch && git log --oneline origin/develop..HEAD`
-
-Expected: clean worktree with the design, implementation-plan, core fix, extension fix, and documentation commits visible.
+- [ ] **Step 1: Replace mandatory Twitch heartbeat-host documentation with optional Twitch/Kick wildcard justification and denial behavior**
+- [ ] **Step 2: Prepend an undated `1.8.1` fixed item: `Fixed Twitch tabless farming falling back to muted watch tabs because required heartbeat services could not be reached.`**
+- [ ] **Step 3: Run `pnpm verify` and confirm all tests, typechecks, site build, Chromium build, and Firefox build pass**
+- [ ] **Step 4: Inspect both generated manifests and confirm the two wildcards are optional, the new Twitch heartbeat exact hosts are not required, and the five existing exact hosts remain required**
+- [ ] **Step 5: Commit as `docs(release): add 1.8.1 hotfix changelog`**
+- [ ] **Step 6: Push the branch and update PR #189 with permission consent, fallback, changelog, and verification details**
