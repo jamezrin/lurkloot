@@ -894,23 +894,5 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Gestion des liens v2"
-  },
-  "platformHostAccessTitle": {
-    "message": "Accès pérenne à la plateforme"
-  },
-  "platformHostAccessDescription": {
-    "message": "Autorisez Lurkloot à utiliser les services $1 actuels et futurs sans nouvelle mise à jour perturbatrice."
-  },
-  "platformHostAccessGrant": {
-    "message": "Autoriser l’accès"
-  },
-  "platformHostAccessGranted": {
-    "message": "Autorisé"
-  },
-  "platformHostAccessPending": {
-    "message": "Demande en cours…"
-  },
-  "platformHostAccessDenied": {
-    "message": "L’accès n’a pas été accordé. Les services actuels continuent de fonctionner ; vous pouvez réessayer."
   }
 }

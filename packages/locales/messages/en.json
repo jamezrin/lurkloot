@@ -894,23 +894,5 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Claim handling v2"
-  },
-  "platformHostAccessTitle": {
-    "message": "Future-proof platform access"
-  },
-  "platformHostAccessDescription": {
-    "message": "Allow Lurkloot to use current and future $1 services without another disruptive update."
-  },
-  "platformHostAccessGrant": {
-    "message": "Allow access"
-  },
-  "platformHostAccessGranted": {
-    "message": "Allowed"
-  },
-  "platformHostAccessPending": {
-    "message": "Requesting…"
-  },
-  "platformHostAccessDenied": {
-    "message": "Access was not granted. Current services keep working; you can try again."
   }
 }

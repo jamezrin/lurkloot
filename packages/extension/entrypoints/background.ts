@@ -170,14 +170,6 @@ const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
   exportCliCredentials: buildCliCredentialBlob,
   handleActivityMessage,
   handleCoreMessage: (message, sender) => controller.handleMessage(message, sender),
-  reportPlatformHostAccess: (platform, granted) => reportEvents([{
-      category: "diagnostic",
-      platform,
-      level: granted ? "info" : "warn",
-      message: granted
-        ? "Optional platform host access granted"
-        : "Optional platform host access was not granted; current-host behavior remains available",
-    }]),
 });
 
 export default defineBackground(() => {

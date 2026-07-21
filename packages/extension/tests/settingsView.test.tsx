@@ -100,12 +100,6 @@ const labels: Record<string, string> = {
   excludedChannelsTitle: "Excluded drop channels",
   excludedChannelsDescription: "Campaign farming will skip these streamers.",
   excludedChannelsEmpty: "No excluded drop channels.",
-  platformHostAccessTitle: "Future-proof platform access",
-  platformHostAccessDescription: "Allow Lurkloot to use current and future $1 services.",
-  platformHostAccessGrant: "Allow access",
-  platformHostAccessGranted: "Allowed",
-  platformHostAccessPending: "Requesting…",
-  platformHostAccessDenied: "Access was not granted. Current services keep working; you can try again.",
 };
 
 describe("deadline feasibility setting", () => {
@@ -159,79 +153,5 @@ describe("deadline feasibility setting", () => {
     const input = container.querySelector('input[aria-label="Deadline safety margin"]') as HTMLInputElement;
     expect(input.value).toBe("17");
     expect(input.disabled).toBe(true);
-  });
-});
-
-describe("optional platform host access", () => {
-  const baseAdapter = (): PopupAdapter => ({
-    version: "1.8.0",
-    send: async <T,>() => undefined as T,
-    getStorage: async () => ({}),
-    setStorage: async () => undefined,
-    getMessage: (key) => key,
-    getUiLanguage: () => "en",
-    openLink: () => undefined,
-  });
-
-  function mountWithAdapter(adapter: PopupAdapter) {
-    const { document, window } = parseHTML("<div id=app></div>");
-    vi.stubGlobal("window", window);
-    vi.stubGlobal("document", document);
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    const container = document.getElementById("app")!;
-
-    act(() => {
-      root = createRoot(container);
-      root.render(
-        <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-          <I18nContext.Provider value={{ t: (key, substitutions) => {
-            const value = labels[key] ?? key;
-            return substitutions ? value.replace("$1", String(substitutions)) : value;
-          }, dir: "ltr", locale: "en" }}>
-            <SettingsView
-              suggestions={{ twitch: [], kick: [] }}
-              onSearchCategories={async () => []}
-              settings={DEFAULT_SETTINGS}
-              onSettingsChange={async () => undefined}
-              exportConfirmationResetKey={0}
-            />
-          </I18nContext.Provider>
-        </PopupRuntimeContext.Provider>,
-      );
-    });
-    return container;
-  }
-
-  it("omits access actions when the host has no permission API", () => {
-    const container = mountWithAdapter(baseAdapter());
-    expect(container.textContent).not.toContain("Future-proof platform access");
-  });
-
-  it("loads each grant and requests only the clicked platform", async () => {
-    let resolveRequest: ((granted: boolean) => void) | undefined;
-    const adapter = {
-      ...baseAdapter(),
-      getPlatformHostAccess: vi.fn(async (platform) => platform === "kick"),
-      requestPlatformHostAccess: vi.fn(() => new Promise<boolean>((resolve) => { resolveRequest = resolve; })),
-    } satisfies PopupAdapter;
-    const container = mountWithAdapter(adapter);
-    await act(async () => undefined);
-
-    const twitchButton = [...container.querySelectorAll("button")].find((button) => button.textContent === "Allow access") as HTMLButtonElement;
-    expect(twitchButton).toBeTruthy();
-    expect(container.textContent).toContain("Allowed");
-
-    act(() => twitchButton.click());
-    expect(twitchButton.disabled).toBe(true);
-    expect(twitchButton.textContent).toBe("Requesting…");
-    expect(adapter.requestPlatformHostAccess).toHaveBeenCalledWith("twitch");
-
-    await act(async () => resolveRequest?.(false));
-    expect(container.textContent).toContain("Access was not granted");
-    expect(twitchButton.disabled).toBe(false);
-
-    act(() => twitchButton.click());
-    await act(async () => resolveRequest?.(true));
-    expect(container.textContent).toContain("Allowed");
   });
 });

@@ -894,23 +894,5 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Обработка ссылок v2"
-  },
-  "platformHostAccessTitle": {
-    "message": "Доступ к будущим сервисам платформы"
-  },
-  "platformHostAccessDescription": {
-    "message": "Разрешите Lurkloot использовать текущие и будущие сервисы $1 без повторного сбоя при обновлении."
-  },
-  "platformHostAccessGrant": {
-    "message": "Разрешить доступ"
-  },
-  "platformHostAccessGranted": {
-    "message": "Разрешено"
-  },
-  "platformHostAccessPending": {
-    "message": "Запрос…"
-  },
-  "platformHostAccessDenied": {
-    "message": "Доступ не предоставлен. Текущие сервисы продолжат работать; можно попробовать снова."
   }
 }

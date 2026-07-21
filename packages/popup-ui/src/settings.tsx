@@ -26,9 +26,6 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   const [query, setQuery] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [exportArmed, setExportArmed] = useState(false);
-  const [hostAccess, setHostAccess] = useState<Record<Platform, boolean | undefined>>({ twitch: undefined, kick: undefined });
-  const [hostAccessPending, setHostAccessPending] = useState<Record<Platform, boolean>>({ twitch: false, kick: false });
-  const [hostAccessDenied, setHostAccessDenied] = useState<Record<Platform, boolean>>({ twitch: false, kick: false });
   useEffect(() => setExportArmed(false), [exportConfirmationResetKey]);
 
   useEffect(() => {
@@ -42,32 +39,6 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     };
   }, [adapter, preview]);
 
-  useEffect(() => {
-    if (!adapter.getPlatformHostAccess || !adapter.requestPlatformHostAccess) return;
-    let mounted = true;
-    void Promise.all((["twitch", "kick"] as const).map(async (platform) => {
-      const granted = await adapter.getPlatformHostAccess!(platform);
-      if (mounted) setHostAccess((current) => ({ ...current, [platform]: granted }));
-    }));
-    return () => { mounted = false; };
-  }, [adapter]);
-
-  async function requestHostAccess(platform: Platform): Promise<void> {
-    if (!adapter.requestPlatformHostAccess) return;
-    setHostAccessPending((current) => ({ ...current, [platform]: true }));
-    setHostAccessDenied((current) => ({ ...current, [platform]: false }));
-    try {
-      const granted = await adapter.requestPlatformHostAccess(platform);
-      setHostAccess((current) => ({ ...current, [platform]: granted }));
-      setHostAccessDenied((current) => ({ ...current, [platform]: !granted }));
-    } catch {
-      setHostAccess((current) => ({ ...current, [platform]: false }));
-      setHostAccessDenied((current) => ({ ...current, [platform]: true }));
-    } finally {
-      setHostAccessPending((current) => ({ ...current, [platform]: false }));
-    }
-  }
-
   function toggleAdvanced(value: boolean): void {
     setShowAdvanced(value);
     if (preview) return;
@@ -75,22 +46,8 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   }
 
   const sections = useMemo(
-    () => buildSettingsRegistry({
-      t,
-      settings,
-      onSettingsChange,
-      suggestions,
-      onSearchCategories,
-      compatibilityRegistry,
-      compatibilityResolution,
-      platformHostAccess: adapter.getPlatformHostAccess && adapter.requestPlatformHostAccess
-        ? {
-          twitch: { granted: hostAccess.twitch, pending: hostAccessPending.twitch, denied: hostAccessDenied.twitch, request: () => requestHostAccess("twitch") },
-          kick: { granted: hostAccess.kick, pending: hostAccessPending.kick, denied: hostAccessDenied.kick, request: () => requestHostAccess("kick") },
-        }
-        : undefined,
-    }),
-    [t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution, adapter, hostAccess, hostAccessPending, hostAccessDenied],
+    () => buildSettingsRegistry({ t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution }),
+    [t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution],
   );
   const visible = useMemo(
     () => filterSettingsTree(sections, { t, query, showAdvanced }),

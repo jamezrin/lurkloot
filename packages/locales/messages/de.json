@@ -894,23 +894,5 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Verknüpfungsverarbeitung v2"
-  },
-  "platformHostAccessTitle": {
-    "message": "Zukunftssicherer Plattformzugriff"
-  },
-  "platformHostAccessDescription": {
-    "message": "Erlaube Lurkloot, aktuelle und zukünftige $1-Dienste ohne ein weiteres störendes Update zu verwenden."
-  },
-  "platformHostAccessGrant": {
-    "message": "Zugriff erlauben"
-  },
-  "platformHostAccessGranted": {
-    "message": "Erlaubt"
-  },
-  "platformHostAccessPending": {
-    "message": "Wird angefordert…"
-  },
-  "platformHostAccessDenied": {
-    "message": "Der Zugriff wurde nicht gewährt. Aktuelle Dienste funktionieren weiterhin; du kannst es erneut versuchen."
   }
 }

@@ -149,38 +149,6 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
   );
 }
 
-export function PlatformHostAccessRow({ platformLabel, granted, pending, denied, onRequest }: {
-  platformLabel: string;
-  granted?: boolean;
-  pending: boolean;
-  denied: boolean;
-  onRequest(): void | Promise<void>;
-}) {
-  const t = useT();
-  return (
-    <div className="flex items-center gap-3 py-2.5">
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("platformHostAccessTitle")}</div>
-        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-          {denied ? t("platformHostAccessDenied") : t("platformHostAccessDescription", platformLabel)}
-        </div>
-      </div>
-      {granted ? (
-        <span className="shrink-0 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">{t("platformHostAccessGranted")}</span>
-      ) : (
-        <button
-          type="button"
-          disabled={pending || granted === undefined}
-          onClick={() => void onRequest()}
-          className="shrink-0 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          {pending ? t("platformHostAccessPending") : t("platformHostAccessGrant")}
-        </button>
-      )}
-    </div>
-  );
-}
-
 // Controls which campaign states appear in the Drops list. A state with its pill
 // turned off is hidden; campaigns in none of these states are always shown.
 export function CampaignFilterSettingRow({ value, onChange }: { value: Record<CampaignFilterKey, boolean>; onChange(value: Record<CampaignFilterKey, boolean>): void | Promise<void> }) {

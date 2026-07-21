@@ -894,23 +894,5 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Tratamento de links v2"
-  },
-  "platformHostAccessTitle": {
-    "message": "Acesso à plataforma preparado para o futuro"
-  },
-  "platformHostAccessDescription": {
-    "message": "Permita que o Lurkloot use os serviços atuais e futuros da $1 sem outra atualização disruptiva."
-  },
-  "platformHostAccessGrant": {
-    "message": "Permitir acesso"
-  },
-  "platformHostAccessGranted": {
-    "message": "Permitido"
-  },
-  "platformHostAccessPending": {
-    "message": "Solicitando…"
-  },
-  "platformHostAccessDenied": {
-    "message": "O acesso não foi concedido. Os serviços atuais continuam funcionando; você pode tentar novamente."
   }
 }

@@ -894,23 +894,5 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "链接处理 v2"
-  },
-  "platformHostAccessTitle": {
-    "message": "面向未来的平台访问权限"
-  },
-  "platformHostAccessDescription": {
-    "message": "允许 Lurkloot 使用 $1 当前和未来的服务，避免再次因更新而中断。"
-  },
-  "platformHostAccessGrant": {
-    "message": "允许访问"
-  },
-  "platformHostAccessGranted": {
-    "message": "已允许"
-  },
-  "platformHostAccessPending": {
-    "message": "正在请求…"
-  },
-  "platformHostAccessDenied": {
-    "message": "未授予访问权限。当前服务仍可正常使用；你可以重试。"
   }
 }
