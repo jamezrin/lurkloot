@@ -204,6 +204,10 @@ function demoSnapshot(): RuntimeSnapshot {
   return {
     settings,
     state: {
+      authHealth: {
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+        kick: { status: "healthy", checkedAt: new Date().toISOString() },
+      },
       sessions: {
         twitch: {
           platform: "twitch",
