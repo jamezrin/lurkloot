@@ -42,21 +42,21 @@ describe("automation authentication presentation", () => {
   });
 
   it.each([
-    ["healthy", undefined, "running", "automationRunning", "accent", undefined],
-    ["checking", undefined, "checking", "automationChecking", "muted", "authCheckingDetail"],
-    ["missing_credentials", "credentials_missing", "needs_sign_in", "automationNeedsSignIn", "warning", "authSignInMissing"],
-    ["invalid_credentials", "credentials_rejected", "needs_sign_in", "automationNeedsSignIn", "warning", "authSignInRejected"],
-    ["blocked", "security_policy_blocked", "blocked", "automationBlocked", "danger", "authBrowserProfileBlocked"],
-    ["unavailable", "credential_lookup_failed", "unavailable", "automationUnavailable", "warning", "authCredentialCheckUnavailable"],
-    ["unavailable", "network_unavailable", "unavailable", "automationUnavailable", "warning", "authNetworkTemporarilyUnavailable"],
-    ["unavailable", "platform_unavailable", "unavailable", "automationUnavailable", "warning", "authPlatformTemporarilyUnavailable"],
-  ] as const)("maps %s/%s", (status, reasonCode, state, badgeKey, tone, detailKey) => {
+    ["healthy", undefined, "running", "automationRunning", "accent", undefined, true],
+    ["checking", undefined, "checking", "automationChecking", "muted", "authCheckingDetail", false],
+    ["missing_credentials", "credentials_missing", "needs_sign_in", "automationNeedsSignIn", "warning", "authSignInMissing", false],
+    ["invalid_credentials", "credentials_rejected", "needs_sign_in", "automationNeedsSignIn", "warning", "authSignInRejected", false],
+    ["blocked", "security_policy_blocked", "blocked", "automationBlocked", "danger", "authBrowserProfileBlocked", false],
+    ["unavailable", "credential_lookup_failed", "unavailable", "automationUnavailable", "warning", "authCredentialCheckUnavailable", false],
+    ["unavailable", "network_unavailable", "unavailable", "automationUnavailable", "warning", "authNetworkTemporarilyUnavailable", false],
+    ["unavailable", "platform_unavailable", "unavailable", "automationUnavailable", "warning", "authPlatformTemporarilyUnavailable", false],
+  ] as const)("maps %s/%s", (status, reasonCode, state, badgeKey, tone, detailKey, operational) => {
     expect(automationPresentation({
       platform: "kick",
       enabled: true,
       pending: false,
       authHealth: health(status, reasonCode),
-    })).toMatchObject({ state, badgeKey, tone, detailKey });
+    })).toMatchObject({ state, badgeKey, tone, detailKey, operational });
   });
 
   it.each(["missing_credentials", "invalid_credentials"] as const)(
@@ -67,13 +67,13 @@ describe("automation authentication presentation", () => {
         enabled: true,
         pending: false,
         authHealth: health(status),
-      }).action).toEqual({ labelKey: "signInToTwitch", url: AUTH_SIGN_IN_URLS.twitch });
+      }).action).toEqual({ labelKey: "signInToTwitch", url: "https://www.twitch.tv/login" });
       expect(automationPresentation({
         platform: "kick",
         enabled: true,
         pending: false,
         authHealth: health(status),
-      }).action).toEqual({ labelKey: "signInToKick", url: AUTH_SIGN_IN_URLS.kick });
+      }).action).toEqual({ labelKey: "signInToKick", url: "https://kick.com/login" });
     },
   );
 
@@ -90,11 +90,13 @@ describe("automation authentication presentation", () => {
   );
 
   it("does not propagate authentication message values", () => {
-    expect(JSON.stringify(automationPresentation({
+    const result = automationPresentation({
       platform: "kick",
       enabled: true,
       pending: false,
       authHealth: health("blocked", "security_policy_blocked"),
-    }))).not.toContain("must-not-render");
+    });
+    expect(JSON.stringify(result)).not.toContain("must-not-render");
+    expect(result).not.toHaveProperty("message");
   });
 });

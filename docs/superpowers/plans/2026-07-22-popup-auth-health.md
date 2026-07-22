@@ -417,9 +417,9 @@ git commit -m "feat(locales): translate authentication health guidance"
 
 - [ ] **Step 1: Run formatting and diff hygiene checks**
 
-Run: `git diff origin/develop --check && git status --short`
+Run: `git diff origin/develop --check && test -z "$(git status --short)"`
 
-Expected: no whitespace errors; only intentional committed branch changes are listed by the comparison, and the worktree itself is clean.
+Expected: no whitespace errors and the command exits successfully (the worktree is clean with no uncommitted changes).
 
 - [ ] **Step 2: Run the repository check suite**
 
