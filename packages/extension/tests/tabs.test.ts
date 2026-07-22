@@ -18,6 +18,7 @@ import {
   stopManagedPageContextTabsWithBrowser,
   stopWatchTabWithBrowser,
 } from "@lurkloot/core/tabs";
+import { isSafeFetchError } from "@lurkloot/core/fetchError";
 
 const channel: ChannelCandidate = {
   platform: "twitch",
@@ -453,6 +454,41 @@ describe("tab manager", () => {
       args: ["https://web.kick.com/api/v1/drops/progress", null],
     }));
     expect(browser.tabs.remove).not.toHaveBeenCalled();
+  });
+
+  it("reconstructs sanitized page-context failures", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => [{ result: {
+          __lurklootPageFetch: true,
+          ok: false,
+          error: {
+            kind: "security_policy_blocked",
+            status: 403,
+            reason: "Request blocked by security policy.",
+            reference: "9e4db7e3",
+            token: "must-not-survive",
+          },
+        } }]),
+      },
+    };
+    browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+
+    const error = await fetchJsonInPageWithBrowser(
+      browser,
+      "https://kick.com",
+      "https://kick.com/api/v1/user",
+    ).catch((caught: unknown) => caught);
+
+    expect(isSafeFetchError(error)).toBe(true);
+    expect(error.failure).toEqual({
+      kind: "security_policy_blocked",
+      status: 403,
+      reason: "Request blocked by security policy.",
+      reference: "9e4db7e3",
+    });
+    expect(JSON.stringify(error)).not.toContain("must-not-survive");
   });
 
   it("throws a clear error when page-context execution returns no result", async () => {
@@ -979,12 +1015,43 @@ describe("fetchKickInBackgroundWith", () => {
 
   it("throws KickWafBlockedError on a 403 security-policy block", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(
-      JSON.stringify({ error: "Request blocked by security policy." }),
+      JSON.stringify({
+        error: "Request blocked by security policy.",
+        reference: "9e4db7e3",
+        token: "must-not-survive",
+      }),
       { status: 403, headers: { "content-type": "application/json" } },
     )));
 
-    await expect(fetchKickInBackgroundWith(cookieApi, "https://web.kick.com/api/v1/drops/progress"))
-      .rejects.toBeInstanceOf(KickWafBlockedError);
+    const error = await fetchKickInBackgroundWith(cookieApi, "https://web.kick.com/api/v1/drops/progress")
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(KickWafBlockedError);
+    expect(error.failure).toEqual({
+      kind: "security_policy_blocked",
+      status: 403,
+      reason: "Request blocked by security policy.",
+      reference: "9e4db7e3",
+    });
+    expect(JSON.stringify(error)).not.toContain("must-not-survive");
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    [401, "Unauthenticated", "authentication_rejected"],
+    [500, "Internal Server Error", "http_error"],
+  ] as const)("classifies HTTP %s as %s", async (status, reason, kind) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      JSON.stringify({ error: reason, body: "must-not-survive" }),
+      { status, headers: { "content-type": "application/json" } },
+    )));
+
+    const error = await fetchKickInBackgroundWith(cookieApi, "https://web.kick.com/api/v1/drops/progress")
+      .catch((caught: unknown) => caught);
+
+    expect(isSafeFetchError(error)).toBe(true);
+    expect(error.failure).toEqual({ kind, status, reason });
+    expect(JSON.stringify(error)).not.toContain("must-not-survive");
     vi.unstubAllGlobals();
   });
 

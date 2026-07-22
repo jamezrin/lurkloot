@@ -3,6 +3,7 @@ import type { EventEmitter, PageContextCloseReason, PageContextOpenReason } from
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TwitchIntegrity } from "./twitchIntegrity";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
+import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "./fetchError";
 
 const ignoreEvent: EventEmitter = () => {};
 
@@ -491,11 +492,39 @@ const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com"];
 // Distinguishes "Kick's WAF / origin check rejected the service-worker request"
 // (fall back to the page-context tab) from a genuine error. Thrown by
 // fetchKickInBackground so the adapter wrapper can log and fall back cleanly.
-export class KickWafBlockedError extends Error {
-  constructor(message: string) {
-    super(message);
+export class KickWafBlockedError extends SafeFetchError {
+  constructor(candidate: string | SafeFetchFailure) {
+    super(typeof candidate === "string"
+      ? { kind: "network_error", reason: candidate }
+      : candidate);
     this.name = "KickWafBlockedError";
   }
+}
+
+function safeKickFailure(status: number, text: string): SafeFetchFailure {
+  let body: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
+  } catch {
+    // Non-JSON response bodies are never retained.
+  }
+  const reason = typeof body.error === "string"
+    ? body.error
+    : typeof body.message === "string"
+      ? body.message
+      : undefined;
+  const blocked = /security policy|request blocked/i.test(reason ?? "");
+  return safeFetchFailure({
+    kind: blocked
+      ? "security_policy_blocked"
+      : status === 401 || status === 403
+        ? "authentication_rejected"
+        : "http_error",
+    status,
+    reason,
+    reference: body.reference,
+  });
 }
 
 // Spike: attempt a Kick API call straight from the service worker (no tab),
@@ -517,14 +546,18 @@ export async function fetchKickInBackgroundWith<T>(api: CookieApi, url: string, 
   } catch (error) {
     // A network/CORS rejection from the extension origin is exactly the
     // origin-level failure we want to fall back on, not a hard error.
-    throw new KickWafBlockedError(error instanceof Error ? error.message : "network error");
+    throw new KickWafBlockedError({
+      kind: "network_error",
+      reason: error instanceof Error ? error.message : "network error",
+    });
   }
 
   const text = await response.text();
   if (!response.ok) {
-    const blocked = response.status === 403 || /security policy|blocked/i.test(text);
-    const message = `HTTP ${response.status} ${response.statusText}`;
-    throw blocked ? new KickWafBlockedError(message) : new Error(message);
+    const failure = safeKickFailure(response.status, text);
+    throw failure.kind === "security_policy_blocked"
+      ? new KickWafBlockedError(failure)
+      : new SafeFetchError(failure);
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -573,20 +606,28 @@ export async function fetchJsonInPageWithBrowser<T>(
       // means the context tab was closed or navigated away before injection.
       // Surface that clearly instead of dereferencing undefined.
       if (!result) throw new Error(`Page context for ${origin} returned no script result`);
-      return result.result as T;
+      return unwrapPageFetchResult<T>(result.result);
     }
 
     if (runtimeBrowser.tabs.executeScript) {
       const code = `(${pageFetchJson.toString()})(${JSON.stringify(url)}, ${JSON.stringify(init ? JSON.stringify(init) : undefined)})`;
       const results = await runtimeBrowser.tabs.executeScript(pageContext.tabId, { code });
       const result = results?.[0];
-      return result as T;
+      return unwrapPageFetchResult<T>(result);
     }
 
     throw new Error("No supported page script execution API is available");
   } finally {
     await releasePageContextTab(browserApi, origin, pageContext, options?.emit);
   }
+}
+
+function unwrapPageFetchResult<T>(candidate: unknown): T {
+  if (!candidate || typeof candidate !== "object") return candidate as T;
+  const envelope = candidate as Record<string, unknown>;
+  if (envelope.__lurklootPageFetch !== true) return candidate as T;
+  if (envelope.ok === true) return envelope.data as T;
+  throw new SafeFetchError(safeFetchFailure(envelope.error));
 }
 
 async function acquirePageContextTab(
@@ -911,17 +952,56 @@ async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unkn
       ?.slice("session_token=".length);
     if (sessionToken) headers.set("authorization", `Bearer ${decodeURIComponent(sessionToken)}`);
   }
-  const response = await fetch(targetUrl, {
-    ...parsedInit,
-    headers,
-    credentials: parsedInit?.credentials ?? "include",
-  });
-  if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`);
+  try {
+    const response = await fetch(targetUrl, {
+      ...parsedInit,
+      headers,
+      credentials: parsedInit?.credentials ?? "include",
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      let body: Record<string, unknown> = {};
+      try {
+        const parsed = JSON.parse(text) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
+      } catch {
+        // Never retain non-JSON response bodies.
+      }
+      const rawReason = typeof body.error === "string"
+        ? body.error
+        : typeof body.message === "string"
+          ? body.message
+          : undefined;
+      const reason = rawReason && rawReason.length <= 256 ? rawReason : undefined;
+      const rawReference = body.reference;
+      const reference = (typeof rawReference === "string" && rawReference.length > 0 && rawReference.length <= 128)
+        || (typeof rawReference === "number" && Number.isFinite(rawReference))
+        ? rawReference
+        : undefined;
+      const blocked = /security policy|request blocked/i.test(reason ?? "");
+      return {
+        __lurklootPageFetch: true,
+        ok: false,
+        error: {
+          kind: blocked
+            ? "security_policy_blocked"
+            : response.status === 401 || response.status === 403
+              ? "authentication_rejected"
+              : "http_error",
+          status: response.status,
+          ...(reason ? { reason } : {}),
+          ...(reference !== undefined ? { reference } : {}),
+        },
+      };
+    }
+    const contentType = response.headers.get("content-type") ?? "";
+    const data = contentType.includes("application/json") ? JSON.parse(text) : { html: text };
+    return { __lurklootPageFetch: true, ok: true, data };
+  } catch {
+    return {
+      __lurklootPageFetch: true,
+      ok: false,
+      error: { kind: "network_error" },
+    };
   }
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    return await response.json();
-  }
-  return { html: await response.text() };
 }
