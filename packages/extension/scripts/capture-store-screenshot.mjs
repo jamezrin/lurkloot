@@ -22,7 +22,7 @@ const variants = [
 // One screenshot set per store locale. The ids match the _locales/<id> folders
 // bundled in the build. A subset can be captured by passing locale codes as CLI
 // args, e.g. `node scripts/capture-store-screenshot.mjs es pt_BR`.
-const ALL_LOCALES = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar"];
+const ALL_LOCALES = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
 const requested = process.argv.slice(2);
 const locales = requested.length > 0 ? requested.filter((code) => ALL_LOCALES.includes(code)) : ALL_LOCALES;
 if (locales.length === 0) {

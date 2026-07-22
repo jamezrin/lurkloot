@@ -86,6 +86,21 @@ describe("i18n", () => {
     expect(turkish.subscriptionCampaigns?.message).toBe("Abonelik kampanyaları");
   });
 
+  it("captures store artwork for every catalog locale", () => {
+    const extensionRoot = dirname(import.meta.dirname);
+    const captureScripts = [
+      join(extensionRoot, "scripts/capture-store-screenshot.mjs"),
+      join(extensionRoot, "scripts/capture-store-promo.mjs"),
+    ];
+
+    for (const script of captureScripts) {
+      const source = readFileSync(script, "utf8");
+      for (const locale of localeCodes()) {
+        expect(source, `${script}:${locale}`).toContain(`"${locale}"`);
+      }
+    }
+  });
+
   it("defines subscription drop states with matching placeholders in every catalog", () => {
     const englishMessages = {
       subscriptionRequired: "Subscription required",
