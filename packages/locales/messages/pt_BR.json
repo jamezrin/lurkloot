@@ -752,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "a plataforma foi desativada"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "a autenticação não está disponível" },
   "activityReasonPlatformBackoff": {
     "message": "a plataforma está aguardando temporariamente"
   },

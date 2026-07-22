@@ -244,6 +244,36 @@ describe("background controller", () => {
     }));
   });
 
+  it("reports authentication as the reason farming stopped after logout", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    });
+    vi.mocked(env.twitch.checkAuthHealth)
+      .mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:00:00.000Z" })
+      .mockResolvedValueOnce({
+        status: "invalid_credentials",
+        checkedAt: "2026-07-22T12:01:00.000Z",
+        reasonCode: "credentials_rejected",
+        message: { key: "authInvalidCredentials" },
+      });
+
+    await env.controller.tickAndHandOff(["twitch"]);
+    await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "farming_stopped",
+      platform: "twitch",
+      data: expect.objectContaining({ reason: "authentication_unhealthy" }),
+    }));
+  });
+
   it("recovers Twitch authentication health after login without changing enabled settings", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
       checkCredentialAvailability: async () => ({ status: "available" }),

@@ -349,6 +349,7 @@ export class KickAdapter implements PlatformAdapter {
         },
       };
     } catch (error) {
+      if (authHealthFromError(error)) throw error;
       return this.checkChannelFromPage(channel, campaign, error);
     }
   }

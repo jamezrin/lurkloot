@@ -438,6 +438,11 @@ export async function runSchedulerTick(
       });
     } catch (error) {
       emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Could not stop page context");
+      nextState.managedPageContextTabs = forgetManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, {
+        platforms: [platform],
+        reason: "authentication_unhealthy",
+        emit,
+      });
     }
   }
 
@@ -556,6 +561,7 @@ export async function runSchedulerTick(
         const discovered = await adapter.discoverCampaigns();
         campaigns = await adapter.readProgress(discovered, previous);
       } catch (error) {
+        if (authHealthFromError(error)) throw error;
         if (!hasIdleWatchlistChannels(settings, platform)) throw error;
         campaigns = [];
         const message = error instanceof Error ? error.message : "Drop discovery failed";

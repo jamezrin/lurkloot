@@ -752,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "the platform was disabled"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "authentication is unavailable" },
   "activityReasonPlatformBackoff": {
     "message": "the platform is temporarily backing off"
   },

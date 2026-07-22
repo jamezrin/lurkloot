@@ -810,6 +810,7 @@
   "activityReasonPlatformDisabled": {
     "message": "platform devre dışı bırakıldı"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "kimlik doğrulama kullanılamıyor" },
   "activityReasonPlatformBackoff": {
     "message": "platform geçici olarak geri çekiliyor"
   },

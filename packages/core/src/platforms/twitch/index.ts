@@ -502,6 +502,9 @@ export class TwitchAdapter implements PlatformAdapter {
         }),
       ),
     );
+    for (const result of details) {
+      if (result.status === "rejected" && authHealthFromError(result.reason)) throw result.reason;
+    }
     const detailedCampaigns = details
       .map((result) => result.status === "fulfilled" ? result.value.data?.dropCampaign ?? result.value.data?.user?.dropCampaign : undefined)
       .filter((campaign): campaign is NonNullable<typeof campaign> => Boolean(campaign));
@@ -658,6 +661,7 @@ export class TwitchAdapter implements PlatformAdapter {
       });
       return campaignIds.has(campaignId);
     } catch (error) {
+      if (authHealthFromError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "debug", `Could not confirm available Twitch campaigns for ${channelLogin}; using live/category validation: ${message}`, "twitch");
       return undefined;
@@ -702,7 +706,8 @@ export class TwitchAdapter implements PlatformAdapter {
   ): Promise<TwitchGqlResponse<T>> {
     try {
       return await this.gql(operationName, sha256Hash, variables);
-    } catch {
+    } catch (error) {
+      if (authHealthFromError(error)) throw error;
       return {};
     }
   }

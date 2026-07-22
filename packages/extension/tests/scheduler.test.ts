@@ -2314,6 +2314,72 @@ describe("scheduler tick", () => {
     });
     expect(result.state.sessions.kick.retryAfter).toBeDefined();
   });
+
+  it("does not turn an authentication failure into an Idle Watchlist session", async () => {
+    const kick = adapter("kick", [], []);
+    vi.mocked(kick.discoverCampaigns).mockRejectedValueOnce(
+      new SafeFetchError({ kind: "authentication_rejected", status: 401 }),
+    );
+
+    const result = await runSchedulerTick(
+      baseState,
+      settings({
+        platform: {
+          twitch: { enabled: false },
+          kick: { enabled: true, idleWatchlistChannels: ["public-creator"] },
+        },
+      }),
+      { twitch: adapter("twitch", [], []), kick },
+      { platforms: ["kick"] },
+    );
+
+    expect(kick.listCandidateChannels).not.toHaveBeenCalled();
+    expect(kick.checkChannel).not.toHaveBeenCalled();
+    expect(result.state.sessions.kick).toMatchObject({
+      status: "paused",
+      reasonCode: "authentication_unhealthy",
+      retryAfter: undefined,
+    });
+  });
+
+  it("forgets managed page-context state when authentication cleanup fails", async () => {
+    const stopPageContextTabs = vi.fn(async () => {
+      throw new Error("tab close failed");
+    });
+    const managedContext = {
+      platform: "kick" as const,
+      tabId: 91,
+      originUrl: "https://kick.com/drops/inventory",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+      muteFarmingTabs: true,
+      keepFarmingVideosUnmuted: false,
+      autoCloseFinishedDrops: true,
+      adFocusMode: "off" as const,
+      languageOverride: "auto" as const,
+    };
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        authHealth: {
+          ...HEALTHY_AUTH,
+          kick: { status: "invalid_credentials", reasonCode: "credentials_rejected" },
+        },
+        managedPageContextTabs: { kick: managedContext },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick: adapter("kick", [], []) },
+      { platforms: ["kick"], stopPageContextTabs },
+    );
+
+    expect(result.state.managedPageContextTabs?.kick).toBeUndefined();
+    expect(result.events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      level: "warn",
+      message: "tab close failed",
+    }));
+  });
 });
 
 describe("scheduler tabless mode", () => {

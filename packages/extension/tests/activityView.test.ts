@@ -100,6 +100,7 @@ describe("activity view model", () => {
     const reasons: FarmingStopReason[] = [
       "automation_disabled",
       "platform_disabled",
+      "authentication_unhealthy",
       "platform_backoff",
       "platform_error",
       "campaign_ineligible",
@@ -129,6 +130,7 @@ describe("activity view model", () => {
     expect(t.mock.calls.map(([key]) => key)).toEqual([
       "activityReasonAutomationDisabled", "activityInterruption",
       "activityReasonPlatformDisabled", "activityInterruption",
+      "activityReasonAuthenticationUnhealthy", "activityInterruption",
       "activityReasonPlatformBackoff", "activityInterruption",
       "activityReasonPlatformError", "activityInterruption",
       "activityReasonCampaignIneligible", "activityInterruption",

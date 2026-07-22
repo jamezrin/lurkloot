@@ -752,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "प्लेटफ़ॉर्म बंद किया गया"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "प्रमाणीकरण उपलब्ध नहीं है" },
   "activityReasonPlatformBackoff": {
     "message": "प्लेटफ़ॉर्म कुछ समय के लिए प्रतीक्षा कर रहा है"
   },
