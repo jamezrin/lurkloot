@@ -31,6 +31,8 @@ import {
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";
 import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
+import { createCredentialAvailabilityProvider } from "../src/core/credentialAvailability";
+import { createCredentialObserver } from "../src/core/credentialObserver";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -44,6 +46,9 @@ const reportEvents = createActivityEventReporter({
 });
 const kickClaimState = new KickClaimState();
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
+const checkCredentialAvailability = createCredentialAvailabilityProvider({
+  get: (details) => browser.cookies.get(details),
+});
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
@@ -71,6 +76,7 @@ const controller = createBackgroundController<ExtensionSettings>({
   loadState,
   saveState,
   reportEvents,
+  checkCredentialAvailability,
   createAlarm: (name, options) => browser.alarms.create(name, options),
   closeManagedTabs: async (tabs) => {
     await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
@@ -201,6 +207,15 @@ const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
 });
 
 export default defineBackground(() => {
+  createCredentialObserver({
+    onChanged: {
+      addListener: (listener) => browser.cookies.onChanged.addListener(listener),
+      removeListener: (listener) => browser.cookies.onChanged.removeListener(listener),
+    },
+    invalidate: (platform) => controller.invalidateAuthHealth(platform),
+    recheck: (platform) => controller.tickAndHandOff([platform]),
+  });
+
   browser.runtime.onInstalled.addListener(async (details) => {
     await controller.ensureAlarm();
     // Stamp the install date once so the popup can time the rate/review nudge.
