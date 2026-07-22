@@ -72,13 +72,15 @@ const controller = createBackgroundController<ExtensionSettings>({
   saveState,
   reportEvents,
   createAlarm: (name, options) => browser.alarms.create(name, options),
-  closeManagedTabsByUrl: async (urls) => {
-    for (const url of urls) {
-      const tabs = await browser.tabs.query({ url });
-      await Promise.all(tabs.map(async (tab) => {
-        if (tab.id != null) await browser.tabs.remove(tab.id);
-      }));
-    }
+  closeManagedTabs: async (tabs) => {
+    await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
+      try {
+        const tab = await browser.tabs.get(tabId);
+        if (tab.id === tabId && tab.url === channelUrl) await browser.tabs.remove(tabId);
+      } catch {
+        // The recorded tab may already be closed or its id may be stale.
+      }
+    }));
   },
   createNotification: async ({ title, message }) => {
     await browser.notifications.create({

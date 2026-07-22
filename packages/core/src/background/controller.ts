@@ -1,5 +1,5 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { DropCampaign, DropReward, EngineSettings, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
@@ -106,7 +106,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   };
   createNotification?(notification: { title: string; message: string }): Promise<void>;
   translate?(key: string, substitutions?: string | string[]): string | Promise<string>;
-  closeManagedTabsByUrl?(urls: string[]): Promise<void>;
+  closeManagedTabs?(tabs: ManagedWatchTab[]): Promise<void>;
   // Tab-mode ad focus. The host (extension) owns the focus policy (adFocusMode),
   // so the engine only reports whether an ad is active for a given watch tab.
   applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
@@ -363,8 +363,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       return;
     }
 
-    if (deps.closeManagedTabsByUrl && cleanup.managedUrls.length > 0) {
-      await deps.closeManagedTabsByUrl(cleanup.managedUrls);
+    if (deps.closeManagedTabs && cleanup.managedTabs.length > 0) {
+      await deps.closeManagedTabs(cleanup.managedTabs);
     }
     if (!preservePageContexts && deps.stopPageContextTabs && Object.keys(state.managedPageContextTabs ?? {}).length > 0) {
       await withEventCollector(async (emit, events) => {
@@ -1311,19 +1311,18 @@ function isFarmingStopReason(code: WatchReasonCode): code is FarmingStopReason {
 
 function staleStartupCleanup(state: SchedulerState, preservePageContexts = false): {
   hasStaleSession: boolean;
-  managedUrls: string[];
+  managedTabs: ManagedWatchTab[];
   state: SchedulerState;
 } {
   let hasStaleSession = false;
-  const managedUrls = new Set<string>();
+  const managedTabs = new Map<number, ManagedWatchTab>();
   const sessions = { ...state.sessions };
 
   for (const platform of ["twitch", "kick"] as Platform[]) {
     const session = state.sessions[platform];
     const managedTab = state.managedWatchTabs?.[platform];
     const managedPageContextTab = state.managedPageContextTabs?.[platform];
-    if (managedTab?.channelUrl) managedUrls.add(managedTab.channelUrl);
-    if (session.tabManagedByExtension && session.channel?.url) managedUrls.add(session.channel.url);
+    if (managedTab?.ownedByExtension) managedTabs.set(managedTab.tabId, managedTab);
 
     if (session.status === "watching" || session.tabId != null || managedTab || (!preservePageContexts && managedPageContextTab)) {
       hasStaleSession = true;
@@ -1333,7 +1332,7 @@ function staleStartupCleanup(state: SchedulerState, preservePageContexts = false
 
   return {
     hasStaleSession,
-    managedUrls: [...managedUrls],
+    managedTabs: [...managedTabs.values()],
     state: {
       ...state,
       sessions,

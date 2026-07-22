@@ -43,7 +43,7 @@ function formatPageContextCloseReason(reason: PageContextCloseReason): string {
     case "platform_disabled": return "platform disabled";
     case "automation_disabled": return "automation disabled";
     case "manual_watch": return "manual watch detected";
-    case "runtime_restart": return "browser restarted";
+    case "runtime_restart": return "extension runtime restarted";
     case "managed_context_unusable": return "background context unusable";
     default: {
       const exhaustive: never = reason;

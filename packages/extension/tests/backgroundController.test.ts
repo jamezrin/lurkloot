@@ -82,7 +82,7 @@ function harness(
     })),
     createAlarm: vi.fn(async () => undefined),
     createNotification: vi.fn(async () => undefined),
-    closeManagedTabsByUrl: vi.fn(async () => undefined),
+    closeManagedTabs: vi.fn(async () => undefined),
     applyAdFocus: vi.fn<(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => Promise<void>>(async () => undefined),
     // Host-owned tab policy + settings-patch application (see background.ts).
     loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false })),
@@ -601,7 +601,9 @@ describe("background controller", () => {
     await env.controller.handleStartup();
 
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/twitch-creator"]);
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
+    ]);
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
     expect(env.state.sessions.twitch.status).toBe("watching");
     expect(env.state.sessions.twitch.tabId).toBe(10);
@@ -637,7 +639,9 @@ describe("background controller", () => {
 
     expect(env.settings.running).toBe(false);
     expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: false }));
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/twitch-creator"]);
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
+    ]);
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(env.state.managedWatchTabs).toEqual({});
@@ -671,7 +675,9 @@ describe("background controller", () => {
     await env.controller.handleStartup();
 
     expect(env.settings.running).toBe(false);
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://kick.com/kick-creator"]);
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 55, channelUrl: "https://kick.com/kick-creator", ownedByExtension: true }),
+    ]);
     expect(env.kick.prepareWatchTab).not.toHaveBeenCalled();
     expect(env.state.sessions.kick.status).toBe("paused");
     expect(env.state.sessions.kick.tabId).toBeUndefined();
@@ -691,7 +697,7 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.deps.closeManagedTabsByUrl).not.toHaveBeenCalled();
+    expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
     expect(env.deps.stopPageContextTabs).toHaveBeenCalledWith(
       expect.objectContaining({ twitch: expect.objectContaining({ tabId: 66 }) }),
       expect.objectContaining({ platforms: ["twitch", "kick"], reason: "runtime_restart", emit: expect.any(Function) }),
@@ -742,7 +748,7 @@ describe("background controller", () => {
     await env.controller.handleStartup();
 
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.closeManagedTabsByUrl).not.toHaveBeenCalled();
+    expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
     expect(env.deps.saveState).not.toHaveBeenCalled();
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
       event.category === "diagnostic" && event.message.includes("Browser restarted")

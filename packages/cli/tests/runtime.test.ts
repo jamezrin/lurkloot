@@ -157,6 +157,13 @@ describe("CLI engine event reporting", () => {
       platform: "kick",
       data: { host: "kick.com", reason: "background_recovered" },
     })).toBe("Closed background context on kick.com: background requests recovered");
+    expect(formatCliEvent({
+      category: "activity",
+      code: "page_context_closed",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "runtime_restart" },
+    })).toBe("Closed background context on kick.com: extension runtime restarted");
   });
 });
 
