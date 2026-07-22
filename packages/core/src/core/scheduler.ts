@@ -433,7 +433,7 @@ export async function runSchedulerTick(
     try {
       nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, {
         platforms: [platform],
-        reason: "managed_context_unusable",
+        reason: "authentication_unhealthy",
         emit,
       });
     } catch (error) {

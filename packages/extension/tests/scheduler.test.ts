@@ -699,6 +699,10 @@ describe("scheduler tick", () => {
     expect(kick.claimChannelPoints).not.toHaveBeenCalled();
     expect(result.state.campaigns.kick).toEqual([]);
     expect(result.state.managedWatchTabs?.kick).toBeUndefined();
+    expect(stopPageContextTabs).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ platforms: ["kick"], reason: "authentication_unhealthy" }),
+    );
     expect(result.state.sessions.kick).toMatchObject({
       status: "paused",
       reasonCode: "authentication_unhealthy",
