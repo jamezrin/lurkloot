@@ -681,7 +681,7 @@
     "message": "Şeffaf etkinlik günlüğü her kontrolü, geçişi ve ödül alımını gösterir; hiçbir işlem gözünüzden kaçmaz."
   },
   "autoClaimReady": {
-    "message": "Otomatik talep hazır"
+    "message": "Otomatik alma hazır"
   },
   "resumingAutomation": {
     "message": "Otomasyon devam ettiriliyor..."
@@ -963,4 +963,3 @@
     "message": "Talep işleme v2"
   }
 }
-
