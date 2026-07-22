@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { effectiveLocale, isRtlLocale, normalizeBrowserLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+import { effectiveLocale, isRtlLocale, LOCALE_OPTIONS, normalizeBrowserLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 
 // Catalogs live in the single-source @lurkloot/locales package as <locale>.json.
 const messagesDir = dirname(createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"));
@@ -14,14 +14,24 @@ describe("i18n", () => {
     expect(normalizeBrowserLocale("es-MX")).toBe("es");
     expect(normalizeBrowserLocale("zh-TW")).toBe("zh_CN");
     expect(normalizeBrowserLocale("pt-PT")).toBe("pt_BR");
+    expect(normalizeBrowserLocale("tr-TR")).toBe("tr");
     expect(normalizeBrowserLocale("unknown")).toBe("en");
   });
 
   it("resolves explicit overrides and Arabic RTL", () => {
     expect(effectiveLocale("browser", "de-DE")).toBe("de");
     expect(effectiveLocale("ar", "de-DE")).toBe("ar");
+    expect(effectiveLocale("tr", "en-US")).toBe("tr");
     expect(isRtlLocale("ar")).toBe(true);
     expect(isRtlLocale("en")).toBe(false);
+  });
+
+  it("offers Turkish using its native language name", () => {
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "tr",
+      labelKey: "languageTurkish",
+      nativeName: "Türkçe",
+    });
   });
 
   it("translates with substitutions and falls back to English", () => {

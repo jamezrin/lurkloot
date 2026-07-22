@@ -198,7 +198,7 @@ export interface PlaybackTelemetry {
 // browser throttles in background tabs/windows) keeps progressing.
 export type AdFocusMode = "none" | "tab" | "window";
 
-export type SupportedLocale = "en" | "es" | "fr" | "it" | "ru" | "de" | "zh_CN" | "hi" | "pt_BR" | "ar";
+export type SupportedLocale = "en" | "es" | "fr" | "it" | "ru" | "de" | "zh_CN" | "hi" | "pt_BR" | "ar" | "tr";
 
 export type LanguageOverride = "browser" | SupportedLocale;
 
