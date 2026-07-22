@@ -41,7 +41,7 @@ function asSnapshot(value: unknown): RuntimeSnapshot {
 function adapter(platform: Platform): PlatformAdapter {
   return {
     platform,
-    checkAuthHealth: vi.fn(async () => ({ status: "checking" as const })),
+    checkAuthHealth: vi.fn(async () => ({ status: "healthy" as const })),
     discoverCampaigns: vi.fn(async () => [campaign(platform)]),
     readProgress: vi.fn(async (campaigns) => campaigns),
     listCandidateChannels: vi.fn(async () => [channel(platform)]),
@@ -153,7 +153,76 @@ describe("background controller", () => {
     await env.controller.checkAuthHealth("twitch");
 
     expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
-    expect(env.state.authHealth.twitch.status).toBe("checking");
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+  });
+
+  it("blocks startup account work when credentials are missing without disabling the platform", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    }, {
+      checkCredentialAvailability: async () => ({ status: "missing" }),
+    });
+
+    await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.settings.platform.twitch.enabled).toBe(true);
+    expect(env.state.authHealth.twitch).toMatchObject({
+      status: "missing_credentials",
+      reasonCode: "credentials_missing",
+    });
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "paused",
+      reasonCode: "authentication_unhealthy",
+    });
+  });
+
+  it("automatically resumes a platform after a healthy authentication recheck", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    }, {
+      checkCredentialAvailability: async () => ({ status: "available" }),
+    });
+    vi.mocked(env.twitch.checkAuthHealth)
+      .mockResolvedValueOnce({
+        status: "invalid_credentials",
+        checkedAt: "2026-07-22T12:00:00.000Z",
+        reasonCode: "credentials_rejected",
+        message: { key: "authInvalidCredentials" },
+      })
+      .mockResolvedValueOnce({
+        status: "healthy",
+        checkedAt: "2026-07-22T12:01:00.000Z",
+        message: { key: "authHealthy" },
+      });
+
+    await env.controller.tickAndHandOff(["twitch"]);
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+
+    await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.settings.platform.twitch.enabled).toBe(true);
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
+      event.category === "activity" && event.code === "auth_health_changed"
+    )).toEqual(expect.arrayContaining([
+      expect.objectContaining({ data: expect.objectContaining({ to: "invalid_credentials" }) }),
+      expect.objectContaining({ data: expect.objectContaining({ to: "healthy" }) }),
+    ]));
   });
 
   it("recovers Twitch authentication health after login without changing enabled settings", async () => {
@@ -605,6 +674,9 @@ describe("background controller", () => {
     let affirmativelyLinked = false;
     const fetcher: PageFetcher = {
       fetchJson: vi.fn(async (url: string) => {
+        if (url === "https://kick.com/api/v1/user") {
+          return { id: 123, username: "tester" };
+        }
         if (url === "https://web.kick.com/api/v1/drops/claim") {
           claimPosts += 1;
           return { data: { connect_url: "https://accounts.example/link" } };

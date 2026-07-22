@@ -1,5 +1,5 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
@@ -41,6 +41,7 @@ const PLATFORMS: Platform[] = ["twitch", "kick"];
 const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   automation_disabled: true,
   platform_disabled: true,
+  authentication_unhealthy: true,
   platform_backoff: true,
   platform_error: true,
   campaign_ineligible: true,
@@ -423,6 +424,27 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     });
   }
 
+  async function probeAuthHealth(platform: Platform, adapter: PlatformAdapter): Promise<PlatformAuthHealth> {
+    const availability = await deps.checkCredentialAvailability?.(platform);
+    if (availability?.status === "missing") {
+      return {
+        status: "missing_credentials",
+        checkedAt: new Date().toISOString(),
+        reasonCode: "credentials_missing",
+        message: { key: "authMissingCredentials" },
+      };
+    }
+    if (availability?.status === "unavailable") {
+      return {
+        status: "unavailable",
+        checkedAt: new Date().toISOString(),
+        reasonCode: "credential_lookup_failed",
+        message: { key: "authCredentialLookupFailed" },
+      };
+    }
+    return adapter.checkAuthHealth();
+  }
+
   async function tick(platforms?: Platform[]): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
     await withStateLock(() => withEventCollector(async (emit, events) => {
@@ -435,6 +457,20 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       let nextState: SchedulerState;
       try {
         const adapters = createAdapters(settings, emit);
+        let schedulerState = state;
+        const tickPlatforms = platforms ?? PLATFORMS;
+        if (settings.running) {
+          for (const platform of tickPlatforms) {
+            if (!settings.platform[platform].enabled) continue;
+            const transition = applyPlatformAuthHealth(
+              schedulerState,
+              platform,
+              await probeAuthHealth(platform, adapters[platform]),
+            );
+            schedulerState = transition.state;
+            if (transition.event) emit(transition.event);
+          }
+        }
         // Observed here rather than returned by the scheduler: the controller
         // already sees every emitted event, and the post-claim handoff only
         // needs to know which platforms claimed.
@@ -444,7 +480,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           }
           emit(event);
         };
-        const result = await runSchedulerTick(state, settings, adapters, {
+        const result = await runSchedulerTick(schedulerState, settings, adapters, {
           ...(platforms ? { platforms } : {}),
           stopPageContextTabs: deps.stopPageContextTabs,
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
@@ -480,22 +516,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function checkAuthHealth(platform: Platform): Promise<void> {
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
-      const availability = await deps.checkCredentialAvailability?.(platform);
-      const health = availability?.status === "missing"
-        ? {
-            status: "missing_credentials" as const,
-            checkedAt: new Date().toISOString(),
-            reasonCode: "credentials_missing" as const,
-            message: { key: "authMissingCredentials" as const },
-          }
-        : availability?.status === "unavailable"
-          ? {
-              status: "unavailable" as const,
-              checkedAt: new Date().toISOString(),
-              reasonCode: "credential_lookup_failed" as const,
-              message: { key: "authCredentialLookupFailed" as const },
-            }
-          : await deps.createAdapters(emit, settings).adapters[platform].checkAuthHealth();
+      const health = await probeAuthHealth(platform, deps.createAdapters(emit, settings).adapters[platform]);
       const transition = applyPlatformAuthHealth(state, platform, health);
       if (transition.event) emit(transition.event);
       await persistAndReport(transition.state, events);
