@@ -911,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Claim handling v2"
-  }
+  },
+  "automationChecking": { "message": "Checking" },
+  "automationNeedsSignIn": { "message": "Needs sign-in" },
+  "automationBlocked": { "message": "Blocked" },
+  "automationUnavailable": { "message": "Unavailable" },
+  "authCheckingDetail": { "message": "Checking your signed-in session…" },
+  "authSignInMissing": { "message": "Sign in to continue farming drops." },
+  "authSignInRejected": { "message": "Your session is no longer valid. Sign in again to continue." },
+  "signInToTwitch": { "message": "Sign in to Twitch" },
+  "signInToKick": { "message": "Sign in to Kick" },
+  "authBrowserProfileBlocked": { "message": "Kick rejected this browser profile. Signing in alone may not resolve it." },
+  "authCredentialCheckUnavailable": { "message": "Your browser session could not be checked. Lurkloot will retry automatically." },
+  "authNetworkTemporarilyUnavailable": { "message": "The network is temporarily unavailable. Lurkloot will retry automatically." },
+  "authPlatformTemporarilyUnavailable": { "message": "The platform is temporarily unavailable. Lurkloot will retry automatically." }
 }

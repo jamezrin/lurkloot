@@ -911,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "链接处理 v2"
-  }
+  },
+  "automationChecking": { "message": "正在检查" },
+  "automationNeedsSignIn": { "message": "需要登录" },
+  "automationBlocked": { "message": "已阻止" },
+  "automationUnavailable": { "message": "暂时不可用" },
+  "authCheckingDetail": { "message": "正在检查你的登录会话…" },
+  "authSignInMissing": { "message": "请登录以继续获取掉宝。" },
+  "authSignInRejected": { "message": "你的会话已失效。请重新登录以继续。" },
+  "signInToTwitch": { "message": "登录 Twitch" },
+  "signInToKick": { "message": "登录 Kick" },
+  "authBrowserProfileBlocked": { "message": "Kick 拒绝了此浏览器配置文件。仅重新登录可能无法解决问题。" },
+  "authCredentialCheckUnavailable": { "message": "无法检查浏览器会话。Lurkloot 将自动重试。" },
+  "authNetworkTemporarilyUnavailable": { "message": "网络暂时不可用。Lurkloot 将自动重试。" },
+  "authPlatformTemporarilyUnavailable": { "message": "平台暂时不可用。Lurkloot 将自动重试。" }
 }
