@@ -746,6 +746,79 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
 });
 
 describe("TwitchAdapter", () => {
+  it("reports healthy only when the authenticated CurrentUser probe returns a user", async () => {
+    const ensureIntegrity = vi.fn(async () => true);
+    const fetcher = jsonFetcher((_url, init) => {
+      expect(operation(init)).toBe("CurrentUser");
+      expect(requestBody(init).query).toContain("currentUser { id }");
+      return { data: { currentUser: { id: "private-user-id" } } };
+    });
+
+    await expect(new TwitchAdapter(fetcher, ensureIntegrity).checkAuthHealth()).resolves.toEqual({
+      status: "healthy",
+      checkedAt: expect.any(String),
+      message: { key: "authHealthy" },
+    });
+    expect(ensureIntegrity).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { data: { currentUser: null } },
+    { data: {} },
+    { data: { user: { id: "public-user-id" } } },
+  ])("rejects a completed response without authenticated identity: %j", async (response) => {
+    const fetcher = jsonFetcher(() => response);
+
+    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+      status: "invalid_credentials",
+      checkedAt: expect.any(String),
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    });
+  });
+
+  it.each([
+    { error: "Unauthorized", message: "OAuth token is invalid" },
+    { errors: [{ message: "Unauthenticated" }] },
+  ])("classifies explicit Twitch credential rejection as invalid: %j", async (response) => {
+    const fetcher = jsonFetcher(() => response);
+
+    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+      status: "invalid_credentials",
+      checkedAt: expect.any(String),
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    });
+  });
+
+  it("classifies request transport failure as network unavailability", async () => {
+    const fetcher = jsonFetcher(() => {
+      throw new TypeError("Failed to fetch secret-url");
+    });
+
+    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+      status: "unavailable",
+      checkedAt: expect.any(String),
+      reasonCode: "network_unavailable",
+      message: { key: "authNetworkUnavailable" },
+    });
+  });
+
+  it.each([
+    { errors: [{ message: "service unavailable" }] },
+    { error: "Service Unavailable", message: "upstream failed" },
+    null,
+  ])("classifies Twitch response failure as platform unavailability: %j", async (response) => {
+    const fetcher = jsonFetcher(() => response);
+
+    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+      status: "unavailable",
+      checkedAt: expect.any(String),
+      reasonCode: "platform_unavailable",
+      message: { key: "authPlatformUnavailable" },
+    });
+  });
+
   it("declares the post-claim handoff capability for Twitch only", () => {
     // Reading a capability must not touch the network.
     const fetcher = jsonFetcher(() => {
