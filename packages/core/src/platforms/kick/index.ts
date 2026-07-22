@@ -189,13 +189,21 @@ export class KickAdapter implements PlatformAdapter {
   async checkAuthHealth(): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
     try {
+      // Kick serves this endpoint anonymously as `200 {}` instead of rejecting it, so the
+      // identity check below is what separates a real session from a credential-free one.
+      // It only works because kick.com is in KICK_AUTH_HOSTS (core/tabs.ts) and therefore
+      // gets session_token replayed as a Bearer; without that header Kick returns the
+      // empty object and a signed-in account looks signed out.
       const response = await this.fetcher.fetchJson<KickIdentityResponse>("https://kick.com/api/v1/user", undefined, this.emit);
       if (hasKickIdentity(response)) return { status: "healthy", checkedAt };
+      // An empty/unrecognized body means the request went out without credentials, which
+      // is a transport fault rather than proof of a signed-out session. Only an explicit
+      // rejection below may suspend farming.
       return {
-        status: "invalid_credentials",
+        status: "unavailable",
         checkedAt,
-        reasonCode: "credentials_rejected",
-        message: { key: "authInvalidCredentials" },
+        reasonCode: "platform_unavailable",
+        message: { key: "authPlatformUnavailable" },
       };
     } catch (error) {
       if (isSafeFetchError(error)) {

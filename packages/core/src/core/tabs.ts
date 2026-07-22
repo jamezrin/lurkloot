@@ -485,9 +485,12 @@ export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string
   return (isUsableTwitchGql(json) ? json : twitchGqlErrorEnvelope("returned an unusable response", response.status, text, headers)) as T;
 }
 
-// Kick hosts whose endpoints replay the session_token cookie as a Bearer (mirrors
-// pageFetchJson). kick.com/api/v2/* is public and does not need it.
-const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com"];
+// Kick endpoints that replay the session_token cookie as a Bearer (mirrors
+// pageFetchJson). kick.com/api/v2/* and /api/search are public and do not need it.
+// kick.com/api/v1/user is listed by path rather than host because Kick serves it
+// anonymously as `200 {}` instead of a 401, so a missing Bearer there is
+// indistinguishable from a signed-out session (see KickAdapter.checkAuthHealth).
+const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com", "kick.com/api/v1/user"];
 
 // Distinguishes "Kick's WAF / origin check rejected the service-worker request"
 // (fall back to the page-context tab) from a genuine error. Thrown by
@@ -1022,7 +1025,12 @@ export type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageC
 async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
   const parsedInit = initJson ? JSON.parse(initJson) : undefined;
   const headers = new Headers(parsedInit?.headers ?? {});
-  if ((targetUrl.includes("web.kick.com") || targetUrl.includes("websockets.kick.com")) && !headers.has("authorization")) {
+  // Mirrors KICK_AUTH_HOSTS; inlined because executeScript only serializes this
+  // function's own source, so module-scope constants are unavailable in the page.
+  const needsKickBearer = targetUrl.includes("web.kick.com")
+    || targetUrl.includes("websockets.kick.com")
+    || targetUrl.includes("kick.com/api/v1/user");
+  if (needsKickBearer && !headers.has("authorization")) {
     const sessionToken = document.cookie
       .split(";")
       .map((part) => part.trim())

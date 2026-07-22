@@ -1066,6 +1066,21 @@ describe("fetchKickInBackgroundWith", () => {
     vi.unstubAllGlobals();
   });
 
+  it("replays the session_token cookie as a Bearer for the kick.com identity endpoint", async () => {
+    // Kick serves this endpoint anonymously as `200 {}` rather than a 401, so without the
+    // Bearer the auth probe cannot tell a signed-in account from a signed-out one.
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify({ id: 42 }), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user");
+
+    expect(new Headers(captured?.headers).get("authorization")).toBe("Bearer sess 789");
+    vi.unstubAllGlobals();
+  });
+
   it("throws KickWafBlockedError on a 403 security-policy block", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(
       JSON.stringify({
