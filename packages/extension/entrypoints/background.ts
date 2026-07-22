@@ -43,6 +43,7 @@ const reportEvents = createActivityEventReporter({
   append: appendActivityEvents,
 });
 const kickClaimState = new KickClaimState();
+const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
@@ -133,7 +134,7 @@ const controller = createBackgroundController<ExtensionSettings>({
         kick: new KickAdapter(
           createKickFetcher({
             background: (url, init) => fetchKickInBackground<unknown>(url, init),
-            pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, {
+            pageFetch: (url, init) => fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
               retainPageContext: { platform: "kick" },
               emit,
               openReason: "background_rejected",

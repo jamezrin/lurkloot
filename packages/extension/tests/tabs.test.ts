@@ -68,11 +68,21 @@ describe("tab manager", () => {
 
     await fetchJsonInPageWithBrowser(
       browser,
-      "https://kick.com",
+      "https://kick.com/drops/inventory",
       "https://web.kick.com/api/v1/drops/progress?secret=value",
       undefined,
       { retainPageContext: { platform: "kick" }, emit, openReason: "background_rejected" },
     );
+    expect(browser.tabs.create).toHaveBeenCalledWith({
+      url: "https://kick.com/drops/inventory",
+      pinned: false,
+      active: false,
+    });
+    expect(browser.tabs.update).toHaveBeenCalledWith(14, { muted: true, active: false });
+    expect(currentManagedPageContextTabs().kick).toMatchObject({
+      originUrl: "https://kick.com/drops/inventory",
+      origin: "https://kick.com",
+    });
     await stopManagedPageContextTabsWithBrowser(browser, currentManagedPageContextTabs(), {
       platforms: ["kick"],
       reason: "background_recovered",
