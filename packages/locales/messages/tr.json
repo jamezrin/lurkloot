@@ -683,9 +683,6 @@
   "autoClaimReady": {
     "message": "Otomatik alma hazır"
   },
-  "resumingAutomation": {
-    "message": "Otomasyon devam ettiriliyor..."
-  },
   "attributionLinks": {
     "message": "İlişkilendirme bağlantıları"
   },
