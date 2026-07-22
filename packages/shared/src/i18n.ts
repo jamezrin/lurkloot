@@ -19,6 +19,7 @@ export const LOCALE_OPTIONS: Array<{ value: LanguageOverride; labelKey: string; 
   { value: "hi", labelKey: "languageHindi", nativeName: "हिन्दी" },
   { value: "pt_BR", labelKey: "languagePortuguese", nativeName: "Português (Brasil)" },
   { value: "ar", labelKey: "languageArabic", nativeName: "العربية" },
+  { value: "tr", labelKey: "languageTurkish", nativeName: "Türkçe" },
 ];
 
 export function normalizeBrowserLocale(value: string | undefined): SupportedLocale {

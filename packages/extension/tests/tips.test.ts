@@ -93,7 +93,7 @@ describe("TipsBanner", () => {
       "tipFeedbackAction",
       "tipExcludedCampaigns",
     ];
-    const locales = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar"];
+    const locales = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
 
     for (const locale of locales) {
       const catalog = JSON.parse(readFileSync(resolve(import.meta.dirname, `../../locales/messages/${locale}.json`), "utf8"));

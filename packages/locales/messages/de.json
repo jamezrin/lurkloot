@@ -44,6 +44,9 @@
   "languageArabic": {
     "message": "Arabisch"
   },
+  "languageTurkish": {
+    "message": "Türkisch"
+  },
   "settingsLanguageTitle": {
     "message": "Sprache"
   },

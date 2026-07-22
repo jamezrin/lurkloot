@@ -29,6 +29,8 @@ Your data stays yours: no passwords, no exported cookies or tokens, and everythi
 
 From the popup you can enable each platform, prioritize the campaigns and games you care about, manage per-platform idle watchlists and excluded channels, and toggle auto-claim and notifications.
 
+Lurkloot can also farm Kick watch time when no drop is active. Add your preferred channels to the idle watchlist and it automatically chooses one that is live. Tabless watching keeps resource use low, while the normal pinned-tab fallback keeps the session resilient.
+
 ---
 
 ## Spanish (es)
@@ -44,6 +46,8 @@ De forma predeterminada usa un modo ligero sin pestañas que envía señales de 
 Tus datos son tuyos: sin contraseñas, sin exportar cookies ni tokens, y todo se queda en tu dispositivo.
 
 Desde el popup puedes activar cada plataforma, priorizar las campañas y los juegos que te interesan, gestionar las listas de visualización inactivas y los canales excluidos de cada plataforma, y activar la reclamación automática y las notificaciones.
+
+Lurkloot también puede farmear tiempo de visualización en Kick cuando no hay ningún drop activo. Añade tus canales favoritos a la lista de visualización inactiva y elegirá automáticamente uno que esté en directo. La visualización sin pestañas reduce el uso de recursos, mientras que la alternativa de pestaña fijada mantiene la sesión estable.
 
 ---
 
@@ -61,6 +65,8 @@ Vos données restent les vôtres : aucun mot de passe, aucun cookie ni token exp
 
 Depuis le popup, vous pouvez activer chaque plateforme, prioriser les campagnes et les jeux qui vous intéressent, gérer les listes de veille inactives et les chaînes exclues par plateforme, et activer la réclamation automatique et les notifications.
 
+Lurkloot peut aussi farmer du temps de visionnage sur Kick lorsqu'aucun drop n'est actif. Ajoutez vos chaînes préférées à la liste de veille inactive : il choisit automatiquement celle qui est en direct. Le visionnage sans onglet limite l'utilisation des ressources, tandis que le repli sur un onglet épinglé préserve la fiabilité de la session.
+
 ---
 
 ## Italian (it)
@@ -76,6 +82,8 @@ Per impostazione predefinita usa una leggera modalità senza schede che invia se
 I tuoi dati restano tuoi: niente password, nessun cookie o token esportato, e tutto rimane sul tuo dispositivo.
 
 Dal popup puoi attivare ogni piattaforma, dare priorità alle campagne e ai giochi che ti interessano, gestire le liste di visione inattive e i canali esclusi per ogni piattaforma, e attivare il riscatto automatico e le notifiche.
+
+Lurkloot può anche farmare il tempo di visione su Kick quando non ci sono drop attivi. Aggiungi i tuoi canali preferiti alla lista di visione inattiva e sceglierà automaticamente quello in diretta. La visione senza schede riduce l'uso delle risorse, mentre il ripiego su una scheda fissata mantiene stabile la sessione.
 
 ---
 
@@ -93,6 +101,8 @@ Lurkloot фармит дропы Twitch и Kick за вас, чтобы вы п�
 
 В попапе можно включать каждую платформу, задавать приоритет кампаниям и играм, управлять списками просмотра в простое и исключёнными каналами для каждой платформы, а также включать автозабор наград и уведомления.
 
+Lurkloot также может фармить время просмотра на Kick, когда активных дропов нет. Добавьте предпочитаемые каналы в список просмотра в простое, и он автоматически выберет тот, который сейчас в эфире. Просмотр без вкладки экономит ресурсы, а переход на закреплённую вкладку при необходимости поддерживает стабильность сессии.
+
 ---
 
 ## German (de)
@@ -108,6 +118,8 @@ Standardmäßig läuft ein ressourcenschonender Modus ohne Tab, der Watch-Signal
 Deine Daten bleiben deine: keine Passwörter, kein Export von Cookies oder Tokens, und alles bleibt auf deinem Gerät.
 
 Über das Popup kannst du jede Plattform aktivieren, die Kampagnen und Spiele priorisieren, die dir wichtig sind, Leerlauf-Watchlists und ausgeschlossene Kanäle pro Plattform verwalten und Auto-Claim sowie Benachrichtigungen umschalten.
+
+Lurkloot kann auch Kick-Watchtime farmen, wenn kein Drop aktiv ist. Füge deine bevorzugten Kanäle zur Leerlauf-Watchlist hinzu; es wählt automatisch einen gerade laufenden Stream. Das Zuschauen ohne Tab spart Ressourcen, während der Rückfall auf einen angepinnten Tab die Sitzung zuverlässig am Laufen hält.
 
 ---
 
@@ -125,6 +137,8 @@ Lurkloot 替你刷 Twitch 和 Kick 掉宝，让你无需亲自盯着直播就能
 
 在弹窗中，你可以启用各个平台，优先安排你关注的活动和游戏，管理每个平台的空闲观看列表和已排除的频道，并开关自动领取与通知。
 
+没有活跃掉宝时，Lurkloot 也能自动累积 Kick 观看时长。把常看的频道加入空闲观看列表，它会自动选择正在直播的频道。无标签页观看可以降低资源占用，必要时回退到固定标签页则能保持会话稳定。
+
 ---
 
 ## Hindi (hi)
@@ -140,6 +154,8 @@ Lurkloot आपके लिए Twitch और Kick के drops फ़ार्�
 आपका डेटा आपका ही रहता है: कोई पासवर्ड नहीं, कोई कुकी या टोकन एक्सपोर्ट नहीं, और सब कुछ आपके डिवाइस पर ही रहता है।
 
 पॉपअप से आप हर प्लेटफ़ॉर्म चालू कर सकते हैं, अपनी पसंद के कैंपेन और गेम को प्राथमिकता दे सकते हैं, हर प्लेटफ़ॉर्म की निष्क्रिय वॉचलिस्ट और बहिष्कृत चैनल प्रबंधित कर सकते हैं, और ऑटो-क्लेम तथा नोटिफ़िकेशन टॉगल कर सकते हैं।
+
+जब कोई सक्रिय drop न हो, तब Lurkloot Kick का watch time भी फ़ार्म कर सकता है। अपने पसंदीदा चैनल निष्क्रिय वॉचलिस्ट में जोड़ें और यह अपने-आप किसी लाइव चैनल को चुन लेगा। बिना-टैब देखने से संसाधनों का उपयोग कम रहता है, जबकि ज़रूरत पड़ने पर पिन किए हुए टैब पर लौटना सत्र को भरोसेमंद बनाए रखता है।
 
 ---
 
@@ -157,6 +173,8 @@ Seus dados continuam seus: sem senhas, sem exportar cookies ou tokens, e tudo fi
 
 Pelo popup você pode ativar cada plataforma, priorizar as campanhas e os jogos que importam para você, gerenciar as listas de visualização ociosas e os canais excluídos de cada plataforma, e alternar o resgate automático e as notificações.
 
+O Lurkloot também pode farmar tempo de exibição na Kick quando não há drops ativos. Adicione seus canais preferidos à lista de visualização ociosa e ele escolhe automaticamente um que esteja ao vivo. A visualização sem abas reduz o uso de recursos, enquanto o retorno a uma aba fixada mantém a sessão confiável.
+
 ---
 
 ## Arabic (ar)
@@ -172,3 +190,23 @@ Pelo popup você pode ativar cada plataforma, priorizar as campanhas e os jogos 
 تبقى بياناتك ملكك: بلا كلمات مرور، وبلا تصدير لملفات تعريف الارتباط أو الرموز، ويبقى كل شيء على جهازك.
 
 من النافذة المنبثقة يمكنك تفعيل كل منصة، وتحديد أولوية الحملات والألعاب التي تهمّك، وإدارة قوائم المشاهدة الخاملة والقنوات المستبعَدة لكل منصة، وتبديل المطالبة التلقائية والإشعارات.
+
+يمكن لـ Lurkloot أيضًا فارم وقت المشاهدة على Kick عند عدم وجود دروب نشط. أضف قنواتك المفضلة إلى قائمة المشاهدة الخاملة وسيختار تلقائيًا قناة تبث مباشرة. تحافظ المشاهدة بلا تبويب على انخفاض استهلاك الموارد، بينما يضمن الرجوع إلى تبويب مثبّت استقرار الجلسة.
+
+---
+
+## Turkish (tr)
+
+**Short:** Twitch ve Kick droplarını ve izlenme süresini tarayıcınızda otomatik kasın. Düşük kaynak modu, otomatik alma ve gizlilik.
+
+**Detailed:**
+
+Lurkloot, Twitch ve Kick droplarını sizin için kasar; böylece yayınları kendiniz izlemek zorunda kalmadan oyun içi ödüller kazanırsınız. Normal, zaten giriş yaptığınız tarayıcı oturumunuz üzerinden çalışır ve parolanızı hiçbir zaman istemez.
+
+Varsayılan olarak video sekmesini açık tutmak yerine arka planda izleme sinyalleri gönderen hafif, sekmesiz modu kullanır; böylece bant genişliğinden ve sistem kaynaklarından tasarruf edersiniz. İstediğiniz drop için doğru kanalı takip eder, kampanyalar bittiğinde otomatik geçiş yapar ve uygun tüm ödülleri alır. İlerleme durursa droplarınızın devam etmesi için sabitlenmiş, sessiz bir sekmeye geri döner.
+
+Verileriniz size ait kalır: parola yok, dışa aktarılan çerez veya oturum anahtarı yok; her şey cihazınızda kalır.
+
+Açılır pencereden her platformu etkinleştirebilir, önemsediğiniz kampanyalara ve oyunlara öncelik verebilir, platforma özel Boşta İzleme Listelerini ve hariç tutulan kanalları yönetebilir, otomatik alma ile bildirimleri açıp kapatabilirsiniz.
+
+Aktif drop olmadığında Lurkloot, Kick izlenme süresini de kasabilir. Tercih ettiğiniz kanalları Boşta İzleme Listesine ekleyin; canlı olanlardan birini otomatik seçer. Sekmesiz izleme kaynak kullanımını düşük tutarken, gerektiğinde sabitlenmiş sekmeye dönmek oturumun güvenilir biçimde sürmesini sağlar.
