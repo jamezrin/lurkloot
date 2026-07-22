@@ -12,7 +12,7 @@
 
 - Work only in `.worktrees/popup-auth-health` on `feat/popup-auth-health`.
 - Running appears only when the platform is enabled and authenticated.
-- Missing and rejected credentials use explicit first-party sign-in buttons: `https://www.twitch.tv/login` and `https://kick.com/`.
+- Missing and rejected credentials use explicit first-party sign-in buttons: `https://www.twitch.tv/login` and `https://kick.com/login`.
 - Kick security-policy blocking must say the browser profile was rejected and must not offer sign-in as the fix.
 - Degraded authentication must not disable or change the platform automation setting.
 - Do not render credentials, raw errors, authenticated response bodies, or optional auth message values.
@@ -120,7 +120,7 @@ export interface AutomationPresentation {
 }
 export const AUTH_SIGN_IN_URLS: Record<Platform, string> = {
   twitch: "https://www.twitch.tv/login",
-  kick: "https://kick.com/",
+  kick: "https://kick.com/login",
 };
 export function automationPresentation(input: { platform: Platform; enabled: boolean; pending: boolean; authHealth: PlatformAuthHealth }): AutomationPresentation;
 ```
