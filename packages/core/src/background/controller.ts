@@ -10,6 +10,7 @@ import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
+import { applyPlatformAuthHealth } from "../core/authHealth";
 
 export const ALARM_NAME = "lurkloot.tick";
 // A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
@@ -469,6 +470,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       }
     }));
     return claimedRewards;
+  }
+
+  async function checkAuthHealth(platform: Platform): Promise<void> {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+      const adapter = deps.createAdapters(emit, settings).adapters[platform];
+      const transition = applyPlatformAuthHealth(state, platform, await adapter.checkAuthHealth());
+      if (transition.event) emit(transition.event);
+      await persistAndReport(transition.state, events);
+    }));
   }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
@@ -1221,6 +1232,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     handleTabRemoved,
     handleMessage,
     captureTwitchIntegrity,
+    checkAuthHealth,
     tick,
     tickAndHandOff,
     runWatchHeartbeat,

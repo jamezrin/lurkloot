@@ -113,6 +113,61 @@ function harness(
 }
 
 describe("background controller", () => {
+  it("checks and persists authentication health for only the requested platform", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    vi.mocked(env.kick.checkAuthHealth).mockResolvedValueOnce({
+      status: "blocked",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      reasonCode: "security_policy_blocked",
+      message: { key: "authSecurityPolicyBlocked", values: { reference: "safe-ref" } },
+    });
+
+    await env.controller.checkAuthHealth("kick");
+
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.state.authHealth.kick).toEqual(expect.objectContaining({
+      status: "blocked",
+      reasonCode: "security_policy_blocked",
+    }));
+    expect(env.reportEvents).toHaveBeenCalledWith([{
+      category: "activity",
+      code: "auth_health_changed",
+      level: "error",
+      platform: "kick",
+      data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
+    }]);
+  });
+
+  it("stores timestamp-only auth refreshes without repeating activity", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    vi.mocked(env.kick.checkAuthHealth)
+      .mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:00:00.000Z" })
+      .mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:05:00.000Z" });
+
+    await env.controller.checkAuthHealth("kick");
+    env.reportEvents.mockClear();
+    await env.controller.checkAuthHealth("kick");
+
+    expect(env.state.authHealth.kick.checkedAt).toBe("2026-07-22T12:05:00.000Z");
+    expect(env.reportEvents).not.toHaveBeenCalled();
+  });
+
+  it("strips hostile adapter fields before auth state and events are persisted", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    vi.mocked(env.twitch.checkAuthHealth).mockResolvedValueOnce({
+      status: "healthy",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      token: "do-not-store",
+      headers: { authorization: "Bearer do-not-store" },
+    } as never);
+
+    await env.controller.checkAuthHealth("twitch");
+
+    expect(JSON.stringify(env.state.authHealth.twitch)).not.toContain("do-not-store");
+    expect(JSON.stringify(env.reportEvents.mock.calls)).not.toContain("do-not-store");
+  });
+
   it("reports the effective compatibility profile and capability once per enabled platform", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
 
