@@ -801,6 +801,44 @@ describe("background controller", () => {
     expect(snapshot.state.managedPageContextTabs?.twitch).toBeUndefined();
   });
 
+  it("prepares a host reset by force-closing managed tabs", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoCloseFinishedDrops: false });
+    await env.controller.tick();
+    env.state.managedPageContextTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 66,
+        originUrl: "https://www.twitch.tv/drops/inventory",
+        origin: "https://www.twitch.tv",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.prepareForHostReset();
+
+    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 10 }),
+      expect.objectContaining({ closeManagedTabs: true }),
+    );
+    expect(env.kick.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 20 }),
+      expect.objectContaining({ closeManagedTabs: true }),
+    );
+    expect(env.deps.stopPageContextTabs).toHaveBeenCalledWith(
+      expect.objectContaining({ twitch: expect.objectContaining({ tabId: 66 }) }),
+      expect.objectContaining({ platforms: ["twitch", "kick"], emit: expect.any(Function) }),
+    );
+  });
+
+  it("allows host-reset cleanup to be retried", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    await env.controller.tick();
+
+    await env.controller.prepareForHostReset();
+
+    await expect(env.controller.prepareForHostReset()).resolves.toBeUndefined();
+  });
+
   it("toggles one platform and immediately applies the scheduler when running", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
     await env.controller.tick();

@@ -678,6 +678,31 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     claimHandoffs.clear();
   }
 
+  async function prepareForHostReset(): Promise<void> {
+    abortClaimHandoffs();
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+      const adapters = createAdapters(settings, emit);
+      for (const platform of PLATFORMS) {
+        const watcher = tablessWatchers.get(platform);
+        if (watcher) await watcher.stop();
+        await adapters[platform].stopWatchTab?.(state.sessions[platform], { closeManagedTabs: true });
+      }
+      if (deps.stopPageContextTabs) {
+        await deps.stopPageContextTabs(state.managedPageContextTabs ?? {}, {
+          platforms: PLATFORMS,
+          reason: "automation_disabled",
+          emit,
+        });
+      }
+      tablessWatchers.clear();
+      registerManagedPageContextTabs({});
+      lastIntegrityToken = undefined;
+      setTwitchIntegrity(undefined);
+      await reportBestEffort(events);
+    }));
+  }
+
   // Bounded post-claim handoff (see docs/superpowers/specs/2026-07-19-twitch-claim-handoff-design.md).
   // Re-runs a scoped tick on the configured cadence until the platform lands on
   // a reward other than the ones just claimed, then hands off to the immediate
@@ -1195,6 +1220,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     runWatchHeartbeat,
     runClaimHandoff,
     abortClaimHandoffs,
+    prepareForHostReset,
   };
 }
 
