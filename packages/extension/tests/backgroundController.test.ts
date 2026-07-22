@@ -839,6 +839,48 @@ describe("background controller", () => {
     await expect(env.controller.prepareForHostReset()).resolves.toBeUndefined();
   });
 
+  it("force-closes registry-owned tabs even when no live session references them", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    env.state.managedWatchTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 71,
+        channelUrl: "https://www.twitch.tv/stale-channel",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.prepareForHostReset();
+
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([expect.objectContaining({ tabId: 71 })]);
+  });
+
+  it("holds controller mutations until host storage reset finishes", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    let releaseReset!: () => void;
+    const resetBlocked = new Promise<void>((resolve) => {
+      releaseReset = resolve;
+    });
+    const resetStarted = vi.fn();
+    const resetting = env.controller.prepareForHostReset(async () => {
+      resetStarted();
+      await resetBlocked;
+      await env.deps.saveSettings(DEFAULT_SETTINGS);
+      await env.deps.saveState(DEFAULT_STATE);
+    });
+    await vi.waitFor(() => expect(resetStarted).toHaveBeenCalledOnce());
+    vi.mocked(env.twitch.discoverCampaigns).mockClear();
+
+    const ticking = env.controller.tick();
+    await Promise.resolve();
+
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    releaseReset();
+    await Promise.all([resetting, ticking]);
+    expect(env.settings).toEqual(DEFAULT_SETTINGS);
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+  });
+
   it("toggles one platform and immediately applies the scheduler when running", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
     await env.controller.tick();

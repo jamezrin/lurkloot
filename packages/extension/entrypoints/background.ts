@@ -180,8 +180,10 @@ let resetMutation: Promise<RuntimeSnapshot<ExtensionSettings>> | undefined;
 function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
   if (resetMutation) return resetMutation;
   resetMutation = (async () => {
-    await controller.prepareForHostReset();
-    await resetStorage();
+    await controller.prepareForHostReset(async () => {
+      kickClaimState.clear();
+      await resetStorage();
+    });
     return await controller.handleMessage({ type: "getSnapshot" }) as RuntimeSnapshot<ExtensionSettings>;
   })().finally(() => {
     resetMutation = undefined;

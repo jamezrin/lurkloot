@@ -248,22 +248,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   void loadStoredTwitchIntegrity();
 
   async function loadStoredTwitchIntegrity(): Promise<void> {
-    try {
-      const integrity = await deps.loadTwitchIntegrity?.();
-      if (integrity && integrity.expiresAt > Date.now()) {
-        lastIntegrityToken = integrity.integrity;
-        setTwitchIntegrity(integrity);
+    await withStateLock(async () => {
+      try {
+        const integrity = await deps.loadTwitchIntegrity?.();
+        if (integrity && integrity.expiresAt > Date.now()) {
+          lastIntegrityToken = integrity.integrity;
+          setTwitchIntegrity(integrity);
+        }
+      } catch (error) {
+        // A missing/corrupt stored token is non-fatal: fresh page traffic will
+        // re-capture one, and claims simply stay best-effort until then.
+        await reportBestEffort([{
+          category: "diagnostic",
+          level: "debug",
+          platform: "twitch",
+          message: `No stored Twitch integrity token to prime (${error instanceof Error ? error.message : String(error)})`,
+        }]);
       }
-    } catch (error) {
-      // A missing/corrupt stored token is non-fatal: fresh page traffic will
-      // re-capture one, and claims simply stay best-effort until then.
-      await reportBestEffort([{
-        category: "diagnostic",
-        level: "debug",
-        platform: "twitch",
-        message: `No stored Twitch integrity token to prime (${error instanceof Error ? error.message : String(error)})`,
-      }]);
-    }
+    });
   }
 
   // Fed by the background's webRequest listener with the outgoing headers of
@@ -678,14 +680,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     claimHandoffs.clear();
   }
 
-  async function prepareForHostReset(): Promise<void> {
+  async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
     abortClaimHandoffs();
-    await withStateLock(() => withEventCollector(async (emit, events) => {
+    await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const adapters = createAdapters(settings, emit);
+      const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
+      if (deps.closeManagedTabs && managedTabs.length > 0) await deps.closeManagedTabs(managedTabs);
       for (const platform of PLATFORMS) {
         const watcher = tablessWatchers.get(platform);
         if (watcher) await watcher.stop();
+        await deps.applyAdFocus?.(platform, state.sessions[platform].tabId, false, emit);
         await adapters[platform].stopWatchTab?.(state.sessions[platform], { closeManagedTabs: true });
       }
       if (deps.stopPageContextTabs) {
@@ -699,8 +704,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       registerManagedPageContextTabs({});
       lastIntegrityToken = undefined;
       setTwitchIntegrity(undefined);
+      await resetHostStorage?.();
       await reportBestEffort(events);
-    }));
+    })));
   }
 
   // Bounded post-claim handoff (see docs/superpowers/specs/2026-07-19-twitch-claim-handoff-design.md).

@@ -93,6 +93,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [campaignFocus, setCampaignFocus] = useState<{ id: string; seq: number } | null>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const snapshotRequestGenerationRef = useRef(0);
   const activityRequestScopeRef = useRef(createActivityRequestScope(platform));
   const activityMutationSequenceRef = useRef(createActivityMutationSequence());
   const diagnosticMutationSequenceRef = useRef(createActivityMutationSequence());
@@ -324,7 +325,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   useEffect(() => {
     if (preview) return;
     const interval = setInterval(() => {
+      const generation = snapshotRequestGenerationRef.current;
       void adapter.send<RuntimeSnapshot>({ type: "getSnapshot" }).then((nextSnapshot) => {
+        if (generation !== snapshotRequestGenerationRef.current) return;
         // Keep the locally-held settings rather than the refreshed ones so an
         // in-flight edit is never clobbered mid-typing. The tradeoff: a setting
         // changed by the background (e.g. startup auto-pausing `running`) is not
@@ -417,6 +420,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const resetExtension = adapter.resetExtension
     ? async () => {
         await settingsSaveQueue.current.catch(() => undefined);
+        snapshotRequestGenerationRef.current += 1;
         const nextSnapshot = await adapter.resetExtension!();
         settingsRef.current = mergeSettings(nextSnapshot.settings);
         invalidateActivityRequests("twitch");

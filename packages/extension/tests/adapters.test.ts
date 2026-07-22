@@ -438,9 +438,14 @@ describe("KickAdapter", () => {
 
     expect(claimPosts).toBe(1);
 
-    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: new KickClaimState() }).claimReward(campaign, reward);
+    state.clear();
+    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
 
     expect(claimPosts).toBe(2);
+
+    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: new KickClaimState() }).claimReward(campaign, reward);
+
+    expect(claimPosts).toBe(3);
   });
 
   it("keeps Kick claim v1 limited to campaign account-link metadata", () => {
