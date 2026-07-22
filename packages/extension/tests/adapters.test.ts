@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
-import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import type { EngineEvent } from "@lurkloot/shared/events";
@@ -780,6 +780,7 @@ describe("TwitchAdapter", () => {
   it.each([
     { error: "Unauthorized", message: "OAuth token is invalid" },
     { errors: [{ message: "Unauthenticated" }] },
+    { errors: [{ message: "The OAuth token was invalid" }] },
   ])("classifies explicit Twitch credential rejection as invalid: %j", async (response) => {
     const fetcher = jsonFetcher(() => response);
 
@@ -789,6 +790,34 @@ describe("TwitchAdapter", () => {
       reasonCode: "credentials_rejected",
       message: { key: "authInvalidCredentials" },
     });
+  });
+
+  it.each([
+    [401, "Unauthorized", "invalid_credentials", "credentials_rejected", "authInvalidCredentials"],
+    [503, "Service Unavailable", "unavailable", "platform_unavailable", "authPlatformUnavailable"],
+  ] as const)("classifies background HTTP %i without treating it as a network failure", async (status, statusText, healthStatus, reasonCode, messageKey) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(status === 401 ? "OAuth token rejected" : "upstream unavailable", { status, statusText }),
+    );
+    const cookieApi = {
+      cookies: {
+        get: vi.fn(async ({ name }: { name: string }) => name === "auth-token" ? { value: "secret" } : null),
+      },
+    };
+    const fetcher: PageFetcher = {
+      fetchJson: (url, init) => fetchTwitchInBackgroundWith(cookieApi, url, init),
+    };
+
+    try {
+      await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+        status: healthStatus,
+        checkedAt: expect.any(String),
+        reasonCode,
+        message: { key: messageKey },
+      });
+    } finally {
+      fetchMock.mockRestore();
+    }
   });
 
   it("classifies request transport failure as network unavailability", async () => {

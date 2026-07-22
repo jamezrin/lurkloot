@@ -174,7 +174,7 @@ class TwitchGqlFailure extends Error {
 }
 
 function isCredentialRejection(message: string | undefined): boolean {
-  return message != null && /unauthenticated|unauthorized|oauth token (?:is )?invalid|invalid oauth token|token (?:has )?expired/i.test(message);
+  return message != null && /unauthenticated|unauthorized|(?:the )?oauth token (?:(?:is|was) )?invalid|invalid oauth token|token (?:has )?expired/i.test(message);
 }
 
 interface TwitchDashboardData {
@@ -333,7 +333,7 @@ export function createTwitchGqlTransport(
         throw new TwitchGqlFailure("network", message);
       }
       const pageError = twitchPageFetchError(raw);
-      if (pageError) throw new TwitchGqlFailure("network", `${operationName}: ${pageError}`);
+      if (pageError) throw new TwitchGqlFailure(pageError.kind, `${operationName}: ${pageError.message}`);
       return normalizeTwitchGqlResponse<T>(raw);
     };
     let activeQuery = query;
@@ -993,10 +993,16 @@ function isTwitchGqlResponse<T>(value: TwitchGqlResponse<T> | null): value is Tw
 // response; both PersistedQueryNotFound and integrity rejections arrive this way.
 // The in-page fetcher resolves `{ __twitchGqlError }` instead of rejecting,
 // because executeScript discards rejection messages. Pull the diagnostic out.
-function twitchPageFetchError(value: unknown): string | undefined {
+function twitchPageFetchError(value: unknown): { message: string; kind: TwitchGqlFailureKind } | undefined {
   if (value != null && typeof value === "object" && !Array.isArray(value)) {
-    const error = (value as { __twitchGqlError?: unknown }).__twitchGqlError;
-    if (typeof error === "string") return error;
+    const envelope = value as { __twitchGqlError?: unknown; __twitchGqlFailureKind?: unknown };
+    if (typeof envelope.__twitchGqlError === "string") {
+      const kind = envelope.__twitchGqlFailureKind;
+      return {
+        message: envelope.__twitchGqlError,
+        kind: kind === "credentials" || kind === "platform" ? kind : "network",
+      };
+    }
   }
   return undefined;
 }
