@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "क्रेडेंशियल निर्यात करें"
   },
+  "factoryResetTitle": { "message": "Lurkloot रीसेट करें" },
+  "factoryResetHint": { "message": "Lurkloot की सभी सेटिंग, फ़ार्मिंग प्रगति और गतिविधि इतिहास मिटाता है। आपके Twitch और Kick खाते साइन इन रहेंगे।" },
+  "factoryResetButton": { "message": "Lurkloot रीसेट करें" },
+  "factoryResetConfirm": { "message": "यह फ़ार्मिंग रोकता है, Lurkloot द्वारा खोले गए टैब बंद करता है और Lurkloot का सारा डेटा स्थायी रूप से मिटाता है। Twitch और Kick साइन इन रहेंगे।" },
+  "factoryResetCancel": { "message": "रद्द करें" },
+  "factoryResetConfirmButton": { "message": "सब कुछ रीसेट करें" },
+  "factoryResetProgress": { "message": "रीसेट किया जा रहा है…" },
+  "factoryResetFailed": { "message": "Lurkloot पूरी तरह रीसेट नहीं हो सका। फिर से कोशिश करें।" },
+  "factoryResetRetry": { "message": "फिर से रीसेट करें" },
   "diagnosticLoggingTitle": {
     "message": "डायग्नोस्टिक लॉग शामिल करें"
   },

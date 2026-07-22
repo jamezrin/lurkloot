@@ -1,4 +1,4 @@
-import type { CliCredentialBlob, RuntimeMessage } from "@lurkloot/shared/messages";
+import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale } from "@lurkloot/shared/models";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
@@ -126,6 +126,7 @@ export interface PopupAdapter {
   // Optional: download/persist an exported credential blob for the headless CLI.
   // Only the live extension implements it (the demo omits it, hiding the action).
   exportCredentials?(blob: CliCredentialBlob): void;
+  resetExtension?(): Promise<RuntimeSnapshot>;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   resolveCompatibility?(settings: CompatibilitySettings): PopupCompatibilityResolution;
 }

@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "Anmeldedaten exportieren"
   },
+  "factoryResetTitle": { "message": "Lurkloot zurücksetzen" },
+  "factoryResetHint": { "message": "Löscht alle Lurkloot-Einstellungen, den Farming-Fortschritt und den Aktivitätsverlauf. Deine Twitch- und Kick-Konten bleiben angemeldet." },
+  "factoryResetButton": { "message": "Lurkloot zurücksetzen" },
+  "factoryResetConfirm": { "message": "Dadurch wird das Farming beendet, von Lurkloot geöffnete Tabs werden geschlossen und alle Lurkloot-Daten dauerhaft gelöscht. Twitch und Kick bleiben angemeldet." },
+  "factoryResetCancel": { "message": "Abbrechen" },
+  "factoryResetConfirmButton": { "message": "Alles zurücksetzen" },
+  "factoryResetProgress": { "message": "Wird zurückgesetzt…" },
+  "factoryResetFailed": { "message": "Lurkloot konnte nicht vollständig zurückgesetzt werden. Versuche es erneut." },
+  "factoryResetRetry": { "message": "Erneut versuchen" },
   "diagnosticLoggingTitle": {
     "message": "Diagnoseprotokolle einschließen"
   },

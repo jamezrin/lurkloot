@@ -56,6 +56,7 @@ export function createExtensionPopupAdapter(): PopupAdapter {
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     },
+    resetExtension: () => browser.runtime.sendMessage({ type: "resetExtension" }),
     compatibilityRegistry: COMPATIBILITY_REGISTRY,
     resolveCompatibility: (settings) => resolveCompatibility(settings, { host: "extension", twitchIdentity: "web" }),
   };

@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "Exportar credenciales"
   },
+  "factoryResetTitle": { "message": "Restablecer Lurkloot" },
+  "factoryResetHint": { "message": "Borra todos los ajustes, el progreso de farmeo y el historial de actividad de Lurkloot. Tus cuentas de Twitch y Kick seguirán conectadas." },
+  "factoryResetButton": { "message": "Restablecer Lurkloot" },
+  "factoryResetConfirm": { "message": "Esto detiene el farmeo, cierra las pestañas abiertas por Lurkloot y borra permanentemente todos sus datos. Twitch y Kick seguirán conectados." },
+  "factoryResetCancel": { "message": "Cancelar" },
+  "factoryResetConfirmButton": { "message": "Borrar todo" },
+  "factoryResetProgress": { "message": "Restableciendo…" },
+  "factoryResetFailed": { "message": "Lurkloot no se pudo restablecer por completo. Inténtalo de nuevo." },
+  "factoryResetRetry": { "message": "Reintentar" },
   "diagnosticLoggingTitle": {
     "message": "Incluir registros de diagnóstico"
   },

@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "تصدير بيانات الاعتماد"
   },
+  "factoryResetTitle": { "message": "إعادة ضبط Lurkloot" },
+  "factoryResetHint": { "message": "يمسح جميع إعدادات Lurkloot وتقدم التجميع وسجل النشاط. ستبقى مسجّلًا في Twitch وKick." },
+  "factoryResetButton": { "message": "إعادة ضبط Lurkloot" },
+  "factoryResetConfirm": { "message": "يؤدي هذا إلى إيقاف التجميع وإغلاق علامات التبويب التي فتحها Lurkloot ومسح جميع بياناته نهائيًا. ستبقى مسجّلًا في Twitch وKick." },
+  "factoryResetCancel": { "message": "إلغاء" },
+  "factoryResetConfirmButton": { "message": "إعادة ضبط الكل" },
+  "factoryResetProgress": { "message": "جارٍ إعادة الضبط…" },
+  "factoryResetFailed": { "message": "تعذّرت إعادة ضبط Lurkloot بالكامل. حاول مرة أخرى." },
+  "factoryResetRetry": { "message": "حاول إعادة الضبط مجددًا" },
   "diagnosticLoggingTitle": {
     "message": "تضمين سجلات التشخيص"
   },

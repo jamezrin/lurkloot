@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "Exportar credenciais"
   },
+  "factoryResetTitle": { "message": "Redefinir o Lurkloot" },
+  "factoryResetHint": { "message": "Apaga todas as configurações, o progresso de farming e o histórico de atividades do Lurkloot. Suas contas da Twitch e Kick continuarão conectadas." },
+  "factoryResetButton": { "message": "Redefinir o Lurkloot" },
+  "factoryResetConfirm": { "message": "Isso interrompe o farming, fecha as abas abertas pelo Lurkloot e apaga permanentemente todos os dados. Twitch e Kick continuarão conectados." },
+  "factoryResetCancel": { "message": "Cancelar" },
+  "factoryResetConfirmButton": { "message": "Redefinir tudo" },
+  "factoryResetProgress": { "message": "Redefinindo…" },
+  "factoryResetFailed": { "message": "Não foi possível redefinir o Lurkloot por completo. Tente novamente." },
+  "factoryResetRetry": { "message": "Tentar novamente" },
   "diagnosticLoggingTitle": {
     "message": "Incluir registros de diagnóstico"
   },

@@ -414,6 +414,23 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       }
     : undefined;
 
+  const resetExtension = adapter.resetExtension
+    ? async () => {
+        await settingsSaveQueue.current.catch(() => undefined);
+        const nextSnapshot = await adapter.resetExtension!();
+        settingsRef.current = mergeSettings(nextSnapshot.settings);
+        invalidateActivityRequests("twitch");
+        setActivityStream(createActivityStream());
+        setDiagnosticStream(createActivityStream());
+        setShowDiagnostics(false);
+        setPlatform("twitch");
+        setTab("drops");
+        setPendingChangelogVersion(undefined);
+        setSnapshot(snapshotWithMergedSettings(nextSnapshot));
+        setSettingsOpen(false);
+      }
+    : undefined;
+
   if (!snapshot) {
     return (
       <PopupRuntimeContext.Provider value={{ adapter, preview }}>
@@ -528,7 +545,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} />
+                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} />
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>

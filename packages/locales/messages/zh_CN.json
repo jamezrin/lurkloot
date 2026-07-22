@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "导出凭据"
   },
+  "factoryResetTitle": { "message": "重置 Lurkloot" },
+  "factoryResetHint": { "message": "清除所有 Lurkloot 设置、挂机进度和活动记录。你的 Twitch 和 Kick 账号仍会保持登录。" },
+  "factoryResetButton": { "message": "重置 Lurkloot" },
+  "factoryResetConfirm": { "message": "此操作会停止挂机、关闭 Lurkloot 打开的标签页，并永久清除所有 Lurkloot 数据。Twitch 和 Kick 仍会保持登录。" },
+  "factoryResetCancel": { "message": "取消" },
+  "factoryResetConfirmButton": { "message": "全部重置" },
+  "factoryResetProgress": { "message": "正在重置…" },
+  "factoryResetFailed": { "message": "Lurkloot 未能完全重置，请重试。" },
+  "factoryResetRetry": { "message": "重新尝试重置" },
   "diagnosticLoggingTitle": {
     "message": "包含诊断日志"
   },

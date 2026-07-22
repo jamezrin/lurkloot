@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "Exporter les identifiants"
   },
+  "factoryResetTitle": { "message": "Réinitialiser Lurkloot" },
+  "factoryResetHint": { "message": "Efface tous les réglages, la progression de farming et l’historique d’activité de Lurkloot. Vos comptes Twitch et Kick restent connectés." },
+  "factoryResetButton": { "message": "Réinitialiser Lurkloot" },
+  "factoryResetConfirm": { "message": "Cela arrête le farming, ferme les onglets ouverts par Lurkloot et efface définitivement toutes ses données. Twitch et Kick restent connectés." },
+  "factoryResetCancel": { "message": "Annuler" },
+  "factoryResetConfirmButton": { "message": "Tout réinitialiser" },
+  "factoryResetProgress": { "message": "Réinitialisation…" },
+  "factoryResetFailed": { "message": "Lurkloot n’a pas pu être entièrement réinitialisé. Réessayez." },
+  "factoryResetRetry": { "message": "Réessayer" },
   "diagnosticLoggingTitle": {
     "message": "Inclure les journaux de diagnostic"
   },
