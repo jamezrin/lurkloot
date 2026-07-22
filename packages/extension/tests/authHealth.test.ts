@@ -34,14 +34,17 @@ describe("authentication health normalization", () => {
     {},
     { data: [] },
     { data: [{ id: "public-campaign" }] },
-  ])("does not infer Kick authentication from identity-free JSON", async (response) => {
+  ])("treats an identity-free Kick body as unavailable, not signed out", async (response) => {
+    // Kick answers this endpoint `200 {}` when the Bearer is missing, so an empty body
+    // means the request lost its credentials in transport. Reporting invalid_credentials
+    // here is what suspended farming for signed-in users (regression from #213/#214).
     const fetcher = { fetchJson: async <T,>(): Promise<T> => response as T };
 
     await expect(new KickAdapter(fetcher).checkAuthHealth()).resolves.toMatchObject({
-      status: "invalid_credentials",
-      reasonCode: "credentials_rejected",
-      message: { key: "authInvalidCredentials" },
-  });
+      status: "unavailable",
+      reasonCode: "platform_unavailable",
+      message: { key: "authPlatformUnavailable" },
+    });
   });
   it("defaults both platforms to unchecked checking state", () => {
     expect(DEFAULT_STATE.authHealth).toEqual({

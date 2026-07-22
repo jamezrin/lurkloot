@@ -1066,6 +1066,49 @@ describe("fetchKickInBackgroundWith", () => {
     vi.unstubAllGlobals();
   });
 
+  it("replays the session_token cookie as a Bearer for the kick.com identity endpoint", async () => {
+    // Kick serves this endpoint anonymously as `200 {}` rather than a 401, so without the
+    // Bearer the auth probe cannot tell a signed-in account from a signed-out one.
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify({ id: 42 }), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    try {
+      await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user");
+
+      expect(new Headers(captured?.headers).get("authorization")).toBe("Bearer sess 789");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  // Every URL here is a near-miss for a genuinely authenticated endpoint: a look-alike
+  // host, an unintended subpath, or a plaintext downgrade of an endpoint that *does*
+  // receive the token over https (see the web.kick.com case above). None may receive it.
+  it.each([
+    ["look-alike host mentioning a Kick host", "https://evil.example/?r=web.kick.com"],
+    ["look-alike host suffixing a Kick host", "https://web.kick.com.evil.example/api/v1/user"],
+    ["subpath of the identity endpoint", "https://kick.com/api/v1/user/profile"],
+    ["plaintext downgrade of an authenticated endpoint", "http://web.kick.com/api/v1/drops/progress"],
+  ])("never attaches the session token to a %s", async (_case, url) => {
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    try {
+      await fetchKickInBackgroundWith(cookieApi, url);
+
+      expect(new Headers(captured?.headers).has("authorization")).toBe(false);
+      expect(cookieApi.cookies.get).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("throws KickWafBlockedError on a 403 security-policy block", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(
       JSON.stringify({

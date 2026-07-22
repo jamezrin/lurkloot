@@ -485,9 +485,26 @@ export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string
   return (isUsableTwitchGql(json) ? json : twitchGqlErrorEnvelope("returned an unusable response", response.status, text, headers)) as T;
 }
 
-// Kick hosts whose endpoints replay the session_token cookie as a Bearer (mirrors
-// pageFetchJson). kick.com/api/v2/* is public and does not need it.
-const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com"];
+// Kick endpoints that replay the session_token cookie as a Bearer (mirrors the
+// predicate inlined in pageFetchJson). kick.com/api/v2/* and /api/search are public
+// and do not need it; kick.com/api/v1/user does, because Kick serves it anonymously
+// as `200 {}` instead of a 401, so a missing Bearer there is indistinguishable from a
+// signed-out session (see KickAdapter.checkAuthHealth).
+//
+// Matched on the parsed host and pathname rather than by substring: `includes` would
+// also attach the session token to hosts that merely mention a Kick host (e.g.
+// https://evil.example/?r=web.kick.com) and to unintended subpaths of /api/v1/user.
+function needsKickSessionBearer(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  if (parsed.host === "web.kick.com" || parsed.host === "websockets.kick.com") return true;
+  return parsed.host === "kick.com" && parsed.pathname === "/api/v1/user";
+}
 
 // Distinguishes "Kick's WAF / origin check rejected the service-worker request"
 // (fall back to the page-context tab) from a genuine error. Thrown by
@@ -535,7 +552,7 @@ function safeKickFailure(status: number, text: string): SafeFetchFailure {
 // stack is WAF-blocked for unrelated reasons).
 export async function fetchKickInBackgroundWith<T>(api: CookieApi, url: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers ?? {});
-  if (KICK_AUTH_HOSTS.some((host) => url.includes(host)) && !headers.has("authorization")) {
+  if (needsKickSessionBearer(url) && !headers.has("authorization")) {
     const sessionToken = (await api.cookies?.get({ url: "https://kick.com", name: "session_token" }))?.value;
     if (sessionToken) headers.set("authorization", `Bearer ${decodeURIComponent(sessionToken)}`);
   }
@@ -1022,7 +1039,21 @@ export type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageC
 async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
   const parsedInit = initJson ? JSON.parse(initJson) : undefined;
   const headers = new Headers(parsedInit?.headers ?? {});
-  if ((targetUrl.includes("web.kick.com") || targetUrl.includes("websockets.kick.com")) && !headers.has("authorization")) {
+  // Mirrors needsKickSessionBearer; inlined because executeScript only serializes this
+  // function's own source, so module-scope helpers are unavailable in the page. Matches
+  // on parsed host/pathname so the session token is never attached to a look-alike host
+  // or to an unintended subpath of /api/v1/user.
+  let needsKickBearer = false;
+  try {
+    const parsedTarget = new URL(targetUrl);
+    needsKickBearer = parsedTarget.protocol === "https:"
+      && (parsedTarget.host === "web.kick.com"
+        || parsedTarget.host === "websockets.kick.com"
+        || (parsedTarget.host === "kick.com" && parsedTarget.pathname === "/api/v1/user"));
+  } catch {
+    needsKickBearer = false;
+  }
+  if (needsKickBearer && !headers.has("authorization")) {
     const sessionToken = document.cookie
       .split(";")
       .map((part) => part.trim())
