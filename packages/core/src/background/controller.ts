@@ -474,11 +474,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function handleTabRemoved(tabId: number): Promise<void> {
     // Serialize the load-modify-persist under the state lock so it cannot race a
     // concurrent tick()/heartbeat (both fire on a ~1-minute cadence while the
-    // user can close a tab at any moment). The trailing tick() is deferred to
-    // outside the lock because it re-acquires the lock itself — mirroring how
-    // runWatchHeartbeat returns its fallback work and ticks afterwards.
-    const shouldRerunScheduler = await withStateLock(() => withEventCollector(async (emit, events) => {
-      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    // user can close a tab at any moment). A removal never runs the scheduler
+    // directly: the next ordinary alarm may recover without fighting the user's
+    // close action by immediately recreating the tab.
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      const state = await deps.loadState();
       const manualPlatforms = (["twitch", "kick"] as Platform[]).filter((platform) => state.manualWatch?.[platform]?.tabId === tabId);
       let nextState = state;
       if (manualPlatforms.length > 0) {
@@ -489,26 +489,32 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           manualWatch,
         };
       }
-      let shouldRerun = false;
 
-      for (const platform of settings.running ? ["twitch", "kick"] as Platform[] : []) {
+      const closedManagedPlatforms: Platform[] = [];
+      for (const platform of PLATFORMS) {
         const session = state.sessions[platform];
         if (
-          settings.platform[platform].enabled
-          && session.status === "watching"
+          session.status === "watching"
           && session.tabManagedByExtension
           && session.tabId === tabId
         ) {
-          emit({ category: "diagnostic", platform, level: "info", message: "Managed watch tab was closed; re-running scheduler" });
-          shouldRerun = true;
-          break;
+          closedManagedPlatforms.push(platform);
+          emit({ category: "diagnostic", platform, level: "info", message: "Managed watch tab was closed; recovery deferred to the next scheduler cycle" });
         }
       }
-      if (manualPlatforms.length > 0 || events.length > 0) await persistAndReport(nextState, events);
-      return shouldRerun;
-    }));
 
-    if (shouldRerunScheduler) await tick();
+      if (closedManagedPlatforms.length > 0) {
+        const sessions = { ...nextState.sessions };
+        const managedWatchTabs = { ...nextState.managedWatchTabs };
+        for (const platform of closedManagedPlatforms) {
+          sessions[platform] = { platform, status: "idle", offlineChecks: 0 };
+          delete managedWatchTabs[platform];
+        }
+        nextState = { ...nextState, sessions, managedWatchTabs };
+      }
+
+      if (nextState !== state || events.length > 0) await persistAndReport(nextState, events);
+    }));
   }
 
   function tablessWatchContext(): WatchContext {

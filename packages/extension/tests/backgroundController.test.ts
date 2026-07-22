@@ -1389,7 +1389,7 @@ describe("background controller", () => {
     )).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
   });
 
-  it("runs an immediate tick when the active managed Twitch tab is closed", async () => {
+  it("defers recovery when the active managed farming tab is closed", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
       running: true,
@@ -1406,11 +1406,66 @@ describe("background controller", () => {
       tabId: 10,
       tabManagedByExtension: true,
     };
+    env.state.managedWatchTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 10,
+        channelUrl: "https://www.twitch.tv/twitch-creator",
+        ownedByExtension: true,
+      },
+    };
 
     await env.controller.handleTabRemoved(10);
 
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
-    expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.state.sessions.twitch).toEqual({
+      platform: "twitch",
+      status: "idle",
+      offlineChecks: 0,
+    });
+    expect(env.state.managedWatchTabs?.twitch).toBeUndefined();
+
+    await env.controller.tick();
+
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.twitch.prepareWatchTab).toHaveBeenCalledOnce();
+    expect(env.state.sessions.twitch.tabId).toBe(10);
+  });
+
+  it("does not confuse a removed page-context tab with the active farming tab", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      channel: channel("kick"),
+      offlineChecks: 0,
+      tabId: 20,
+      tabManagedByExtension: true,
+    };
+    env.state.managedWatchTabs = {
+      kick: {
+        platform: "kick",
+        tabId: 20,
+        channelUrl: "https://kick.com/kick-creator",
+        ownedByExtension: true,
+      },
+    };
+    env.state.managedPageContextTabs = {
+      kick: {
+        platform: "kick",
+        tabId: 91,
+        originUrl: "https://kick.com/drops/inventory",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.handleTabRemoved(91);
+
+    expect(env.state.sessions.kick.tabId).toBe(20);
+    expect(env.state.managedWatchTabs?.kick?.tabId).toBe(20);
+    expect(env.kick.prepareWatchTab).not.toHaveBeenCalled();
   });
 
   it("ignores removed tabs that are not the active managed watch tab", async () => {
