@@ -694,7 +694,14 @@ async function findOrCreatePageContextTab(
       .filter((tab): tab is ManagedPageContextTab => tab != null && tab.origin === origin)
       .map((tab) => tab.tabId),
   );
-  const tabId = tabs.find((tab) => tab.id != null && !retainedIds.has(tab.id))?.id;
+  let tabId: number | undefined;
+  for (const tab of tabs) {
+    if (tab.id == null || retainedIds.has(tab.id)) continue;
+    if (await isUsablePageContext(browserApi, tab.id, origin)) {
+      tabId = tab.id;
+      break;
+    }
+  }
   if (tabId != null) {
     if (retained?.origin === origin) {
       retainedPageContextTabs.delete(retained.platform);
@@ -725,7 +732,7 @@ async function findOrCreatePageContextTab(
   if (retained?.origin === origin) {
     try {
       const tab = await browserApi.tabs.get(retained.tabId);
-      if (tab?.id && tab.url?.startsWith(origin)) {
+      if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin)) {
         retainedPageContextTabs.set(retained.platform, retained);
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused managed page context on ${new URL(origin).host}`, retained.platform);
         return { tabId: tab.id, createdByExtension: true, retainedContext: retained };
@@ -765,6 +772,17 @@ async function findOrCreatePageContextTab(
   }
   await browserApi.tabs.update(tab.id, { muted: true, active: false });
   await waitForPageContextReady(browserApi, tab.id, origin);
+  if (!await isUsablePageContext(browserApi, tab.id, origin)) {
+    try {
+      await browserApi.tabs.remove?.(tab.id);
+    } catch {
+      // The unusable page may already have been closed.
+    }
+    throw new SafeFetchError({
+      kind: "security_policy_blocked",
+      reason: "Kick page context is blocked or unusable",
+    });
+  }
   if (retain) {
     const retainedContext: ManagedPageContextTab = {
       platform: retain.platform,
@@ -790,6 +808,66 @@ async function findOrCreatePageContextTab(
     return { tabId: tab.id, createdByExtension: true, retainedContext };
   }
   return { tabId: tab.id, createdByExtension: true };
+}
+
+async function isUsablePageContext(browserApi: BrowserTabApi, tabId: number, origin: string): Promise<boolean> {
+  if (origin !== "https://kick.com") return true;
+  try {
+    if (browserApi.scripting?.executeScript) {
+      const [result] = await browserApi.scripting.executeScript({
+        target: { tabId },
+        world: "MAIN",
+        func: validateKickPageContext,
+      });
+      const value = result?.result as { usable?: unknown } | undefined;
+      return value?.usable === true || (value as { ok?: unknown } | undefined)?.ok === true;
+    }
+    if (browserApi.tabs.executeScript) {
+      const results = await browserApi.tabs.executeScript(tabId, { code: `(${validateKickPageContext.toString()})()` });
+      const value = results?.[0] as { usable?: unknown; ok?: unknown } | undefined;
+      return value?.usable === true || value?.ok === true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+function validateKickPageContext(): { usable: boolean; failure?: SafeFetchFailure } {
+  const contentType = document.contentType?.toLowerCase() ?? "";
+  const text = document.body?.textContent?.trim().slice(0, 512) ?? "";
+  let body: Record<string, unknown> = {};
+  if (contentType.includes("json") || text.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(text) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
+    } catch {
+      return { usable: false, failure: { kind: "invalid_response" } };
+    }
+  }
+  const rawReason = typeof body.error === "string"
+    ? body.error
+    : typeof body.message === "string"
+      ? body.message
+      : undefined;
+  const reason = rawReason && rawReason.length <= 256 ? rawReason : undefined;
+  const blocked = /security policy|request blocked/i.test(reason ?? text);
+  if (contentType.includes("json") || blocked) {
+    const rawReference = body.reference;
+    const reference = (typeof rawReference === "string" && rawReference.length > 0 && rawReference.length <= 128)
+      || (typeof rawReference === "number" && Number.isFinite(rawReference))
+      ? rawReference
+      : undefined;
+    return {
+      usable: false,
+      failure: {
+        kind: blocked ? "security_policy_blocked" : "invalid_response",
+        ...(reason ? { reason } : {}),
+        ...(reference !== undefined ? { reference } : {}),
+      },
+    };
+  }
+  return { usable: contentType.includes("html") || document.documentElement?.tagName === "HTML" };
 }
 
 async function waitForPageContextReady(browserApi: BrowserTabApi, tabId: number, origin: string): Promise<void> {

@@ -457,21 +457,22 @@ describe("tab manager", () => {
   });
 
   it("reconstructs sanitized page-context failures", async () => {
+    const executeScript = vi.fn()
+      .mockResolvedValueOnce([{ result: { usable: true } }])
+      .mockResolvedValueOnce([{ result: {
+        __lurklootPageFetch: true,
+        ok: false,
+        error: {
+          kind: "security_policy_blocked",
+          status: 403,
+          reason: "Request blocked by security policy.",
+          reference: "9e4db7e3",
+          token: "must-not-survive",
+        },
+      } }]);
     const browser = {
       ...browserMock(),
-      scripting: {
-        executeScript: vi.fn(async () => [{ result: {
-          __lurklootPageFetch: true,
-          ok: false,
-          error: {
-            kind: "security_policy_blocked",
-            status: 403,
-            reason: "Request blocked by security policy.",
-            reference: "9e4db7e3",
-            token: "must-not-survive",
-          },
-        } }]),
-      },
+      scripting: { executeScript },
     };
     browser.tabs.query.mockResolvedValue([{ id: 3 }]);
 
@@ -491,12 +492,63 @@ describe("tab manager", () => {
     expect(JSON.stringify(error)).not.toContain("must-not-survive");
   });
 
-  it("throws a clear error when page-context execution returns no result", async () => {
+  it("rejects a completed security-policy document and recovers with a valid Kick context", async () => {
+    const executeScript = vi.fn()
+      .mockResolvedValueOnce([{ result: {
+        usable: false,
+        failure: {
+          kind: "security_policy_blocked",
+          status: 403,
+          reason: "Request blocked by security policy.",
+          reference: "9e4db7e3",
+        },
+      } }])
+      .mockResolvedValueOnce([{ result: { usable: true } }])
+      .mockResolvedValueOnce([{ result: {
+        __lurklootPageFetch: true,
+        ok: true,
+        data: { id: 42, username: "viewer" },
+      } }]);
     const browser = {
       ...browserMock(),
-      scripting: {
-        executeScript: vi.fn(async () => []),
-      },
+      scripting: { executeScript },
+    };
+    browser.tabs.query.mockResolvedValue([{
+      id: 3,
+      url: "https://kick.com/",
+      status: "complete",
+    }]);
+    browser.tabs.create.mockResolvedValue({ id: 14 });
+
+    const result = await fetchJsonInPageWithBrowser<{ id: number; username: string }>(
+      browser,
+      "https://kick.com/drops/inventory",
+      "https://kick.com/api/v1/user",
+      undefined,
+      { retainPageContext: { platform: "kick" } },
+    );
+
+    expect(result).toEqual({ id: 42, username: "viewer" });
+    expect(browser.tabs.create).toHaveBeenCalledWith({
+      url: "https://kick.com/drops/inventory",
+      pinned: false,
+      active: false,
+    });
+    expect(executeScript.mock.calls.map(([details]) => details.target)).toEqual([
+      { tabId: 3 },
+      { tabId: 14 },
+      { tabId: 14 },
+    ]);
+    expect(currentManagedPageContextTabs().kick?.tabId).toBe(14);
+  });
+
+  it("throws a clear error when page-context execution returns no result", async () => {
+    const executeScript = vi.fn()
+      .mockResolvedValueOnce([{ result: { usable: true } }])
+      .mockResolvedValueOnce([]);
+    const browser = {
+      ...browserMock(),
+      scripting: { executeScript },
     };
     browser.tabs.query.mockResolvedValue([{ id: 3 }]);
 
