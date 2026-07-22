@@ -41,6 +41,7 @@ function asSnapshot(value: unknown): RuntimeSnapshot {
 function adapter(platform: Platform): PlatformAdapter {
   return {
     platform,
+    checkAuthHealth: vi.fn(async () => ({ status: "checking" as const })),
     discoverCampaigns: vi.fn(async () => [campaign(platform)]),
     readProgress: vi.fn(async (campaigns) => campaigns),
     listCandidateChannels: vi.fn(async () => [channel(platform)]),

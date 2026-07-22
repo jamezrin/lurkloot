@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_STATE, mergeSchedulerState, normalizePlatformAuthHealth } from "@lurkloot/core/defaults";
+import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import { TwitchAdapter } from "@lurkloot/core/twitch";
+import { KickAdapter } from "@lurkloot/core/kick";
 
 describe("authentication health normalization", () => {
+  it("requires adapters to expose a browser-neutral auth probe", async () => {
+    const probe: PlatformAdapter["checkAuthHealth"] = async () => ({ status: "checking" });
+    expect(await probe()).toEqual({ status: "checking" });
+  });
+
+  it("keeps both platform adapters in checking state until their probes are implemented", async () => {
+    const fetcher = { fetchJson: async () => { throw new Error("not called"); } };
+    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({ status: "checking" });
+    await expect(new KickAdapter(fetcher).checkAuthHealth()).resolves.toEqual({ status: "checking" });
+  });
   it("defaults both platforms to unchecked checking state", () => {
     expect(DEFAULT_STATE.authHealth).toEqual({
       twitch: { status: "checking" },

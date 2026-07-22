@@ -52,6 +52,7 @@ function settings(patch: SettingsPatch = {}): ExtensionSettings {
 function adapter(platform: Platform, campaigns: DropCampaign[], candidates: ChannelCandidate[]): PlatformAdapter {
   return {
     platform,
+    checkAuthHealth: vi.fn(async () => ({ status: "checking" as const })),
     discoverCampaigns: vi.fn(async () => campaigns),
     readProgress: vi.fn(async (value) => value),
     listCandidateChannels: vi.fn(async () => candidates),
