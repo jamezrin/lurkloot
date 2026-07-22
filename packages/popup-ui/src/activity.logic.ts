@@ -175,6 +175,8 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
       return t("activityPageContextOpened", [event.data.host, formatPageContextOpenReason(event.data.reason, t)]);
     case "page_context_closed":
       return t("activityPageContextClosed", [event.data.host, formatPageContextCloseReason(event.data.reason, t)]);
+    case "auth_health_changed":
+      return t("activityAuthHealthChanged", [event.platform, event.data.from, event.data.to]);
     default: {
       const exhaustive: never = event;
       return exhaustive;

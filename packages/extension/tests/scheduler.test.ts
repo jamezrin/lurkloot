@@ -5,6 +5,7 @@ import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: `reward-${status}`,
@@ -51,6 +52,7 @@ function settings(patch: SettingsPatch = {}): ExtensionSettings {
 function adapter(platform: Platform, campaigns: DropCampaign[], candidates: ChannelCandidate[]): PlatformAdapter {
   return {
     platform,
+    checkAuthHealth: vi.fn(async () => ({ status: "checking" as const })),
     discoverCampaigns: vi.fn(async () => campaigns),
     readProgress: vi.fn(async (value) => value),
     listCandidateChannels: vi.fn(async () => candidates),
@@ -629,6 +631,7 @@ describe("scheduler campaign selection", () => {
 
 describe("scheduler tick", () => {
   const baseState: SchedulerState = {
+    authHealth: DEFAULT_STATE.authHealth,
     sessions: {
       twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
       kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -725,6 +728,7 @@ describe("scheduler tick", () => {
     const result = await runSchedulerTick(
       {
         ...baseState,
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           ...baseState.sessions,
           twitch: {
@@ -761,6 +765,7 @@ describe("scheduler tick", () => {
     const result = await runSchedulerTick(
       {
         ...baseState,
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           ...baseState.sessions,
           twitch: {
@@ -791,6 +796,7 @@ describe("scheduler tick", () => {
     const result = await runSchedulerTick(
       {
         ...baseState,
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           ...baseState.sessions,
           twitch: {
@@ -826,6 +832,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: first, offlineChecks: 2, tabId: 7 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -854,6 +861,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -884,6 +892,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -923,6 +932,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: old, offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -944,6 +954,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: toonyx, offlineChecks: 0, tabId: 7 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -965,6 +976,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -999,6 +1011,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1039,6 +1052,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1079,6 +1093,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1128,6 +1143,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1171,6 +1187,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1223,6 +1240,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1256,6 +1274,7 @@ describe("scheduler tick", () => {
 
     await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1287,6 +1306,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1320,6 +1340,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1353,6 +1374,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1430,6 +1452,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1482,6 +1505,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1510,6 +1534,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1535,6 +1560,7 @@ describe("scheduler tick", () => {
     const waitingClaimRewardIds = { twitch: new Set<string>(), kick: new Set<string>() };
     const options = { waitingClaimRewardIds };
     const initialState: SchedulerState = {
+      authHealth: DEFAULT_STATE.authHealth,
       sessions: {
         twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
         kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1567,6 +1593,7 @@ describe("scheduler tick", () => {
     const waitingClaimRewardIds = { twitch: new Set<string>(), kick: new Set<string>() };
     const options = { waitingClaimRewardIds };
     const initialState: SchedulerState = {
+      authHealth: DEFAULT_STATE.authHealth,
       sessions: {
         twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
         kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1597,6 +1624,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1617,6 +1645,7 @@ describe("scheduler tick", () => {
 
     await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1636,6 +1665,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1658,6 +1688,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1680,6 +1711,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1703,6 +1735,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1735,6 +1768,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1760,6 +1794,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: channel("current"), offlineChecks: 0, tabId: 42, tabManagedByExtension: true },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1785,6 +1820,7 @@ describe("scheduler tick", () => {
   it("passes the existing managed tab into repeated ticks instead of creating an untracked tab", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("allowed")]);
     const initialState = {
+      authHealth: DEFAULT_STATE.authHealth,
       sessions: {
         twitch: { platform: "twitch" as const, status: "idle" as const, offlineChecks: 0 },
         kick: { platform: "kick" as const, status: "idle" as const, offlineChecks: 0 },
@@ -1812,6 +1848,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1847,6 +1884,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1868,6 +1906,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1894,6 +1933,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1922,6 +1962,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1953,6 +1994,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1980,6 +2022,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -2010,6 +2053,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2032,6 +2076,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2054,6 +2099,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2078,6 +2124,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2098,6 +2145,7 @@ describe("scheduler tick", () => {
 
     await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2119,6 +2167,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2145,6 +2194,7 @@ describe("scheduler tabless mode", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2168,6 +2218,7 @@ describe("scheduler tabless mode", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -2200,6 +2251,7 @@ describe("scheduler tabless mode", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -2230,6 +2282,7 @@ describe("scheduler tabless mode", () => {
 
     const result = await runSchedulerTick(
       {
+        authHealth: DEFAULT_STATE.authHealth,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },

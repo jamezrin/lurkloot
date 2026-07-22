@@ -733,6 +733,7 @@
   "activityChallengeClaimed": {
     "message": "已领取 $2 挑战的 $1 卡片"
   },
+  "activityAuthHealthChanged": { "message": "$1 的身份验证状态从 $2 变为 $3。" },
   "activityPageContextOpened": { "message": "已在 $1 打开后台上下文，因为$2。" },
   "activityPageContextClosed": { "message": "已关闭 $1 的后台上下文，因为$2。" },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick 拒绝了无标签页请求" },

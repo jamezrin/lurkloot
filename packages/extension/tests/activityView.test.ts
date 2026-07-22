@@ -79,6 +79,22 @@ describe("activity view model", () => {
     }, t)).toBe("activityPageContextClosed:kick.com|activityPageContextCloseReasonBackgroundRecovered:");
   });
 
+  it("formats complete authentication health transitions", () => {
+    const t = vi.fn((key: string, substitutions?: string | string[]) =>
+      `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
+
+    expect(formatActivityEvent({
+      id: "auth-transition",
+      at,
+      category: "activity",
+      code: "auth_health_changed",
+      level: "warn",
+      platform: "kick",
+      data: { from: "checking", to: "missing_credentials", reason: "credentials_missing" },
+    }, t)).toBe("activityAuthHealthChanged:kick|checking|missing_credentials");
+    expect(t).toHaveBeenCalledWith("activityAuthHealthChanged", ["kick", "checking", "missing_credentials"]);
+  });
+
   it("formats every farming stop reason through its locale key", () => {
     const t = vi.fn((key: string) => key);
     const reasons: FarmingStopReason[] = [

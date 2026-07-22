@@ -733,6 +733,7 @@
   "activityChallengeClaimed": {
     "message": "Carta $1 resgatada do desafio $2"
   },
+  "activityAuthHealthChanged": { "message": "A autenticação da $1 mudou de $2 para $3." },
   "activityPageContextOpened": { "message": "Um contexto em segundo plano foi aberto em $1 porque $2." },
   "activityPageContextClosed": { "message": "O contexto em segundo plano em $1 foi fechado porque $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "a Kick rejeitou a solicitação sem aba" },
