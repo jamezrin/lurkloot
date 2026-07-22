@@ -1084,12 +1084,15 @@ describe("fetchKickInBackgroundWith", () => {
     }
   });
 
+  // Every URL here is a near-miss for a genuinely authenticated endpoint: a look-alike
+  // host, an unintended subpath, or a plaintext downgrade of an endpoint that *does*
+  // receive the token over https (see the web.kick.com case above). None may receive it.
   it.each([
-    "https://evil.example/?r=web.kick.com",
-    "https://web.kick.com.evil.example/api/v1/user",
-    "https://kick.com/api/v1/user/profile",
-    "http://web.kick.com/api/v1/drops/progress",
-  ])("never attaches the session token to %s", async (url) => {
+    ["look-alike host mentioning a Kick host", "https://evil.example/?r=web.kick.com"],
+    ["look-alike host suffixing a Kick host", "https://web.kick.com.evil.example/api/v1/user"],
+    ["subpath of the identity endpoint", "https://kick.com/api/v1/user/profile"],
+    ["plaintext downgrade of an authenticated endpoint", "http://web.kick.com/api/v1/drops/progress"],
+  ])("never attaches the session token to a %s", async (_case, url) => {
     let captured: RequestInit | undefined;
     vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
       captured = init;
