@@ -21,6 +21,10 @@ export const WATCH_ALARM_NAME = "lurkloot.watch";
 // the ids (not just the platforms) so it can tell a genuine successor from the
 // reward that was just claimed.
 export type ClaimedRewards = Partial<Record<Platform, string[]>>;
+export type CredentialAvailability =
+  | { status: "available" }
+  | { status: "missing" }
+  | { status: "unavailable" };
 // Reasons a refreshed platform has nothing left to farm. Reaching one of these
 // means further refreshes would return the same answer, so the post-claim
 // handoff stops instead of spending the rest of its budget.
@@ -105,6 +109,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
     compatibility: ResolvedCompatibility;
     warnings: CompatibilityResolution["warnings"];
   };
+  checkCredentialAvailability?(platform: Platform): Promise<CredentialAvailability>;
   createNotification?(notification: { title: string; message: string }): Promise<void>;
   translate?(key: string, substitutions?: string | string[]): string | Promise<string>;
   closeManagedTabs?(tabs: ManagedWatchTab[]): Promise<void>;
@@ -475,8 +480,32 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function checkAuthHealth(platform: Platform): Promise<void> {
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
-      const adapter = deps.createAdapters(emit, settings).adapters[platform];
-      const transition = applyPlatformAuthHealth(state, platform, await adapter.checkAuthHealth());
+      const availability = await deps.checkCredentialAvailability?.(platform);
+      const health = availability?.status === "missing"
+        ? {
+            status: "missing_credentials" as const,
+            checkedAt: new Date().toISOString(),
+            reasonCode: "credentials_missing" as const,
+            message: { key: "authMissingCredentials" as const },
+          }
+        : availability?.status === "unavailable"
+          ? {
+              status: "unavailable" as const,
+              checkedAt: new Date().toISOString(),
+              reasonCode: "credential_lookup_failed" as const,
+              message: { key: "authCredentialLookupFailed" as const },
+            }
+          : await deps.createAdapters(emit, settings).adapters[platform].checkAuthHealth();
+      const transition = applyPlatformAuthHealth(state, platform, health);
+      if (transition.event) emit(transition.event);
+      await persistAndReport(transition.state, events);
+    }));
+  }
+
+  async function invalidateAuthHealth(platform: Platform): Promise<void> {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      const state = await deps.loadState();
+      const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
       if (transition.event) emit(transition.event);
       await persistAndReport(transition.state, events);
     }));
@@ -1233,6 +1262,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     handleMessage,
     captureTwitchIntegrity,
     checkAuthHealth,
+    invalidateAuthHealth,
     tick,
     tickAndHandOff,
     runWatchHeartbeat,

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
+import { ALARM_NAME, createBackgroundController, type CredentialAvailability } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
@@ -59,6 +59,7 @@ function harness(
     reportEvents?: (events: readonly EngineEvent[]) => Promise<void>;
     stopPageContextTabs?: StopPageContextTabs;
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
+    checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
   } = {},
 ) {
   let currentSettings = settings;
@@ -95,6 +96,9 @@ function harness(
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
     stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? forgetManagedPageContextTabs),
     wait: overrides.wait,
+    ...(overrides.checkCredentialAvailability
+      ? { checkCredentialAvailability: vi.fn(overrides.checkCredentialAvailability) }
+      : {}),
   };
 
   return {
@@ -113,6 +117,75 @@ function harness(
 }
 
 describe("background controller", () => {
+  it("reports missing credentials without calling the platform probe", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+      checkCredentialAvailability: async () => ({ status: "missing" }),
+    });
+
+    await env.controller.checkAuthHealth("twitch");
+
+    expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.state.authHealth.twitch).toEqual(expect.objectContaining({
+      status: "missing_credentials",
+      reasonCode: "credentials_missing",
+    }));
+  });
+
+  it("reports credential lookup failure without calling the platform probe", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+      checkCredentialAvailability: async () => ({ status: "unavailable" }),
+    });
+
+    await env.controller.checkAuthHealth("kick");
+
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.state.authHealth.kick).toEqual(expect.objectContaining({
+      status: "unavailable",
+      reasonCode: "credential_lookup_failed",
+    }));
+  });
+
+  it("continues to the authenticated probe when credentials are available", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+      checkCredentialAvailability: async () => ({ status: "available" }),
+    });
+
+    await env.controller.checkAuthHealth("twitch");
+
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.state.authHealth.twitch.status).toBe("checking");
+  });
+
+  it("invalidates only the requested authentication health and reports the transition once", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    vi.mocked(env.twitch.checkAuthHealth).mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:00:00.000Z" });
+    vi.mocked(env.kick.checkAuthHealth).mockResolvedValueOnce({
+      status: "missing_credentials",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      reasonCode: "credentials_missing",
+    });
+    await env.controller.checkAuthHealth("twitch");
+    await env.controller.checkAuthHealth("kick");
+    const previousKickHealth = env.state.authHealth.kick;
+    env.reportEvents.mockClear();
+
+    await env.controller.invalidateAuthHealth("twitch");
+
+    expect(env.state.authHealth.twitch).toEqual({ status: "checking" });
+    expect(env.state.authHealth.kick).toEqual(previousKickHealth);
+    expect(env.reportEvents).toHaveBeenCalledWith([{
+      category: "activity",
+      code: "auth_health_changed",
+      level: "info",
+      platform: "twitch",
+      data: { from: "healthy", to: "checking" },
+    }]);
+
+    env.reportEvents.mockClear();
+    await env.controller.invalidateAuthHealth("twitch");
+    expect(env.reportEvents).not.toHaveBeenCalled();
+  });
+
   it("checks and persists authentication health for only the requested platform", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false });
     vi.mocked(env.kick.checkAuthHealth).mockResolvedValueOnce({

@@ -22,6 +22,8 @@ function tsFiles(dir: string): string[] {
 const FORBIDDEN = /\b(?:import|require)\b[^\n]*["'](wxt(?:\/[^"']*)?|webextension-polyfill)["']/;
 const HISTORY_API = /\b(?:ActivityPage|getActivity|clearActivity|activityStorage)\b/;
 const FULL_RUNTIME_MESSAGE = /\bRuntimeMessage\b/;
+const BROWSER_COOKIE_API = /\b(?:browser|chrome)\.cookies\b/;
+const EXTENSION_IMPORT = /\b(?:import|require)\b[^\n]*["'][^"']*packages\/extension|\b(?:import|require)\b[^\n]*["'][^"']*extension\/src/;
 
 describe("@lurkloot/core browser-free boundary", () => {
   it("never imports wxt or a webextension polyfill", () => {
@@ -37,5 +39,20 @@ describe("@lurkloot/core browser-free boundary", () => {
   it("accepts only the core runtime message contract", () => {
     const offenders = tsFiles(coreSrc).filter((file) => FULL_RUNTIME_MESSAGE.test(readFileSync(file, "utf8")));
     expect(offenders, `core must not accept the extension-wide RuntimeMessage union; offending files:\n${offenders.join("\n")}`).toEqual([]);
+  });
+
+  it("keeps browser cookie access and extension modules outside core", () => {
+    const offenders = tsFiles(coreSrc).filter((file) => {
+      const source = readFileSync(file, "utf8");
+      const code = source.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+      return BROWSER_COOKIE_API.test(code) || EXTENSION_IMPORT.test(code);
+    });
+    expect(offenders, `core must not access browser cookies or extension modules; offending files:\n${offenders.join("\n")}`).toEqual([]);
+  });
+
+  it("models credential availability without naming or carrying browser credentials", () => {
+    const controller = readFileSync(join(coreSrc, "background/controller.ts"), "utf8");
+    expect(controller).toContain("CredentialAvailability");
+    expect(controller).not.toMatch(/auth-token|session_token|unique_id|cookie\.value/);
   });
 });
