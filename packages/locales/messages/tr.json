@@ -405,10 +405,10 @@
     "message": "Uygun droplar mevcut olmadığında kullanılan yedek kanallar."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Yalnızca uygun droplar mevcut olmadığında"
+    "message": "Boşta İzleme Listesi'ni yalnızca yedek olarak kullan"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Uygun dropları kasmaya öncelik verir."
+    "message": "Boşta İzleme Listesi kanallarını yalnızca uygun droplar mevcut olmadığında izler."
   },
   "platformSettingsTitle": {
     "message": "Platform ayarları"

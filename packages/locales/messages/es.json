@@ -381,10 +381,10 @@
     "message": "Comportamiento compartido de la lista alternativa."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Solo cuando no hay drops elegibles disponibles"
+    "message": "Usar la Lista de visualización inactiva solo como respaldo"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Conserva automáticamente la prioridad de los drops."
+    "message": "Ve los canales de tu Lista de visualización inactiva solo cuando no hay drops elegibles disponibles."
   },
   "platformSettingsTitle": {
     "message": "Configuración de plataforma"

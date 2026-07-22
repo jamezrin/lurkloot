@@ -381,10 +381,10 @@
     "message": "سلوك قائمة الاحتياط المشترك."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "فقط عند عدم توفر Drops مؤهلة"
+    "message": "استخدام قائمة المشاهدة الخاملة كخيار احتياطي فقط"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "يحافظ تلقائيًا على أولوية Drops."
+    "message": "يشاهد قنوات قائمة المشاهدة الخاملة فقط عند عدم توفر Drops مؤهلة."
   },
   "platformSettingsTitle": {
     "message": "إعدادات المنصة"

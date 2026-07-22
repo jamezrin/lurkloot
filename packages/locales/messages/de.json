@@ -381,10 +381,10 @@
     "message": "Gemeinsames Verhalten der Ersatz-Leerlauf-Watchlist."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Nur wenn keine geeigneten Drops verfügbar sind"
+    "message": "Leerlauf-Watchlist nur als Rückfalloption verwenden"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Bewahrt automatisch die Drop-Priorität."
+    "message": "Sieht die Kanäle deiner Leerlauf-Watchlist nur an, wenn keine geeigneten Drops verfügbar sind."
   },
   "platformSettingsTitle": {
     "message": "Plattformeinstellungen"

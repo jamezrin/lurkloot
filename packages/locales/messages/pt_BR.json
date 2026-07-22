@@ -381,10 +381,10 @@
     "message": "Comportamento compartilhado da lista alternativa."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Somente quando não há drops elegíveis disponíveis"
+    "message": "Usar a Lista de visualização ociosa apenas como reserva"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Preserva automaticamente a prioridade dos drops."
+    "message": "Assiste aos canais da sua Lista de visualização ociosa somente quando não há drops elegíveis disponíveis."
   },
   "platformSettingsTitle": {
     "message": "Configurações da plataforma"

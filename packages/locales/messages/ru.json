@@ -381,10 +381,10 @@
     "message": "Общее поведение резервного списка."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Только когда нет доступных подходящих drops"
+    "message": "Использовать список просмотра в простое только как запасной вариант"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Автоматически сохраняет приоритет drops."
+    "message": "Смотрит каналы из вашего списка просмотра в простое, только когда нет доступных подходящих drops."
   },
   "platformSettingsTitle": {
     "message": "Настройки платформы"
