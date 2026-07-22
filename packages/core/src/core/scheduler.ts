@@ -13,7 +13,7 @@ import type {
 import { categoryListIndex } from "@lurkloot/shared/categories";
 import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims, rewardFeasibility } from "@lurkloot/shared/rewards";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
-import type { EngineEvent, EventEmitter, FarmingStopReason } from "@lurkloot/shared/events";
+import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
 
@@ -363,7 +363,7 @@ export interface SchedulerTickResult {
 // the real tabs.
 export type StopPageContextTabs = (
   contexts: SchedulerManagedPageContexts,
-  options?: { platforms?: Platform[] },
+  options?: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter },
 ) => Promise<SchedulerManagedPageContexts> | SchedulerManagedPageContexts;
 
 export interface SchedulerTickOptions {
@@ -427,7 +427,7 @@ export async function runSchedulerTick(
           lastHeartbeatOk: undefined,
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
+        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform], reason: "manual_watch", emit });
         emitDiagnostic(emit, platform, "info", "Manual watch detected; pausing farming for this platform");
         continue;
       }
@@ -454,7 +454,11 @@ export async function runSchedulerTick(
           lastHeartbeatOk: undefined,
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform] });
+        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, {
+          platforms: [platform],
+          reason: settings.running ? "platform_disabled" : "automation_disabled",
+          emit,
+        });
         emitDiagnostic(emit, platform, "info", "Automation disabled");
         continue;
       }
@@ -688,7 +692,6 @@ export async function runSchedulerTick(
             nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
           }
         }
-        nextState.managedPageContextTabs = await stopPageContextTabs(currentManagedPageContextTabs(), { platforms: [platform] });
         if (autoClaimChannelPointsFor(settings, platform) && adapter.claimChannelPoints) {
           try {
             const claimed = await adapter.claimChannelPoints(decision.channel);

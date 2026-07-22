@@ -9,6 +9,8 @@ import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
+import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
+import { forgetManagedPageContextTabs, recordManagedPageContextFallback, registerManagedPageContextTabs } from "@lurkloot/core/tabs";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: "reward",
@@ -54,6 +56,7 @@ function harness(
   overrides: {
     saveState?: (state: SchedulerState) => Promise<void>;
     reportEvents?: (events: readonly EngineEvent[]) => Promise<void>;
+    stopPageContextTabs?: StopPageContextTabs;
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
   } = {},
 ) {
@@ -79,7 +82,7 @@ function harness(
     })),
     createAlarm: vi.fn(async () => undefined),
     createNotification: vi.fn(async () => undefined),
-    closeManagedTabsByUrl: vi.fn(async () => undefined),
+    closeManagedTabs: vi.fn(async () => undefined),
     applyAdFocus: vi.fn<(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => Promise<void>>(async () => undefined),
     // Host-owned tab policy + settings-patch application (see background.ts).
     loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false })),
@@ -89,6 +92,7 @@ function harness(
       ...resolveCompatibility(nextSettings.compatibility, { host: "extension", twitchIdentity: "web" }),
     })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
+    stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? forgetManagedPageContextTabs),
     wait: overrides.wait,
   };
 
@@ -597,7 +601,9 @@ describe("background controller", () => {
     await env.controller.handleStartup();
 
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/twitch-creator"]);
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
+    ]);
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
     expect(env.state.sessions.twitch.status).toBe("watching");
     expect(env.state.sessions.twitch.tabId).toBe(10);
@@ -633,7 +639,9 @@ describe("background controller", () => {
 
     expect(env.settings.running).toBe(false);
     expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: false }));
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/twitch-creator"]);
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
+    ]);
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(env.state.managedWatchTabs).toEqual({});
@@ -667,7 +675,9 @@ describe("background controller", () => {
     await env.controller.handleStartup();
 
     expect(env.settings.running).toBe(false);
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://kick.com/kick-creator"]);
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 55, channelUrl: "https://kick.com/kick-creator", ownedByExtension: true }),
+    ]);
     expect(env.kick.prepareWatchTab).not.toHaveBeenCalled();
     expect(env.state.sessions.kick.status).toBe("paused");
     expect(env.state.sessions.kick.tabId).toBeUndefined();
@@ -687,7 +697,11 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/drops/inventory"]);
+    expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
+    expect(env.deps.stopPageContextTabs).toHaveBeenCalledWith(
+      expect.objectContaining({ twitch: expect.objectContaining({ tabId: 66 }) }),
+      expect.objectContaining({ platforms: ["twitch", "kick"], reason: "runtime_restart", emit: expect.any(Function) }),
+    );
     expect(env.state.managedPageContextTabs).toEqual({});
     expect(env.state.sessions.twitch).toMatchObject({
       status: "paused",
@@ -696,13 +710,45 @@ describe("background controller", () => {
     });
   });
 
+  it("preserves a retained Kick page context across a running service-worker restart", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      autoStartDropFarming: true,
+      platform: {
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
+      },
+    });
+    const context = {
+      platform: "kick" as const,
+      tabId: 91,
+      originUrl: "https://kick.com/drops/inventory",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+      lastFallbackAt: "2026-07-22T08:00:00.000Z",
+      fallbackHost: "web.kick.com",
+      backgroundSuccesses: 0,
+    };
+    env.state.managedPageContextTabs = { kick: context };
+
+    await env.controller.handleStartup();
+
+    expect(env.deps.stopPageContextTabs).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kick: expect.objectContaining({ tabId: 91 }) }),
+      expect.objectContaining({ reason: "runtime_restart" }),
+    );
+    expect(env.state.managedPageContextTabs?.kick).toEqual(context);
+    expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
+  });
+
   it("does not log startup cleanup when there is no stale farming state", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false, autoStartDropFarming: true });
 
     await env.controller.handleStartup();
 
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.closeManagedTabsByUrl).not.toHaveBeenCalled();
+    expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
     expect(env.deps.saveState).not.toHaveBeenCalled();
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
       event.category === "diagnostic" && event.message.includes("Browser restarted")
@@ -1381,7 +1427,7 @@ describe("background controller", () => {
     )).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
   });
 
-  it("runs an immediate tick when the active managed Twitch tab is closed", async () => {
+  it("defers recovery when the active managed farming tab is closed", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
       running: true,
@@ -1398,11 +1444,66 @@ describe("background controller", () => {
       tabId: 10,
       tabManagedByExtension: true,
     };
+    env.state.managedWatchTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 10,
+        channelUrl: "https://www.twitch.tv/twitch-creator",
+        ownedByExtension: true,
+      },
+    };
 
     await env.controller.handleTabRemoved(10);
 
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
-    expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.state.sessions.twitch).toEqual({
+      platform: "twitch",
+      status: "idle",
+      offlineChecks: 0,
+    });
+    expect(env.state.managedWatchTabs?.twitch).toBeUndefined();
+
+    await env.controller.tick();
+
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.twitch.prepareWatchTab).toHaveBeenCalledOnce();
+    expect(env.state.sessions.twitch.tabId).toBe(10);
+  });
+
+  it("does not confuse a removed page-context tab with the active farming tab", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      channel: channel("kick"),
+      offlineChecks: 0,
+      tabId: 20,
+      tabManagedByExtension: true,
+    };
+    env.state.managedWatchTabs = {
+      kick: {
+        platform: "kick",
+        tabId: 20,
+        channelUrl: "https://kick.com/kick-creator",
+        ownedByExtension: true,
+      },
+    };
+    env.state.managedPageContextTabs = {
+      kick: {
+        platform: "kick",
+        tabId: 91,
+        originUrl: "https://kick.com/drops/inventory",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.handleTabRemoved(91);
+
+    expect(env.state.sessions.kick.tabId).toBe(20);
+    expect(env.state.managedWatchTabs?.kick?.tabId).toBe(20);
+    expect(env.kick.prepareWatchTab).not.toHaveBeenCalled();
   });
 
   it("ignores removed tabs that are not the active managed watch tab", async () => {
@@ -1807,6 +1908,34 @@ describe("background controller", () => {
     expect(watcher.tick).toHaveBeenCalled();
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
     expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
+  });
+
+  it("persists page-context lifecycle metadata changed during a heartbeat", async () => {
+    const watcher = fakeTablessWatcher(async () => {
+      recordManagedPageContextFallback("twitch", "gql.twitch.tv", undefined, Date.parse("2026-07-21T12:00:00.000Z"));
+      return { ok: true, live: true };
+    });
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    await env.controller.tick();
+    const context = {
+      platform: "twitch" as const,
+      tabId: 66,
+      originUrl: "https://www.twitch.tv/drops/inventory",
+      origin: "https://www.twitch.tv",
+      ownedByExtension: true as const,
+    };
+    env.state.managedPageContextTabs = { twitch: context };
+    registerManagedPageContextTabs({ twitch: context });
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(env.state.managedPageContextTabs?.twitch).toMatchObject({
+      tabId: 66,
+      fallbackHost: "gql.twitch.tv",
+      backgroundSuccesses: 0,
+      lastFallbackAt: "2026-07-21T12:00:00.000Z",
+    });
   });
 
   it("publishes persistent watcher diagnostics once through the current operation batch", async () => {

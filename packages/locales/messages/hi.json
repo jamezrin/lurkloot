@@ -724,6 +724,12 @@
   "activityChallengeClaimed": {
     "message": "$2 चैलेंज से $1 कार्ड प्राप्त किया"
   },
+  "activityPageContextOpened": { "message": "$1 पर बैकग्राउंड कॉन्टेक्स्ट खोला गया क्योंकि $2।" },
+  "activityPageContextClosed": { "message": "$1 का बैकग्राउंड कॉन्टेक्स्ट बंद किया गया क्योंकि $2।" },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick ने बिना टैब वाला अनुरोध अस्वीकार किया" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "पिछला बैकग्राउंड कॉन्टेक्स्ट उपयोग योग्य नहीं था" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "बिना टैब वाले अनुरोध फिर से काम करने लगे" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "एक मौजूदा Kick टैब उपलब्ध हो गया" },
   "activityInterruption": {
     "message": "ड्रॉप जुटाना रुका: $1।"
   },

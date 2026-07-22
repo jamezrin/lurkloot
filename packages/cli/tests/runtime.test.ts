@@ -141,6 +141,30 @@ describe("CLI engine event reporting", () => {
         .toContain(reason.replaceAll("_", " "));
     }
   });
+
+  it("formats managed page-context lifecycle activity", () => {
+    expect(formatCliEvent({
+      category: "activity",
+      code: "page_context_opened",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_rejected" },
+    })).toBe("Opened background context on kick.com: background request rejected");
+    expect(formatCliEvent({
+      category: "activity",
+      code: "page_context_closed",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_recovered" },
+    })).toBe("Closed background context on kick.com: background requests recovered");
+    expect(formatCliEvent({
+      category: "activity",
+      code: "page_context_closed",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "runtime_restart" },
+    })).toBe("Closed background context on kick.com: extension runtime restarted");
+  });
 });
 
 describe("CLI campaign status reporting", () => {

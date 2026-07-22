@@ -54,6 +54,31 @@ describe("activity view model", () => {
     expect(t).toHaveBeenCalledWith("activityReasonRuntimeRestart");
   });
 
+  it("formats managed page-context opens and closes with their reasons", () => {
+    const t = vi.fn((key: string, substitutions?: string | string[]) =>
+      `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
+
+    expect(formatActivityEvent({
+      id: "opened",
+      at,
+      category: "activity",
+      code: "page_context_opened",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_rejected" },
+    }, t)).toBe("activityPageContextOpened:kick.com|activityPageContextOpenReasonBackgroundRejected:");
+
+    expect(formatActivityEvent({
+      id: "closed",
+      at,
+      category: "activity",
+      code: "page_context_closed",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_recovered" },
+    }, t)).toBe("activityPageContextClosed:kick.com|activityPageContextCloseReasonBackgroundRecovered:");
+  });
+
   it("formats every farming stop reason through its locale key", () => {
     const t = vi.fn((key: string) => key);
     const reasons: FarmingStopReason[] = [
