@@ -673,6 +673,22 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
     expect(onPageFallback).toHaveBeenCalledWith("web.kick.com", expect.any(Function));
   });
 
+  it("records fallback before page execution even when the page request fails", async () => {
+    const order: string[] = [];
+    const fetcher = createKickFetcher({
+      background: async () => { throw new KickWafBlockedError("blocked"); },
+      onPageFallback: async () => { order.push("fallback"); },
+      pageFetch: async () => {
+        order.push("page");
+        throw new Error("page unavailable");
+      },
+    });
+
+    await expect(fetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns"))
+      .rejects.toThrow("page unavailable");
+    expect(order).toEqual(["fallback", "page"]);
+  });
+
   it("keeps fallback diagnostics free of request details and raw errors", async () => {
     const events: EngineEvent[] = [];
     const fetcher = createKickFetcher({

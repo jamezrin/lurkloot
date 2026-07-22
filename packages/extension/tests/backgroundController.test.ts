@@ -704,6 +704,38 @@ describe("background controller", () => {
     });
   });
 
+  it("preserves a retained Kick page context across a running service-worker restart", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      autoStartDropFarming: true,
+      platform: {
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
+      },
+    });
+    const context = {
+      platform: "kick" as const,
+      tabId: 91,
+      originUrl: "https://kick.com/drops/inventory",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+      lastFallbackAt: "2026-07-22T08:00:00.000Z",
+      fallbackHost: "web.kick.com",
+      backgroundSuccesses: 0,
+    };
+    env.state.managedPageContextTabs = { kick: context };
+
+    await env.controller.handleStartup();
+
+    expect(env.deps.stopPageContextTabs).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kick: expect.objectContaining({ tabId: 91 }) }),
+      expect.objectContaining({ reason: "runtime_restart" }),
+    );
+    expect(env.state.managedPageContextTabs?.kick).toEqual(context);
+    expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
+  });
+
   it("does not log startup cleanup when there is no stale farming state", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false, autoStartDropFarming: true });
 

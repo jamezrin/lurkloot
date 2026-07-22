@@ -649,19 +649,24 @@ async function findOrCreatePageContextTab(
   if (tabId != null) {
     if (retained?.origin === origin) {
       retainedPageContextTabs.delete(retained.platform);
-      try {
-        await browserApi.tabs.remove?.(retained.tabId);
-        options?.emit?.({
-          category: "activity",
-          code: "page_context_closed",
-          level: "info",
-          platform: retained.platform,
-          data: { host: new URL(retained.origin).host, reason: "user_tab_available" },
-        });
-        diagnostic(options?.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(retained.origin).host} because a user tab is available`, retained.platform);
-      } catch {
-        // The retained page context may already be gone.
-        diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because the tab was already gone`, retained.platform);
+      const remove = browserApi.tabs.remove;
+      if (!remove) {
+        diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because tab removal is unavailable`, retained.platform);
+      } else {
+        try {
+          await remove(retained.tabId);
+          options?.emit?.({
+            category: "activity",
+            code: "page_context_closed",
+            level: "info",
+            platform: retained.platform,
+            data: { host: new URL(retained.origin).host, reason: "user_tab_available" },
+          });
+          diagnostic(options?.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(retained.origin).host} because a user tab is available`, retained.platform);
+        } catch {
+          // The retained page context may already be gone.
+          diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because the tab was already gone`, retained.platform);
+        }
       }
     }
     diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused user page context on ${new URL(origin).host}`, retain?.platform);
@@ -679,18 +684,23 @@ async function findOrCreatePageContextTab(
       retainedPageContextTabs.delete(retained.platform);
       openReason = "managed_context_unusable";
       if (tab?.id) {
-        try {
-          await browserApi.tabs.remove?.(retained.tabId);
-          options?.emit?.({
-            category: "activity",
-            code: "page_context_closed",
-            level: "info",
-            platform: retained.platform,
-            data: { host: new URL(origin).host, reason: "managed_context_unusable" },
-          });
-          diagnostic(options?.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(origin).host} because it became unusable`, retained.platform);
-        } catch {
-          diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it was already gone`, retained.platform);
+        const remove = browserApi.tabs.remove;
+        if (!remove) {
+          diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because tab removal is unavailable`, retained.platform);
+        } else {
+          try {
+            await remove(retained.tabId);
+            options?.emit?.({
+              category: "activity",
+              code: "page_context_closed",
+              level: "info",
+              platform: retained.platform,
+              data: { host: new URL(origin).host, reason: "managed_context_unusable" },
+            });
+            diagnostic(options?.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(origin).host} because it became unusable`, retained.platform);
+          } catch {
+            diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it was already gone`, retained.platform);
+          }
         }
       }
     } catch {
@@ -803,8 +813,13 @@ export async function recordManagedPageContextBackgroundSuccessWithBrowser(
   }
 
   retainedPageContextTabs.delete(platform);
+  const remove = browserApi.tabs.remove;
+  if (!remove) {
+    diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because tab removal is unavailable`, platform);
+    return;
+  }
   try {
-    await browserApi.tabs.remove?.(context.tabId);
+    await remove(context.tabId);
     emit({
       category: "activity",
       code: "page_context_closed",
@@ -846,8 +861,13 @@ export async function stopManagedPageContextTabsWithBrowser(
   for (const platform of platforms) {
     const context = contexts[platform];
     if (!context) continue;
+    const remove = browserApi.tabs.remove;
+    if (!remove) {
+      diagnostic(options.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(context.origin).host} because tab removal is unavailable`, platform);
+      continue;
+    }
     try {
-      await browserApi.tabs.remove?.(context.tabId);
+      await remove(context.tabId);
       options.emit?.({
         category: "activity",
         code: "page_context_closed",

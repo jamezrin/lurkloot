@@ -352,7 +352,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // A restart kills any in-memory watchers; start clean and let tick() rebuild.
     tablessWatchers.clear();
 
-    const cleanup = staleStartupCleanup(state);
+    const preservePageContexts = settings.running && settings.autoStartDropFarming;
+    registerManagedPageContextTabs(preservePageContexts ? state.managedPageContextTabs ?? {} : {});
+    const cleanup = staleStartupCleanup(state, preservePageContexts);
     if (!cleanup.hasStaleSession) {
       if (settings.autoStartDropFarming && settings.running) await tick();
       if (settings.running && !settings.autoStartDropFarming) {
@@ -364,7 +366,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (deps.closeManagedTabsByUrl && cleanup.managedUrls.length > 0) {
       await deps.closeManagedTabsByUrl(cleanup.managedUrls);
     }
-    if (deps.stopPageContextTabs && Object.keys(state.managedPageContextTabs ?? {}).length > 0) {
+    if (!preservePageContexts && deps.stopPageContextTabs && Object.keys(state.managedPageContextTabs ?? {}).length > 0) {
       await withEventCollector(async (emit, events) => {
         await deps.stopPageContextTabs!(state.managedPageContextTabs ?? {}, {
           platforms: ["twitch", "kick"],
@@ -1307,7 +1309,7 @@ function isFarmingStopReason(code: WatchReasonCode): code is FarmingStopReason {
   return Object.prototype.hasOwnProperty.call(FARMING_STOP_REASON_CODES, code);
 }
 
-function staleStartupCleanup(state: SchedulerState): {
+function staleStartupCleanup(state: SchedulerState, preservePageContexts = false): {
   hasStaleSession: boolean;
   managedUrls: string[];
   state: SchedulerState;
@@ -1323,7 +1325,7 @@ function staleStartupCleanup(state: SchedulerState): {
     if (managedTab?.channelUrl) managedUrls.add(managedTab.channelUrl);
     if (session.tabManagedByExtension && session.channel?.url) managedUrls.add(session.channel.url);
 
-    if (session.status === "watching" || session.tabId != null || managedTab || managedPageContextTab) {
+    if (session.status === "watching" || session.tabId != null || managedTab || (!preservePageContexts && managedPageContextTab)) {
       hasStaleSession = true;
       sessions[platform] = pausedStartupSession(session);
     }
@@ -1336,7 +1338,7 @@ function staleStartupCleanup(state: SchedulerState): {
       ...state,
       sessions,
       managedWatchTabs: {},
-      managedPageContextTabs: {},
+      managedPageContextTabs: preservePageContexts ? state.managedPageContextTabs : {},
     },
   };
 }

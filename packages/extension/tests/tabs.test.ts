@@ -113,6 +113,24 @@ describe("tab manager", () => {
     expect(events.some((event) => event.category === "activity" && event.code === "page_context_closed")).toBe(false);
   });
 
+  it("does not report a close activity without a browser removal capability", async () => {
+    const browser = browserMock();
+    browser.tabs.remove = undefined as unknown as typeof browser.tabs.remove;
+    const events: EngineEvent[] = [];
+    registerManagedPageContextTabs({
+      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com/drops/inventory", origin: "https://kick.com", ownedByExtension: true },
+    });
+
+    await stopManagedPageContextTabsWithBrowser(browser, currentManagedPageContextTabs(), {
+      platforms: ["kick"],
+      reason: "background_recovered",
+      emit: (event) => events.push(event),
+    });
+
+    expect(events.some((event) => event.category === "activity" && event.code === "page_context_closed")).toBe(false);
+    expect(currentManagedPageContextTabs().kick).toBeUndefined();
+  });
+
   it("releases a retained Kick context only after sustained background recovery", async () => {
     const browser = browserMock();
     const events: EngineEvent[] = [];

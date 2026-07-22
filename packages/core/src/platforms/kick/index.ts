@@ -113,8 +113,8 @@ export function createKickFetcher(deps: {
         report(emit, host, "fallback", error instanceof KickWafBlockedError
           ? "→ WAF-blocked from service worker, using page tab"
           : "→ service worker error, using page tab");
-        result = await pageFetch(url, init);
         await notifyLifecycle(onPageFallback, host, emit);
+        result = await pageFetch(url, init);
         return result as T;
       }
       report(emit, host, "background", "→ service worker OK (tabless-capable)");
