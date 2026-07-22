@@ -598,6 +598,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const adapter = adapters[platform];
       const wantsTabless = settings.running
         && settings.platform[platform].enabled
+        && state.authHealth[platform].status === "healthy"
         && session.status === "watching"
         && session.watchMode === "tabless"
         && Boolean(session.channel);
@@ -674,7 +675,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       for (const [platform, watcher] of [...tablessWatchers]) {
         const session = nextState.sessions[platform];
-        if (session.status !== "watching" || session.watchMode !== "tabless") continue;
+        if (
+          nextState.authHealth[platform].status !== "healthy"
+          || session.status !== "watching"
+          || session.watchMode !== "tabless"
+        ) {
+          try {
+            await watcher.stop();
+          } catch (error) {
+            emitHostCallbackError(emit, platform, error, "Could not stop the tabless watcher");
+          } finally {
+            drainWatcherEvents(watcher, emit);
+            tablessWatchers.delete(platform);
+          }
+          continue;
+        }
 
         let ok = false;
         let message: string | undefined;

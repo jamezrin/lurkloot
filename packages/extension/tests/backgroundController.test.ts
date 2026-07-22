@@ -225,6 +225,25 @@ describe("background controller", () => {
     ]));
   });
 
+  it("publishes authentication transitions when diagnostic logging is disabled", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, diagnosticLogging: false });
+    vi.mocked(env.kick.checkAuthHealth).mockResolvedValueOnce({
+      status: "blocked",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      reasonCode: "security_policy_blocked",
+      message: { key: "authSecurityPolicyBlocked", values: { reference: "safe-ref" } },
+    });
+
+    await env.controller.checkAuthHealth("kick");
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "auth_health_changed",
+      platform: "kick",
+      data: expect.objectContaining({ to: "blocked" }),
+    }));
+  });
+
   it("recovers Twitch authentication health after login without changing enabled settings", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
       checkCredentialAvailability: async () => ({ status: "available" }),
@@ -2188,6 +2207,35 @@ describe("background controller", () => {
     return watcher;
   }
 
+  it("stops a tabless watcher without another heartbeat when authentication degrades", async () => {
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      tablessMode: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    });
+    env.twitch.supportsTabless = true;
+    env.twitch.createTablessWatcher = vi.fn(() => watcher);
+
+    await env.controller.tick();
+    expect(env.state.sessions.twitch.watchMode).toBe("tabless");
+    env.state.authHealth.twitch = {
+      status: "invalid_credentials",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    };
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(watcher.stop).toHaveBeenCalledOnce();
+    expect(watcher.tick).not.toHaveBeenCalled();
+  });
+
   // Drains every pending microtask. setTimeout stays real under the Date-only
   // fake timers these handoff tests install, so one turn of the macrotask queue
   // is enough to let an async loop run to its next park.
@@ -2364,6 +2412,7 @@ describe("background controller", () => {
     env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
     // Simulate a fresh service worker: a tabless watch session is persisted, but
     // no tick() has run this lifetime to populate the in-memory watcher map.
+    env.state.authHealth.twitch = { status: "healthy" };
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
