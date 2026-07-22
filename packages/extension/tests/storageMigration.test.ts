@@ -7,13 +7,16 @@ const mocks = vi.hoisted(() => {
     values,
     get: vi.fn(async (key: string) => ({ [key]: values[key] })),
     set: vi.fn(async (items: Record<string, unknown>) => Object.assign(values, items)),
+    clear: vi.fn(async () => {
+      for (const key of Object.keys(values)) delete values[key];
+    }),
     clearActivityEvents: vi.fn(),
     importLegacyActivityEvents: vi.fn(),
   };
 });
 
 vi.mock("wxt/browser", () => ({
-  browser: { storage: { local: { get: mocks.get, set: mocks.set } } },
+  browser: { storage: { local: { get: mocks.get, set: mocks.set, clear: mocks.clear } } },
 }));
 
 vi.mock("../src/core/activityStorage", () => ({
@@ -23,6 +26,8 @@ vi.mock("../src/core/activityStorage", () => ({
 }));
 
 import { DEFAULT_STATE, loadState, resetStorage, saveState } from "../src/core/storage";
+import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { withSchemaVersion } from "@lurkloot/shared/settingsSchema";
 
 const legacyEvents: LegacyEventLogEntry[] = [{
   id: "legacy-1",
@@ -37,6 +42,7 @@ describe("legacy activity migration", () => {
     for (const key of Object.keys(mocks.values)) delete mocks.values[key];
     mocks.get.mockClear();
     mocks.set.mockClear();
+    mocks.clear.mockClear();
     mocks.clearActivityEvents.mockReset();
     mocks.importLegacyActivityEvents.mockReset();
     mocks.values.schedulerState = { ...DEFAULT_STATE, events: legacyEvents };
@@ -110,9 +116,27 @@ describe("legacy activity migration", () => {
     expect(mocks.clearActivityEvents).toHaveBeenCalledOnce();
   });
 
-  it("keeps a successful operational reset when activity storage is unavailable", async () => {
-    mocks.clearActivityEvents.mockRejectedValueOnce(new Error("IDB unavailable"));
+  it("clears every local key before restoring canonical defaults", async () => {
+    mocks.values.settings = { running: true };
+    mocks.values.schedulerState = { ...DEFAULT_STATE, lastTickAt: "2026-07-22T12:00:00.000Z" };
+    mocks.values.twitchIntegrity = { integrity: "secret" };
+    mocks.values["popup:selectedPlatform"] = "kick";
+    mocks.values["future:extension-owned-key"] = true;
 
+    await resetStorage();
+
+    expect(mocks.clear).toHaveBeenCalledOnce();
+    expect(Object.keys(mocks.values).sort()).toEqual(["schedulerState", "settings"]);
+    expect(mocks.values.schedulerState).toEqual(DEFAULT_STATE);
+    expect(mocks.values.settings).toEqual(withSchemaVersion(DEFAULT_SETTINGS));
+  });
+
+  it("reports activity reset failure and succeeds when retried", async () => {
+    mocks.clearActivityEvents
+      .mockRejectedValueOnce(new Error("IDB unavailable"))
+      .mockResolvedValueOnce(undefined);
+
+    await expect(resetStorage()).rejects.toThrow("IDB unavailable");
     await expect(resetStorage()).resolves.toBeUndefined();
 
     expect(mocks.values.schedulerState).toEqual(DEFAULT_STATE);

@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
-import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
-import type { CliCredentialBlob, RuntimeMessage } from "@lurkloot/shared/messages";
+import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
+import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import {
   applyAdFocus,
   ensureTwitchIntegrity,
@@ -175,10 +175,25 @@ async function buildCliCredentialBlob(): Promise<CliCredentialBlob> {
   };
 }
 
+let resetMutation: Promise<RuntimeSnapshot<ExtensionSettings>> | undefined;
+
+function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
+  if (resetMutation) return resetMutation;
+  resetMutation = (async () => {
+    await controller.prepareForHostReset();
+    await resetStorage();
+    return await controller.handleMessage({ type: "getSnapshot" }) as RuntimeSnapshot<ExtensionSettings>;
+  })().finally(() => {
+    resetMutation = undefined;
+  });
+  return resetMutation;
+}
+
 // Credential export reads the user's live session cookies, which only the
 // extension can do. Keep it ahead of activity routing and core delegation.
 const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
   exportCliCredentials: buildCliCredentialBlob,
+  resetExtension,
   handleActivityMessage,
   handleCoreMessage: (message, sender) => controller.handleMessage(message, sender),
 });

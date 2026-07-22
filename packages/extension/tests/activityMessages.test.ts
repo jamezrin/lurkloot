@@ -107,14 +107,17 @@ describe("activity event reporting", () => {
 describe("runtime message dispatch", () => {
   function setup() {
     const exportCliCredentials = vi.fn(async () => "credentials");
+    const resetExtension = vi.fn(async () => "reset");
     const handleActivityMessage = vi.fn(async () => "activity");
     const handleCoreMessage = vi.fn(async () => "core");
     return {
       exportCliCredentials,
+      resetExtension,
       handleActivityMessage,
       handleCoreMessage,
       dispatch: createRuntimeMessageDispatcher({
         exportCliCredentials,
+        resetExtension,
         handleActivityMessage,
         handleCoreMessage,
       }),
@@ -127,6 +130,16 @@ describe("runtime message dispatch", () => {
     await expect(env.dispatch({ type: "exportCliCredentials" })).resolves.toBe("credentials");
 
     expect(env.exportCliCredentials).toHaveBeenCalledOnce();
+    expect(env.handleActivityMessage).not.toHaveBeenCalled();
+    expect(env.handleCoreMessage).not.toHaveBeenCalled();
+  });
+
+  it("routes factory reset to the extension coordinator", async () => {
+    const env = setup();
+
+    await expect(env.dispatch({ type: "resetExtension" })).resolves.toBe("reset");
+
+    expect(env.resetExtension).toHaveBeenCalledOnce();
     expect(env.handleActivityMessage).not.toHaveBeenCalled();
     expect(env.handleCoreMessage).not.toHaveBeenCalled();
   });
