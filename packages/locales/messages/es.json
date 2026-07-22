@@ -911,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Gestión de enlaces v2"
-  }
+  },
+  "automationChecking": { "message": "Comprobando" },
+  "automationNeedsSignIn": { "message": "Necesita iniciar sesión" },
+  "automationBlocked": { "message": "Bloqueado" },
+  "automationUnavailable": { "message": "No disponible" },
+  "authCheckingDetail": { "message": "Comprobando tu sesión iniciada…" },
+  "authSignInMissing": { "message": "Inicia sesión para seguir consiguiendo drops." },
+  "authSignInRejected": { "message": "Tu sesión ya no es válida. Vuelve a iniciar sesión para continuar." },
+  "signInToTwitch": { "message": "Iniciar sesión en Twitch" },
+  "signInToKick": { "message": "Iniciar sesión en Kick" },
+  "authBrowserProfileBlocked": { "message": "Kick rechazó este perfil del navegador. Puede que iniciar sesión no sea suficiente para resolverlo." },
+  "authCredentialCheckUnavailable": { "message": "No se pudo comprobar la sesión del navegador. Lurkloot volverá a intentarlo automáticamente." },
+  "authNetworkTemporarilyUnavailable": { "message": "La red no está disponible temporalmente. Lurkloot volverá a intentarlo automáticamente." },
+  "authPlatformTemporarilyUnavailable": { "message": "La plataforma no está disponible temporalmente. Lurkloot volverá a intentarlo automáticamente." }
 }

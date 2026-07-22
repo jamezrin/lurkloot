@@ -911,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Обработка ссылок v2"
-  }
+  },
+  "automationChecking": { "message": "Проверка" },
+  "automationNeedsSignIn": { "message": "Требуется вход" },
+  "automationBlocked": { "message": "Заблокировано" },
+  "automationUnavailable": { "message": "Недоступно" },
+  "authCheckingDetail": { "message": "Проверяем активный сеанс…" },
+  "authSignInMissing": { "message": "Войдите, чтобы продолжить получать награды." },
+  "authSignInRejected": { "message": "Сеанс больше недействителен. Войдите снова, чтобы продолжить." },
+  "signInToTwitch": { "message": "Войти в Twitch" },
+  "signInToKick": { "message": "Войти в Kick" },
+  "authBrowserProfileBlocked": { "message": "Kick отклонил этот профиль браузера. Одного входа может быть недостаточно для решения проблемы." },
+  "authCredentialCheckUnavailable": { "message": "Не удалось проверить сеанс браузера. Lurkloot повторит попытку автоматически." },
+  "authNetworkTemporarilyUnavailable": { "message": "Сеть временно недоступна. Lurkloot повторит попытку автоматически." },
+  "authPlatformTemporarilyUnavailable": { "message": "Платформа временно недоступна. Lurkloot повторит попытку автоматически." }
 }

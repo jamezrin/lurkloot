@@ -911,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Verknüpfungsverarbeitung v2"
-  }
+  },
+  "automationChecking": { "message": "Wird geprüft" },
+  "automationNeedsSignIn": { "message": "Anmeldung erforderlich" },
+  "automationBlocked": { "message": "Blockiert" },
+  "automationUnavailable": { "message": "Nicht verfügbar" },
+  "authCheckingDetail": { "message": "Deine angemeldete Sitzung wird geprüft…" },
+  "authSignInMissing": { "message": "Melde dich an, um weiter Drops zu farmen." },
+  "authSignInRejected": { "message": "Deine Sitzung ist nicht mehr gültig. Melde dich erneut an, um fortzufahren." },
+  "signInToTwitch": { "message": "Bei Twitch anmelden" },
+  "signInToKick": { "message": "Bei Kick anmelden" },
+  "authBrowserProfileBlocked": { "message": "Kick hat dieses Browserprofil abgelehnt. Eine Anmeldung allein behebt das Problem möglicherweise nicht." },
+  "authCredentialCheckUnavailable": { "message": "Deine Browsersitzung konnte nicht geprüft werden. Lurkloot versucht es automatisch erneut." },
+  "authNetworkTemporarilyUnavailable": { "message": "Das Netzwerk ist vorübergehend nicht verfügbar. Lurkloot versucht es automatisch erneut." },
+  "authPlatformTemporarilyUnavailable": { "message": "Die Plattform ist vorübergehend nicht verfügbar. Lurkloot versucht es automatisch erneut." }
 }

@@ -911,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "معالجة الروابط الإصدار 2"
-  }
+  },
+  "automationChecking": { "message": "جارٍ التحقق" },
+  "automationNeedsSignIn": { "message": "يلزم تسجيل الدخول" },
+  "automationBlocked": { "message": "محظور" },
+  "automationUnavailable": { "message": "غير متاح" },
+  "authCheckingDetail": { "message": "جارٍ التحقق من جلسة تسجيل دخولك…" },
+  "authSignInMissing": { "message": "سجّل الدخول لمواصلة جمع المكافآت." },
+  "authSignInRejected": { "message": "لم تعد جلستك صالحة. سجّل الدخول مجددًا للمتابعة." },
+  "signInToTwitch": { "message": "تسجيل الدخول إلى Twitch" },
+  "signInToKick": { "message": "تسجيل الدخول إلى Kick" },
+  "authBrowserProfileBlocked": { "message": "رفض Kick ملف تعريف المتصفح هذا. قد لا يكفي تسجيل الدخول وحده لحل المشكلة." },
+  "authCredentialCheckUnavailable": { "message": "تعذر التحقق من جلسة المتصفح. سيعيد Lurkloot المحاولة تلقائيًا." },
+  "authNetworkTemporarilyUnavailable": { "message": "الشبكة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا." },
+  "authPlatformTemporarilyUnavailable": { "message": "المنصة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا." }
 }

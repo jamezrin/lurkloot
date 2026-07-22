@@ -969,5 +969,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Talep işleme v2"
-  }
+  },
+  "automationChecking": { "message": "Kontrol ediliyor" },
+  "automationNeedsSignIn": { "message": "Oturum açılmalı" },
+  "automationBlocked": { "message": "Engellendi" },
+  "automationUnavailable": { "message": "Kullanılamıyor" },
+  "authCheckingDetail": { "message": "Oturumunuz kontrol ediliyor…" },
+  "authSignInMissing": { "message": "Drop toplamaya devam etmek için oturum açın." },
+  "authSignInRejected": { "message": "Oturumunuz artık geçerli değil. Devam etmek için yeniden oturum açın." },
+  "signInToTwitch": { "message": "Twitch'te oturum aç" },
+  "signInToKick": { "message": "Kick'te oturum aç" },
+  "authBrowserProfileBlocked": { "message": "Kick bu tarayıcı profilini reddetti. Yalnızca oturum açmak sorunu çözmeyebilir." },
+  "authCredentialCheckUnavailable": { "message": "Tarayıcı oturumunuz kontrol edilemedi. Lurkloot otomatik olarak yeniden deneyecek." },
+  "authNetworkTemporarilyUnavailable": { "message": "Ağ geçici olarak kullanılamıyor. Lurkloot otomatik olarak yeniden deneyecek." },
+  "authPlatformTemporarilyUnavailable": { "message": "Platform geçici olarak kullanılamıyor. Lurkloot otomatik olarak yeniden deneyecek." }
 }

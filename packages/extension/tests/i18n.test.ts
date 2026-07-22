@@ -60,6 +60,36 @@ describe("i18n", () => {
     }
   });
 
+  it("localizes popup authentication health in every catalog", () => {
+    const englishMessages: Record<string, string> = {
+      automationChecking: "Checking",
+      automationNeedsSignIn: "Needs sign-in",
+      automationBlocked: "Blocked",
+      automationUnavailable: "Unavailable",
+      authCheckingDetail: "Checking your signed-in session…",
+      authSignInMissing: "Sign in to continue farming drops.",
+      authSignInRejected: "Your session is no longer valid. Sign in again to continue.",
+      signInToTwitch: "Sign in to Twitch",
+      signInToKick: "Sign in to Kick",
+      authBrowserProfileBlocked: "Kick rejected this browser profile. Signing in alone may not resolve it.",
+      authCredentialCheckUnavailable: "Your browser session could not be checked. Lurkloot will retry automatically.",
+      authNetworkTemporarilyUnavailable: "The network is temporarily unavailable. Lurkloot will retry automatically.",
+      authPlatformTemporarilyUnavailable: "The platform is temporarily unavailable. Lurkloot will retry automatically.",
+    };
+    const english = readCatalog("en");
+
+    for (const [key, message] of Object.entries(englishMessages)) {
+      expect(english[key]?.message, key).toBe(message);
+    }
+    for (const locale of localeCodes()) {
+      const catalog = readCatalog(locale);
+      for (const key of Object.keys(englishMessages)) {
+        expect(catalog[key]?.message, `${locale}:${key}`).toBeTypeOf("string");
+        expect(catalog[key].message.trim(), `${locale}:${key}`).not.toBe("");
+      }
+    }
+  });
+
   it("localizes the subscription campaign filter in every catalog", () => {
     const translations: Record<string, string> = {
       ar: "حملات الاشتراك",
