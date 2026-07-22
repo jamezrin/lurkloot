@@ -74,8 +74,10 @@ export function formatCliEvent(event: EngineEvent): string {
       return `Opened background context on ${event.data.host}: ${formatPageContextOpenReason(event.data.reason)}`;
     case "page_context_closed":
       return `Closed background context on ${event.data.host}: ${formatPageContextCloseReason(event.data.reason)}`;
-    case "auth_health_changed":
-      return `${event.platform} authentication changed from ${event.data.from} to ${event.data.to}`;
+    case "auth_health_changed": {
+      const reason = event.data.reason ? ` (${event.data.reason})` : "";
+      return `${event.platform} authentication changed from ${event.data.from} to ${event.data.to}${reason}`;
+    }
     default: {
       const exhaustive: never = event;
       return exhaustive;
