@@ -752,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "تم تعطيل المنصة"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "المصادقة غير متاحة" },
   "activityReasonPlatformBackoff": {
     "message": "المنصة في انتظار مؤقت"
   },

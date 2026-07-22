@@ -1,6 +1,7 @@
 import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
+import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
@@ -329,10 +330,14 @@ export function createTwitchGqlTransport(
       try {
         raw = await fetcher.fetchJson<unknown>("https://gql.twitch.tv/gql", request, emit);
       } catch (error) {
+        if (authHealthFromError(error)) throw error;
         const message = error instanceof Error ? error.message : `${operationName} request failed`;
         throw new TwitchGqlFailure("network", message);
       }
       const pageError = twitchPageFetchError(raw);
+      if (pageError?.kind === "credentials") {
+        throw new SafeFetchError({ kind: "authentication_rejected", status: 401, reason: "Authenticated session rejected" });
+      }
       if (pageError) throw new TwitchGqlFailure(pageError.kind, `${operationName}: ${pageError.message}`);
       return normalizeTwitchGqlResponse<T>(raw);
     };
@@ -359,11 +364,17 @@ export function createTwitchGqlTransport(
     }
     if (response.error || (response.message && response.data === undefined)) {
       const message = [response.error, response.message].filter(Boolean).join(": ") || `${operationName} failed`;
-      throw new TwitchGqlFailure(isCredentialRejection(message) ? "credentials" : "platform", message);
+      if (isCredentialRejection(message)) {
+        throw new SafeFetchError({ kind: "authentication_rejected", status: 401, reason: "Authenticated session rejected" });
+      }
+      throw new TwitchGqlFailure("platform", message);
     }
     if (response.errors?.length) {
       const message = response.errors.map((error) => error.message).filter(Boolean).join("; ") || `${operationName} failed`;
-      throw new TwitchGqlFailure(isCredentialRejection(message) ? "credentials" : "platform", message);
+      if (isCredentialRejection(message)) {
+        throw new SafeFetchError({ kind: "authentication_rejected", status: 401, reason: "Authenticated session rejected" });
+      }
+      throw new TwitchGqlFailure("platform", message);
     }
     return response;
   };
@@ -394,7 +405,7 @@ export class TwitchAdapter implements PlatformAdapter {
         message: { key: "authInvalidCredentials" },
       };
     } catch (error) {
-      if (error instanceof TwitchGqlFailure && error.kind === "credentials") {
+      if (authHealthFromError(error)?.status === "invalid_credentials") {
         return {
           status: "invalid_credentials",
           checkedAt,
@@ -465,7 +476,10 @@ export class TwitchAdapter implements PlatformAdapter {
     }
 
     if (!twitchHasCurrentUser(inventory) && !dashboard.data?.currentUser) {
-      throw new Error("Twitch did not return a logged-in current user; open twitch.tv and confirm you are signed in");
+      throw new SafeFetchError({
+        kind: "authentication_rejected",
+        reason: "Twitch did not return a logged-in current user; open twitch.tv and confirm you are signed in",
+      });
     }
 
     const userLogin = twitchCurrentUserId(inventory) ?? dashboard.data?.currentUser?.id ?? dashboard.data?.currentUser?.login ?? "";
@@ -488,6 +502,9 @@ export class TwitchAdapter implements PlatformAdapter {
         }),
       ),
     );
+    for (const result of details) {
+      if (result.status === "rejected" && authHealthFromError(result.reason)) throw result.reason;
+    }
     const detailedCampaigns = details
       .map((result) => result.status === "fulfilled" ? result.value.data?.dropCampaign ?? result.value.data?.user?.dropCampaign : undefined)
       .filter((campaign): campaign is NonNullable<typeof campaign> => Boolean(campaign));
@@ -644,6 +661,7 @@ export class TwitchAdapter implements PlatformAdapter {
       });
       return campaignIds.has(campaignId);
     } catch (error) {
+      if (authHealthFromError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "debug", `Could not confirm available Twitch campaigns for ${channelLogin}; using live/category validation: ${message}`, "twitch");
       return undefined;
@@ -688,7 +706,8 @@ export class TwitchAdapter implements PlatformAdapter {
   ): Promise<TwitchGqlResponse<T>> {
     try {
       return await this.gql(operationName, sha256Hash, variables);
-    } catch {
+    } catch (error) {
+      if (authHealthFromError(error)) throw error;
       return {};
     }
   }

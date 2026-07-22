@@ -2,6 +2,7 @@ import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, D
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import { KickWafBlockedError } from "../../core/tabs";
+import { authHealthFromError } from "../../core/fetchError";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
@@ -272,6 +273,7 @@ export class KickAdapter implements PlatformAdapter {
       const progress = mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
       return this.claimCapability.reconcileProgress?.(progress, affirmativelyLinkedCampaignIds(data)) ?? progress;
     } catch (error) {
+      if (authHealthFromError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
       return campaigns;
@@ -347,6 +349,7 @@ export class KickAdapter implements PlatformAdapter {
         },
       };
     } catch (error) {
+      if (authHealthFromError(error)) throw error;
       return this.checkChannelFromPage(channel, campaign, error);
     }
   }
@@ -387,6 +390,7 @@ export class KickAdapter implements PlatformAdapter {
       }
       return false;
     } catch (error) {
+      if (authHealthFromError(error)) throw error;
       // Kick accrues watch progress before the account is linked, but rejects
       // the claim until you connect the org account. Turn that into actionable
       // guidance instead of a raw error, and swallow it so the scheduler does
@@ -432,6 +436,7 @@ export class KickAdapter implements PlatformAdapter {
           recurrence: typeof challenge.recurrence === "string" && challenge.recurrence.trim() ? challenge.recurrence.trim() : "unknown",
         });
       } catch (error) {
+        if (authHealthFromError(error)) throw error;
         diagnostic(this.emit, "warn", `Kick challenge ${id} claim failed: ${error instanceof Error ? error.message : String(error)}`, "kick");
       }
     }

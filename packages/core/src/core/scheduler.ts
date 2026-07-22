@@ -16,6 +16,8 @@ import { autoClaimChallengesFor, autoClaimChannelPointsFor } from "@lurkloot/sha
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
+import { authHealthFromError } from "./fetchError";
+import { applyPlatformAuthHealth } from "./authHealth";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -397,6 +399,53 @@ export async function runSchedulerTick(
     options.emit?.(event);
   };
 
+  async function suspendPlatformForAuthentication(
+    platform: Platform,
+    previous: WatchSession,
+    adapter: PlatformAdapter,
+  ): Promise<void> {
+    try {
+      await adapter.stopWatchTab?.(previous);
+    } catch (error) {
+      emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Could not stop watch tab");
+    }
+    nextState.sessions[platform] = {
+      ...previous,
+      status: "paused",
+      channel: undefined,
+      campaignId: undefined,
+      rewardId: undefined,
+      tabId: undefined,
+      tabManagedByExtension: undefined,
+      playback: undefined,
+      playbackChecks: 0,
+      retryAfter: undefined,
+      message: "Authentication unavailable",
+      reasonCode: "authentication_unhealthy",
+      watchMode: undefined,
+      tablessFallback: undefined,
+      heartbeatChecks: 0,
+      lastHeartbeatAt: undefined,
+      lastHeartbeatOk: undefined,
+    };
+    nextState.campaigns[platform] = [];
+    nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+    try {
+      nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, {
+        platforms: [platform],
+        reason: "authentication_unhealthy",
+        emit,
+      });
+    } catch (error) {
+      emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Could not stop page context");
+      nextState.managedPageContextTabs = forgetManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, {
+        platforms: [platform],
+        reason: "authentication_unhealthy",
+        emit,
+      });
+    }
+  }
+
   const platforms = options.platforms ?? PLATFORMS;
   for (const platform of platforms) {
     const previous = nextState.sessions[platform];
@@ -463,6 +512,11 @@ export async function runSchedulerTick(
         continue;
       }
 
+      if (nextState.authHealth[platform].status !== "healthy") {
+        await suspendPlatformForAuthentication(platform, previous, adapter);
+        continue;
+      }
+
       // Account-level, so it runs whether or not this platform ends up watching:
       // the watch-time threshold is usually met by a session that has already
       // stopped. Failures are swallowed — gamification is strictly additive to
@@ -485,6 +539,7 @@ export async function runSchedulerTick(
             });
           }
         } catch (error) {
+          if (authHealthFromError(error)) throw error;
           emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Challenge claim failed");
         }
       }
@@ -506,6 +561,7 @@ export async function runSchedulerTick(
         const discovered = await adapter.discoverCampaigns();
         campaigns = await adapter.readProgress(discovered, previous);
       } catch (error) {
+        if (authHealthFromError(error)) throw error;
         if (!hasIdleWatchlistChannels(settings, platform)) throw error;
         campaigns = [];
         const message = error instanceof Error ? error.message : "Drop discovery failed";
@@ -699,6 +755,7 @@ export async function runSchedulerTick(
               emitDiagnostic(emit, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`);
             }
           } catch (error) {
+            if (authHealthFromError(error)) throw error;
             emitDiagnostic(
               emit,
               platform,
@@ -714,6 +771,14 @@ export async function runSchedulerTick(
       nextState.sessions[platform] = session;
       nextState.managedPageContextTabs = currentManagedPageContextTabs();
     } catch (error) {
+      const authHealth = authHealthFromError(error);
+      if (authHealth) {
+        const transition = applyPlatformAuthHealth(nextState, platform, authHealth);
+        nextState = transition.state;
+        if (transition.event) emit(transition.event);
+        await suspendPlatformForAuthentication(platform, previous, adapter);
+        continue;
+      }
       const message = error instanceof Error ? error.message : "Platform scheduler failed";
       const errorChecks = (previous.errorChecks ?? 0) + 1;
       nextState.sessions[platform] = {

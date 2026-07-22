@@ -27,6 +27,25 @@ function requestBody(init?: RequestInit): Record<string, unknown> {
 }
 
 describe("KickAdapter", () => {
+  it("does not swallow authentication failures while reading progress", async () => {
+    const failure = new SafeFetchError({ kind: "authentication_rejected", status: 401 });
+    const adapter = new KickAdapter(jsonFetcher(() => { throw failure; }));
+
+    await expect(adapter.readProgress([])).rejects.toBe(failure);
+  });
+
+  it("does not swallow security-policy failures while claiming challenges", async () => {
+    const failure = new SafeFetchError({ kind: "security_policy_blocked", status: 403, reference: "safe-ref" });
+    const adapter = new KickAdapter(jsonFetcher((url) => {
+      if (url.endsWith("/gamification/challenges")) {
+        return { data: [{ id: "daily", claimed_at: null, recurrence: "daily", condition: { progress: 1, threshold: 1 } }] };
+      }
+      throw failure;
+    }));
+
+    await expect(adapter.claimChallenges()).rejects.toBe(failure);
+  });
+
   it.each([
     ["authentication_rejected", "invalid_credentials", "credentials_rejected", "authInvalidCredentials"],
     ["security_policy_blocked", "blocked", "security_policy_blocked", "authSecurityPolicyBlocked"],
@@ -1529,7 +1548,9 @@ describe("TwitchAdapter", () => {
     });
 
     await expect(new TwitchAdapter(fetcher).discoverCampaigns())
-      .rejects.toThrow("Unauthorized: invalid OAuth token");
+      .rejects.toMatchObject({
+        failure: { kind: "authentication_rejected", status: 401 },
+      });
   });
 
   it("guides signed-out users when inventory returns a null current user", async () => {

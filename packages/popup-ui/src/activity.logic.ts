@@ -104,6 +104,7 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
   switch (reason) {
     case "automation_disabled": return t("activityReasonAutomationDisabled");
     case "platform_disabled": return t("activityReasonPlatformDisabled");
+    case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     case "platform_backoff": return t("activityReasonPlatformBackoff");
     case "platform_error": return t("activityReasonPlatformError");
     case "campaign_ineligible": return t("activityReasonCampaignIneligible");
@@ -117,6 +118,7 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
     case "runtime_restart": return t("activityReasonRuntimeRestart");
     case "target_changed": return t("activityReasonTargetChanged");
     case "manual_watch": return t("activityReasonManualWatch");
+    case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     default: {
       const exhaustive: never = reason;
       return exhaustive;
@@ -142,6 +144,7 @@ function formatPageContextCloseReason(reason: PageContextCloseReason, t: TFuncti
     case "platform_disabled": return t("activityReasonPlatformDisabled");
     case "automation_disabled": return t("activityReasonAutomationDisabled");
     case "manual_watch": return t("activityReasonManualWatch");
+    case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     case "runtime_restart": return t("activityReasonRuntimeRestart");
     case "managed_context_unusable": return t("activityPageContextReasonManagedContextUnusable");
     default: {

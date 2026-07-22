@@ -752,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "平台已停用"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "身份验证不可用" },
   "activityReasonPlatformBackoff": {
     "message": "平台正在暂时等待"
   },

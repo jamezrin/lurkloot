@@ -5,7 +5,7 @@ import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
-import { DEFAULT_STATE } from "@lurkloot/core/defaults";
+import { SafeFetchError } from "@lurkloot/core/fetchError";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: `reward-${status}`,
@@ -62,6 +62,11 @@ function adapter(platform: Platform, campaigns: DropCampaign[], candidates: Chan
     stopWatchTab: vi.fn(async () => undefined),
   };
 }
+
+const HEALTHY_AUTH: SchedulerState["authHealth"] = {
+  twitch: { status: "healthy" },
+  kick: { status: "healthy" },
+};
 
 describe("scheduler campaign selection", () => {
   it("skips an infeasible in-progress reward for a feasible locked reward", async () => {
@@ -631,13 +636,83 @@ describe("scheduler campaign selection", () => {
 
 describe("scheduler tick", () => {
   const baseState: SchedulerState = {
-    authHealth: DEFAULT_STATE.authHealth,
+    authHealth: HEALTHY_AUTH,
     sessions: {
       twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
       kick: { platform: "kick", status: "idle", offlineChecks: 0 },
     },
     campaigns: { twitch: [], kick: [] },
   };
+
+  it.each([
+    ["checking", undefined],
+    ["missing_credentials", "credentials_missing"],
+    ["invalid_credentials", "credentials_rejected"],
+    ["blocked", "security_policy_blocked"],
+    ["unavailable", "platform_unavailable"],
+  ] as const)("suspends account work while authentication is %s", async (status, reasonCode) => {
+    const kick = {
+      ...adapter("kick", [campaign("public", { platform: "kick" })], [channel("creator", { platform: "kick" })]),
+      claimChallenges: vi.fn(async () => []),
+      claimChannelPoints: vi.fn(async () => true),
+    };
+    const stopPageContextTabs = vi.fn(forgetManagedPageContextTabs);
+    const previous = {
+      platform: "kick" as const,
+      status: "watching" as const,
+      offlineChecks: 0,
+      errorChecks: 2,
+      retryAfter: "2099-01-01T00:00:00.000Z",
+      channel: channel("creator", { platform: "kick" }),
+      campaignId: "stale",
+      rewardId: "reward",
+      tabId: 42,
+      tabManagedByExtension: true,
+    };
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        authHealth: {
+          ...HEALTHY_AUTH,
+          kick: { status, ...(reasonCode ? { reasonCode } : {}) },
+        },
+        sessions: { ...baseState.sessions, kick: previous },
+        campaigns: { ...baseState.campaigns, kick: [campaign("stale", { platform: "kick" })] },
+        managedWatchTabs: {
+          kick: { platform: "kick", tabId: 42, channelUrl: previous.channel.url, ownedByExtension: true },
+        },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+      { platforms: ["kick"], stopPageContextTabs },
+    );
+
+    expect(kick.stopWatchTab).toHaveBeenCalledWith(previous);
+    expect(kick.discoverCampaigns).not.toHaveBeenCalled();
+    expect(kick.readProgress).not.toHaveBeenCalled();
+    expect(kick.claimReward).not.toHaveBeenCalled();
+    expect(kick.claimChallenges).not.toHaveBeenCalled();
+    expect(kick.listCandidateChannels).not.toHaveBeenCalled();
+    expect(kick.checkChannel).not.toHaveBeenCalled();
+    expect(kick.prepareWatchTab).not.toHaveBeenCalled();
+    expect(kick.claimChannelPoints).not.toHaveBeenCalled();
+    expect(result.state.campaigns.kick).toEqual([]);
+    expect(result.state.managedWatchTabs?.kick).toBeUndefined();
+    expect(stopPageContextTabs).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ platforms: ["kick"], reason: "authentication_unhealthy" }),
+    );
+    expect(result.state.sessions.kick).toMatchObject({
+      status: "paused",
+      reasonCode: "authentication_unhealthy",
+      errorChecks: 2,
+      retryAfter: undefined,
+      channel: undefined,
+      campaignId: undefined,
+      rewardId: undefined,
+    });
+  });
 
   it("returns claim activity in the event batch without mutating scheduler state", async () => {
     const ready = campaign("drops", { rewards: [reward("claimable")] });
@@ -728,7 +803,7 @@ describe("scheduler tick", () => {
     const result = await runSchedulerTick(
       {
         ...baseState,
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           ...baseState.sessions,
           twitch: {
@@ -765,7 +840,7 @@ describe("scheduler tick", () => {
     const result = await runSchedulerTick(
       {
         ...baseState,
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           ...baseState.sessions,
           twitch: {
@@ -796,7 +871,7 @@ describe("scheduler tick", () => {
     const result = await runSchedulerTick(
       {
         ...baseState,
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           ...baseState.sessions,
           twitch: {
@@ -832,7 +907,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: first, offlineChecks: 2, tabId: 7 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -861,7 +936,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -892,7 +967,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -932,7 +1007,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: old, offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -954,7 +1029,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: toonyx, offlineChecks: 0, tabId: 7 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -976,7 +1051,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1011,7 +1086,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1052,7 +1127,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1093,7 +1168,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1143,7 +1218,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1187,7 +1262,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1240,7 +1315,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1274,7 +1349,7 @@ describe("scheduler tick", () => {
 
     await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1306,7 +1381,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1340,7 +1415,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1374,7 +1449,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1452,7 +1527,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -1505,7 +1580,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1534,7 +1609,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1560,7 +1635,7 @@ describe("scheduler tick", () => {
     const waitingClaimRewardIds = { twitch: new Set<string>(), kick: new Set<string>() };
     const options = { waitingClaimRewardIds };
     const initialState: SchedulerState = {
-      authHealth: DEFAULT_STATE.authHealth,
+      authHealth: HEALTHY_AUTH,
       sessions: {
         twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
         kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1593,7 +1668,7 @@ describe("scheduler tick", () => {
     const waitingClaimRewardIds = { twitch: new Set<string>(), kick: new Set<string>() };
     const options = { waitingClaimRewardIds };
     const initialState: SchedulerState = {
-      authHealth: DEFAULT_STATE.authHealth,
+      authHealth: HEALTHY_AUTH,
       sessions: {
         twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
         kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1624,7 +1699,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1645,7 +1720,7 @@ describe("scheduler tick", () => {
 
     await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1665,7 +1740,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1688,7 +1763,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1711,7 +1786,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1735,7 +1810,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1768,7 +1843,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1794,7 +1869,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: channel("current"), offlineChecks: 0, tabId: 42, tabManagedByExtension: true },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1820,7 +1895,7 @@ describe("scheduler tick", () => {
   it("passes the existing managed tab into repeated ticks instead of creating an untracked tab", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("allowed")]);
     const initialState = {
-      authHealth: DEFAULT_STATE.authHealth,
+      authHealth: HEALTHY_AUTH,
       sessions: {
         twitch: { platform: "twitch" as const, status: "idle" as const, offlineChecks: 0 },
         kick: { platform: "kick" as const, status: "idle" as const, offlineChecks: 0 },
@@ -1848,7 +1923,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1884,7 +1959,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1906,7 +1981,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1933,7 +2008,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1962,7 +2037,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -1994,7 +2069,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -2022,7 +2097,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -2053,7 +2128,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2076,7 +2151,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2099,7 +2174,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2124,7 +2199,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2145,7 +2220,7 @@ describe("scheduler tick", () => {
 
     await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2167,7 +2242,7 @@ describe("scheduler tick", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2182,6 +2257,133 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.kick.errorChecks).toBe(0);
     expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("gamification down"))).toBe(true);
   });
+
+  it("suspends without backoff when a challenge reports an authentication failure", async () => {
+    const kick = {
+      ...adapter("kick", [], []),
+      claimChallenges: vi.fn(async () => {
+        throw new SafeFetchError({ kind: "security_policy_blocked", status: 403, reference: "safe-ref" });
+      }),
+    };
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          kick: { platform: "kick", status: "idle", offlineChecks: 0, errorChecks: 2 },
+        },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+      { platforms: ["kick"] },
+    );
+
+    expect(result.state.authHealth.kick).toMatchObject({
+      status: "blocked",
+      reasonCode: "security_policy_blocked",
+      message: { values: { reference: "safe-ref" } },
+    });
+    expect(result.state.sessions.kick).toMatchObject({
+      status: "paused",
+      reasonCode: "authentication_unhealthy",
+      errorChecks: 2,
+      retryAfter: undefined,
+    });
+    expect(result.events).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "auth_health_changed",
+      data: expect.objectContaining({ to: "blocked" }),
+    }));
+  });
+
+  it("keeps transient platform failures on ordinary backoff", async () => {
+    const kick = adapter("kick", [], []);
+    vi.mocked(kick.discoverCampaigns).mockRejectedValueOnce(
+      new SafeFetchError({ kind: "http_error", status: 503 }),
+    );
+
+    const result = await runSchedulerTick(
+      baseState,
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+      { platforms: ["kick"] },
+    );
+
+    expect(result.state.authHealth.kick.status).toBe("healthy");
+    expect(result.state.sessions.kick).toMatchObject({
+      status: "error",
+      reasonCode: "platform_error",
+      errorChecks: 1,
+    });
+    expect(result.state.sessions.kick.retryAfter).toBeDefined();
+  });
+
+  it("does not turn an authentication failure into an Idle Watchlist session", async () => {
+    const kick = adapter("kick", [], []);
+    vi.mocked(kick.discoverCampaigns).mockRejectedValueOnce(
+      new SafeFetchError({ kind: "authentication_rejected", status: 401 }),
+    );
+
+    const result = await runSchedulerTick(
+      baseState,
+      settings({
+        platform: {
+          twitch: { enabled: false },
+          kick: { enabled: true, idleWatchlistChannels: ["public-creator"] },
+        },
+      }),
+      { twitch: adapter("twitch", [], []), kick },
+      { platforms: ["kick"] },
+    );
+
+    expect(kick.listCandidateChannels).not.toHaveBeenCalled();
+    expect(kick.checkChannel).not.toHaveBeenCalled();
+    expect(result.state.sessions.kick).toMatchObject({
+      status: "paused",
+      reasonCode: "authentication_unhealthy",
+      retryAfter: undefined,
+    });
+  });
+
+  it("forgets managed page-context state when authentication cleanup fails", async () => {
+    const stopPageContextTabs = vi.fn(async () => {
+      throw new Error("tab close failed");
+    });
+    const managedContext = {
+      platform: "kick" as const,
+      tabId: 91,
+      originUrl: "https://kick.com/drops/inventory",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+      muteFarmingTabs: true,
+      keepFarmingVideosUnmuted: false,
+      autoCloseFinishedDrops: true,
+      adFocusMode: "off" as const,
+      languageOverride: "auto" as const,
+    };
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        authHealth: {
+          ...HEALTHY_AUTH,
+          kick: { status: "invalid_credentials", reasonCode: "credentials_rejected" },
+        },
+        managedPageContextTabs: { kick: managedContext },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick: adapter("kick", [], []) },
+      { platforms: ["kick"], stopPageContextTabs },
+    );
+
+    expect(result.state.managedPageContextTabs?.kick).toBeUndefined();
+    expect(result.events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      level: "warn",
+      message: "tab close failed",
+    }));
+  });
 });
 
 describe("scheduler tabless mode", () => {
@@ -2194,7 +2396,7 @@ describe("scheduler tabless mode", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
@@ -2218,7 +2420,7 @@ describe("scheduler tabless mode", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -2251,7 +2453,7 @@ describe("scheduler tabless mode", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: {
             platform: "twitch",
@@ -2282,7 +2484,7 @@ describe("scheduler tabless mode", () => {
 
     const result = await runSchedulerTick(
       {
-        authHealth: DEFAULT_STATE.authHealth,
+        authHealth: HEALTHY_AUTH,
         sessions: {
           twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },

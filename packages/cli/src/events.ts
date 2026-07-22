@@ -5,6 +5,7 @@ function formatStopReason(reason: FarmingStopReason): string {
   switch (reason) {
     case "automation_disabled": return "automation disabled";
     case "platform_disabled": return "platform disabled";
+    case "authentication_unhealthy": return "authentication unhealthy";
     case "platform_backoff": return "platform backoff";
     case "platform_error": return "platform error";
     case "campaign_ineligible": return "campaign ineligible";
@@ -43,6 +44,7 @@ function formatPageContextCloseReason(reason: PageContextCloseReason): string {
     case "platform_disabled": return "platform disabled";
     case "automation_disabled": return "automation disabled";
     case "manual_watch": return "manual watch detected";
+    case "authentication_unhealthy": return "authentication unavailable";
     case "runtime_restart": return "extension runtime restarted";
     case "managed_context_unusable": return "background context unusable";
     default: {

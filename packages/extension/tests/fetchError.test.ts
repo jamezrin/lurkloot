@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSafeFetchError, SafeFetchError, safeFetchFailure } from "@lurkloot/core/fetchError";
+import { authHealthFromError, isSafeFetchError, SafeFetchError, safeFetchFailure } from "@lurkloot/core/fetchError";
 
 describe("sanitized fetch failures", () => {
   it("retains only bounded troubleshooting metadata", () => {
@@ -50,5 +50,18 @@ describe("sanitized fetch failures", () => {
     expect(isSafeFetchError(new Error("HTTP 401"))).toBe(false);
     expect(error.message).toBe("HTTP 401 Unauthenticated");
     expect(JSON.stringify(error)).not.toContain("secret");
+  });
+
+  it("maps only authentication failures into sanitized health", () => {
+    expect(authHealthFromError(new SafeFetchError({ kind: "authentication_rejected", status: 401 })))
+      .toMatchObject({ status: "invalid_credentials", reasonCode: "credentials_rejected" });
+    expect(authHealthFromError(new SafeFetchError({ kind: "security_policy_blocked", reference: "safe-ref" })))
+      .toMatchObject({
+        status: "blocked",
+        reasonCode: "security_policy_blocked",
+        message: { key: "authSecurityPolicyBlocked", values: { reference: "safe-ref" } },
+      });
+    expect(authHealthFromError(new SafeFetchError({ kind: "http_error", status: 503 }))).toBeUndefined();
+    expect(authHealthFromError(new Error("ordinary failure"))).toBeUndefined();
   });
 });
