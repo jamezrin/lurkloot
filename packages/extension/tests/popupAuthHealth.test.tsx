@@ -53,14 +53,16 @@ async function mountWithSnapshots(authStatuses: Array<RuntimeSnapshot["state"]["
       },
     },
   }));
-  const send = vi.fn(async <T,>(message: RuntimeMessage): Promise<T> => {
+  const sent: RuntimeMessage[] = [];
+  const send = async <T,>(message: RuntimeMessage): Promise<T> => {
+    sent.push(message);
     if (message.type === "getSnapshot") {
       const result = snapshots[Math.min(index, snapshots.length - 1)];
       index += 1;
       return result as T;
     }
     return demo.send<T>(message);
-  });
+  };
   const adapter: PopupAdapter = {
     ...demo,
     send,
@@ -73,7 +75,7 @@ async function mountWithSnapshots(authStatuses: Array<RuntimeSnapshot["state"]["
     await Promise.resolve();
     await Promise.resolve();
   });
-  return { container, send };
+  return { container, sent };
 }
 
 describe("popup authentication health", () => {
@@ -90,7 +92,7 @@ describe("popup authentication health", () => {
   });
 
   it("recovers from sign-in on the existing snapshot refresh without changing automation", async () => {
-    const { container, send } = await mountWithSnapshots([
+    const { container, sent } = await mountWithSnapshots([
       { status: "missing_credentials", reasonCode: "credentials_missing" },
       { status: "healthy", checkedAt: "2026-07-22T20:00:00.000Z" },
     ]);
@@ -101,6 +103,6 @@ describe("popup authentication health", () => {
     });
     expect(container.querySelector('[data-automation-state="running"]')).not.toBeNull();
     expect(container.textContent).toContain("Running · Twitch");
-    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "setAutomation" }));
+    expect(sent).not.toContainEqual(expect.objectContaining({ type: "setAutomation" }));
   });
 });
