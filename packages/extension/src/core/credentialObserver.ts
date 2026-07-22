@@ -13,13 +13,15 @@ export interface CredentialCookieChangeEvent {
   removeListener(listener: (change: CredentialCookieChange) => void): void;
 }
 
+type TimerHandle = number | ReturnType<typeof setTimeout>;
+
 export interface CredentialObserverDeps {
   onChanged: CredentialCookieChangeEvent;
   invalidate(platform: Platform): Promise<void>;
   recheck(platform: Platform): Promise<void>;
   debounceMs?: number;
-  setTimer?: (callback: () => void, delay: number) => ReturnType<typeof setTimeout>;
-  clearTimer?: (timer: ReturnType<typeof setTimeout>) => void;
+  setTimer?: (callback: () => void, delay: number) => TimerHandle;
+  clearTimer?: (timer: TimerHandle) => void;
 }
 
 function normalizedDomain(domain: string): string {
@@ -40,7 +42,7 @@ export function credentialPlatform(change: CredentialCookieChange): Platform | u
 export function createCredentialObserver(deps: CredentialObserverDeps): () => void {
   const setTimer = deps.setTimer ?? setTimeout;
   const clearTimer = deps.clearTimer ?? clearTimeout;
-  const timers = new Map<Platform, ReturnType<typeof setTimeout>>();
+  const timers = new Map<Platform, TimerHandle>();
 
   const listener = (change: CredentialCookieChange) => {
     const platform = credentialPlatform(change);
@@ -48,7 +50,7 @@ export function createCredentialObserver(deps: CredentialObserverDeps): () => vo
 
     void deps.invalidate(platform).catch(() => undefined);
     const current = timers.get(platform);
-    if (current) clearTimer(current);
+    if (current !== undefined) clearTimer(current);
     timers.set(platform, setTimer(() => {
       timers.delete(platform);
       void deps.recheck(platform).catch(() => undefined);

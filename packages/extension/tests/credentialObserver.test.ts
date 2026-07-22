@@ -97,6 +97,28 @@ describe("credential cookie observer", () => {
     expect(env.recheck).toHaveBeenCalledWith("kick");
   });
 
+  it("clears a valid zero-valued timer handle when coalescing", () => {
+    let listener: ((event: CredentialCookieChange) => void) | undefined;
+    const clearTimer = vi.fn();
+    createCredentialObserver({
+      onChanged: {
+        addListener: (next) => {
+          listener = next;
+        },
+        removeListener: vi.fn(),
+      },
+      invalidate: vi.fn(async () => undefined),
+      recheck: vi.fn(async () => undefined),
+      setTimer: vi.fn(() => 0),
+      clearTimer,
+    });
+
+    listener?.(change("auth-token", "twitch.tv"));
+    listener?.(change("auth-token", "twitch.tv"));
+
+    expect(clearTimer).toHaveBeenCalledWith(0);
+  });
+
   it("contains rejected invalidation and recheck callbacks", async () => {
     const env = harness();
     env.invalidate.mockRejectedValueOnce(new Error("invalidate failed"));
