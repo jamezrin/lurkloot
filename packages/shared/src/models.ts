@@ -1,5 +1,23 @@
 export type Platform = "twitch" | "kick";
 
+export type PlatformAuthStatus = "checking" | "healthy" | "missing_credentials" | "invalid_credentials" | "blocked" | "unavailable";
+
+export type PlatformAuthReasonCode = "credentials_missing" | "credentials_rejected" | "security_policy_blocked" | "credential_lookup_failed" | "platform_unavailable" | "network_unavailable";
+
+export type PlatformAuthMessageKey = "authChecking" | "authHealthy" | "authMissingCredentials" | "authInvalidCredentials" | "authSecurityPolicyBlocked" | "authCredentialLookupFailed" | "authPlatformUnavailable" | "authNetworkUnavailable";
+
+export interface PlatformAuthMessage {
+  key: PlatformAuthMessageKey;
+  values?: Partial<Record<"reference", string | number>>;
+}
+
+export interface PlatformAuthHealth {
+  status: PlatformAuthStatus;
+  checkedAt?: string;
+  reasonCode?: PlatformAuthReasonCode;
+  message?: PlatformAuthMessage;
+}
+
 export type CampaignStatus = "active" | "upcoming" | "expired" | "completed";
 
 export type RewardStatus = "locked" | "in_progress" | "claimable" | "claimed";
@@ -310,6 +328,7 @@ export interface ExtensionSettings extends EngineSettings {
 
 export interface SchedulerState {
   sessions: Record<Platform, WatchSession>;
+  authHealth: Record<Platform, PlatformAuthHealth>;
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;

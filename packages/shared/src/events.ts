@@ -1,5 +1,5 @@
 import type { LogLevel } from "./logging";
-import type { Platform } from "./models";
+import type { Platform, PlatformAuthReasonCode, PlatformAuthStatus } from "./models";
 
 export type FarmingStopReason =
   | "automation_disabled"
@@ -43,7 +43,8 @@ export type ActivityEvent =
   | { category: "activity"; code: "interruption"; level: "warn" | "error"; platform?: Platform; message?: never; data: { reason: FarmingStopReason; detail?: string } }
   | { category: "activity"; code: "challenge_claimed"; level: "info"; platform: Platform; message?: never; data: { challengeId: string; rarity: string; recurrence: string } }
   | { category: "activity"; code: "page_context_opened"; level: "info"; platform: Platform; message?: never; data: { host: string; reason: PageContextOpenReason } }
-  | { category: "activity"; code: "page_context_closed"; level: "info"; platform: Platform; message?: never; data: { host: string; reason: PageContextCloseReason } };
+  | { category: "activity"; code: "page_context_closed"; level: "info"; platform: Platform; message?: never; data: { host: string; reason: PageContextCloseReason } }
+  | { category: "activity"; code: "auth_health_changed"; level: "info" | "warn" | "error"; platform: Platform; message?: never; data: { from: PlatformAuthStatus; to: PlatformAuthStatus; reason?: PlatformAuthReasonCode } };
 
 export type DiagnosticEvent = {
   category: "diagnostic";
