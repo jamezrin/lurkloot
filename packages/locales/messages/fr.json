@@ -381,10 +381,10 @@
     "message": "Comportement partagé de la liste de secours."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Utiliser la Liste de veille inactive uniquement en secours"
+    "message": "Donner la priorité aux drops sur la Liste de veille inactive"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Regarde les chaînes de ta Liste de veille inactive uniquement lorsqu’aucun drop éligible n’est disponible."
+    "message": "Quitte une chaîne de la Liste de veille inactive dès qu’un drop éligible devient disponible. Si désactivé, continue à la regarder jusqu’à ce qu’elle se déconnecte."
   },
   "platformSettingsTitle": {
     "message": "Paramètres de plateforme"

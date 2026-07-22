@@ -381,10 +381,10 @@
     "message": "Comportamento condiviso della lista di fallback."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Usa la Lista di visione inattiva solo come riserva"
+    "message": "Dai priorità ai drop rispetto alla Lista di visione inattiva"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Guarda i canali della tua Lista di visione inattiva solo quando non ci sono drop idonei disponibili."
+    "message": "Lascia un canale della Lista di visione inattiva non appena è disponibile un drop idoneo. Se disattivato, continua a guardarlo finché non va offline."
   },
   "platformSettingsTitle": {
     "message": "Impostazioni piattaforma"
