@@ -1075,10 +1075,35 @@ describe("fetchKickInBackgroundWith", () => {
       return new Response(JSON.stringify({ id: 42 }), { status: 200, headers: { "content-type": "application/json" } });
     }));
 
-    await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user");
+    try {
+      await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user");
 
-    expect(new Headers(captured?.headers).get("authorization")).toBe("Bearer sess 789");
-    vi.unstubAllGlobals();
+      expect(new Headers(captured?.headers).get("authorization")).toBe("Bearer sess 789");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it.each([
+    "https://evil.example/?r=web.kick.com",
+    "https://web.kick.com.evil.example/api/v1/user",
+    "https://kick.com/api/v1/user/profile",
+    "http://web.kick.com/api/v1/drops/progress",
+  ])("never attaches the session token to %s", async (url) => {
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    try {
+      await fetchKickInBackgroundWith(cookieApi, url);
+
+      expect(new Headers(captured?.headers).has("authorization")).toBe(false);
+      expect(cookieApi.cookies.get).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("throws KickWafBlockedError on a 403 security-policy block", async () => {
