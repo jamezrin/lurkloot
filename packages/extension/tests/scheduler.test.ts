@@ -5,6 +5,7 @@ import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { SafeFetchError } from "@lurkloot/core/fetchError";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: `reward-${status}`,
@@ -2251,6 +2252,67 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.kick.status).not.toBe("error");
     expect(result.state.sessions.kick.errorChecks).toBe(0);
     expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("gamification down"))).toBe(true);
+  });
+
+  it("suspends without backoff when a challenge reports an authentication failure", async () => {
+    const kick = {
+      ...adapter("kick", [], []),
+      claimChallenges: vi.fn(async () => {
+        throw new SafeFetchError({ kind: "security_policy_blocked", status: 403, reference: "safe-ref" });
+      }),
+    };
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          kick: { platform: "kick", status: "idle", offlineChecks: 0, errorChecks: 2 },
+        },
+      },
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+      { platforms: ["kick"] },
+    );
+
+    expect(result.state.authHealth.kick).toMatchObject({
+      status: "blocked",
+      reasonCode: "security_policy_blocked",
+      message: { values: { reference: "safe-ref" } },
+    });
+    expect(result.state.sessions.kick).toMatchObject({
+      status: "paused",
+      reasonCode: "authentication_unhealthy",
+      errorChecks: 2,
+      retryAfter: undefined,
+    });
+    expect(result.events).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "auth_health_changed",
+      data: expect.objectContaining({ to: "blocked" }),
+    }));
+  });
+
+  it("keeps transient platform failures on ordinary backoff", async () => {
+    const kick = adapter("kick", [], []);
+    vi.mocked(kick.discoverCampaigns).mockRejectedValueOnce(
+      new SafeFetchError({ kind: "http_error", status: 503 }),
+    );
+
+    const result = await runSchedulerTick(
+      baseState,
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
+      { twitch: adapter("twitch", [], []), kick },
+      { platforms: ["kick"] },
+    );
+
+    expect(result.state.authHealth.kick.status).toBe("healthy");
+    expect(result.state.sessions.kick).toMatchObject({
+      status: "error",
+      reasonCode: "platform_error",
+      errorChecks: 1,
+    });
+    expect(result.state.sessions.kick.retryAfter).toBeDefined();
   });
 });
 

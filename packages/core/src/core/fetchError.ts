@@ -57,3 +57,32 @@ export class SafeFetchError extends Error {
 export function isSafeFetchError(error: unknown): error is SafeFetchError {
   return error instanceof SafeFetchError;
 }
+
+export function authHealthFromError(
+  error: unknown,
+  checkedAt = new Date().toISOString(),
+): PlatformAuthHealth | undefined {
+  if (!isSafeFetchError(error)) return undefined;
+  if (error.failure.kind === "authentication_rejected") {
+    return {
+      status: "invalid_credentials",
+      checkedAt,
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    };
+  }
+  if (error.failure.kind === "security_policy_blocked") {
+    const reference = error.failure.reference;
+    return {
+      status: "blocked",
+      checkedAt,
+      reasonCode: "security_policy_blocked",
+      message: {
+        key: "authSecurityPolicyBlocked",
+        ...(reference === undefined ? {} : { values: { reference } }),
+      },
+    };
+  }
+  return undefined;
+}
+import type { PlatformAuthHealth } from "@lurkloot/shared/models";

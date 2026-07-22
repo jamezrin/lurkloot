@@ -41,7 +41,6 @@ const PLATFORMS: Platform[] = ["twitch", "kick"];
 const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   automation_disabled: true,
   platform_disabled: true,
-  authentication_unhealthy: true,
   platform_backoff: true,
   platform_error: true,
   campaign_ineligible: true,
