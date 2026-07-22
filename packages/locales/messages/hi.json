@@ -642,9 +642,6 @@
   "autoClaimReady": {
     "message": "ऑटो-क्लेम तैयार"
   },
-  "resumingAutomation": {
-    "message": "ऑटोमेशन फिर शुरू हो रहा है..."
-  },
   "attributionLinks": {
     "message": "श्रेय लिंक"
   },

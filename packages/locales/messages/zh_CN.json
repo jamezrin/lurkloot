@@ -642,9 +642,6 @@
   "autoClaimReady": {
     "message": "自动领取就绪"
   },
-  "resumingAutomation": {
-    "message": "正在恢复自动化..."
-  },
   "attributionLinks": {
     "message": "署名链接"
   },

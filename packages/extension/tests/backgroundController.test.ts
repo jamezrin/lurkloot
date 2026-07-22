@@ -905,6 +905,59 @@ describe("background controller", () => {
     expect(env.settings.platform.kick.enabled).toBe(false);
   });
 
+  it("preserves rapid scheduling patches without overlapping reconciliation", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      notifyRewardEarned: true,
+      notifyNoDropsLeft: true,
+    });
+    let activeDiscoveries = 0;
+    let maxActiveDiscoveries = 0;
+    let discoveryCalls = 0;
+    let markFirstStarted!: () => void;
+    let releaseFirst!: () => void;
+    const firstStarted = new Promise<void>((resolve) => {
+      markFirstStarted = resolve;
+    });
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    vi.mocked(env.twitch.discoverCampaigns).mockImplementation(async () => {
+      discoveryCalls += 1;
+      activeDiscoveries += 1;
+      maxActiveDiscoveries = Math.max(maxActiveDiscoveries, activeDiscoveries);
+      if (discoveryCalls === 1) {
+        markFirstStarted();
+        await firstGate;
+      }
+      activeDiscoveries -= 1;
+      return [];
+    });
+
+    const first = env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { notifyRewardEarned: false },
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["twitch"],
+    });
+    await firstStarted;
+    const second = env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { notifyNoDropsLeft: false },
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["twitch"],
+    });
+    await drainMicrotasks();
+    releaseFirst();
+    await Promise.all([first, second]);
+
+    expect(env.settings.notifyRewardEarned).toBe(false);
+    expect(env.settings.notifyNoDropsLeft).toBe(false);
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(2);
+    expect(maxActiveDiscoveries).toBe(1);
+  });
+
   it("runs a scheduler tick after saving settings when requested and automation is active", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
     const nextSettings = {
@@ -969,7 +1022,7 @@ describe("background controller", () => {
     expect(snapshot.settings.platform.twitch.idleWatchlistChannels).toEqual(["fallback"]);
   });
 
-  it("temporarily pauses active sessions while a settings session is open without persisting running=false", async () => {
+  it("keeps active farming untouched when saving a non-scheduling setting", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
     env.state.sessions.twitch = {
       platform: "twitch",
@@ -980,36 +1033,14 @@ describe("background controller", () => {
       offlineChecks: 0,
     };
 
-    await env.controller.beginSettingsSession();
-
-    expect(env.settings.running).toBe(true);
-    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ status: "watching" }));
-    expect(env.state.sessions.twitch.status).toBe("paused");
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-
-    await env.controller.endSettingsSession();
-
-    expect(env.settings.running).toBe(true);
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
-  });
-
-  it("does not run tickAfterSave automation while settings are temporarily paused", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
-
-    await env.controller.beginSettingsSession();
-    vi.mocked(env.twitch.discoverCampaigns).mockClear();
-    vi.mocked(env.kick.discoverCampaigns).mockClear();
-
     const snapshot = asSnapshot(await env.controller.handleMessage({
       type: "saveSettings",
-      settingsPatch: { priorityMode: "priority_list_only" },
-      tickAfterSave: true,
+      settingsPatch: { notifyRewardEarned: false },
     }));
 
-    expect(snapshot.settings.running).toBe(true);
-    expect(snapshot.settings.priorityMode).toBe("priority_list_only");
+    expect(env.twitch.stopWatchTab).not.toHaveBeenCalled();
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+    expect(snapshot.state.sessions.twitch.status).toBe("watching");
   });
 
   it("runs an immediate scheduler tick when requested from the popup", async () => {
@@ -2350,17 +2381,23 @@ describe("background controller", () => {
       expect(env.timer.wait.mock.calls.length).toBeLessThanOrEqual(3);
     });
 
-    it("aborts running handoffs when a settings session begins", async () => {
-      const env = handoffEnv();
+    it("keeps an active handoff running during an ordinary settings save", async () => {
+      const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
       env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
       await drainMicrotasks();
-      await env.controller.beginSettingsSession();
-      await env.timer.flush();
-      await handoff;
+      expect(env.timer.parked).toBe(1);
 
-      expect(env.timer.parked).toBe(0);
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { notifyRewardEarned: false },
+      });
+
+      expect(env.timer.parked).toBe(1);
+      for (let index = 0; index < 4; index += 1) await env.timer.flush();
+      await handoff;
+      expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
     });
 
     it("aborts running handoffs when farming is switched off", async () => {
