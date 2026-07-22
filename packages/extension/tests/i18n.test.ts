@@ -53,6 +53,7 @@ describe("i18n", () => {
     const englishKeys = Object.keys(english).sort();
 
     expect(locales).toContain("ar");
+    expect(locales).toContain("tr");
     for (const locale of locales) {
       const catalog = readCatalog(locale);
       expect(Object.keys(catalog).sort(), locale).toEqual(englishKeys);
@@ -70,12 +71,19 @@ describe("i18n", () => {
       it: "Campagne con abbonamento",
       pt_BR: "Campanhas de assinatura",
       ru: "Кампании за подписку",
+      tr: "Abonelik kampanyaları",
       zh_CN: "订阅活动",
     };
 
     for (const locale of localeCodes()) {
       expect(readCatalog(locale).subscriptionCampaigns?.message, locale).toBe(translations[locale]);
     }
+  });
+
+  it("uses the native Turkish language name", () => {
+    const turkish = readCatalog("tr");
+    expect(turkish.languageTurkish?.message).toBe("Türkçe");
+    expect(turkish.subscriptionCampaigns?.message).toBe("Abonelik kampanyaları");
   });
 
   it("defines subscription drop states with matching placeholders in every catalog", () => {
