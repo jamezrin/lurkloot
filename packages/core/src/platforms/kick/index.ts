@@ -10,6 +10,7 @@ import { createKickClaimCapability } from "./claim/factory";
 import type { KickClaimCapability } from "./claim/types";
 import { safeHttpsUrl } from "./claim/types";
 import { KickClaimState } from "./claim/v2";
+import { isSafeFetchError } from "../../core/fetchError";
 
 export { createKickClaimCapability } from "./claim/factory";
 export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
@@ -58,6 +59,26 @@ interface KickClaimResponse {
 
 interface KickChallengesResponse {
   data?: KickChallenge[];
+}
+
+interface KickIdentityResponse {
+  id?: string | number;
+  username?: string;
+  slug?: string;
+  user?: {
+    id?: string | number;
+    username?: string;
+    slug?: string;
+  };
+}
+
+function hasKickIdentity(response: KickIdentityResponse): boolean {
+  const identity = response.user ?? response;
+  const id = identity.id;
+  return (typeof id === "string" && id.trim().length > 0)
+    || (typeof id === "number" && Number.isFinite(id))
+    || (typeof identity.username === "string" && identity.username.trim().length > 0)
+    || (typeof identity.slug === "string" && identity.slug.trim().length > 0);
 }
 
 interface KickChallenge {
@@ -165,7 +186,54 @@ export class KickAdapter implements PlatformAdapter {
   private readonly claimCapability: KickClaimCapability;
 
   async checkAuthHealth(): Promise<PlatformAuthHealth> {
-    return { status: "checking" };
+    const checkedAt = new Date().toISOString();
+    try {
+      const response = await this.fetcher.fetchJson<KickIdentityResponse>("https://kick.com/api/v1/user", undefined, this.emit);
+      if (hasKickIdentity(response)) return { status: "healthy", checkedAt };
+      return {
+        status: "invalid_credentials",
+        checkedAt,
+        reasonCode: "credentials_rejected",
+        message: { key: "authInvalidCredentials" },
+      };
+    } catch (error) {
+      if (isSafeFetchError(error)) {
+        if (error.failure.kind === "authentication_rejected") {
+          return {
+            status: "invalid_credentials",
+            checkedAt,
+            reasonCode: "credentials_rejected",
+            message: { key: "authInvalidCredentials" },
+          };
+        }
+        if (error.failure.kind === "security_policy_blocked") {
+          const reference = error.failure.reference;
+          return {
+            status: "blocked",
+            checkedAt,
+            reasonCode: "security_policy_blocked",
+            message: {
+              key: "authSecurityPolicyBlocked",
+              ...(reference === undefined ? {} : { values: { reference } }),
+            },
+          };
+        }
+        if (error.failure.kind === "network_error") {
+          return {
+            status: "unavailable",
+            checkedAt,
+            reasonCode: "network_unavailable",
+            message: { key: "authNetworkUnavailable" },
+          };
+        }
+      }
+      return {
+        status: "unavailable",
+        checkedAt,
+        reasonCode: "platform_unavailable",
+        message: { key: "authPlatformUnavailable" },
+      };
+    }
   }
 
   constructor(

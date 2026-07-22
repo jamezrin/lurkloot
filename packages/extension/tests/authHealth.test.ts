@@ -10,9 +10,38 @@ describe("authentication health normalization", () => {
     expect(await probe()).toEqual({ status: "checking" });
   });
 
-  it("keeps the Kick adapter in checking state until its probe is implemented", async () => {
-    const fetcher = { fetchJson: async () => { throw new Error("not called"); } };
-    await expect(new KickAdapter(fetcher).checkAuthHealth()).resolves.toEqual({ status: "checking" });
+  it.each([
+    { id: 42 },
+    { username: "viewer" },
+    { user: { slug: "viewer" } },
+  ])("requires authenticated Kick identity for healthy status", async (identity) => {
+    const calls: string[] = [];
+    const fetcher = {
+      fetchJson: async <T,>(url: string): Promise<T> => {
+        calls.push(url);
+        return identity as T;
+      },
+    };
+
+    const health = await new KickAdapter(fetcher).checkAuthHealth();
+
+    expect(health.status).toBe("healthy");
+    expect(Date.parse(health.checkedAt ?? "")).not.toBeNaN();
+    expect(calls).toEqual(["https://kick.com/api/v1/user"]);
+  });
+
+  it.each([
+    {},
+    { data: [] },
+    { data: [{ id: "public-campaign" }] },
+  ])("does not infer Kick authentication from identity-free JSON", async (response) => {
+    const fetcher = { fetchJson: async <T,>(): Promise<T> => response as T };
+
+    await expect(new KickAdapter(fetcher).checkAuthHealth()).resolves.toMatchObject({
+      status: "invalid_credentials",
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+  });
   });
   it("defaults both platforms to unchecked checking state", () => {
     expect(DEFAULT_STATE.authHealth).toEqual({
