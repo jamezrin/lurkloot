@@ -645,19 +645,24 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
   it("uses the service-worker result and never touches the page tab when the background fetch succeeds", async () => {
     const background = vi.fn(async () => ({ data: "from-sw" }));
     const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
-    const fetcher = createKickFetcher({ background, pageFetch });
+    const onBackgroundSuccess = vi.fn(async () => undefined);
+    const onPageFallback = vi.fn(async () => undefined);
+    const fetcher = createKickFetcher({ background, pageFetch, onBackgroundSuccess, onPageFallback });
 
     const result = await fetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns");
 
     expect(result).toEqual({ data: "from-sw" });
     expect(background).toHaveBeenCalledTimes(1);
     expect(pageFetch).not.toHaveBeenCalled();
+    expect(onBackgroundSuccess).toHaveBeenCalledWith("web.kick.com", expect.any(Function));
+    expect(onPageFallback).not.toHaveBeenCalled();
   });
 
   it("falls back to the page tab when the background fetch is WAF-blocked", async () => {
     const background = vi.fn(async () => { throw new KickWafBlockedError("HTTP 403 Forbidden"); });
     const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
-    const fetcher = createKickFetcher({ background, pageFetch });
+    const onPageFallback = vi.fn(async () => undefined);
+    const fetcher = createKickFetcher({ background, pageFetch, onPageFallback });
 
     const result = await fetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns", { method: "GET" });
 
@@ -665,6 +670,64 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
     expect(background).toHaveBeenCalledTimes(1);
     // The same url + init are forwarded to the fallback unchanged.
     expect(pageFetch).toHaveBeenCalledWith("https://web.kick.com/api/v1/drops/campaigns", { method: "GET" });
+    expect(onPageFallback).toHaveBeenCalledWith("web.kick.com", expect.any(Function));
+  });
+
+  it("records fallback before page execution even when the page request fails", async () => {
+    const order: string[] = [];
+    const fetcher = createKickFetcher({
+      background: async () => { throw new KickWafBlockedError("blocked"); },
+      onPageFallback: async () => { order.push("fallback"); },
+      pageFetch: async () => {
+        order.push("page");
+        throw new Error("page unavailable");
+      },
+    });
+
+    await expect(fetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns"))
+      .rejects.toThrow("page unavailable");
+    expect(order).toEqual(["fallback", "page"]);
+  });
+
+  it("keeps fallback diagnostics free of request details and raw errors", async () => {
+    const events: EngineEvent[] = [];
+    const fetcher = createKickFetcher({
+      background: async () => { throw new Error("token=secret-value"); },
+      pageFetch: async () => ({ ok: true }),
+    });
+
+    await fetcher.fetchJson("https://web.kick.com/api/private?token=secret-value", undefined, (event) => events.push(event));
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ category: "diagnostic", platform: "kick" });
+    expect(events[0].category === "diagnostic" ? events[0].message : "").toContain("web.kick.com");
+    expect(events[0].category === "diagnostic" ? events[0].message : "").not.toContain("secret-value");
+
+    events.length = 0;
+    await fetcher.fetchJson("not-a-url-secret-value", undefined, (event) => events.push(event));
+    expect(events[0].category === "diagnostic" ? events[0].message : "").toContain("unknown-host");
+    expect(events[0].category === "diagnostic" ? events[0].message : "").not.toContain("secret-value");
+  });
+
+  it("does not turn lifecycle bookkeeping failures into request failures or extra fallbacks", async () => {
+    const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
+    const backgroundFetcher = createKickFetcher({
+      background: async () => ({ data: "from-sw" }),
+      pageFetch,
+      onBackgroundSuccess: async () => { throw new Error("bookkeeping failed"); },
+    });
+
+    await expect(backgroundFetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns"))
+      .resolves.toEqual({ data: "from-sw" });
+    expect(pageFetch).not.toHaveBeenCalled();
+
+    const fallbackFetcher = createKickFetcher({
+      background: async () => { throw new KickWafBlockedError("blocked"); },
+      pageFetch,
+      onPageFallback: async () => { throw new Error("bookkeeping failed"); },
+    });
+    await expect(fallbackFetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns"))
+      .resolves.toEqual({ data: "from-tab" });
   });
 
   it("also falls back on a non-WAF background error", async () => {

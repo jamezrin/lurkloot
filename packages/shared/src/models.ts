@@ -160,6 +160,9 @@ export interface ManagedPageContextTab {
   originUrl: string;
   origin: string;
   ownedByExtension: true;
+  lastFallbackAt?: string;
+  fallbackHost?: string;
+  backgroundSuccesses?: number;
 }
 
 export interface ManualWatchState {

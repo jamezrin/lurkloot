@@ -1,5 +1,7 @@
 import type {
   ActivityHistoryRecord,
+  PageContextCloseReason,
+  PageContextOpenReason,
   FarmingStopReason,
   StoredEngineEvent,
 } from "@lurkloot/shared/events";
@@ -122,6 +124,33 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
   }
 }
 
+function formatPageContextOpenReason(reason: PageContextOpenReason, t: TFunction): string {
+  switch (reason) {
+    case "background_rejected": return t("activityPageContextOpenReasonBackgroundRejected");
+    case "managed_context_unusable": return t("activityPageContextReasonManagedContextUnusable");
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
+
+function formatPageContextCloseReason(reason: PageContextCloseReason, t: TFunction): string {
+  switch (reason) {
+    case "background_recovered": return t("activityPageContextCloseReasonBackgroundRecovered");
+    case "user_tab_available": return t("activityPageContextCloseReasonUserTabAvailable");
+    case "platform_disabled": return t("activityReasonPlatformDisabled");
+    case "automation_disabled": return t("activityReasonAutomationDisabled");
+    case "manual_watch": return t("activityReasonManualWatch");
+    case "runtime_restart": return t("activityReasonRuntimeRestart");
+    case "managed_context_unusable": return t("activityPageContextReasonManagedContextUnusable");
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
+
 function formatCurrentActivity(event: StoredEngineEvent & { category: "activity" }, t: TFunction): string {
   switch (event.code) {
     case "farming_started":
@@ -142,6 +171,10 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
     }
     case "challenge_claimed":
       return t("activityChallengeClaimed", [event.data.rarity, event.data.recurrence]);
+    case "page_context_opened":
+      return t("activityPageContextOpened", [event.data.host, formatPageContextOpenReason(event.data.reason, t)]);
+    case "page_context_closed":
+      return t("activityPageContextClosed", [event.data.host, formatPageContextCloseReason(event.data.reason, t)]);
     default: {
       const exhaustive: never = event;
       return exhaustive;

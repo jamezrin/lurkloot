@@ -11,8 +11,11 @@ import {
   hasValidTwitchIntegrity,
   KickWafBlockedError,
   openPinnedMutedTabWithBrowser,
+  recordManagedPageContextBackgroundSuccessWithBrowser,
+  recordManagedPageContextFallback,
   registerManagedPageContextTabs,
   setTwitchIntegrity,
+  stopManagedPageContextTabsWithBrowser,
   stopWatchTabWithBrowser,
 } from "@lurkloot/core/tabs";
 
@@ -52,6 +55,123 @@ describe("tab manager", () => {
     events.length = 0;
     await stopWatchTabWithBrowser(browser, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true }, undefined, emit);
     expect(events.some((event) => event.level === "debug" && event.message.includes("Closed managed watch tab 9"))).toBe(true);
+  });
+
+  it("reports managed page-context creation and closure as activity", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: { executeScript: vi.fn(async () => [{ result: { ok: true } }]) },
+    };
+    browser.tabs.create.mockResolvedValue({ id: 14 });
+    const events: EngineEvent[] = [];
+    const emit = (event: EngineEvent) => events.push(event);
+
+    await fetchJsonInPageWithBrowser(
+      browser,
+      "https://kick.com/drops/inventory",
+      "https://web.kick.com/api/v1/drops/progress?secret=value",
+      undefined,
+      { retainPageContext: { platform: "kick" }, emit, openReason: "background_rejected" },
+    );
+    expect(browser.tabs.create).toHaveBeenCalledWith({
+      url: "https://kick.com/drops/inventory",
+      pinned: false,
+      active: false,
+    });
+    expect(browser.tabs.update).toHaveBeenCalledWith(14, { muted: true, active: false });
+    expect(currentManagedPageContextTabs().kick).toMatchObject({
+      originUrl: "https://kick.com/drops/inventory",
+      origin: "https://kick.com",
+    });
+    await stopManagedPageContextTabsWithBrowser(browser, currentManagedPageContextTabs(), {
+      platforms: ["kick"],
+      reason: "background_recovered",
+      emit,
+    });
+
+    expect(events.filter((event) => event.category === "activity")).toEqual([
+      { category: "activity", code: "page_context_opened", level: "info", platform: "kick", data: { host: "kick.com", reason: "background_rejected" } },
+      { category: "activity", code: "page_context_closed", level: "info", platform: "kick", data: { host: "kick.com", reason: "background_recovered" } },
+    ]);
+    expect(events.every((event) => event.category === "activity" || !event.message.includes("secret=value"))).toBe(true);
+  });
+
+  it("does not report a close activity when managed page-context removal fails", async () => {
+    const browser = browserMock();
+    browser.tabs.remove.mockRejectedValue(new Error("already gone"));
+    const events: EngineEvent[] = [];
+    registerManagedPageContextTabs({
+      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
+    });
+
+    await stopManagedPageContextTabsWithBrowser(browser, currentManagedPageContextTabs(), {
+      platforms: ["kick"],
+      reason: "background_recovered",
+      emit: (event) => events.push(event),
+    });
+
+    expect(events.some((event) => event.category === "activity" && event.code === "page_context_closed")).toBe(false);
+  });
+
+  it("does not report a close activity without a browser removal capability", async () => {
+    const browser = browserMock();
+    browser.tabs.remove = undefined as unknown as typeof browser.tabs.remove;
+    const events: EngineEvent[] = [];
+    registerManagedPageContextTabs({
+      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com/drops/inventory", origin: "https://kick.com", ownedByExtension: true },
+    });
+
+    await stopManagedPageContextTabsWithBrowser(browser, currentManagedPageContextTabs(), {
+      platforms: ["kick"],
+      reason: "background_recovered",
+      emit: (event) => events.push(event),
+    });
+
+    expect(events.some((event) => event.category === "activity" && event.code === "page_context_closed")).toBe(false);
+    expect(currentManagedPageContextTabs().kick).toBeUndefined();
+  });
+
+  it("releases a retained Kick context only after sustained background recovery", async () => {
+    const browser = browserMock();
+    const events: EngineEvent[] = [];
+    const emit = (event: EngineEvent) => events.push(event);
+    const startedAt = Date.parse("2026-07-21T12:00:00.000Z");
+    registerManagedPageContextTabs({
+      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
+    });
+    recordManagedPageContextFallback("kick", "web.kick.com", emit, startedAt);
+
+    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", emit, startedAt + 11 * 60_000);
+    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", emit, startedAt + 11 * 60_000 + 1);
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+
+    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", emit, startedAt + 11 * 60_000 + 2);
+
+    expect(browser.tabs.remove).toHaveBeenCalledOnce();
+    expect(currentManagedPageContextTabs().kick).toBeUndefined();
+    expect(events).toContainEqual({
+      category: "activity",
+      code: "page_context_closed",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_recovered" },
+    });
+  });
+
+  it("resets managed context recovery when another page fallback is required", async () => {
+    const browser = browserMock();
+    const startedAt = Date.parse("2026-07-21T12:00:00.000Z");
+    registerManagedPageContextTabs({
+      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
+    });
+    recordManagedPageContextFallback("kick", "web.kick.com", undefined, startedAt);
+    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", undefined, startedAt + 11 * 60_000);
+    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", undefined, startedAt + 11 * 60_000 + 1);
+    recordManagedPageContextFallback("kick", "web.kick.com", undefined, startedAt + 11 * 60_000 + 2);
+    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", undefined, startedAt + 22 * 60_000);
+
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+    expect(currentManagedPageContextTabs().kick).toMatchObject({ backgroundSuccesses: 1 });
   });
 
   it("keeps tab diagnostics scoped to the supplied emitter", async () => {
@@ -440,6 +560,40 @@ describe("tab manager", () => {
     expect(browser.tabs.remove).not.toHaveBeenCalled();
     expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
       target: { tabId: 14 },
+    }));
+  });
+
+  it("replaces a retained page context that navigated away from its origin", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: { executeScript: vi.fn(async () => [{ result: { ok: true } }]) },
+    };
+    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://example.com/elsewhere" });
+    browser.tabs.create.mockResolvedValue({ id: 15 });
+    registerManagedPageContextTabs({
+      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
+    });
+    const events: EngineEvent[] = [];
+
+    await fetchJsonInPageWithBrowser(
+      browser,
+      "https://kick.com",
+      "https://web.kick.com/api/v1/drops/progress",
+      undefined,
+      { retainPageContext: { platform: "kick" }, emit: (event) => events.push(event), openReason: "background_rejected" },
+    );
+
+    expect(browser.tabs.remove).toHaveBeenCalledWith(14);
+    expect(browser.tabs.create).toHaveBeenCalledOnce();
+    expect(currentManagedPageContextTabs().kick?.tabId).toBe(15);
+    expect(events.filter((event) => event.category === "activity")).toEqual([
+      { category: "activity", code: "page_context_closed", level: "info", platform: "kick", data: { host: "kick.com", reason: "managed_context_unusable" } },
+      { category: "activity", code: "page_context_opened", level: "info", platform: "kick", data: { host: "kick.com", reason: "managed_context_unusable" } },
+    ]);
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "kick",
+      message: expect.stringContaining("because the previous context was unusable"),
     }));
   });
 

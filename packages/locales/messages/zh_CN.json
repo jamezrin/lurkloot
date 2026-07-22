@@ -721,6 +721,12 @@
   "activityChallengeClaimed": {
     "message": "已领取 $2 挑战的 $1 卡片"
   },
+  "activityPageContextOpened": { "message": "已在 $1 打开后台上下文，因为$2。" },
+  "activityPageContextClosed": { "message": "已关闭 $1 的后台上下文，因为$2。" },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick 拒绝了无标签页请求" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "之前的后台上下文无法使用" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "无标签页请求已恢复" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "已有 Kick 标签页可用" },
   "activityInterruption": {
     "message": "领取已中断：$1。"
   },

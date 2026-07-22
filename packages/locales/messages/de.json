@@ -721,6 +721,12 @@
   "activityChallengeClaimed": {
     "message": "$1-Karte aus der $2-Challenge erhalten"
   },
+  "activityPageContextOpened": { "message": "Ein Hintergrundkontext auf $1 wurde geöffnet, weil $2." },
+  "activityPageContextClosed": { "message": "Der Hintergrundkontext auf $1 wurde geschlossen, weil $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick die Anfrage ohne Tab abgelehnt hat" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "der vorherige Hintergrundkontext unbrauchbar war" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "Anfragen ohne Tab wieder funktionieren" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "ein vorhandener Kick-Tab verfügbar wurde" },
   "activityInterruption": {
     "message": "Sammeln unterbrochen: $1."
   },

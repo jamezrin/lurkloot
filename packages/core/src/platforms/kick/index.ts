@@ -82,28 +82,44 @@ interface KickChallengeClaimResponse {
 export function createKickFetcher(deps: {
   background: (url: string, init?: RequestInit) => Promise<unknown>;
   pageFetch: (url: string, init?: RequestInit) => Promise<unknown>;
+  onBackgroundSuccess?: (host: string, emit: EventEmitter) => Promise<void> | void;
+  onPageFallback?: (host: string, emit: EventEmitter) => Promise<void> | void;
 }): PageFetcher {
-  const { background, pageFetch } = deps;
+  const { background, pageFetch, onBackgroundSuccess, onPageFallback } = deps;
   const announced = new Map<string, "background" | "fallback">();
   const report = (emit: EventEmitter, host: string, outcome: "background" | "fallback", detail: string): void => {
     const repeat = announced.get(host) === outcome;
     announced.set(host, outcome);
     diagnostic(emit, repeat ? "debug" : "info", `Kick fetch ${host} ${detail}`, "kick");
   };
+  const notifyLifecycle = async (
+    callback: ((host: string, emit: EventEmitter) => Promise<void> | void) | undefined,
+    host: string,
+    emit: EventEmitter,
+  ): Promise<void> => {
+    try {
+      await callback?.(host, emit);
+    } catch {
+      diagnostic(emit, "debug", `Kick page-context lifecycle update failed for ${host}`, "kick");
+    }
+  };
   return {
     fetchJson: async <T,>(url: string, init?: RequestInit, emit: EventEmitter = ignoreEvent): Promise<T> => {
       const host = safeHost(url);
+      let result: unknown;
       try {
-        const result = await background(url, init);
-        report(emit, host, "background", "→ service worker OK (tabless-capable)");
-        return result as T;
+        result = await background(url, init);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
         report(emit, host, "fallback", error instanceof KickWafBlockedError
-          ? `→ WAF-blocked from service worker, using page tab (${message})`
-          : `→ service worker error, using page tab (${message})`);
-        return await pageFetch(url, init) as T;
+          ? "→ WAF-blocked from service worker, using page tab"
+          : "→ service worker error, using page tab");
+        await notifyLifecycle(onPageFallback, host, emit);
+        result = await pageFetch(url, init);
+        return result as T;
       }
+      report(emit, host, "background", "→ service worker OK (tabless-capable)");
+      await notifyLifecycle(onBackgroundSuccess, host, emit);
+      return result as T;
     },
   };
 }
@@ -112,7 +128,7 @@ function safeHost(url: string): string {
   try {
     return new URL(url).host;
   } catch {
-    return url;
+    return "unknown-host";
   }
 }
 

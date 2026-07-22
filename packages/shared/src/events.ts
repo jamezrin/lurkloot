@@ -25,12 +25,25 @@ type CampaignRewardData = {
   rewardName: string;
 };
 
+export type PageContextOpenReason = "background_rejected" | "managed_context_unusable";
+
+export type PageContextCloseReason =
+  | "background_recovered"
+  | "user_tab_available"
+  | "platform_disabled"
+  | "automation_disabled"
+  | "manual_watch"
+  | "runtime_restart"
+  | "managed_context_unusable";
+
 export type ActivityEvent =
   | { category: "activity"; code: "farming_started"; level: "info"; platform: Platform; message?: never; data: CampaignRewardData & { channel?: string } }
   | { category: "activity"; code: "farming_stopped"; level: "info" | "warn" | "error"; platform: Platform; message?: never; data: CampaignRewardData & { reason: FarmingStopReason } }
   | { category: "activity"; code: "reward_claimed"; level: "info"; platform: Platform; message?: never; data: CampaignRewardData & { method: "automatic" | "manual" } }
   | { category: "activity"; code: "interruption"; level: "warn" | "error"; platform?: Platform; message?: never; data: { reason: FarmingStopReason; detail?: string } }
-  | { category: "activity"; code: "challenge_claimed"; level: "info"; platform: Platform; message?: never; data: { challengeId: string; rarity: string; recurrence: string } };
+  | { category: "activity"; code: "challenge_claimed"; level: "info"; platform: Platform; message?: never; data: { challengeId: string; rarity: string; recurrence: string } }
+  | { category: "activity"; code: "page_context_opened"; level: "info"; platform: Platform; message?: never; data: { host: string; reason: PageContextOpenReason } }
+  | { category: "activity"; code: "page_context_closed"; level: "info"; platform: Platform; message?: never; data: { host: string; reason: PageContextCloseReason } };
 
 export type DiagnosticEvent = {
   category: "diagnostic";

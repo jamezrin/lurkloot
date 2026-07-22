@@ -721,6 +721,12 @@
   "activityChallengeClaimed": {
     "message": "تم استلام بطاقة $1 من تحدي $2"
   },
+  "activityPageContextOpened": { "message": "تم فتح سياق في الخلفية على $1 لأن $2." },
+  "activityPageContextClosed": { "message": "تم إغلاق سياق الخلفية على $1 لأن $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick رفض الطلب دون علامة تبويب" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "سياق الخلفية السابق لم يكن صالحًا للاستخدام" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "طلبات العمل دون علامة تبويب عادت للعمل" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "أصبحت علامة تبويب Kick موجودة متاحة" },
   "activityInterruption": {
     "message": "توقف الجمع: $1."
   },

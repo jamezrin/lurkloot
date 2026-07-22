@@ -721,6 +721,12 @@
   "activityChallengeClaimed": {
     "message": "Reclamó una carta $1 del desafío $2"
   },
+  "activityPageContextOpened": { "message": "Se abrió un contexto en segundo plano en $1 porque $2." },
+  "activityPageContextClosed": { "message": "Se cerró el contexto en segundo plano en $1 porque $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rechazó la solicitud sin pestaña" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "el contexto anterior no se podía usar" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "las solicitudes sin pestaña se recuperaron" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "había disponible una pestaña de Kick existente" },
   "activityInterruption": {
     "message": "Obtención interrumpida: $1."
   },

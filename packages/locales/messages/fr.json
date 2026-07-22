@@ -721,6 +721,12 @@
   "activityChallengeClaimed": {
     "message": "Carte $1 réclamée depuis le défi $2"
   },
+  "activityPageContextOpened": { "message": "Un contexte en arrière-plan a été ouvert sur $1 car $2." },
+  "activityPageContextClosed": { "message": "Le contexte en arrière-plan sur $1 a été fermé car $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick a refusé la requête sans onglet" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "le contexte précédent était inutilisable" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "les requêtes sans onglet ont été rétablies" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "un onglet Kick existant est devenu disponible" },
   "activityInterruption": {
     "message": "Collecte interrompue : $1."
   },

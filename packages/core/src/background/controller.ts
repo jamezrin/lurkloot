@@ -1,11 +1,11 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { DropCampaign, DropReward, EngineSettings, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
-import { setTwitchIntegrity } from "../core/tabs";
+import { currentManagedPageContextTabs, registerManagedPageContextTabs, setTwitchIntegrity } from "../core/tabs";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
@@ -106,7 +106,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   };
   createNotification?(notification: { title: string; message: string }): Promise<void>;
   translate?(key: string, substitutions?: string | string[]): string | Promise<string>;
-  closeManagedTabsByUrl?(urls: string[]): Promise<void>;
+  closeManagedTabs?(tabs: ManagedWatchTab[]): Promise<void>;
   // Tab-mode ad focus. The host (extension) owns the focus policy (adFocusMode),
   // so the engine only reports whether an ad is active for a given watch tab.
   applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
@@ -351,7 +351,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // A restart kills any in-memory watchers; start clean and let tick() rebuild.
     tablessWatchers.clear();
 
-    const cleanup = staleStartupCleanup(state);
+    const preservePageContexts = settings.running && settings.autoStartDropFarming;
+    registerManagedPageContextTabs(preservePageContexts ? state.managedPageContextTabs ?? {} : {});
+    const cleanup = staleStartupCleanup(state, preservePageContexts);
     if (!cleanup.hasStaleSession) {
       if (settings.autoStartDropFarming && settings.running) await tick();
       if (settings.running && !settings.autoStartDropFarming) {
@@ -360,8 +362,18 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       return;
     }
 
-    if (deps.closeManagedTabsByUrl) {
-      await deps.closeManagedTabsByUrl(cleanup.managedUrls);
+    if (deps.closeManagedTabs && cleanup.managedTabs.length > 0) {
+      await deps.closeManagedTabs(cleanup.managedTabs);
+    }
+    if (!preservePageContexts && deps.stopPageContextTabs && Object.keys(state.managedPageContextTabs ?? {}).length > 0) {
+      await withEventCollector(async (emit, events) => {
+        await deps.stopPageContextTabs!(state.managedPageContextTabs ?? {}, {
+          platforms: ["twitch", "kick"],
+          reason: "runtime_restart",
+          emit,
+        });
+        await reportBestEffort(events);
+      });
     }
 
     let nextSettings = settings;
@@ -460,11 +472,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function handleTabRemoved(tabId: number): Promise<void> {
     // Serialize the load-modify-persist under the state lock so it cannot race a
     // concurrent tick()/heartbeat (both fire on a ~1-minute cadence while the
-    // user can close a tab at any moment). The trailing tick() is deferred to
-    // outside the lock because it re-acquires the lock itself — mirroring how
-    // runWatchHeartbeat returns its fallback work and ticks afterwards.
-    const shouldRerunScheduler = await withStateLock(() => withEventCollector(async (emit, events) => {
-      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    // user can close a tab at any moment). A removal never runs the scheduler
+    // directly: the next ordinary alarm may recover without fighting the user's
+    // close action by immediately recreating the tab.
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      const state = await deps.loadState();
       const manualPlatforms = (["twitch", "kick"] as Platform[]).filter((platform) => state.manualWatch?.[platform]?.tabId === tabId);
       let nextState = state;
       if (manualPlatforms.length > 0) {
@@ -475,26 +487,32 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           manualWatch,
         };
       }
-      let shouldRerun = false;
 
-      for (const platform of settings.running ? ["twitch", "kick"] as Platform[] : []) {
+      const closedManagedPlatforms: Platform[] = [];
+      for (const platform of PLATFORMS) {
         const session = state.sessions[platform];
         if (
-          settings.platform[platform].enabled
-          && session.status === "watching"
+          session.status === "watching"
           && session.tabManagedByExtension
           && session.tabId === tabId
         ) {
-          emit({ category: "diagnostic", platform, level: "info", message: "Managed watch tab was closed; re-running scheduler" });
-          shouldRerun = true;
-          break;
+          closedManagedPlatforms.push(platform);
+          emit({ category: "diagnostic", platform, level: "info", message: "Managed watch tab was closed; recovery deferred to the next scheduler cycle" });
         }
       }
-      if (manualPlatforms.length > 0 || events.length > 0) await persistAndReport(nextState, events);
-      return shouldRerun;
-    }));
 
-    if (shouldRerunScheduler) await tick();
+      if (closedManagedPlatforms.length > 0) {
+        const sessions = { ...nextState.sessions };
+        const managedWatchTabs = { ...nextState.managedWatchTabs };
+        for (const platform of closedManagedPlatforms) {
+          sessions[platform] = { platform, status: "idle", offlineChecks: 0 };
+          delete managedWatchTabs[platform];
+        }
+        nextState = { ...nextState, sessions, managedWatchTabs };
+      }
+
+      if (nextState !== state || events.length > 0) await persistAndReport(nextState, events);
+    }));
   }
 
   function tablessWatchContext(): WatchContext {
@@ -573,6 +591,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (!settings.running) return;
     const fallbackPlatforms = await withStateLock<Platform[]>(() => withEventCollector(async (emit, events) => {
       let nextState = await deps.loadState();
+      registerManagedPageContextTabs(nextState.managedPageContextTabs ?? {});
       // After a service-worker restart the in-memory watcher map is empty, so
       // rebuild it from persisted tabless sessions before the size check below.
       // Otherwise the 1-minute watch alarm would do nothing until the next
@@ -634,6 +653,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
         }
       }
+
+      nextState = {
+        ...nextState,
+        managedPageContextTabs: currentManagedPageContextTabs(),
+      };
 
       if (changed) await persistAndReport(nextState, events);
       else await reportBestEffort(events);
@@ -1265,24 +1289,22 @@ function isFarmingStopReason(code: WatchReasonCode): code is FarmingStopReason {
   return Object.prototype.hasOwnProperty.call(FARMING_STOP_REASON_CODES, code);
 }
 
-function staleStartupCleanup(state: SchedulerState): {
+function staleStartupCleanup(state: SchedulerState, preservePageContexts = false): {
   hasStaleSession: boolean;
-  managedUrls: string[];
+  managedTabs: ManagedWatchTab[];
   state: SchedulerState;
 } {
   let hasStaleSession = false;
-  const managedUrls = new Set<string>();
+  const managedTabs = new Map<number, ManagedWatchTab>();
   const sessions = { ...state.sessions };
 
   for (const platform of ["twitch", "kick"] as Platform[]) {
     const session = state.sessions[platform];
     const managedTab = state.managedWatchTabs?.[platform];
     const managedPageContextTab = state.managedPageContextTabs?.[platform];
-    if (managedTab?.channelUrl) managedUrls.add(managedTab.channelUrl);
-    if (managedPageContextTab?.originUrl) managedUrls.add(managedPageContextTab.originUrl);
-    if (session.tabManagedByExtension && session.channel?.url) managedUrls.add(session.channel.url);
+    if (managedTab?.ownedByExtension) managedTabs.set(managedTab.tabId, managedTab);
 
-    if (session.status === "watching" || session.tabId != null || managedTab || managedPageContextTab) {
+    if (session.status === "watching" || session.tabId != null || managedTab || (!preservePageContexts && managedPageContextTab)) {
       hasStaleSession = true;
       sessions[platform] = pausedStartupSession(session);
     }
@@ -1290,12 +1312,12 @@ function staleStartupCleanup(state: SchedulerState): {
 
   return {
     hasStaleSession,
-    managedUrls: [...managedUrls],
+    managedTabs: [...managedTabs.values()],
     state: {
       ...state,
       sessions,
       managedWatchTabs: {},
-      managedPageContextTabs: {},
+      managedPageContextTabs: preservePageContexts ? state.managedPageContextTabs : {},
     },
   };
 }
