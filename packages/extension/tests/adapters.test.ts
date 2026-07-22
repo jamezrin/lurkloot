@@ -9,6 +9,7 @@ import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shar
 import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { resolveCompatibility } from "@lurkloot/core";
+import { SafeFetchError, type SafeFetchFailureKind } from "@lurkloot/core/fetchError";
 
 function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
   const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
@@ -26,6 +27,41 @@ function requestBody(init?: RequestInit): Record<string, unknown> {
 }
 
 describe("KickAdapter", () => {
+  it.each([
+    ["authentication_rejected", "invalid_credentials", "credentials_rejected", "authInvalidCredentials"],
+    ["security_policy_blocked", "blocked", "security_policy_blocked", "authSecurityPolicyBlocked"],
+    ["network_error", "unavailable", "network_unavailable", "authNetworkUnavailable"],
+    ["http_error", "unavailable", "platform_unavailable", "authPlatformUnavailable"],
+  ] as const)("maps %s account probe failures to %s", async (kind, status, reasonCode, key) => {
+    const fetcher = jsonFetcher(() => {
+      throw new SafeFetchError({
+        kind: kind as SafeFetchFailureKind,
+        status: kind === "network_error" ? undefined : kind === "authentication_rejected" ? 401 : 403,
+        reason: kind === "security_policy_blocked" ? "Request blocked by security policy." : undefined,
+        reference: kind === "security_policy_blocked" ? "9e4db7e3" : undefined,
+      });
+    });
+
+    const health = await new KickAdapter(fetcher).checkAuthHealth();
+
+    expect(health).toMatchObject({ status, reasonCode, message: { key } });
+    expect(health.message?.values?.reference).toBe(kind === "security_policy_blocked" ? "9e4db7e3" : undefined);
+    expect(Date.parse(health.checkedAt ?? "")).not.toBeNaN();
+  });
+
+  it("does not copy unknown account probe errors into health state", async () => {
+    const fetcher = jsonFetcher(() => { throw new Error("token=secret-value"); });
+
+    const health = await new KickAdapter(fetcher).checkAuthHealth();
+
+    expect(health).toMatchObject({
+      status: "unavailable",
+      reasonCode: "platform_unavailable",
+      message: { key: "authPlatformUnavailable" },
+    });
+    expect(JSON.stringify(health)).not.toContain("secret-value");
+  });
+
   it("uses the automatic Kick claim capability selected by compatibility resolution", async () => {
     let claimPosts = 0;
     const fetcher = jsonFetcher((url) => {
