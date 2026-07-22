@@ -645,9 +645,6 @@
   "autoClaimReady": {
     "message": "Auto-Beanspruchen bereit"
   },
-  "resumingAutomation": {
-    "message": "Automatisierung wird fortgesetzt..."
-  },
   "attributionLinks": {
     "message": "Attributionslinks"
   },

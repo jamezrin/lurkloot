@@ -237,7 +237,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     kick: new Set<string>(),
   };
   let settingsMutation: Promise<unknown> = Promise.resolve();
-  let settingsPauseCount = 0;
 
   // The last token handed to setTwitchIntegrity; used to skip re-persisting on
   // every page GQL call (the page sends integrity on most requests).
@@ -416,13 +415,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     });
   }
 
-  async function tick(platforms?: Platform[], options?: { forcePaused?: boolean }): Promise<ClaimedRewards> {
+  async function tick(platforms?: Platform[]): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      const storedSettings = await deps.loadSettings();
-      const settings: S = options?.forcePaused || settingsPauseCount > 0
-        ? { ...storedSettings, running: false }
-        : storedSettings;
+      const settings = await deps.loadSettings();
       const state = await deps.loadState();
       const nextWaitingClaimRewardIds: Record<Platform, Set<string>> = {
         twitch: new Set(waitingClaimRewardIds.twitch),
@@ -591,7 +587,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // watcher and records its health on the session, falling back to a real tab
   // (by re-running the scheduler) when a heartbeat keeps failing.
   async function runWatchHeartbeat(): Promise<void> {
-    if (settingsPauseCount > 0) return;
     const settings = await deps.loadSettings();
     if (!settings.running) return;
     const fallbackPlatforms = await withStateLock<Platform[]>(() => withEventCollector(async (emit, events) => {
@@ -821,19 +816,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       });
       await persistAndReport(nextState, events);
     }));
-  }
-
-  async function beginSettingsSession(): Promise<void> {
-    abortClaimHandoffs();
-    settingsPauseCount += 1;
-    if (settingsPauseCount === 1) await tick(undefined, { forcePaused: true });
-  }
-
-  async function endSettingsSession(): Promise<void> {
-    settingsPauseCount = Math.max(0, settingsPauseCount - 1);
-    if (settingsPauseCount > 0) return;
-    const settings = await deps.loadSettings();
-    if (settings.running && hasEnabledPlatform(settings)) await tick();
   }
 
   async function recordPlaybackTelemetry(
@@ -1096,7 +1078,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
     if (message.type === "saveSettings") {
       const settings = await updateStoredSettings(message.settingsPatch);
-      if (message.tickAfterSave && settingsPauseCount === 0 && settings.running && hasEnabledPlatform(settings)) {
+      if (message.tickAfterSave && settings.running && hasEnabledPlatform(settings)) {
         await tickAndHandOff(message.tickAfterSavePlatforms);
       }
       return snapshot();
@@ -1207,8 +1189,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     handleStartup,
     handleTabRemoved,
     handleMessage,
-    beginSettingsSession,
-    endSettingsSession,
     captureTwitchIntegrity,
     tick,
     tickAndHandOff,

@@ -645,9 +645,6 @@
   "autoClaimReady": {
     "message": "Auto-reclamo listo"
   },
-  "resumingAutomation": {
-    "message": "Reanudando automatización..."
-  },
   "attributionLinks": {
     "message": "Enlaces de atribución"
   },

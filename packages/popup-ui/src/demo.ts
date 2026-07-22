@@ -80,7 +80,6 @@ export function createDemoPopupAdapter(options?: {
     setStorage: async (values: Record<string, unknown>) => {
       Object.assign(store, values);
     },
-    connectSettingsSession: () => () => undefined,
     getMessage: () => "",
     getUiLanguage: () => options?.locale ?? "en",
     openLink: (url) => openHttpsLink(url, (safeUrl) => window.open(safeUrl, "_blank", "noopener,noreferrer")),

@@ -115,7 +115,6 @@ export interface PopupAdapter {
   send<T>(message: RuntimeMessage): Promise<T>;
   getStorage(keys?: string | string[]): Promise<Record<string, unknown>>;
   setStorage(values: Record<string, unknown>): Promise<void>;
-  connectSettingsSession?(): () => void;
   getMessage(key: string, substitutions?: string | string[]): string;
   getUiLanguage(): string;
   openLink(url: string): void;

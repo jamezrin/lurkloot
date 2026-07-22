@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
-import { SETTINGS_SESSION_PORT, type CliCredentialBlob, type RuntimeMessage } from "@lurkloot/shared/messages";
+import type { CliCredentialBlob, RuntimeMessage } from "@lurkloot/shared/messages";
 import {
   applyAdFocus,
   ensureTwitchIntegrity,
@@ -238,11 +238,4 @@ export default defineBackground(() => {
     return true;
   });
 
-  browser.runtime.onConnect.addListener((port) => {
-    if (port.name !== SETTINGS_SESSION_PORT) return;
-    void controller.beginSettingsSession();
-    port.onDisconnect.addListener(() => {
-      void controller.endSettingsSession();
-    });
-  });
 });

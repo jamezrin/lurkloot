@@ -645,9 +645,6 @@
   "autoClaimReady": {
     "message": "الاستلام التلقائي جاهز"
   },
-  "resumingAutomation": {
-    "message": "جارٍ استئناف التشغيل التلقائي..."
-  },
   "attributionLinks": {
     "message": "روابط النسبة"
   },

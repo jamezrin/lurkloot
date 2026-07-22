@@ -645,9 +645,6 @@
   "autoClaimReady": {
     "message": "Автополучение готово"
   },
-  "resumingAutomation": {
-    "message": "Возобновление автоматизации..."
-  },
   "attributionLinks": {
     "message": "Ссылки на автора"
   },
