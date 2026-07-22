@@ -779,6 +779,7 @@
   "activityChallengeClaimed": {
     "message": "$2 mücadelesinden $1 kartı talep edildi"
   },
+  "activityAuthHealthChanged": { "message": "$1 kimlik doğrulaması $2 durumundan $3 durumuna geçti." },
   "activityPageContextOpened": {
     "message": "$1 üzerinde bir arka plan içeriği açıldı çünkü $2."
   },

@@ -53,8 +53,10 @@ export function normalizePlatformAuthHealth(value: unknown): PlatformAuthHealth 
 
   const normalizedStatus = status as PlatformAuthStatus;
   const health: PlatformAuthHealth = { status: normalizedStatus };
-  const checkedAt = normalizedIsoTimestamp(value.checkedAt);
-  if (checkedAt) health.checkedAt = checkedAt;
+  if (normalizedStatus !== "checking") {
+    const checkedAt = normalizedIsoTimestamp(value.checkedAt);
+    if (checkedAt) health.checkedAt = checkedAt;
+  }
 
   const reasonCode = typeof value.reasonCode === "string"
     && AUTH_REASONS[normalizedStatus].includes(value.reasonCode as PlatformAuthReasonCode)

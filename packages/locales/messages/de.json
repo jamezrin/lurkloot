@@ -733,6 +733,7 @@
   "activityChallengeClaimed": {
     "message": "$1-Karte aus der $2-Challenge erhalten"
   },
+  "activityAuthHealthChanged": { "message": "Die Authentifizierung von $1 wechselte von $2 zu $3." },
   "activityPageContextOpened": { "message": "Ein Hintergrundkontext auf $1 wurde geöffnet, weil $2." },
   "activityPageContextClosed": { "message": "Der Hintergrundkontext auf $1 wurde geschlossen, weil $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick die Anfrage ohne Tab abgelehnt hat" },

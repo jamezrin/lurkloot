@@ -733,6 +733,7 @@
   "activityChallengeClaimed": {
     "message": "$2 चैलेंज से $1 कार्ड प्राप्त किया"
   },
+  "activityAuthHealthChanged": { "message": "$1 प्रमाणीकरण $2 से $3 में बदल गया।" },
   "activityPageContextOpened": { "message": "$1 पर बैकग्राउंड कॉन्टेक्स्ट खोला गया क्योंकि $2।" },
   "activityPageContextClosed": { "message": "$1 का बैकग्राउंड कॉन्टेक्स्ट बंद किया गया क्योंकि $2।" },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick ने बिना टैब वाला अनुरोध अस्वीकार किया" },

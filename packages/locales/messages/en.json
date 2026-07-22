@@ -733,6 +733,7 @@
   "activityChallengeClaimed": {
     "message": "Claimed a $1 card from the $2 challenge"
   },
+  "activityAuthHealthChanged": { "message": "$1 authentication changed from $2 to $3." },
   "activityPageContextOpened": { "message": "Opened a background context on $1 because $2." },
   "activityPageContextClosed": { "message": "Closed the background context on $1 because $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rejected the tabless request" },

@@ -733,6 +733,7 @@
   "activityChallengeClaimed": {
     "message": "Получена карта $1 за испытание $2"
   },
+  "activityAuthHealthChanged": { "message": "Состояние аутентификации $1 изменилось с $2 на $3." },
   "activityPageContextOpened": { "message": "Фоновый контекст на $1 открыт, потому что $2." },
   "activityPageContextClosed": { "message": "Фоновый контекст на $1 закрыт, потому что $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick отклонил запрос без вкладки" },

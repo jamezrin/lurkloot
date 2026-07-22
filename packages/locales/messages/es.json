@@ -733,6 +733,7 @@
   "activityChallengeClaimed": {
     "message": "Reclamó una carta $1 del desafío $2"
   },
+  "activityAuthHealthChanged": { "message": "La autenticación de $1 cambió de $2 a $3." },
   "activityPageContextOpened": { "message": "Se abrió un contexto en segundo plano en $1 porque $2." },
   "activityPageContextClosed": { "message": "Se cerró el contexto en segundo plano en $1 porque $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rechazó la solicitud sin pestaña" },

@@ -34,6 +34,13 @@ describe("authentication health normalization", () => {
     expect(normalizePlatformAuthHealth({ status: "healthy" })).toEqual({ status: "healthy" });
   });
 
+  it("drops timestamps from in-progress checking results", () => {
+    expect(normalizePlatformAuthHealth({
+      status: "checking",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+    })).toEqual({ status: "checking" });
+  });
+
   it.each([
     ["missing_credentials", "credentials_missing", "authMissingCredentials"],
     ["invalid_credentials", "credentials_rejected", "authInvalidCredentials"],
