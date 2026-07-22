@@ -3,6 +3,7 @@ import { DEFAULT_STATE, mergeSchedulerState, normalizePlatformAuthHealth } from 
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import { KickAdapter } from "@lurkloot/core/kick";
+import { applyPlatformAuthHealth } from "@lurkloot/core/authHealth";
 
 describe("authentication health normalization", () => {
   it("requires adapters to expose a browser-neutral auth probe", async () => {
@@ -115,5 +116,71 @@ describe("authentication health normalization", () => {
       .toEqual({ ...base, message: base.message });
     expect(normalizePlatformAuthHealth({ ...base, message: { ...base.message, values: { reference: "x".repeat(129) } } }))
       .toEqual({ ...base, message: base.message });
+  });
+
+  it("updates health and emits a reference-free durable transition", () => {
+    const changed = applyPlatformAuthHealth(DEFAULT_STATE, "kick", {
+      status: "blocked",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      reasonCode: "security_policy_blocked",
+      message: { key: "authSecurityPolicyBlocked", values: { reference: "ref-123" } },
+    });
+
+    expect(changed.state.authHealth.kick).toEqual({
+      status: "blocked",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      reasonCode: "security_policy_blocked",
+      message: { key: "authSecurityPolicyBlocked", values: { reference: "ref-123" } },
+    });
+    expect(changed.event).toEqual({
+      category: "activity",
+      code: "auth_health_changed",
+      level: "error",
+      platform: "kick",
+      data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
+    });
+    expect(JSON.stringify(changed.event)).not.toContain("ref-123");
+  });
+
+  it.each([
+    ["healthy", "info"],
+    ["checking", "info"],
+    ["missing_credentials", "warn"],
+    ["invalid_credentials", "warn"],
+    ["unavailable", "warn"],
+    ["blocked", "error"],
+  ] as const)("uses the safe activity level for %s", (status, level) => {
+    const changed = applyPlatformAuthHealth({
+      ...DEFAULT_STATE,
+      authHealth: { ...DEFAULT_STATE.authHealth, twitch: { status: status === "healthy" ? "checking" : "healthy" } },
+    }, "twitch", { status });
+    expect(changed.event?.level).toBe(level);
+  });
+
+  it("stores timestamp-only refreshes without emitting activity", () => {
+    const state = {
+      ...DEFAULT_STATE,
+      authHealth: {
+        ...DEFAULT_STATE.authHealth,
+        kick: { status: "healthy" as const, checkedAt: "2026-07-22T12:00:00.000Z" },
+      },
+    };
+
+    const refreshed = applyPlatformAuthHealth(state, "kick", {
+      status: "healthy",
+      checkedAt: "2026-07-22T12:05:00.000Z",
+    });
+    expect(refreshed.state.authHealth.kick.checkedAt).toBe("2026-07-22T12:05:00.000Z");
+    expect(refreshed.event).toBeUndefined();
+  });
+
+  it("normalizes hostile transition candidates before storing them", () => {
+    const changed = applyPlatformAuthHealth(DEFAULT_STATE, "twitch", {
+      status: "healthy",
+      token: "secret",
+      headers: { authorization: "secret" },
+    } as never);
+    expect(changed.state.authHealth.twitch).toEqual({ status: "healthy" });
+    expect(JSON.stringify(changed)).not.toContain("secret");
   });
 });
