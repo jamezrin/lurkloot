@@ -57,6 +57,7 @@ import { UpdateNotice } from "./updateNotice";
 import { DropsPanel } from "./drops";
 import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AutomationHero, PlatformSwitcher } from "./automation";
+import { automationPresentation, type AutomationPresentation } from "./automationStatus";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
@@ -479,6 +480,22 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   };
   const enabled = automation[platform];
   const automationPending = pendingAutomation[platform] != null;
+  const automationPresentationByPlatform = Object.fromEntries(
+    (Object.keys(PLATFORMS) as Platform[]).map((id) => [id, automationPresentation({
+      platform: id,
+      enabled: automation[id],
+      pending: pendingAutomation[id] != null,
+      authHealth: snapshot.state.authHealth[id],
+    })]),
+  ) as Record<Platform, AutomationPresentation>;
+  const presentation = automationPresentationByPlatform[platform];
+  const headerStatusColor = presentation.operational
+    ? "var(--accent)"
+    : presentation.state === "blocked"
+      ? "#ef4444"
+      : presentation.state === "needs_sign_in" || presentation.state === "unavailable"
+        ? "#f59e0b"
+        : "#a1a1aa";
   const activeCampaign = campaigns.find((campaign) => campaign.farmingChannel);
   const farmingChannel = activeCampaign?.farmingChannel ?? sessionChannel;
   const onFarmingTitleClick = activeCampaign
@@ -507,8 +524,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             <div className="min-w-0 leading-tight">
               <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">Lurkloot</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: enabled ? "var(--accent)" : "#a1a1aa" }} />
-                {settingsOpen ? t("settingsTitle") : activityOpen ? t("activityTitle") : `${enabled ? t("activeStatus") : t("pausedStatus")} · ${PLATFORMS[platform].label}`}
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: headerStatusColor }} />
+                {settingsOpen ? t("settingsTitle") : activityOpen ? t("activityTitle") : `${t(presentation.badgeKey)} · ${PLATFORMS[platform].label}`}
               </div>
             </div>
           </div>
@@ -538,7 +555,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         {!settingsOpen && !activityOpen ? (
           <PlatformSwitcher
             active={platform}
-            automation={automation}
+            presentation={automationPresentationByPlatform}
             onChange={selectPlatform}
           />
         ) : null}
@@ -589,7 +606,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     />
                   ) : null}
                 </AnimatePresence>
-                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={session.message} onChange={setAutomation} />
+                <AutomationHero platform={platform} platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} presentation={presentation} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={session.message} onChange={setAutomation} />
                 {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} /> : null}
                 <SubTabs
                   tabs={[
