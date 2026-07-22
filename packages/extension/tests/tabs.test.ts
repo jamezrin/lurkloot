@@ -32,7 +32,7 @@ function browserMock() {
       get: vi.fn(),
       update: vi.fn(async () => undefined),
       remove: vi.fn(async () => undefined),
-      query: vi.fn<() => Promise<Array<{ id?: number }>>>(async () => []),
+      query: vi.fn<() => Promise<Array<{ id?: number; url?: string; status?: string }>>>(async () => []),
       create: vi.fn(async () => ({ id: 9 })),
     },
   };
@@ -483,6 +483,7 @@ describe("tab manager", () => {
     ).catch((caught: unknown) => caught);
 
     expect(isSafeFetchError(error)).toBe(true);
+    if (!isSafeFetchError(error)) throw new Error("Expected SafeFetchError");
     expect(error.failure).toEqual({
       kind: "security_policy_blocked",
       status: 403,
@@ -1079,6 +1080,7 @@ describe("fetchKickInBackgroundWith", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(KickWafBlockedError);
+    if (!(error instanceof KickWafBlockedError)) throw new Error("Expected KickWafBlockedError");
     expect(error.failure).toEqual({
       kind: "security_policy_blocked",
       status: 403,
@@ -1102,6 +1104,7 @@ describe("fetchKickInBackgroundWith", () => {
       .catch((caught: unknown) => caught);
 
     expect(isSafeFetchError(error)).toBe(true);
+    if (!isSafeFetchError(error)) throw new Error("Expected SafeFetchError");
     expect(error.failure).toEqual({ kind, status, reason });
     expect(JSON.stringify(error)).not.toContain("must-not-survive");
     vi.unstubAllGlobals();
