@@ -463,6 +463,45 @@ export async function runSchedulerTick(
         continue;
       }
 
+      if (nextState.authHealth[platform].status !== "healthy") {
+        try {
+          await adapter.stopWatchTab?.(previous);
+        } catch (error) {
+          emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Could not stop watch tab");
+        }
+        nextState.sessions[platform] = {
+          ...previous,
+          status: "paused",
+          channel: undefined,
+          campaignId: undefined,
+          rewardId: undefined,
+          tabId: undefined,
+          tabManagedByExtension: undefined,
+          playback: undefined,
+          playbackChecks: 0,
+          retryAfter: undefined,
+          message: "Authentication unavailable",
+          reasonCode: "authentication_unhealthy",
+          watchMode: undefined,
+          tablessFallback: undefined,
+          heartbeatChecks: 0,
+          lastHeartbeatAt: undefined,
+          lastHeartbeatOk: undefined,
+        };
+        nextState.campaigns[platform] = [];
+        nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+        try {
+          nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, {
+            platforms: [platform],
+            reason: "authentication_unhealthy",
+            emit,
+          });
+        } catch (error) {
+          emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Could not stop page context");
+        }
+        continue;
+      }
+
       // Account-level, so it runs whether or not this platform ends up watching:
       // the watch-time threshold is usually met by a session that has already
       // stopped. Failures are swallowed — gamification is strictly additive to

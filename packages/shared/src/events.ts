@@ -4,6 +4,7 @@ import type { Platform, PlatformAuthReasonCode, PlatformAuthStatus } from "./mod
 export type FarmingStopReason =
   | "automation_disabled"
   | "platform_disabled"
+  | "authentication_unhealthy"
   | "platform_backoff"
   | "platform_error"
   | "campaign_ineligible"
@@ -33,6 +34,7 @@ export type PageContextCloseReason =
   | "platform_disabled"
   | "automation_disabled"
   | "manual_watch"
+  | "authentication_unhealthy"
   | "runtime_restart"
   | "managed_context_unusable";
 

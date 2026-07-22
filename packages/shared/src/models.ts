@@ -150,6 +150,7 @@ export type WatchReasonCode =
   | "manual_watch"
   | "automation_disabled"
   | "platform_disabled"
+  | "authentication_unhealthy"
   | "platform_backoff"
   | "platform_error"
   | "campaign_ineligible"
