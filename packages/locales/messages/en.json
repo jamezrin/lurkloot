@@ -381,10 +381,10 @@
     "message": "Fallback channels used when no eligible drops are available."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Only when no eligible drops are available"
+    "message": "Prioritize drops over the Idle Watchlist"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Keeps eligible drop farming first priority."
+    "message": "Leaves an Idle Watchlist channel as soon as an eligible drop becomes available. When off, keeps watching it until it goes offline."
   },
   "platformSettingsTitle": {
     "message": "Platform settings"

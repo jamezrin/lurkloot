@@ -381,10 +381,10 @@
     "message": "साझा फ़ॉलबैक वॉचलिस्ट व्यवहार।"
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "केवल जब कोई योग्य drops उपलब्ध न हों"
+    "message": "निष्क्रिय वॉचलिस्ट से पहले drops को प्राथमिकता दें"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Drops प्राथमिकता अपने आप सुरक्षित रखता है।"
+    "message": "कोई योग्य drop उपलब्ध होते ही निष्क्रिय वॉचलिस्ट चैनल छोड़ देता है। बंद होने पर, चैनल के ऑफ़लाइन होने तक उसे देखता रहता है।"
   },
   "platformSettingsTitle": {
     "message": "प्लेटफ़ॉर्म सेटिंग्स"

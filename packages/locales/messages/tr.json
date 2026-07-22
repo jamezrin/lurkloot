@@ -405,10 +405,10 @@
     "message": "Uygun droplar mevcut olmadığında kullanılan yedek kanallar."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Yalnızca uygun droplar mevcut olmadığında"
+    "message": "Dropları Boşta İzleme Listesi'nden önce önceliklendir"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Uygun dropları kasmaya öncelik verir."
+    "message": "Uygun bir drop çıkar çıkmaz Boşta İzleme Listesi kanalından ayrılır. Kapalıyken kanal çevrimdışı olana kadar izlemeye devam eder."
   },
   "platformSettingsTitle": {
     "message": "Platform ayarları"

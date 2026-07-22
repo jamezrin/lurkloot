@@ -381,10 +381,10 @@
     "message": "سلوك قائمة الاحتياط المشترك."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "فقط عند عدم توفر Drops مؤهلة"
+    "message": "إعطاء الأولوية لـ Drops على قائمة المشاهدة الخاملة"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "يحافظ تلقائيًا على أولوية Drops."
+    "message": "يغادر قناة قائمة المشاهدة الخاملة فور توفر drop مؤهل. عند التعطيل، يستمر في مشاهدتها حتى تصبح غير متصلة."
   },
   "platformSettingsTitle": {
     "message": "إعدادات المنصة"

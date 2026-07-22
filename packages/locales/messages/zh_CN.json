@@ -381,10 +381,10 @@
     "message": "共享的备用列表行为。"
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "仅在没有可刷取的合格掉宝时"
+    "message": "优先刷取掉宝而非空闲观看列表"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "自动保留掉宝优先级。"
+    "message": "一旦有可刷取的合格掉宝，就离开空闲观看列表频道。关闭时，会一直观看该频道直到其下播。"
   },
   "platformSettingsTitle": {
     "message": "平台设置"
