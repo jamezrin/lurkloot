@@ -156,6 +156,38 @@ describe("background controller", () => {
     expect(env.state.authHealth.twitch.status).toBe("checking");
   });
 
+  it("recovers Twitch authentication health after login without changing enabled settings", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
+      checkCredentialAvailability: async () => ({ status: "available" }),
+    });
+    vi.mocked(env.twitch.checkAuthHealth)
+      .mockResolvedValueOnce({
+        status: "invalid_credentials",
+        checkedAt: "2026-07-22T12:00:00.000Z",
+        reasonCode: "credentials_rejected",
+        message: { key: "authInvalidCredentials" },
+      })
+      .mockResolvedValueOnce({
+        status: "healthy",
+        checkedAt: "2026-07-22T12:05:00.000Z",
+        message: { key: "authHealthy" },
+      });
+
+    await env.controller.checkAuthHealth("twitch");
+    await env.controller.invalidateAuthHealth("twitch");
+    await env.controller.checkAuthHealth("twitch");
+
+    expect(env.state.authHealth.twitch).toEqual({
+      status: "healthy",
+      checkedAt: "2026-07-22T12:05:00.000Z",
+      message: { key: "authHealthy" },
+    });
+    expect(env.settings.platform.twitch.enabled).toBe(true);
+    expect(env.settings.platform.kick.enabled).toBe(true);
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledTimes(2);
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+  });
+
   it("invalidates only the requested authentication health and reports the transition once", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false });
     vi.mocked(env.twitch.checkAuthHealth).mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:00:00.000Z" });

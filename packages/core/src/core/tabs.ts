@@ -413,13 +413,21 @@ function twitchClientSessionIdValue(): string {
   return twitchClientSessionId;
 }
 
-function twitchGqlErrorEnvelope(summary: string, status: number, body: string, headers: Headers): { __twitchGqlError: string } {
-  return { __twitchGqlError: [
-    `Twitch GQL ${summary}`,
-    `status=${status}`,
-    `authHeader=${headers.has("authorization") ? "yes" : "no"}`,
-    `body=${body.slice(0, 300)}`,
-  ].join("; ") };
+function twitchGqlErrorEnvelope(
+  summary: string,
+  status: number,
+  body: string,
+  headers: Headers,
+): { __twitchGqlError: string; __twitchGqlFailureKind: "network" | "credentials" | "platform" } {
+  return {
+    __twitchGqlError: [
+      `Twitch GQL ${summary}`,
+      `status=${status}`,
+      `authHeader=${headers.has("authorization") ? "yes" : "no"}`,
+      `body=${body.slice(0, 300)}`,
+    ].join("; "),
+    __twitchGqlFailureKind: status === 0 ? "network" : status === 401 ? "credentials" : "platform",
+  };
 }
 
 function isUsableTwitchGql(value: unknown): boolean {
