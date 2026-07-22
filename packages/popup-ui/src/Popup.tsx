@@ -93,6 +93,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [campaignFocus, setCampaignFocus] = useState<{ id: string; seq: number } | null>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const snapshotRequestGenerationRef = useRef(0);
   const activityRequestScopeRef = useRef(createActivityRequestScope(platform));
   const activityMutationSequenceRef = useRef(createActivityMutationSequence());
   const diagnosticMutationSequenceRef = useRef(createActivityMutationSequence());
@@ -324,7 +325,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   useEffect(() => {
     if (preview) return;
     const interval = setInterval(() => {
+      const generation = snapshotRequestGenerationRef.current;
       void adapter.send<RuntimeSnapshot>({ type: "getSnapshot" }).then((nextSnapshot) => {
+        if (generation !== snapshotRequestGenerationRef.current) return;
         // Keep the locally-held settings rather than the refreshed ones so an
         // in-flight edit is never clobbered mid-typing. The tradeoff: a setting
         // changed by the background (e.g. startup auto-pausing `running`) is not
@@ -411,6 +414,24 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     ? async () => {
         const blob = await adapter.send<CliCredentialBlob>({ type: "exportCliCredentials" });
         adapter.exportCredentials?.(blob);
+      }
+    : undefined;
+
+  const resetExtension = adapter.resetExtension
+    ? async () => {
+        await settingsSaveQueue.current.catch(() => undefined);
+        snapshotRequestGenerationRef.current += 1;
+        const nextSnapshot = await adapter.resetExtension!();
+        settingsRef.current = mergeSettings(nextSnapshot.settings);
+        invalidateActivityRequests("twitch");
+        setActivityStream(createActivityStream());
+        setDiagnosticStream(createActivityStream());
+        setShowDiagnostics(false);
+        setPlatform("twitch");
+        setTab("drops");
+        setPendingChangelogVersion(undefined);
+        setSnapshot(snapshotWithMergedSettings(nextSnapshot));
+        setSettingsOpen(false);
       }
     : undefined;
 
@@ -528,7 +549,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} />
+                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} />
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>

@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "Экспортировать учётные данные"
   },
+  "factoryResetTitle": { "message": "Сбросить Lurkloot" },
+  "factoryResetHint": { "message": "Удаляет все настройки Lurkloot, прогресс фарма и историю действий. Вы останетесь в своих аккаунтах Twitch и Kick." },
+  "factoryResetButton": { "message": "Сбросить Lurkloot" },
+  "factoryResetConfirm": { "message": "Фарм будет остановлен, открытые Lurkloot вкладки закрыты, а все данные Lurkloot удалены навсегда. Вход в Twitch и Kick сохранится." },
+  "factoryResetCancel": { "message": "Отмена" },
+  "factoryResetConfirmButton": { "message": "Сбросить всё" },
+  "factoryResetProgress": { "message": "Сброс…" },
+  "factoryResetFailed": { "message": "Не удалось полностью сбросить Lurkloot. Попробуйте ещё раз." },
+  "factoryResetRetry": { "message": "Повторить сброс" },
   "diagnosticLoggingTitle": {
     "message": "Включить диагностические журналы"
   },

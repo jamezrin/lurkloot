@@ -22,6 +22,7 @@ export type RuntimeMessage =
   | CoreRuntimeMessage
   | ({ type: "getActivity" } & ActivityQuery)
   | { type: "clearActivity" }
+  | { type: "resetExtension" }
   | { type: "exportCliCredentials" };
 
 // Credential blob the popup exports for the headless CLI's `login --import`. It

@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "Export credentials"
   },
+  "factoryResetTitle": { "message": "Reset Lurkloot" },
+  "factoryResetHint": { "message": "Erase all Lurkloot settings, farming progress, and activity history. Your Twitch and Kick accounts stay signed in." },
+  "factoryResetButton": { "message": "Reset Lurkloot" },
+  "factoryResetConfirm": { "message": "This stops farming, closes tabs opened by Lurkloot, and permanently erases all Lurkloot data. Twitch and Kick stay signed in." },
+  "factoryResetCancel": { "message": "Cancel" },
+  "factoryResetConfirmButton": { "message": "Reset everything" },
+  "factoryResetProgress": { "message": "Resetting…" },
+  "factoryResetFailed": { "message": "Lurkloot couldn't reset completely. Try again." },
+  "factoryResetRetry": { "message": "Try reset again" },
   "diagnosticLoggingTitle": {
     "message": "Include diagnostic logs"
   },

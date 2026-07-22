@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Terminal } from "lucide-react";
+import { RotateCcw, Terminal } from "lucide-react";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { SHOW_ADVANCED_SETTINGS_KEY } from "./constants";
@@ -9,7 +9,7 @@ import { filterSettingsTree } from "./settingsSearch";
 import { usePopupRuntime, useT } from "./context";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
@@ -17,6 +17,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   // Optional: when provided, the settings view shows an "Export credentials"
   // action for the headless CLI. The extension wires it; the demo omits it.
   onExportCredentials?: () => void | Promise<void>;
+  onReset?: () => Promise<void>;
   exportConfirmationResetKey: number;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
@@ -26,7 +27,28 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   const [query, setQuery] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [exportArmed, setExportArmed] = useState(false);
-  useEffect(() => setExportArmed(false), [exportConfirmationResetKey]);
+  const [resetArmed, setResetArmed] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetFailed, setResetFailed] = useState(false);
+  useEffect(() => {
+    setExportArmed(false);
+    setResetArmed(false);
+    setResetFailed(false);
+  }, [exportConfirmationResetKey]);
+
+  async function confirmReset(): Promise<void> {
+    if (!onReset || resetting) return;
+    setResetting(true);
+    setResetFailed(false);
+    try {
+      await onReset();
+    } catch {
+      setResetArmed(true);
+      setResetFailed(true);
+    } finally {
+      setResetting(false);
+    }
+  }
 
   useEffect(() => {
     if (preview) return;
@@ -141,6 +163,59 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                 >
                   <Terminal size={13} />
                   {t("cliExportButton")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {onReset && !searching ? (
+        <div className="pt-2">
+          <div className="mb-1 flex items-center gap-1.5 px-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-red-500 dark:text-red-400">{t("factoryResetTitle")}</span>
+            <span className="h-px flex-1 bg-red-100 dark:bg-red-950" />
+          </div>
+          {resetArmed ? (
+            <div className="space-y-2 px-1 py-1">
+              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{t("factoryResetConfirm")}</p>
+              {resetFailed ? <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">{t("factoryResetFailed")}</p> : null}
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={resetting}
+                  className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  onClick={() => {
+                    setResetArmed(false);
+                    setResetFailed(false);
+                  }}
+                >
+                  {t("factoryResetCancel")}
+                </button>
+                <button
+                  type="button"
+                  disabled={resetting}
+                  className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white outline-none transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50 dark:bg-red-700 dark:hover:bg-red-600"
+                  onClick={() => void confirmReset()}
+                >
+                  {t(resetting ? "factoryResetProgress" : resetFailed ? "factoryResetRetry" : "factoryResetConfirmButton")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 px-1 pb-1">
+              <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("factoryResetHint")}</p>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 outline-none transition-colors hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-400 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+                  onClick={() => {
+                    setResetArmed(true);
+                    setResetFailed(false);
+                  }}
+                >
+                  <RotateCcw size={13} />
+                  {t("factoryResetButton")}
                 </button>
               </div>
             </div>

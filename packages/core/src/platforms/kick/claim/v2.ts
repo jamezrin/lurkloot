@@ -27,6 +27,10 @@ export class KickClaimState {
       if (key.startsWith(prefix)) this.#suppressions.delete(key);
     }
   }
+
+  clear(): void {
+    this.#suppressions.clear();
+  }
 }
 
 export class KickClaimV2 implements KickClaimCapability {

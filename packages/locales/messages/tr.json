@@ -752,6 +752,15 @@
   "cliExportButton": {
     "message": "Kimlik bilgilerini dışa aktar"
   },
+  "factoryResetTitle": { "message": "Lurkloot'u sıfırla" },
+  "factoryResetHint": { "message": "Tüm Lurkloot ayarlarını, farming ilerlemesini ve etkinlik geçmişini siler. Twitch ve Kick hesaplarındaki oturumlarınız açık kalır." },
+  "factoryResetButton": { "message": "Lurkloot'u sıfırla" },
+  "factoryResetConfirm": { "message": "Bu işlem farming'i durdurur, Lurkloot'un açtığı sekmeleri kapatır ve tüm Lurkloot verilerini kalıcı olarak siler. Twitch ve Kick oturumları açık kalır." },
+  "factoryResetCancel": { "message": "İptal" },
+  "factoryResetConfirmButton": { "message": "Her şeyi sıfırla" },
+  "factoryResetProgress": { "message": "Sıfırlanıyor…" },
+  "factoryResetFailed": { "message": "Lurkloot tamamen sıfırlanamadı. Tekrar deneyin." },
+  "factoryResetRetry": { "message": "Tekrar sıfırla" },
   "diagnosticLoggingTitle": {
     "message": "Teşhis günlüklerini dahil et"
   },
