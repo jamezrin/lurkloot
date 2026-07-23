@@ -32,6 +32,18 @@ describe("Kick parsers", () => {
     expect(merged[0].rewards[0].isWatchBased).toBe(true);
   });
 
+  it("keeps a fully claimed Kick campaign so the finished filter can decide", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: "completed",
+        status: "active",
+        rewards: [{ id: "reward", required_units: 30, claimed: true }],
+      }],
+    });
+
+    expect(campaigns.map((campaign) => [campaign.id, campaign.status])).toEqual([["completed", "completed"]]);
+  });
+
   it("resolves relative reward image paths to absolute ext.kick.com URLs", () => {
     const campaigns = parseKickCampaigns({
       data: [{
@@ -197,7 +209,7 @@ describe("Kick parsers", () => {
     expect(merged[1].status).toBe("upcoming");
   });
 
-  it("filters ended Kick campaigns from discovery", () => {
+  it("classifies ended Kick campaigns without dropping them from discovery", () => {
     const campaigns = parseKickCampaigns({
       data: {
         campaigns: [{
@@ -222,7 +234,12 @@ describe("Kick parsers", () => {
       },
     });
 
-    expect(campaigns.map((campaign) => campaign.id)).toEqual(["active-campaign"]);
+    expect(campaigns.map((campaign) => [campaign.id, campaign.status])).toEqual([
+      ["active-campaign", "active"],
+      ["ended-status", "expired"],
+      ["past-end", "expired"],
+      ["finished-status", "expired"],
+    ]);
   });
 
   it("treats whole-number Kick progress values as percentages", () => {
