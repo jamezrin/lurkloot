@@ -21,6 +21,10 @@ const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
+// How long a discovery result stays usable when Twitch stops answering. Long
+// enough to ride out an outage of many ticks, short enough that a campaign
+// Twitch quietly stopped serving does not linger for a whole session.
+const DISCOVERY_RETENTION_TTL_MS = 30 * 60_000;
 
 export interface TwitchAdapterOptions {
   // GQL Client-ID. Defaults to the web client. A headless runtime passes a
@@ -273,6 +277,16 @@ interface CachedAvailableCampaigns {
   expiresAt: number;
 }
 
+interface CachedCampaignDetails {
+  campaign: unknown;
+  expiresAt: number;
+}
+
+interface CachedDashboardCampaigns {
+  campaignIds: string[];
+  expiresAt: number;
+}
+
 export type TwitchGqlTransport = <T>(
   operationName: string,
   sha256Hash: string,
@@ -426,6 +440,10 @@ export class TwitchAdapter implements PlatformAdapter {
   private readonly gqlTransport: TwitchGqlTransport;
   private readonly inventoryCapability: TwitchInventoryCapability;
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
+  // The adapter instance outlives a tick, so these carry the last discovery
+  // Twitch actually answered across the next few ticks' transient failures.
+  private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
+  private retainedDashboard?: CachedDashboardCampaigns;
 
   constructor(
     // Twitch GQL is unreachable from the twitch.tv page context (CORS / anti-
@@ -456,24 +474,17 @@ export class TwitchAdapter implements PlatformAdapter {
 
   async discoverCampaigns(): Promise<DropCampaign[]> {
     let inventory = await this.fetchInventory();
-    let dashboard = await this.optionalGql<TwitchDashboardData>(
-      TWITCH_QUERIES.dashboard.operationName,
-      TWITCH_QUERIES.dashboard.sha256Hash,
-      TWITCH_QUERIES.dashboard.variables,
-    );
+    let dashboardResult = await this.fetchDashboard(TWITCH_QUERIES.dashboard.variables);
     let inventoryCampaigns = this.inventoryCapability.parse(inventory);
-    let dashboardCampaigns = twitchDashboardCampaigns(dashboard);
+    let dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
 
     if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
       inventory = await this.fetchInventory({ fetchRewardCampaigns: true });
-      dashboard = await this.optionalGql<TwitchDashboardData>(
-        TWITCH_QUERIES.dashboard.operationName,
-        TWITCH_QUERIES.dashboard.sha256Hash,
-        { fetchRewardCampaigns: true },
-      );
+      dashboardResult = await this.fetchDashboard({ fetchRewardCampaigns: true });
       inventoryCampaigns = this.inventoryCapability.parse(inventory);
-      dashboardCampaigns = twitchDashboardCampaigns(dashboard);
+      dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
     }
+    const dashboard = dashboardResult.response;
 
     if (!twitchHasCurrentUser(inventory) && !dashboard.data?.currentUser) {
       throw new SafeFetchError({
@@ -483,12 +494,21 @@ export class TwitchAdapter implements PlatformAdapter {
     }
 
     const userLogin = twitchCurrentUserId(inventory) ?? dashboard.data?.currentUser?.id ?? dashboard.data?.currentUser?.login ?? "";
-    const discoverableCampaignIds = dashboardCampaigns
+    const freshCampaignIds = dashboardCampaigns
       .filter((campaign) =>
         campaign.id
         && (campaign.status === "ACTIVE" || campaign.status === "UPCOMING")
       )
       .map((campaign) => campaign.id as string);
+
+    // A failed dashboard parses to the same empty list as a dashboard with no
+    // active drops, and the Inventory payload only carries campaigns the user
+    // already started — so falling back to it hides every campaign they have
+    // not. Reuse the last dashboard we did get instead. `dashboardResponded`
+    // stays false so the expiry stamping below never fires off a stale list.
+    if (dashboardResult.ok) this.rememberDashboardCampaignIds(freshCampaignIds);
+    const discoverableCampaignIds = dashboardResult.ok ? freshCampaignIds : this.retainedDashboardCampaignIds();
+    const dashboardResponded = dashboardResult.ok && dashboardCampaigns.length > 0;
 
     if (discoverableCampaignIds.length === 0) {
       return inventoryCampaigns;
@@ -505,9 +525,29 @@ export class TwitchAdapter implements PlatformAdapter {
     for (const result of details) {
       if (result.status === "rejected" && authHealthFromError(result.reason)) throw result.reason;
     }
-    const detailedCampaigns = details
-      .map((result) => result.status === "fulfilled" ? result.value.data?.dropCampaign ?? result.value.data?.user?.dropCampaign : undefined)
-      .filter((campaign): campaign is NonNullable<typeof campaign> => Boolean(campaign));
+    // A campaign the user has not started is only ever described by its detail
+    // request, so dropping a rejection loses the campaign entirely. Serve the
+    // last details we saw for it instead, and never lose the failure silently.
+    const detailedCampaigns: unknown[] = [];
+    details.forEach((result, index) => {
+      const dropID = discoverableCampaignIds[index];
+      if (result.status === "fulfilled") {
+        const campaign = result.value.data?.dropCampaign ?? result.value.data?.user?.dropCampaign;
+        if (!campaign) return;
+        this.rememberCampaignDetails(dropID, campaign);
+        detailedCampaigns.push(campaign);
+        return;
+      }
+      const retained = this.retainedCampaignDetails(dropID);
+      const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      diagnostic(
+        this.emit,
+        "warn",
+        `Twitch campaign details for ${dropID} failed; ${retained ? "reusing the last known details" : "leaving the campaign out of this refresh"}: ${message}`,
+        "twitch",
+      );
+      if (retained) detailedCampaigns.push(retained);
+    });
     if (detailedCampaigns.length === 0) {
       return inventoryCampaigns;
     }
@@ -521,7 +561,6 @@ export class TwitchAdapter implements PlatformAdapter {
     // inventory-only campaign as expired (unless it still has a claimable reward
     // we should keep surfacing so the user can claim it).
     const activeDashboardIds = new Set(discoverableCampaignIds);
-    const dashboardResponded = dashboardCampaigns.length > 0;
     const inventoryOnly = inventoryCampaigns
       .filter((campaign) => !detailedIds.has(campaign.id))
       .map((campaign) =>
@@ -699,17 +738,51 @@ export class TwitchAdapter implements PlatformAdapter {
     }
   }
 
-  private async optionalGql<T>(
-    operationName: string,
-    sha256Hash: string,
+  // Non-auth failures are tolerated, but reported: discovery has to tell
+  // "Twitch says there are no campaigns" from "Twitch did not answer".
+  private async fetchDashboard(
     variables: Record<string, unknown>,
-  ): Promise<TwitchGqlResponse<T>> {
+  ): Promise<{ response: TwitchGqlResponse<TwitchDashboardData>; ok: boolean }> {
     try {
-      return await this.gql(operationName, sha256Hash, variables);
+      const response = await this.gql<TwitchDashboardData>(
+        TWITCH_QUERIES.dashboard.operationName,
+        TWITCH_QUERIES.dashboard.sha256Hash,
+        variables,
+      );
+      return { response, ok: true };
     } catch (error) {
       if (authHealthFromError(error)) throw error;
-      return {};
+      const message = error instanceof Error ? error.message : String(error);
+      diagnostic(this.emit, "warn", `Twitch drops dashboard request failed; reusing the last campaign list it returned: ${message}`, "twitch");
+      return { response: {}, ok: false };
     }
+  }
+
+  private rememberDashboardCampaignIds(campaignIds: string[]): void {
+    this.retainedDashboard = { campaignIds, expiresAt: Date.now() + DISCOVERY_RETENTION_TTL_MS };
+  }
+
+  private retainedDashboardCampaignIds(): string[] {
+    if (!this.retainedDashboard) return [];
+    if (this.retainedDashboard.expiresAt <= Date.now()) {
+      this.retainedDashboard = undefined;
+      return [];
+    }
+    return this.retainedDashboard.campaignIds;
+  }
+
+  private rememberCampaignDetails(dropID: string, campaign: unknown): void {
+    this.campaignDetailsByDropId.set(dropID, { campaign, expiresAt: Date.now() + DISCOVERY_RETENTION_TTL_MS });
+  }
+
+  private retainedCampaignDetails(dropID: string): unknown {
+    const cached = this.campaignDetailsByDropId.get(dropID);
+    if (!cached) return undefined;
+    if (cached.expiresAt <= Date.now()) {
+      this.campaignDetailsByDropId.delete(dropID);
+      return undefined;
+    }
+    return cached.campaign;
   }
 
   // A "claimable" reward can only be claimed once Twitch has released its real
