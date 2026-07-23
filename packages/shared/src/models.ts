@@ -195,7 +195,13 @@ export type PriorityMode = "ending_soonest" | "lowest_availability" | "priority_
 
 // Visibility categories for the Drops list. A campaign in one of these states is
 // only shown when its toggle is on; campaigns in none of them are always shown.
-export type CampaignFilterKey = "notLinked" | "subscription" | "upcoming" | "expired" | "excluded" | "finished";
+// Filter keys that gate farming: the engine's isEligible consults exactly these.
+export type FarmingFilterKey = "notLinked" | "subscription";
+// Filter keys that only decide what the Drops list shows. `excluded` is here
+// deliberately: exclusion is already enforced for farming by excludedCampaignIds,
+// so a farming key named `excluded` would have to mean "farm what I excluded".
+export type DisplayFilterKey = "upcoming" | "expired" | "excluded" | "finished";
+export type CampaignFilterKey = FarmingFilterKey | DisplayFilterKey;
 
 export interface PlaybackTelemetry {
   platform: Platform;
