@@ -263,14 +263,14 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["subscription"]);
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
+    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(true);
 
-    settings.campaignVisibility.subscription = false;
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(false);
+    settings.campaignFilters.subscription = false;
+    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(false);
     expect(isCampaignVisible({
       ...source,
       rewards: [{ ...source.rewards[0], status: "claimable" }],
-    }, settings, excludedIds)).toBe(true);
+    }, settings.campaignFilters, excludedIds)).toBe(true);
   });
 
   // Kick used to drop ended campaigns at parse time, which made these two
@@ -285,11 +285,11 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["finished"]);
-    expect(settings.campaignVisibility.finished).toBe(true);
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
+    expect(settings.campaignFilters.finished).toBe(true);
+    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(true);
 
-    settings.campaignVisibility.finished = false;
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(false);
+    settings.campaignFilters.finished = false;
+    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(false);
   });
 
   it("applies the expired filter to an expired Kick campaign", () => {
@@ -302,11 +302,11 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["expired"]);
-    expect(settings.campaignVisibility.expired).toBe(false);
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(false);
+    expect(settings.campaignFilters.expired).toBe(false);
+    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(false);
 
-    settings.campaignVisibility.expired = true;
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
+    settings.campaignFilters.expired = true;
+    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(true);
   });
 
   it("exposes the subscription campaign filter", () => {
