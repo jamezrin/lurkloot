@@ -561,11 +561,17 @@
   "activityLogLevelsDescription": {
     "message": "Escolha quais níveis são registrados no log de atividade. Erros são sempre mantidos."
   },
-  "visibleCampaignsTitle": {
-    "message": "Campanhas visíveis"
+  "campaignFiltersTitle": {
+    "message": "Filtros de campanhas"
   },
-  "visibleCampaignsDescription": {
-    "message": "Escolha quais estados de campanha aparecem na lista Drops. Campanha com recompensa resgatável sempre fica visível."
+  "campaignFiltersDescription": {
+    "message": "Escolha quais campanhas são farmadas e quais ficam visíveis na lista Drops. Campanha com recompensa resgatável sempre fica visível."
+  },
+  "campaignFiltersFarmingGroup": {
+    "message": "Campanhas farmadas"
+  },
+  "campaignFiltersDisplayGroup": {
+    "message": "Exibidas na lista Drops"
   },
   "forgetExcludedTitle": {
     "message": "Esquecer campanhas excluídas"

@@ -561,11 +561,17 @@
   "activityLogLevelsDescription": {
     "message": "Choisissez les niveaux enregistrés dans le journal d’activité. Les erreurs sont toujours conservées."
   },
-  "visibleCampaignsTitle": {
-    "message": "Campagnes visibles"
+  "campaignFiltersTitle": {
+    "message": "Filtres de campagnes"
   },
-  "visibleCampaignsDescription": {
-    "message": "Choisissez les états de campagne affichés dans la liste Drops. Une campagne avec une récompense réclamable reste toujours visible."
+  "campaignFiltersDescription": {
+    "message": "Choisissez quelles campagnes sont farmées et lesquelles sont visibles dans la liste Drops. Une campagne avec une récompense réclamable reste toujours visible."
+  },
+  "campaignFiltersFarmingGroup": {
+    "message": "Campagnes farmées"
+  },
+  "campaignFiltersDisplayGroup": {
+    "message": "Affichées dans la liste Drops"
   },
   "forgetExcludedTitle": {
     "message": "Oublier les campagnes exclues"

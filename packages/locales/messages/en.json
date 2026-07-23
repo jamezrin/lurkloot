@@ -561,11 +561,17 @@
   "activityLogLevelsDescription": {
     "message": "Choose which levels are recorded in the Activity log. Errors are always kept."
   },
-  "visibleCampaignsTitle": {
-    "message": "Visible campaigns"
+  "campaignFiltersTitle": {
+    "message": "Campaign filters"
   },
-  "visibleCampaignsDescription": {
-    "message": "Choose which campaign states show in the Drops list. A campaign with a claimable reward always stays visible."
+  "campaignFiltersDescription": {
+    "message": "Choose which campaigns are farmed and which are visible in the Drops list. A campaign with a claimable reward always stays visible."
+  },
+  "campaignFiltersFarmingGroup": {
+    "message": "Farmed campaigns"
+  },
+  "campaignFiltersDisplayGroup": {
+    "message": "Shown in the Drops list"
   },
   "forgetExcludedTitle": {
     "message": "Forget excluded campaigns"

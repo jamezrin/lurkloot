@@ -561,11 +561,17 @@
   "activityLogLevelsDescription": {
     "message": "اختر المستويات المسجلة في سجل النشاط. تبقى الأخطاء دائمًا."
   },
-  "visibleCampaignsTitle": {
-    "message": "الحملات المرئية"
+  "campaignFiltersTitle": {
+    "message": "عوامل تصفية الحملات"
   },
-  "visibleCampaignsDescription": {
-    "message": "اختر حالات الحملات التي تظهر في قائمة Drops. تبقى الحملة ذات المكافأة القابلة للاستلام مرئية دائمًا."
+  "campaignFiltersDescription": {
+    "message": "اختر الحملات التي يجري فارمها والحملات التي تظهر في قائمة Drops. تبقى الحملة ذات المكافأة القابلة للاستلام مرئية دائمًا."
+  },
+  "campaignFiltersFarmingGroup": {
+    "message": "الحملات التي يجري فارمها"
+  },
+  "campaignFiltersDisplayGroup": {
+    "message": "المعروضة في قائمة Drops"
   },
   "forgetExcludedTitle": {
     "message": "نسيان الحملات المستبعدة"

@@ -561,11 +561,17 @@
   "activityLogLevelsDescription": {
     "message": "Scegli quali livelli registrare nel log attività. Gli errori vengono sempre mantenuti."
   },
-  "visibleCampaignsTitle": {
-    "message": "Campagne visibili"
+  "campaignFiltersTitle": {
+    "message": "Filtri campagne"
   },
-  "visibleCampaignsDescription": {
-    "message": "Scegli quali stati campagna mostrare nella lista Drop. Una campagna con ricompensa riscattabile resta sempre visibile."
+  "campaignFiltersDescription": {
+    "message": "Scegli quali campagne vengono farmate e quali sono visibili nella lista Drop. Una campagna con ricompensa riscattabile resta sempre visibile."
+  },
+  "campaignFiltersFarmingGroup": {
+    "message": "Campagne farmate"
+  },
+  "campaignFiltersDisplayGroup": {
+    "message": "Mostrate nella lista Drop"
   },
   "forgetExcludedTitle": {
     "message": "Dimentica campagne escluse"

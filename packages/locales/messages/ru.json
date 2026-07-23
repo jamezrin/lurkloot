@@ -561,11 +561,17 @@
   "activityLogLevelsDescription": {
     "message": "Выберите уровни для журнала активности. Ошибки всегда сохраняются."
   },
-  "visibleCampaignsTitle": {
-    "message": "Видимые кампании"
+  "campaignFiltersTitle": {
+    "message": "Фильтры кампаний"
   },
-  "visibleCampaignsDescription": {
-    "message": "Выберите, какие состояния кампаний показывать в списке Drops. Кампания с доступной наградой всегда видима."
+  "campaignFiltersDescription": {
+    "message": "Выберите, какие кампании фармить и какие показывать в списке Drops. Кампания с доступной наградой всегда видима."
+  },
+  "campaignFiltersFarmingGroup": {
+    "message": "Фармящиеся кампании"
+  },
+  "campaignFiltersDisplayGroup": {
+    "message": "Показаны в списке Drops"
   },
   "forgetExcludedTitle": {
     "message": "Забыть исключённые кампании"

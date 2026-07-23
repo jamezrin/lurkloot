@@ -561,11 +561,17 @@
   "activityLogLevelsDescription": {
     "message": "选择活动日志记录哪些级别。错误始终保留。"
   },
-  "visibleCampaignsTitle": {
-    "message": "可见活动"
+  "campaignFiltersTitle": {
+    "message": "活动筛选"
   },
-  "visibleCampaignsDescription": {
-    "message": "选择 Drops 列表显示哪些活动状态。有可领取奖励的活动始终可见。"
+  "campaignFiltersDescription": {
+    "message": "选择要刷取的活动以及在 Drops 列表中显示的活动。有可领取奖励的活动始终可见。"
+  },
+  "campaignFiltersFarmingGroup": {
+    "message": "刷取的活动"
+  },
+  "campaignFiltersDisplayGroup": {
+    "message": "在 Drops 列表中显示"
   },
   "forgetExcludedTitle": {
     "message": "忘记排除的活动"

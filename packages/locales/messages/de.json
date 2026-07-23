@@ -561,11 +561,17 @@
   "activityLogLevelsDescription": {
     "message": "Wähle, welche Stufen im Aktivitätsprotokoll aufgezeichnet werden. Fehler bleiben immer aktiv."
   },
-  "visibleCampaignsTitle": {
-    "message": "Sichtbare Kampagnen"
+  "campaignFiltersTitle": {
+    "message": "Kampagnenfilter"
   },
-  "visibleCampaignsDescription": {
-    "message": "Wähle, welche Kampagnenzustände in der Drops-Liste erscheinen. Eine Kampagne mit beanspruchbarer Belohnung bleibt immer sichtbar."
+  "campaignFiltersDescription": {
+    "message": "Wähle, welche Kampagnen gefarmt werden und welche in der Drops-Liste sichtbar sind. Eine Kampagne mit beanspruchbarer Belohnung bleibt immer sichtbar."
+  },
+  "campaignFiltersFarmingGroup": {
+    "message": "Gefarmte Kampagnen"
+  },
+  "campaignFiltersDisplayGroup": {
+    "message": "In der Drops-Liste angezeigt"
   },
   "forgetExcludedTitle": {
     "message": "Ausgeschlossene Kampagnen vergessen"

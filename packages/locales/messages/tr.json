@@ -599,11 +599,17 @@
   "activityLogLevelsDescription": {
     "message": "Hangi işlemlerin geçmişe kaydedileceğini seçin."
   },
-  "visibleCampaignsTitle": {
-    "message": "Gösterilecek kampanyalar"
+  "campaignFiltersTitle": {
+    "message": "Kampanya filtreleri"
   },
-  "visibleCampaignsDescription": {
-    "message": "Drop listesinde hangi durumdaki kampanyaların görüneceğini seçin."
+  "campaignFiltersDescription": {
+    "message": "Hangi kampanyaların farmlanacağını ve Drop listesinde hangilerinin görüneceğini seçin. Alınabilir ödülü olan bir kampanya her zaman görünür kalır."
+  },
+  "campaignFiltersFarmingGroup": {
+    "message": "Farmlanan kampanyalar"
+  },
+  "campaignFiltersDisplayGroup": {
+    "message": "Drop listesinde gösterilenler"
   },
   "forgetExcludedTitle": {
     "message": "Gizlenen kampanyaları sıfırla"
