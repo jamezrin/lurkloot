@@ -48,11 +48,28 @@ farming filter would have to mean "farm the campaigns I explicitly excluded").
 | `expired` | None — `isEligible` already rejects ended campaigns |
 | `finished` | None — nothing earnable remains |
 | `upcoming` | None — `status !== "active"` already rejected |
-| `excluded` | None — display only, by design (see above) |
+| `excluded` | None — but excluded campaigns are already never farmed, via `excludedCampaignIds` (see below) |
 
 This is migration-safe. The only keys defaulting to `false` are `expired` and `excluded`,
 neither of which is a farming key, so no existing user's farming behaviour changes on
 upgrade.
+
+### Exclusion is two independent mechanisms
+
+Excluding a campaign and showing an excluded campaign are separate concerns, and stay
+that way:
+
+- **Never farmed** — enforced by `excludedCampaignIds` in `isEligible`. Already engine
+  logic; untouched by this design. An excluded campaign is never farmed on either host,
+  regardless of any filter setting.
+- **Shown or hidden** — the `excluded` display key. Defaults to `false`, so excluded
+  campaigns are hidden from the Drops list; set it to `true` and they appear, still
+  unfarmed.
+
+So an excluded campaign is never farmed, and is visible exactly when the user asks to see
+excluded campaigns. This is why the `excluded` key must never become a farming key: it
+would have to mean "farm the campaigns I explicitly excluded", contradicting the mechanism
+that already implements exclusion.
 
 ## Settings contract
 
