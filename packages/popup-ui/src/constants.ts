@@ -1,4 +1,4 @@
-import type { CampaignFilterKey, Platform } from "@lurkloot/shared/models";
+import type { DisplayFilterKey, FarmingFilterKey, Platform } from "@lurkloot/shared/models";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { ScreenshotVariant } from "./types";
 
@@ -56,9 +56,15 @@ export const EVENT_LEVEL_COLOR: Record<LogLevel, string> = {
   error: "#ef4444",
 };
 
-export const CAMPAIGN_FILTERS: Array<{ key: CampaignFilterKey; label: string }> = [
+// Split in two because the halves have different power: turning a farming pill
+// off stops those campaigns from being earned at all, while a display pill only
+// changes what the Drops list shows.
+export const FARMING_CAMPAIGN_FILTERS: Array<{ key: FarmingFilterKey; label: string }> = [
   { key: "notLinked", label: "notLinked" },
   { key: "subscription", label: "subscriptionCampaigns" },
+];
+
+export const DISPLAY_CAMPAIGN_FILTERS: Array<{ key: DisplayFilterKey; label: string }> = [
   { key: "upcoming", label: "upcoming" },
   { key: "expired", label: "expired" },
   { key: "excluded", label: "excluded" },

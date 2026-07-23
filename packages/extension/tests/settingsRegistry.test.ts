@@ -122,7 +122,7 @@ describe("settings registry", () => {
         "general.drops.autoClaim",
         "general.drops.priorityMode",
         "general.drops.idleWatchlistFallbackOnly",
-        "general.drops.campaignVisibility",
+        "general.drops.campaignFilters",
         "general.drops.forgetExcluded",
         "general.farmingTabs.tabless",
         "general.farmingTabs.autoClose",

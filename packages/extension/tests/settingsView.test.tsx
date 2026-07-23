@@ -53,8 +53,10 @@ const labels: Record<string, string> = {
   campaignPriorityDescription: "How campaigns are chosen to farm.",
   idleWatchlistFallbackOnlyTitle: "Only when no drops are active",
   idleWatchlistFallbackOnlyDescription: "Preserves drop priority automatically.",
-  visibleCampaignsTitle: "Visible campaigns",
-  visibleCampaignsDescription: "Choose which campaign states show in the Drops list.",
+  campaignFiltersTitle: "Campaign filters",
+  campaignFiltersDescription: "Choose which campaigns are farmed and which are visible in the Drops list.",
+  campaignFiltersFarmingGroup: "Farmed campaigns",
+  campaignFiltersDisplayGroup: "Shown in the Drops list",
   forgetExcludedTitle: "Forget excluded campaigns",
   forgetExcludedDescription: "Clear every campaign you excluded from farming.",
   tablessTitle: "Tabless low-resource mode",
@@ -155,16 +157,31 @@ describe("deadline feasibility setting", () => {
     expect(input.disabled).toBe(true);
   });
 
-  it("reconciles all platforms after campaign visibility changes", () => {
+  it("reconciles all platforms after campaign filter changes", () => {
     const { container, onSettingsChange } = mountSettings();
     const toggle = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("notLinked"));
 
     act(() => toggle?.click());
 
     expect(onSettingsChange).toHaveBeenCalledWith(
-      { campaignVisibility: { ...DEFAULT_SETTINGS.campaignVisibility, notLinked: false } },
+      { campaignFilters: { ...DEFAULT_SETTINGS.campaignFilters, notLinked: false } },
       { tickAfterSave: true },
     );
+  });
+
+  it("groups the campaign filters by whether they change farming", () => {
+    const { container } = mountSettings();
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Campaign filters");
+    expect(text).toContain("Farmed campaigns");
+    expect(text).toContain("Shown in the Drops list");
+    // The grouping is only meaningful if the pills sit under the right heading:
+    // the farming heading must precede notLinked, and the display heading must
+    // precede upcoming.
+    expect(text.indexOf("Farmed campaigns")).toBeLessThan(text.indexOf("notLinked"));
+    expect(text.indexOf("Shown in the Drops list")).toBeLessThan(text.indexOf("upcoming"));
+    expect(text.indexOf("notLinked")).toBeLessThan(text.indexOf("Shown in the Drops list"));
   });
 
   it("reconciles all platforms after changing Idle Watchlist fallback policy", () => {

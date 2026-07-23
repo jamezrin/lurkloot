@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
-import { CAMPAIGN_FILTERS } from "../../popup-ui/src/constants";
+import { FARMING_CAMPAIGN_FILTERS } from "../../popup-ui/src/constants";
 import { I18nContext } from "../../popup-ui/src/context";
 import { DropsPanel } from "../../popup-ui/src/drops";
 import {
@@ -310,6 +310,6 @@ describe("subscription drop popup views", () => {
   });
 
   it("exposes the subscription campaign filter", () => {
-    expect(CAMPAIGN_FILTERS).toContainEqual({ key: "subscription", label: "subscriptionCampaigns" });
+    expect(FARMING_CAMPAIGN_FILTERS).toContainEqual({ key: "subscription", label: "subscriptionCampaigns" });
   });
 });
