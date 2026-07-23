@@ -3,16 +3,16 @@
     "message": "Lurkloot"
   },
   "extensionStoreName": {
-    "message": "Lurkloot - Twitch ve Kick'te Drop ve İzlenme Süresi Kas"
+    "message": "Lurkloot - Twitch ve Kick İzlenme Süresi ve Drop Kasma Aracı"
   },
   "extensionDescription": {
-    "message": "Normal tarayıcı oturumunuz, görünür sessiz sekmeler ve isteğe bağlı düşük kaynak modu ile Twitch ve Kick droplarını ve izlenme süresini otomatik kasın."
+    "message": "Tarayıcı ile oturumu açın ve düşük kaynak modunu kullanarak Twitch ile Kick droplarını otomatik olarak toplayın."
   },
   "promoTagline": {
-    "message": "Twitch ve Kick droplarını otomatik kas"
+    "message": "Twitch ve Kick droplarını otomatik olarak toplayın"
   },
   "languageBrowser": {
-    "message": "Tarayıcı dilini kullan"
+    "message": "Tarayıcı dili"
   },
   "languageEnglish": {
     "message": "İngilizce"
@@ -51,19 +51,19 @@
     "message": "Dil"
   },
   "settingsLanguageDescription": {
-    "message": "Açılır pencere ve bildirimlerin dilini seçin."
+    "message": "Uygulama ve bildirim dilini seçin."
   },
   "settingsTitle": {
     "message": "Ayarlar"
   },
   "settingsSearchPlaceholder": {
-    "message": "Arama ayarları…"
+    "message": "Arayın…"
   },
   "settingsSearchNoResults": {
-    "message": "“$1” ile eşleşen ayar yok."
+    "message": "“$1” ile ilgili ayar bulunamadı."
   },
   "settingsShowAdvancedTitle": {
-    "message": "Gelişmiş ayarları göster"
+    "message": "Gelişmiş ayarlar"
   },
   "settingsSectionGeneral": {
     "message": "Genel"
@@ -75,7 +75,7 @@
     "message": "Kick"
   },
   "activityTitle": {
-    "message": "Etkinlik"
+    "message": "Geçmiş"
   },
   "activeStatus": {
     "message": "Aktif"
@@ -84,13 +84,13 @@
     "message": "Duraklatıldı"
   },
   "refreshSchedule": {
-    "message": "Programı yenile"
+    "message": "Yenile"
   },
   "openActivity": {
-    "message": "Etkinliği aç"
+    "message": "Geçmişi aç"
   },
   "closeActivity": {
-    "message": "Etkinliği kapat"
+    "message": "Geçmişi kapat"
   },
   "openSettings": {
     "message": "Ayarları aç"
@@ -108,10 +108,10 @@
     "message": "Droplar"
   },
   "idleWatchlistTab": {
-    "message": "Boşta İzleme Listesi"
+    "message": "Yedek Kanallar"
   },
   "automationTitle": {
-    "message": "$1 Otomasyon"
+    "message": "$1 Otomasyonu"
   },
   "automationRunning": {
     "message": "Çalışıyor"
@@ -123,76 +123,76 @@
     "message": "Durduruluyor"
   },
   "startingAutomation": {
-    "message": "Otomasyon başlatılıyor..."
+    "message": "Başlatılıyor..."
   },
   "pausingAutomation": {
-    "message": "Otomasyon duraklatılıyor..."
+    "message": "Duraklatılıyor..."
   },
   "watchingLabel": {
     "message": "İzleniyor"
   },
   "farmingLabel": {
-    "message": "Kasıyor"
+    "message": "Toplanıyor"
   },
   "waitingEligibleStream": {
-    "message": "Uygun bir yayın bekleniyor"
+    "message": "Uygun yayın bekleniyor"
   },
   "watchingPausedHint": {
-    "message": "İzleme duraklatıldı; kampanyalara devam etmek için etkinleştirin."
+    "message": "İzleme duraklatıldı. Devam etmek için tekrar başlatın."
   },
   "hideTipsTitle": {
     "message": "İpuçlarını gizle"
   },
   "hideTipsDescription": {
-    "message": "Ana açılır pencereden faydalı ipuçlarını gizleyin."
+    "message": "Ana ekrandaki ipuçlarını gizler."
   },
   "tipCampaignPriority": {
-    "message": "Aktif kampanyalar, Boşta İzleme Listesi'nden önceliklidir. Öncelik sırasını ayarlamak için kampanyaları sürükleyebilirsiniz."
+    "message": "Aktif kampanyalar yedek listenizden önceliklidir. Sıralamayı değiştirmek için sürükleyin."
   },
   "tipMissingCampaigns": {
-    "message": "Bir kampanyayı mı kaçırdınız? Platformunuzun Drop envanterini kontrol edin, ardından Ayarlar'da kampanya filtrelerini inceleyin."
+    "message": "Bir kampanya görünmüyor mu? Platformun Drop sayfasını ve filtre ayarlarınızı kontrol edin."
   },
   "tipCategorySelection": {
-    "message": "Sadece belirli kampanyaları mı takip etmek istiyorsunuz? Platform ayarlarından “Tüm kategorilerde ödül topla” seçeneğini kapatıp kendi kategorilerinizi seçebilirsiniz."
+    "message": "Sadece belli oyunları mı izlemek istiyorsunuz? Platform ayarlarından filtreleme yapabilirsiniz."
   },
   "tipIdleWatchlist": {
-    "message": "Droplar birinci öncelikte kalır. Boşta İzleme Listesi, uygun bir ödül mevcut olmadığında seçilen kanalları izler."
+    "message": "Droplar her zaman önceliklidir. Boşta kaldığında seçtiğiniz yedek kanallar izlenir."
   },
   "tipTablessMode": {
-    "message": "Sekmesiz mod daha az kaynak kullanır ve gerektiğinde sessiz bir sekmeye geri döner."
+    "message": "Sekmesiz mod daha az sistem kaynağı kullanır."
   },
   "tipCli": {
-    "message": "Uzantı olmadan çalışmayı mı tercih ediyorsunuz? Lurkloot ayrıca Docker tabanlı bir CLI olarak da mevcuttur."
+    "message": "Uzantı olmadan mı kullanmak istiyorsunuz? Docker tabanlı CLI sürümümüzü deneyin."
   },
   "tipCliAction": {
-    "message": "CLI kılavuzunu okuyun"
+    "message": "CLI rehberine git"
   },
   "tipFeedback": {
-    "message": "Bir hata mı buldunuz veya bir fikriniz mi var?"
+    "message": "Bir sorun mu var veya fikrinizi mi paylaşmak istiyorsunuz?"
   },
   "tipFeedbackAction": {
-    "message": "GitHub sorununu açın"
+    "message": "GitHub'da konu açın"
   },
   "tipExcludedCampaigns": {
-    "message": "Bir kampanyayı yanlışlıkla hariç mi tuttunuz? Hariç tutulan kampanyaları Drops ayarlarından geri yükleyin."
+    "message": "Geri getirmek istediğiniz kampanyaları Drops ayarlarından düzenleyebilirsiniz."
   },
   "noCampaigns": {
-    "message": "Aktif kampanya bulunamadı."
+    "message": "Aktif kampanya yok."
   },
   "noActivity": {
-    "message": "Henüz kayıtlı bir aktivite yok. Bir kontrolü çalıştırmak için yenile tuşuna basın."
+    "message": "Henüz işlem kaydı yok."
   },
   "platformActivity": {
-    "message": "$1 etkinliği"
+    "message": "$1 geçmişi"
   },
   "lastCheck": {
-    "message": "son kontrol $1"
+    "message": "Son kontrol: $1"
   },
   "noChecksYet": {
-    "message": "henüz kontrol yok"
+    "message": "Henüz kontrol edilmedi"
   },
   "debug": {
-    "message": "Hata ayıklama"
+    "message": "Hata Ayıklama"
   },
   "info": {
     "message": "Bilgi"
@@ -204,82 +204,82 @@
     "message": "Hata"
   },
   "notLinked": {
-    "message": "Bağlantısız"
+    "message": "Bağlı değil"
   },
   "subscriptionCampaigns": {
     "message": "Abonelik kampanyaları"
   },
   "subscriptionRequired": {
-    "message": "Abonelik gerekli"
+    "message": "Abonelik gerekiyor"
   },
   "subscriptionRewards": {
     "message": "Abonelik ödülleri"
   },
   "qualifyingSubscriptionsRequired": {
-    "message": "$1 uygun abonelik gerekli"
+    "message": "$1 abonelik gerekiyor"
   },
   "subscriptionProgressUnknown": {
-    "message": "İlerleme mevcut değil"
+    "message": "İlerleme bilinmiyor"
   },
   "notEarnableByWatching": {
-    "message": "İzlenerek kazanılmıyor"
+    "message": "İzleyerek kazanılamaz"
   },
   "subscribedRefresh": {
-    "message": "Abone oldum — durumu yenile"
+    "message": "Abone oldum (+ Yenile)"
   },
   "waitingForSubscription": {
-    "message": "Uygun bir abonelik bekleniyor"
+    "message": "Abonelik bekleniyor"
   },
   "actionRequired": {
-    "message": "İşlem gerekli"
+    "message": "İşlem yapmanız gerekiyor"
   },
   "earned": {
-    "message": "Kazanılan"
+    "message": "Kazanıldı"
   },
   "linkAccount": {
-    "message": "Hesabınızı bağlayın"
+    "message": "Hesabı bağla"
   },
   "externalGameAccountRequired": {
-    "message": "Harici oyun hesabı gerekli"
+    "message": "Oyun hesabı bağlantısı gerekiyor"
   },
   "linkExternalGameAccount": {
-    "message": "Harici oyun hesabını bağlayın"
+    "message": "Oyun hesabını bağla"
   },
   "viewDropPage": {
-    "message": "Drop sayfasını görüntüle"
+    "message": "Drop sayfasına git"
   },
   "upcoming": {
-    "message": "Yaklaşan"
+    "message": "Gelecek"
   },
   "expired": {
-    "message": "Süresi geçmiş"
+    "message": "Süresi doldu"
   },
   "excluded": {
-    "message": "Hariç tutulanlar"
+    "message": "Gizlenenler"
   },
   "finished": {
     "message": "Bitti"
   },
   "upcomingPill": {
-    "message": "Yaklaşan"
+    "message": "Gelecek"
   },
   "expiredPill": {
-    "message": "Süresi geçmiş"
+    "message": "Bitti"
   },
   "finishedPill": {
-    "message": "Bitti"
+    "message": "Tamamlandı"
   },
   "complete": {
     "message": "Tamamlandı"
   },
   "nextReward": {
-    "message": "Sonraki: $1"
+    "message": "Sıradaki: $1"
   },
   "startsIn": {
-    "message": "$1'de başlıyor"
+    "message": "$1 içinde başlıyor"
   },
   "endsIn": {
-    "message": "$1 ile bitiyor"
+    "message": "$1 sonra bitiyor"
   },
   "left": {
     "message": "kaldı"
@@ -288,13 +288,13 @@
     "message": "Bitti"
   },
   "farmed": {
-    "message": "Kasıldı"
+    "message": "Toplandı"
   },
   "rewards": {
     "message": "Ödüller"
   },
   "inCampaignOrder": {
-    "message": "kampanya sırasına göre"
+    "message": "Kampanya sırasına göre"
   },
   "allChannels": {
     "message": "Tüm kanallar"
@@ -303,16 +303,16 @@
     "message": "$1 kanal"
   },
   "includeInFarming": {
-    "message": "Kasmaya dahil et"
+    "message": "Listeye ekle"
   },
   "excludeFromFarming": {
-    "message": "Kasmadan hariç tut"
+    "message": "Listeden çıkar"
   },
   "noIdleWatchlist": {
-    "message": "Boşta izleme listesine henüz kanal eklenmedi."
+    "message": "Yedek izleme listenize henüz kanal eklemediniz."
   },
   "channelPlaceholder": {
-    "message": "kanal"
+    "message": "Kanal adı"
   },
   "add": {
     "message": "Ekle"
@@ -321,241 +321,241 @@
     "message": "Kanal ekle"
   },
   "idleWatchlistChannel": {
-    "message": "İzleme listesinde"
+    "message": "Listede"
   },
   "live": {
-    "message": "canlı"
+    "message": "CANLI"
   },
   "settingsGeneralTitle": {
-    "message": "Genel ayarlar"
+    "message": "Genel Ayarlar"
   },
   "settingsGeneralDescription": {
-    "message": "Twitch ve Kick için geçerlidir."
+    "message": "Hem Twitch hem de Kick için geçerlidir."
   },
   "settingsGroupAppearance": {
-    "message": "Görünüm ve davranış"
+    "message": "Görünüm ve Davranış"
   },
   "pauseManualTitle": {
-    "message": "İzlerken duraklat"
+    "message": "İzleme yaparken duraklat"
   },
   "pauseManualDescription": {
-    "message": "Bir yayın açıkken ve kendiniz izlerken ödül toplamayı durdurun."
+    "message": "Kendiniz yayın izlerken otomatik toplamayı durdurur."
   },
   "autoStartTitle": {
-    "message": "Başlangıçta otomatik çalıştır"
+    "message": "Otomatik başlat"
   },
   "autoStartDescription": {
-    "message": "Uzantı yüklenir yüklenmez otomatik olarak ödül toplamaya başlar."
+    "message": "Tarayıcı açıldığında otomatik olarak toplamaya başlar."
   },
   "notificationsTitle": {
     "message": "Bildirimler"
   },
   "notificationsDescription": {
-    "message": "Etkinleştirilen tüm platformlar için geçerlidir."
+    "message": "Tüm platformlar için bildirim ayarları."
   },
   "settingsGroupNotifications": {
     "message": "Bildirimler"
   },
   "rewardEarnedTitle": {
-    "message": "Elde edilen ödüller"
+    "message": "Ödül kazanıldığında"
   },
   "rewardEarnedDescription": {
-    "message": "Bir drop ödülü alınmaya hazır olduğunda bildirim alın."
+    "message": "Bir ödül toplanmaya hazır olduğunda haber ver."
   },
   "noDropsLeftTitle": {
-    "message": "Aktif drop kalmadı"
+    "message": "Drop kalmadığında"
   },
   "noDropsLeftDescription": {
-    "message": "Tüm aktif kampanyalar bittiğinde bildirim alın."
+    "message": "Toplanacak tüm droplar bittiğinde haber ver."
   },
   "dropsSettingsTitle": {
-    "message": "Droplar"
+    "message": "Drop Ayarları"
   },
   "dropsSettingsDescription": {
-    "message": "Tüm platformların ortak kampanya kasma davranışı."
+    "message": "Genel drop toplama kuralları."
   },
   "settingsGroupDrops": {
     "message": "Droplar"
   },
   "autoClaimTitle": {
-    "message": "Dropları otomatik al"
+    "message": "Otomatik al"
   },
   "autoClaimDescription": {
-    "message": "Kazanılan drop ödüllerini kullanılabilir olur olmaz otomatik olarak alın."
+    "message": "Kazanılan ödülleri otomatik olarak hesabınıza tanımlar."
   },
   "campaignPriorityTitle": {
-    "message": "Kampanya önceliği"
+    "message": "Kampanya Önceliği"
   },
   "campaignPriorityDescription": {
-    "message": "Toplanacak kampanyaların nasıl seçileceğini belirleyin. Öncelik listesi yalnızca elle sıraladığınız kampanyaları dikkate alır; diğer modlar tüm kampanyalar arasından seçim yapar. Platform ayarlarından her platformda ödül kazanılacak kategorileri sınırlandırın."
+    "message": "Hangi dropların önce toplanacağını seçin."
   },
   "priorityListOnly": {
-    "message": "Yalnızca öncelik listesi"
+    "message": "Sadece özel sıralamam"
   },
   "endingSoonest": {
-    "message": "En kısa sürede bitenler"
+    "message": "Önce süresi bitmek üzere olanlar"
   },
   "lowAvailabilityFirst": {
-    "message": "Önce kullanılabilirliği düşük olanlar"
+    "message": "Önce nadir/süreli olanlar"
   },
   "idleWatchlistSettingsTitle": {
-    "message": "Boşta İzleme Listesi"
+    "message": "Yedek Kanallar"
   },
   "idleWatchlistSettingsDescription": {
-    "message": "Uygun droplar mevcut olmadığında kullanılan yedek kanallar."
+    "message": "Drop yokken izlenecek kanallar."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Dropları Boşta İzleme Listesi'nden önce önceliklendir"
+    "message": "Droplara öncelik ver"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Uygun bir drop çıkar çıkmaz Boşta İzleme Listesi kanalından ayrılır. Kapalıyken kanal çevrimdışı olana kadar izlemeye devam eder."
+    "message": "Yeni bir drop çıktığında yedek kanaldan hemen ayrılır."
   },
   "platformSettingsTitle": {
-    "message": "Platform ayarları"
+    "message": "Platform Ayarları"
   },
   "platformSettingsDescription": {
-    "message": "Tek sağlayıcı için otomasyon ve kanallar. Twitch ve Kick arasında geçiş yapın."
+    "message": "Twitch ve Kick özel ayarları."
   },
   "farmingTabsTitle": {
-    "message": "Sekme yönetimi"
+    "message": "Sekme Yönetimi"
   },
   "farmingTabsDescription": {
-    "message": "Video sekmesiyle kasma kontrolleri. Sekmesiz düşük kaynak modu etkinken sekmeye özel kontroller devre dışıdır."
+    "message": "Arka planda açılan sekmelerin kontrolü."
   },
   "settingsGroupFarmingTabs": {
-    "message": "Sekme yönetimi"
+    "message": "Sekme Yönetimi"
   },
   "tablessTitle": {
-    "message": "Sekmesiz düşük kaynak modu"
+    "message": "Sekmesiz Mod (Düşük Kaynak Modu)"
   },
   "tablessDescription": {
-    "message": "Video sekmesi yerine hafif izleme sinyalleriyle ödül toplayın. Twitch izleme sinyalleri, Kick ise izleyici bağlantısı kullanır. İlerleme durursa otomatik olarak bir sekmeye geri döner."
+    "message": "Sekme açmadan sessizce arka planda toplar. (İşlem takılırsa otomatik sekme açar.)"
   },
   "autoCloseTabsTitle": {
-    "message": "Sekmeleri otomatik kapat"
+    "message": "Gereksiz sekmeleri kapat"
   },
   "autoCloseTabsDescription": {
-    "message": "Uzantı boştayken sekmeleri otomatik kapatır (toplanacak drop veya izlenecek yayıncı yoksa)."
+    "message": "İş bittiğinde açılan sekmeleri otomatik olarak kapatır."
   },
   "muteTabsTitle": {
     "message": "Sekmeleri sessize al"
   },
   "muteTabsDescription": {
-    "message": "Ödül ve Boşta İzleme Listesi sekmelerini sessiz tutun."
+    "message": "Arka planda açılan yayınların sesini kapatır."
   },
   "keepVideosUnmutedTitle": {
-    "message": "Videoların sesini açık tut"
+    "message": "Video sesini açık tut"
   },
   "keepVideosUnmutedDescription": {
-    "message": "Tarayıcı sekmesinin sesi kapalıyken sayfa içindeki video oynatıcılarının sesini açık tutar."
+    "message": "Sekme sessiz olsa bile video oynatıcı sesini açık tutar."
   },
   "tablessDisabledReason": {
-    "message": "Sekmesiz düşük kaynak modu etkinken devre dışıdır."
+    "message": "Sekmesiz mod açıkken bu ayar kullanılamaz."
   },
   "adFocusTitle": {
-    "message": "Reklamlar sırasında sekmeye odaklan"
+    "message": "Reklamlarda sekmeye odaklan"
   },
   "adFocusDescription": {
-    "message": "Arka plan sekmelerinde reklam geri sayımları donabilir. Reklam oynarken geri sayımın ilerlemesi için sekmeye kısa süre odaklanır, ardından önceki sekmenize döner."
+    "message": "Reklamların donmaması için reklam sırasında kısa süreliğine sekmeye geçer."
   },
   "off": {
     "message": "Kapalı"
   },
   "tabOnly": {
-    "message": "Yalnızca sekme"
+    "message": "Sadece sekme"
   },
   "tabAndWindow": {
-    "message": "Sekme + pencere"
+    "message": "Sekme + Pencere"
   },
   "advancedTitle": {
     "message": "Gelişmiş"
   },
   "advancedDescription": {
-    "message": "Bunları yalnızca ne yaptığınızı biliyorsanız değiştirin; bunlar düşük seviyeli zamanlayıcıyı ve günlük tutma davranışını kontrol eder."
+    "message": "Teknik zamanlama ve günlük ayarları."
   },
   "settingsGroupAdvanced": {
     "message": "Gelişmiş"
   },
   "schedulerIntervalTitle": {
-    "message": "Zamanlayıcı aralığı"
+    "message": "Yenileme sıklığı"
   },
   "schedulerIntervalDescription": {
-    "message": "Kampanya ve yayıncı durumunun ne sıklıkta yenilendiği."
+    "message": "Durumun ne sıklıkla kontrol edileceği."
   },
   "postClaimHandoffTitle": {
-    "message": "Hızlı ödül aktarımı"
+    "message": "Hızlı ödül geçişi"
   },
   "postClaimHandoffDescription": {
-    "message": "Bir ödülü aldıktan sonra sonraki planlı döngüyü beklemek yerine kampanyadaki bir sonraki ödülü kısa aralıklarla kontrol edin. Yalnızca Twitch."
+    "message": "Ödül alındıktan hemen sonra sıradakini kontrol eder (Yalnızca Twitch)."
   },
   "postClaimHandoffIntervalTitle": {
-    "message": "Devir kontrol aralığı"
+    "message": "Kontrol aralığı"
   },
   "postClaimHandoffIntervalDescription": {
-    "message": "Sonraki ödül kontrolleri arasında beklenecek süre."
+    "message": "Geçiş kontrolleri arasındaki bekleme süresi."
   },
   "postClaimHandoffMaxTitle": {
-    "message": "Devir süresi sınırı"
+    "message": "Maksimum deneme süresi"
   },
   "postClaimHandoffMaxDescription": {
-    "message": "Bu süre sonunda sonuç alınamazsa normal programa dönün."
+    "message": "Sonuç alınamazsa normal akışa dönülür."
   },
   "secondsSuffix": {
-    "message": "saniye"
+    "message": "sn"
   },
   "deadlineSafetyMarginTitle": {
-    "message": "Kalan süre güvenlik payı"
+    "message": "Kalan süre payı"
   },
   "deadlineSafetyMarginDescription": {
-    "message": "Bir ödülü toplamadan önce gereken ek dakika payı."
+    "message": "Son dakikalarda risk almamak için eklenen ekstra süre."
   },
   "deadlineSafetyMarginDisabledReason": {
-    "message": "Güvenlik marjını değiştirmek için son tarih filtrelemeyi etkinleştirin."
+    "message": "Bunun için son tarih filtresini açmalısınız."
   },
   "skipUnfinishableRewardsTitle": {
-    "message": "Tamamlanamayan ödülleri atla"
+    "message": "Süresi yetmeyecek ödülleri atla."
   },
   "skipUnfinishableRewardsDescription": {
-    "message": "Kalan izlenme süresi, son teslim tarihine kalan süreyi aştığında ödül toplamayın."
+    "message": "Süre bitmeden tamamlanamayacak dropları otomatik atlar."
   },
   "minutesSuffix": {
-    "message": "dk."
+    "message": "dk"
   },
   "insufficientTimeRemaining": {
-    "message": "Yetersiz süre kaldı"
+    "message": "Yeterli süre kalmadı"
   },
   "automationSectionTitle": {
     "message": "Otomasyon"
   },
   "farmOnPlatform": {
-    "message": "$1 üzerindeki Boşta İzleme Listesi kanallarını drop olmadığında izle."
+    "message": "Drop olmadığında $1 izleme listesine eklenmiş kanalları izle."
   },
   "enabled": {
-    "message": "Etkinleştirilmiş"
+    "message": "Açık"
   },
   "idleWatchlistEditHint": {
-    "message": "$1 seçeneğini seçtikten sonra Boştaki İzleme Listesi sekmesinden düzenleyin."
+    "message": "$1 seçeneğini açtıktan sonra Yedek Kanallar sekmesinden düzenleyin."
   },
   "autoClaimChannelPointsTitle": {
-    "message": "Otomatik kanal puanı topla"
+    "message": "Kanal puanlarını otomatik al"
   },
   "autoClaimChannelPointsDescription": {
-    "message": "Bu platformda ödül toplarken kanal puanı bonuslarını da alın."
+    "message": "Yayın izlerken biriken kanal puanı bonuslarını otomatik toplar."
   },
   "autoClaimChallengesTitle": {
     "message": "Günlük görevleri otomatik al"
   },
   "autoClaimChallengesDescription": {
-    "message": "İzlenme süresi hedefine ulaşıldığında Kick'in günlük görev ödülünü otomatik alın."
+    "message": "Kick günlük görev ödüllerini otomatik toplar."
   },
   "settingsGroupExcludedChannels": {
-    "message": "Hariç tutulan kanallar"
+    "message": "Gizlenen Kanallar"
   },
   "excludedChannelsTitle": {
-    "message": "Hariç tutulan drop kanalları"
+    "message": "Hariç tutulan kanallar"
   },
   "excludedChannelsDescription": {
-    "message": "Kampanya ödülleri toplanırken bu yayıncılar atlanır."
+    "message": "Bu kanallardan drop toplanmaz."
   },
   "excludedChannelsEmpty": {
     "message": "Hariç tutulan kanal yok."
@@ -564,55 +564,55 @@
     "message": "Kategoriler"
   },
   "farmAllCategoriesTitle": {
-    "message": "Tüm kategorilerde ödül topla"
+    "message": "Tüm oyunlarda/kategorilerde topla"
   },
   "farmAllCategoriesDescription": {
-    "message": "Tüm $1 kategorilerindeki dropları toplar. Yalnızca seçilen kategorileri toplamak için kapatın."
+    "message": "$1 platformundaki tüm kategorilerde çalışır. Sadece belli oyunları seçmek için kapatın."
   },
   "categoriesToFarm": {
-    "message": "Ödül kazanılacak kategoriler"
+    "message": "Seçili kategoriler"
   },
   "dragToPrioritize": {
-    "message": "önceliklendirmek için sürükleyin"
+    "message": "Öncelik vermek için sürükleyin"
   },
   "noCategoriesSelected": {
-    "message": "Kategori seçilmedi — $1 üzerinde hiçbir şey kasılmayacak. Aşağıdan kategori ekleyin."
+    "message": "Kategori seçilmedi. $1 üzerinde işlem yapılmayacak."
   },
   "hasActiveDrops": {
-    "message": "Aktif dropları var"
+    "message": "Aktif droplar var"
   },
   "searchCategories": {
-    "message": "$1 kategoride ara"
+    "message": "$1 kategorilerinde ara"
   },
   "searching": {
-    "message": "Arama…"
+    "message": "Aranıyor…"
   },
   "noCategoriesFound": {
-    "message": "Hiçbir kategori bulunamadı."
+    "message": "Kategori bulunamadı."
   },
   "alreadyAdded": {
     "message": "Zaten eklendi."
   },
   "activityLogLevelsTitle": {
-    "message": "Etkinlik günlüğü düzeyleri"
+    "message": "Günlük detay seviyesi"
   },
   "activityLogLevelsDescription": {
-    "message": "Etkinlik günlüğüne hangi seviyelerin kaydedileceğini seçin. Hatalar her zaman korunur."
+    "message": "Hangi işlemlerin geçmişe kaydedileceğini seçin."
   },
   "visibleCampaignsTitle": {
-    "message": "Görünür kampanyalar"
+    "message": "Gösterilecek kampanyalar"
   },
   "visibleCampaignsDescription": {
-    "message": "Droplar listesinde hangi kampanya durumlarının gösterileceğini seçin. Alınabilir ödülü olan kampanyalar her zaman görünür."
+    "message": "Drop listesinde hangi durumdaki kampanyaların görüneceğini seçin."
   },
   "forgetExcludedTitle": {
-    "message": "Hariç tutulan kampanyaları unut"
+    "message": "Gizlenen kampanyaları sıfırla"
   },
   "forgetExcludedDescription": {
-    "message": "Ödül toplamaktan hariç tuttuğunuz tüm kampanyaları temizleyin."
+    "message": "Daha önce listeden gizlediğiniz tüm kampanyaları tekrar görünür yapar."
   },
   "forget": {
-    "message": "Unut"
+    "message": "Sıfırla"
   },
   "unknownGame": {
     "message": "Bilinmeyen oyun"
@@ -630,61 +630,61 @@
     "message": "Sona erdi"
   },
   "notificationRewardClaimed": {
-    "message": "Ödül talep edildi"
+    "message": "Ödül alındı"
   },
   "notificationRewardEarned": {
-    "message": "Kazanılan ödül"
+    "message": "Yeni ödül kazanıldı"
   },
   "notificationNoDropsLeft": {
     "message": "Drop kalmadı"
   },
   "notificationRewardFromCampaign": {
-    "message": "$1, $2'den"
+    "message": "$1 ($2)"
   },
   "notificationChallengeClaimed": {
-    "message": "Mücadele ödülü talep edildi"
+    "message": "Görev ödülü alındı"
   },
   "notificationChallengeReward": {
-    "message": "$2 mücadelenizden bir $1 kartı kazandınız."
+    "message": "$2 görevinizden $1 kazandınız."
   },
   "notificationNoDropsLeftMessage": {
-    "message": "$1 üzerinde kasılabilecek uygun drop yok."
+    "message": "$1 platformunda toplanacak başka drop kalmadı."
   },
   "screenshotTwitchHeadline": {
-    "message": "Twitch droplarını otomatik kas"
+    "message": "Twitch droplarını otomatik toplayın"
   },
   "screenshotTwitchSubcopy": {
-    "message": "Lurkloot uygun kampanyaları normal tarayıcı oturumunuzdaki görünür ve sessiz sekmelerle yönetir."
+    "message": "Lurkloot, oturumunuzu kullanarak arka planda sessizce dropları toplar."
   },
   "screenshotKickHeadline": {
-    "message": "Kick droplarını ve izlenme süresini kas"
+    "message": "Kick droplarını ve sürelerini toplayın"
   },
   "screenshotKickSubcopy": {
-    "message": "Kick droplarını ve izlenme süresini düşük kaynak kullanımıyla otomatik kasın."
+    "message": "Düşük kaynak modu ile sisteminiz yorulmadan Kick izlenme sürelerini ve droplarını kasın."
   },
   "screenshotIdleWatchlistHeadline": {
-    "message": "İzleme listeni sen belirle"
+    "message": "Yedek kanallarınızı seçin"
   },
   "screenshotIdleWatchlistSubcopy": {
-    "message": "Uygun ödül olmadığında Lurkloot seçtiğiniz yedek kanallardan canlı olanı izler."
+    "message": "Toplanacak drop yokken Lurkloot belirlediğiniz yayıncıları izlemeye devam eder."
   },
   "screenshotSettingsHeadline": {
-    "message": "Nasıl kasacağını özelleştir"
+    "message": "Kolayca özelleştirin"
   },
   "screenshotSettingsSubcopy": {
-    "message": "Platform bazında otomasyon, otomatik alma, sessiz sekmeler, oyun öncelikleri ve deneysel düşük kaynak modu."
+    "message": "Otomatik toplama ve oyun önceliklerini dilediğiniz gibi ayarlayın."
   },
   "screenshotActivityHeadline": {
-    "message": "Her şeyi tek bakışta takip et"
+    "message": "Her şeyi takip edin"
   },
   "screenshotActivitySubcopy": {
-    "message": "Şeffaf etkinlik günlüğü her kontrolü, geçişi ve ödül alımını gösterir; hiçbir işlem gözünüzden kaçmaz."
+    "message": "Şeffaf geçmiş günlüğü sayesinde alınan tüm ödülleri ve yapılan işlemleri görün."
   },
   "autoClaimReady": {
-    "message": "Otomatik alma hazır"
+    "message": "Otomatik alma aktif"
   },
   "attributionLinks": {
-    "message": "İlişkilendirme bağlantıları"
+    "message": "Bağlantılar"
   },
   "githubAttribution": {
     "message": "GitHub'da Lurkloot"
@@ -693,55 +693,55 @@
     "message": "GitHub"
   },
   "chromeWebStoreAttribution": {
-    "message": "Chrome Web Mağazası'nda Lurkloot"
+    "message": "Chrome Mağazası'nda Lurkloot"
   },
   "chromeWebStoreAttributionShort": {
-    "message": "Chrome Web Mağazası"
+    "message": "Chrome Mağazası"
   },
   "siteAttribution": {
-    "message": "Lurkloot'un web sitesi"
+    "message": "Lurkloot Web Sitesi"
   },
   "siteAttributionShort": {
-    "message": "Web sitesi"
+    "message": "Web Sitesi"
   },
   "updateNoticeTitle": {
-    "message": "Lurkloot $1 olarak güncellendi"
+    "message": "Lurkloot $1 sürümüne güncellendi"
   },
   "updateNoticeBody": {
-    "message": "Nelerin yeni olduğunu ve nelerin değiştiğini görün."
+    "message": "Yenilikleri ve değişiklikleri inceleyin."
   },
   "updateNoticeAction": {
-    "message": "Değişiklikleri görüntüle"
+    "message": "Yenilikleri gör"
   },
   "updateNoticeDismiss": {
-    "message": "Güncelleme bildirimini reddet"
+    "message": "Kapat"
   },
   "rateNudgeTitle": {
-    "message": "Lurkloot'tan hoşlanıyor musunuz?"
+    "message": "Lurkloot'u sevdiniz mi?"
   },
   "rateNudgeBody": {
-    "message": "Chrome Web Mağazası'nda hızlı bir inceleme çok yardımcı olur."
+    "message": "Mağazada bize yorum ve değerlendirme bırakarak destek olabilirsiniz."
   },
   "rateNudgeAction": {
-    "message": "Değerlendirin"
+    "message": "Değerlendir"
   },
   "rateNudgeDismiss": {
-    "message": "Şimdi değil"
+    "message": "Daha sonra"
   },
   "removeItem": {
-    "message": "$1 öğesini kaldır"
+    "message": "$1 öğesini sil"
   },
   "cliExportTitle": {
-    "message": "Headless CLI (Komut Satırı)"
+    "message": "Komut Satırı (CLI) Sürümü"
   },
   "cliExportDescription": {
-    "message": "Bu tarayıcıdaki oturumunuzu kullanarak Lurkloot CLI ile sunucuda veya Docker'da drop kasın."
+    "message": "Oturumunuzu aktararak sunucuda veya Docker üzerinde tarayıcısız toplama yapın."
   },
   "cliExportHint": {
-    "message": "CLI aracının \"login --import\" komutunun bunları kullanabilmesi için Twitch ve Kick oturum jetonlarınızı dışa aktarır. Dosyayı gizli tutun; bu dosyaya sahip olan herkes oturumlarınızı kullanabilir."
+    "message": "Twitch ve Kick giriş bilgilerinizi dışa aktarır. Bu dosyayı güvende tutun; erişimi olan herkes hesabınızı kullanabilir."
   },
   "cliExportConfirm": {
-    "message": "Bu, Twitch ve Kick oturum jetonlarınızı bir dosyaya indirir. Bu dosyaya sahip olan herkes bu sitelerde sizin adınıza hareket edebilir. Devam etmek?"
+    "message": "Giriş anahtarlarınız bir dosyaya indirilecek. Bu dosya hesabınıza erişim sağlar. Devam edilsin mi?"
   },
   "cliExportCancel": {
     "message": "İptal"
@@ -750,19 +750,19 @@
     "message": "Dışa aktarmayı onayla"
   },
   "cliExportButton": {
-    "message": "Kimlik bilgilerini dışa aktar"
+    "message": "Giriş bilgilerini indir"
   },
   "factoryResetTitle": {
-    "message": "Lurkloot'u sıfırla"
+    "message": "Lurkloot'u Sıfırla"
   },
   "factoryResetHint": {
-    "message": "Tüm Lurkloot ayarlarını, farming ilerlemesini ve etkinlik geçmişini siler. Twitch ve Kick hesaplarındaki oturumlarınız açık kalır."
+    "message": "Tüm ayarları, toplama ilerlemesini ve geçmişi siler. Twitch/Kick oturumlarınız açık kalır."
   },
   "factoryResetButton": {
-    "message": "Lurkloot'u sıfırla"
+    "message": "Sıfırla"
   },
   "factoryResetConfirm": {
-    "message": "Bu işlem farming'i durdurur, Lurkloot'un açtığı sekmeleri kapatır ve tüm Lurkloot verilerini kalıcı olarak siler. Twitch ve Kick oturumları açık kalır."
+    "message": "Tüm Lurkloot verileri silinecek ve açık sekmeler kapatılacak. Hesabınızdan çıkış yapılmaz. Onaylıyor musunuz?"
   },
   "factoryResetCancel": {
     "message": "İptal"
@@ -774,109 +774,109 @@
     "message": "Sıfırlanıyor…"
   },
   "factoryResetFailed": {
-    "message": "Lurkloot tamamen sıfırlanamadı. Tekrar deneyin."
+    "message": "Sıfırlama başarısız oldu. Lütfen tekrar deneyin."
   },
   "factoryResetRetry": {
-    "message": "Tekrar sıfırla"
+    "message": "Tekrar dene"
   },
   "diagnosticLoggingTitle": {
-    "message": "Tanılama günlüklerini dahil et"
+    "message": "Teknik günlükleri kaydet"
   },
   "diagnosticLoggingDescription": {
-    "message": "Sorunların tespit edilmesine yardımcı olabilecek ek teknik ayrıntıları kaydedin. Normal çalışma akışı her zaman korunur."
+    "message": "Sorun çözmeye yardımcı olacak detaylı teknik verileri kaydeder."
   },
   "activityFarmingStarted": {
-    "message": "$2 üzerinde $1 kasma başlatıldı."
+    "message": "$2 üzerinde $1 toplanmaya başlandı."
   },
   "activityFarmingStopped": {
-    "message": "$2 üzerinde $1 kasma durduruldu: $3."
+    "message": "$2 üzerinde $1 toplanması durduruldu: $3."
   },
   "activityRewardClaimed": {
     "message": "$2 kampanyasından $1 alındı."
   },
   "activityChallengeClaimed": {
-    "message": "$2 mücadelesinden $1 kartı talep edildi"
+    "message": "$2 görevinden $1 alındı."
   },
   "activityAuthHealthChanged": {
-    "message": "$1 kimlik doğrulaması $2 durumundan $3 durumuna geçti."
+    "message": "$1 oturum durumu değişti: $2 → $3."
   },
   "activityPageContextOpened": {
-    "message": "$1 üzerinde bir arka plan içeriği açıldı çünkü $2."
+    "message": "$1 üzerinde arka plan işlemi başlatıldı. Neden: $2."
   },
   "activityPageContextClosed": {
-    "message": "$2 nedeniyle $1 üzerindeki arka plan bağlamı kapatıldı."
+    "message": "$1 üzerindeki arka plan işlemi kapatıldı. Neden: $2."
   },
   "activityPageContextOpenReasonBackgroundRejected": {
     "message": "Kick arka plan isteğini reddetti"
   },
   "activityPageContextReasonManagedContextUnusable": {
-    "message": "önceki arka plan bağlamı kullanılamaz durumdaydı"
+    "message": "Önceki arka plan işlemi kullanılamıyor"
   },
   "activityPageContextCloseReasonBackgroundRecovered": {
-    "message": "arka plan istekleri düzeldi"
+    "message": "Arka plan bağlantısı düzeldi"
   },
   "activityPageContextCloseReasonUserTabAvailable": {
-    "message": "mevcut bir Kick sekmesi kullanıma sunuldu"
+    "message": "Açık bir Kick sekmesi bulundu"
   },
   "activityInterruption": {
-    "message": "Kasma kesintiye uğradı: $1."
+    "message": "İşlem kesintiye uğradı: $1."
   },
   "activityInterruptionWithDetail": {
-    "message": "Kasma kesintiye uğradı: $1 ($2)."
+    "message": "İşlem kesintiye uğradı: $1 ($2)."
   },
   "activityReasonAutomationDisabled": {
-    "message": "otomasyon devre dışı bırakıldı"
+    "message": "Otomasyon kapatıldı"
   },
   "activityReasonPlatformDisabled": {
-    "message": "platform devre dışı bırakıldı"
+    "message": "Platform kapatıldı"
   },
   "activityReasonAuthenticationUnhealthy": {
-    "message": "kimlik doğrulama kullanılamıyor"
+    "message": "Giriş yapılması gerekiyor"
   },
   "activityReasonPlatformBackoff": {
-    "message": "platform geçici olarak geri çekiliyor"
+    "message": "Platform geçici olarak bekleniyor"
   },
   "activityReasonPlatformError": {
-    "message": "bir platform hatası oluştu"
+    "message": "Platform hatası oluştu"
   },
   "activityReasonCampaignIneligible": {
-    "message": "kampanya artık uygun değil"
+    "message": "Kampanya artık uygun değil"
   },
   "activityReasonChannelExcluded": {
-    "message": "kanal hariç tutuldu"
+    "message": "Kanal listeden çıkarıldı"
   },
   "activityReasonChannelOffline": {
-    "message": "kanal çevrimdışı oldu"
+    "message": "Kanal yayını kapattı"
   },
   "activityReasonChannelMismatch": {
-    "message": "kanal artık eşleşmiyor"
+    "message": "Kanal artık eşleşmiyor"
   },
   "activityReasonWatchUnhealthy": {
-    "message": "izleme sağlık kontrolü başarısız oldu"
+    "message": "İzleme kontrolü başarısız"
   },
   "activityReasonHigherPriorityReward": {
-    "message": "daha yüksek öncelikli bir ödül devraldı"
+    "message": "Daha yüksek öncelikli drop geldi"
   },
   "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "daha yüksek öncelikli bir Boşta İzleme Listesi kanalı kullanıma sunuldu"
+    "message": "Daha yüksek öncelikli yedek kanal açıldı"
   },
   "activityReasonWatchRequirementCompleted": {
-    "message": "izlenme süresi gereksinimi tamamlandı"
+    "message": "İzleme süresi tamamlandı"
   },
   "activityReasonRuntimeRestart": {
-    "message": "uzantı yeniden başlatıldı"
+    "message": "Eklenti yeniden başlatıldı"
   },
   "activityReasonTargetChanged": {
-    "message": "Kasma hedefi değişti"
+    "message": "Hedef değiştirildi"
   },
   "activityReasonManualWatch": {
-    "message": "manuel izleme devraldı"
+    "message": "Kanalı izlediğiniz için durduruldu"
   },
   "hideDiagnosticLogs": {
-    "message": "Teşhisleri gizle"
+    "message": "Teknik detayları gizle"
   },
   "loadMoreActivity": {
-    "message": "Daha fazlasını yükle"
+    "message": "Daha fazla göster"
   },
   "clearActivityHistory": {
     "message": "Geçmişi temizle"
@@ -885,10 +885,10 @@
     "message": "Temizlemeyi onayla"
   },
   "clearActivityFailed": {
-    "message": "Etkinlik geçmişi temizlenemedi. Tekrar deneyin."
+    "message": "Geçmiş temizlenemedi. Tekrar deneyin."
   },
   "showDiagnosticLogs": {
-    "message": "Teşhisi göster"
+    "message": "Teknik detayları göster"
   },
   "settingsGroupCompatibility": {
     "message": "Uyumluluk"
@@ -900,37 +900,37 @@
     "message": "Twitch uyumluluk profili"
   },
   "compatibilityTwitchProfileDescription": {
-    "message": "Hazır bir Twitch profili seçin veya Lurkloot'un bunu otomatik seçmesine izin verin."
+    "message": "Twitch bağlantı profilini seçin veya otomatiğe bırakın."
   },
   "compatibilityKickProfileTitle": {
     "message": "Kick uyumluluk profili"
   },
   "compatibilityKickProfileDescription": {
-    "message": "Hazır bir Kick profili seçin veya Lurkloot'un bunu otomatik seçmesine izin verin."
+    "message": "Kick bağlantı profilini seçin veya otomatiğe bırakın."
   },
   "compatibilitySectionTitle": {
     "message": "Uyumluluk"
   },
   "compatibilitySectionDescription": {
-    "message": "Lurkloot'un her platformla nasıl konuştuğu. Otomatik, paketlenmiş profili takip eder."
+    "message": "Platform protokol ayarları."
   },
   "compatibilityComponentProfile": {
     "message": "Profil"
   },
   "compatibilityComponentHeartbeat": {
-    "message": "İzleme sinyali"
+    "message": "İzleme Sinyali"
   },
   "compatibilityComponentInventory": {
-    "message": "Envanter sorgusu"
+    "message": "Envanter Sorgusu"
   },
   "compatibilityComponentClaim": {
-    "message": "Talep yönetimi"
+    "message": "Ödül Alma Yönetimi"
   },
   "compatibilityFromProfile": {
     "message": "Profilden"
   },
   "compatibilityOverridden": {
-    "message": "Geçersiz kılındı"
+    "message": "Özel ayar"
   },
   "compatibilityReplacedBy": {
     "message": "$1 ile değiştirildi"
@@ -939,22 +939,22 @@
     "message": "Twitch izleme sinyali"
   },
   "compatibilityTwitchHeartbeatDescription": {
-    "message": "Varsayılan Twitch izleme sinyalini geçersiz kılın."
+    "message": "Varsayılan Twitch sinyalini değiştir."
   },
   "compatibilityTwitchInventoryTitle": {
     "message": "Twitch envanter sorgusu"
   },
   "compatibilityTwitchInventoryDescription": {
-    "message": "Varsayılan Twitch envanter sorgusunu geçersiz kılın."
+    "message": "Varsayılan envanter sorgusunu değiştir."
   },
   "compatibilityKickClaimTitle": {
-    "message": "Hesap bağlantısı işleme"
+    "message": "Hesap bağlama yöntemi"
   },
   "compatibilityKickClaimDescription": {
-    "message": "Varsayılan Kick hesap bağlantısı işlemlerini geçersiz kılın."
+    "message": "Varsayılan Kick bağlama yöntemini değiştir."
   },
   "compatibilityLifecycleRecommended": {
-    "message": "Tavsiye edilen"
+    "message": "Önerilen"
   },
   "compatibilityLifecycleLegacy": {
     "message": "Eski"
@@ -963,22 +963,22 @@
     "message": "Deneysel"
   },
   "compatibilityOverrideWarning": {
-    "message": "Manuel uyumluluk geçersiz kılmaları etkin. Platformlar değiştiğinde çalışmayı bırakabilirler."
+    "message": "Elle değiştirilmiş uyumluluk ayarları aktif. Platform güncellendiğinde sorun çıkabilir."
   },
   "compatibilityRestoreAutomatic": {
-    "message": "Otomatik uyumluluğu sıfırla"
+    "message": "Otomatiğe sıfırla"
   },
   "compatibilityOptionTwitchProfile202607": {
     "message": "Twitch Temmuz 2026"
   },
   "compatibilityOptionTwitchHeartbeatGqlV1": {
-    "message": "GraphQL izleme sinyali v1"
+    "message": "GraphQL sinyali v1"
   },
   "compatibilityOptionTwitchHeartbeatSpadeV1": {
-    "message": "Spade izleme sinyali v1"
+    "message": "Spade sinyali v1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
-    "message": "Trowel izleme sinyali v1"
+    "message": "Trowel sinyali v1"
   },
   "compatibilityOptionTwitchInventoryV1": {
     "message": "Envanter sorgusu v1"
@@ -987,16 +987,16 @@
     "message": "Kick Temmuz 2026"
   },
   "compatibilityOptionKickClaimV1": {
-    "message": "Talep işleme v1"
+    "message": "Ödül yönetimi v1"
   },
   "compatibilityOptionKickClaimV2": {
-    "message": "Talep işleme v2"
+    "message": "Ödül yönetimi v2"
   },
   "automationChecking": {
     "message": "Kontrol ediliyor"
   },
   "automationNeedsSignIn": {
-    "message": "Oturum açılmalı"
+    "message": "Giriş yapılmalı"
   },
   "automationBlocked": {
     "message": "Engellendi"
@@ -1005,30 +1005,30 @@
     "message": "Kullanılamıyor"
   },
   "authCheckingDetail": {
-    "message": "Oturumunuz kontrol ediliyor…"
+    "message": "Oturum kontrol ediliyor…"
   },
   "authSignInMissing": {
-    "message": "Drop toplamaya devam etmek için oturum açın."
+    "message": "Toplama yapabilmek için lütfen giriş yapın."
   },
   "authSignInRejected": {
-    "message": "Oturumunuz artık geçerli değil. Devam etmek için yeniden oturum açın."
+    "message": "Oturum süreniz doldu. Lütfen tekrar giriş yapın."
   },
   "signInToTwitch": {
-    "message": "Twitch'te oturum aç"
+    "message": "Twitch'te Giriş Yap"
   },
   "signInToKick": {
-    "message": "Kick'te oturum aç"
+    "message": "Kick'te Giriş Yap"
   },
   "authBrowserProfileBlocked": {
-    "message": "Kick bu tarayıcı profilini reddetti. Yalnızca oturum açmak sorunu çözmeyebilir."
+    "message": "Kick bu tarayıcı profilini engelledi."
   },
   "authCredentialCheckUnavailable": {
-    "message": "Tarayıcı oturumunuz kontrol edilemedi. Lurkloot otomatik olarak yeniden deneyecek."
+    "message": "Oturum kontrol edilemedi. Otomatik tekrar denenecek."
   },
   "authNetworkTemporarilyUnavailable": {
-    "message": "Ağ geçici olarak kullanılamıyor. Lurkloot otomatik olarak yeniden deneyecek."
+    "message": "Bağlantı hatası. Otomatik tekrar denenecek."
   },
   "authPlatformTemporarilyUnavailable": {
-    "message": "Platform geçici olarak kullanılamıyor. Lurkloot otomatik olarak yeniden deneyecek."
+    "message": "Platforma ulaşılamıyor. Otomatik tekrar denenecek."
   }
 }
