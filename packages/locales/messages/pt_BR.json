@@ -640,7 +640,7 @@
     "message": "Veja exatamente o que ele está fazendo."
   },
   "screenshotActivitySubcopy": {
-    "message": "Um log de atividade transparente mostra cada verificação, troca e resgate, filtrável por nível."
+    "message": "Um log de atividade transparente mostra cada verificação, troca e resgate, com detalhes de diagnóstico quando você quiser."
   },
   "autoClaimReady": {
     "message": "Auto-resgate pronto"

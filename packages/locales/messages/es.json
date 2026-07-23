@@ -640,7 +640,7 @@
     "message": "Mira exactamente qué está haciendo."
   },
   "screenshotActivitySubcopy": {
-    "message": "Un registro de actividad transparente muestra cada comprobación, cambio y reclamo, filtrable por nivel."
+    "message": "Un registro de actividad transparente muestra cada comprobación, cambio y reclamo, con detalle de diagnóstico cuando lo necesites."
   },
   "autoClaimReady": {
     "message": "Auto-reclamo listo"

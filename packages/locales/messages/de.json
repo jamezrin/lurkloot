@@ -640,7 +640,7 @@
     "message": "Sieh genau, was es tut."
   },
   "screenshotActivitySubcopy": {
-    "message": "Ein transparentes Aktivitätsprotokoll zeigt jede Prüfung, jeden Wechsel und jede Beanspruchung, filterbar nach Stufe."
+    "message": "Ein transparentes Aktivitätsprotokoll zeigt jede Prüfung, jeden Wechsel und jede Beanspruchung – mit Diagnosedetails auf Wunsch."
   },
   "autoClaimReady": {
     "message": "Auto-Beanspruchen bereit"

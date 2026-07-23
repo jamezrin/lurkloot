@@ -640,7 +640,7 @@
     "message": "See exactly what it's doing."
   },
   "screenshotActivitySubcopy": {
-    "message": "A transparent activity log shows every check, switch, and claim — filterable by level so nothing happens behind your back."
+    "message": "A transparent activity log shows every check, switch, and claim — with diagnostic detail on demand so nothing happens behind your back."
   },
   "autoClaimReady": {
     "message": "Auto-claim ready"
