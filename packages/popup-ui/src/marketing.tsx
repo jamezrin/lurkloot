@@ -36,10 +36,8 @@ export function StoreScreenshot({
           <p className="mt-6 max-w-[520px] text-[22px] leading-snug text-zinc-300">
             {translate(variant.subcopyKey)}
           </p>
-          <div className="mt-9 flex gap-3">
-            <span className="rounded-lg bg-white px-4 py-2 text-[15px] font-bold text-zinc-950">Twitch</span>
-            <span className="rounded-lg bg-[#53fc18] px-4 py-2 text-[15px] font-bold text-[#07140a]">Kick</span>
-            <span className="rounded-lg border border-white/18 bg-white/8 px-4 py-2 text-[15px] font-semibold text-zinc-200">{translate("autoClaimReady")}</span>
+          <div className="mt-9">
+            <PromoPills translate={translate} />
           </div>
         </div>
       </section>
@@ -52,14 +50,37 @@ export function StoreScreenshot({
   );
 }
 
+// Platform names only — no Twitch/Kick logos, which are trademarked. The brand
+// colour lives in a small status dot so the pills read as one neutral glass
+// control instead of two solid brand-coloured buttons.
+const PLATFORMS = [
+  { name: "Twitch", color: "#a970ff" },
+  { name: "Kick", color: "#53fc18" },
+];
+
 function PromoPills({ translate, scale = 1 }: { translate: (key: string) => string; scale?: number }): React.ReactElement {
-  const pad = `${0.5 * scale}rem ${1 * scale}rem`;
-  const fontSize = `${0.94 * scale}rem`;
+  const px = (value: number) => `${value * scale}px`;
+  const pad = `${px(9)} ${px(15)}`;
   return (
-    <div className="flex flex-wrap gap-2.5" style={{ fontSize }}>
-      <span className="rounded-lg bg-white font-bold text-zinc-950" style={{ padding: pad }}>Twitch</span>
-      <span className="rounded-lg bg-[#53fc18] font-bold text-[#07140a]" style={{ padding: pad }}>Kick</span>
-      <span className="rounded-lg border border-white/18 bg-white/8 font-semibold text-zinc-200" style={{ padding: pad }}>
+    <div className="flex flex-wrap items-center" style={{ fontSize: px(15), gap: px(10) }}>
+      <span
+        className="inline-flex items-center rounded-full border border-white/15 bg-white/10 font-semibold text-white"
+        style={{ padding: pad, gap: px(10) }}
+      >
+        {PLATFORMS.map((platform, index) => (
+          <React.Fragment key={platform.name}>
+            {index > 0 && <span className="font-normal text-white/25">/</span>}
+            <span className="inline-flex items-center" style={{ gap: px(7) }}>
+              <span
+                className="rounded-full"
+                style={{ width: px(7), height: px(7), background: platform.color, boxShadow: `0 0 ${px(9)} ${platform.color}` }}
+              />
+              {platform.name}
+            </span>
+          </React.Fragment>
+        ))}
+      </span>
+      <span className="rounded-full border border-white/12 bg-white/5 font-medium text-zinc-300" style={{ padding: pad }}>
         {translate("autoClaimReady")}
       </span>
     </div>

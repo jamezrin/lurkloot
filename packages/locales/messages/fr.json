@@ -640,7 +640,7 @@
     "message": "Voyez exactement ce qu’il fait."
   },
   "screenshotActivitySubcopy": {
-    "message": "Un journal d’activité transparent affiche chaque vérification, changement et réclamation, filtrable par niveau."
+    "message": "Un journal d’activité transparent affiche chaque vérification, changement et réclamation, avec le détail de diagnostic à la demande."
   },
   "autoClaimReady": {
     "message": "Réclamation auto prête"

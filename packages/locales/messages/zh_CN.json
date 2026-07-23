@@ -640,7 +640,7 @@
     "message": "清楚查看它正在做什么。"
   },
   "screenshotActivitySubcopy": {
-    "message": "透明的活动日志显示每次检查、切换和领取，并可按级别过滤。"
+    "message": "透明的活动日志显示每次检查、切换和领取，还可按需查看诊断详情。"
   },
   "autoClaimReady": {
     "message": "自动领取就绪"

@@ -640,7 +640,7 @@
     "message": "Vedi esattamente cosa sta facendo."
   },
   "screenshotActivitySubcopy": {
-    "message": "Un log attività trasparente mostra ogni controllo, cambio e riscatto, filtrabile per livello."
+    "message": "Un log attività trasparente mostra ogni controllo, cambio e riscatto, con i dettagli diagnostici a richiesta."
   },
   "autoClaimReady": {
     "message": "Auto-riscatto pronto"

@@ -640,7 +640,7 @@
     "message": "ठीक-ठीक देखें यह क्या कर रहा है।"
   },
   "screenshotActivitySubcopy": {
-    "message": "पारदर्शी गतिविधि लॉग हर check, switch और claim दिखाता है, level से filter किया जा सकता है।"
+    "message": "पारदर्शी गतिविधि लॉग हर check, switch और claim दिखाता है, और ज़रूरत पड़ने पर diagnostic विवरण भी।"
   },
   "autoClaimReady": {
     "message": "ऑटो-क्लेम तैयार"
