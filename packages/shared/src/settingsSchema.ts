@@ -6,7 +6,7 @@
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 1;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 2;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -66,6 +66,7 @@ interface SettingsMigration {
 // released migration except to fix data loss; add a new version instead.
 const MIGRATIONS: SettingsMigration[] = [
   { to: 1, migrate: migrateToV1 },
+  { to: 2, migrate: migrateToV2 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -107,6 +108,16 @@ function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     renameProperty(block, "watchQueueChannels", "idleWatchlistChannels", `platform.${platform}.`, diagnose);
   }
 
+  return raw;
+}
+
+// Migration 2 renames campaignVisibility to campaignFilters. The setting stopped
+// being display-only: FarmingFilterKey entries now gate eligibility, so the name
+// had to stop saying "visibility". Values carry over untouched — no user's
+// farming changes, because the only keys defaulting to false (expired, excluded)
+// are not farming keys.
+function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  renameProperty(raw, "campaignVisibility", "campaignFilters", "", diagnose);
   return raw;
 }
 

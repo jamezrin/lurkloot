@@ -226,3 +226,40 @@ describe("migration 1: legacy aliases", () => {
     expect(migrateSettings({ platform: { twitch: null } }).settings).toEqual({ platform: { twitch: null } });
   });
 });
+
+describe("schema v2", () => {
+  it("renames campaignVisibility to campaignFilters and reports it", () => {
+    const result = migrateSettings({
+      schemaVersion: 1,
+      campaignVisibility: { expired: true, notLinked: false },
+    });
+
+    expect(result.settings.campaignFilters).toEqual({ expired: true, notLinked: false });
+    expect(result.settings.campaignVisibility).toBeUndefined();
+    expect(result.toVersion).toBe(2);
+    expect(result.changed).toBe(true);
+    expect(result.diagnostics).toContainEqual({
+      code: "deprecated_property",
+      path: "campaignVisibility",
+      replacement: "campaignFilters",
+      message: "campaignVisibility is deprecated; use campaignFilters",
+    });
+  });
+
+  it("leaves a document that never had the key alone", () => {
+    const result = migrateSettings({ schemaVersion: 1, autoClaim: false });
+
+    expect(result.settings.campaignFilters).toBeUndefined();
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("lets an already-current key win over the legacy one", () => {
+    const result = migrateSettings({
+      schemaVersion: 1,
+      campaignVisibility: { expired: true },
+      campaignFilters: { expired: false },
+    });
+
+    expect(result.settings.campaignFilters).toEqual({ expired: false });
+  });
+});
