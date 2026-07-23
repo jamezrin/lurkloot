@@ -88,9 +88,11 @@ type CampaignFilterKey = FarmingFilterKey | DisplayFilterKey;
 `isEligible` consults only `FarmingFilterKey`. The display keys are structurally incapable
 of affecting farming, rather than incidentally so.
 
-Migration is schema version 1 → 2, emitting a `moved_property` diagnostic for
-`campaignVisibility` → `campaignFilters`, carrying values across unchanged and defaulting
-sanely when the old key is absent.
+Migration is schema version 1 → 2, using the existing `renameProperty` helper, which emits
+a `deprecated_property` diagnostic for `campaignVisibility` → `campaignFilters`, carries
+the value across unchanged, and lets a present current key win. (`moved_property` is for
+relocations into a nested block, like `autoClaimChannelPoints` → `platform.twitch`; this is
+a same-level rename.)
 
 `notLinked` and `subscription` become load-bearing for the CLI, where they have never
 existed. A CLI user who sets `campaignFilters: { notLinked: false }` will farm less, and
@@ -167,7 +169,7 @@ English runtime fallback.
   unlinked and mixed subscription/watch cases become explicit regression tests, as they
   are the two behaviours actually changing.
 - **settingsMigrations** — v1 → v2 carries values across the rename, emits the
-  `moved_property` diagnostic, defaults sanely when the old key is absent.
+  `deprecated_property` diagnostic, defaults sanely when the old key is absent.
 - **cli** — `campaignFilters` is accepted rather than rejected as extension-only; `status`
   names the filter when it suppresses campaigns.
 - **popup** — both groups render, toggles still save, `settingsSearch` finds the renamed
