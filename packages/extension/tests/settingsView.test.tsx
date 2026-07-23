@@ -184,6 +184,25 @@ describe("deadline feasibility setting", () => {
     expect(text.indexOf("notLinked")).toBeLessThan(text.indexOf("Shown in the Drops list"));
   });
 
+  it("exposes each campaign filter group with an accessible name", () => {
+    const { container } = mountSettings();
+    // Queried by role and accessible name rather than by text, so a refactor
+    // that drops the labelling leaves screen-reader users with two anonymous
+    // runs of buttons and this test fails instead of passing silently.
+    const groups = [...container.querySelectorAll('[role="group"]')].map((group) => {
+      const labelId = group.getAttribute("aria-labelledby")!;
+      return {
+        name: container.querySelector(`#${labelId}`)?.textContent,
+        pills: [...group.querySelectorAll("button[aria-pressed]")].map((pill) => pill.textContent?.trim()),
+      };
+    });
+
+    expect(groups).toEqual([
+      { name: "Farmed campaigns", pills: ["notLinked", "subscriptionCampaigns"] },
+      { name: "Shown in the Drops list", pills: ["upcoming", "expired", "excluded", "finished"] },
+    ]);
+  });
+
   it("reconciles all platforms after changing Idle Watchlist fallback policy", () => {
     const { container, onSettingsChange } = mountSettings();
     const toggle = container.querySelector('[role="switch"][aria-label="Only when no drops are active"]') as HTMLButtonElement;

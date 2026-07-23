@@ -159,8 +159,15 @@ export function CampaignFilterSettingRow({ value, onChange }: { value: Record<Ca
   // Readonly so the narrower FarmingFilterKey/DisplayFilterKey lists are
   // soundly assignable to the wider CampaignFilterKey element type.
   const group = (filters: ReadonlyArray<{ key: CampaignFilterKey; label: string }>, labelKey: string) => (
-    <div className="mt-2">
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t(labelKey)}</div>
+    // role="group" + aria-labelledby, so a screen-reader user hears "Farmed
+    // campaigns" / "Shown in the Drops list" around the pills instead of two
+    // undifferentiated runs of buttons. The whole point of the split is that the
+    // halves have different power, which a sighted-only heading would not convey.
+    // aria-labelledby rather than aria-label keeps the visible and accessible
+    // names from drifting apart; the message key is unique per group, so it is a
+    // safe element id.
+    <div className="mt-2" role="group" aria-labelledby={`${labelKey}-label`}>
+      <div id={`${labelKey}-label`} className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t(labelKey)}</div>
       <div className="mt-1 flex flex-wrap items-center gap-1">
         {filters.map(({ key, label }) => {
           const active = value[key];
