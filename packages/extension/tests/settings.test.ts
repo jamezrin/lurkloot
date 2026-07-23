@@ -12,7 +12,6 @@ describe("engine settings", () => {
     "autoCloseFinishedDrops",
     "adFocusMode",
     "languageOverride",
-    "campaignVisibility",
     "rateNudgeStatus",
     "diagnosticLogging",
   ] as const;
@@ -118,9 +117,9 @@ describe("settings", () => {
   });
 
   it("defaults subscription campaigns to visible while preserving persisted choices", () => {
-    expect(DEFAULT_SETTINGS.campaignVisibility.subscription).toBe(true);
-    expect(mergeSettings({ campaignVisibility: { subscription: false } } as never).campaignVisibility.subscription).toBe(false);
-    expect(mergeSettings({ campaignVisibility: { expired: true } } as never).campaignVisibility.subscription).toBe(true);
+    expect(DEFAULT_SETTINGS.campaignFilters.subscription).toBe(true);
+    expect(mergeSettings({ campaignFilters: { subscription: false } } as never).campaignFilters.subscription).toBe(false);
+    expect(mergeSettings({ campaignFilters: { expired: true } } as never).campaignFilters.subscription).toBe(true);
   });
 
   it("clamps persisted numeric settings to browser-safe ranges", () => {
@@ -296,5 +295,24 @@ describe("campaign filter keys", () => {
   it("separates the keys that gate farming from the display-only ones", () => {
     expect(FARMING_FILTER_KEYS).toEqual(["notLinked", "subscription"]);
     expect(DISPLAY_FILTER_KEYS).toEqual(["upcoming", "expired", "excluded", "finished"]);
+  });
+});
+
+describe("campaignFilters in the engine contract", () => {
+  it("defaults every filter key on except expired and excluded", () => {
+    expect(DEFAULT_ENGINE_SETTINGS.campaignFilters).toEqual({
+      notLinked: true,
+      subscription: true,
+      upcoming: true,
+      expired: false,
+      excluded: false,
+      finished: true,
+    });
+  });
+
+  it("normalizes a partial filter record through the engine merge", () => {
+    const merged = mergeEngineSettings({ campaignFilters: { notLinked: false } } as never);
+    expect(merged.campaignFilters.notLinked).toBe(false);
+    expect(merged.campaignFilters.subscription).toBe(true);
   });
 });

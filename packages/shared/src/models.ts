@@ -300,6 +300,9 @@ export interface EngineSettings {
   compatibility: CompatibilitySettings;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
+  // Which campaign states are farmed and which are shown. FarmingFilterKey
+  // entries gate eligibility; DisplayFilterKey entries only affect the UI.
+  campaignFilters: Record<CampaignFilterKey, boolean>;
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
   // Bounded post-claim handoff. After a reward is claimed, re-run discovery for
@@ -316,16 +319,14 @@ export interface EngineSettings {
 // The browser extension's full settings schema: the engine contract plus the
 // host-only knobs the engine never reads. Tab policy (mute / ad focus / auto-close
 // / keep-unmuted) is supplied to the engine through the injected WatchTabPort and
-// applyAdFocus, not read from settings by the engine; popup UI state (i18n, Drops
-// filter, rate nudge) is pure host state.
+// applyAdFocus, not read from settings by the engine; popup UI state (i18n, rate
+// nudge) is pure host state.
 export interface ExtensionSettings extends EngineSettings {
   muteFarmingTabs: boolean;
   keepFarmingVideosUnmuted: boolean;
   autoCloseFinishedDrops: boolean;
   adFocusMode: AdFocusMode;
   languageOverride: LanguageOverride;
-  // Which campaign states are shown in the Drops list. See CampaignFilterKey.
-  campaignVisibility: Record<CampaignFilterKey, boolean>;
   rateNudgeStatus: RateNudgeStatus;
   showTips: boolean;
   // Extension-only persistence policy. Normal farming activity is always

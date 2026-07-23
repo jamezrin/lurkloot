@@ -1,13 +1,14 @@
 import type { AdFocusMode, CampaignFilterKey, CategorySelection, CompatibilitySettings, EngineSettings, ExtensionSettings, KickPlatformSettings, LanguageOverride, Platform, PriorityMode, RateNudgeStatus, SupportedLocale, TwitchPlatformSettings } from "./models";
 
+import { CAMPAIGN_FILTER_KEYS } from "./campaignFilters";
+
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
-const CAMPAIGN_FILTER_KEYS: CampaignFilterKey[] = ["notLinked", "subscription", "upcoming", "expired", "excluded", "finished"];
 const RATE_NUDGE_STATUSES: RateNudgeStatus[] = ["pending", "rated", "dismissed"];
 export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 
-export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "campaignVisibility">> & {
+export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "campaignFilters">> & {
   platform?: {
     twitch?: Partial<TwitchPlatformSettings>;
     kick?: Partial<KickPlatformSettings>;
@@ -16,7 +17,7 @@ export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compat
     twitch?: Partial<CompatibilitySettings["twitch"]>;
     kick?: Partial<CompatibilitySettings["kick"]>;
   };
-  campaignVisibility?: Partial<ExtensionSettings["campaignVisibility"]>;
+  campaignFilters?: Partial<ExtensionSettings["campaignFilters"]>;
 };
 
 // The engine-contract defaults: the universal subset every host shares.
@@ -61,6 +62,17 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   },
   campaignPriorities: {},
   excludedCampaignIds: [],
+  // Preserve the previously hard-coded view: farm and show not-linked,
+  // subscription, upcoming and finished campaigns; hide expired and excluded
+  // ones unless opted back in.
+  campaignFilters: {
+    notLinked: true,
+    subscription: true,
+    upcoming: true,
+    expired: false,
+    excluded: false,
+    finished: true,
+  },
   offlineRetryLimit: 3,
   pollIntervalMinutes: 1,
   postClaimHandoff: true,
@@ -80,16 +92,6 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   autoCloseFinishedDrops: true,
   adFocusMode: "window",
   languageOverride: "browser",
-  // Preserve the previously hard-coded view: show not-linked, upcoming and
-  // finished campaigns; hide expired and excluded ones unless opted back in.
-  campaignVisibility: {
-    notLinked: true,
-    subscription: true,
-    upcoming: true,
-    expired: false,
-    excluded: false,
-    finished: true,
-  },
   rateNudgeStatus: "pending",
   showTips: true,
   diagnosticLogging: false,
@@ -146,6 +148,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     },
     campaignPriorities: normalizePriorities(value?.campaignPriorities),
     excludedCampaignIds: normalizeIdList(value?.excludedCampaignIds),
+    campaignFilters: normalizeCampaignFilters(value?.campaignFilters),
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_ENGINE_SETTINGS.offlineRetryLimit),
     // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_ENGINE_SETTINGS.pollIntervalMinutes),
@@ -174,7 +177,6 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
       ? (value!.adFocusMode as AdFocusMode)
       : DEFAULT_SETTINGS.adFocusMode,
     languageOverride: normalizeLanguageOverride(value?.languageOverride),
-    campaignVisibility: normalizeCampaignVisibility(value?.campaignVisibility),
     rateNudgeStatus: RATE_NUDGE_STATUSES.includes(value?.rateNudgeStatus as RateNudgeStatus)
       ? (value!.rateNudgeStatus as RateNudgeStatus)
       : DEFAULT_SETTINGS.rateNudgeStatus,
@@ -212,9 +214,9 @@ export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPa
         ...patch.compatibility?.kick,
       },
     },
-    campaignVisibility: {
-      ...current.campaignVisibility,
-      ...patch.campaignVisibility,
+    campaignFilters: {
+      ...current.campaignFilters,
+      ...patch.campaignFilters,
     },
   });
 }
@@ -268,9 +270,9 @@ export function normalizeIdList(value: string[] | undefined): string[] {
     .filter(Boolean))];
 }
 
-function normalizeCampaignVisibility(value: Partial<Record<CampaignFilterKey, boolean>> | undefined): Record<CampaignFilterKey, boolean> {
+function normalizeCampaignFilters(value: Partial<Record<CampaignFilterKey, boolean>> | undefined): Record<CampaignFilterKey, boolean> {
   return Object.fromEntries(
-    CAMPAIGN_FILTER_KEYS.map((key) => [key, booleanOr(value?.[key], DEFAULT_SETTINGS.campaignVisibility[key])]),
+    CAMPAIGN_FILTER_KEYS.map((key) => [key, booleanOr(value?.[key], DEFAULT_ENGINE_SETTINGS.campaignFilters[key])]),
   ) as Record<CampaignFilterKey, boolean>;
 }
 
