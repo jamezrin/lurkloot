@@ -546,7 +546,7 @@
     "message": "Günlük görevleri otomatik al"
   },
   "autoClaimChallengesDescription": {
-    "message": "Kick günlük görev ödüllerini otomatik toplar.(Collectibles)"
+    "message": "Kick günlük görev ödüllerini otomatik toplar."
   },
   "settingsGroupExcludedChannels": {
     "message": "Gizlenen Kanallar"
@@ -798,7 +798,7 @@
     "message": "$2 görevinden $1 alındı."
   },
   "activityAuthHealthChanged": {
-    "message": "$1 oturum durumu değişti: $2 +> $3."
+    "message": "$1 oturum durumu değişti: $2 → $3."
   },
   "activityPageContextOpened": {
     "message": "$1 üzerinde arka plan işlemi başlatıldı. Neden: $2."
