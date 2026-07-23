@@ -2063,6 +2063,60 @@ describe("scheduler tick", () => {
     expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("checking Idle Watchlist fallback"))).toBe(true);
   });
 
+  it("keeps previously discovered campaigns when discovery fails and the Idle Watchlist takes over", async () => {
+    const known = campaign("known-drops");
+    const twitch = adapter("twitch", [], []);
+    vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: channel("fallback"),
+    });
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [known], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: ["fallback"] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.campaigns.twitch).toEqual([known]);
+    expect(result.state.sessions.twitch).toMatchObject({
+      status: "watching",
+      channel: expect.objectContaining({ username: "fallback" }),
+      campaignId: undefined,
+    });
+    expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("checking Idle Watchlist fallback"))).toBe(true);
+  });
+
+  it("keeps previously discovered campaigns when discovery fails without idle watchlist channels", async () => {
+    const known = campaign("known-drops");
+    const twitch = adapter("twitch", [], []);
+    vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [known], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.campaigns.twitch).toEqual([known]);
+    expect(result.state.sessions.twitch.status).toBe("error");
+  });
+
   it("backs off failed platforms until their retry time", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("allowed")]);
     const retryAfter = new Date(Date.now() + 10 * 60 * 1000).toISOString();

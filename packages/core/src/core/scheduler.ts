@@ -557,22 +557,31 @@ export async function runSchedulerTick(
       }
 
       let campaigns: DropCampaign[];
+      let discoveryFailed = false;
       try {
         const discovered = await adapter.discoverCampaigns();
         campaigns = await adapter.readProgress(discovered, previous);
       } catch (error) {
         if (authHealthFromError(error)) throw error;
         if (!hasIdleWatchlistChannels(settings, platform)) throw error;
+        // Nothing is farmable this tick, so the decision logic below runs
+        // against an empty list and the Idle Watchlist channel wins. State
+        // keeps the campaigns from the last good discovery — same retention the
+        // rethrow path gets for free — so a transient outage does not blank the
+        // popup until the next successful tick.
         campaigns = [];
+        discoveryFailed = true;
         const message = error instanceof Error ? error.message : "Drop discovery failed";
         emitDiagnostic(emit, platform, "warn", `${message}; checking Idle Watchlist fallback`);
         emitDiagnostic(emit, platform, "debug", `Drop discovery error (Idle Watchlist fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
       }
-      nextState.campaigns[platform] = campaigns;
-      if (campaignDiagnosticFingerprint(campaigns) !== campaignDiagnosticFingerprint(state.campaigns[platform])) {
-        emitDiagnostic(emit, platform, "debug", `Campaign inventory changed (${campaigns.length} discovered)`);
-        const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
-        emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
+      if (!discoveryFailed) {
+        nextState.campaigns[platform] = campaigns;
+        if (campaignDiagnosticFingerprint(campaigns) !== campaignDiagnosticFingerprint(state.campaigns[platform])) {
+          emitDiagnostic(emit, platform, "debug", `Campaign inventory changed (${campaigns.length} discovered)`);
+          const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
+          emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
+        }
       }
 
       const previousInfeasibleRewardIds = new Set(state.deadlineInfeasibleRewardIds?.[platform]);
@@ -619,7 +628,9 @@ export async function runSchedulerTick(
           options.waitingClaimRewardIds?.[platform] ?? new Set<string>(),
         );
         campaigns = claimResult.campaigns;
-        nextState.campaigns[platform] = campaigns;
+        if (!discoveryFailed) {
+          nextState.campaigns[platform] = campaigns;
+        }
         for (const event of claimResult.events) {
           if (event.claimed) {
             emit({
