@@ -118,6 +118,10 @@ interface KickProgressReward {
   claim_id?: string;
 }
 
+// Ended (expired/completed) campaigns are kept, as on Twitch: the popup's
+// "Visible campaigns" toggles own that decision, and dropping them here made
+// the `finished` and `expired` filters dead on Kick. Farming is unaffected —
+// the scheduler's eligibility check only ever picks active, unended campaigns.
 export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[]): DropCampaign[] {
   const campaigns = collectKickCampaigns(input);
 
@@ -158,7 +162,7 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
       isGeneralDrop: !allowedChannels?.length,
       rewards: rewards.map(parseKickReward),
     };
-  }).filter((campaign) => campaign.status !== "expired" && campaign.status !== "completed");
+  });
 }
 
 // Kick's drops API returns reward images as relative paths

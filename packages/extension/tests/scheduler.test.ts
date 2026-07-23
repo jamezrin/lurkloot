@@ -364,6 +364,28 @@ describe("scheduler campaign selection", () => {
     expect(kick.action).toBe("watch");
   });
 
+  // The Kick parser keeps ended campaigns so the popup visibility filters can
+  // show them; farming must still ignore them.
+  it("never selects an expired or completed Kick campaign for farming", async () => {
+    const listCandidateChannels = vi.fn(async () => [channel("creator", { platform: "kick", url: "https://kick.com/creator" })]);
+
+    const decision = await chooseCampaignDecision(
+      "kick",
+      [
+        campaign("expired", { platform: "kick", status: "expired", endsAt: "2000-01-01T00:00:00.000Z" }),
+        campaign("completed", { platform: "kick", status: "completed", rewards: [reward("claimed")] }),
+      ],
+      settings(),
+      {
+        listCandidateChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("idle");
+    expect(listCandidateChannels).not.toHaveBeenCalled();
+  });
+
   it("keeps upcoming campaigns visible but does not select them for farming", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 

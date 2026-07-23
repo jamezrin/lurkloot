@@ -273,6 +273,42 @@ describe("subscription drop popup views", () => {
     }, settings, excludedIds)).toBe(true);
   });
 
+  // Kick used to drop ended campaigns at parse time, which made these two
+  // toggles dead on that platform; they must behave exactly as on Twitch.
+  it("applies the finished filter to a completed Kick campaign", () => {
+    const source: DropCampaign = {
+      ...campaign("kick-completed", [reward({ status: "claimed" })]),
+      platform: "kick",
+      status: "completed",
+    };
+    const excludedIds = new Set<string>();
+    const settings = mergeSettings(undefined);
+
+    expect(campaignFilterCategories(source, excludedIds)).toEqual(["finished"]);
+    expect(settings.campaignVisibility.finished).toBe(true);
+    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
+
+    settings.campaignVisibility.finished = false;
+    expect(isCampaignVisible(source, settings, excludedIds)).toBe(false);
+  });
+
+  it("applies the expired filter to an expired Kick campaign", () => {
+    const source: DropCampaign = {
+      ...campaign("kick-expired", [reward({ requiredMinutes: 30 })]),
+      platform: "kick",
+      status: "expired",
+    };
+    const excludedIds = new Set<string>();
+    const settings = mergeSettings(undefined);
+
+    expect(campaignFilterCategories(source, excludedIds)).toEqual(["expired"]);
+    expect(settings.campaignVisibility.expired).toBe(false);
+    expect(isCampaignVisible(source, settings, excludedIds)).toBe(false);
+
+    settings.campaignVisibility.expired = true;
+    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
+  });
+
   it("exposes the subscription campaign filter", () => {
     expect(CAMPAIGN_FILTERS).toContainEqual({ key: "subscription", label: "subscriptionCampaigns" });
   });
