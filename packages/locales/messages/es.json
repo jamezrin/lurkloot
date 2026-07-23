@@ -643,7 +643,7 @@
     "message": "Un registro de actividad transparente muestra cada comprobación, cambio y reclamo, con detalle de diagnóstico cuando lo necesites."
   },
   "autoClaimReady": {
-    "message": "Auto-reclamo listo"
+    "message": "Reclama automáticamente"
   },
   "attributionLinks": {
     "message": "Enlaces de atribución"
