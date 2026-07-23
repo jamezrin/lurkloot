@@ -173,13 +173,13 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             id: "general.drops.idleWatchlistFallbackOnly",
             titleKey: "idleWatchlistFallbackOnlyTitle",
             descriptionKey: "idleWatchlistFallbackOnlyDescription",
-            render: () => <SettingRow title={t("idleWatchlistFallbackOnlyTitle")} description={t("idleWatchlistFallbackOnlyDescription")} checked={settings.idleWatchlistFallbackOnly} onChange={setFlag("idleWatchlistFallbackOnly")} />,
+            render: () => <SettingRow title={t("idleWatchlistFallbackOnlyTitle")} description={t("idleWatchlistFallbackOnlyDescription")} checked={settings.idleWatchlistFallbackOnly} onChange={(value) => void onSettingsChange({ idleWatchlistFallbackOnly: value }, { tickAfterSave: true })} />,
           },
           {
             id: "general.drops.campaignVisibility",
             titleKey: "visibleCampaignsTitle",
             descriptionKey: "visibleCampaignsDescription",
-            render: () => <CampaignFilterSettingRow value={settings.campaignVisibility} onChange={(campaignVisibility) => void onSettingsChange({ campaignVisibility })} />,
+            render: () => <CampaignFilterSettingRow value={settings.campaignVisibility} onChange={(campaignVisibility) => void onSettingsChange({ campaignVisibility }, { tickAfterSave: true })} />,
           },
           {
             id: "general.drops.forgetExcluded",

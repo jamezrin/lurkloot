@@ -1,5 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Platform, PlatformAuthReasonCode, PlatformAuthStatus } from "@lurkloot/shared/models";
+import type { CredentialAvailability } from "@lurkloot/core/controller";
 
 export interface TwitchCredentials {
   authToken?: string;
@@ -70,12 +72,29 @@ function pruneUndefined<T extends Record<string, unknown>>(value: T): T {
 }
 
 function readStore(path: string): PlatformCredentials {
+  return readStoreDetailed(path).store;
+}
+
+// Reads the store while distinguishing "there is no store yet" (a normal state —
+// env overrides may still supply credentials) from "the store exists but could
+// not be read/parsed" (a transient lookup failure worth surfacing as such). The
+// callers that only care about the resulting credentials use readStore above.
+function readStoreDetailed(path: string): { store: PlatformCredentials; lookupFailed: boolean } {
+  let raw: string;
   try {
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as PlatformCredentials;
-    return parsed && typeof parsed === "object" ? parsed : {};
+    raw = readFileSync(path, "utf8");
+  } catch (error) {
+    // A missing file is expected; anything else (permissions, I/O) is a failure.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { store: {}, lookupFailed: false };
+    return { store: {}, lookupFailed: true };
+  }
+  try {
+    const parsed = JSON.parse(raw) as PlatformCredentials;
+    return { store: parsed && typeof parsed === "object" ? parsed : {}, lookupFailed: false };
   } catch {
-    // No store yet (or unreadable) — env overrides may still supply credentials.
-    return {};
+    // The file is present but corrupt — the login flow can rewrite it, but for
+    // now the credential lookup has failed rather than come back empty.
+    return { store: {}, lookupFailed: true };
   }
 }
 
@@ -85,4 +104,63 @@ export function hasTwitchAuth(creds: PlatformCredentials): boolean {
 
 export function hasKickAuth(creds: PlatformCredentials): boolean {
   return Boolean(creds.kick?.sessionToken);
+}
+
+// Where the effective credential for a platform came from. Kept internal to the
+// CLI so status/logging can explain reachability without ever printing the value
+// itself: "environment" means an SA_* override won, "stored" means the on-disk
+// credentials.json supplied it, "none" means neither did.
+export type CredentialSource = "environment" | "stored" | "none";
+
+// A CLI-local, network-free reading of a platform's credential state, expressed
+// in the shared safe auth-health vocabulary. It never inspects browser cookies
+// and never carries a credential value — only whether one is present, where it
+// came from, and the resulting safe status/reason code.
+export interface LocalCredentialHealth {
+  present: boolean;
+  source: CredentialSource;
+  status: Extract<PlatformAuthStatus, "checking" | "missing_credentials" | "unavailable">;
+  reasonCode?: Extract<PlatformAuthReasonCode, "credentials_missing" | "credential_lookup_failed">;
+}
+
+const PRIMARY_ENV_KEY: Record<Platform, string> = {
+  twitch: "SA_TWITCH_AUTH_TOKEN",
+  kick: "SA_KICK_SESSION_TOKEN",
+};
+
+function primaryStoredValue(platform: Platform, store: PlatformCredentials): string | undefined {
+  return platform === "twitch" ? store.twitch?.authToken : store.kick?.sessionToken;
+}
+
+// Mirrors loadCredentials' nullish env-over-store merge so the reported source
+// matches the credential a transport would actually use.
+function credentialPresence(platform: Platform, store: PlatformCredentials, env: NodeJS.ProcessEnv): { present: boolean; source: CredentialSource } {
+  const envValue = env[PRIMARY_ENV_KEY[platform]];
+  const effective = envValue ?? primaryStoredValue(platform, store);
+  if (!effective) return { present: false, source: "none" };
+  return { present: true, source: envValue != null ? "environment" : "stored" };
+}
+
+// Describes each platform's credential state without touching the network or a
+// browser session: absent credentials map to missing_credentials, an unreadable
+// store maps to the transient credential_lookup_failed, and a present credential
+// stays "checking" until a live probe (adapter.checkAuthHealth) confirms it.
+export function describeCredentialHealth(authDir: string, env: NodeJS.ProcessEnv = process.env): Record<Platform, LocalCredentialHealth> {
+  const { store, lookupFailed } = readStoreDetailed(join(authDir, CREDENTIALS_FILE));
+  const describe = (platform: Platform): LocalCredentialHealth => {
+    const { present, source } = credentialPresence(platform, store, env);
+    if (present) return { present: true, source, status: "checking" };
+    if (lookupFailed) return { present: false, source, status: "unavailable", reasonCode: "credential_lookup_failed" };
+    return { present: false, source, status: "missing_credentials", reasonCode: "credentials_missing" };
+  };
+  return { twitch: describe("twitch"), kick: describe("kick") };
+}
+
+// Bridges the CLI-local credential reading to the engine's pre-probe gate: an
+// unreadable store is transiently unavailable, an absent credential is missing,
+// and a present credential is available (the live probe still validates it).
+export function credentialAvailabilityOf(health: LocalCredentialHealth): CredentialAvailability {
+  if (health.status === "unavailable") return { status: "unavailable" };
+  if (!health.present) return { status: "missing" };
+  return { status: "available" };
 }

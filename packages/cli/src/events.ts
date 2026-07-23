@@ -1,10 +1,11 @@
-import type { EngineEvent, FarmingStopReason } from "@lurkloot/shared/events";
+import type { EngineEvent, FarmingStopReason, PageContextCloseReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { Logger } from "./logger";
 
 function formatStopReason(reason: FarmingStopReason): string {
   switch (reason) {
     case "automation_disabled": return "automation disabled";
     case "platform_disabled": return "platform disabled";
+    case "authentication_unhealthy": return "authentication unhealthy";
     case "platform_backoff": return "platform backoff";
     case "platform_error": return "platform error";
     case "campaign_ineligible": return "campaign ineligible";
@@ -18,6 +19,34 @@ function formatStopReason(reason: FarmingStopReason): string {
     case "runtime_restart": return "runtime restart";
     case "target_changed": return "target changed";
     case "manual_watch": return "manual watch";
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
+
+function formatPageContextOpenReason(reason: PageContextOpenReason): string {
+  switch (reason) {
+    case "background_rejected": return "background request rejected";
+    case "managed_context_unusable": return "previous background context unusable";
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
+
+function formatPageContextCloseReason(reason: PageContextCloseReason): string {
+  switch (reason) {
+    case "background_recovered": return "background requests recovered";
+    case "user_tab_available": return "user Kick tab available";
+    case "platform_disabled": return "platform disabled";
+    case "automation_disabled": return "automation disabled";
+    case "manual_watch": return "manual watch detected";
+    case "authentication_unhealthy": return "authentication unavailable";
+    case "runtime_restart": return "extension runtime restarted";
+    case "managed_context_unusable": return "background context unusable";
     default: {
       const exhaustive: never = reason;
       return exhaustive;
@@ -41,6 +70,14 @@ export function formatCliEvent(event: EngineEvent): string {
     }
     case "challenge_claimed":
       return `Claimed a ${event.data.rarity} ${event.data.recurrence} challenge`;
+    case "page_context_opened":
+      return `Opened background context on ${event.data.host}: ${formatPageContextOpenReason(event.data.reason)}`;
+    case "page_context_closed":
+      return `Closed background context on ${event.data.host}: ${formatPageContextCloseReason(event.data.reason)}`;
+    case "auth_health_changed": {
+      const reason = event.data.reason ? ` (${event.data.reason})` : "";
+      return `${event.platform} authentication changed from ${event.data.from} to ${event.data.to}${reason}`;
+    }
     default: {
       const exhaustive: never = event;
       return exhaustive;

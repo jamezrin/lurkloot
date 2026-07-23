@@ -154,4 +154,49 @@ describe("deadline feasibility setting", () => {
     expect(input.value).toBe("17");
     expect(input.disabled).toBe(true);
   });
+
+  it("reconciles all platforms after campaign visibility changes", () => {
+    const { container, onSettingsChange } = mountSettings();
+    const toggle = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("notLinked"));
+
+    act(() => toggle?.click());
+
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      { campaignVisibility: { ...DEFAULT_SETTINGS.campaignVisibility, notLinked: false } },
+      { tickAfterSave: true },
+    );
+  });
+
+  it("reconciles all platforms after changing Idle Watchlist fallback policy", () => {
+    const { container, onSettingsChange } = mountSettings();
+    const toggle = container.querySelector('[role="switch"][aria-label="Only when no drops are active"]') as HTMLButtonElement;
+
+    act(() => toggle.click());
+
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      { idleWatchlistFallbackOnly: false },
+      { tickAfterSave: true },
+    );
+  });
+
+  it("targets category changes to their platform", () => {
+    const { container, onSettingsChange } = mountSettings();
+    const toggle = container.querySelector('[role="switch"][aria-label="Farm all categories"]') as HTMLButtonElement;
+
+    act(() => toggle.click());
+
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      { platform: { twitch: { farmAllCategories: false } } },
+      { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
+    );
+  });
+
+  it("saves notification preferences without a scheduler tick", () => {
+    const { container, onSettingsChange } = mountSettings();
+    const toggle = container.querySelector('[role="switch"][aria-label="Reward earned"]') as HTMLButtonElement;
+
+    act(() => toggle.click());
+
+    expect(onSettingsChange).toHaveBeenCalledWith({ notifyRewardEarned: false });
+  });
 });

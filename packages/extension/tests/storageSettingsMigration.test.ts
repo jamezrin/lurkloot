@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { get, set } = vi.hoisted(() => ({
+const { get, set, clear } = vi.hoisted(() => ({
   get: vi.fn(),
   set: vi.fn(),
+  clear: vi.fn(),
 }));
 
 vi.mock("wxt/browser", () => ({
   browser: {
     storage: {
-      local: { get, set },
+      local: { get, set, clear },
     },
   },
 }));
@@ -27,6 +28,8 @@ describe("settings storage migration", () => {
     get.mockReset();
     set.mockReset();
     set.mockResolvedValue(undefined);
+    clear.mockReset();
+    clear.mockResolvedValue(undefined);
   });
 
   it("writes a legacy document back once, using current keys and the current version", async () => {

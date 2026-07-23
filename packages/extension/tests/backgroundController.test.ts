@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
+import { ALARM_NAME, createBackgroundController, type CredentialAvailability } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
@@ -9,6 +9,8 @@ import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
+import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
+import { forgetManagedPageContextTabs, recordManagedPageContextFallback, registerManagedPageContextTabs } from "@lurkloot/core/tabs";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: "reward",
@@ -39,6 +41,7 @@ function asSnapshot(value: unknown): RuntimeSnapshot {
 function adapter(platform: Platform): PlatformAdapter {
   return {
     platform,
+    checkAuthHealth: vi.fn(async () => ({ status: "healthy" as const })),
     discoverCampaigns: vi.fn(async () => [campaign(platform)]),
     readProgress: vi.fn(async (campaigns) => campaigns),
     listCandidateChannels: vi.fn(async () => [channel(platform)]),
@@ -54,7 +57,9 @@ function harness(
   overrides: {
     saveState?: (state: SchedulerState) => Promise<void>;
     reportEvents?: (events: readonly EngineEvent[]) => Promise<void>;
+    stopPageContextTabs?: StopPageContextTabs;
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
+    checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
   } = {},
 ) {
   let currentSettings = settings;
@@ -79,7 +84,7 @@ function harness(
     })),
     createAlarm: vi.fn(async () => undefined),
     createNotification: vi.fn(async () => undefined),
-    closeManagedTabsByUrl: vi.fn(async () => undefined),
+    closeManagedTabs: vi.fn(async () => undefined),
     applyAdFocus: vi.fn<(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => Promise<void>>(async () => undefined),
     // Host-owned tab policy + settings-patch application (see background.ts).
     loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false })),
@@ -89,7 +94,11 @@ function harness(
       ...resolveCompatibility(nextSettings.compatibility, { host: "extension", twitchIdentity: "web" }),
     })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
+    stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? forgetManagedPageContextTabs),
     wait: overrides.wait,
+    ...(overrides.checkCredentialAvailability
+      ? { checkCredentialAvailability: vi.fn(overrides.checkCredentialAvailability) }
+      : {}),
   };
 
   return {
@@ -108,6 +117,280 @@ function harness(
 }
 
 describe("background controller", () => {
+  it("reports missing credentials without calling the platform probe", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+      checkCredentialAvailability: async () => ({ status: "missing" }),
+    });
+
+    await env.controller.checkAuthHealth("twitch");
+
+    expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.state.authHealth.twitch).toEqual(expect.objectContaining({
+      status: "missing_credentials",
+      reasonCode: "credentials_missing",
+    }));
+  });
+
+  it("reports credential lookup failure without calling the platform probe", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+      checkCredentialAvailability: async () => ({ status: "unavailable" }),
+    });
+
+    await env.controller.checkAuthHealth("kick");
+
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.state.authHealth.kick).toEqual(expect.objectContaining({
+      status: "unavailable",
+      reasonCode: "credential_lookup_failed",
+    }));
+  });
+
+  it("continues to the authenticated probe when credentials are available", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+      checkCredentialAvailability: async () => ({ status: "available" }),
+    });
+
+    await env.controller.checkAuthHealth("twitch");
+
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+  });
+
+  it("blocks startup account work when credentials are missing without disabling the platform", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    }, {
+      checkCredentialAvailability: async () => ({ status: "missing" }),
+    });
+
+    await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.settings.platform.twitch.enabled).toBe(true);
+    expect(env.state.authHealth.twitch).toMatchObject({
+      status: "missing_credentials",
+      reasonCode: "credentials_missing",
+    });
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "paused",
+      reasonCode: "authentication_unhealthy",
+    });
+  });
+
+  it("automatically resumes a platform after a healthy authentication recheck", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    }, {
+      checkCredentialAvailability: async () => ({ status: "available" }),
+    });
+    vi.mocked(env.twitch.checkAuthHealth)
+      .mockResolvedValueOnce({
+        status: "invalid_credentials",
+        checkedAt: "2026-07-22T12:00:00.000Z",
+        reasonCode: "credentials_rejected",
+        message: { key: "authInvalidCredentials" },
+      })
+      .mockResolvedValueOnce({
+        status: "healthy",
+        checkedAt: "2026-07-22T12:01:00.000Z",
+        message: { key: "authHealthy" },
+      });
+
+    await env.controller.tickAndHandOff(["twitch"]);
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+
+    await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.settings.platform.twitch.enabled).toBe(true);
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
+      event.category === "activity" && event.code === "auth_health_changed"
+    )).toEqual(expect.arrayContaining([
+      expect.objectContaining({ data: expect.objectContaining({ to: "invalid_credentials" }) }),
+      expect.objectContaining({ data: expect.objectContaining({ to: "healthy" }) }),
+    ]));
+  });
+
+  it("publishes authentication transitions when diagnostic logging is disabled", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false, diagnosticLogging: false });
+    vi.mocked(env.kick.checkAuthHealth).mockResolvedValueOnce({
+      status: "blocked",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      reasonCode: "security_policy_blocked",
+      message: { key: "authSecurityPolicyBlocked", values: { reference: "safe-ref" } },
+    });
+
+    await env.controller.checkAuthHealth("kick");
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "auth_health_changed",
+      platform: "kick",
+      data: expect.objectContaining({ to: "blocked" }),
+    }));
+  });
+
+  it("reports authentication as the reason farming stopped after logout", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    });
+    vi.mocked(env.twitch.checkAuthHealth)
+      .mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:00:00.000Z" })
+      .mockResolvedValueOnce({
+        status: "invalid_credentials",
+        checkedAt: "2026-07-22T12:01:00.000Z",
+        reasonCode: "credentials_rejected",
+        message: { key: "authInvalidCredentials" },
+      });
+
+    await env.controller.tickAndHandOff(["twitch"]);
+    await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "farming_stopped",
+      platform: "twitch",
+      data: expect.objectContaining({ reason: "authentication_unhealthy" }),
+    }));
+  });
+
+  it("recovers Twitch authentication health after login without changing enabled settings", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
+      checkCredentialAvailability: async () => ({ status: "available" }),
+    });
+    vi.mocked(env.twitch.checkAuthHealth)
+      .mockResolvedValueOnce({
+        status: "invalid_credentials",
+        checkedAt: "2026-07-22T12:00:00.000Z",
+        reasonCode: "credentials_rejected",
+        message: { key: "authInvalidCredentials" },
+      })
+      .mockResolvedValueOnce({
+        status: "healthy",
+        checkedAt: "2026-07-22T12:05:00.000Z",
+        message: { key: "authHealthy" },
+      });
+
+    await env.controller.checkAuthHealth("twitch");
+    await env.controller.invalidateAuthHealth("twitch");
+    await env.controller.checkAuthHealth("twitch");
+
+    expect(env.state.authHealth.twitch).toEqual({
+      status: "healthy",
+      checkedAt: "2026-07-22T12:05:00.000Z",
+      message: { key: "authHealthy" },
+    });
+    expect(env.settings.platform.twitch.enabled).toBe(true);
+    expect(env.settings.platform.kick.enabled).toBe(true);
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledTimes(2);
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+  });
+
+  it("invalidates only the requested authentication health and reports the transition once", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    vi.mocked(env.twitch.checkAuthHealth).mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:00:00.000Z" });
+    vi.mocked(env.kick.checkAuthHealth).mockResolvedValueOnce({
+      status: "missing_credentials",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      reasonCode: "credentials_missing",
+    });
+    await env.controller.checkAuthHealth("twitch");
+    await env.controller.checkAuthHealth("kick");
+    const previousKickHealth = env.state.authHealth.kick;
+    env.reportEvents.mockClear();
+
+    await env.controller.invalidateAuthHealth("twitch");
+
+    expect(env.state.authHealth.twitch).toEqual({ status: "checking" });
+    expect(env.state.authHealth.kick).toEqual(previousKickHealth);
+    expect(env.reportEvents).toHaveBeenCalledWith([{
+      category: "activity",
+      code: "auth_health_changed",
+      level: "info",
+      platform: "twitch",
+      data: { from: "healthy", to: "checking" },
+    }]);
+
+    env.reportEvents.mockClear();
+    await env.controller.invalidateAuthHealth("twitch");
+    expect(env.reportEvents).not.toHaveBeenCalled();
+  });
+
+  it("checks and persists authentication health for only the requested platform", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    vi.mocked(env.kick.checkAuthHealth).mockResolvedValueOnce({
+      status: "blocked",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      reasonCode: "security_policy_blocked",
+      message: { key: "authSecurityPolicyBlocked", values: { reference: "safe-ref" } },
+    });
+
+    await env.controller.checkAuthHealth("kick");
+
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.state.authHealth.kick).toEqual(expect.objectContaining({
+      status: "blocked",
+      reasonCode: "security_policy_blocked",
+    }));
+    expect(env.reportEvents).toHaveBeenCalledWith([{
+      category: "activity",
+      code: "auth_health_changed",
+      level: "error",
+      platform: "kick",
+      data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
+    }]);
+  });
+
+  it("stores timestamp-only auth refreshes without repeating activity", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    vi.mocked(env.kick.checkAuthHealth)
+      .mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:00:00.000Z" })
+      .mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:05:00.000Z" });
+
+    await env.controller.checkAuthHealth("kick");
+    env.reportEvents.mockClear();
+    await env.controller.checkAuthHealth("kick");
+
+    expect(env.state.authHealth.kick.checkedAt).toBe("2026-07-22T12:05:00.000Z");
+    expect(env.reportEvents).not.toHaveBeenCalled();
+  });
+
+  it("strips hostile adapter fields before auth state and events are persisted", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    vi.mocked(env.twitch.checkAuthHealth).mockResolvedValueOnce({
+      status: "healthy",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      token: "do-not-store",
+      headers: { authorization: "Bearer do-not-store" },
+    } as never);
+
+    await env.controller.checkAuthHealth("twitch");
+
+    expect(JSON.stringify(env.state.authHealth.twitch)).not.toContain("do-not-store");
+    expect(JSON.stringify(env.reportEvents.mock.calls)).not.toContain("do-not-store");
+  });
+
   it("reports the effective compatibility profile and capability once per enabled platform", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
 
@@ -440,6 +723,9 @@ describe("background controller", () => {
     let affirmativelyLinked = false;
     const fetcher: PageFetcher = {
       fetchJson: vi.fn(async (url: string) => {
+        if (url === "https://kick.com/api/v1/user") {
+          return { id: 123, username: "tester" };
+        }
         if (url === "https://web.kick.com/api/v1/drops/claim") {
           claimPosts += 1;
           return { data: { connect_url: "https://accounts.example/link" } };
@@ -597,7 +883,9 @@ describe("background controller", () => {
     await env.controller.handleStartup();
 
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/twitch-creator"]);
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
+    ]);
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
     expect(env.state.sessions.twitch.status).toBe("watching");
     expect(env.state.sessions.twitch.tabId).toBe(10);
@@ -633,7 +921,9 @@ describe("background controller", () => {
 
     expect(env.settings.running).toBe(false);
     expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: false }));
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/twitch-creator"]);
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
+    ]);
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(env.state.managedWatchTabs).toEqual({});
@@ -667,7 +957,9 @@ describe("background controller", () => {
     await env.controller.handleStartup();
 
     expect(env.settings.running).toBe(false);
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://kick.com/kick-creator"]);
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 55, channelUrl: "https://kick.com/kick-creator", ownedByExtension: true }),
+    ]);
     expect(env.kick.prepareWatchTab).not.toHaveBeenCalled();
     expect(env.state.sessions.kick.status).toBe("paused");
     expect(env.state.sessions.kick.tabId).toBeUndefined();
@@ -687,7 +979,11 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.deps.closeManagedTabsByUrl).toHaveBeenCalledWith(["https://www.twitch.tv/drops/inventory"]);
+    expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
+    expect(env.deps.stopPageContextTabs).toHaveBeenCalledWith(
+      expect.objectContaining({ twitch: expect.objectContaining({ tabId: 66 }) }),
+      expect.objectContaining({ platforms: ["twitch", "kick"], reason: "runtime_restart", emit: expect.any(Function) }),
+    );
     expect(env.state.managedPageContextTabs).toEqual({});
     expect(env.state.sessions.twitch).toMatchObject({
       status: "paused",
@@ -696,13 +992,45 @@ describe("background controller", () => {
     });
   });
 
+  it("preserves a retained Kick page context across a running service-worker restart", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      autoStartDropFarming: true,
+      platform: {
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
+      },
+    });
+    const context = {
+      platform: "kick" as const,
+      tabId: 91,
+      originUrl: "https://kick.com/drops/inventory",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+      lastFallbackAt: "2026-07-22T08:00:00.000Z",
+      fallbackHost: "web.kick.com",
+      backgroundSuccesses: 0,
+    };
+    env.state.managedPageContextTabs = { kick: context };
+
+    await env.controller.handleStartup();
+
+    expect(env.deps.stopPageContextTabs).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kick: expect.objectContaining({ tabId: 91 }) }),
+      expect.objectContaining({ reason: "runtime_restart" }),
+    );
+    expect(env.state.managedPageContextTabs?.kick).toEqual(context);
+    expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
+  });
+
   it("does not log startup cleanup when there is no stale farming state", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false, autoStartDropFarming: true });
 
     await env.controller.handleStartup();
 
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.closeManagedTabsByUrl).not.toHaveBeenCalled();
+    expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
     expect(env.deps.saveState).not.toHaveBeenCalled();
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
       event.category === "diagnostic" && event.message.includes("Browser restarted")
@@ -753,6 +1081,86 @@ describe("background controller", () => {
     expect(snapshot.state.sessions.twitch.status).toBe("paused");
     expect(snapshot.state.sessions.kick.status).toBe("paused");
     expect(snapshot.state.managedPageContextTabs?.twitch).toBeUndefined();
+  });
+
+  it("prepares a host reset by force-closing managed tabs", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoCloseFinishedDrops: false });
+    await env.controller.tick();
+    env.state.managedPageContextTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 66,
+        originUrl: "https://www.twitch.tv/drops/inventory",
+        origin: "https://www.twitch.tv",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.prepareForHostReset();
+
+    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 10 }),
+      expect.objectContaining({ closeManagedTabs: true }),
+    );
+    expect(env.kick.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 20 }),
+      expect.objectContaining({ closeManagedTabs: true }),
+    );
+    expect(env.deps.stopPageContextTabs).toHaveBeenCalledWith(
+      expect.objectContaining({ twitch: expect.objectContaining({ tabId: 66 }) }),
+      expect.objectContaining({ platforms: ["twitch", "kick"], emit: expect.any(Function) }),
+    );
+  });
+
+  it("allows host-reset cleanup to be retried", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    await env.controller.tick();
+
+    await env.controller.prepareForHostReset();
+
+    await expect(env.controller.prepareForHostReset()).resolves.toBeUndefined();
+  });
+
+  it("force-closes registry-owned tabs even when no live session references them", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    env.state.managedWatchTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 71,
+        channelUrl: "https://www.twitch.tv/stale-channel",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.prepareForHostReset();
+
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([expect.objectContaining({ tabId: 71 })]);
+  });
+
+  it("holds controller mutations until host storage reset finishes", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    let releaseReset!: () => void;
+    const resetBlocked = new Promise<void>((resolve) => {
+      releaseReset = resolve;
+    });
+    const resetStarted = vi.fn();
+    const resetting = env.controller.prepareForHostReset(async () => {
+      resetStarted();
+      await resetBlocked;
+      await env.deps.saveSettings(DEFAULT_SETTINGS);
+      await env.deps.saveState(DEFAULT_STATE);
+    });
+    await vi.waitFor(() => expect(resetStarted).toHaveBeenCalledOnce());
+    vi.mocked(env.twitch.discoverCampaigns).mockClear();
+
+    const ticking = env.controller.tick();
+    await Promise.resolve();
+
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    releaseReset();
+    await Promise.all([resetting, ticking]);
+    expect(env.settings).toEqual(DEFAULT_SETTINGS);
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
   });
 
   it("toggles one platform and immediately applies the scheduler when running", async () => {
@@ -859,6 +1267,59 @@ describe("background controller", () => {
     expect(env.settings.platform.kick.enabled).toBe(false);
   });
 
+  it("preserves rapid scheduling patches without overlapping reconciliation", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      notifyRewardEarned: true,
+      notifyNoDropsLeft: true,
+    });
+    let activeDiscoveries = 0;
+    let maxActiveDiscoveries = 0;
+    let discoveryCalls = 0;
+    let markFirstStarted!: () => void;
+    let releaseFirst!: () => void;
+    const firstStarted = new Promise<void>((resolve) => {
+      markFirstStarted = resolve;
+    });
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    vi.mocked(env.twitch.discoverCampaigns).mockImplementation(async () => {
+      discoveryCalls += 1;
+      activeDiscoveries += 1;
+      maxActiveDiscoveries = Math.max(maxActiveDiscoveries, activeDiscoveries);
+      if (discoveryCalls === 1) {
+        markFirstStarted();
+        await firstGate;
+      }
+      activeDiscoveries -= 1;
+      return [];
+    });
+
+    const first = env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { notifyRewardEarned: false },
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["twitch"],
+    });
+    await firstStarted;
+    const second = env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { notifyNoDropsLeft: false },
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["twitch"],
+    });
+    await drainMicrotasks();
+    releaseFirst();
+    await Promise.all([first, second]);
+
+    expect(env.settings.notifyRewardEarned).toBe(false);
+    expect(env.settings.notifyNoDropsLeft).toBe(false);
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(2);
+    expect(maxActiveDiscoveries).toBe(1);
+  });
+
   it("runs a scheduler tick after saving settings when requested and automation is active", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
     const nextSettings = {
@@ -923,7 +1384,7 @@ describe("background controller", () => {
     expect(snapshot.settings.platform.twitch.idleWatchlistChannels).toEqual(["fallback"]);
   });
 
-  it("temporarily pauses active sessions while a settings session is open without persisting running=false", async () => {
+  it("keeps active farming untouched when saving a non-scheduling setting", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
     env.state.sessions.twitch = {
       platform: "twitch",
@@ -934,36 +1395,14 @@ describe("background controller", () => {
       offlineChecks: 0,
     };
 
-    await env.controller.beginSettingsSession();
-
-    expect(env.settings.running).toBe(true);
-    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ status: "watching" }));
-    expect(env.state.sessions.twitch.status).toBe("paused");
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-
-    await env.controller.endSettingsSession();
-
-    expect(env.settings.running).toBe(true);
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
-  });
-
-  it("does not run tickAfterSave automation while settings are temporarily paused", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
-
-    await env.controller.beginSettingsSession();
-    vi.mocked(env.twitch.discoverCampaigns).mockClear();
-    vi.mocked(env.kick.discoverCampaigns).mockClear();
-
     const snapshot = asSnapshot(await env.controller.handleMessage({
       type: "saveSettings",
-      settingsPatch: { priorityMode: "priority_list_only" },
-      tickAfterSave: true,
+      settingsPatch: { notifyRewardEarned: false },
     }));
 
-    expect(snapshot.settings.running).toBe(true);
-    expect(snapshot.settings.priorityMode).toBe("priority_list_only");
+    expect(env.twitch.stopWatchTab).not.toHaveBeenCalled();
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+    expect(snapshot.state.sessions.twitch.status).toBe("watching");
   });
 
   it("runs an immediate scheduler tick when requested from the popup", async () => {
@@ -1381,7 +1820,7 @@ describe("background controller", () => {
     )).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
   });
 
-  it("runs an immediate tick when the active managed Twitch tab is closed", async () => {
+  it("defers recovery when the active managed farming tab is closed", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
       running: true,
@@ -1398,11 +1837,66 @@ describe("background controller", () => {
       tabId: 10,
       tabManagedByExtension: true,
     };
+    env.state.managedWatchTabs = {
+      twitch: {
+        platform: "twitch",
+        tabId: 10,
+        channelUrl: "https://www.twitch.tv/twitch-creator",
+        ownedByExtension: true,
+      },
+    };
 
     await env.controller.handleTabRemoved(10);
 
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
-    expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.state.sessions.twitch).toEqual({
+      platform: "twitch",
+      status: "idle",
+      offlineChecks: 0,
+    });
+    expect(env.state.managedWatchTabs?.twitch).toBeUndefined();
+
+    await env.controller.tick();
+
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.twitch.prepareWatchTab).toHaveBeenCalledOnce();
+    expect(env.state.sessions.twitch.tabId).toBe(10);
+  });
+
+  it("does not confuse a removed page-context tab with the active farming tab", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      channel: channel("kick"),
+      offlineChecks: 0,
+      tabId: 20,
+      tabManagedByExtension: true,
+    };
+    env.state.managedWatchTabs = {
+      kick: {
+        platform: "kick",
+        tabId: 20,
+        channelUrl: "https://kick.com/kick-creator",
+        ownedByExtension: true,
+      },
+    };
+    env.state.managedPageContextTabs = {
+      kick: {
+        platform: "kick",
+        tabId: 91,
+        originUrl: "https://kick.com/drops/inventory",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.handleTabRemoved(91);
+
+    expect(env.state.sessions.kick.tabId).toBe(20);
+    expect(env.state.managedWatchTabs?.kick?.tabId).toBe(20);
+    expect(env.kick.prepareWatchTab).not.toHaveBeenCalled();
   });
 
   it("ignores removed tabs that are not the active managed watch tab", async () => {
@@ -1743,6 +2237,35 @@ describe("background controller", () => {
     return watcher;
   }
 
+  it("stops a tabless watcher without another heartbeat when authentication degrades", async () => {
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      tablessMode: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    });
+    env.twitch.supportsTabless = true;
+    env.twitch.createTablessWatcher = vi.fn(() => watcher);
+
+    await env.controller.tick();
+    expect(env.state.sessions.twitch.watchMode).toBe("tabless");
+    env.state.authHealth.twitch = {
+      status: "invalid_credentials",
+      checkedAt: "2026-07-22T12:00:00.000Z",
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    };
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(watcher.stop).toHaveBeenCalledOnce();
+    expect(watcher.tick).not.toHaveBeenCalled();
+  });
+
   // Drains every pending microtask. setTimeout stays real under the Date-only
   // fake timers these handoff tests install, so one turn of the macrotask queue
   // is enough to let an async loop run to its next park.
@@ -1807,6 +2330,34 @@ describe("background controller", () => {
     expect(watcher.tick).toHaveBeenCalled();
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
     expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
+  });
+
+  it("persists page-context lifecycle metadata changed during a heartbeat", async () => {
+    const watcher = fakeTablessWatcher(async () => {
+      recordManagedPageContextFallback("twitch", "gql.twitch.tv", undefined, Date.parse("2026-07-21T12:00:00.000Z"));
+      return { ok: true, live: true };
+    });
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    await env.controller.tick();
+    const context = {
+      platform: "twitch" as const,
+      tabId: 66,
+      originUrl: "https://www.twitch.tv/drops/inventory",
+      origin: "https://www.twitch.tv",
+      ownedByExtension: true as const,
+    };
+    env.state.managedPageContextTabs = { twitch: context };
+    registerManagedPageContextTabs({ twitch: context });
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(env.state.managedPageContextTabs?.twitch).toMatchObject({
+      tabId: 66,
+      fallbackHost: "gql.twitch.tv",
+      backgroundSuccesses: 0,
+      lastFallbackAt: "2026-07-21T12:00:00.000Z",
+    });
   });
 
   it("publishes persistent watcher diagnostics once through the current operation batch", async () => {
@@ -1891,6 +2442,7 @@ describe("background controller", () => {
     env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
     // Simulate a fresh service worker: a tabless watch session is persisted, but
     // no tick() has run this lifetime to populate the in-memory watcher map.
+    env.state.authHealth.twitch = { status: "healthy" };
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -2221,17 +2773,23 @@ describe("background controller", () => {
       expect(env.timer.wait.mock.calls.length).toBeLessThanOrEqual(3);
     });
 
-    it("aborts running handoffs when a settings session begins", async () => {
-      const env = handoffEnv();
+    it("keeps an active handoff running during an ordinary settings save", async () => {
+      const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
       env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
       await drainMicrotasks();
-      await env.controller.beginSettingsSession();
-      await env.timer.flush();
-      await handoff;
+      expect(env.timer.parked).toBe(1);
 
-      expect(env.timer.parked).toBe(0);
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { notifyRewardEarned: false },
+      });
+
+      expect(env.timer.parked).toBe(1);
+      for (let index = 0; index < 4; index += 1) await env.timer.flush();
+      await handoff;
+      expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
     });
 
     it("aborts running handoffs when farming is switched off", async () => {

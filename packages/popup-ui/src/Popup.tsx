@@ -57,6 +57,7 @@ import { UpdateNotice } from "./updateNotice";
 import { DropsPanel } from "./drops";
 import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AutomationHero, PlatformSwitcher } from "./automation";
+import { automationPresentation, type AutomationPresentation } from "./automationStatus";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
@@ -86,7 +87,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [clearingActivity, setClearingActivity] = useState(false);
   const [clearActivityFailed, setClearActivityFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [resumingAutomation, setResumingAutomation] = useState(false);
   const [pendingChangelogVersion, setPendingChangelogVersion] = useState<string>();
   const [pendingAutomation, setPendingAutomation] = useState<Partial<Record<Platform, boolean>>>({});
   // Request to jump to a campaign in the drops list (expand + scroll). The seq
@@ -94,13 +94,12 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [campaignFocus, setCampaignFocus] = useState<{ id: string; seq: number } | null>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const snapshotRequestGenerationRef = useRef(0);
   const activityRequestScopeRef = useRef(createActivityRequestScope(platform));
   const activityMutationSequenceRef = useRef(createActivityMutationSequence());
   const diagnosticMutationSequenceRef = useRef(createActivityMutationSequence());
   const activityClearInFlightRef = useRef(false);
   const [activityRequestGeneration, setActivityRequestGeneration] = useState(0);
-  const wasSettingsOpen = useRef(settingsOpen);
-  const resumeRefreshRun = useRef(0);
   const languageOverride = initialState?.locale ?? snapshot?.settings.languageOverride ?? DEFAULT_SETTINGS.languageOverride;
   const locale = effectiveLocale(languageOverride, adapter.getUiLanguage());
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
@@ -157,15 +156,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     const settings = settingsRef.current ?? mergeSettings(nextSnapshot.settings);
     settingsRef.current = settings;
     return { ...nextSnapshot, settings };
-  }
-
-  function hasTemporaryDisabledSession(nextSnapshot: RuntimeSnapshot, currentSettings: ExtensionSettings): boolean {
-    return (["twitch", "kick"] as Platform[]).some((resumePlatform) => (
-      currentSettings.running
-      && currentSettings.platform[resumePlatform].enabled
-      && nextSnapshot.state.sessions[resumePlatform].status === "paused"
-      && nextSnapshot.state.sessions[resumePlatform].message === "Automation disabled"
-    ));
   }
 
   useEffect(() => {
@@ -331,50 +321,14 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     void adapter.dismissPendingChangelogVersion?.();
   }
 
-  useEffect(() => {
-    if (preview || !settingsOpen || !adapter.connectSettingsSession) return;
-    return adapter.connectSettingsSession();
-  }, [adapter, preview, settingsOpen]);
-
-  useEffect(() => {
-    if (!wasSettingsOpen.current || settingsOpen) {
-      wasSettingsOpen.current = settingsOpen;
-      return;
-    }
-
-    wasSettingsOpen.current = settingsOpen;
-    const currentSettings = settingsRef.current;
-    const shouldResume = Boolean(currentSettings?.running && Object.values(currentSettings.platform).some((platformSettings) => platformSettings.enabled));
-    if (!shouldResume) return;
-
-    const run = resumeRefreshRun.current + 1;
-    resumeRefreshRun.current = run;
-    setResumingAutomation(true);
-
-    void settingsSaveQueue.current.catch(() => undefined).then(async () => {
-      for (let attempt = 0; attempt < 12 && resumeRefreshRun.current === run; attempt += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        const nextSnapshot = await adapter.send<RuntimeSnapshot>({ type: "getSnapshot" });
-        const nextSettings = settingsRef.current ?? mergeSettings(nextSnapshot.settings);
-        setSnapshot(snapshotPreservingLocalSettings(nextSnapshot));
-        if (!hasTemporaryDisabledSession(nextSnapshot, nextSettings)) break;
-      }
-      if (resumeRefreshRun.current === run) setResumingAutomation(false);
-    });
-  }, [adapter, settingsOpen]);
-
-  useEffect(() => {
-    return () => {
-      resumeRefreshRun.current += 1;
-    };
-  }, []);
-
   // Keep the snapshot (and its Activity log) live while the popup is open, so
   // background scheduler ticks are reflected without needing a manual refresh.
   useEffect(() => {
     if (preview) return;
     const interval = setInterval(() => {
+      const generation = snapshotRequestGenerationRef.current;
       void adapter.send<RuntimeSnapshot>({ type: "getSnapshot" }).then((nextSnapshot) => {
+        if (generation !== snapshotRequestGenerationRef.current) return;
         // Keep the locally-held settings rather than the refreshed ones so an
         // in-flight edit is never clobbered mid-typing. The tradeoff: a setting
         // changed by the background (e.g. startup auto-pausing `running`) is not
@@ -464,6 +418,24 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       }
     : undefined;
 
+  const resetExtension = adapter.resetExtension
+    ? async () => {
+        await settingsSaveQueue.current.catch(() => undefined);
+        snapshotRequestGenerationRef.current += 1;
+        const nextSnapshot = await adapter.resetExtension!();
+        settingsRef.current = mergeSettings(nextSnapshot.settings);
+        invalidateActivityRequests("twitch");
+        setActivityStream(createActivityStream());
+        setDiagnosticStream(createActivityStream());
+        setShowDiagnostics(false);
+        setPlatform("twitch");
+        setTab("drops");
+        setPendingChangelogVersion(undefined);
+        setSnapshot(snapshotWithMergedSettings(nextSnapshot));
+        setSettingsOpen(false);
+      }
+    : undefined;
+
   if (!snapshot) {
     return (
       <PopupRuntimeContext.Provider value={{ adapter, preview }}>
@@ -508,6 +480,22 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   };
   const enabled = automation[platform];
   const automationPending = pendingAutomation[platform] != null;
+  const automationPresentationByPlatform = Object.fromEntries(
+    (Object.keys(PLATFORMS) as Platform[]).map((id) => [id, automationPresentation({
+      platform: id,
+      enabled: automation[id],
+      pending: pendingAutomation[id] != null,
+      authHealth: snapshot.state.authHealth[id],
+    })]),
+  ) as Record<Platform, AutomationPresentation>;
+  const presentation = automationPresentationByPlatform[platform];
+  const headerStatusColor = presentation.operational
+    ? "var(--accent)"
+    : presentation.state === "blocked"
+      ? "#ef4444"
+      : presentation.state === "needs_sign_in" || presentation.state === "unavailable"
+        ? "#f59e0b"
+        : "#a1a1aa";
   const activeCampaign = campaigns.find((campaign) => campaign.farmingChannel);
   const farmingChannel = activeCampaign?.farmingChannel ?? sessionChannel;
   const onFarmingTitleClick = activeCampaign
@@ -536,8 +524,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             <div className="min-w-0 leading-tight">
               <div className="font-display truncate text-[15px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">Lurkloot</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: enabled ? "var(--accent)" : "#a1a1aa" }} />
-                {settingsOpen ? t("settingsTitle") : activityOpen ? t("activityTitle") : resumingAutomation ? t("resumingAutomation") : `${enabled ? t("activeStatus") : t("pausedStatus")} · ${PLATFORMS[platform].label}`}
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: headerStatusColor }} />
+                {settingsOpen ? t("settingsTitle") : activityOpen ? t("activityTitle") : `${t(presentation.badgeKey)} · ${PLATFORMS[platform].label}`}
               </div>
             </div>
           </div>
@@ -567,7 +555,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         {!settingsOpen && !activityOpen ? (
           <PlatformSwitcher
             active={platform}
-            automation={automation}
+            presentation={automationPresentationByPlatform}
             onChange={selectPlatform}
           />
         ) : null}
@@ -578,7 +566,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} />
+                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} />
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
@@ -618,7 +606,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     />
                   ) : null}
                 </AnimatePresence>
-                <AutomationHero platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={resumingAutomation ? t("resumingAutomation") : session.message} onChange={setAutomation} />
+                <AutomationHero platform={platform} platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} presentation={presentation} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={session.message} onChange={setAutomation} />
                 {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} /> : null}
                 <SubTabs
                   tabs={[
@@ -637,7 +625,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                         focus={campaignFocus}
                         refreshing={refreshing}
                         onRefreshCampaign={() => refreshNow()}
-                        onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) })}
+                        onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) }, { tickAfterSave: true })}
                         onToggleExclude={(id) => {
                           const next = new Set(settings.excludedCampaignIds);
                           if (next.has(id)) next.delete(id);

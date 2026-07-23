@@ -1,5 +1,31 @@
 [
   {
+    "version": "1.9.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Lurkloot now tracks your Twitch and Kick sign-in status, shows each platform's authentication health in the popup, and automatically pauses farming when you are signed out or blocked so it can resume cleanly once access is restored."
+      },
+      {
+        "kind": "new",
+        "text": "Added Turkish language support, with translation refinements contributed by @canpaksoyyyyyyy-code — thank you!"
+      },
+      {
+        "kind": "new",
+        "text": "Added a factory reset action in Settings to restore all preferences to their defaults."
+      },
+      {
+        "kind": "improved",
+        "text": "Settings changes now apply immediately without pausing automation."
+      },
+      {
+        "kind": "fixed",
+        "text": "Stabilized Kick page-context tabs so they no longer get stuck in a bad state during farming."
+      }
+    ],
+    "date": "2026-07-23"
+  },
+  {
     "version": "1.8.1",
     "changes": [
       {

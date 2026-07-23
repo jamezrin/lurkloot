@@ -44,6 +44,9 @@
   "languageArabic": {
     "message": "अरबी"
   },
+  "languageTurkish": {
+    "message": "तुर्की"
+  },
   "settingsLanguageTitle": {
     "message": "भाषा"
   },
@@ -378,10 +381,10 @@
     "message": "साझा फ़ॉलबैक वॉचलिस्ट व्यवहार।"
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "केवल जब कोई योग्य drops उपलब्ध न हों"
+    "message": "निष्क्रिय वॉचलिस्ट से पहले drops को प्राथमिकता दें"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Drops प्राथमिकता अपने आप सुरक्षित रखता है।"
+    "message": "कोई योग्य drop उपलब्ध होते ही निष्क्रिय वॉचलिस्ट चैनल छोड़ देता है। बंद होने पर, चैनल के ऑफ़लाइन होने तक उसे देखता रहता है।"
   },
   "platformSettingsTitle": {
     "message": "प्लेटफ़ॉर्म सेटिंग्स"
@@ -637,13 +640,10 @@
     "message": "ठीक-ठीक देखें यह क्या कर रहा है।"
   },
   "screenshotActivitySubcopy": {
-    "message": "पारदर्शी गतिविधि लॉग हर check, switch और claim दिखाता है, level से filter किया जा सकता है।"
+    "message": "पारदर्शी गतिविधि लॉग हर check, switch और claim दिखाता है, और ज़रूरत पड़ने पर diagnostic विवरण भी।"
   },
   "autoClaimReady": {
     "message": "ऑटो-क्लेम तैयार"
-  },
-  "resumingAutomation": {
-    "message": "ऑटोमेशन फिर शुरू हो रहा है..."
   },
   "attributionLinks": {
     "message": "श्रेय लिंक"
@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "क्रेडेंशियल निर्यात करें"
   },
+  "factoryResetTitle": { "message": "Lurkloot रीसेट करें" },
+  "factoryResetHint": { "message": "Lurkloot की सभी सेटिंग, फ़ार्मिंग प्रगति और गतिविधि इतिहास मिटाता है। आपके Twitch और Kick खाते साइन इन रहेंगे।" },
+  "factoryResetButton": { "message": "Lurkloot रीसेट करें" },
+  "factoryResetConfirm": { "message": "यह फ़ार्मिंग रोकता है, Lurkloot द्वारा खोले गए टैब बंद करता है और Lurkloot का सारा डेटा स्थायी रूप से मिटाता है। Twitch और Kick साइन इन रहेंगे।" },
+  "factoryResetCancel": { "message": "रद्द करें" },
+  "factoryResetConfirmButton": { "message": "सब कुछ रीसेट करें" },
+  "factoryResetProgress": { "message": "रीसेट किया जा रहा है…" },
+  "factoryResetFailed": { "message": "Lurkloot पूरी तरह रीसेट नहीं हो सका। फिर से कोशिश करें।" },
+  "factoryResetRetry": { "message": "फिर से रीसेट करें" },
   "diagnosticLoggingTitle": {
     "message": "डायग्नोस्टिक लॉग शामिल करें"
   },
@@ -724,6 +733,13 @@
   "activityChallengeClaimed": {
     "message": "$2 चैलेंज से $1 कार्ड प्राप्त किया"
   },
+  "activityAuthHealthChanged": { "message": "$1 प्रमाणीकरण $2 से $3 में बदल गया।" },
+  "activityPageContextOpened": { "message": "$1 पर बैकग्राउंड कॉन्टेक्स्ट खोला गया क्योंकि $2।" },
+  "activityPageContextClosed": { "message": "$1 का बैकग्राउंड कॉन्टेक्स्ट बंद किया गया क्योंकि $2।" },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick ने बिना टैब वाला अनुरोध अस्वीकार किया" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "पिछला बैकग्राउंड कॉन्टेक्स्ट उपयोग योग्य नहीं था" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "बिना टैब वाले अनुरोध फिर से काम करने लगे" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "एक मौजूदा Kick टैब उपलब्ध हो गया" },
   "activityInterruption": {
     "message": "ड्रॉप जुटाना रुका: $1।"
   },
@@ -736,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "प्लेटफ़ॉर्म बंद किया गया"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "प्रमाणीकरण उपलब्ध नहीं है" },
   "activityReasonPlatformBackoff": {
     "message": "प्लेटफ़ॉर्म कुछ समय के लिए प्रतीक्षा कर रहा है"
   },
@@ -894,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "लिंक प्रबंधन v2"
-  }
+  },
+  "automationChecking": { "message": "जाँच जारी है" },
+  "automationNeedsSignIn": { "message": "साइन इन आवश्यक" },
+  "automationBlocked": { "message": "अवरुद्ध" },
+  "automationUnavailable": { "message": "अनुपलब्ध" },
+  "authCheckingDetail": { "message": "आपके साइन-इन सत्र की जाँच हो रही है…" },
+  "authSignInMissing": { "message": "ड्रॉप पाना जारी रखने के लिए साइन इन करें।" },
+  "authSignInRejected": { "message": "आपका सत्र अब मान्य नहीं है। जारी रखने के लिए फिर से साइन इन करें।" },
+  "signInToTwitch": { "message": "Twitch में साइन इन करें" },
+  "signInToKick": { "message": "Kick में साइन इन करें" },
+  "authBrowserProfileBlocked": { "message": "Kick ने इस ब्राउज़र प्रोफ़ाइल को अस्वीकार कर दिया। केवल साइन इन करने से समस्या शायद हल न हो।" },
+  "authCredentialCheckUnavailable": { "message": "आपके ब्राउज़र सत्र की जाँच नहीं हो सकी। Lurkloot अपने आप फिर प्रयास करेगा।" },
+  "authNetworkTemporarilyUnavailable": { "message": "नेटवर्क अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।" },
+  "authPlatformTemporarilyUnavailable": { "message": "प्लेटफ़ॉर्म अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।" }
 }

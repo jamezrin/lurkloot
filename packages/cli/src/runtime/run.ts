@@ -1,4 +1,4 @@
-import { createBackgroundController } from "@lurkloot/core/controller";
+import { createBackgroundController, type CredentialAvailability } from "@lurkloot/core/controller";
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 import { loadState, saveState } from "../storage";
 import { toEngineSettings, type CliSettings } from "../settings";
@@ -15,6 +15,11 @@ export interface RunOptions {
   // Run a single tick and return (used by smoke checks); otherwise loop until a
   // termination signal.
   once?: boolean;
+  // Reports whether a platform has a credential available before each live probe,
+  // so the shared engine can distinguish missing_credentials from a rejected or
+  // transiently unavailable one. Stays independent of any browser cookie
+  // observation — it reads only the CLI's file/env credential store.
+  checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
 }
 
 // Headless farming loop. Reuses the engine's background controller — the same
@@ -40,6 +45,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     createAlarm: async () => {},
     createAdapters: (emit, currentSettings) => transport.createAdapters(emit, currentSettings),
     createNotification: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
+    ...(options.checkCredentialAvailability ? { checkCredentialAvailability: options.checkCredentialAvailability } : {}),
   });
 
   const tickOnce = async () => {

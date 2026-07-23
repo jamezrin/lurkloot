@@ -26,6 +26,13 @@ describe("compatibility registry", () => {
 });
 
 describe("extension compatibility construction", () => {
+  it("uses the Kick Drops inventory for page-context fallback", () => {
+    const backgroundSource = readFileSync(new URL("../entrypoints/background.ts", import.meta.url), "utf8");
+
+    expect(backgroundSource).toContain('const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";');
+    expect(backgroundSource).toContain("fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init");
+  });
+
   it("injects the resolved web selection into both adapter option boundaries", () => {
     const backgroundSource = readFileSync(new URL("../entrypoints/background.ts", import.meta.url), "utf8");
 

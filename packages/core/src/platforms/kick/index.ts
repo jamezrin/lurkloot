@@ -1,7 +1,8 @@
-import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
+import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import { KickWafBlockedError } from "../../core/tabs";
+import { authHealthFromError } from "../../core/fetchError";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
@@ -10,6 +11,7 @@ import { createKickClaimCapability } from "./claim/factory";
 import type { KickClaimCapability } from "./claim/types";
 import { safeHttpsUrl } from "./claim/types";
 import { KickClaimState } from "./claim/v2";
+import { isSafeFetchError } from "../../core/fetchError";
 
 export { createKickClaimCapability } from "./claim/factory";
 export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
@@ -60,6 +62,26 @@ interface KickChallengesResponse {
   data?: KickChallenge[];
 }
 
+interface KickIdentityResponse {
+  id?: string | number;
+  username?: string;
+  slug?: string;
+  user?: {
+    id?: string | number;
+    username?: string;
+    slug?: string;
+  };
+}
+
+function hasKickIdentity(response: KickIdentityResponse): boolean {
+  const identity = response.user ?? response;
+  const id = identity.id;
+  return (typeof id === "string" && id.trim().length > 0)
+    || (typeof id === "number" && Number.isFinite(id))
+    || (typeof identity.username === "string" && identity.username.trim().length > 0)
+    || (typeof identity.slug === "string" && identity.slug.trim().length > 0);
+}
+
 interface KickChallenge {
   id?: string;
   recurrence?: string;
@@ -82,28 +104,44 @@ interface KickChallengeClaimResponse {
 export function createKickFetcher(deps: {
   background: (url: string, init?: RequestInit) => Promise<unknown>;
   pageFetch: (url: string, init?: RequestInit) => Promise<unknown>;
+  onBackgroundSuccess?: (host: string, emit: EventEmitter) => Promise<void> | void;
+  onPageFallback?: (host: string, emit: EventEmitter) => Promise<void> | void;
 }): PageFetcher {
-  const { background, pageFetch } = deps;
+  const { background, pageFetch, onBackgroundSuccess, onPageFallback } = deps;
   const announced = new Map<string, "background" | "fallback">();
   const report = (emit: EventEmitter, host: string, outcome: "background" | "fallback", detail: string): void => {
     const repeat = announced.get(host) === outcome;
     announced.set(host, outcome);
     diagnostic(emit, repeat ? "debug" : "info", `Kick fetch ${host} ${detail}`, "kick");
   };
+  const notifyLifecycle = async (
+    callback: ((host: string, emit: EventEmitter) => Promise<void> | void) | undefined,
+    host: string,
+    emit: EventEmitter,
+  ): Promise<void> => {
+    try {
+      await callback?.(host, emit);
+    } catch {
+      diagnostic(emit, "debug", `Kick page-context lifecycle update failed for ${host}`, "kick");
+    }
+  };
   return {
     fetchJson: async <T,>(url: string, init?: RequestInit, emit: EventEmitter = ignoreEvent): Promise<T> => {
       const host = safeHost(url);
+      let result: unknown;
       try {
-        const result = await background(url, init);
-        report(emit, host, "background", "→ service worker OK (tabless-capable)");
-        return result as T;
+        result = await background(url, init);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
         report(emit, host, "fallback", error instanceof KickWafBlockedError
-          ? `→ WAF-blocked from service worker, using page tab (${message})`
-          : `→ service worker error, using page tab (${message})`);
-        return await pageFetch(url, init) as T;
+          ? "→ WAF-blocked from service worker, using page tab"
+          : "→ service worker error, using page tab");
+        await notifyLifecycle(onPageFallback, host, emit);
+        result = await pageFetch(url, init);
+        return result as T;
       }
+      report(emit, host, "background", "→ service worker OK (tabless-capable)");
+      await notifyLifecycle(onBackgroundSuccess, host, emit);
+      return result as T;
     },
   };
 }
@@ -112,7 +150,7 @@ function safeHost(url: string): string {
   try {
     return new URL(url).host;
   } catch {
-    return url;
+    return "unknown-host";
   }
 }
 
@@ -147,6 +185,65 @@ export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
   readonly compatibility?: ResolvedCompatibility["kick"];
   private readonly claimCapability: KickClaimCapability;
+
+  async checkAuthHealth(): Promise<PlatformAuthHealth> {
+    const checkedAt = new Date().toISOString();
+    try {
+      // Kick serves this endpoint anonymously as `200 {}` instead of rejecting it, so the
+      // identity check below is what separates a real session from a credential-free one.
+      // It only works because kick.com is in KICK_AUTH_HOSTS (core/tabs.ts) and therefore
+      // gets session_token replayed as a Bearer; without that header Kick returns the
+      // empty object and a signed-in account looks signed out.
+      const response = await this.fetcher.fetchJson<KickIdentityResponse>("https://kick.com/api/v1/user", undefined, this.emit);
+      if (hasKickIdentity(response)) return { status: "healthy", checkedAt };
+      // An empty/unrecognized body means the request went out without credentials, which
+      // is a transport fault rather than proof of a signed-out session. Only an explicit
+      // rejection below may suspend farming.
+      return {
+        status: "unavailable",
+        checkedAt,
+        reasonCode: "platform_unavailable",
+        message: { key: "authPlatformUnavailable" },
+      };
+    } catch (error) {
+      if (isSafeFetchError(error)) {
+        if (error.failure.kind === "authentication_rejected") {
+          return {
+            status: "invalid_credentials",
+            checkedAt,
+            reasonCode: "credentials_rejected",
+            message: { key: "authInvalidCredentials" },
+          };
+        }
+        if (error.failure.kind === "security_policy_blocked") {
+          const reference = error.failure.reference;
+          return {
+            status: "blocked",
+            checkedAt,
+            reasonCode: "security_policy_blocked",
+            message: {
+              key: "authSecurityPolicyBlocked",
+              ...(reference === undefined ? {} : { values: { reference } }),
+            },
+          };
+        }
+        if (error.failure.kind === "network_error") {
+          return {
+            status: "unavailable",
+            checkedAt,
+            reasonCode: "network_unavailable",
+            message: { key: "authNetworkUnavailable" },
+          };
+        }
+      }
+      return {
+        status: "unavailable",
+        checkedAt,
+        reasonCode: "platform_unavailable",
+        message: { key: "authPlatformUnavailable" },
+      };
+    }
+  }
 
   constructor(
     private readonly fetcher: PageFetcher,
@@ -184,6 +281,7 @@ export class KickAdapter implements PlatformAdapter {
       const progress = mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
       return this.claimCapability.reconcileProgress?.(progress, affirmativelyLinkedCampaignIds(data)) ?? progress;
     } catch (error) {
+      if (authHealthFromError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
       return campaigns;
@@ -259,6 +357,7 @@ export class KickAdapter implements PlatformAdapter {
         },
       };
     } catch (error) {
+      if (authHealthFromError(error)) throw error;
       return this.checkChannelFromPage(channel, campaign, error);
     }
   }
@@ -299,6 +398,7 @@ export class KickAdapter implements PlatformAdapter {
       }
       return false;
     } catch (error) {
+      if (authHealthFromError(error)) throw error;
       // Kick accrues watch progress before the account is linked, but rejects
       // the claim until you connect the org account. Turn that into actionable
       // guidance instead of a raw error, and swallow it so the scheduler does
@@ -344,6 +444,7 @@ export class KickAdapter implements PlatformAdapter {
           recurrence: typeof challenge.recurrence === "string" && challenge.recurrence.trim() ? challenge.recurrence.trim() : "unknown",
         });
       } catch (error) {
+        if (authHealthFromError(error)) throw error;
         diagnostic(this.emit, "warn", `Kick challenge ${id} claim failed: ${error instanceof Error ? error.message : String(error)}`, "kick");
       }
     }

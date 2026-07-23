@@ -5,7 +5,7 @@ import { hideBin } from "yargs/helpers";
 import type { DropCampaign, Platform } from "@lurkloot/shared/models";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
 import { loadConfig, TRANSPORTS, type CliConfig, type Transport } from "./config";
-import { forgetCredentials, hasKickAuth, hasTwitchAuth, loadCredentials } from "./authStore";
+import { credentialAvailabilityOf, describeCredentialHealth, forgetCredentials, hasKickAuth, hasTwitchAuth, loadCredentials } from "./authStore";
 import { createTransport, type EnabledPlatforms } from "./transport";
 import { runLoop } from "./runtime/run";
 import { formatDiscoveredCampaign } from "./runtime/status";
@@ -42,6 +42,13 @@ function enabledPlatforms(config: CliConfig): EnabledPlatforms {
 function statePath(stateArg: string | undefined, config: CliConfig): string {
   if (stateArg) return resolve(process.cwd(), stateArg);
   return join(dirname(config.configPath), "state.json");
+}
+
+// Re-reads the file/env credential store each tick (so a login mid-run is
+// noticed) and reports availability to the engine's pre-probe gate. Never
+// inspects browser cookies and never returns a credential value.
+function runCredentialAvailability(authDir: string, platform: Platform) {
+  return credentialAvailabilityOf(describeCredentialHealth(authDir)[platform]);
 }
 
 const validateConfigCommand: CommandModule = {
@@ -98,6 +105,7 @@ const runCommand: CommandModule = {
       transport: handle,
       logger,
       once: Boolean(argv.once),
+      checkCredentialAvailability: async (platform) => runCredentialAvailability(config.authDir, platform),
     });
   },
 };
@@ -168,10 +176,25 @@ const authCommand: CommandModule = {
         const logger = loggerOf(argv);
         const { authDir } = configOf(argv, logger);
         const creds = loadCredentials(authDir);
+        const health = describeCredentialHealth(authDir);
+        // Reports presence, source, and the shared safe status/reason code — never
+        // the credential values themselves. "checking" here means a credential is
+        // present but unverified; `run` performs the live probe.
         process.stdout.write(`${JSON.stringify({
           authDir,
-          twitch: { authToken: hasTwitchAuth(creds), deviceId: Boolean(creds.twitch?.deviceId) },
-          kick: { sessionToken: hasKickAuth(creds) },
+          twitch: {
+            authToken: hasTwitchAuth(creds),
+            deviceId: Boolean(creds.twitch?.deviceId),
+            source: health.twitch.source,
+            status: health.twitch.status,
+            ...(health.twitch.reasonCode ? { reasonCode: health.twitch.reasonCode } : {}),
+          },
+          kick: {
+            sessionToken: hasKickAuth(creds),
+            source: health.kick.source,
+            status: health.kick.status,
+            ...(health.kick.reasonCode ? { reasonCode: health.kick.reasonCode } : {}),
+          },
         }, null, 2)}\n`);
       },
     })

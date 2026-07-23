@@ -44,6 +44,9 @@
   "languageArabic": {
     "message": "Arabo"
   },
+  "languageTurkish": {
+    "message": "Turco"
+  },
   "settingsLanguageTitle": {
     "message": "Lingua"
   },
@@ -378,10 +381,10 @@
     "message": "Comportamento condiviso della lista di fallback."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Solo quando non ci sono drop idonei disponibili"
+    "message": "Dai priorità ai drop rispetto alla Lista di visione inattiva"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Mantiene automaticamente la priorità dei drop."
+    "message": "Lascia un canale della Lista di visione inattiva non appena è disponibile un drop idoneo. Se disattivato, continua a guardarlo finché non va offline."
   },
   "platformSettingsTitle": {
     "message": "Impostazioni piattaforma"
@@ -637,13 +640,10 @@
     "message": "Vedi esattamente cosa sta facendo."
   },
   "screenshotActivitySubcopy": {
-    "message": "Un log attività trasparente mostra ogni controllo, cambio e riscatto, filtrabile per livello."
+    "message": "Un log attività trasparente mostra ogni controllo, cambio e riscatto, con i dettagli diagnostici a richiesta."
   },
   "autoClaimReady": {
     "message": "Auto-riscatto pronto"
-  },
-  "resumingAutomation": {
-    "message": "Ripresa dell’automazione..."
   },
   "attributionLinks": {
     "message": "Link di attribuzione"
@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "Esporta credenziali"
   },
+  "factoryResetTitle": { "message": "Reimposta Lurkloot" },
+  "factoryResetHint": { "message": "Cancella tutte le impostazioni, i progressi di farming e la cronologia attività di Lurkloot. Gli account Twitch e Kick rimarranno connessi." },
+  "factoryResetButton": { "message": "Reimposta Lurkloot" },
+  "factoryResetConfirm": { "message": "Interrompe il farming, chiude le schede aperte da Lurkloot e cancella definitivamente tutti i dati di Lurkloot. Twitch e Kick rimarranno connessi." },
+  "factoryResetCancel": { "message": "Annulla" },
+  "factoryResetConfirmButton": { "message": "Reimposta tutto" },
+  "factoryResetProgress": { "message": "Reimpostazione…" },
+  "factoryResetFailed": { "message": "Non è stato possibile reimpostare completamente Lurkloot. Riprova." },
+  "factoryResetRetry": { "message": "Riprova" },
   "diagnosticLoggingTitle": {
     "message": "Includi registri diagnostici"
   },
@@ -724,6 +733,13 @@
   "activityChallengeClaimed": {
     "message": "Riscattata una carta $1 dalla sfida $2"
   },
+  "activityAuthHealthChanged": { "message": "L’autenticazione di $1 è passata da $2 a $3." },
+  "activityPageContextOpened": { "message": "È stato aperto un contesto in background su $1 perché $2." },
+  "activityPageContextClosed": { "message": "Il contesto in background su $1 è stato chiuso perché $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick ha rifiutato la richiesta senza scheda" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "il contesto precedente non era utilizzabile" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "le richieste senza scheda sono state ripristinate" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "è diventata disponibile una scheda Kick esistente" },
   "activityInterruption": {
     "message": "Raccolta interrotta: $1."
   },
@@ -736,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "la piattaforma è stata disattivata"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "l’autenticazione non è disponibile" },
   "activityReasonPlatformBackoff": {
     "message": "la piattaforma è temporaneamente in attesa"
   },
@@ -894,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Gestione link v2"
-  }
+  },
+  "automationChecking": { "message": "Verifica" },
+  "automationNeedsSignIn": { "message": "Accesso necessario" },
+  "automationBlocked": { "message": "Bloccato" },
+  "automationUnavailable": { "message": "Non disponibile" },
+  "authCheckingDetail": { "message": "Verifica della sessione connessa…" },
+  "authSignInMissing": { "message": "Accedi per continuare a ottenere drop." },
+  "authSignInRejected": { "message": "La sessione non è più valida. Accedi di nuovo per continuare." },
+  "signInToTwitch": { "message": "Accedi a Twitch" },
+  "signInToKick": { "message": "Accedi a Kick" },
+  "authBrowserProfileBlocked": { "message": "Kick ha rifiutato questo profilo del browser. Il solo accesso potrebbe non risolvere il problema." },
+  "authCredentialCheckUnavailable": { "message": "Non è stato possibile verificare la sessione del browser. Lurkloot riproverà automaticamente." },
+  "authNetworkTemporarilyUnavailable": { "message": "La rete è temporaneamente non disponibile. Lurkloot riproverà automaticamente." },
+  "authPlatformTemporarilyUnavailable": { "message": "La piattaforma è temporaneamente non disponibile. Lurkloot riproverà automaticamente." }
 }

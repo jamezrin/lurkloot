@@ -241,6 +241,7 @@ describe("settings", () => {
     expect(mergeSettings({ languageOverride: "zh_CN" }).languageOverride).toBe("zh_CN");
     expect(mergeSettings({ languageOverride: "pt_BR" }).languageOverride).toBe("pt_BR");
     expect(mergeSettings({ languageOverride: "ar" }).languageOverride).toBe("ar");
+    expect(mergeSettings({ languageOverride: "tr" }).languageOverride).toBe("tr");
     expect(mergeSettings({ languageOverride: "pt" } as unknown as Parameters<typeof mergeSettings>[0]).languageOverride)
       .toBe("browser");
   });

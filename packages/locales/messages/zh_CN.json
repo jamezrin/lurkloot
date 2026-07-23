@@ -44,6 +44,9 @@
   "languageArabic": {
     "message": "阿拉伯语"
   },
+  "languageTurkish": {
+    "message": "土耳其语"
+  },
   "settingsLanguageTitle": {
     "message": "语言"
   },
@@ -378,10 +381,10 @@
     "message": "共享的备用列表行为。"
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "仅在没有可刷取的合格掉宝时"
+    "message": "优先刷取掉宝而非空闲观看列表"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "自动保留掉宝优先级。"
+    "message": "一旦有可刷取的合格掉宝，就离开空闲观看列表频道。关闭时，会一直观看该频道直到其下播。"
   },
   "platformSettingsTitle": {
     "message": "平台设置"
@@ -637,13 +640,10 @@
     "message": "清楚查看它正在做什么。"
   },
   "screenshotActivitySubcopy": {
-    "message": "透明的活动日志显示每次检查、切换和领取，并可按级别过滤。"
+    "message": "透明的活动日志显示每次检查、切换和领取，还可按需查看诊断详情。"
   },
   "autoClaimReady": {
     "message": "自动领取就绪"
-  },
-  "resumingAutomation": {
-    "message": "正在恢复自动化..."
   },
   "attributionLinks": {
     "message": "署名链接"
@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "导出凭据"
   },
+  "factoryResetTitle": { "message": "重置 Lurkloot" },
+  "factoryResetHint": { "message": "清除所有 Lurkloot 设置、挂机进度和活动记录。你的 Twitch 和 Kick 账号仍会保持登录。" },
+  "factoryResetButton": { "message": "重置 Lurkloot" },
+  "factoryResetConfirm": { "message": "此操作会停止挂机、关闭 Lurkloot 打开的标签页，并永久清除所有 Lurkloot 数据。Twitch 和 Kick 仍会保持登录。" },
+  "factoryResetCancel": { "message": "取消" },
+  "factoryResetConfirmButton": { "message": "全部重置" },
+  "factoryResetProgress": { "message": "正在重置…" },
+  "factoryResetFailed": { "message": "Lurkloot 未能完全重置，请重试。" },
+  "factoryResetRetry": { "message": "重新尝试重置" },
   "diagnosticLoggingTitle": {
     "message": "包含诊断日志"
   },
@@ -724,6 +733,13 @@
   "activityChallengeClaimed": {
     "message": "已领取 $2 挑战的 $1 卡片"
   },
+  "activityAuthHealthChanged": { "message": "$1 的身份验证状态从 $2 变为 $3。" },
+  "activityPageContextOpened": { "message": "已在 $1 打开后台上下文，因为$2。" },
+  "activityPageContextClosed": { "message": "已关闭 $1 的后台上下文，因为$2。" },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick 拒绝了无标签页请求" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "之前的后台上下文无法使用" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "无标签页请求已恢复" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "已有 Kick 标签页可用" },
   "activityInterruption": {
     "message": "领取已中断：$1。"
   },
@@ -736,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "平台已停用"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "身份验证不可用" },
   "activityReasonPlatformBackoff": {
     "message": "平台正在暂时等待"
   },
@@ -894,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "链接处理 v2"
-  }
+  },
+  "automationChecking": { "message": "正在检查" },
+  "automationNeedsSignIn": { "message": "需要登录" },
+  "automationBlocked": { "message": "已阻止" },
+  "automationUnavailable": { "message": "暂时不可用" },
+  "authCheckingDetail": { "message": "正在检查你的登录会话…" },
+  "authSignInMissing": { "message": "请登录以继续获取掉宝。" },
+  "authSignInRejected": { "message": "你的会话已失效。请重新登录以继续。" },
+  "signInToTwitch": { "message": "登录 Twitch" },
+  "signInToKick": { "message": "登录 Kick" },
+  "authBrowserProfileBlocked": { "message": "Kick 拒绝了此浏览器配置文件。仅重新登录可能无法解决问题。" },
+  "authCredentialCheckUnavailable": { "message": "无法检查浏览器会话。Lurkloot 将自动重试。" },
+  "authNetworkTemporarilyUnavailable": { "message": "网络暂时不可用。Lurkloot 将自动重试。" },
+  "authPlatformTemporarilyUnavailable": { "message": "平台暂时不可用。Lurkloot 将自动重试。" }
 }

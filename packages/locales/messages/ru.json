@@ -44,6 +44,9 @@
   "languageArabic": {
     "message": "Арабский"
   },
+  "languageTurkish": {
+    "message": "Турецкий"
+  },
   "settingsLanguageTitle": {
     "message": "Язык"
   },
@@ -378,10 +381,10 @@
     "message": "Общее поведение резервного списка."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Только когда нет доступных подходящих drops"
+    "message": "Отдавать приоритет drops перед списком просмотра в простое"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Автоматически сохраняет приоритет drops."
+    "message": "Покидает канал из списка просмотра в простое, как только появляется подходящий drop. Если выключено, продолжает смотреть его, пока он не уйдёт офлайн."
   },
   "platformSettingsTitle": {
     "message": "Настройки платформы"
@@ -637,13 +640,10 @@
     "message": "Смотрите, что именно происходит."
   },
   "screenshotActivitySubcopy": {
-    "message": "Прозрачный журнал показывает каждую проверку, переключение и получение награды, с фильтрами по уровню."
+    "message": "Прозрачный журнал показывает каждую проверку, переключение и получение награды, а при необходимости — диагностические подробности."
   },
   "autoClaimReady": {
     "message": "Автополучение готово"
-  },
-  "resumingAutomation": {
-    "message": "Возобновление автоматизации..."
   },
   "attributionLinks": {
     "message": "Ссылки на автора"
@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "Экспортировать учётные данные"
   },
+  "factoryResetTitle": { "message": "Сбросить Lurkloot" },
+  "factoryResetHint": { "message": "Удаляет все настройки Lurkloot, прогресс фарма и историю действий. Вы останетесь в своих аккаунтах Twitch и Kick." },
+  "factoryResetButton": { "message": "Сбросить Lurkloot" },
+  "factoryResetConfirm": { "message": "Фарм будет остановлен, открытые Lurkloot вкладки закрыты, а все данные Lurkloot удалены навсегда. Вход в Twitch и Kick сохранится." },
+  "factoryResetCancel": { "message": "Отмена" },
+  "factoryResetConfirmButton": { "message": "Сбросить всё" },
+  "factoryResetProgress": { "message": "Сброс…" },
+  "factoryResetFailed": { "message": "Не удалось полностью сбросить Lurkloot. Попробуйте ещё раз." },
+  "factoryResetRetry": { "message": "Повторить сброс" },
   "diagnosticLoggingTitle": {
     "message": "Включить диагностические журналы"
   },
@@ -724,6 +733,13 @@
   "activityChallengeClaimed": {
     "message": "Получена карта $1 за испытание $2"
   },
+  "activityAuthHealthChanged": { "message": "Состояние аутентификации $1 изменилось с $2 на $3." },
+  "activityPageContextOpened": { "message": "Фоновый контекст на $1 открыт, потому что $2." },
+  "activityPageContextClosed": { "message": "Фоновый контекст на $1 закрыт, потому что $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick отклонил запрос без вкладки" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "предыдущий фоновый контекст был непригоден" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "запросы без вкладки снова работают" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "стала доступна существующая вкладка Kick" },
   "activityInterruption": {
     "message": "Сбор прерван: $1."
   },
@@ -736,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "платформа отключена"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "аутентификация недоступна" },
   "activityReasonPlatformBackoff": {
     "message": "платформа временно ожидает"
   },
@@ -894,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Обработка ссылок v2"
-  }
+  },
+  "automationChecking": { "message": "Проверка" },
+  "automationNeedsSignIn": { "message": "Требуется вход" },
+  "automationBlocked": { "message": "Заблокировано" },
+  "automationUnavailable": { "message": "Недоступно" },
+  "authCheckingDetail": { "message": "Проверяем активный сеанс…" },
+  "authSignInMissing": { "message": "Войдите, чтобы продолжить получать награды." },
+  "authSignInRejected": { "message": "Сеанс больше недействителен. Войдите снова, чтобы продолжить." },
+  "signInToTwitch": { "message": "Войти в Twitch" },
+  "signInToKick": { "message": "Войти в Kick" },
+  "authBrowserProfileBlocked": { "message": "Kick отклонил этот профиль браузера. Одного входа может быть недостаточно для решения проблемы." },
+  "authCredentialCheckUnavailable": { "message": "Не удалось проверить сеанс браузера. Lurkloot повторит попытку автоматически." },
+  "authNetworkTemporarilyUnavailable": { "message": "Сеть временно недоступна. Lurkloot повторит попытку автоматически." },
+  "authPlatformTemporarilyUnavailable": { "message": "Платформа временно недоступна. Lurkloot повторит попытку автоматически." }
 }

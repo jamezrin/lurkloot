@@ -80,7 +80,6 @@ export function createDemoPopupAdapter(options?: {
     setStorage: async (values: Record<string, unknown>) => {
       Object.assign(store, values);
     },
-    connectSettingsSession: () => () => undefined,
     getMessage: () => "",
     getUiLanguage: () => options?.locale ?? "en",
     openLink: (url) => openHttpsLink(url, (safeUrl) => window.open(safeUrl, "_blank", "noopener,noreferrer")),
@@ -205,6 +204,10 @@ function demoSnapshot(): RuntimeSnapshot {
   return {
     settings,
     state: {
+      authHealth: {
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+        kick: { status: "healthy", checkedAt: new Date().toISOString() },
+      },
       sessions: {
         twitch: {
           platform: "twitch",

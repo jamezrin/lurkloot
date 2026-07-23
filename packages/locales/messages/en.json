@@ -44,6 +44,9 @@
   "languageArabic": {
     "message": "Arabic"
   },
+  "languageTurkish": {
+    "message": "Turkish"
+  },
   "settingsLanguageTitle": {
     "message": "Language"
   },
@@ -378,10 +381,10 @@
     "message": "Fallback channels used when no eligible drops are available."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Only when no eligible drops are available"
+    "message": "Prioritize drops over the Idle Watchlist"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Keeps eligible drop farming first priority."
+    "message": "Leaves an Idle Watchlist channel as soon as an eligible drop becomes available. When off, keeps watching it until it goes offline."
   },
   "platformSettingsTitle": {
     "message": "Platform settings"
@@ -637,13 +640,10 @@
     "message": "See exactly what it's doing."
   },
   "screenshotActivitySubcopy": {
-    "message": "A transparent activity log shows every check, switch, and claim — filterable by level so nothing happens behind your back."
+    "message": "A transparent activity log shows every check, switch, and claim — with diagnostic detail on demand so nothing happens behind your back."
   },
   "autoClaimReady": {
     "message": "Auto-claim ready"
-  },
-  "resumingAutomation": {
-    "message": "Resuming automation..."
   },
   "attributionLinks": {
     "message": "Attribution links"
@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "Export credentials"
   },
+  "factoryResetTitle": { "message": "Reset Lurkloot" },
+  "factoryResetHint": { "message": "Erase all Lurkloot settings, farming progress, and activity history. Your Twitch and Kick accounts stay signed in." },
+  "factoryResetButton": { "message": "Reset Lurkloot" },
+  "factoryResetConfirm": { "message": "This stops farming, closes tabs opened by Lurkloot, and permanently erases all Lurkloot data. Twitch and Kick stay signed in." },
+  "factoryResetCancel": { "message": "Cancel" },
+  "factoryResetConfirmButton": { "message": "Reset everything" },
+  "factoryResetProgress": { "message": "Resetting…" },
+  "factoryResetFailed": { "message": "Lurkloot couldn't reset completely. Try again." },
+  "factoryResetRetry": { "message": "Try reset again" },
   "diagnosticLoggingTitle": {
     "message": "Include diagnostic logs"
   },
@@ -724,6 +733,13 @@
   "activityChallengeClaimed": {
     "message": "Claimed a $1 card from the $2 challenge"
   },
+  "activityAuthHealthChanged": { "message": "$1 authentication changed from $2 to $3." },
+  "activityPageContextOpened": { "message": "Opened a background context on $1 because $2." },
+  "activityPageContextClosed": { "message": "Closed the background context on $1 because $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rejected the tabless request" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "the previous background context was unusable" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "tabless requests recovered" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "an existing Kick tab became available" },
   "activityInterruption": {
     "message": "Farming interrupted: $1."
   },
@@ -736,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "the platform was disabled"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "authentication is unavailable" },
   "activityReasonPlatformBackoff": {
     "message": "the platform is temporarily backing off"
   },
@@ -894,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Claim handling v2"
-  }
+  },
+  "automationChecking": { "message": "Checking" },
+  "automationNeedsSignIn": { "message": "Needs sign-in" },
+  "automationBlocked": { "message": "Blocked" },
+  "automationUnavailable": { "message": "Unavailable" },
+  "authCheckingDetail": { "message": "Checking your signed-in session…" },
+  "authSignInMissing": { "message": "Sign in to continue farming drops." },
+  "authSignInRejected": { "message": "Your session is no longer valid. Sign in again to continue." },
+  "signInToTwitch": { "message": "Sign in to Twitch" },
+  "signInToKick": { "message": "Sign in to Kick" },
+  "authBrowserProfileBlocked": { "message": "Kick rejected this browser profile. Signing in alone may not resolve it." },
+  "authCredentialCheckUnavailable": { "message": "Your browser session could not be checked. Lurkloot will retry automatically." },
+  "authNetworkTemporarilyUnavailable": { "message": "The network is temporarily unavailable. Lurkloot will retry automatically." },
+  "authPlatformTemporarilyUnavailable": { "message": "The platform is temporarily unavailable. Lurkloot will retry automatically." }
 }

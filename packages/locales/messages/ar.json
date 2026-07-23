@@ -44,6 +44,9 @@
   "languageArabic": {
     "message": "العربية"
   },
+  "languageTurkish": {
+    "message": "التركية"
+  },
   "settingsLanguageTitle": {
     "message": "اللغة"
   },
@@ -378,10 +381,10 @@
     "message": "سلوك قائمة الاحتياط المشترك."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "فقط عند عدم توفر Drops مؤهلة"
+    "message": "إعطاء الأولوية لـ Drops على قائمة المشاهدة الخاملة"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "يحافظ تلقائيًا على أولوية Drops."
+    "message": "يغادر قناة قائمة المشاهدة الخاملة فور توفر drop مؤهل. عند التعطيل، يستمر في مشاهدتها حتى تصبح غير متصلة."
   },
   "platformSettingsTitle": {
     "message": "إعدادات المنصة"
@@ -637,13 +640,10 @@
     "message": "شاهد بالضبط ما يفعله."
   },
   "screenshotActivitySubcopy": {
-    "message": "يعرض سجل نشاط شفاف كل فحص وتبديل واستلام، مع التصفية حسب المستوى."
+    "message": "يعرض سجل نشاط شفاف كل فحص وتبديل واستلام، مع تفاصيل تشخيصية عند الحاجة."
   },
   "autoClaimReady": {
     "message": "الاستلام التلقائي جاهز"
-  },
-  "resumingAutomation": {
-    "message": "جارٍ استئناف التشغيل التلقائي..."
   },
   "attributionLinks": {
     "message": "روابط النسبة"
@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "تصدير بيانات الاعتماد"
   },
+  "factoryResetTitle": { "message": "إعادة ضبط Lurkloot" },
+  "factoryResetHint": { "message": "يمسح جميع إعدادات Lurkloot وتقدم التجميع وسجل النشاط. ستبقى مسجّلًا في Twitch وKick." },
+  "factoryResetButton": { "message": "إعادة ضبط Lurkloot" },
+  "factoryResetConfirm": { "message": "يؤدي هذا إلى إيقاف التجميع وإغلاق علامات التبويب التي فتحها Lurkloot ومسح جميع بياناته نهائيًا. ستبقى مسجّلًا في Twitch وKick." },
+  "factoryResetCancel": { "message": "إلغاء" },
+  "factoryResetConfirmButton": { "message": "إعادة ضبط الكل" },
+  "factoryResetProgress": { "message": "جارٍ إعادة الضبط…" },
+  "factoryResetFailed": { "message": "تعذّرت إعادة ضبط Lurkloot بالكامل. حاول مرة أخرى." },
+  "factoryResetRetry": { "message": "حاول إعادة الضبط مجددًا" },
   "diagnosticLoggingTitle": {
     "message": "تضمين سجلات التشخيص"
   },
@@ -724,6 +733,13 @@
   "activityChallengeClaimed": {
     "message": "تم استلام بطاقة $1 من تحدي $2"
   },
+  "activityAuthHealthChanged": { "message": "تغيّرت مصادقة $1 من $2 إلى $3." },
+  "activityPageContextOpened": { "message": "تم فتح سياق في الخلفية على $1 لأن $2." },
+  "activityPageContextClosed": { "message": "تم إغلاق سياق الخلفية على $1 لأن $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick رفض الطلب دون علامة تبويب" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "سياق الخلفية السابق لم يكن صالحًا للاستخدام" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "طلبات العمل دون علامة تبويب عادت للعمل" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "أصبحت علامة تبويب Kick موجودة متاحة" },
   "activityInterruption": {
     "message": "توقف الجمع: $1."
   },
@@ -736,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "تم تعطيل المنصة"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "المصادقة غير متاحة" },
   "activityReasonPlatformBackoff": {
     "message": "المنصة في انتظار مؤقت"
   },
@@ -894,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "معالجة الروابط الإصدار 2"
-  }
+  },
+  "automationChecking": { "message": "جارٍ التحقق" },
+  "automationNeedsSignIn": { "message": "يلزم تسجيل الدخول" },
+  "automationBlocked": { "message": "محظور" },
+  "automationUnavailable": { "message": "غير متاح" },
+  "authCheckingDetail": { "message": "جارٍ التحقق من جلسة تسجيل دخولك…" },
+  "authSignInMissing": { "message": "سجّل الدخول لمواصلة جمع المكافآت." },
+  "authSignInRejected": { "message": "لم تعد جلستك صالحة. سجّل الدخول مجددًا للمتابعة." },
+  "signInToTwitch": { "message": "تسجيل الدخول إلى Twitch" },
+  "signInToKick": { "message": "تسجيل الدخول إلى Kick" },
+  "authBrowserProfileBlocked": { "message": "رفض Kick ملف تعريف المتصفح هذا. قد لا يكفي تسجيل الدخول وحده لحل المشكلة." },
+  "authCredentialCheckUnavailable": { "message": "تعذر التحقق من جلسة المتصفح. سيعيد Lurkloot المحاولة تلقائيًا." },
+  "authNetworkTemporarilyUnavailable": { "message": "الشبكة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا." },
+  "authPlatformTemporarilyUnavailable": { "message": "المنصة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا." }
 }

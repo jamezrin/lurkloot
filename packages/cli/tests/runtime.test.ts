@@ -131,7 +131,7 @@ describe("CLI engine event reporting", () => {
 
   it("formats every stable stop reason", () => {
     const reasons: FarmingStopReason[] = [
-      "automation_disabled", "platform_disabled", "platform_backoff", "platform_error",
+      "automation_disabled", "platform_disabled", "authentication_unhealthy", "platform_backoff", "platform_error",
       "campaign_ineligible", "channel_excluded", "channel_offline", "channel_mismatch",
       "watch_unhealthy", "higher_priority_reward", "higher_priority_idle_watchlist",
       "watch_requirement_completed", "runtime_restart", "target_changed", "manual_watch",
@@ -140,6 +140,30 @@ describe("CLI engine event reporting", () => {
       expect(formatCliEvent(rewardEvent("farming_stopped", "Reward", { reason })))
         .toContain(reason.replaceAll("_", " "));
     }
+  });
+
+  it("formats managed page-context lifecycle activity", () => {
+    expect(formatCliEvent({
+      category: "activity",
+      code: "page_context_opened",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_rejected" },
+    })).toBe("Opened background context on kick.com: background request rejected");
+    expect(formatCliEvent({
+      category: "activity",
+      code: "page_context_closed",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_recovered" },
+    })).toBe("Closed background context on kick.com: background requests recovered");
+    expect(formatCliEvent({
+      category: "activity",
+      code: "page_context_closed",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "runtime_restart" },
+    })).toBe("Closed background context on kick.com: extension runtime restarted");
   });
 });
 

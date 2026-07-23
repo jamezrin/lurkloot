@@ -40,6 +40,7 @@ For every locale below, set its **Summary** + **Description** (from `store-descr
 | hi | `store-screenshots/hi/` | Hindi |
 | pt_BR | `store-screenshots/pt_BR/` | Portuguese (Brazil) |
 | ar | `store-screenshots/ar/` | Arabic |
+| tr | `store-screenshots/tr/` | Turkish |
 
 (English `en` is the default listing in §1.) All short descriptions are within the 132-char limit.
 
@@ -60,8 +61,9 @@ falls back when unhealthy, and confirm reward progress on the platforms' invento
 
 ```bash
 pnpm zip && pnpm zip:firefox     # extension packages
-pnpm screenshot:store            # artifacts/store-screenshots/<locale>/ (all 10)
+pnpm screenshot:store            # artifacts/store-screenshots/<locale>/ (all 11)
 pnpm promo:store                 # artifacts/store-promo/<locale>/
 ```
 
-Pass locale codes to limit, e.g. `pnpm screenshot:store es ar`.
+Pass locale codes to limit, e.g. `pnpm screenshot:store es ar tr`. Turkish promo tiles are under
+`artifacts/store-promo/tr/`.

@@ -1,8 +1,9 @@
 import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "@lurkloot/shared/models";
-import type { EventEmitter } from "@lurkloot/shared/events";
+import type { EventEmitter, PageContextCloseReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TwitchIntegrity } from "./twitchIntegrity";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
+import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "./fetchError";
 
 const ignoreEvent: EventEmitter = () => {};
 
@@ -56,6 +57,8 @@ const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   keepVideosUnmuted: true,
 };
 const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
+const PAGE_CONTEXT_RECOVERY_SUCCESSES = 3;
+const PAGE_CONTEXT_RECOVERY_MIN_MS = 10 * 60_000;
 
 export async function openPinnedMutedTabWithBrowser(
   browserApi: BrowserTabApi,
@@ -292,6 +295,8 @@ export interface PageFetchOptions {
     platform: Platform;
     managedContext?: ManagedPageContextTab;
   };
+  emit?: EventEmitter;
+  openReason?: PageContextOpenReason;
 }
 
 export interface CookieApi {
@@ -409,13 +414,21 @@ function twitchClientSessionIdValue(): string {
   return twitchClientSessionId;
 }
 
-function twitchGqlErrorEnvelope(summary: string, status: number, body: string, headers: Headers): { __twitchGqlError: string } {
-  return { __twitchGqlError: [
-    `Twitch GQL ${summary}`,
-    `status=${status}`,
-    `authHeader=${headers.has("authorization") ? "yes" : "no"}`,
-    `body=${body.slice(0, 300)}`,
-  ].join("; ") };
+function twitchGqlErrorEnvelope(
+  summary: string,
+  status: number,
+  body: string,
+  headers: Headers,
+): { __twitchGqlError: string; __twitchGqlFailureKind: "network" | "credentials" | "platform" } {
+  return {
+    __twitchGqlError: [
+      `Twitch GQL ${summary}`,
+      `status=${status}`,
+      `authHeader=${headers.has("authorization") ? "yes" : "no"}`,
+      `body=${body.slice(0, 300)}`,
+    ].join("; "),
+    __twitchGqlFailureKind: status === 0 ? "network" : status === 401 ? "credentials" : "platform",
+  };
 }
 
 function isUsableTwitchGql(value: unknown): boolean {
@@ -472,18 +485,63 @@ export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string
   return (isUsableTwitchGql(json) ? json : twitchGqlErrorEnvelope("returned an unusable response", response.status, text, headers)) as T;
 }
 
-// Kick hosts whose endpoints replay the session_token cookie as a Bearer (mirrors
-// pageFetchJson). kick.com/api/v2/* is public and does not need it.
-const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com"];
+// Kick endpoints that replay the session_token cookie as a Bearer (mirrors the
+// predicate inlined in pageFetchJson). kick.com/api/v2/* and /api/search are public
+// and do not need it; kick.com/api/v1/user does, because Kick serves it anonymously
+// as `200 {}` instead of a 401, so a missing Bearer there is indistinguishable from a
+// signed-out session (see KickAdapter.checkAuthHealth).
+//
+// Matched on the parsed host and pathname rather than by substring: `includes` would
+// also attach the session token to hosts that merely mention a Kick host (e.g.
+// https://evil.example/?r=web.kick.com) and to unintended subpaths of /api/v1/user.
+function needsKickSessionBearer(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  if (parsed.host === "web.kick.com" || parsed.host === "websockets.kick.com") return true;
+  return parsed.host === "kick.com" && parsed.pathname === "/api/v1/user";
+}
 
 // Distinguishes "Kick's WAF / origin check rejected the service-worker request"
 // (fall back to the page-context tab) from a genuine error. Thrown by
 // fetchKickInBackground so the adapter wrapper can log and fall back cleanly.
-export class KickWafBlockedError extends Error {
-  constructor(message: string) {
-    super(message);
+export class KickWafBlockedError extends SafeFetchError {
+  constructor(candidate: string | SafeFetchFailure) {
+    super(typeof candidate === "string"
+      ? { kind: "network_error", reason: candidate }
+      : candidate);
     this.name = "KickWafBlockedError";
   }
+}
+
+function safeKickFailure(status: number, text: string): SafeFetchFailure {
+  let body: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
+  } catch {
+    // Non-JSON response bodies are never retained.
+  }
+  const reason = typeof body.error === "string"
+    ? body.error
+    : typeof body.message === "string"
+      ? body.message
+      : undefined;
+  const blocked = /security policy|request blocked/i.test(reason ?? "");
+  return safeFetchFailure({
+    kind: blocked
+      ? "security_policy_blocked"
+      : status === 401 || status === 403
+        ? "authentication_rejected"
+        : "http_error",
+    status,
+    reason,
+    reference: body.reference,
+  });
 }
 
 // Spike: attempt a Kick API call straight from the service worker (no tab),
@@ -494,7 +552,7 @@ export class KickWafBlockedError extends Error {
 // stack is WAF-blocked for unrelated reasons).
 export async function fetchKickInBackgroundWith<T>(api: CookieApi, url: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers ?? {});
-  if (KICK_AUTH_HOSTS.some((host) => url.includes(host)) && !headers.has("authorization")) {
+  if (needsKickSessionBearer(url) && !headers.has("authorization")) {
     const sessionToken = (await api.cookies?.get({ url: "https://kick.com", name: "session_token" }))?.value;
     if (sessionToken) headers.set("authorization", `Bearer ${decodeURIComponent(sessionToken)}`);
   }
@@ -505,14 +563,18 @@ export async function fetchKickInBackgroundWith<T>(api: CookieApi, url: string, 
   } catch (error) {
     // A network/CORS rejection from the extension origin is exactly the
     // origin-level failure we want to fall back on, not a hard error.
-    throw new KickWafBlockedError(error instanceof Error ? error.message : "network error");
+    throw new KickWafBlockedError({
+      kind: "network_error",
+      reason: error instanceof Error ? error.message : "network error",
+    });
   }
 
   const text = await response.text();
   if (!response.ok) {
-    const blocked = response.status === 403 || /security policy|blocked/i.test(text);
-    const message = `HTTP ${response.status} ${response.statusText}`;
-    throw blocked ? new KickWafBlockedError(message) : new Error(message);
+    const failure = safeKickFailure(response.status, text);
+    throw failure.kind === "security_policy_blocked"
+      ? new KickWafBlockedError(failure)
+      : new SafeFetchError(failure);
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -561,20 +623,28 @@ export async function fetchJsonInPageWithBrowser<T>(
       // means the context tab was closed or navigated away before injection.
       // Surface that clearly instead of dereferencing undefined.
       if (!result) throw new Error(`Page context for ${origin} returned no script result`);
-      return result.result as T;
+      return unwrapPageFetchResult<T>(result.result);
     }
 
     if (runtimeBrowser.tabs.executeScript) {
       const code = `(${pageFetchJson.toString()})(${JSON.stringify(url)}, ${JSON.stringify(init ? JSON.stringify(init) : undefined)})`;
       const results = await runtimeBrowser.tabs.executeScript(pageContext.tabId, { code });
       const result = results?.[0];
-      return result as T;
+      return unwrapPageFetchResult<T>(result);
     }
 
     throw new Error("No supported page script execution API is available");
   } finally {
-    await releasePageContextTab(browserApi, origin, pageContext);
+    await releasePageContextTab(browserApi, origin, pageContext, options?.emit);
   }
+}
+
+function unwrapPageFetchResult<T>(candidate: unknown): T {
+  if (!candidate || typeof candidate !== "object") return candidate as T;
+  const envelope = candidate as Record<string, unknown>;
+  if (envelope.__lurklootPageFetch !== true) return candidate as T;
+  if (envelope.ok === true) return envelope.data as T;
+  throw new SafeFetchError(safeFetchFailure(envelope.error));
 }
 
 async function acquirePageContextTab(
@@ -604,7 +674,7 @@ async function acquirePageContextTab(
   }
 }
 
-async function releasePageContextTab(browserApi: BrowserTabApi, origin: string, pageContext: PageContextTab): Promise<void> {
+async function releasePageContextTab(browserApi: BrowserTabApi, origin: string, pageContext: PageContextTab, emit: EventEmitter = ignoreEvent): Promise<void> {
   const entry = pageContextTabs.get(origin);
   if (!entry) return;
 
@@ -615,6 +685,7 @@ async function releasePageContextTab(browserApi: BrowserTabApi, origin: string, 
   if (!pageContext.createdByExtension || !browserApi.tabs.remove) return;
   if (pageContext.retainedContext) {
     retainedPageContextTabs.set(pageContext.retainedContext.platform, pageContext.retainedContext);
+    diagnostic(emit, "debug", `Retained managed page context on ${new URL(pageContext.retainedContext.origin).host} because it may still be required`, pageContext.retainedContext.platform);
     return;
   }
 
@@ -632,6 +703,7 @@ async function findOrCreatePageContextTab(
   options?: PageFetchOptions,
 ): Promise<PageContextTab> {
   const retain = options?.retainPageContext;
+  let openReason = options?.openReason ?? "background_rejected";
   const retained = retain?.managedContext ?? (retain ? retainedPageContextTabs.get(retain.platform) : undefined);
   const tabs = await browserApi.tabs.query({ url: `${origin}/*` });
   const retainedIds = new Set(
@@ -639,28 +711,75 @@ async function findOrCreatePageContextTab(
       .filter((tab): tab is ManagedPageContextTab => tab != null && tab.origin === origin)
       .map((tab) => tab.tabId),
   );
-  const tabId = tabs.find((tab) => tab.id != null && !retainedIds.has(tab.id))?.id;
+  let tabId: number | undefined;
+  for (const tab of tabs) {
+    if (tab.id == null || retainedIds.has(tab.id)) continue;
+    if (await isUsablePageContext(browserApi, tab.id, origin)) {
+      tabId = tab.id;
+      break;
+    }
+  }
   if (tabId != null) {
     if (retained?.origin === origin) {
       retainedPageContextTabs.delete(retained.platform);
-      try {
-        await browserApi.tabs.remove?.(retained.tabId);
-      } catch {
-        // The retained page context may already be gone.
+      const remove = browserApi.tabs.remove;
+      if (!remove) {
+        diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because tab removal is unavailable`, retained.platform);
+      } else {
+        try {
+          await remove(retained.tabId);
+          options?.emit?.({
+            category: "activity",
+            code: "page_context_closed",
+            level: "info",
+            platform: retained.platform,
+            data: { host: new URL(retained.origin).host, reason: "user_tab_available" },
+          });
+          diagnostic(options?.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(retained.origin).host} because a user tab is available`, retained.platform);
+        } catch {
+          // The retained page context may already be gone.
+          diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because the tab was already gone`, retained.platform);
+        }
       }
     }
+    diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused user page context on ${new URL(origin).host}`, retain?.platform);
     return { tabId, createdByExtension: false };
   }
 
   if (retained?.origin === origin) {
     try {
       const tab = await browserApi.tabs.get(retained.tabId);
-      if (tab?.id) {
+      if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin)) {
         retainedPageContextTabs.set(retained.platform, retained);
+        diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused managed page context on ${new URL(origin).host}`, retained.platform);
         return { tabId: tab.id, createdByExtension: true, retainedContext: retained };
+      }
+      retainedPageContextTabs.delete(retained.platform);
+      openReason = "managed_context_unusable";
+      if (tab?.id) {
+        const remove = browserApi.tabs.remove;
+        if (!remove) {
+          diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because tab removal is unavailable`, retained.platform);
+        } else {
+          try {
+            await remove(retained.tabId);
+            options?.emit?.({
+              category: "activity",
+              code: "page_context_closed",
+              level: "info",
+              platform: retained.platform,
+              data: { host: new URL(origin).host, reason: "managed_context_unusable" },
+            });
+            diagnostic(options?.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(origin).host} because it became unusable`, retained.platform);
+          } catch {
+            diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it was already gone`, retained.platform);
+          }
+        }
       }
     } catch {
       retainedPageContextTabs.delete(retained.platform);
+      openReason = "managed_context_unusable";
+      diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it is unusable`, retained.platform);
     }
   }
 
@@ -670,6 +789,17 @@ async function findOrCreatePageContextTab(
   }
   await browserApi.tabs.update(tab.id, { muted: true, active: false });
   await waitForPageContextReady(browserApi, tab.id, origin);
+  if (!await isUsablePageContext(browserApi, tab.id, origin)) {
+    try {
+      await browserApi.tabs.remove?.(tab.id);
+    } catch {
+      // The unusable page may already have been closed.
+    }
+    throw new SafeFetchError({
+      kind: "security_policy_blocked",
+      reason: "Kick page context is blocked or unusable",
+    });
+  }
   if (retain) {
     const retainedContext: ManagedPageContextTab = {
       platform: retain.platform,
@@ -679,9 +809,82 @@ async function findOrCreatePageContextTab(
       ownedByExtension: true,
     };
     retainedPageContextTabs.set(retain.platform, retainedContext);
+    options?.emit?.({
+      category: "activity",
+      code: "page_context_opened",
+      level: "info",
+      platform: retain.platform,
+      data: { host: new URL(origin).host, reason: openReason },
+    });
+    diagnostic(
+      options?.emit ?? ignoreEvent,
+      "info",
+      `Created managed page context on ${new URL(origin).host} because ${openReason === "managed_context_unusable" ? "the previous context was unusable" : "background access was rejected"}`,
+      retain.platform,
+    );
     return { tabId: tab.id, createdByExtension: true, retainedContext };
   }
   return { tabId: tab.id, createdByExtension: true };
+}
+
+async function isUsablePageContext(browserApi: BrowserTabApi, tabId: number, origin: string): Promise<boolean> {
+  if (origin !== "https://kick.com") return true;
+  try {
+    if (browserApi.scripting?.executeScript) {
+      const [result] = await browserApi.scripting.executeScript({
+        target: { tabId },
+        world: "MAIN",
+        func: validateKickPageContext,
+      });
+      const value = result?.result as { usable?: unknown } | undefined;
+      return value?.usable === true || (value as { ok?: unknown } | undefined)?.ok === true;
+    }
+    if (browserApi.tabs.executeScript) {
+      const results = await browserApi.tabs.executeScript(tabId, { code: `(${validateKickPageContext.toString()})()` });
+      const value = results?.[0] as { usable?: unknown; ok?: unknown } | undefined;
+      return value?.usable === true || value?.ok === true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+function validateKickPageContext(): { usable: boolean; failure?: SafeFetchFailure } {
+  const contentType = document.contentType?.toLowerCase() ?? "";
+  const text = document.body?.textContent?.trim().slice(0, 512) ?? "";
+  let body: Record<string, unknown> = {};
+  if (contentType.includes("json") || text.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(text) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
+    } catch {
+      return { usable: false, failure: { kind: "invalid_response" } };
+    }
+  }
+  const rawReason = typeof body.error === "string"
+    ? body.error
+    : typeof body.message === "string"
+      ? body.message
+      : undefined;
+  const reason = rawReason && rawReason.length <= 256 ? rawReason : undefined;
+  const blocked = /security policy|request blocked/i.test(reason ?? text);
+  if (contentType.includes("json") || blocked) {
+    const rawReference = body.reference;
+    const reference = (typeof rawReference === "string" && rawReference.length > 0 && rawReference.length <= 128)
+      || (typeof rawReference === "number" && Number.isFinite(rawReference))
+      ? rawReference
+      : undefined;
+    return {
+      usable: false,
+      failure: {
+        kind: blocked ? "security_policy_blocked" : "invalid_response",
+        ...(reason ? { reason } : {}),
+        ...(reference !== undefined ? { reference } : {}),
+      },
+    };
+  }
+  return { usable: contentType.includes("html") || document.documentElement?.tagName === "HTML" };
 }
 
 async function waitForPageContextReady(browserApi: BrowserTabApi, tabId: number, origin: string): Promise<void> {
@@ -710,6 +913,70 @@ export function currentManagedPageContextTabs(): SchedulerManagedPageContexts {
   return Object.fromEntries(retainedPageContextTabs) as SchedulerManagedPageContexts;
 }
 
+export function recordManagedPageContextFallback(
+  platform: Platform,
+  host: string,
+  emit: EventEmitter = ignoreEvent,
+  now: number = Date.now(),
+): void {
+  const context = retainedPageContextTabs.get(platform);
+  if (!context) return;
+  const updated: ManagedPageContextTab = {
+    ...context,
+    lastFallbackAt: new Date(now).toISOString(),
+    fallbackHost: host,
+    backgroundSuccesses: 0,
+  };
+  retainedPageContextTabs.set(platform, updated);
+  diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because background access is still rejected`, platform);
+}
+
+export async function recordManagedPageContextBackgroundSuccessWithBrowser(
+  browserApi: BrowserTabApi,
+  platform: Platform,
+  host: string,
+  emit: EventEmitter = ignoreEvent,
+  now: number = Date.now(),
+): Promise<void> {
+  const context = retainedPageContextTabs.get(platform);
+  if (!context?.lastFallbackAt || context.fallbackHost !== host) return;
+
+  const updated: ManagedPageContextTab = {
+    ...context,
+    backgroundSuccesses: (context.backgroundSuccesses ?? 0) + 1,
+  };
+  retainedPageContextTabs.set(platform, updated);
+  const fallbackAt = Date.parse(context.lastFallbackAt);
+  const recovered = updated.backgroundSuccesses! >= PAGE_CONTEXT_RECOVERY_SUCCESSES
+    && !Number.isNaN(fallbackAt)
+    && now - fallbackAt >= PAGE_CONTEXT_RECOVERY_MIN_MS
+    && !pageContextTabs.has(context.origin);
+  if (!recovered) {
+    diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} while background recovery is being confirmed`, platform);
+    return;
+  }
+
+  retainedPageContextTabs.delete(platform);
+  const remove = browserApi.tabs.remove;
+  if (!remove) {
+    diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because tab removal is unavailable`, platform);
+    return;
+  }
+  try {
+    await remove(context.tabId);
+    emit({
+      category: "activity",
+      code: "page_context_closed",
+      level: "info",
+      platform,
+      data: { host: new URL(context.origin).host, reason: "background_recovered" },
+    });
+    diagnostic(emit, "info", `Closed managed page context on ${new URL(context.origin).host} because background access recovered`, platform);
+  } catch {
+    diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the tab was already gone`, platform);
+  }
+}
+
 // Pure state cleanup: drop the given platforms from the contexts map and the
 // retained-tab registry, returning the next contexts. No browser access, so a
 // headless runtime — and the scheduler's default — can forget page contexts
@@ -717,7 +984,7 @@ export function currentManagedPageContextTabs(): SchedulerManagedPageContexts {
 // on top.
 export function forgetManagedPageContextTabs(
   contexts: SchedulerManagedPageContexts,
-  options: { platforms?: Platform[] } = {},
+  options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
 ): SchedulerManagedPageContexts {
   const platforms = options.platforms ?? ["twitch", "kick"];
   const next = { ...contexts };
@@ -732,16 +999,30 @@ export function forgetManagedPageContextTabs(
 export async function stopManagedPageContextTabsWithBrowser(
   browserApi: BrowserTabApi,
   contexts: SchedulerManagedPageContexts,
-  options: { platforms?: Platform[] } = {},
+  options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
 ): Promise<SchedulerManagedPageContexts> {
   const platforms = options.platforms ?? ["twitch", "kick"];
   for (const platform of platforms) {
     const context = contexts[platform];
     if (!context) continue;
+    const remove = browserApi.tabs.remove;
+    if (!remove) {
+      diagnostic(options.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(context.origin).host} because tab removal is unavailable`, platform);
+      continue;
+    }
     try {
-      await browserApi.tabs.remove?.(context.tabId);
+      await remove(context.tabId);
+      options.emit?.({
+        category: "activity",
+        code: "page_context_closed",
+        level: "info",
+        platform,
+        data: { host: new URL(context.origin).host, reason: options.reason ?? "automation_disabled" },
+      });
+      diagnostic(options.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(context.origin).host} because ${options.reason ?? "automation_disabled"}`, platform);
     } catch {
       // The retained page context may have been closed manually.
+      diagnostic(options.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the tab was already gone`, platform);
     }
   }
   return forgetManagedPageContextTabs(contexts, options);
@@ -758,7 +1039,21 @@ export type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageC
 async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
   const parsedInit = initJson ? JSON.parse(initJson) : undefined;
   const headers = new Headers(parsedInit?.headers ?? {});
-  if ((targetUrl.includes("web.kick.com") || targetUrl.includes("websockets.kick.com")) && !headers.has("authorization")) {
+  // Mirrors needsKickSessionBearer; inlined because executeScript only serializes this
+  // function's own source, so module-scope helpers are unavailable in the page. Matches
+  // on parsed host/pathname so the session token is never attached to a look-alike host
+  // or to an unintended subpath of /api/v1/user.
+  let needsKickBearer = false;
+  try {
+    const parsedTarget = new URL(targetUrl);
+    needsKickBearer = parsedTarget.protocol === "https:"
+      && (parsedTarget.host === "web.kick.com"
+        || parsedTarget.host === "websockets.kick.com"
+        || (parsedTarget.host === "kick.com" && parsedTarget.pathname === "/api/v1/user"));
+  } catch {
+    needsKickBearer = false;
+  }
+  if (needsKickBearer && !headers.has("authorization")) {
     const sessionToken = document.cookie
       .split(";")
       .map((part) => part.trim())
@@ -766,17 +1061,56 @@ async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unkn
       ?.slice("session_token=".length);
     if (sessionToken) headers.set("authorization", `Bearer ${decodeURIComponent(sessionToken)}`);
   }
-  const response = await fetch(targetUrl, {
-    ...parsedInit,
-    headers,
-    credentials: parsedInit?.credentials ?? "include",
-  });
-  if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`);
+  try {
+    const response = await fetch(targetUrl, {
+      ...parsedInit,
+      headers,
+      credentials: parsedInit?.credentials ?? "include",
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      let body: Record<string, unknown> = {};
+      try {
+        const parsed = JSON.parse(text) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
+      } catch {
+        // Never retain non-JSON response bodies.
+      }
+      const rawReason = typeof body.error === "string"
+        ? body.error
+        : typeof body.message === "string"
+          ? body.message
+          : undefined;
+      const reason = rawReason && rawReason.length <= 256 ? rawReason : undefined;
+      const rawReference = body.reference;
+      const reference = (typeof rawReference === "string" && rawReference.length > 0 && rawReference.length <= 128)
+        || (typeof rawReference === "number" && Number.isFinite(rawReference))
+        ? rawReference
+        : undefined;
+      const blocked = /security policy|request blocked/i.test(reason ?? "");
+      return {
+        __lurklootPageFetch: true,
+        ok: false,
+        error: {
+          kind: blocked
+            ? "security_policy_blocked"
+            : response.status === 401 || response.status === 403
+              ? "authentication_rejected"
+              : "http_error",
+          status: response.status,
+          ...(reason ? { reason } : {}),
+          ...(reference !== undefined ? { reference } : {}),
+        },
+      };
+    }
+    const contentType = response.headers.get("content-type") ?? "";
+    const data = contentType.includes("application/json") ? JSON.parse(text) : { html: text };
+    return { __lurklootPageFetch: true, ok: true, data };
+  } catch {
+    return {
+      __lurklootPageFetch: true,
+      ok: false,
+      error: { kind: "network_error" },
+    };
   }
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    return await response.json();
-  }
-  return { html: await response.text() };
 }

@@ -54,11 +54,53 @@ describe("activity view model", () => {
     expect(t).toHaveBeenCalledWith("activityReasonRuntimeRestart");
   });
 
+  it("formats managed page-context opens and closes with their reasons", () => {
+    const t = vi.fn((key: string, substitutions?: string | string[]) =>
+      `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
+
+    expect(formatActivityEvent({
+      id: "opened",
+      at,
+      category: "activity",
+      code: "page_context_opened",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_rejected" },
+    }, t)).toBe("activityPageContextOpened:kick.com|activityPageContextOpenReasonBackgroundRejected:");
+
+    expect(formatActivityEvent({
+      id: "closed",
+      at,
+      category: "activity",
+      code: "page_context_closed",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_recovered" },
+    }, t)).toBe("activityPageContextClosed:kick.com|activityPageContextCloseReasonBackgroundRecovered:");
+  });
+
+  it("formats complete authentication health transitions", () => {
+    const t = vi.fn((key: string, substitutions?: string | string[]) =>
+      `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
+
+    expect(formatActivityEvent({
+      id: "auth-transition",
+      at,
+      category: "activity",
+      code: "auth_health_changed",
+      level: "warn",
+      platform: "kick",
+      data: { from: "checking", to: "missing_credentials", reason: "credentials_missing" },
+    }, t)).toBe("activityAuthHealthChanged:kick|checking|missing_credentials");
+    expect(t).toHaveBeenCalledWith("activityAuthHealthChanged", ["kick", "checking", "missing_credentials"]);
+  });
+
   it("formats every farming stop reason through its locale key", () => {
     const t = vi.fn((key: string) => key);
     const reasons: FarmingStopReason[] = [
       "automation_disabled",
       "platform_disabled",
+      "authentication_unhealthy",
       "platform_backoff",
       "platform_error",
       "campaign_ineligible",
@@ -88,6 +130,7 @@ describe("activity view model", () => {
     expect(t.mock.calls.map(([key]) => key)).toEqual([
       "activityReasonAutomationDisabled", "activityInterruption",
       "activityReasonPlatformDisabled", "activityInterruption",
+      "activityReasonAuthenticationUnhealthy", "activityInterruption",
       "activityReasonPlatformBackoff", "activityInterruption",
       "activityReasonPlatformError", "activityInterruption",
       "activityReasonCampaignIneligible", "activityInterruption",

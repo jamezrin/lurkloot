@@ -6,6 +6,7 @@ import type {
   DropReward,
   ManagedWatchTab,
   Platform,
+  PlatformAuthHealth,
   WatchSession,
 } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
@@ -43,6 +44,7 @@ export interface ClaimedChallenge {
 export interface PlatformAdapter {
   platform: Platform;
   readonly compatibility?: ResolvedCompatibility[Platform];
+  checkAuthHealth(): Promise<PlatformAuthHealth>;
   discoverCampaigns(): Promise<DropCampaign[]>;
   readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]>;
   listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]>;

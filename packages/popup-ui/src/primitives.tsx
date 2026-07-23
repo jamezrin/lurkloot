@@ -38,12 +38,13 @@ export function Toggle({ checked, onChange, label, disabled = false }: { checked
   );
 }
 
-export function Pill({ children, tone = "muted" }: { children: React.ReactNode; tone?: "muted" | "accent" | "live" | "danger" | "outline" }) {
+export function Pill({ children, tone = "muted" }: { children: React.ReactNode; tone?: "muted" | "accent" | "live" | "warning" | "danger" | "outline" }) {
   const tones = {
     muted: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
     outline: "border border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400",
     accent: "bg-[var(--accent-soft)] text-[var(--accent-text)]",
     live: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
+    warning: "bg-amber-500/12 text-amber-700 dark:text-amber-400",
     danger: "bg-red-500/12 text-red-600 dark:text-red-400",
   };
   return <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none whitespace-nowrap", tones[tone])}>{children}</span>;

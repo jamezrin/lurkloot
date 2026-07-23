@@ -44,6 +44,9 @@
   "languageArabic": {
     "message": "Árabe"
   },
+  "languageTurkish": {
+    "message": "Turco"
+  },
   "settingsLanguageTitle": {
     "message": "Idioma"
   },
@@ -378,10 +381,10 @@
     "message": "Comportamento compartilhado da lista alternativa."
   },
   "idleWatchlistFallbackOnlyTitle": {
-    "message": "Somente quando não há drops elegíveis disponíveis"
+    "message": "Priorizar drops em vez da Lista de visualização ociosa"
   },
   "idleWatchlistFallbackOnlyDescription": {
-    "message": "Preserva automaticamente a prioridade dos drops."
+    "message": "Sai de um canal da Lista de visualização ociosa assim que um drop elegível ficar disponível. Se desativado, continua assistindo até o canal ficar offline."
   },
   "platformSettingsTitle": {
     "message": "Configurações da plataforma"
@@ -637,13 +640,10 @@
     "message": "Veja exatamente o que ele está fazendo."
   },
   "screenshotActivitySubcopy": {
-    "message": "Um log de atividade transparente mostra cada verificação, troca e resgate, filtrável por nível."
+    "message": "Um log de atividade transparente mostra cada verificação, troca e resgate, com detalhes de diagnóstico quando você quiser."
   },
   "autoClaimReady": {
     "message": "Auto-resgate pronto"
-  },
-  "resumingAutomation": {
-    "message": "Retomando automação..."
   },
   "attributionLinks": {
     "message": "Links de atribuição"
@@ -706,6 +706,15 @@
   "cliExportButton": {
     "message": "Exportar credenciais"
   },
+  "factoryResetTitle": { "message": "Redefinir o Lurkloot" },
+  "factoryResetHint": { "message": "Apaga todas as configurações, o progresso de farming e o histórico de atividades do Lurkloot. Suas contas da Twitch e Kick continuarão conectadas." },
+  "factoryResetButton": { "message": "Redefinir o Lurkloot" },
+  "factoryResetConfirm": { "message": "Isso interrompe o farming, fecha as abas abertas pelo Lurkloot e apaga permanentemente todos os dados. Twitch e Kick continuarão conectados." },
+  "factoryResetCancel": { "message": "Cancelar" },
+  "factoryResetConfirmButton": { "message": "Redefinir tudo" },
+  "factoryResetProgress": { "message": "Redefinindo…" },
+  "factoryResetFailed": { "message": "Não foi possível redefinir o Lurkloot por completo. Tente novamente." },
+  "factoryResetRetry": { "message": "Tentar novamente" },
   "diagnosticLoggingTitle": {
     "message": "Incluir registros de diagnóstico"
   },
@@ -724,6 +733,13 @@
   "activityChallengeClaimed": {
     "message": "Carta $1 resgatada do desafio $2"
   },
+  "activityAuthHealthChanged": { "message": "A autenticação da $1 mudou de $2 para $3." },
+  "activityPageContextOpened": { "message": "Um contexto em segundo plano foi aberto em $1 porque $2." },
+  "activityPageContextClosed": { "message": "O contexto em segundo plano em $1 foi fechado porque $2." },
+  "activityPageContextOpenReasonBackgroundRejected": { "message": "a Kick rejeitou a solicitação sem aba" },
+  "activityPageContextReasonManagedContextUnusable": { "message": "o contexto anterior não podia ser usado" },
+  "activityPageContextCloseReasonBackgroundRecovered": { "message": "as solicitações sem aba voltaram a funcionar" },
+  "activityPageContextCloseReasonUserTabAvailable": { "message": "uma aba existente da Kick ficou disponível" },
   "activityInterruption": {
     "message": "Coleta interrompida: $1."
   },
@@ -736,6 +752,7 @@
   "activityReasonPlatformDisabled": {
     "message": "a plataforma foi desativada"
   },
+  "activityReasonAuthenticationUnhealthy": { "message": "a autenticação não está disponível" },
   "activityReasonPlatformBackoff": {
     "message": "a plataforma está aguardando temporariamente"
   },
@@ -894,5 +911,18 @@
   },
   "compatibilityOptionKickClaimV2": {
     "message": "Tratamento de links v2"
-  }
+  },
+  "automationChecking": { "message": "Verificando" },
+  "automationNeedsSignIn": { "message": "Login necessário" },
+  "automationBlocked": { "message": "Bloqueado" },
+  "automationUnavailable": { "message": "Indisponível" },
+  "authCheckingDetail": { "message": "Verificando sua sessão conectada…" },
+  "authSignInMissing": { "message": "Entre na sua conta para continuar coletando drops." },
+  "authSignInRejected": { "message": "Sua sessão não é mais válida. Entre novamente para continuar." },
+  "signInToTwitch": { "message": "Entrar na Twitch" },
+  "signInToKick": { "message": "Entrar na Kick" },
+  "authBrowserProfileBlocked": { "message": "A Kick rejeitou este perfil do navegador. Apenas entrar na conta pode não resolver o problema." },
+  "authCredentialCheckUnavailable": { "message": "Não foi possível verificar a sessão do navegador. O Lurkloot tentará novamente automaticamente." },
+  "authNetworkTemporarilyUnavailable": { "message": "A rede está temporariamente indisponível. O Lurkloot tentará novamente automaticamente." },
+  "authPlatformTemporarilyUnavailable": { "message": "A plataforma está temporariamente indisponível. O Lurkloot tentará novamente automaticamente." }
 }

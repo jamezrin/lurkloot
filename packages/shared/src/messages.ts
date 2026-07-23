@@ -2,8 +2,6 @@ import type { ActivityHistoryRecord, EventCategory } from "./events";
 import type { CategorySelection, EngineSettings, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState } from "./models";
 import type { SettingsPatch } from "./settings";
 
-export const SETTINGS_SESSION_PORT = "lurkloot.settings-session";
-
 export type CoreRuntimeMessage =
   | { type: "getSnapshot" }
   | { type: "getPlaybackControl"; platform: Platform }
@@ -24,6 +22,7 @@ export type RuntimeMessage =
   | CoreRuntimeMessage
   | ({ type: "getActivity" } & ActivityQuery)
   | { type: "clearActivity" }
+  | { type: "resetExtension" }
   | { type: "exportCliCredentials" };
 
 // Credential blob the popup exports for the headless CLI's `login --import`. It

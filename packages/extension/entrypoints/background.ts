@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
-import { loadSettings, loadState, loadTwitchIntegrity, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
-import { SETTINGS_SESSION_PORT, type CliCredentialBlob, type RuntimeMessage } from "@lurkloot/shared/messages";
+import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
+import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import {
   applyAdFocus,
   ensureTwitchIntegrity,
@@ -8,6 +8,8 @@ import {
   fetchKickInBackground,
   fetchTwitchInBackground,
   openPinnedMutedTab,
+  recordManagedPageContextBackgroundSuccess,
+  recordManagedPageContextFallback,
   stopManagedPageContextTabs,
   stopWatchTab,
 } from "../src/core/tabs";
@@ -29,6 +31,8 @@ import {
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";
 import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
+import { createCredentialAvailabilityProvider } from "../src/core/credentialAvailability";
+import { createCredentialObserver } from "../src/core/credentialObserver";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -41,6 +45,10 @@ const reportEvents = createActivityEventReporter({
   append: appendActivityEvents,
 });
 const kickClaimState = new KickClaimState();
+const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
+const checkCredentialAvailability = createCredentialAvailabilityProvider({
+  get: (details) => browser.cookies.get(details),
+});
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
@@ -68,14 +76,17 @@ const controller = createBackgroundController<ExtensionSettings>({
   loadState,
   saveState,
   reportEvents,
+  checkCredentialAvailability,
   createAlarm: (name, options) => browser.alarms.create(name, options),
-  closeManagedTabsByUrl: async (urls) => {
-    for (const url of urls) {
-      const tabs = await browser.tabs.query({ url });
-      await Promise.all(tabs.map(async (tab) => {
-        if (tab.id != null) await browser.tabs.remove(tab.id);
-      }));
-    }
+  closeManagedTabs: async (tabs) => {
+    await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
+      try {
+        const tab = await browser.tabs.get(tabId);
+        if (tab.id === tabId && tab.url === channelUrl) await browser.tabs.remove(tabId);
+      } catch {
+        // The recorded tab may already be closed or its id may be stale.
+      }
+    }));
   },
   createNotification: async ({ title, message }) => {
     await browser.notifications.create({
@@ -131,7 +142,13 @@ const controller = createBackgroundController<ExtensionSettings>({
         kick: new KickAdapter(
           createKickFetcher({
             background: (url, init) => fetchKickInBackground<unknown>(url, init),
-            pageFetch: (url, init) => fetchJsonInPage<unknown>("https://kick.com", url, init, { retainPageContext: { platform: "kick" } }),
+            pageFetch: (url, init) => fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
+              retainPageContext: { platform: "kick" },
+              emit,
+              openReason: "background_rejected",
+            }),
+            onBackgroundSuccess: (host, operationEmit) => recordManagedPageContextBackgroundSuccess(host, operationEmit),
+            onPageFallback: (host, operationEmit) => recordManagedPageContextFallback(host, operationEmit),
           }),
           watchTabPort,
           undefined,
@@ -164,15 +181,41 @@ async function buildCliCredentialBlob(): Promise<CliCredentialBlob> {
   };
 }
 
+let resetMutation: Promise<RuntimeSnapshot<ExtensionSettings>> | undefined;
+
+function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
+  if (resetMutation) return resetMutation;
+  resetMutation = (async () => {
+    await controller.prepareForHostReset(async () => {
+      kickClaimState.clear();
+      await resetStorage();
+    });
+    return await controller.handleMessage({ type: "getSnapshot" }) as RuntimeSnapshot<ExtensionSettings>;
+  })().finally(() => {
+    resetMutation = undefined;
+  });
+  return resetMutation;
+}
+
 // Credential export reads the user's live session cookies, which only the
 // extension can do. Keep it ahead of activity routing and core delegation.
 const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
   exportCliCredentials: buildCliCredentialBlob,
+  resetExtension,
   handleActivityMessage,
   handleCoreMessage: (message, sender) => controller.handleMessage(message, sender),
 });
 
 export default defineBackground(() => {
+  createCredentialObserver({
+    onChanged: {
+      addListener: (listener) => browser.cookies.onChanged.addListener(listener),
+      removeListener: (listener) => browser.cookies.onChanged.removeListener(listener),
+    },
+    invalidate: (platform) => controller.invalidateAuthHealth(platform),
+    recheck: (platform) => controller.tickAndHandOff([platform]),
+  });
+
   browser.runtime.onInstalled.addListener(async (details) => {
     await controller.ensureAlarm();
     // Stamp the install date once so the popup can time the rate/review nudge.
@@ -227,11 +270,4 @@ export default defineBackground(() => {
     return true;
   });
 
-  browser.runtime.onConnect.addListener((port) => {
-    if (port.name !== SETTINGS_SESSION_PORT) return;
-    void controller.beginSettingsSession();
-    port.onDisconnect.addListener(() => {
-      void controller.endSettingsSession();
-    });
-  });
 });

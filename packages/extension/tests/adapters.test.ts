@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
-import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
 import type { EngineEvent } from "@lurkloot/shared/events";
@@ -9,6 +9,7 @@ import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shar
 import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { resolveCompatibility } from "@lurkloot/core";
+import { SafeFetchError, type SafeFetchFailureKind } from "@lurkloot/core/fetchError";
 
 function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
   const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
@@ -26,6 +27,60 @@ function requestBody(init?: RequestInit): Record<string, unknown> {
 }
 
 describe("KickAdapter", () => {
+  it("does not swallow authentication failures while reading progress", async () => {
+    const failure = new SafeFetchError({ kind: "authentication_rejected", status: 401 });
+    const adapter = new KickAdapter(jsonFetcher(() => { throw failure; }));
+
+    await expect(adapter.readProgress([])).rejects.toBe(failure);
+  });
+
+  it("does not swallow security-policy failures while claiming challenges", async () => {
+    const failure = new SafeFetchError({ kind: "security_policy_blocked", status: 403, reference: "safe-ref" });
+    const adapter = new KickAdapter(jsonFetcher((url) => {
+      if (url.endsWith("/gamification/challenges")) {
+        return { data: [{ id: "daily", claimed_at: null, recurrence: "daily", condition: { progress: 1, threshold: 1 } }] };
+      }
+      throw failure;
+    }));
+
+    await expect(adapter.claimChallenges()).rejects.toBe(failure);
+  });
+
+  it.each([
+    ["authentication_rejected", "invalid_credentials", "credentials_rejected", "authInvalidCredentials"],
+    ["security_policy_blocked", "blocked", "security_policy_blocked", "authSecurityPolicyBlocked"],
+    ["network_error", "unavailable", "network_unavailable", "authNetworkUnavailable"],
+    ["http_error", "unavailable", "platform_unavailable", "authPlatformUnavailable"],
+  ] as const)("maps %s account probe failures to %s", async (kind, status, reasonCode, key) => {
+    const fetcher = jsonFetcher(() => {
+      throw new SafeFetchError({
+        kind: kind as SafeFetchFailureKind,
+        status: kind === "network_error" ? undefined : kind === "authentication_rejected" ? 401 : 403,
+        reason: kind === "security_policy_blocked" ? "Request blocked by security policy." : undefined,
+        reference: kind === "security_policy_blocked" ? "9e4db7e3" : undefined,
+      });
+    });
+
+    const health = await new KickAdapter(fetcher).checkAuthHealth();
+
+    expect(health).toMatchObject({ status, reasonCode, message: { key } });
+    expect(health.message?.values?.reference).toBe(kind === "security_policy_blocked" ? "9e4db7e3" : undefined);
+    expect(Date.parse(health.checkedAt ?? "")).not.toBeNaN();
+  });
+
+  it("does not copy unknown account probe errors into health state", async () => {
+    const fetcher = jsonFetcher(() => { throw new Error("token=secret-value"); });
+
+    const health = await new KickAdapter(fetcher).checkAuthHealth();
+
+    expect(health).toMatchObject({
+      status: "unavailable",
+      reasonCode: "platform_unavailable",
+      message: { key: "authPlatformUnavailable" },
+    });
+    expect(JSON.stringify(health)).not.toContain("secret-value");
+  });
+
   it("uses the automatic Kick claim capability selected by compatibility resolution", async () => {
     let claimPosts = 0;
     const fetcher = jsonFetcher((url) => {
@@ -438,9 +493,14 @@ describe("KickAdapter", () => {
 
     expect(claimPosts).toBe(1);
 
-    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: new KickClaimState() }).claimReward(campaign, reward);
+    state.clear();
+    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
 
     expect(claimPosts).toBe(2);
+
+    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: new KickClaimState() }).claimReward(campaign, reward);
+
+    expect(claimPosts).toBe(3);
   });
 
   it("keeps Kick claim v1 limited to campaign account-link metadata", () => {
@@ -645,19 +705,24 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
   it("uses the service-worker result and never touches the page tab when the background fetch succeeds", async () => {
     const background = vi.fn(async () => ({ data: "from-sw" }));
     const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
-    const fetcher = createKickFetcher({ background, pageFetch });
+    const onBackgroundSuccess = vi.fn(async () => undefined);
+    const onPageFallback = vi.fn(async () => undefined);
+    const fetcher = createKickFetcher({ background, pageFetch, onBackgroundSuccess, onPageFallback });
 
     const result = await fetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns");
 
     expect(result).toEqual({ data: "from-sw" });
     expect(background).toHaveBeenCalledTimes(1);
     expect(pageFetch).not.toHaveBeenCalled();
+    expect(onBackgroundSuccess).toHaveBeenCalledWith("web.kick.com", expect.any(Function));
+    expect(onPageFallback).not.toHaveBeenCalled();
   });
 
   it("falls back to the page tab when the background fetch is WAF-blocked", async () => {
     const background = vi.fn(async () => { throw new KickWafBlockedError("HTTP 403 Forbidden"); });
     const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
-    const fetcher = createKickFetcher({ background, pageFetch });
+    const onPageFallback = vi.fn(async () => undefined);
+    const fetcher = createKickFetcher({ background, pageFetch, onPageFallback });
 
     const result = await fetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns", { method: "GET" });
 
@@ -665,6 +730,64 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
     expect(background).toHaveBeenCalledTimes(1);
     // The same url + init are forwarded to the fallback unchanged.
     expect(pageFetch).toHaveBeenCalledWith("https://web.kick.com/api/v1/drops/campaigns", { method: "GET" });
+    expect(onPageFallback).toHaveBeenCalledWith("web.kick.com", expect.any(Function));
+  });
+
+  it("records fallback before page execution even when the page request fails", async () => {
+    const order: string[] = [];
+    const fetcher = createKickFetcher({
+      background: async () => { throw new KickWafBlockedError("blocked"); },
+      onPageFallback: async () => { order.push("fallback"); },
+      pageFetch: async () => {
+        order.push("page");
+        throw new Error("page unavailable");
+      },
+    });
+
+    await expect(fetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns"))
+      .rejects.toThrow("page unavailable");
+    expect(order).toEqual(["fallback", "page"]);
+  });
+
+  it("keeps fallback diagnostics free of request details and raw errors", async () => {
+    const events: EngineEvent[] = [];
+    const fetcher = createKickFetcher({
+      background: async () => { throw new Error("token=secret-value"); },
+      pageFetch: async () => ({ ok: true }),
+    });
+
+    await fetcher.fetchJson("https://web.kick.com/api/private?token=secret-value", undefined, (event) => events.push(event));
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ category: "diagnostic", platform: "kick" });
+    expect(events[0].category === "diagnostic" ? events[0].message : "").toContain("web.kick.com");
+    expect(events[0].category === "diagnostic" ? events[0].message : "").not.toContain("secret-value");
+
+    events.length = 0;
+    await fetcher.fetchJson("not-a-url-secret-value", undefined, (event) => events.push(event));
+    expect(events[0].category === "diagnostic" ? events[0].message : "").toContain("unknown-host");
+    expect(events[0].category === "diagnostic" ? events[0].message : "").not.toContain("secret-value");
+  });
+
+  it("does not turn lifecycle bookkeeping failures into request failures or extra fallbacks", async () => {
+    const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
+    const backgroundFetcher = createKickFetcher({
+      background: async () => ({ data: "from-sw" }),
+      pageFetch,
+      onBackgroundSuccess: async () => { throw new Error("bookkeeping failed"); },
+    });
+
+    await expect(backgroundFetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns"))
+      .resolves.toEqual({ data: "from-sw" });
+    expect(pageFetch).not.toHaveBeenCalled();
+
+    const fallbackFetcher = createKickFetcher({
+      background: async () => { throw new KickWafBlockedError("blocked"); },
+      pageFetch,
+      onPageFallback: async () => { throw new Error("bookkeeping failed"); },
+    });
+    await expect(fallbackFetcher.fetchJson("https://web.kick.com/api/v1/drops/campaigns"))
+      .resolves.toEqual({ data: "from-tab" });
   });
 
   it("also falls back on a non-WAF background error", async () => {
@@ -678,6 +801,108 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
 });
 
 describe("TwitchAdapter", () => {
+  it("reports healthy only when the authenticated CurrentUser probe returns a user", async () => {
+    const ensureIntegrity = vi.fn(async () => true);
+    const fetcher = jsonFetcher((_url, init) => {
+      expect(operation(init)).toBe("CurrentUser");
+      expect(requestBody(init).query).toContain("currentUser { id }");
+      return { data: { currentUser: { id: "private-user-id" } } };
+    });
+
+    await expect(new TwitchAdapter(fetcher, ensureIntegrity).checkAuthHealth()).resolves.toEqual({
+      status: "healthy",
+      checkedAt: expect.any(String),
+      message: { key: "authHealthy" },
+    });
+    expect(ensureIntegrity).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { data: { currentUser: null } },
+    { data: {} },
+    { data: { user: { id: "public-user-id" } } },
+  ])("rejects a completed response without authenticated identity: %j", async (response) => {
+    const fetcher = jsonFetcher(() => response);
+
+    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+      status: "invalid_credentials",
+      checkedAt: expect.any(String),
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    });
+  });
+
+  it.each([
+    { error: "Unauthorized", message: "OAuth token is invalid" },
+    { errors: [{ message: "Unauthenticated" }] },
+    { errors: [{ message: "The OAuth token was invalid" }] },
+  ])("classifies explicit Twitch credential rejection as invalid: %j", async (response) => {
+    const fetcher = jsonFetcher(() => response);
+
+    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+      status: "invalid_credentials",
+      checkedAt: expect.any(String),
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    });
+  });
+
+  it.each([
+    [401, "Unauthorized", "invalid_credentials", "credentials_rejected", "authInvalidCredentials"],
+    [503, "Service Unavailable", "unavailable", "platform_unavailable", "authPlatformUnavailable"],
+  ] as const)("classifies background HTTP %i without treating it as a network failure", async (status, statusText, healthStatus, reasonCode, messageKey) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(status === 401 ? "OAuth token rejected" : "upstream unavailable", { status, statusText }),
+    );
+    const cookieApi = {
+      cookies: {
+        get: vi.fn(async ({ name }: { name: string }) => name === "auth-token" ? { value: "secret" } : null),
+      },
+    };
+    const fetcher: PageFetcher = {
+      fetchJson: (url, init) => fetchTwitchInBackgroundWith(cookieApi, url, init),
+    };
+
+    try {
+      await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+        status: healthStatus,
+        checkedAt: expect.any(String),
+        reasonCode,
+        message: { key: messageKey },
+      });
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
+  it("classifies request transport failure as network unavailability", async () => {
+    const fetcher = jsonFetcher(() => {
+      throw new TypeError("Failed to fetch secret-url");
+    });
+
+    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+      status: "unavailable",
+      checkedAt: expect.any(String),
+      reasonCode: "network_unavailable",
+      message: { key: "authNetworkUnavailable" },
+    });
+  });
+
+  it.each([
+    { errors: [{ message: "service unavailable" }] },
+    { error: "Service Unavailable", message: "upstream failed" },
+    null,
+  ])("classifies Twitch response failure as platform unavailability: %j", async (response) => {
+    const fetcher = jsonFetcher(() => response);
+
+    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+      status: "unavailable",
+      checkedAt: expect.any(String),
+      reasonCode: "platform_unavailable",
+      message: { key: "authPlatformUnavailable" },
+    });
+  });
+
   it("declares the post-claim handoff capability for Twitch only", () => {
     // Reading a capability must not touch the network.
     const fetcher = jsonFetcher(() => {
@@ -1323,7 +1548,9 @@ describe("TwitchAdapter", () => {
     });
 
     await expect(new TwitchAdapter(fetcher).discoverCampaigns())
-      .rejects.toThrow("Unauthorized: invalid OAuth token");
+      .rejects.toMatchObject({
+        failure: { kind: "authentication_rejected", status: 401 },
+      });
   });
 
   it("guides signed-out users when inventory returns a null current user", async () => {
