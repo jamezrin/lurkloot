@@ -561,11 +561,26 @@
   "activityLogLevelsDescription": {
     "message": "गतिविधि लॉग में कौन से स्तर रिकॉर्ड हों चुनें। त्रुटियाँ हमेशा रखी जाती हैं।"
   },
-  "visibleCampaignsTitle": {
-    "message": "दिखने वाले कैंपेन"
+  "farmUnlinkedTitle": {
+    "message": "बिना लिंक किए गए खाते वाले कैंपेन फ़ार्म करें"
   },
-  "visibleCampaignsDescription": {
-    "message": "Drops सूची में कौन से कैंपेन state दिखें चुनें। क्लेम करने योग्य इनाम वाला कैंपेन हमेशा दिखता है।"
+  "farmUnlinkedDescription": {
+    "message": "बंद होने पर, जिन कैंपेन के लिए आपका खाता लिंक करना ज़रूरी है, उन्हें छोड़ दिया जाता है। Kick लिंक करने से पहले भी वॉच टाइम जोड़ता रहता है।"
+  },
+  "farmSubscriptionTitle": {
+    "message": "सब्सक्रिप्शन वाले कैंपेन फ़ार्म करें"
+  },
+  "farmSubscriptionDescription": {
+    "message": "बंद होने पर, जिन कैंपेन के इनाम के लिए चैनल सब्सक्रिप्शन ज़रूरी है, उन्हें छोड़ दिया जाता है।"
+  },
+  "dropsListFilterTitle": {
+    "message": "Drops सूची दृश्य"
+  },
+  "dropsListFilterDescription": {
+    "message": "चुनें कि Drops सूची में कौन से कैंपेन दिखें। क्लेम करने योग्य इनाम वाला कैंपेन हमेशा दिखता है।"
+  },
+  "dropsListFilterLockedHint": {
+    "message": "जब तक आप इन कैंपेन की फ़ार्मिंग कर रहे हैं, ये हमेशा दिखते हैं।"
   },
   "forgetExcludedTitle": {
     "message": "हटाए गए कैंपेन भूलें"

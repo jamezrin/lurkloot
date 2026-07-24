@@ -1,4 +1,4 @@
-import type { CampaignFilterKey, DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
+import type { DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
 import { NO_CATEGORY_ID, categoryListIndex, isUncategorizedCampaign } from "@lurkloot/shared/categories";
 import {
   campaignHasSubscriptionRewards,
@@ -7,6 +7,13 @@ import {
   rewardRequirementType,
   rewardFeasibility,
 } from "@lurkloot/shared/rewards";
+import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaignFilters";
+export {
+  campaignFilterCategories,
+  isCampaignExpired,
+  isCampaignFinished,
+  isCampaignVisible,
+} from "@lurkloot/shared/campaignFilters";
 import { CAMPAIGN_TINTS, GAME_ACCENTS, NO_CATEGORY_ACCENT, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
 import type { CampaignLifecycleState, CampaignStats, CampaignView, ChannelLink, FarmingChannelView, GameItem, RewardView, StreamerItem, TFunction } from "./types";
@@ -17,36 +24,6 @@ function kickRewardImageUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
   if (/^https?:\/\//i.test(value)) return value;
   return `${KICK_ASSET_BASE}/${value.replace(/^\/+/, "")}`;
-}
-
-export function isCampaignExpired(campaign: DropCampaign): boolean {
-  if (campaign.status === "expired") return true;
-  if (campaign.endsAt) {
-    const endsAt = Date.parse(campaign.endsAt);
-    if (!Number.isNaN(endsAt) && endsAt < Date.now()) return true;
-  }
-  return false;
-}
-
-export function isCampaignFinished(campaign: DropCampaign): boolean {
-  if (campaign.status === "completed") return true;
-  return campaign.rewards.length > 0 && campaign.rewards.every((reward) => reward.status === "claimed");
-}
-
-export function campaignFilterCategories(campaign: DropCampaign, excludedIds: Set<string>): CampaignFilterKey[] {
-  const categories: CampaignFilterKey[] = [];
-  if (excludedIds.has(campaign.id)) categories.push("excluded");
-  if (campaign.accountLinked === false) categories.push("notLinked");
-  if (campaignHasSubscriptionRewards(campaign)) categories.push("subscription");
-  if (isCampaignFinished(campaign)) categories.push("finished");
-  else if (isCampaignExpired(campaign)) categories.push("expired");
-  else if (campaign.status === "upcoming") categories.push("upcoming");
-  return categories;
-}
-
-export function isCampaignVisible(campaign: DropCampaign, settings: ExtensionSettings, excludedIds: Set<string>): boolean {
-  if (campaign.rewards.some((reward) => reward.status === "claimable")) return true;
-  return campaignFilterCategories(campaign, excludedIds).every((key) => settings.campaignVisibility[key]);
 }
 
 export function sortCampaignsForPopup(campaigns: DropCampaign[], settings: ExtensionSettings): DropCampaign[] {

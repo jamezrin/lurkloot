@@ -195,7 +195,13 @@ export type PriorityMode = "ending_soonest" | "lowest_availability" | "priority_
 
 // Visibility categories for the Drops list. A campaign in one of these states is
 // only shown when its toggle is on; campaigns in none of them are always shown.
-export type CampaignFilterKey = "notLinked" | "subscription" | "upcoming" | "expired" | "excluded" | "finished";
+// Filter keys that gate farming: the engine's isEligible consults exactly these.
+export type FarmingFilterKey = "notLinked" | "subscription";
+// Filter keys that only decide what the Drops list shows. `excluded` is here
+// deliberately: exclusion is already enforced for farming by excludedCampaignIds,
+// so a farming key named `excluded` would have to mean "farm what I excluded".
+export type DisplayFilterKey = "upcoming" | "expired" | "excluded" | "finished";
+export type CampaignFilterKey = FarmingFilterKey | DisplayFilterKey;
 
 export interface PlaybackTelemetry {
   platform: Platform;
@@ -294,6 +300,16 @@ export interface EngineSettings {
   compatibility: CompatibilitySettings;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
+  // Which campaigns are eligible to farm. Both default true; turning one off
+  // skips that class in the scheduler's isEligible. Distinct from the popup's
+  // dropsListFilter (display-only) so "don't farm" never implies "don't show".
+  farmingEligibility: {
+    // off: skip campaigns with no linked account (real on Kick, which accrues
+    // watch progress before linking).
+    farmUnlinkedCampaigns: boolean;
+    // off: skip campaigns that require a subscription.
+    farmSubscriptionCampaigns: boolean;
+  };
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
   // Bounded post-claim handoff. After a reward is claimed, re-run discovery for
@@ -310,16 +326,28 @@ export interface EngineSettings {
 // The browser extension's full settings schema: the engine contract plus the
 // host-only knobs the engine never reads. Tab policy (mute / ad focus / auto-close
 // / keep-unmuted) is supplied to the engine through the injected WatchTabPort and
-// applyAdFocus, not read from settings by the engine; popup UI state (i18n, Drops
-// filter, rate nudge) is pure host state.
+// applyAdFocus, not read from settings by the engine; popup UI state (i18n, rate
+// nudge) is pure host state.
 export interface ExtensionSettings extends EngineSettings {
   muteFarmingTabs: boolean;
   keepFarmingVideosUnmuted: boolean;
   autoCloseFinishedDrops: boolean;
+  // Which campaigns appear in the Drops list. Pure display prefs: the engine
+  // never reads it, so it lives on ExtensionSettings, not the contract. The
+  // farming axis (farmingEligibility) is entirely separate. showNotLinked/
+  // showSubscription only ever hide a class that is NOT being farmed —
+  // not-linked/subscription campaigns stay visible while farmed regardless of
+  // these two flags (the visibility invariant, enforced in isCampaignVisible).
+  dropsListFilter: {
+    showUpcoming: boolean;     // default true
+    showExpired: boolean;      // default false
+    showFinished: boolean;     // default true
+    showExcluded: boolean;     // default false
+    showNotLinked: boolean;    // default true
+    showSubscription: boolean; // default true
+  };
   adFocusMode: AdFocusMode;
   languageOverride: LanguageOverride;
-  // Which campaign states are shown in the Drops list. See CampaignFilterKey.
-  campaignVisibility: Record<CampaignFilterKey, boolean>;
   rateNudgeStatus: RateNudgeStatus;
   showTips: boolean;
   // Extension-only persistence policy. Normal farming activity is always

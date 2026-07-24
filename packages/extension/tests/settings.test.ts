@@ -11,9 +11,9 @@ describe("engine settings", () => {
     "autoCloseFinishedDrops",
     "adFocusMode",
     "languageOverride",
-    "campaignVisibility",
     "rateNudgeStatus",
     "diagnosticLogging",
+    "dropsListFilter",
   ] as const;
 
   it("normalizes the engine contract without the host-only fields", () => {
@@ -116,10 +116,24 @@ describe("settings", () => {
     expect(mergeSettings({ showTips: "no" } as never).showTips).toBe(true);
   });
 
-  it("defaults subscription campaigns to visible while preserving persisted choices", () => {
-    expect(DEFAULT_SETTINGS.campaignVisibility.subscription).toBe(true);
-    expect(mergeSettings({ campaignVisibility: { subscription: false } } as never).campaignVisibility.subscription).toBe(false);
-    expect(mergeSettings({ campaignVisibility: { expired: true } } as never).campaignVisibility.subscription).toBe(true);
+  it("defaults the drops list view flags while preserving persisted choices", () => {
+    expect(DEFAULT_SETTINGS.dropsListFilter).toEqual({
+      showUpcoming: true,
+      showExpired: false,
+      showFinished: true,
+      showExcluded: false,
+      showNotLinked: true,
+      showSubscription: true,
+    });
+    // A partial persisted record fills the rest from defaults.
+    expect(mergeSettings({ dropsListFilter: { showExpired: true } } as never).dropsListFilter).toEqual({
+      showUpcoming: true,
+      showExpired: true,
+      showFinished: true,
+      showExcluded: false,
+      showNotLinked: true,
+      showSubscription: true,
+    });
   });
 
   it("clamps persisted numeric settings to browser-safe ranges", () => {
@@ -288,5 +302,24 @@ describe("per-platform claim settings", () => {
       platform: { ...DEFAULT_SETTINGS.platform, kick: { ...DEFAULT_SETTINGS.platform.kick, autoClaimChallenges: false } },
     });
     expect(merged.platform.kick.autoClaimChallenges).toBe(false);
+  });
+});
+
+describe("farmingEligibility in the engine contract", () => {
+  it("defaults both eligibility flags on", () => {
+    expect(DEFAULT_ENGINE_SETTINGS.farmingEligibility).toEqual({
+      farmUnlinkedCampaigns: true,
+      farmSubscriptionCampaigns: true,
+    });
+  });
+
+  it("normalizes a partial eligibility record through the engine merge", () => {
+    const merged = mergeEngineSettings({ farmingEligibility: { farmUnlinkedCampaigns: false } } as never);
+    expect(merged.farmingEligibility.farmUnlinkedCampaigns).toBe(false);
+    expect(merged.farmingEligibility.farmSubscriptionCampaigns).toBe(true);
+  });
+
+  it("keeps dropsListFilter off the engine contract", () => {
+    expect("dropsListFilter" in mergeEngineSettings({})).toBe(false);
   });
 });

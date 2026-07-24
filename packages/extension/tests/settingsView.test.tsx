@@ -53,8 +53,15 @@ const labels: Record<string, string> = {
   campaignPriorityDescription: "How campaigns are chosen to farm.",
   idleWatchlistFallbackOnlyTitle: "Only when no drops are active",
   idleWatchlistFallbackOnlyDescription: "Preserves drop priority automatically.",
-  visibleCampaignsTitle: "Visible campaigns",
-  visibleCampaignsDescription: "Choose which campaign states show in the Drops list.",
+  farmUnlinkedTitle: "Farm campaigns without a linked account",
+  farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
+  farmSubscriptionTitle: "Farm campaigns that require a subscription",
+  farmSubscriptionDescription: "When off, campaigns whose rewards need a channel subscription are skipped.",
+  dropsListFilterTitle: "Drops list view",
+  dropsListFilterDescription: "Choose which campaigns are shown in the Drops list.",
+  dropsListFilterLockedHint: "Always shown while you're farming these campaigns.",
+  notLinked: "Not linked",
+  subscriptionCampaigns: "Subscription campaigns",
   forgetExcludedTitle: "Forget excluded campaigns",
   forgetExcludedDescription: "Clear every campaign you excluded from farming.",
   tablessTitle: "Tabless low-resource mode",
@@ -155,16 +162,77 @@ describe("deadline feasibility setting", () => {
     expect(input.disabled).toBe(true);
   });
 
-  it("reconciles all platforms after campaign visibility changes", () => {
+  it("re-ticks after toggling a farming-eligibility row", () => {
     const { container, onSettingsChange } = mountSettings();
-    const toggle = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("notLinked"));
+    // The two farming rows are full SettingRow toggles keyed by their title, so
+    // query by the switch's accessible name.
+    const toggle = container.querySelector('[role="switch"][aria-label="Farm campaigns without a linked account"]') as HTMLButtonElement;
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
 
-    act(() => toggle?.click());
+    act(() => toggle.click());
 
     expect(onSettingsChange).toHaveBeenCalledWith(
-      { campaignVisibility: { ...DEFAULT_SETTINGS.campaignVisibility, notLinked: false } },
+      { farmingEligibility: { farmUnlinkedCampaigns: false } },
       { tickAfterSave: true },
     );
+  });
+
+  it("renders both farming-eligibility rows as full toggles", () => {
+    const { container } = mountSettings();
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Farm campaigns without a linked account");
+    expect(text).toContain("Farm campaigns that require a subscription");
+    // Both are switches, not chips: a switch role means the row carries its own
+    // description, which the compact chip row does not.
+    expect(container.querySelector('[role="switch"][aria-label="Farm campaigns without a linked account"]')).not.toBeNull();
+    expect(container.querySelector('[role="switch"][aria-label="Farm campaigns that require a subscription"]')).not.toBeNull();
+  });
+
+  it("exposes the Drops list view chip row with an accessible name", () => {
+    const { container } = mountSettings();
+    // Queried by role and accessible name rather than by text, so a refactor
+    // that drops the labelling leaves screen-reader users with an anonymous run
+    // of buttons and this test fails instead of passing silently.
+    const groups = [...container.querySelectorAll('[role="group"]')].map((group) => {
+      const labelId = group.getAttribute("aria-labelledby")!;
+      return {
+        name: container.querySelector(`#${labelId}`)?.textContent,
+        pills: [...group.querySelectorAll("button[aria-pressed]")].map((pill) => pill.textContent?.trim()),
+      };
+    });
+
+    expect(groups).toEqual([
+      { name: "Drops list view", pills: ["upcoming", "expired", "excluded", "finished", "Not linked", "Subscription campaigns"] },
+    ]);
+  });
+
+  it("locks the not-linked chip on and disables it while its campaigns are farmed", () => {
+    // farmUnlinkedCampaigns on: the class is always farmed, so the chip is forced
+    // visible and disabled — the farmed-implies-visible invariant, surfaced.
+    const { container } = mountSettings({
+      ...DEFAULT_SETTINGS,
+      farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: true },
+    });
+    const chip = [...container.querySelectorAll('button[aria-pressed]')].find((button) => button.textContent?.trim() === "Not linked") as HTMLButtonElement;
+    expect(chip).toBeTruthy();
+    expect(chip.getAttribute("aria-pressed")).toBe("true");
+    expect(chip.disabled).toBe(true);
+    expect(chip.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("frees the not-linked chip as a normal toggle when its campaigns are not farmed", () => {
+    const { container } = mountSettings({
+      ...DEFAULT_SETTINGS,
+      farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: false },
+      dropsListFilter: { ...DEFAULT_SETTINGS.dropsListFilter, showNotLinked: false },
+    });
+    const chip = [...container.querySelectorAll('button[aria-pressed]')].find((button) => button.textContent?.trim() === "Not linked") as HTMLButtonElement;
+    expect(chip).toBeTruthy();
+    // Not farmed and hidden: a plain, enabled, unpressed toggle over showNotLinked.
+    expect(chip.disabled).toBe(false);
+    expect(chip.getAttribute("aria-disabled")).toBe("false");
+    expect(chip.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("reconciles all platforms after changing Idle Watchlist fallback policy", () => {

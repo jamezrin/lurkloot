@@ -38,14 +38,23 @@ option is its sole event filter.
 Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`,
 `campaignPriorities`, `excludedCampaignIds`, `idleWatchlistFallbackOnly`,
 `offlineRetryLimit`, `pollIntervalMinutes`,
-`notifyRewardEarned`, `notifyNoDropsLeft`, and per-platform `enabled`,
-`idleWatchlistChannels`, `excludedChannels`, `farmAllCategories`, `categories`.
+`notifyRewardEarned`, `notifyNoDropsLeft`, `farmingEligibility`, and per-platform
+`enabled`, `idleWatchlistChannels`, `excludedChannels`, `farmAllCategories`,
+`categories`.
+
+`farmingEligibility` gates what the engine may farm. Its two keys both default
+`true`: set `farmUnlinkedCampaigns` to `false` to skip campaigns that need an
+account link, and `farmSubscriptionCampaigns` to `false` to skip campaigns that
+require a channel subscription; when every discovered campaign is filtered out,
+the run logs a warning saying so. A config still using the old name
+`campaignVisibility` is migrated automatically (its farming half becomes
+`farmingEligibility`), with one deprecation warning per command, rather than
+rejected.
 
 Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
 `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
 `adFocusMode`, `autoCloseFinishedDrops`, `autoStartDropFarming`,
-`campaignVisibility`, `languageOverride`, `rateNudgeStatus`,
-`diagnosticLogging`.
+`languageOverride`, `rateNudgeStatus`, `diagnosticLogging`, `dropsListFilter`.
 
 ```jsonc
 {

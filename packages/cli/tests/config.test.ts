@@ -145,7 +145,7 @@ describe("parseConfig", () => {
     expect(parseConfig(raw, CONFIG_PATH).warnings).toEqual(parseConfig(raw, CONFIG_PATH).warnings);
   });
 
-  it("emits no migration warnings for a current config", () => {
+  it("emits no migration warnings for a config with no deprecated keys", () => {
     expect(parseConfig({ settings: { schemaVersion: 1, autoClaim: true } }, CONFIG_PATH).warnings).toEqual([]);
   });
 
@@ -234,6 +234,16 @@ describe("loadConfig", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("documents the farming-eligibility keys in the template", () => {
+    // farmingEligibility gates what a headless run earns, so an omitted block is
+    // a real documentation gap — and the round-trip above cannot catch it.
+    const template = defaultConfigJsonc();
+    for (const [key, value] of Object.entries(DEFAULT_CLI_SETTINGS.farmingEligibility)) {
+      expect(template).toContain(`"${key}": ${value}`);
+    }
+    expect(parseJsonc(defaultConfigJsonc()).settings.farmingEligibility).toEqual(DEFAULT_CLI_SETTINGS.farmingEligibility);
   });
 
   it("documents the post-claim handoff settings in the template", () => {
