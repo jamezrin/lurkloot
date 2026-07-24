@@ -1,5 +1,27 @@
 [
   {
+    "version": "1.10.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Campaign filters now decide what Lurkloot farms, not just what the Drops list shows. Two new settings control farming — “Farm campaigns without a linked account” and “Farm campaigns that require a subscription”, both on by default — while the Drops list keeps its own show/hide chips. Anything being farmed always stays visible in the list."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed Twitch and Kick getting stuck on “Checking your signed-in session…” in the popup when an unrelated part of a refresh failed."
+      },
+      {
+        "kind": "fixed",
+        "text": "Campaigns no longer disappear from the popup when Twitch or Kick briefly fails to respond — your known campaigns and progress are kept until a successful refresh replaces them."
+      },
+      {
+        "kind": "fixed",
+        "text": "Finished and expired Kick campaigns now show up again, so the “Visible campaigns” settings work the same way on Kick as they do on Twitch."
+      }
+    ],
+    "date": "2026-07-24"
+  },
+  {
     "version": "1.9.0",
     "changes": [
       {
