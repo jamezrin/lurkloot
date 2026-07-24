@@ -177,12 +177,12 @@ export function CampaignFilterSettingRow({ value, onChange }: { value: Record<Ca
               type="button"
               onClick={() => toggle(key)}
               className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold transition ${active
-                ? "border-transparent text-white"
+                ? "border-transparent text-[var(--accent-contrast)]"
                 : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
               style={active ? { backgroundColor: "var(--accent)" } : undefined}
               aria-pressed={active}
             >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "#ffffff" : "var(--accent)" }} />
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "var(--accent-contrast)" : "var(--accent)" }} />
               {t(label)}
             </button>
           );
