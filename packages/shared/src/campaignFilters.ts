@@ -3,6 +3,12 @@ import { campaignHasSubscriptionRewards } from "./rewards";
 
 export function isCampaignExpired(campaign: DropCampaign): boolean {
   if (campaign.status === "expired") return true;
+  // The engine also treats these eligibility values as lifecycle states, so the
+  // display categorisation must agree or a campaign the engine considers ended
+  // could still slip past a showExpired: false filter. All three are non-farmable
+  // (isEligible rejects any eligibility !== "eligible"), so aligning display to
+  // them can never hide a campaign the engine would farm.
+  if (campaign.eligibility === "expired") return true;
   return hasCampaignEnded(campaign);
 }
 
@@ -15,7 +21,19 @@ export function hasCampaignEnded(campaign: DropCampaign): boolean {
 
 export function isCampaignFinished(campaign: DropCampaign): boolean {
   if (campaign.status === "completed") return true;
+  // Mirror the engine's lifecycle view (see isCampaignExpired): a "completed"
+  // eligibility is a finished campaign even when status is still "active". Also
+  // non-farmable, so this cannot hide a farmable campaign.
+  if (campaign.eligibility === "completed") return true;
   return campaign.rewards.length > 0 && campaign.rewards.every((reward) => reward.status === "claimed");
+}
+
+// Whether the campaign is upcoming — not yet started, nothing earnable now. The
+// engine treats both status "upcoming" and eligibility "upcoming" as such, so
+// the display categorisation matches. Non-farmable, so filtering it cannot hide
+// a farmable campaign.
+export function isCampaignUpcoming(campaign: DropCampaign): boolean {
+  return campaign.status === "upcoming" || campaign.eligibility === "upcoming";
 }
 
 export function campaignFilterCategories(campaign: DropCampaign, excludedIds: ReadonlySet<string>): CampaignFilterKey[] {
@@ -25,7 +43,7 @@ export function campaignFilterCategories(campaign: DropCampaign, excludedIds: Re
   if (campaignHasSubscriptionRewards(campaign)) categories.push("subscription");
   if (isCampaignFinished(campaign)) categories.push("finished");
   else if (isCampaignExpired(campaign)) categories.push("expired");
-  else if (campaign.status === "upcoming") categories.push("upcoming");
+  else if (isCampaignUpcoming(campaign)) categories.push("upcoming");
   return categories;
 }
 
@@ -46,6 +64,18 @@ export function campaignPassesFarmingEligibility(
 // claim it. Link status and subscription NEVER affect visibility — a campaign
 // you have chosen not to farm still appears in the list. The finished/expired/
 // upcoming order mirrors the precedence in campaignFilterCategories.
+//
+// INVARIANT: a campaign that will be farmed is always visible here. The user
+// must never farm a campaign they cannot see. This holds structurally, not by
+// coincidence: the display filter can only hide the four lifecycle/excluded
+// states (finished, expired, upcoming, excluded), and NONE of those is farmable
+// — isEligible rejects an inactive/ended campaign and any campaign whose
+// eligibility !== "eligible", and an excluded id is rejected outright. The
+// claimable-reward escape hatch above additionally keeps any campaign the user
+// can still claim from visible, covering ended campaigns with an unclaimed
+// reward. So no farmable campaign can reach a filtered branch below. If a future
+// change makes a farmable campaign hideable, the binding test in
+// campaignFilters.test.ts fails.
 export function isCampaignVisible(
   campaign: DropCampaign,
   filter: ExtensionSettings["dropsListFilter"],
@@ -55,6 +85,6 @@ export function isCampaignVisible(
   if (excludedIds.has(campaign.id) && !filter.showExcluded) return false;
   if (isCampaignFinished(campaign)) return filter.showFinished;
   if (isCampaignExpired(campaign)) return filter.showExpired;
-  if (campaign.status === "upcoming") return filter.showUpcoming;
+  if (isCampaignUpcoming(campaign)) return filter.showUpcoming;
   return true;
 }

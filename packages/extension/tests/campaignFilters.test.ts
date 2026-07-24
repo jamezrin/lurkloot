@@ -168,4 +168,91 @@ describe("campaignFilterCategories", () => {
   it("tags an excluded campaign", () => {
     expect(campaignFilterCategories(campaign(), new Set(["campaign"]))).toContain("excluded");
   });
+
+  it("treats an active campaign with an upcoming eligibility as upcoming", () => {
+    // The engine categorises by eligibility, not just status; the display must
+    // agree or a showUpcoming: false filter leaks a campaign the engine hides.
+    const c = campaign({ status: "active", eligibility: "upcoming" });
+    expect(campaignFilterCategories(c, new Set())).toContain("upcoming");
+  });
+
+  it("treats an active campaign with an expired eligibility as expired", () => {
+    const c = campaign({ status: "active", eligibility: "expired" });
+    expect(campaignFilterCategories(c, new Set())).toContain("expired");
+  });
+
+  it("treats an active campaign with a completed eligibility as finished", () => {
+    const c = campaign({ status: "active", eligibility: "completed" });
+    expect(campaignFilterCategories(c, new Set())).toContain("finished");
+  });
+});
+
+describe("eligibility-driven lifecycle hides in the Drops list", () => {
+  // Aligning display with the engine's eligibility view: none of these states is
+  // farmable (isEligible rejects any eligibility !== "eligible"), so hiding them
+  // cannot hide a farmable campaign.
+  const allOff = { showUpcoming: false, showExpired: false, showFinished: false, showExcluded: false };
+
+  it("hides an active/upcoming-eligibility campaign when showUpcoming is off", () => {
+    const c = campaign({ status: "active", eligibility: "upcoming" });
+    expect(isCampaignVisible(c, allOff, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...allOff, showUpcoming: true }, new Set())).toBe(true);
+  });
+
+  it("hides an active/expired-eligibility campaign when showExpired is off", () => {
+    const c = campaign({ status: "active", eligibility: "expired" });
+    expect(isCampaignVisible(c, allOff, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...allOff, showExpired: true }, new Set())).toBe(true);
+  });
+
+  it("hides an active/completed-eligibility campaign when showFinished is off", () => {
+    const c = campaign({ status: "active", eligibility: "completed" });
+    expect(isCampaignVisible(c, allOff, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...allOff, showFinished: true }, new Set())).toBe(true);
+  });
+});
+
+describe("visibility invariant: every farmable campaign stays visible", () => {
+  // This binds the popup's visibility predicate to the engine's farming rule:
+  // anything the engine would farm MUST remain visible with every display flag
+  // off. A campaign the engine farms is active, not ended, eligibility
+  // "eligible" (or absent), and has an earnable reward — regardless of link
+  // status or subscription requirement, since farmUnlinkedCampaigns and
+  // farmSubscriptionCampaigns both default to on. isCampaignVisible only ever
+  // hides the non-farmable lifecycle/excluded states, so it must return true for
+  // all of these. If a future change makes a farmable campaign hideable, this
+  // fails.
+  const allOff = { showUpcoming: false, showExpired: false, showFinished: false, showExcluded: false };
+
+  // The kind of campaign the engine actually farms: active, eligible, with an
+  // unclaimed watch reward that still has minutes to earn.
+  const farmable: DropCampaign[] = [
+    // Ordinary active campaign.
+    campaign({ eligibility: "eligible" }),
+    // Active campaign, eligibility left absent (also farmed).
+    campaign(),
+    // Unlinked campaign — still farmed because farmUnlinkedCampaigns defaults on.
+    campaign({ accountLinked: false }),
+    // Subscription-gated campaign — still farmed because farmSubscriptionCampaigns
+    // defaults on and it carries an earnable watch reward.
+    subscriptionCampaign({
+      rewards: [{
+        id: "watch",
+        name: "Watch reward",
+        requiredMinutes: 30,
+        requirement: "watch",
+        isWatchBased: true,
+        watchedMinutes: 0,
+        status: "locked",
+      }],
+    }),
+  ];
+
+  it("keeps every farmable campaign visible with all display flags off", () => {
+    for (const c of farmable) {
+      // The engine's farming-eligibility gate passes with defaults on.
+      expect(campaignPassesFarmingEligibility(c, ELIGIBLE_ALL)).toBe(true);
+      expect(isCampaignVisible(c, allOff, new Set())).toBe(true);
+    }
+  });
 });

@@ -55,7 +55,7 @@ describe("settings storage migration", () => {
     expect(written.platform.twitch).not.toHaveProperty("watchQueueChannels");
   });
 
-  it("splits a stored campaignVisibility block into farmingEligibility and dropsListFilter without defaulting it back", async () => {
+  it("moves a stored campaignVisibility block's lifecycle keys into dropsListFilter, leaving farming at defaults", async () => {
     get.mockResolvedValue({
       settings: {
         schemaVersion: 1,
@@ -65,11 +65,13 @@ describe("settings storage migration", () => {
 
     const settings = await loadSettings();
 
-    // The six-key legacy record maps into the two independent fields, values
-    // intact (see CAMPAIGN_VISIBILITY_MAPPING).
+    // campaignVisibility was display-only, so notLinked/subscription are dropped
+    // and farming stays at its defaults (both on) — no farming reduction on
+    // upgrade. Only the four lifecycle keys carry over (see
+    // CAMPAIGN_VISIBILITY_MAPPING).
     expect(settings.farmingEligibility).toEqual({
-      farmUnlinkedCampaigns: false,
-      farmSubscriptionCampaigns: false,
+      farmUnlinkedCampaigns: true,
+      farmSubscriptionCampaigns: true,
     });
     expect(settings.dropsListFilter).toEqual({
       showUpcoming: false,

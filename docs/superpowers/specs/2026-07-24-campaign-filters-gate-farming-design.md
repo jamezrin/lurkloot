@@ -101,20 +101,38 @@ That is the immediate follow-up, not part of this change.
 Schema v2 has not shipped (`CURRENT_SETTINGS_SCHEMA_VERSION` was `1` in every
 released build, and PR #236 is unmerged), so v2 is reshaped in place rather than
 stacking a v3. The only shape any real install carries is the original
-`campaignVisibility` record; v2 maps it into the two new fields and deletes it:
+`campaignVisibility` record, which was **display-only** in every shipped release
+— it decided what the Drops list showed and never affected farming. v2 therefore
+maps ONLY its four lifecycle display keys into `dropsListFilter` and deletes the
+record:
 
 ```
-campaignVisibility.notLinked      -> farmingEligibility.farmUnlinkedCampaigns
-campaignVisibility.subscription   -> farmingEligibility.farmSubscriptionCampaigns
-campaignVisibility.upcoming       -> dropsListFilter.showUpcoming
-campaignVisibility.expired        -> dropsListFilter.showExpired
-campaignVisibility.finished       -> dropsListFilter.showFinished
-campaignVisibility.excluded       -> dropsListFilter.showExcluded
+campaignVisibility.upcoming  -> dropsListFilter.showUpcoming
+campaignVisibility.expired   -> dropsListFilter.showExpired
+campaignVisibility.finished  -> dropsListFilter.showFinished
+campaignVisibility.excluded  -> dropsListFilter.showExcluded
 ```
 
-Values carry over untouched, so no existing user's farming or visible set
-changes on upgrade. The interim `campaignFilters` name never shipped and is
-dropped entirely; no persisted document ever contained it.
+`campaignVisibility.notLinked` and `.subscription` are **dropped, not migrated**.
+They were list-display preferences that never meant anything about farming;
+mapping them into the new `farmingEligibility` gates (which now DO gate farming)
+would silently stop farming campaigns for anyone who had merely hidden them from
+their list — an unacceptable silent farming reduction for a farming tool. Because
+the migration never populates `farmingEligibility`, normalization defaults both
+flags to `true`, so farming behaviour is unchanged for every profile. The interim
+`campaignFilters` name never shipped and is dropped entirely.
+
+**Invariant.** A campaign that will be farmed is always visible in the Drops
+list — the user must never be farming a campaign they cannot see. This holds
+structurally: the display filter lists only the four non-farmable lifecycle
+states (upcoming/expired/finished/excluded), none of which the engine ever farms
+(`isEligible` rejects an inactive/ended campaign, any campaign whose
+`eligibility !== "eligible"`, and any excluded id). The claimable-reward
+exception reinforces it: a campaign with a claimable reward stays visible even
+when its lifecycle state is filtered out, so an ended campaign the user can still
+claim is never hidden. A binding test ties the popup's `isCampaignVisible` to the
+engine's farming predicate so a future change that could hide a farmable campaign
+fails CI.
 
 ### CLI
 
@@ -130,7 +148,10 @@ a clear "extension-only" diagnostic rather than silently accepting inert keys.
   regression test — a not-farmed subscription campaign is still visible).
 - scheduler: the two eligibility flags gate farming; the reason branch still
   fires; unchanged defaults farm the same set.
-- migration: v2 maps the six old keys into the two new fields with values intact.
+- migration: v2 maps only the four lifecycle keys into `dropsListFilter`;
+  `notLinked`/`subscription` are dropped and `farmingEligibility` is never
+  produced, so farming defaults to on (guard test: a legacy `notLinked: false`
+  does not yield `farmUnlinkedCampaigns: false`).
 - cli: `farmingEligibility` accepted and validated; `dropsListFilter` rejected as
   extension-only.
 - popup: two farming rows + one view chip row render; search still finds them.

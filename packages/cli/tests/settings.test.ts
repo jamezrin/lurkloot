@@ -165,16 +165,20 @@ describe("parseCliSettings", () => {
       .toThrow(/"dropsListFilter" is an extension-only setting/);
   });
 
-  it("migrates the farming half of a legacy campaignVisibility name", () => {
+  it("drops a legacy campaignVisibility display preference without touching farming", () => {
     const { settings, diagnostics } = parseCliSettingsWithDiagnostics({ campaignVisibility: { notLinked: false } });
 
-    // A farming-only legacy key maps onto farmingEligibility and creates no
-    // dropsListFilter block, so the CLI accepts it and honours the value.
-    expect(settings.farmingEligibility.farmUnlinkedCampaigns).toBe(false);
+    // campaignVisibility was display-only. notLinked is not a lifecycle key, so
+    // the migration drops it: it neither creates a dropsListFilter block nor
+    // derives farming eligibility. farmUnlinkedCampaigns stays at its default
+    // (on), so upgrading never silently reduces farming. The move is still
+    // reported.
+    expect(settings.farmingEligibility.farmUnlinkedCampaigns).toBe(DEFAULT_CLI_SETTINGS.farmingEligibility.farmUnlinkedCampaigns);
+    expect(settings.farmingEligibility.farmUnlinkedCampaigns).toBe(true);
     expect(settings).not.toHaveProperty("campaignVisibility");
     expect(settings).not.toHaveProperty("dropsListFilter");
     expect(diagnostics).toEqual([
-      expect.objectContaining({ path: "campaignVisibility", replacement: "farmingEligibility and dropsListFilter" }),
+      expect.objectContaining({ path: "campaignVisibility", replacement: "dropsListFilter" }),
     ]);
   });
 
@@ -184,7 +188,7 @@ describe("parseCliSettings", () => {
     // Unreachable for any real config (campaignVisibility was already
     // extension-only before this feature), but the boundary must hold.
     expect(() => parseCliSettings({ campaignVisibility: { upcoming: false } }))
-      .toThrow(/"dropsListFilter" is an extension-only setting/);
+      .toThrow(/"dropsListFilter"\) is an extension-only setting/);
   });
 
   it("hard-errors on unknown farmingEligibility keys", () => {

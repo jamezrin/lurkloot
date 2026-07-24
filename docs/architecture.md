@@ -95,16 +95,27 @@ Migration 1 consolidates every legacy shape that predates the registry: the Idle
 Watchlist rename, the pre-split top-level channel-points toggle, and the
 `verboseLogging` rename.
 
-Migration 2 splits the old `campaignVisibility` record into two settings on
-opposite sides of the engine/extension boundary: its farming keys become
-`EngineSettings.farmingEligibility` (`farmUnlinkedCampaigns`,
-`farmSubscriptionCampaigns`), which the scheduler and CLI honour, and its
-lifecycle keys become `ExtensionSettings.dropsListFilter`
+Migration 2 replaces the old `campaignVisibility` record, which in every shipped
+release was display-only — it decided what the popup's Drops list showed and
+never affected farming. The new split puts two settings on opposite sides of the
+engine/extension boundary: `EngineSettings.farmingEligibility`
+(`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`), which the scheduler and
+CLI honour, and `ExtensionSettings.dropsListFilter`
 (`showUpcoming`/`showExpired`/`showFinished`/`showExcluded`), a popup-only view
 preference the CLI rejects as extension-only. Farming eligibility and list
-visibility are now independent: hiding a campaign from the Drops list never
-stops it being farmed, and skipping a campaign class never hides it. Values carry
-over verbatim, so no install's farming or visible set changes on upgrade.
+visibility are independent: hiding a campaign from the Drops list never stops it
+being farmed, and skipping a campaign class never hides it.
+
+The migration carries over only the four lifecycle display keys into
+`dropsListFilter`. It deliberately does NOT derive `farmingEligibility` from the
+old record: `campaignVisibility.notLinked` and `.subscription` were list-display
+preferences that never meant anything about farming, so mapping them into the new
+farming gates would silently reduce farming for anyone who had merely hidden
+those campaigns. Both farming flags therefore default to on and are never derived
+from the old setting, so farming behaviour is unchanged for every profile. A
+profile that had hidden unlinked or subscription campaigns from its list will see
+them reappear in the Drops list, because those campaigns are farmed and the tool
+guarantees anything it farms is visible.
 
 ## Scheduler Flow
 

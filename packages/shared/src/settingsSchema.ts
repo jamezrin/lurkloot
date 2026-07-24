@@ -111,19 +111,27 @@ function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   return raw;
 }
 
-// Migration 2 splits the six-key campaignVisibility record into two independent
-// fields: the two farming-eligibility flags (engine) and the four drops-list
-// view flags (extension). Values carry over untouched — no user's farming or
-// visible set changes on upgrade. The interim campaignFilters name never shipped
-// and is dropped defensively. Migrations reshape; they never inspect sub-value
-// types, so a wrong-typed old value is carried across and normalization decides.
-const CAMPAIGN_VISIBILITY_MAPPING: ReadonlyArray<{ from: string; toBlock: "farmingEligibility" | "dropsListFilter"; toKey: string }> = [
-  { from: "notLinked", toBlock: "farmingEligibility", toKey: "farmUnlinkedCampaigns" },
-  { from: "subscription", toBlock: "farmingEligibility", toKey: "farmSubscriptionCampaigns" },
-  { from: "upcoming", toBlock: "dropsListFilter", toKey: "showUpcoming" },
-  { from: "expired", toBlock: "dropsListFilter", toKey: "showExpired" },
-  { from: "finished", toBlock: "dropsListFilter", toKey: "showFinished" },
-  { from: "excluded", toBlock: "dropsListFilter", toKey: "showExcluded" },
+// Migration 2 replaces the six-key campaignVisibility record. In the shipped
+// release campaignVisibility was DISPLAY-ONLY: it decided what the popup's Drops
+// list showed and never affected farming. In this branch, farming eligibility is
+// gated by a new, separate field. So the migration must carry ONLY the four
+// lifecycle display keys into dropsListFilter — mapping the old notLinked/
+// subscription display preferences into the new farming flags would silently
+// reduce farming for anyone who had merely hidden those campaigns from their
+// list, which never meant anything about farming. Those two keys are therefore
+// dropped: farmingEligibility is never populated here, so normalization defaults
+// both flags to true, preserving today's farming behaviour for every profile.
+// This upholds the invariant "anything farmed must be visible": the four
+// migrated keys are all non-farmable lifecycle states, so the display filter can
+// never hide a campaign the engine would farm. The interim campaignFilters name
+// never shipped and is dropped defensively. Migrations reshape; they never
+// inspect sub-value types, so a wrong-typed old value is carried across and
+// normalization decides.
+const CAMPAIGN_VISIBILITY_MAPPING: ReadonlyArray<{ from: string; toKey: string }> = [
+  { from: "upcoming", toKey: "showUpcoming" },
+  { from: "expired", toKey: "showExpired" },
+  { from: "finished", toKey: "showFinished" },
+  { from: "excluded", toKey: "showExcluded" },
 ];
 
 function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
@@ -136,19 +144,19 @@ function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   delete raw.campaignVisibility;
 
   // Present but not a plain object: drop it without writing garbage into the new
-  // fields; normalization then defaults both.
+  // field; normalization then defaults it.
   if (!isPlainObject(legacy)) return raw;
 
   diagnose({
     code: "moved_property",
     path: "campaignVisibility",
-    replacement: "farmingEligibility and dropsListFilter",
-    message: "campaignVisibility split into farmingEligibility and dropsListFilter",
+    replacement: "dropsListFilter",
+    message: "campaignVisibility display states moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
   });
 
-  for (const { from, toBlock, toKey } of CAMPAIGN_VISIBILITY_MAPPING) {
+  for (const { from, toKey } of CAMPAIGN_VISIBILITY_MAPPING) {
     if (!Object.hasOwn(legacy, from)) continue;
-    const block = ensureBlock(raw, toBlock);
+    const block = ensureBlock(raw, "dropsListFilter");
     // A malformed pre-existing block cannot take the value; a current key wins.
     if (block && !Object.hasOwn(block, toKey)) block[toKey] = legacy[from];
   }
