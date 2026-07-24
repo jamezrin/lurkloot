@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Ban, ChevronDown, Search, TriangleAlert, type LucideIcon } from "lucide-react";
+import { Ban, ChevronDown, Lock, Search, TriangleAlert, type LucideIcon } from "lucide-react";
 import type { ExtensionSettings } from "@lurkloot/shared/models";
 import {
   COLLAPSED_SETTINGS_SECTIONS_KEY,
@@ -203,7 +203,9 @@ export function DropsListFilterRow({ value, farmingEligibility, onChange }: {
               )}
               style={active ? { backgroundColor: "var(--accent)" } : undefined}
             >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "var(--accent-contrast)" : "var(--accent)" }} />
+              {locked
+                ? <Lock size={8} style={{ color: "var(--accent-contrast)" }} aria-hidden />
+                : <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "var(--accent-contrast)" : "var(--accent)" }} />}
               {t(label)}
             </button>
           );
