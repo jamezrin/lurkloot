@@ -234,8 +234,16 @@ export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session
 // bring the tab to focus for the duration of the ad and restore the user's
 // previous tab/window once every platform's ad has finished. Holds are tracked
 // per platform so two simultaneous ads don't restore focus prematurely.
-const adFocusHolds = new Set<Platform>();
+// Ad focus is re-evaluated on every playback telemetry report (several times a
+// second on a busy page), so the hold must be idempotent: we only issue browser
+// calls when the tab is not already where we want it. A hold is also capped —
+// a detector stuck reporting an ad must never pin the user's focus forever.
+const AD_FOCUS_MAX_HOLD_MS = 3 * 60 * 1000;
+const adFocusHolds = new Map<Platform, number>();
+const adFocusExpired = new Set<Platform>();
 let previousFocus: { tabId?: number; windowId?: number } | undefined;
+
+export { AD_FOCUS_MAX_HOLD_MS };
 
 export async function applyAdFocusWithBrowser(
   browserApi: BrowserTabApi,
@@ -246,6 +254,19 @@ export async function applyAdFocusWithBrowser(
   emit: EventEmitter = ignoreEvent,
 ): Promise<void> {
   if (mode === "none" || !adActive || tabId == null) {
+    adFocusExpired.delete(platform);
+    await releaseAdFocus(browserApi, platform, tabId, emit);
+    return;
+  }
+
+  // This ad episode already exhausted its cap; stay out of the user's way until
+  // the platform stops reporting an ad.
+  if (adFocusExpired.has(platform)) return;
+
+  const heldSince = adFocusHolds.get(platform);
+  if (heldSince != null && Date.now() - heldSince >= AD_FOCUS_MAX_HOLD_MS) {
+    adFocusExpired.add(platform);
+    diagnostic(emit, "warn", `Ad focus held for over ${Math.round(AD_FOCUS_MAX_HOLD_MS / 1000)}s; releasing it`, platform);
     await releaseAdFocus(browserApi, platform, tabId, emit);
     return;
   }
@@ -256,17 +277,29 @@ export async function applyAdFocusWithBrowser(
       previousFocus = { tabId: active?.id, windowId: active?.windowId };
     }
   }
-  const alreadyHeld = adFocusHolds.has(platform);
-  adFocusHolds.add(platform);
+  const alreadyHeld = heldSince != null;
+  if (!alreadyHeld) adFocusHolds.set(platform, Date.now());
 
   const tab = await browserApi.tabs.get(tabId).catch(() => undefined);
-  await browserApi.tabs.update(tabId, { active: true });
-  if (mode === "window" && tab?.windowId != null) {
+  const needsWindowFocus = mode === "window" && tab?.windowId != null && !(await isWindowFocused(browserApi, tab.windowId));
+  if (tab?.active === true && !needsWindowFocus) return;
+
+  if (tab?.active !== true) {
+    await browserApi.tabs.update(tabId, { active: true });
+  }
+  if (needsWindowFocus && tab?.windowId != null) {
     await browserApi.windows?.update(tab.windowId, { focused: true });
   }
   if (!alreadyHeld) {
     diagnostic(emit, "debug", `Focusing watch tab ${tabId} for an ad`, platform);
   }
+}
+
+// The tabs API has no "is this window focused" call, but the active tab of the
+// last focused window answers the same question without a windows.get binding.
+async function isWindowFocused(browserApi: BrowserTabApi, windowId: number): Promise<boolean> {
+  const [active] = await browserApi.tabs.query({ active: true, lastFocusedWindow: true }).catch(() => []);
+  return active?.windowId === windowId;
 }
 
 async function releaseAdFocus(browserApi: BrowserTabApi, platform: Platform, watchTabId: number | undefined, emit: EventEmitter): Promise<void> {

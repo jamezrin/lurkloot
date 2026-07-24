@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
 import {
+  AD_FOCUS_MAX_HOLD_MS,
   applyAdFocusWithBrowser,
   currentManagedPageContextTabs,
   ensureTwitchIntegrityWithBrowser,
@@ -1185,13 +1186,19 @@ describe("fetchKickInBackgroundWith", () => {
   });
 });
 
-function adFocusBrowserMock(activeTab: { id?: number; windowId?: number } = { id: 100, windowId: 1 }) {
+interface AdFocusMockTab {
+  id?: number;
+  windowId?: number;
+  active?: boolean;
+}
+
+function adFocusBrowserMock(activeTab: AdFocusMockTab = { id: 100, windowId: 1 }) {
   return {
     tabs: {
-      get: vi.fn(async (tabId: number) => ({ id: tabId, windowId: 2 })),
+      get: vi.fn(async (tabId: number): Promise<AdFocusMockTab> => ({ id: tabId, windowId: 2 })),
       update: vi.fn(async () => undefined),
       remove: vi.fn(async () => undefined),
-      query: vi.fn(async () => [activeTab]),
+      query: vi.fn(async (): Promise<AdFocusMockTab[]> => [activeTab]),
       create: vi.fn(async () => ({ id: 9 })),
     },
     windows: {
@@ -1269,5 +1276,101 @@ describe("ad focus manager", () => {
 
     await applyAdFocusWithBrowser(browser, "kick", 55, false, "tab");
     expect(browser.tabs.update).toHaveBeenCalledWith(100, { active: true });
+  });
+
+  it("does not re-activate the tab while the hold is already held and the tab is active", async () => {
+    const browser = adFocusBrowserMock({ id: 100, windowId: 1 });
+    await applyAdFocusWithBrowser(browser, "kick", 42, true, "tab");
+    expect(browser.tabs.update).toHaveBeenCalledWith(42, { active: true });
+
+    // The watch tab is now the active tab, so a repeated report must be a no-op.
+    browser.tabs.get.mockResolvedValue({ id: 42, windowId: 2, active: true });
+    browser.tabs.query.mockResolvedValue([{ id: 42, windowId: 2, active: true }]);
+    browser.tabs.update.mockClear();
+    browser.windows.update.mockClear();
+
+    await applyAdFocusWithBrowser(browser, "kick", 42, true, "tab");
+    await applyAdFocusWithBrowser(browser, "kick", 42, true, "tab");
+
+    expect(browser.tabs.update).not.toHaveBeenCalled();
+    expect(browser.windows.update).not.toHaveBeenCalled();
+  });
+
+  it("does not re-focus the window while the tab is active in the focused window", async () => {
+    const browser = adFocusBrowserMock({ id: 100, windowId: 1 });
+    await applyAdFocusWithBrowser(browser, "kick", 42, true, "window");
+
+    browser.tabs.get.mockResolvedValue({ id: 42, windowId: 2, active: true });
+    browser.tabs.query.mockResolvedValue([{ id: 42, windowId: 2, active: true }]);
+    browser.tabs.update.mockClear();
+    browser.windows.update.mockClear();
+
+    await applyAdFocusWithBrowser(browser, "kick", 42, true, "window");
+
+    expect(browser.tabs.update).not.toHaveBeenCalled();
+    expect(browser.windows.update).not.toHaveBeenCalled();
+  });
+
+  it("re-activates the tab when the user switched away during the ad", async () => {
+    const browser = adFocusBrowserMock({ id: 100, windowId: 1 });
+    await applyAdFocusWithBrowser(browser, "kick", 42, true, "tab");
+
+    browser.tabs.get.mockResolvedValue({ id: 42, windowId: 2, active: false });
+    browser.tabs.update.mockClear();
+
+    await applyAdFocusWithBrowser(browser, "kick", 42, true, "tab");
+
+    expect(browser.tabs.update).toHaveBeenCalledWith(42, { active: true });
+  });
+
+  it("releases the hold and stops re-focusing once the maximum hold elapses", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2024-01-01T00:00:00Z"));
+      const browser = adFocusBrowserMock({ id: 100, windowId: 1 });
+      await applyAdFocusWithBrowser(browser, "kick", 42, true, "window");
+
+      // A stuck detector keeps reporting an ad long past any real ad break.
+      browser.tabs.get.mockResolvedValue({ id: 42, windowId: 2, active: false });
+      browser.tabs.query.mockResolvedValue([{ id: 42, windowId: 2, active: true }]);
+      vi.setSystemTime(new Date(Date.now() + AD_FOCUS_MAX_HOLD_MS + 1));
+      browser.tabs.update.mockClear();
+      browser.windows.update.mockClear();
+
+      await applyAdFocusWithBrowser(browser, "kick", 42, true, "window");
+
+      // Focus goes back to the user and the watch tab is not raised again.
+      expect(browser.tabs.update).toHaveBeenCalledWith(100, { active: true });
+      expect(browser.tabs.update).not.toHaveBeenCalledWith(42, { active: true });
+
+      browser.tabs.update.mockClear();
+      browser.windows.update.mockClear();
+      await applyAdFocusWithBrowser(browser, "kick", 42, true, "window");
+      await applyAdFocusWithBrowser(browser, "kick", 42, true, "window");
+      expect(browser.tabs.update).not.toHaveBeenCalled();
+      expect(browser.windows.update).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("allows focus again for a new ad episode after the cap expired", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2024-01-01T00:00:00Z"));
+      const browser = adFocusBrowserMock({ id: 100, windowId: 1 });
+      await applyAdFocusWithBrowser(browser, "kick", 42, true, "tab");
+      vi.setSystemTime(new Date(Date.now() + AD_FOCUS_MAX_HOLD_MS + 1));
+      await applyAdFocusWithBrowser(browser, "kick", 42, true, "tab");
+
+      // The ad ends, which clears the expiry, and a later ad may focus again.
+      await applyAdFocusWithBrowser(browser, "kick", 42, false, "tab");
+      browser.tabs.update.mockClear();
+      await applyAdFocusWithBrowser(browser, "kick", 42, true, "tab");
+
+      expect(browser.tabs.update).toHaveBeenCalledWith(42, { active: true });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
