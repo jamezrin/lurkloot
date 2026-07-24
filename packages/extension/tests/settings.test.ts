@@ -122,6 +122,8 @@ describe("settings", () => {
       showExpired: false,
       showFinished: true,
       showExcluded: false,
+      showNotLinked: true,
+      showSubscription: true,
     });
     // A partial persisted record fills the rest from defaults.
     expect(mergeSettings({ dropsListFilter: { showExpired: true } } as never).dropsListFilter).toEqual({
@@ -129,6 +131,8 @@ describe("settings", () => {
       showExpired: true,
       showFinished: true,
       showExcluded: false,
+      showNotLinked: true,
+      showSubscription: true,
     });
   });
 

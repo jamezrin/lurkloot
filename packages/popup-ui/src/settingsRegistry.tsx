@@ -197,7 +197,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             // Display-only: saving does not re-tick, matching other pure-view
             // settings (e.g. the language/appearance rows), because it changes
             // nothing the engine does.
-            render: () => <DropsListFilterRow value={settings.dropsListFilter} onChange={(dropsListFilter) => void onSettingsChange({ dropsListFilter })} />,
+            render: () => <DropsListFilterRow value={settings.dropsListFilter} farmingEligibility={settings.farmingEligibility} onChange={(dropsListFilter) => void onSettingsChange({ dropsListFilter })} />,
           },
           {
             id: "general.drops.forgetExcluded",

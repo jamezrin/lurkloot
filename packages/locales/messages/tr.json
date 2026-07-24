@@ -617,6 +617,9 @@
   "dropsListFilterDescription": {
     "message": "Drop listesinde hangi kampanyaların gösterileceğini seçin. Alınabilir ödülü olan bir kampanya her zaman görünür kalır."
   },
+  "dropsListFilterLockedHint": {
+    "message": "Bu kampanyaları farmladığın sürece her zaman gösterilir."
+  },
   "forgetExcludedTitle": {
     "message": "Gizlenen kampanyaları sıfırla"
   },

@@ -579,6 +579,9 @@
   "dropsListFilterDescription": {
     "message": "Wähle, welche Kampagnen in der Drops-Liste angezeigt werden. Eine Kampagne mit beanspruchbarer Belohnung bleibt immer sichtbar."
   },
+  "dropsListFilterLockedHint": {
+    "message": "Wird immer angezeigt, solange du diese Kampagnen farmst."
+  },
   "forgetExcludedTitle": {
     "message": "Ausgeschlossene Kampagnen vergessen"
   },

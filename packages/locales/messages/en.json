@@ -579,6 +579,9 @@
   "dropsListFilterDescription": {
     "message": "Choose which campaigns are shown in the Drops list. A campaign with a claimable reward always stays visible."
   },
+  "dropsListFilterLockedHint": {
+    "message": "Always shown while you're farming these campaigns."
+  },
   "forgetExcludedTitle": {
     "message": "Forget excluded campaigns"
   },

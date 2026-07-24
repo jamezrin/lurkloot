@@ -579,6 +579,9 @@
   "dropsListFilterDescription": {
     "message": "Elige qué campañas se muestran en la lista Drops. Una campaña con una recompensa reclamable siempre permanece visible."
   },
+  "dropsListFilterLockedHint": {
+    "message": "Siempre se muestran mientras farmeas estas campañas."
+  },
   "forgetExcludedTitle": {
     "message": "Olvidar campañas excluidas"
   },

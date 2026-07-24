@@ -56,15 +56,27 @@ export const EVENT_LEVEL_COLOR: Record<LogLevel, string> = {
   error: "#ef4444",
 };
 
-// The four Drops-list view toggles, rendered as a single compact chip row. Pure
+// The Drops-list view toggles, rendered as a single compact chip row. Pure
 // display: a chip only changes what the Drops list shows, never what is farmed —
 // that axis is now two separate SettingRow toggles (farmingEligibility). Each
 // entry pairs a dropsListFilter key with its per-state chip label message key.
-export const DROPS_LIST_FILTERS: Array<{ key: keyof ExtensionSettings["dropsListFilter"]; label: string }> = [
+//
+// The not-linked/subscription chips carry a `lockedBy` naming the farming flag
+// that forces them visible: you cannot hide a class of campaign you are actively
+// farming (the farmed-implies-visible invariant lives in isCampaignVisible). When
+// that flag is on the chip renders locked-on and disabled; the underlying
+// show-flag value is left untouched so it returns when farming is turned off.
+export const DROPS_LIST_FILTERS: Array<{
+  key: keyof ExtensionSettings["dropsListFilter"];
+  label: string;
+  lockedBy?: keyof ExtensionSettings["farmingEligibility"];
+}> = [
   { key: "showUpcoming", label: "upcoming" },
   { key: "showExpired", label: "expired" },
   { key: "showExcluded", label: "excluded" },
   { key: "showFinished", label: "finished" },
+  { key: "showNotLinked", label: "notLinked", lockedBy: "farmUnlinkedCampaigns" },
+  { key: "showSubscription", label: "subscriptionCampaigns", lockedBy: "farmSubscriptionCampaigns" },
 ];
 
 const TWITCH_GRADIENT =

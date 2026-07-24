@@ -265,13 +265,13 @@ describe("subscription drop popup views", () => {
     // Decoupling: dropsListFilter is display-only, so a subscription campaign
     // stays in the Drops list even when farmingEligibility would skip it. The
     // view filter has no subscription axis to turn off.
-    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(true);
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(true);
     settings.farmingEligibility.farmSubscriptionCampaigns = false;
-    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(true);
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(true);
     expect(isCampaignVisible({
       ...source,
       rewards: [{ ...source.rewards[0], status: "claimable" }],
-    }, settings.dropsListFilter, excludedIds)).toBe(true);
+    }, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(true);
   });
 
   // Kick used to drop ended campaigns at parse time, which made these two
@@ -287,10 +287,10 @@ describe("subscription drop popup views", () => {
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["finished"]);
     expect(settings.dropsListFilter.showFinished).toBe(true);
-    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(true);
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(true);
 
     settings.dropsListFilter.showFinished = false;
-    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(false);
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(false);
   });
 
   it("applies the expired filter to an expired Kick campaign", () => {
@@ -304,9 +304,9 @@ describe("subscription drop popup views", () => {
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["expired"]);
     expect(settings.dropsListFilter.showExpired).toBe(false);
-    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(false);
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(false);
 
     settings.dropsListFilter.showExpired = true;
-    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(true);
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(true);
   });
 });

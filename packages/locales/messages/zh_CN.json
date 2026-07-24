@@ -579,6 +579,9 @@
   "dropsListFilterDescription": {
     "message": "选择在 Drops 列表中显示的活动。有可领取奖励的活动始终可见。"
   },
+  "dropsListFilterLockedHint": {
+    "message": "刷取这些活动期间始终显示。"
+  },
   "forgetExcludedTitle": {
     "message": "忘记排除的活动"
   },

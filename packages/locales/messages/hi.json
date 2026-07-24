@@ -579,6 +579,9 @@
   "dropsListFilterDescription": {
     "message": "चुनें कि Drops सूची में कौन से कैंपेन दिखें। क्लेम करने योग्य इनाम वाला कैंपेन हमेशा दिखता है।"
   },
+  "dropsListFilterLockedHint": {
+    "message": "जब तक आप इन कैंपेन की फ़ार्मिंग कर रहे हैं, ये हमेशा दिखते हैं।"
+  },
   "forgetExcludedTitle": {
     "message": "हटाए गए कैंपेन भूलें"
   },

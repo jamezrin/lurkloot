@@ -59,6 +59,9 @@ const labels: Record<string, string> = {
   farmSubscriptionDescription: "When off, campaigns whose rewards need a channel subscription are skipped.",
   dropsListFilterTitle: "Drops list view",
   dropsListFilterDescription: "Choose which campaigns are shown in the Drops list.",
+  dropsListFilterLockedHint: "Always shown while you're farming these campaigns.",
+  notLinked: "Not linked",
+  subscriptionCampaigns: "Subscription campaigns",
   forgetExcludedTitle: "Forget excluded campaigns",
   forgetExcludedDescription: "Clear every campaign you excluded from farming.",
   tablessTitle: "Tabless low-resource mode",
@@ -200,8 +203,36 @@ describe("deadline feasibility setting", () => {
     });
 
     expect(groups).toEqual([
-      { name: "Drops list view", pills: ["upcoming", "expired", "excluded", "finished"] },
+      { name: "Drops list view", pills: ["upcoming", "expired", "excluded", "finished", "Not linked", "Subscription campaigns"] },
     ]);
+  });
+
+  it("locks the not-linked chip on and disables it while its campaigns are farmed", () => {
+    // farmUnlinkedCampaigns on: the class is always farmed, so the chip is forced
+    // visible and disabled — the farmed-implies-visible invariant, surfaced.
+    const { container } = mountSettings({
+      ...DEFAULT_SETTINGS,
+      farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: true },
+    });
+    const chip = [...container.querySelectorAll('button[aria-pressed]')].find((button) => button.textContent?.trim() === "Not linked") as HTMLButtonElement;
+    expect(chip).toBeTruthy();
+    expect(chip.getAttribute("aria-pressed")).toBe("true");
+    expect(chip.disabled).toBe(true);
+    expect(chip.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("frees the not-linked chip as a normal toggle when its campaigns are not farmed", () => {
+    const { container } = mountSettings({
+      ...DEFAULT_SETTINGS,
+      farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: false },
+      dropsListFilter: { ...DEFAULT_SETTINGS.dropsListFilter, showNotLinked: false },
+    });
+    const chip = [...container.querySelectorAll('button[aria-pressed]')].find((button) => button.textContent?.trim() === "Not linked") as HTMLButtonElement;
+    expect(chip).toBeTruthy();
+    // Not farmed and hidden: a plain, enabled, unpressed toggle over showNotLinked.
+    expect(chip.disabled).toBe(false);
+    expect(chip.getAttribute("aria-disabled")).toBe("false");
+    expect(chip.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("reconciles all platforms after changing Idle Watchlist fallback policy", () => {

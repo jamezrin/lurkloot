@@ -579,6 +579,9 @@
   "dropsListFilterDescription": {
     "message": "Выберите, какие кампании показывать в списке Drops. Кампания с доступной наградой всегда видима."
   },
+  "dropsListFilterLockedHint": {
+    "message": "Всегда показываются, пока вы фармите эти кампании."
+  },
   "forgetExcludedTitle": {
     "message": "Забыть исключённые кампании"
   },
