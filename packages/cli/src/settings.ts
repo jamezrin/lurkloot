@@ -5,14 +5,13 @@ import {
   clampNumber,
   mergeEngineSettings,
   normalizeCategorySelections,
-  normalizeCampaignFilters,
+  normalizeFarmingEligibility,
   normalizeChannelList,
   normalizeIdList,
   normalizePriorities,
 } from "@lurkloot/shared/settings";
 import { migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
-import { CAMPAIGN_FILTER_KEYS } from "@lurkloot/shared/campaignFilters";
-import type { CampaignFilterKey, CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
+import type { CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
 // ExtensionSettings. It only exposes settings that actually do something in the
@@ -36,10 +35,11 @@ export interface CliSettings {
   postClaimHandoffMaxSeconds: number;
   skipUnfinishableRewards: boolean;
   deadlineSafetyMarginMinutes: number;
-  // Not extension-only: the farming keys (see FARMING_FILTER_KEYS) gate what the
-  // scheduler is allowed to farm, so they change headless behavior too. The
-  // remaining keys only affect what the popup lists and are inert here.
-  campaignFilters: Record<CampaignFilterKey, boolean>;
+  // Not extension-only: these two keys gate what the scheduler is allowed to
+  // farm, so they change headless behavior. The display-only popup preference
+  // (dropsListFilter) is rejected as extension-only instead — a headless run has
+  // no Drops list to filter.
+  farmingEligibility: EngineSettings["farmingEligibility"];
   // Gate the controller's reward/no-drops notifications, which the CLI renders
   // as log lines (see runtime/run.ts createNotification).
   notifyRewardEarned: boolean;
@@ -48,6 +48,9 @@ export interface CliSettings {
   compatibility: CompatibilitySettings;
 }
 
+// The two farming-eligibility toggles the CLI honours. Kept local (not imported)
+// because the shared split has no exported key tuple; only these two exist.
+const FARMING_ELIGIBILITY_KEYS: string[] = ["farmUnlinkedCampaigns", "farmSubscriptionCampaigns"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 
@@ -66,7 +69,7 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   postClaimHandoffMaxSeconds: DEFAULT_SETTINGS.postClaimHandoffMaxSeconds,
   skipUnfinishableRewards: DEFAULT_SETTINGS.skipUnfinishableRewards,
   deadlineSafetyMarginMinutes: DEFAULT_SETTINGS.deadlineSafetyMarginMinutes,
-  campaignFilters: { ...DEFAULT_SETTINGS.campaignFilters },
+  farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility },
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
   platform: {
@@ -92,7 +95,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "postClaimHandoffMaxSeconds",
   "skipUnfinishableRewards",
   "deadlineSafetyMarginMinutes",
-  "campaignFilters",
+  "farmingEligibility",
   // Accepted only so config parsing can surface the deprecation warning.
   // Runtime log filtering belongs to the global --log option and process logger.
   "enabledLogLevels",
@@ -127,6 +130,9 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "languageOverride",
   "rateNudgeStatus",
   "diagnosticLogging",
+  // Display-only popup preference for the Drops list; a headless run has no
+  // Drops list to filter, so it is rejected rather than silently ignored.
+  "dropsListFilter",
 ]);
 
 // A migration may rename a legacy key onto one the CLI rejects — `verboseLogging`
@@ -200,22 +206,22 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     }
   }
 
-  // Filter keys are validated like platform/compatibility keys: a typo would
+  // Eligibility keys are validated like platform/compatibility keys: a typo would
   // otherwise silently fall back to the default and quietly farm the wrong set.
-  const campaignFiltersRaw = value.campaignFilters;
-  if (campaignFiltersRaw !== undefined) {
-    if (campaignFiltersRaw === null || typeof campaignFiltersRaw !== "object" || Array.isArray(campaignFiltersRaw)) {
-      offenders.push('"campaignFilters" must be a JSON object');
+  const farmingEligibilityRaw = value.farmingEligibility;
+  if (farmingEligibilityRaw !== undefined) {
+    if (farmingEligibilityRaw === null || typeof farmingEligibilityRaw !== "object" || Array.isArray(farmingEligibilityRaw)) {
+      offenders.push('"farmingEligibility" must be a JSON object');
     } else {
-      for (const [key, entry] of Object.entries(campaignFiltersRaw as Record<string, unknown>)) {
-        if (!(CAMPAIGN_FILTER_KEYS as string[]).includes(key)) {
-          offenders.push(`unknown setting "${key}" under campaignFilters (expected one of: ${CAMPAIGN_FILTER_KEYS.join(", ")})`);
+      for (const [key, entry] of Object.entries(farmingEligibilityRaw as Record<string, unknown>)) {
+        if (!FARMING_ELIGIBILITY_KEYS.includes(key)) {
+          offenders.push(`unknown setting "${key}" under farmingEligibility (expected one of: ${FARMING_ELIGIBILITY_KEYS.join(", ")})`);
           continue;
         }
         // Values are checked too, not just names: booleanOr would quietly
-        // restore the default for `"notLinked": "yes"`, which is the same
-        // silent wrong-set farming the key check exists to prevent.
-        if (typeof entry !== "boolean") offenders.push(`"campaignFilters.${key}" must be a boolean`);
+        // restore the default for `"farmUnlinkedCampaigns": "yes"`, which is the
+        // same silent wrong-set farming the key check exists to prevent.
+        if (typeof entry !== "boolean") offenders.push(`"farmingEligibility.${key}" must be a boolean`);
       }
     }
   }
@@ -268,7 +274,7 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
       60,
       DEFAULT_CLI_SETTINGS.deadlineSafetyMarginMinutes,
     ),
-    campaignFilters: normalizeCampaignFilters(v.campaignFilters),
+    farmingEligibility: normalizeFarmingEligibility(v.farmingEligibility),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform),

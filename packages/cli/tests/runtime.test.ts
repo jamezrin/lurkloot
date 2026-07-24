@@ -90,10 +90,10 @@ describe("CLI engine event reporting", () => {
         accountLinked: false,
         rewards: [dropReward({ requiredMinutes: 60 })],
       })],
-      // notLinked off is what makes campaignPassesFarmingFilters reject it.
+      // farmUnlinkedCampaigns off is what makes the eligibility check reject it.
       toEngineSettings({
         ...DEFAULT_CLI_SETTINGS,
-        campaignFilters: { ...DEFAULT_CLI_SETTINGS.campaignFilters, notLinked: false },
+        farmingEligibility: { ...DEFAULT_CLI_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: false },
       }),
       {
         listCandidateChannels: async () => [],
@@ -113,7 +113,7 @@ describe("CLI engine event reporting", () => {
       recordingLogger(lines),
     );
 
-    expect(lines).toEqual(["WARN [twitch] All campaigns are filtered out by your campaign filters and no Idle Watchlist channels"]);
+    expect(lines).toEqual(["WARN [twitch] All campaigns are skipped by your farming eligibility settings and no Idle Watchlist channels"]);
   });
 
   it.each([

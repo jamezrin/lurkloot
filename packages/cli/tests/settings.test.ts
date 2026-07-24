@@ -148,39 +148,50 @@ describe("parseCliSettings", () => {
     expect(() => parseCliSettings({ diagnosticLogging: true })).toThrow(/"diagnosticLogging" is an extension-only setting/);
   });
 
-  it("accepts campaignFilters now that it gates farming", () => {
-    const result = parseCliSettingsWithDiagnostics({ campaignFilters: { notLinked: false } });
+  it("accepts farmingEligibility now that it gates farming", () => {
+    const result = parseCliSettingsWithDiagnostics({ farmingEligibility: { farmUnlinkedCampaigns: false } });
 
-    expect(result.settings.campaignFilters.notLinked).toBe(false);
+    expect(result.settings.farmingEligibility.farmUnlinkedCampaigns).toBe(false);
     // Unnamed keys keep their shared defaults.
-    expect(result.settings.campaignFilters.subscription).toBe(DEFAULT_CLI_SETTINGS.campaignFilters.subscription);
+    expect(result.settings.farmingEligibility.farmSubscriptionCampaigns).toBe(DEFAULT_CLI_SETTINGS.farmingEligibility.farmSubscriptionCampaigns);
     expect(result.diagnostics).toEqual([]);
-    expect(toEngineSettings(result.settings).campaignFilters.notLinked).toBe(false);
+    expect(toEngineSettings(result.settings).farmingEligibility.farmUnlinkedCampaigns).toBe(false);
+  });
+
+  it("rejects dropsListFilter as an extension-only display preference", () => {
+    // The headless run has no Drops list to filter, so the display-only popup
+    // preference is a hard error rather than a silently-ignored knob.
+    expect(() => parseCliSettings({ dropsListFilter: { showUpcoming: false } }))
+      .toThrow(/"dropsListFilter" is an extension-only setting/);
   });
 
   it("migrates a config still using the old campaignVisibility name", () => {
     const { settings, diagnostics } = parseCliSettingsWithDiagnostics({ campaignVisibility: { notLinked: false } });
 
-    expect(settings.campaignFilters.notLinked).toBe(false);
+    // The migration splits campaignVisibility: the farming half lands on
+    // farmingEligibility (honoured), the display half on dropsListFilter (which
+    // the CLI drops, since it never surfaces in CliSettings).
+    expect(settings.farmingEligibility.farmUnlinkedCampaigns).toBe(false);
     expect(settings).not.toHaveProperty("campaignVisibility");
+    expect(settings).not.toHaveProperty("dropsListFilter");
     expect(diagnostics).toEqual([
-      expect.objectContaining({ path: "campaignVisibility", replacement: "campaignFilters" }),
+      expect.objectContaining({ path: "campaignVisibility", replacement: "farmingEligibility and dropsListFilter" }),
     ]);
   });
 
-  it("hard-errors on unknown campaignFilters keys", () => {
-    expect(() => parseCliSettings({ campaignFilters: { nonsense: true } }))
-      .toThrow(/unknown setting "nonsense" under campaignFilters/);
+  it("hard-errors on unknown farmingEligibility keys", () => {
+    expect(() => parseCliSettings({ farmingEligibility: { nonsense: true } }))
+      .toThrow(/unknown setting "nonsense" under farmingEligibility/);
   });
 
-  it("hard-errors on non-boolean campaignFilters values", () => {
+  it("hard-errors on non-boolean farmingEligibility values", () => {
     // Without this the value is dropped and the default silently farms the
     // wrong set of campaigns.
-    expect(() => parseCliSettings({ campaignFilters: { notLinked: "yes" } }))
-      .toThrow(/"campaignFilters.notLinked" must be a boolean/);
-    expect(() => parseCliSettings({ campaignFilters: { subscription: null } }))
-      .toThrow(/"campaignFilters.subscription" must be a boolean/);
-    expect(() => parseCliSettings({ campaignFilters: [] })).toThrow(/"campaignFilters" must be a JSON object/);
+    expect(() => parseCliSettings({ farmingEligibility: { farmUnlinkedCampaigns: "yes" } }))
+      .toThrow(/"farmingEligibility.farmUnlinkedCampaigns" must be a boolean/);
+    expect(() => parseCliSettings({ farmingEligibility: { farmSubscriptionCampaigns: null } }))
+      .toThrow(/"farmingEligibility.farmSubscriptionCampaigns" must be a boolean/);
+    expect(() => parseCliSettings({ farmingEligibility: [] })).toThrow(/"farmingEligibility" must be a JSON object/);
   });
 
   it("hard-errors on a truly unknown key", () => {

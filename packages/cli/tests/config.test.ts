@@ -236,16 +236,14 @@ describe("loadConfig", () => {
     }
   });
 
-  it("documents every campaign filter in the template", () => {
-    // campaignFilters gates what a headless run earns, so an omitted block is a
-    // real documentation gap — and the round-trip above cannot catch it.
+  it("documents the farming-eligibility keys in the template", () => {
+    // farmingEligibility gates what a headless run earns, so an omitted block is
+    // a real documentation gap — and the round-trip above cannot catch it.
     const template = defaultConfigJsonc();
-    for (const [key, value] of Object.entries(DEFAULT_CLI_SETTINGS.campaignFilters)) {
+    for (const [key, value] of Object.entries(DEFAULT_CLI_SETTINGS.farmingEligibility)) {
       expect(template).toContain(`"${key}": ${value}`);
     }
-    // The two farming keys have to be distinguishable from the inert four.
-    expect(template).toContain("Display-only below this line.");
-    expect(parseJsonc(defaultConfigJsonc()).settings.campaignFilters).toEqual(DEFAULT_CLI_SETTINGS.campaignFilters);
+    expect(parseJsonc(defaultConfigJsonc()).settings.farmingEligibility).toEqual(DEFAULT_CLI_SETTINGS.farmingEligibility);
   });
 
   it("documents the post-claim handoff settings in the template", () => {

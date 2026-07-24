@@ -38,24 +38,23 @@ option is its sole event filter.
 Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`,
 `campaignPriorities`, `excludedCampaignIds`, `idleWatchlistFallbackOnly`,
 `offlineRetryLimit`, `pollIntervalMinutes`,
-`notifyRewardEarned`, `notifyNoDropsLeft`, `campaignFilters`, and per-platform
+`notifyRewardEarned`, `notifyNoDropsLeft`, `farmingEligibility`, and per-platform
 `enabled`, `idleWatchlistChannels`, `excludedChannels`, `farmAllCategories`,
 `categories`.
 
-`campaignFilters` decides what may be farmed, not just what the extension popup
-lists. Setting `notLinked` or `subscription` to `false` makes the engine skip
-campaigns that need an account link or a channel subscription; when every
-discovered campaign is filtered out, the run logs a warning saying so. The other
-keys (`upcoming`, `expired`, `excluded`, `finished`) are display-only and have no
-effect headlessly, but are accepted so an extension config can be reused as-is.
-A config still using the old name `campaignVisibility` is migrated to
-`campaignFilters` automatically, with one deprecation warning per command,
-rather than rejected.
+`farmingEligibility` gates what the engine may farm. Its two keys both default
+`true`: set `farmUnlinkedCampaigns` to `false` to skip campaigns that need an
+account link, and `farmSubscriptionCampaigns` to `false` to skip campaigns that
+require a channel subscription; when every discovered campaign is filtered out,
+the run logs a warning saying so. A config still using the old name
+`campaignVisibility` is migrated automatically (its farming half becomes
+`farmingEligibility`), with one deprecation warning per command, rather than
+rejected.
 
 Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
 `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
 `adFocusMode`, `autoCloseFinishedDrops`, `autoStartDropFarming`,
-`languageOverride`, `rateNudgeStatus`, `diagnosticLogging`.
+`languageOverride`, `rateNudgeStatus`, `diagnosticLogging`, `dropsListFilter`.
 
 ```jsonc
 {
