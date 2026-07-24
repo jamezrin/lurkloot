@@ -62,6 +62,12 @@ const testT: TFunction = (key, substitutions) => {
   ), message);
 };
 
+// The drops panel only auto-expands the campaign it is currently farming, so mark
+// the view under test as farming to render its expanded body into static markup.
+function expandedView(view: CampaignView): CampaignView {
+  return { ...view, farmingChannel: { name: "test-channel" } };
+}
+
 function renderDrops(campaigns: CampaignView[], refreshing = false): string {
   return renderToStaticMarkup(createElement(
     I18nContext.Provider,
@@ -91,7 +97,7 @@ describe("subscription drop popup views", () => {
     });
 
     expect(view.rewards[0].ineligibilityReason).toBe("insufficient_time");
-    expect(renderDrops([view])).toContain("Insufficient time remaining");
+    expect(renderDrops([expandedView(view)])).toContain("Insufficient time remaining");
 
     const disabled = campaignViewFromCampaign(source, 0, idleSession, false, {
       skipUnfinishableRewards: false,
@@ -193,7 +199,7 @@ describe("subscription drop popup views", () => {
       reward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60, watchedMinutes: 30, status: "in_progress" }),
       reward({ id: "subscribe", name: "Subscriber Cape", requirement: "subscription", requiredSubs: 2 }),
     ]);
-    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
 
     expect(markup).toContain("Subscription required");
     expect(markup).toContain("Watch Crown");
@@ -216,7 +222,7 @@ describe("subscription drop popup views", () => {
       }),
       reward({ id: "subscribe", name: "Subscriber Cape", requirement: "subscription", requiredSubs: 2 }),
     ]);
-    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
 
     expect(markup).not.toContain("&lt;1m");
     expect(markup.match(/Progress unavailable/g)).toHaveLength(2);
@@ -226,7 +232,7 @@ describe("subscription drop popup views", () => {
     const source = campaign("earned-subscription", [
       reward({ id: "subscribe", name: "Earned Subscriber Badge", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
     ]);
-    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
 
     expect(markup).toContain("Earned");
     expect(markup).not.toContain("100%");
@@ -236,7 +242,7 @@ describe("subscription drop popup views", () => {
     const source = campaign("action-only", [
       reward({ id: "purchase", name: "Purchase Bonus", requirement: "action", isWatchBased: false }),
     ]);
-    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
 
     expect(markup).toContain("Action required");
     expect(markup).toContain("Purchase Bonus");
@@ -249,7 +255,7 @@ describe("subscription drop popup views", () => {
     const source = campaign("subscription-only", [
       reward({ id: "subscribe", requirement: "subscription", requiredSubs: 1 }),
     ]);
-    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)], true);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))], true);
 
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>.*subscribed — refresh status<\/button>/);
   });
