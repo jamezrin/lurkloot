@@ -101,9 +101,15 @@ async function controlPlaybackAndReport(platform: Platform): Promise<void> {
 }
 
 // Markers the platform leaves in the DOM while an ad is rolling. Twitch's are
-// stable data-attributes used by its own player; Kick's are best-effort
+// stable data-attributes used by its own player; Kick's are still best-effort
 // (video.js overlay classes / generic ad containers) and may need tuning. We
 // only read the DOM here — the platform is not otherwise modified.
+//
+// Every selector must be anchored: substring matching (`*=`) is not safe here
+// because "ad" occurs inside unrelated markers — `[data-testid*="ad"]` matched
+// Kick's chat `identity-badge-*` elements ("b-ad-ge") on every channel with
+// chat, which pinned `adActive` to true forever. Use `~=` for whole class
+// tokens and `^=`/`$=`/exact matches for testids instead.
 const AD_SELECTORS: Record<Platform, string[]> = {
   twitch: [
     '[data-a-target="video-ad-label"]',
@@ -115,13 +121,19 @@ const AD_SELECTORS: Record<Platform, string[]> = {
   kick: [
     ".vjs-ad-playing",
     ".vjs-ad-loading",
-    '[class*="ad-overlay"]',
-    '[data-testid*="ad"]',
+    '[class~="ad-overlay"]',
+    '[data-testid="ad"]',
+    '[data-testid^="ad-"]',
+    '[data-testid$="-ad"]',
   ],
 };
 
+export function detectAdIn(platform: Platform, root: ParentNode): boolean {
+  return AD_SELECTORS[platform].some((selector) => root.querySelector(selector) != null);
+}
+
 function detectAd(platform: Platform): boolean {
-  return AD_SELECTORS[platform].some((selector) => document.querySelector(selector) != null);
+  return detectAdIn(platform, document);
 }
 
 function setKeepAlive(active: boolean): void {
