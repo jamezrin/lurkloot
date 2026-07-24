@@ -44,7 +44,7 @@ The popup and content scripts do not call adapters directly. They send typed run
 Important setting groups:
 
 - Global automation: `running`, `autoStartDropFarming`, per-platform `enabled`.
-- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `idleWatchlistFallbackOnly`, `priorityMode`, `campaignPriorities`, `excludedCampaignIds`.
+- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `idleWatchlistFallbackOnly`, `priorityMode`, `campaignPriorities`, `excludedCampaignIds`, `campaignFilters`.
 - Platform preferences: `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].farmAllCategories`, and `platform[platform].categories`.
 - Tab/playback behavior: `tablessMode`, `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`, `autoCloseFinishedDrops`, `offlineRetryLimit`.
 - Notifications: `notifyRewardEarned`, `notifyNoDropsLeft`.
@@ -91,6 +91,16 @@ To add version N+1:
 Released migrations are never edited except to fix a data-loss defect. A later
 semantic change gets a new version and a new migration.
 
+Migration 1 consolidates every legacy shape that predates the registry: the Idle
+Watchlist rename, the pre-split top-level channel-points toggle, and the
+`verboseLogging` rename.
+
+Migration 2 renames `campaignVisibility` to `campaignFilters`. The setting moved
+from the extension-only layer into `EngineSettings` when its `notLinked` and
+`subscription` keys started gating farming, so the CLI honours it too and the
+name no longer claims the setting is only about visibility. Stored values carry
+over untouched, so no existing profile changes what it farms on upgrade.
+
 ## Scheduler Flow
 
 Each scheduler tick runs enabled platforms independently:
@@ -105,7 +115,7 @@ Each scheduler tick runs enabled platforms independently:
 8. Claim channel points when enabled and supported by the adapter.
 9. Persist sessions, campaigns, managed-tab registrations, and backoff state, then publish activity records through the host event sink.
 
-Campaign ordering is shared across platforms: explicit campaign priority, platform game priority, campaign priority field, optional lowest-availability mode, ending soonest, then campaign name. Per-platform excluded drop channels filter campaign candidates only; they do not suppress Idle Watchlist fallback channels.
+Campaign ordering is shared across platforms: explicit campaign priority, platform game priority, campaign priority field, optional lowest-availability mode, ending soonest, then campaign name. Per-platform excluded drop channels filter campaign candidates only; they do not suppress Idle Watchlist fallback channels. `campaignFilters` also narrows eligibility, but only through its farming keys (`notLinked`, `subscription`); the display-only keys (`upcoming`, `expired`, `excluded`, `finished`) affect the popup alone.
 
 ## Same-Origin Fetching
 
