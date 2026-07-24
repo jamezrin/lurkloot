@@ -1,13 +1,9 @@
-import type { CampaignFilterKey, DisplayFilterKey, DropCampaign, FarmingFilterKey } from "./models";
+import type { CampaignFilterKey, DisplayFilterKey, DropCampaign, EngineSettings, ExtensionSettings, FarmingFilterKey } from "./models";
 import { campaignHasSubscriptionRewards } from "./rewards";
 
 export const FARMING_FILTER_KEYS: FarmingFilterKey[] = ["notLinked", "subscription"];
 export const DISPLAY_FILTER_KEYS: DisplayFilterKey[] = ["upcoming", "expired", "excluded", "finished"];
 export const CAMPAIGN_FILTER_KEYS: CampaignFilterKey[] = [...FARMING_FILTER_KEYS, ...DISPLAY_FILTER_KEYS];
-
-// No campaign is excluded when the question is "may the engine farm this?" —
-// exclusion is enforced separately by excludedCampaignIds in isEligible.
-const NO_EXCLUSIONS: ReadonlySet<string> = new Set<string>();
 
 export function isCampaignExpired(campaign: DropCampaign): boolean {
   if (campaign.status === "expired") return true;
@@ -37,26 +33,32 @@ export function campaignFilterCategories(campaign: DropCampaign, excludedIds: Re
   return categories;
 }
 
-// What the engine asks. Takes no excludedIds on purpose: the only keys it reads
-// are notLinked and subscription, and isEligible rejects excluded campaigns on
-// its own line. Threading exclusions through here would imply this filter has an
-// opinion about them.
-export function campaignPassesFarmingFilters(
+// What the engine asks: is this campaign's class allowed to be farmed? Reads
+// only the two eligibility flags; excludedCampaignIds is handled separately in
+// isEligible, so it is not consulted here. Threading exclusions through would
+// imply this filter has an opinion about them.
+export function campaignPassesFarmingEligibility(
   campaign: DropCampaign,
-  filters: Record<CampaignFilterKey, boolean>,
+  farmingEligibility: EngineSettings["farmingEligibility"],
 ): boolean {
-  return campaignFilterCategories(campaign, NO_EXCLUSIONS)
-    .filter((key): key is FarmingFilterKey => (FARMING_FILTER_KEYS as CampaignFilterKey[]).includes(key))
-    .every((key) => filters[key]);
+  if (campaign.accountLinked === false && !farmingEligibility.farmUnlinkedCampaigns) return false;
+  if (campaignHasSubscriptionRewards(campaign) && !farmingEligibility.farmSubscriptionCampaigns) return false;
+  return true;
 }
 
 // What the popup asks. A claimable reward always stays visible so the user can
-// claim it; that escape hatch must never reach the farming predicate.
+// claim it. Link status and subscription NEVER affect visibility — a campaign
+// you have chosen not to farm still appears in the list. The finished/expired/
+// upcoming order mirrors the precedence in campaignFilterCategories.
 export function isCampaignVisible(
   campaign: DropCampaign,
-  filters: Record<CampaignFilterKey, boolean>,
+  filter: ExtensionSettings["dropsListFilter"],
   excludedIds: ReadonlySet<string>,
 ): boolean {
   if (campaign.rewards.some((reward) => reward.status === "claimable")) return true;
-  return campaignFilterCategories(campaign, excludedIds).every((key) => filters[key]);
+  if (excludedIds.has(campaign.id) && !filter.showExcluded) return false;
+  if (isCampaignFinished(campaign)) return filter.showFinished;
+  if (isCampaignExpired(campaign)) return filter.showExpired;
+  if (campaign.status === "upcoming") return filter.showUpcoming;
+  return true;
 }

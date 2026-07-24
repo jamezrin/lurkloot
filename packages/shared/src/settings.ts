@@ -1,6 +1,4 @@
-import type { AdFocusMode, CampaignFilterKey, CategorySelection, CompatibilitySettings, EngineSettings, ExtensionSettings, KickPlatformSettings, LanguageOverride, Platform, PriorityMode, RateNudgeStatus, SupportedLocale, TwitchPlatformSettings } from "./models";
-
-import { CAMPAIGN_FILTER_KEYS } from "./campaignFilters";
+import type { AdFocusMode, CategorySelection, CompatibilitySettings, EngineSettings, ExtensionSettings, KickPlatformSettings, LanguageOverride, Platform, PriorityMode, RateNudgeStatus, SupportedLocale, TwitchPlatformSettings } from "./models";
 
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
@@ -8,7 +6,7 @@ const RATE_NUDGE_STATUSES: RateNudgeStatus[] = ["pending", "rated", "dismissed"]
 export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 
-export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "campaignFilters">> & {
+export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "farmingEligibility" | "dropsListFilter">> & {
   platform?: {
     twitch?: Partial<TwitchPlatformSettings>;
     kick?: Partial<KickPlatformSettings>;
@@ -17,7 +15,8 @@ export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compat
     twitch?: Partial<CompatibilitySettings["twitch"]>;
     kick?: Partial<CompatibilitySettings["kick"]>;
   };
-  campaignFilters?: Partial<ExtensionSettings["campaignFilters"]>;
+  farmingEligibility?: Partial<ExtensionSettings["farmingEligibility"]>;
+  dropsListFilter?: Partial<ExtensionSettings["dropsListFilter"]>;
 };
 
 // The engine-contract defaults: the universal subset every host shares.
@@ -62,16 +61,11 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   },
   campaignPriorities: {},
   excludedCampaignIds: [],
-  // Preserve the previously hard-coded view: farm and show not-linked,
-  // subscription, upcoming and finished campaigns; hide expired and excluded
-  // ones unless opted back in.
-  campaignFilters: {
-    notLinked: true,
-    subscription: true,
-    upcoming: true,
-    expired: false,
-    excluded: false,
-    finished: true,
+  // Both classes are eligible by default: turning either off only ever farms
+  // less, so no existing user's farming changes on upgrade.
+  farmingEligibility: {
+    farmUnlinkedCampaigns: true,
+    farmSubscriptionCampaigns: true,
   },
   offlineRetryLimit: 3,
   pollIntervalMinutes: 1,
@@ -90,6 +84,14 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   muteFarmingTabs: true,
   keepFarmingVideosUnmuted: true,
   autoCloseFinishedDrops: true,
+  // Preserve the previously hard-coded visible set exactly: show upcoming and
+  // finished, hide expired and excluded unless opted back in.
+  dropsListFilter: {
+    showUpcoming: true,
+    showExpired: false,
+    showFinished: true,
+    showExcluded: false,
+  },
   adFocusMode: "window",
   languageOverride: "browser",
   rateNudgeStatus: "pending",
@@ -148,7 +150,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     },
     campaignPriorities: normalizePriorities(value?.campaignPriorities),
     excludedCampaignIds: normalizeIdList(value?.excludedCampaignIds),
-    campaignFilters: normalizeCampaignFilters(value?.campaignFilters),
+    farmingEligibility: normalizeFarmingEligibility(value?.farmingEligibility),
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_ENGINE_SETTINGS.offlineRetryLimit),
     // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_ENGINE_SETTINGS.pollIntervalMinutes),
@@ -173,6 +175,7 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_SETTINGS.muteFarmingTabs),
     keepFarmingVideosUnmuted: booleanOr(value?.keepFarmingVideosUnmuted, DEFAULT_SETTINGS.keepFarmingVideosUnmuted),
     autoCloseFinishedDrops: booleanOr(value?.autoCloseFinishedDrops, DEFAULT_SETTINGS.autoCloseFinishedDrops),
+    dropsListFilter: normalizeDropsListFilter(value?.dropsListFilter),
     adFocusMode: AD_FOCUS_MODES.includes(value?.adFocusMode as AdFocusMode)
       ? (value!.adFocusMode as AdFocusMode)
       : DEFAULT_SETTINGS.adFocusMode,
@@ -214,9 +217,13 @@ export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPa
         ...patch.compatibility?.kick,
       },
     },
-    campaignFilters: {
-      ...current.campaignFilters,
-      ...patch.campaignFilters,
+    farmingEligibility: {
+      ...current.farmingEligibility,
+      ...patch.farmingEligibility,
+    },
+    dropsListFilter: {
+      ...current.dropsListFilter,
+      ...patch.dropsListFilter,
     },
   });
 }
@@ -270,12 +277,28 @@ export function normalizeIdList(value: string[] | undefined): string[] {
     .filter(Boolean))];
 }
 
-// Exported for non-extension hosts (the CLI) that validate campaignFilters on
+// Exported for non-extension hosts (the CLI) that honour farmingEligibility on
 // their own settings surface but must default identically to the engine.
-export function normalizeCampaignFilters(value: Partial<Record<CampaignFilterKey, boolean>> | undefined): Record<CampaignFilterKey, boolean> {
-  return Object.fromEntries(
-    CAMPAIGN_FILTER_KEYS.map((key) => [key, booleanOr(value?.[key], DEFAULT_ENGINE_SETTINGS.campaignFilters[key])]),
-  ) as Record<CampaignFilterKey, boolean>;
+export function normalizeFarmingEligibility(
+  value: Partial<EngineSettings["farmingEligibility"]> | undefined,
+): EngineSettings["farmingEligibility"] {
+  return {
+    farmUnlinkedCampaigns: booleanOr(value?.farmUnlinkedCampaigns, DEFAULT_ENGINE_SETTINGS.farmingEligibility.farmUnlinkedCampaigns),
+    farmSubscriptionCampaigns: booleanOr(value?.farmSubscriptionCampaigns, DEFAULT_ENGINE_SETTINGS.farmingEligibility.farmSubscriptionCampaigns),
+  };
+}
+
+// dropsListFilter is extension-only (host view preference), so it normalizes in
+// mergeSettings rather than the engine merge.
+function normalizeDropsListFilter(
+  value: Partial<ExtensionSettings["dropsListFilter"]> | undefined,
+): ExtensionSettings["dropsListFilter"] {
+  return {
+    showUpcoming: booleanOr(value?.showUpcoming, DEFAULT_SETTINGS.dropsListFilter.showUpcoming),
+    showExpired: booleanOr(value?.showExpired, DEFAULT_SETTINGS.dropsListFilter.showExpired),
+    showFinished: booleanOr(value?.showFinished, DEFAULT_SETTINGS.dropsListFilter.showFinished),
+    showExcluded: booleanOr(value?.showExcluded, DEFAULT_SETTINGS.dropsListFilter.showExcluded),
+  };
 }
 
 export function normalizeChannelList(value: string[] | undefined): string[] {

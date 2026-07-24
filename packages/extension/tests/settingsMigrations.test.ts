@@ -228,38 +228,69 @@ describe("migration 1: legacy aliases", () => {
 });
 
 describe("schema v2", () => {
-  it("renames campaignVisibility to campaignFilters and reports it", () => {
+  it("splits campaignVisibility into farmingEligibility and dropsListFilter with values intact", () => {
     const result = migrateSettings({
       schemaVersion: 1,
-      campaignVisibility: { expired: true, notLinked: false },
+      campaignVisibility: {
+        notLinked: false,
+        subscription: true,
+        upcoming: false,
+        expired: true,
+        finished: false,
+        excluded: true,
+      },
     });
 
-    expect(result.settings.campaignFilters).toEqual({ expired: true, notLinked: false });
+    expect(result.settings.farmingEligibility).toEqual({
+      farmUnlinkedCampaigns: false,
+      farmSubscriptionCampaigns: true,
+    });
+    expect(result.settings.dropsListFilter).toEqual({
+      showUpcoming: false,
+      showExpired: true,
+      showFinished: false,
+      showExcluded: true,
+    });
     expect(result.settings.campaignVisibility).toBeUndefined();
     expect(result.toVersion).toBe(2);
     expect(result.changed).toBe(true);
     expect(result.diagnostics).toContainEqual({
-      code: "deprecated_property",
+      code: "moved_property",
       path: "campaignVisibility",
-      replacement: "campaignFilters",
-      message: "campaignVisibility is deprecated; use campaignFilters",
+      replacement: "farmingEligibility and dropsListFilter",
+      message: "campaignVisibility split into farmingEligibility and dropsListFilter",
     });
+  });
+
+  it("carries over only the keys present, leaving the rest for normalization", () => {
+    const result = migrateSettings({
+      schemaVersion: 1,
+      campaignVisibility: { subscription: false },
+    });
+
+    expect(result.settings.farmingEligibility).toEqual({ farmSubscriptionCampaigns: false });
+    expect(result.settings.dropsListFilter).toBeUndefined();
   });
 
   it("leaves a document that never had the key alone", () => {
     const result = migrateSettings({ schemaVersion: 1, autoClaim: false });
 
-    expect(result.settings.campaignFilters).toBeUndefined();
+    expect(result.settings.farmingEligibility).toBeUndefined();
+    expect(result.settings.dropsListFilter).toBeUndefined();
     expect(result.diagnostics).toEqual([]);
   });
 
-  it("lets an already-current key win over the legacy one", () => {
-    const result = migrateSettings({
-      schemaVersion: 1,
-      campaignVisibility: { expired: true },
-      campaignFilters: { expired: false },
-    });
+  it("drops a non-object campaignVisibility without writing garbage", () => {
+    const result = migrateSettings({ schemaVersion: 1, campaignVisibility: "nonsense" });
 
-    expect(result.settings.campaignFilters).toEqual({ expired: false });
+    expect(result.settings.campaignVisibility).toBeUndefined();
+    expect(result.settings.farmingEligibility).toBeUndefined();
+    expect(result.settings.dropsListFilter).toBeUndefined();
+  });
+
+  it("drops a stray interim campaignFilters key that never shipped", () => {
+    const result = migrateSettings({ schemaVersion: 1, campaignFilters: { notLinked: false } });
+
+    expect(result.settings.campaignFilters).toBeUndefined();
   });
 });

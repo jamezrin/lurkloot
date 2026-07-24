@@ -111,14 +111,57 @@ function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   return raw;
 }
 
-// Migration 2 renames campaignVisibility to campaignFilters. The setting stopped
-// being display-only: FarmingFilterKey entries now gate eligibility, so the name
-// had to stop saying "visibility". Values carry over untouched — no user's
-// farming changes, because the only keys defaulting to false (expired, excluded)
-// are not farming keys.
+// Migration 2 splits the six-key campaignVisibility record into two independent
+// fields: the two farming-eligibility flags (engine) and the four drops-list
+// view flags (extension). Values carry over untouched — no user's farming or
+// visible set changes on upgrade. The interim campaignFilters name never shipped
+// and is dropped defensively. Migrations reshape; they never inspect sub-value
+// types, so a wrong-typed old value is carried across and normalization decides.
+const CAMPAIGN_VISIBILITY_MAPPING: ReadonlyArray<{ from: string; toBlock: "farmingEligibility" | "dropsListFilter"; toKey: string }> = [
+  { from: "notLinked", toBlock: "farmingEligibility", toKey: "farmUnlinkedCampaigns" },
+  { from: "subscription", toBlock: "farmingEligibility", toKey: "farmSubscriptionCampaigns" },
+  { from: "upcoming", toBlock: "dropsListFilter", toKey: "showUpcoming" },
+  { from: "expired", toBlock: "dropsListFilter", toKey: "showExpired" },
+  { from: "finished", toBlock: "dropsListFilter", toKey: "showFinished" },
+  { from: "excluded", toBlock: "dropsListFilter", toKey: "showExcluded" },
+];
+
 function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
-  renameProperty(raw, "campaignVisibility", "campaignFilters", "", diagnose);
+  // The interim name never persisted, but a branch-built profile might carry it;
+  // drop it so it cannot linger as dead data the CLI would reject as unknown.
+  delete raw.campaignFilters;
+
+  if (!Object.hasOwn(raw, "campaignVisibility")) return raw;
+  const legacy = raw.campaignVisibility;
+  delete raw.campaignVisibility;
+
+  // Present but not a plain object: drop it without writing garbage into the new
+  // fields; normalization then defaults both.
+  if (!isPlainObject(legacy)) return raw;
+
+  diagnose({
+    code: "moved_property",
+    path: "campaignVisibility",
+    replacement: "farmingEligibility and dropsListFilter",
+    message: "campaignVisibility split into farmingEligibility and dropsListFilter",
+  });
+
+  for (const { from, toBlock, toKey } of CAMPAIGN_VISIBILITY_MAPPING) {
+    if (!Object.hasOwn(legacy, from)) continue;
+    const block = ensureBlock(raw, toBlock);
+    // A malformed pre-existing block cannot take the value; a current key wins.
+    if (block && !Object.hasOwn(block, toKey)) block[toKey] = legacy[from];
+  }
+
   return raw;
+}
+
+// Creates a nested block only when it is safe to do so; a pre-existing malformed
+// block is left untouched so validation can report it verbatim.
+function ensureBlock(raw: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+  if (!Object.hasOwn(raw, key)) raw[key] = {};
+  const block = raw[key];
+  return isPlainObject(block) ? block : undefined;
 }
 
 // Drops the legacy key and reports it. The current key wins whenever it is

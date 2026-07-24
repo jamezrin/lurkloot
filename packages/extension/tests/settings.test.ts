@@ -14,6 +14,7 @@ describe("engine settings", () => {
     "languageOverride",
     "rateNudgeStatus",
     "diagnosticLogging",
+    "dropsListFilter",
   ] as const;
 
   it("normalizes the engine contract without the host-only fields", () => {
@@ -116,10 +117,20 @@ describe("settings", () => {
     expect(mergeSettings({ showTips: "no" } as never).showTips).toBe(true);
   });
 
-  it("defaults subscription campaigns to visible while preserving persisted choices", () => {
-    expect(DEFAULT_SETTINGS.campaignFilters.subscription).toBe(true);
-    expect(mergeSettings({ campaignFilters: { subscription: false } } as never).campaignFilters.subscription).toBe(false);
-    expect(mergeSettings({ campaignFilters: { expired: true } } as never).campaignFilters.subscription).toBe(true);
+  it("defaults the drops list view flags while preserving persisted choices", () => {
+    expect(DEFAULT_SETTINGS.dropsListFilter).toEqual({
+      showUpcoming: true,
+      showExpired: false,
+      showFinished: true,
+      showExcluded: false,
+    });
+    // A partial persisted record fills the rest from defaults.
+    expect(mergeSettings({ dropsListFilter: { showExpired: true } } as never).dropsListFilter).toEqual({
+      showUpcoming: true,
+      showExpired: true,
+      showFinished: true,
+      showExcluded: false,
+    });
   });
 
   it("clamps persisted numeric settings to browser-safe ranges", () => {
@@ -298,21 +309,21 @@ describe("campaign filter keys", () => {
   });
 });
 
-describe("campaignFilters in the engine contract", () => {
-  it("defaults every filter key on except expired and excluded", () => {
-    expect(DEFAULT_ENGINE_SETTINGS.campaignFilters).toEqual({
-      notLinked: true,
-      subscription: true,
-      upcoming: true,
-      expired: false,
-      excluded: false,
-      finished: true,
+describe("farmingEligibility in the engine contract", () => {
+  it("defaults both eligibility flags on", () => {
+    expect(DEFAULT_ENGINE_SETTINGS.farmingEligibility).toEqual({
+      farmUnlinkedCampaigns: true,
+      farmSubscriptionCampaigns: true,
     });
   });
 
-  it("normalizes a partial filter record through the engine merge", () => {
-    const merged = mergeEngineSettings({ campaignFilters: { notLinked: false } } as never);
-    expect(merged.campaignFilters.notLinked).toBe(false);
-    expect(merged.campaignFilters.subscription).toBe(true);
+  it("normalizes a partial eligibility record through the engine merge", () => {
+    const merged = mergeEngineSettings({ farmingEligibility: { farmUnlinkedCampaigns: false } } as never);
+    expect(merged.farmingEligibility.farmUnlinkedCampaigns).toBe(false);
+    expect(merged.farmingEligibility.farmSubscriptionCampaigns).toBe(true);
+  });
+
+  it("keeps dropsListFilter off the engine contract", () => {
+    expect("dropsListFilter" in mergeEngineSettings({})).toBe(false);
   });
 });

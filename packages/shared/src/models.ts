@@ -300,9 +300,16 @@ export interface EngineSettings {
   compatibility: CompatibilitySettings;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
-  // Which campaign states are farmed and which are shown. FarmingFilterKey
-  // entries gate eligibility; DisplayFilterKey entries only affect the UI.
-  campaignFilters: Record<CampaignFilterKey, boolean>;
+  // Which campaigns are eligible to farm. Both default true; turning one off
+  // skips that class in the scheduler's isEligible. Distinct from the popup's
+  // dropsListFilter (display-only) so "don't farm" never implies "don't show".
+  farmingEligibility: {
+    // off: skip campaigns with no linked account (real on Kick, which accrues
+    // watch progress before linking).
+    farmUnlinkedCampaigns: boolean;
+    // off: skip campaigns that require a subscription.
+    farmSubscriptionCampaigns: boolean;
+  };
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
   // Bounded post-claim handoff. After a reward is claimed, re-run discovery for
@@ -325,6 +332,14 @@ export interface ExtensionSettings extends EngineSettings {
   muteFarmingTabs: boolean;
   keepFarmingVideosUnmuted: boolean;
   autoCloseFinishedDrops: boolean;
+  // Which campaign lifecycle states appear in the Drops list. Pure display: the
+  // engine never reads it, so it lives on ExtensionSettings, not the contract.
+  dropsListFilter: {
+    showUpcoming: boolean;   // default true
+    showExpired: boolean;    // default false
+    showFinished: boolean;   // default true
+    showExcluded: boolean;   // default false
+  };
   adFocusMode: AdFocusMode;
   languageOverride: LanguageOverride;
   rateNudgeStatus: RateNudgeStatus;
