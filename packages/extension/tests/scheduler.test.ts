@@ -656,6 +656,88 @@ describe("scheduler campaign selection", () => {
 
 });
 
+describe("campaign filters gate farming", () => {
+  const filters = (patch: Partial<ExtensionSettings["campaignFilters"]>): ExtensionSettings["campaignFilters"] =>
+    ({ ...DEFAULT_SETTINGS.campaignFilters, ...patch });
+
+  const kickAdapter = () => ({
+    listCandidateChannels: vi.fn(async () => [channel("creator", { platform: "kick" as const })]),
+    checkChannel: vi.fn(async (candidate: ChannelCandidate) => ({ live: true, categoryMatches: true, candidate })),
+  });
+
+  const unlinkedKick = () => campaign("unlinked", { platform: "kick", accountLinked: false });
+
+  it("skips an unlinked Kick campaign when the notLinked filter is off", async () => {
+    const decision = await chooseCampaignDecision(
+      "kick",
+      [unlinkedKick()],
+      settings({ campaignFilters: filters({ notLinked: false }) }),
+      kickAdapter(),
+    );
+
+    expect(decision.action).toBe("idle");
+    expect(decision.reason).toContain("campaign filters");
+  });
+
+  it("still farms an unlinked Kick campaign when the notLinked filter is on", async () => {
+    const decision = await chooseCampaignDecision("kick", [unlinkedKick()], settings(), kickAdapter());
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("unlinked");
+  });
+
+  const subscriptionCampaign = () => campaign("mixed", {
+    rewards: [
+      reward("in_progress"),
+      { id: "sub", name: "Sub reward", requiredMinutes: 0, watchedMinutes: 0, requiredSubs: 1, status: "locked" },
+    ],
+  });
+
+  it("skips a subscription campaign when the subscription filter is off", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [subscriptionCampaign()],
+      settings({ campaignFilters: filters({ subscription: false }) }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("idle");
+    expect(decision.reason).toContain("campaign filters");
+  });
+
+  it("still farms a subscription campaign's watch rewards when the filter is on", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [subscriptionCampaign()],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("mixed");
+  });
+
+  it("treats the display-only keys as no-ops for farming", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("active")],
+      settings({ campaignFilters: filters({ upcoming: false, expired: false, finished: false, excluded: false }) }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+  });
+});
+
 describe("scheduler tick", () => {
   const baseState: SchedulerState = {
     authHealth: HEALTHY_AUTH,

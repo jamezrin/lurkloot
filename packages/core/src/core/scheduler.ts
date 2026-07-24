@@ -11,6 +11,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
+import { campaignPassesFarmingFilters, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims, rewardFeasibility } from "@lurkloot/shared/rewards";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
@@ -68,6 +69,9 @@ function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
   if (hasCampaignEnded(campaign)) return false;
   if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
   if (settings.excludedCampaignIds.includes(campaign.id)) return false;
+  // Campaign filters: FarmingFilterKey entries gate eligibility. Display-only
+  // keys are not consulted, so hiding finished campaigns never stops farming.
+  if (!campaignPassesFarmingFilters(campaign, settings.campaignFilters)) return false;
   // Category filter: when "Farm all categories" is off for this platform, only
   // campaigns whose category is on the list are farmable (an empty list then
   // farms nothing).
@@ -91,12 +95,6 @@ function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
 
 function isInPriorityList(campaign: DropCampaign, settings: EngineSettings): boolean {
   return settings.campaignPriorities[campaign.id] != null;
-}
-
-function hasCampaignEnded(campaign: DropCampaign): boolean {
-  if (!campaign.endsAt) return false;
-  const endsAt = Date.parse(campaign.endsAt);
-  return !Number.isNaN(endsAt) && endsAt < Date.now();
 }
 
 function availabilityScore(campaign: DropCampaign): number {
@@ -232,6 +230,13 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   }
   if (notExcluded.every((campaign) => campaign.eligibility === "no_rewards" || campaign.rewards.length === 0)) {
     return "Campaigns have no time-based rewards";
+  }
+  // Placed before the account-linked reason so a user who turned the notLinked
+  // filter off is told about their filter rather than about the link state that
+  // filter keys off. With the filter on, unlinked campaigns pass this predicate
+  // and the more specific reason below still wins.
+  if (notExcluded.every((campaign) => !campaignPassesFarmingFilters(campaign, settings.campaignFilters))) {
+    return "All campaigns are filtered out by your campaign filters";
   }
   if (notExcluded.every((campaign) => campaign.accountLinked === false || campaign.eligibility === "account_not_linked")) {
     return "Campaign accounts are not linked";
