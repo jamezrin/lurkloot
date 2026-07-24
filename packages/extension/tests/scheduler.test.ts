@@ -657,8 +657,10 @@ describe("scheduler campaign selection", () => {
 });
 
 describe("campaign filters gate farming", () => {
-  const filters = (patch: Partial<ExtensionSettings["campaignFilters"]>): ExtensionSettings["campaignFilters"] =>
-    ({ ...DEFAULT_SETTINGS.campaignFilters, ...patch });
+  const eligibility = (
+    patch: Partial<ExtensionSettings["farmingEligibility"]>,
+  ): ExtensionSettings["farmingEligibility"] =>
+    ({ ...DEFAULT_SETTINGS.farmingEligibility, ...patch });
 
   const kickAdapter = () => ({
     listCandidateChannels: vi.fn(async () => [channel("creator", { platform: "kick" as const })]),
@@ -667,19 +669,19 @@ describe("campaign filters gate farming", () => {
 
   const unlinkedKick = () => campaign("unlinked", { platform: "kick", accountLinked: false });
 
-  it("skips an unlinked Kick campaign when the notLinked filter is off", async () => {
+  it("skips an unlinked Kick campaign when farmUnlinkedCampaigns is off", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [unlinkedKick()],
-      settings({ campaignFilters: filters({ notLinked: false }) }),
+      settings({ farmingEligibility: eligibility({ farmUnlinkedCampaigns: false }) }),
       kickAdapter(),
     );
 
     expect(decision.action).toBe("idle");
-    expect(decision.reason).toContain("campaign filters");
+    expect(decision.reason).toContain("farming eligibility");
   });
 
-  it("still farms an unlinked Kick campaign when the notLinked filter is on", async () => {
+  it("still farms an unlinked Kick campaign when farmUnlinkedCampaigns is on", async () => {
     const decision = await chooseCampaignDecision("kick", [unlinkedKick()], settings(), kickAdapter());
 
     expect(decision.action).toBe("watch");
@@ -693,11 +695,11 @@ describe("campaign filters gate farming", () => {
     ],
   });
 
-  it("skips a subscription campaign when the subscription filter is off", async () => {
+  it("skips a subscription campaign when farmSubscriptionCampaigns is off", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [subscriptionCampaign()],
-      settings({ campaignFilters: filters({ subscription: false }) }),
+      settings({ farmingEligibility: eligibility({ farmSubscriptionCampaigns: false }) }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
         checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
@@ -705,10 +707,10 @@ describe("campaign filters gate farming", () => {
     );
 
     expect(decision.action).toBe("idle");
-    expect(decision.reason).toContain("campaign filters");
+    expect(decision.reason).toContain("farming eligibility");
   });
 
-  it("still farms a subscription campaign's watch rewards when the filter is on", async () => {
+  it("still farms a subscription campaign's watch rewards when farmSubscriptionCampaigns is on", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [subscriptionCampaign()],
@@ -723,11 +725,13 @@ describe("campaign filters gate farming", () => {
     expect(decision.campaign?.id).toBe("mixed");
   });
 
-  it("treats the display-only keys as no-ops for farming", async () => {
+  it("farms an ordinary active campaign under the default eligibility settings", async () => {
+    // Nothing is turned off, so the default farmingEligibility flags must be
+    // behaviour-neutral for a linked, non-subscription campaign.
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("active")],
-      settings({ campaignFilters: filters({ upcoming: false, expired: false, finished: false, excluded: false }) }),
+      settings(),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
         checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
@@ -735,6 +739,7 @@ describe("campaign filters gate farming", () => {
     );
 
     expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("active");
   });
 });
 
