@@ -11,6 +11,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
+import { campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims, rewardFeasibility } from "@lurkloot/shared/rewards";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
@@ -68,6 +69,11 @@ function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
   if (hasCampaignEnded(campaign)) return false;
   if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
   if (settings.excludedCampaignIds.includes(campaign.id)) return false;
+  // Farming eligibility: the two flags farmUnlinkedCampaigns and
+  // farmSubscriptionCampaigns gate whether unlinked or subscription-gated
+  // campaigns are farmed. The display-only dropsListFilter is never consulted
+  // here, so hiding finished campaigns in the popup never stops farming.
+  if (!campaignPassesFarmingEligibility(campaign, settings.farmingEligibility)) return false;
   // Category filter: when "Farm all categories" is off for this platform, only
   // campaigns whose category is on the list are farmable (an empty list then
   // farms nothing).
@@ -91,12 +97,6 @@ function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
 
 function isInPriorityList(campaign: DropCampaign, settings: EngineSettings): boolean {
   return settings.campaignPriorities[campaign.id] != null;
-}
-
-function hasCampaignEnded(campaign: DropCampaign): boolean {
-  if (!campaign.endsAt) return false;
-  const endsAt = Date.parse(campaign.endsAt);
-  return !Number.isNaN(endsAt) && endsAt < Date.now();
 }
 
 function availabilityScore(campaign: DropCampaign): number {
@@ -232,6 +232,13 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   }
   if (notExcluded.every((campaign) => campaign.eligibility === "no_rewards" || campaign.rewards.length === 0)) {
     return "Campaigns have no time-based rewards";
+  }
+  // Placed before the account-linked reason so a user who turned
+  // farmUnlinkedCampaigns off is told about their eligibility setting rather
+  // than about the link state that setting keys off. With the flag on, unlinked
+  // campaigns pass this predicate and the more specific reason below still wins.
+  if (notExcluded.every((campaign) => !campaignPassesFarmingEligibility(campaign, settings.farmingEligibility))) {
+    return "All campaigns are skipped by your farming eligibility settings";
   }
   if (notExcluded.every((campaign) => campaign.accountLinked === false || campaign.eligibility === "account_not_linked")) {
     return "Campaign accounts are not linked";

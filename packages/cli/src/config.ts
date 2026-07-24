@@ -34,6 +34,7 @@ export function defaultConfigJsonc(): string {
   const defaults = DEFAULT_CLI_SETTINGS;
   const twitch = defaults.platform.twitch;
   const kick = defaults.platform.kick;
+  const eligibility = defaults.farmingEligibility;
   return `{
   // "impersonate" works with both Twitch and Kick. Use "http" only for a
   // lighter Twitch-only setup; Kick's API rejects plain Node TLS requests.
@@ -75,6 +76,15 @@ export function defaultConfigJsonc(): string {
     "deadlineSafetyMarginMinutes": ${json(defaults.deadlineSafetyMarginMinutes)},
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
+
+    // Which campaigns LurkLoot is allowed to farm. Both default true; set a key
+    // to false to skip campaigns needing an account link or requiring a channel
+    // subscription. (The extension's display-only Drops-list filter is not a CLI
+    // setting — a headless run has no Drops list.)
+    "farmingEligibility": {
+      "farmUnlinkedCampaigns": ${json(eligibility.farmUnlinkedCampaigns)},
+      "farmSubscriptionCampaigns": ${json(eligibility.farmSubscriptionCampaigns)}
+    },
 
     // Compatibility identifiers are bundled with this LurkLoot release.
     // "auto" is recommended. Raw destinations and hashes cannot be supplied.

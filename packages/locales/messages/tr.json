@@ -599,11 +599,26 @@
   "activityLogLevelsDescription": {
     "message": "Hangi işlemlerin geçmişe kaydedileceğini seçin."
   },
-  "visibleCampaignsTitle": {
-    "message": "Gösterilecek kampanyalar"
+  "farmUnlinkedTitle": {
+    "message": "Bağlı hesabı olmayan kampanyaları farmla"
   },
-  "visibleCampaignsDescription": {
-    "message": "Drop listesinde hangi durumdaki kampanyaların görüneceğini seçin."
+  "farmUnlinkedDescription": {
+    "message": "Kapalıyken, hesabını bağlamanı gerektiren kampanyalar atlanır. Kick, bağlamadan önce yine de izleme süresi biriktirir."
+  },
+  "farmSubscriptionTitle": {
+    "message": "Abonelik gerektiren kampanyaları farmla"
+  },
+  "farmSubscriptionDescription": {
+    "message": "Kapalıyken, ödülleri kanal aboneliği gerektiren kampanyalar atlanır."
+  },
+  "dropsListFilterTitle": {
+    "message": "Drop listesi görünümü"
+  },
+  "dropsListFilterDescription": {
+    "message": "Drop listesinde hangi kampanyaların gösterileceğini seçin. Alınabilir ödülü olan bir kampanya her zaman görünür kalır."
+  },
+  "dropsListFilterLockedHint": {
+    "message": "Bu kampanyaları farmladığın sürece her zaman gösterilir."
   },
   "forgetExcludedTitle": {
     "message": "Gizlenen kampanyaları sıfırla"

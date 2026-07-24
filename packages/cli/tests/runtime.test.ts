@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { EngineEvent, FarmingStopReason } from "@lurkloot/shared/events";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 import type { Logger } from "../src/logger";
+import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
 import { formatCliEvent, reportCliEvents } from "../src/events";
+import { DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { createLogger } from "../src/logger";
 import { formatDiscoveredCampaign, subscriptionWaitKeys } from "../src/runtime/status";
 
@@ -76,6 +78,42 @@ describe("CLI engine event reporting", () => {
       "INFO [twitch] Stopped farming Reward A from Campaign: target changed",
       "INFO [twitch] Started farming Reward B from Campaign",
     ]);
+  });
+
+  it("surfaces the scheduler's campaign-filter idle reason as a warning", async () => {
+    // Drives the real scheduler rather than asserting a hand-written string: a
+    // headless user's only signal that their campaign filters left nothing to
+    // farm is this log line, and the reason text lives in the scheduler.
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [dropCampaign({
+        accountLinked: false,
+        rewards: [dropReward({ requiredMinutes: 60 })],
+      })],
+      // farmUnlinkedCampaigns off is what makes the eligibility check reject it.
+      toEngineSettings({
+        ...DEFAULT_CLI_SETTINGS,
+        farmingEligibility: { ...DEFAULT_CLI_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: false },
+      }),
+      {
+        listCandidateChannels: async () => [],
+        checkChannel: async (candidate) => ({ live: false, categoryMatches: false, candidate }),
+      },
+    );
+    expect(decision.action).toBe("idle");
+
+    // Mirrors the scheduler's own idle-decision emit: warn level, reason
+    // verbatim. The reason comes from the scheduler, but "warn" is asserted
+    // rather than derived — chooseCampaignDecision returns a decision, not
+    // events, so the decisionLevel mapping (idle → warn) is not covered here.
+    // Deliberate seam: it is exercised by the scheduler tick tests instead.
+    const lines: string[] = [];
+    await reportCliEvents(
+      [{ category: "diagnostic", level: "warn", platform: "twitch", message: decision.reason }],
+      recordingLogger(lines),
+    );
+
+    expect(lines).toEqual(["WARN [twitch] All campaigns are skipped by your farming eligibility settings and no Idle Watchlist channels"]);
   });
 
   it.each([

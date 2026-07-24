@@ -561,11 +561,26 @@
   "activityLogLevelsDescription": {
     "message": "Выберите уровни для журнала активности. Ошибки всегда сохраняются."
   },
-  "visibleCampaignsTitle": {
-    "message": "Видимые кампании"
+  "farmUnlinkedTitle": {
+    "message": "Фармить кампании без привязанного аккаунта"
   },
-  "visibleCampaignsDescription": {
-    "message": "Выберите, какие состояния кампаний показывать в списке Drops. Кампания с доступной наградой всегда видима."
+  "farmUnlinkedDescription": {
+    "message": "Когда выключено, кампании, требующие привязки аккаунта, пропускаются. Kick всё равно накапливает время просмотра до привязки."
+  },
+  "farmSubscriptionTitle": {
+    "message": "Фармить кампании, требующие подписки"
+  },
+  "farmSubscriptionDescription": {
+    "message": "Когда выключено, кампании, награды которых требуют подписки на канал, пропускаются."
+  },
+  "dropsListFilterTitle": {
+    "message": "Отображение списка Drops"
+  },
+  "dropsListFilterDescription": {
+    "message": "Выберите, какие кампании показывать в списке Drops. Кампания с доступной наградой всегда видима."
+  },
+  "dropsListFilterLockedHint": {
+    "message": "Всегда показываются, пока вы фармите эти кампании."
   },
   "forgetExcludedTitle": {
     "message": "Забыть исключённые кампании"

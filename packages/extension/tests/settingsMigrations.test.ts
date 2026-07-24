@@ -226,3 +226,99 @@ describe("migration 1: legacy aliases", () => {
     expect(migrateSettings({ platform: { twitch: null } }).settings).toEqual({ platform: { twitch: null } });
   });
 });
+
+describe("schema v2", () => {
+  it("moves all six display keys of campaignVisibility into dropsListFilter", () => {
+    // campaignVisibility was DISPLAY-ONLY in the shipped release. All six keys —
+    // including notLinked/subscription, which dropsListFilter now expresses as
+    // showNotLinked/showSubscription — carry over as display preferences.
+    // farmingEligibility is NEVER produced here, so normalization defaults both
+    // farming flags on. A false value survives verbatim.
+    const result = migrateSettings({
+      schemaVersion: 1,
+      campaignVisibility: {
+        notLinked: false,
+        subscription: true,
+        upcoming: false,
+        expired: true,
+        finished: false,
+        excluded: true,
+      },
+    });
+
+    expect(result.settings.dropsListFilter).toEqual({
+      showUpcoming: false,
+      showExpired: true,
+      showFinished: false,
+      showExcluded: true,
+      showNotLinked: false,
+      showSubscription: true,
+    });
+    // The migration never derives farming eligibility from a display-only
+    // setting; normalization defaults both flags to on.
+    expect(result.settings.farmingEligibility).toBeUndefined();
+    expect(result.settings.campaignVisibility).toBeUndefined();
+    expect(result.toVersion).toBe(2);
+    expect(result.changed).toBe(true);
+    expect(result.diagnostics).toContainEqual({
+      code: "moved_property",
+      path: "campaignVisibility",
+      replacement: "dropsListFilter",
+      message: "campaignVisibility display preferences moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
+    });
+  });
+
+  it("never carries a legacy notLinked display preference into farming eligibility", () => {
+    // Guard for the migration-safety fix: a user who had merely hidden unlinked
+    // campaigns from their list must keep farming them. farmUnlinkedCampaigns is
+    // NOT derived from notLinked; farmingEligibility stays absent so it defaults
+    // to on. The notLinked display preference IS preserved — as the display flag
+    // showNotLinked, never as a farming flag. If the old notLinked -> farming
+    // mapping returns, this fails.
+    const result = migrateSettings({
+      schemaVersion: 1,
+      campaignVisibility: { notLinked: false, subscription: false },
+    });
+
+    expect(result.settings.farmingEligibility).toBeUndefined();
+    // The two class keys are display preferences, preserved on dropsListFilter.
+    expect(result.settings.dropsListFilter).toEqual({
+      showNotLinked: false,
+      showSubscription: false,
+    });
+    // The move is still reported.
+    expect(result.diagnostics.map((d) => d.path)).toContain("campaignVisibility");
+  });
+
+  it("carries over only the lifecycle keys present, leaving the rest for normalization", () => {
+    const result = migrateSettings({
+      schemaVersion: 1,
+      campaignVisibility: { expired: true },
+    });
+
+    expect(result.settings.dropsListFilter).toEqual({ showExpired: true });
+    expect(result.settings.farmingEligibility).toBeUndefined();
+  });
+
+  it("leaves a document that never had the key alone", () => {
+    const result = migrateSettings({ schemaVersion: 1, autoClaim: false });
+
+    expect(result.settings.farmingEligibility).toBeUndefined();
+    expect(result.settings.dropsListFilter).toBeUndefined();
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("drops a non-object campaignVisibility without writing garbage", () => {
+    const result = migrateSettings({ schemaVersion: 1, campaignVisibility: "nonsense" });
+
+    expect(result.settings.campaignVisibility).toBeUndefined();
+    expect(result.settings.farmingEligibility).toBeUndefined();
+    expect(result.settings.dropsListFilter).toBeUndefined();
+  });
+
+  it("drops a stray interim campaignFilters key that never shipped", () => {
+    const result = migrateSettings({ schemaVersion: 1, campaignFilters: { notLinked: false } });
+
+    expect(result.settings.campaignFilters).toBeUndefined();
+  });
+});

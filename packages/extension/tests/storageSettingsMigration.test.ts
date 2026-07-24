@@ -55,6 +55,39 @@ describe("settings storage migration", () => {
     expect(written.platform.twitch).not.toHaveProperty("watchQueueChannels");
   });
 
+  it("moves a stored campaignVisibility block's display keys into dropsListFilter, leaving farming at defaults", async () => {
+    get.mockResolvedValue({
+      settings: {
+        schemaVersion: 1,
+        campaignVisibility: { notLinked: false, subscription: false, upcoming: false, expired: true, excluded: true, finished: false },
+      },
+    });
+
+    const settings = await loadSettings();
+
+    // campaignVisibility was display-only, so all six keys carry over as display
+    // preferences (including notLinked/subscription as showNotLinked/
+    // showSubscription) while farming stays at its defaults (both on) — no
+    // farming reduction on upgrade (see CAMPAIGN_VISIBILITY_MAPPING).
+    expect(settings.farmingEligibility).toEqual({
+      farmUnlinkedCampaigns: true,
+      farmSubscriptionCampaigns: true,
+    });
+    expect(settings.dropsListFilter).toEqual({
+      showUpcoming: false,
+      showExpired: true,
+      showFinished: false,
+      showExcluded: true,
+      showNotLinked: false,
+      showSubscription: false,
+    });
+    expect(set).toHaveBeenCalledTimes(1);
+    const written = set.mock.calls[0]?.[0].settings;
+    expect(written).toEqual(withSchemaVersion(settings));
+    expect(written.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(written).not.toHaveProperty("campaignVisibility");
+  });
+
   it("stamps an unversioned document that already uses current keys", async () => {
     get.mockResolvedValue({
       settings: { idleWatchlistFallbackOnly: true, platform: { twitch: { idleWatchlistChannels: ["current"] } } },

@@ -6,7 +6,7 @@
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 1;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 2;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -66,6 +66,7 @@ interface SettingsMigration {
 // released migration except to fix data loss; add a new version instead.
 const MIGRATIONS: SettingsMigration[] = [
   { to: 1, migrate: migrateToV1 },
+  { to: 2, migrate: migrateToV2 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -108,6 +109,71 @@ function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   }
 
   return raw;
+}
+
+// Migration 2 replaces the six-key campaignVisibility record. In the shipped
+// release campaignVisibility was DISPLAY-ONLY: it decided what the popup's Drops
+// list showed and never affected farming. In this branch, farming eligibility is
+// gated by a new, separate field. campaignVisibility was purely a display
+// preference, so all six keys map into the new display field dropsListFilter —
+// including notLinked/subscription, which dropsListFilter now expresses as
+// showNotLinked/showSubscription. This preserves the user's old display prefs
+// exactly. farmingEligibility is deliberately NOT populated here: mapping a
+// display preference into a farming flag would silently reduce farming for
+// anyone who had merely hidden those campaigns, which never meant anything about
+// farming. With farmingEligibility absent, normalization defaults both flags to
+// true, preserving today's farming behaviour for every profile. This upholds the
+// invariant "anything farmed must be visible": farming defaults on, so the
+// farming-on branch of isCampaignVisible keeps not-linked/subscription campaigns
+// visible regardless of the migrated show flags. The interim campaignFilters
+// name never shipped and is dropped defensively. Migrations reshape; they never
+// inspect sub-value types, so a wrong-typed old value is carried across and
+// normalization decides.
+const CAMPAIGN_VISIBILITY_MAPPING: ReadonlyArray<{ from: string; toKey: string }> = [
+  { from: "upcoming", toKey: "showUpcoming" },
+  { from: "expired", toKey: "showExpired" },
+  { from: "finished", toKey: "showFinished" },
+  { from: "excluded", toKey: "showExcluded" },
+  { from: "notLinked", toKey: "showNotLinked" },
+  { from: "subscription", toKey: "showSubscription" },
+];
+
+function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  // The interim name never persisted, but a branch-built profile might carry it;
+  // drop it so it cannot linger as dead data the CLI would reject as unknown.
+  delete raw.campaignFilters;
+
+  if (!Object.hasOwn(raw, "campaignVisibility")) return raw;
+  const legacy = raw.campaignVisibility;
+  delete raw.campaignVisibility;
+
+  // Present but not a plain object: drop it without writing garbage into the new
+  // field; normalization then defaults it.
+  if (!isPlainObject(legacy)) return raw;
+
+  diagnose({
+    code: "moved_property",
+    path: "campaignVisibility",
+    replacement: "dropsListFilter",
+    message: "campaignVisibility display preferences moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
+  });
+
+  for (const { from, toKey } of CAMPAIGN_VISIBILITY_MAPPING) {
+    if (!Object.hasOwn(legacy, from)) continue;
+    const block = ensureBlock(raw, "dropsListFilter");
+    // A malformed pre-existing block cannot take the value; a current key wins.
+    if (block && !Object.hasOwn(block, toKey)) block[toKey] = legacy[from];
+  }
+
+  return raw;
+}
+
+// Creates a nested block only when it is safe to do so; a pre-existing malformed
+// block is left untouched so validation can report it verbatim.
+function ensureBlock(raw: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+  if (!Object.hasOwn(raw, key)) raw[key] = {};
+  const block = raw[key];
+  return isPlainObject(block) ? block : undefined;
 }
 
 // Drops the legacy key and reports it. The current key wins whenever it is

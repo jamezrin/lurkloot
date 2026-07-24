@@ -561,11 +561,26 @@
   "activityLogLevelsDescription": {
     "message": "Escolha quais níveis são registrados no log de atividade. Erros são sempre mantidos."
   },
-  "visibleCampaignsTitle": {
-    "message": "Campanhas visíveis"
+  "farmUnlinkedTitle": {
+    "message": "Farmar campanhas sem conta vinculada"
   },
-  "visibleCampaignsDescription": {
-    "message": "Escolha quais estados de campanha aparecem na lista Drops. Campanha com recompensa resgatável sempre fica visível."
+  "farmUnlinkedDescription": {
+    "message": "Quando desativado, campanhas que exigem vincular sua conta são ignoradas. O Kick ainda acumula tempo de exibição antes da vinculação."
+  },
+  "farmSubscriptionTitle": {
+    "message": "Farmar campanhas que exigem inscrição"
+  },
+  "farmSubscriptionDescription": {
+    "message": "Quando desativado, campanhas cujas recompensas exigem uma inscrição no canal são ignoradas."
+  },
+  "dropsListFilterTitle": {
+    "message": "Exibição da lista Drops"
+  },
+  "dropsListFilterDescription": {
+    "message": "Escolha quais campanhas são exibidas na lista Drops. Campanha com recompensa resgatável sempre fica visível."
+  },
+  "dropsListFilterLockedHint": {
+    "message": "Sempre exibidas enquanto você faz farming dessas campanhas."
   },
   "forgetExcludedTitle": {
     "message": "Esquecer campanhas excluídas"
