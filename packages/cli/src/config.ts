@@ -34,6 +34,7 @@ export function defaultConfigJsonc(): string {
   const defaults = DEFAULT_CLI_SETTINGS;
   const twitch = defaults.platform.twitch;
   const kick = defaults.platform.kick;
+  const filters = defaults.campaignFilters;
   return `{
   // "impersonate" works with both Twitch and Kick. Use "http" only for a
   // lighter Twitch-only setup; Kick's API rejects plain Node TLS requests.
@@ -75,6 +76,21 @@ export function defaultConfigJsonc(): string {
     "deadlineSafetyMarginMinutes": ${json(defaults.deadlineSafetyMarginMinutes)},
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
+
+    // Which campaigns LurkLoot will farm. Only the first two apply headlessly:
+    // set them to false to skip campaigns needing an account link or a channel
+    // subscription. The remaining four only decide what the browser extension's
+    // popup lists, so they have no effect here; they are kept so an extension
+    // config can be reused as-is.
+    "campaignFilters": {
+      "notLinked": ${json(filters.notLinked)},
+      "subscription": ${json(filters.subscription)},
+      // Display-only below this line.
+      "upcoming": ${json(filters.upcoming)},
+      "expired": ${json(filters.expired)},
+      "excluded": ${json(filters.excluded)},
+      "finished": ${json(filters.finished)}
+    },
 
     // Compatibility identifiers are bundled with this LurkLoot release.
     // "auto" is recommended. Raw destinations and hashes cannot be supplied.
