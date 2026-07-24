@@ -1,9 +1,5 @@
-import type { CampaignFilterKey, DisplayFilterKey, DropCampaign, EngineSettings, ExtensionSettings, FarmingFilterKey } from "./models";
+import type { CampaignFilterKey, DropCampaign, EngineSettings, ExtensionSettings } from "./models";
 import { campaignHasSubscriptionRewards } from "./rewards";
-
-export const FARMING_FILTER_KEYS: FarmingFilterKey[] = ["notLinked", "subscription"];
-export const DISPLAY_FILTER_KEYS: DisplayFilterKey[] = ["upcoming", "expired", "excluded", "finished"];
-export const CAMPAIGN_FILTER_KEYS: CampaignFilterKey[] = [...FARMING_FILTER_KEYS, ...DISPLAY_FILTER_KEYS];
 
 export function isCampaignExpired(campaign: DropCampaign): boolean {
   if (campaign.status === "expired") return true;

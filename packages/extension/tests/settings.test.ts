@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { DISPLAY_FILTER_KEYS, FARMING_FILTER_KEYS } from "@lurkloot/shared/campaignFilters";
 import { applySettingsPatch, DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings } from "@lurkloot/shared/settings";
 
 describe("engine settings", () => {
@@ -299,13 +298,6 @@ describe("per-platform claim settings", () => {
       platform: { ...DEFAULT_SETTINGS.platform, kick: { ...DEFAULT_SETTINGS.platform.kick, autoClaimChallenges: false } },
     });
     expect(merged.platform.kick.autoClaimChallenges).toBe(false);
-  });
-});
-
-describe("campaign filter keys", () => {
-  it("separates the keys that gate farming from the display-only ones", () => {
-    expect(FARMING_FILTER_KEYS).toEqual(["notLinked", "subscription"]);
-    expect(DISPLAY_FILTER_KEYS).toEqual(["upcoming", "expired", "excluded", "finished"]);
   });
 });
 

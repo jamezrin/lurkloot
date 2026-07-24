@@ -165,18 +165,26 @@ describe("parseCliSettings", () => {
       .toThrow(/"dropsListFilter" is an extension-only setting/);
   });
 
-  it("migrates a config still using the old campaignVisibility name", () => {
+  it("migrates the farming half of a legacy campaignVisibility name", () => {
     const { settings, diagnostics } = parseCliSettingsWithDiagnostics({ campaignVisibility: { notLinked: false } });
 
-    // The migration splits campaignVisibility: the farming half lands on
-    // farmingEligibility (honoured), the display half on dropsListFilter (which
-    // the CLI drops, since it never surfaces in CliSettings).
+    // A farming-only legacy key maps onto farmingEligibility and creates no
+    // dropsListFilter block, so the CLI accepts it and honours the value.
     expect(settings.farmingEligibility.farmUnlinkedCampaigns).toBe(false);
     expect(settings).not.toHaveProperty("campaignVisibility");
     expect(settings).not.toHaveProperty("dropsListFilter");
     expect(diagnostics).toEqual([
       expect.objectContaining({ path: "campaignVisibility", replacement: "farmingEligibility and dropsListFilter" }),
     ]);
+  });
+
+  it("rejects a legacy campaignVisibility whose display half migrates to dropsListFilter", () => {
+    // A display key in the legacy record migrates into a dropsListFilter block,
+    // which is extension-only — so the CLI hard-errors rather than dropping it.
+    // Unreachable for any real config (campaignVisibility was already
+    // extension-only before this feature), but the boundary must hold.
+    expect(() => parseCliSettings({ campaignVisibility: { upcoming: false } }))
+      .toThrow(/"dropsListFilter" is an extension-only setting/);
   });
 
   it("hard-errors on unknown farmingEligibility keys", () => {
