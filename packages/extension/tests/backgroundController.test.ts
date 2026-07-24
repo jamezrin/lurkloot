@@ -244,6 +244,60 @@ describe("background controller", () => {
     }));
   });
 
+  it("does not strand the popup on \"checking\" when the credential probe throws", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    }, {
+      checkCredentialAvailability: async () => {
+        throw new Error("cookie read failed");
+      },
+    });
+
+    await env.controller.tickAndHandOff(["twitch"]);
+
+    // A transient failure reading the session cookies must not roll the whole
+    // tick back and leave auth health pinned on its prior "checking" value —
+    // that is what keeps the popup stuck on "Checking your signed-in session…".
+    expect(env.state.authHealth.twitch.status).not.toBe("checking");
+    expect(env.state.authHealth.twitch).toMatchObject({ status: "unavailable" });
+  });
+
+  it("preserves a healthy auth-health probe when a later scheduler step throws", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      tablessMode: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+      },
+    });
+    // The probe resolves healthy, but reconciling the tabless watcher (which
+    // runs after the probe, once the scheduler has decided to watch) throws.
+    env.twitch.supportsTabless = true;
+    env.twitch.createTablessWatcher = () => {
+      throw new Error("tabless watcher boom");
+    };
+    expect(env.state.authHealth.twitch.status).toBe("checking");
+
+    await env.controller.tickAndHandOff(["twitch"]);
+
+    // The tick rolled back, but the resolved auth health must survive it —
+    // otherwise the popup snaps back to "Checking your signed-in session…".
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalled();
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+      expect.objectContaining({ category: "activity", code: "interruption" }),
+    );
+  });
+
   it("reports authentication as the reason farming stopped after logout", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,

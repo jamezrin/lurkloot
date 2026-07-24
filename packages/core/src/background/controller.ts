@@ -425,16 +425,30 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function probeAuthHealth(platform: Platform, adapter: PlatformAdapter): Promise<PlatformAuthHealth> {
-    const availability = await deps.checkCredentialAvailability?.(platform);
-    if (availability?.status === "missing") {
-      return {
-        status: "missing_credentials",
-        checkedAt: new Date().toISOString(),
-        reasonCode: "credentials_missing",
-        message: { key: "authMissingCredentials" },
-      };
-    }
-    if (availability?.status === "unavailable") {
+    // A probe must always resolve to a terminal status. If reading the session
+    // cookies (or the adapter probe) throws, mapping it to "unavailable" here
+    // keeps the failure from propagating into the tick, where a rollback would
+    // strand the popup on "Checking your signed-in session…" indefinitely.
+    try {
+      const availability = await deps.checkCredentialAvailability?.(platform);
+      if (availability?.status === "missing") {
+        return {
+          status: "missing_credentials",
+          checkedAt: new Date().toISOString(),
+          reasonCode: "credentials_missing",
+          message: { key: "authMissingCredentials" },
+        };
+      }
+      if (availability?.status === "unavailable") {
+        return {
+          status: "unavailable",
+          checkedAt: new Date().toISOString(),
+          reasonCode: "credential_lookup_failed",
+          message: { key: "authCredentialLookupFailed" },
+        };
+      }
+      return await adapter.checkAuthHealth();
+    } catch {
       return {
         status: "unavailable",
         checkedAt: new Date().toISOString(),
@@ -442,7 +456,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         message: { key: "authCredentialLookupFailed" },
       };
     }
-    return adapter.checkAuthHealth();
   }
 
   async function tick(platforms?: Platform[]): Promise<ClaimedRewards> {
@@ -455,6 +468,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         kick: new Set(waitingClaimRewardIds.kick),
       };
       let nextState: SchedulerState;
+      // Auth health is account-level, not tick-scoped: once probed it must be
+      // persisted even if the scheduler body below throws. Remember each probe
+      // so the rollback path can re-apply it instead of reverting the popup to
+      // its prior "checking" value.
+      const probedHealth: Partial<Record<Platform, PlatformAuthHealth>> = {};
       try {
         const adapters = createAdapters(settings, emit);
         let schedulerState = state;
@@ -462,11 +480,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (settings.running) {
           for (const platform of tickPlatforms) {
             if (!settings.platform[platform].enabled) continue;
-            const transition = applyPlatformAuthHealth(
-              schedulerState,
-              platform,
-              await probeAuthHealth(platform, adapters[platform]),
-            );
+            const health = await probeAuthHealth(platform, adapters[platform]);
+            probedHealth[platform] = health;
+            const transition = applyPlatformAuthHealth(schedulerState, platform, health);
             schedulerState = transition.state;
             if (transition.event) emit(transition.event);
           }
@@ -499,7 +515,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
         emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
         emit({ category: "diagnostic", level: "error", message: detail });
-        await persistAndReport(state, events);
+        // Roll back the scheduler work but keep the auth-health probe results:
+        // discarding them would leave the popup stuck on "checking".
+        let rolledBack = state;
+        for (const platform of Object.keys(probedHealth) as Platform[]) {
+          const health = probedHealth[platform];
+          if (health) rolledBack = applyPlatformAuthHealth(rolledBack, platform, health).state;
+        }
+        await persistAndReport(rolledBack, events);
         return;
       }
       await persistAndReport(nextState, events);
