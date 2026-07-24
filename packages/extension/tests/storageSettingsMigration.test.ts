@@ -55,6 +55,31 @@ describe("settings storage migration", () => {
     expect(written.platform.twitch).not.toHaveProperty("watchQueueChannels");
   });
 
+  it("carries a stored campaignVisibility block over to campaignFilters without defaulting it back", async () => {
+    get.mockResolvedValue({
+      settings: {
+        schemaVersion: 1,
+        campaignVisibility: { notLinked: false, subscription: false, upcoming: false, expired: true, excluded: true, finished: false },
+      },
+    });
+
+    const settings = await loadSettings();
+
+    expect(settings.campaignFilters).toEqual({
+      notLinked: false,
+      subscription: false,
+      upcoming: false,
+      expired: true,
+      excluded: true,
+      finished: false,
+    });
+    expect(set).toHaveBeenCalledTimes(1);
+    const written = set.mock.calls[0]?.[0].settings;
+    expect(written).toEqual(withSchemaVersion(settings));
+    expect(written.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(written).not.toHaveProperty("campaignVisibility");
+  });
+
   it("stamps an unversioned document that already uses current keys", async () => {
     get.mockResolvedValue({
       settings: { idleWatchlistFallbackOnly: true, platform: { twitch: { idleWatchlistChannels: ["current"] } } },
