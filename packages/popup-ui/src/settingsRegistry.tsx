@@ -6,7 +6,7 @@ import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import { PLATFORMS } from "./constants";
 import { Pill } from "./primitives";
 import {
-  CampaignFilterSettingRow,
+  DropsListFilterRow,
   ForgetExcludedCampaignsRow,
   NumberSettingRow,
   SelectSettingRow,
@@ -151,6 +151,21 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             descriptionKey: "autoClaimDescription",
             render: () => <SettingRow title={t("autoClaimTitle")} description={t("autoClaimDescription")} checked={settings.autoClaim} onChange={setFlag("autoClaim")} />,
           },
+          // Farming-eligibility toggles: they change what gets farmed, so they
+          // sit with the other behaviour rows and re-tick on save. Distinct from
+          // the display-only chip row below, which changes nothing the engine does.
+          {
+            id: "general.drops.farmUnlinked",
+            titleKey: "farmUnlinkedTitle",
+            descriptionKey: "farmUnlinkedDescription",
+            render: () => <SettingRow title={t("farmUnlinkedTitle")} description={t("farmUnlinkedDescription")} checked={settings.farmingEligibility.farmUnlinkedCampaigns} onChange={(value) => void onSettingsChange({ farmingEligibility: { farmUnlinkedCampaigns: value } }, { tickAfterSave: true })} />,
+          },
+          {
+            id: "general.drops.farmSubscription",
+            titleKey: "farmSubscriptionTitle",
+            descriptionKey: "farmSubscriptionDescription",
+            render: () => <SettingRow title={t("farmSubscriptionTitle")} description={t("farmSubscriptionDescription")} checked={settings.farmingEligibility.farmSubscriptionCampaigns} onChange={(value) => void onSettingsChange({ farmingEligibility: { farmSubscriptionCampaigns: value } }, { tickAfterSave: true })} />,
+          },
           {
             id: "general.drops.priorityMode",
             titleKey: "campaignPriorityTitle",
@@ -176,10 +191,13 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             render: () => <SettingRow title={t("idleWatchlistFallbackOnlyTitle")} description={t("idleWatchlistFallbackOnlyDescription")} checked={settings.idleWatchlistFallbackOnly} onChange={(value) => void onSettingsChange({ idleWatchlistFallbackOnly: value }, { tickAfterSave: true })} />,
           },
           {
-            id: "general.drops.campaignFilters",
-            titleKey: "campaignFiltersTitle",
-            descriptionKey: "campaignFiltersDescription",
-            render: () => <CampaignFilterSettingRow value={settings.campaignFilters} onChange={(campaignFilters) => void onSettingsChange({ campaignFilters }, { tickAfterSave: true })} />,
+            id: "general.drops.dropsListFilter",
+            titleKey: "dropsListFilterTitle",
+            descriptionKey: "dropsListFilterDescription",
+            // Display-only: saving does not re-tick, matching other pure-view
+            // settings (e.g. the language/appearance rows), because it changes
+            // nothing the engine does.
+            render: () => <DropsListFilterRow value={settings.dropsListFilter} onChange={(dropsListFilter) => void onSettingsChange({ dropsListFilter })} />,
           },
           {
             id: "general.drops.forgetExcluded",

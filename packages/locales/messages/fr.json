@@ -561,17 +561,23 @@
   "activityLogLevelsDescription": {
     "message": "Choisissez les niveaux enregistrés dans le journal d’activité. Les erreurs sont toujours conservées."
   },
-  "campaignFiltersTitle": {
-    "message": "Filtres de campagnes"
+  "farmUnlinkedTitle": {
+    "message": "Farmer les campagnes sans compte lié"
   },
-  "campaignFiltersDescription": {
-    "message": "Choisissez quelles campagnes sont farmées et lesquelles sont visibles dans la liste Drops. Une campagne avec une récompense réclamable reste toujours visible."
+  "farmUnlinkedDescription": {
+    "message": "Si désactivé, les campagnes nécessitant de lier votre compte sont ignorées. Kick accumule quand même du temps de visionnage avant la liaison."
   },
-  "campaignFiltersFarmingGroup": {
-    "message": "Campagnes farmées"
+  "farmSubscriptionTitle": {
+    "message": "Farmer les campagnes nécessitant un abonnement"
   },
-  "campaignFiltersDisplayGroup": {
-    "message": "Affichées dans la liste Drops"
+  "farmSubscriptionDescription": {
+    "message": "Si désactivé, les campagnes dont les récompenses nécessitent un abonnement à la chaîne sont ignorées."
+  },
+  "dropsListFilterTitle": {
+    "message": "Vue de la liste Drops"
+  },
+  "dropsListFilterDescription": {
+    "message": "Choisissez quelles campagnes sont affichées dans la liste Drops. Une campagne avec une récompense réclamable reste toujours visible."
   },
   "forgetExcludedTitle": {
     "message": "Oublier les campagnes exclues"

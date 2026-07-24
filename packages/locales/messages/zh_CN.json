@@ -561,17 +561,23 @@
   "activityLogLevelsDescription": {
     "message": "选择活动日志记录哪些级别。错误始终保留。"
   },
-  "campaignFiltersTitle": {
-    "message": "活动筛选"
+  "farmUnlinkedTitle": {
+    "message": "刷取无需关联账号的活动"
   },
-  "campaignFiltersDescription": {
-    "message": "选择要刷取的活动以及在 Drops 列表中显示的活动。有可领取奖励的活动始终可见。"
+  "farmUnlinkedDescription": {
+    "message": "关闭后，将跳过需要关联账号的活动。关联前 Kick 仍会累积观看时长。"
   },
-  "campaignFiltersFarmingGroup": {
-    "message": "刷取的活动"
+  "farmSubscriptionTitle": {
+    "message": "刷取需要订阅的活动"
   },
-  "campaignFiltersDisplayGroup": {
-    "message": "在 Drops 列表中显示"
+  "farmSubscriptionDescription": {
+    "message": "关闭后，将跳过奖励需要频道订阅的活动。"
+  },
+  "dropsListFilterTitle": {
+    "message": "Drops 列表视图"
+  },
+  "dropsListFilterDescription": {
+    "message": "选择在 Drops 列表中显示的活动。有可领取奖励的活动始终可见。"
   },
   "forgetExcludedTitle": {
     "message": "忘记排除的活动"

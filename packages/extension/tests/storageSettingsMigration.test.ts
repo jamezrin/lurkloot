@@ -55,7 +55,7 @@ describe("settings storage migration", () => {
     expect(written.platform.twitch).not.toHaveProperty("watchQueueChannels");
   });
 
-  it("carries a stored campaignVisibility block over to campaignFilters without defaulting it back", async () => {
+  it("splits a stored campaignVisibility block into farmingEligibility and dropsListFilter without defaulting it back", async () => {
     get.mockResolvedValue({
       settings: {
         schemaVersion: 1,
@@ -65,13 +65,17 @@ describe("settings storage migration", () => {
 
     const settings = await loadSettings();
 
-    expect(settings.campaignFilters).toEqual({
-      notLinked: false,
-      subscription: false,
-      upcoming: false,
-      expired: true,
-      excluded: true,
-      finished: false,
+    // The six-key legacy record maps into the two independent fields, values
+    // intact (see CAMPAIGN_VISIBILITY_MAPPING).
+    expect(settings.farmingEligibility).toEqual({
+      farmUnlinkedCampaigns: false,
+      farmSubscriptionCampaigns: false,
+    });
+    expect(settings.dropsListFilter).toEqual({
+      showUpcoming: false,
+      showExpired: true,
+      showFinished: false,
+      showExcluded: true,
     });
     expect(set).toHaveBeenCalledTimes(1);
     const written = set.mock.calls[0]?.[0].settings;

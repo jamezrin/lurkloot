@@ -561,17 +561,23 @@
   "activityLogLevelsDescription": {
     "message": "Scegli quali livelli registrare nel log attività. Gli errori vengono sempre mantenuti."
   },
-  "campaignFiltersTitle": {
-    "message": "Filtri campagne"
+  "farmUnlinkedTitle": {
+    "message": "Farma campagne senza account collegato"
   },
-  "campaignFiltersDescription": {
-    "message": "Scegli quali campagne vengono farmate e quali sono visibili nella lista Drop. Una campagna con ricompensa riscattabile resta sempre visibile."
+  "farmUnlinkedDescription": {
+    "message": "Se disattivato, le campagne che richiedono di collegare il tuo account vengono saltate. Kick accumula comunque tempo di visione prima del collegamento."
   },
-  "campaignFiltersFarmingGroup": {
-    "message": "Campagne farmate"
+  "farmSubscriptionTitle": {
+    "message": "Farma campagne che richiedono un abbonamento"
   },
-  "campaignFiltersDisplayGroup": {
-    "message": "Mostrate nella lista Drop"
+  "farmSubscriptionDescription": {
+    "message": "Se disattivato, le campagne le cui ricompense richiedono un abbonamento al canale vengono saltate."
+  },
+  "dropsListFilterTitle": {
+    "message": "Vista della lista Drop"
+  },
+  "dropsListFilterDescription": {
+    "message": "Scegli quali campagne sono mostrate nella lista Drop. Una campagna con ricompensa riscattabile resta sempre visibile."
   },
   "forgetExcludedTitle": {
     "message": "Dimentica campagne escluse"

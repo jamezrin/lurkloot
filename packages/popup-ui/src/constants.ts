@@ -1,4 +1,4 @@
-import type { DisplayFilterKey, FarmingFilterKey, Platform } from "@lurkloot/shared/models";
+import type { ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { ScreenshotVariant } from "./types";
 
@@ -56,19 +56,15 @@ export const EVENT_LEVEL_COLOR: Record<LogLevel, string> = {
   error: "#ef4444",
 };
 
-// Split in two because the halves have different power: turning a farming pill
-// off stops those campaigns from being earned at all, while a display pill only
-// changes what the Drops list shows.
-export const FARMING_CAMPAIGN_FILTERS: Array<{ key: FarmingFilterKey; label: string }> = [
-  { key: "notLinked", label: "notLinked" },
-  { key: "subscription", label: "subscriptionCampaigns" },
-];
-
-export const DISPLAY_CAMPAIGN_FILTERS: Array<{ key: DisplayFilterKey; label: string }> = [
-  { key: "upcoming", label: "upcoming" },
-  { key: "expired", label: "expired" },
-  { key: "excluded", label: "excluded" },
-  { key: "finished", label: "finished" },
+// The four Drops-list view toggles, rendered as a single compact chip row. Pure
+// display: a chip only changes what the Drops list shows, never what is farmed —
+// that axis is now two separate SettingRow toggles (farmingEligibility). Each
+// entry pairs a dropsListFilter key with its per-state chip label message key.
+export const DROPS_LIST_FILTERS: Array<{ key: keyof ExtensionSettings["dropsListFilter"]; label: string }> = [
+  { key: "showUpcoming", label: "upcoming" },
+  { key: "showExpired", label: "expired" },
+  { key: "showExcluded", label: "excluded" },
+  { key: "showFinished", label: "finished" },
 ];
 
 const TWITCH_GRADIENT =

@@ -561,17 +561,23 @@
   "activityLogLevelsDescription": {
     "message": "اختر المستويات المسجلة في سجل النشاط. تبقى الأخطاء دائمًا."
   },
-  "campaignFiltersTitle": {
-    "message": "عوامل تصفية الحملات"
+  "farmUnlinkedTitle": {
+    "message": "فارم الحملات بدون حساب مرتبط"
   },
-  "campaignFiltersDescription": {
-    "message": "اختر الحملات التي يجري فارمها والحملات التي تظهر في قائمة Drops. تبقى الحملة ذات المكافأة القابلة للاستلام مرئية دائمًا."
+  "farmUnlinkedDescription": {
+    "message": "عند الإيقاف، تُتخطى الحملات التي تتطلب ربط حسابك. لا يزال Kick يجمع وقت المشاهدة قبل الربط."
   },
-  "campaignFiltersFarmingGroup": {
-    "message": "الحملات التي يجري فارمها"
+  "farmSubscriptionTitle": {
+    "message": "فارم الحملات التي تتطلب اشتراكًا"
   },
-  "campaignFiltersDisplayGroup": {
-    "message": "المعروضة في قائمة Drops"
+  "farmSubscriptionDescription": {
+    "message": "عند الإيقاف، تُتخطى الحملات التي تحتاج مكافآتها إلى اشتراك في القناة."
+  },
+  "dropsListFilterTitle": {
+    "message": "عرض قائمة Drops"
+  },
+  "dropsListFilterDescription": {
+    "message": "اختر الحملات التي تظهر في قائمة Drops. تبقى الحملة ذات المكافأة القابلة للاستلام مرئية دائمًا."
   },
   "forgetExcludedTitle": {
     "message": "نسيان الحملات المستبعدة"

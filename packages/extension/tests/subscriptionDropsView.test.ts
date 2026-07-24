@@ -3,7 +3,6 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
-import { FARMING_CAMPAIGN_FILTERS } from "../../popup-ui/src/constants";
 import { I18nContext } from "../../popup-ui/src/context";
 import { DropsPanel } from "../../popup-ui/src/drops";
 import {
@@ -255,7 +254,7 @@ describe("subscription drop popup views", () => {
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>.*subscribed — refresh status<\/button>/);
   });
 
-  it("categorizes and filters subscription campaigns while preserving claimable visibility", () => {
+  it("categorizes subscription campaigns and keeps them visible regardless of farming", () => {
     const source = campaign("subscription-only", [
       reward({ requirement: "subscription", requiredSubs: 1 }),
     ]);
@@ -263,14 +262,16 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["subscription"]);
-    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(true);
-
-    settings.campaignFilters.subscription = false;
-    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(false);
+    // Decoupling: dropsListFilter is display-only, so a subscription campaign
+    // stays in the Drops list even when farmingEligibility would skip it. The
+    // view filter has no subscription axis to turn off.
+    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(true);
+    settings.farmingEligibility.farmSubscriptionCampaigns = false;
+    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(true);
     expect(isCampaignVisible({
       ...source,
       rewards: [{ ...source.rewards[0], status: "claimable" }],
-    }, settings.campaignFilters, excludedIds)).toBe(true);
+    }, settings.dropsListFilter, excludedIds)).toBe(true);
   });
 
   // Kick used to drop ended campaigns at parse time, which made these two
@@ -285,11 +286,11 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["finished"]);
-    expect(settings.campaignFilters.finished).toBe(true);
-    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(true);
+    expect(settings.dropsListFilter.showFinished).toBe(true);
+    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(true);
 
-    settings.campaignFilters.finished = false;
-    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(false);
+    settings.dropsListFilter.showFinished = false;
+    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(false);
   });
 
   it("applies the expired filter to an expired Kick campaign", () => {
@@ -302,14 +303,10 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["expired"]);
-    expect(settings.campaignFilters.expired).toBe(false);
-    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(false);
+    expect(settings.dropsListFilter.showExpired).toBe(false);
+    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(false);
 
-    settings.campaignFilters.expired = true;
-    expect(isCampaignVisible(source, settings.campaignFilters, excludedIds)).toBe(true);
-  });
-
-  it("exposes the subscription campaign filter", () => {
-    expect(FARMING_CAMPAIGN_FILTERS).toContainEqual({ key: "subscription", label: "subscriptionCampaigns" });
+    settings.dropsListFilter.showExpired = true;
+    expect(isCampaignVisible(source, settings.dropsListFilter, excludedIds)).toBe(true);
   });
 });

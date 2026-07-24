@@ -561,17 +561,23 @@
   "activityLogLevelsDescription": {
     "message": "Choose which levels are recorded in the Activity log. Errors are always kept."
   },
-  "campaignFiltersTitle": {
-    "message": "Campaign filters"
+  "farmUnlinkedTitle": {
+    "message": "Farm campaigns without a linked account"
   },
-  "campaignFiltersDescription": {
-    "message": "Choose which campaigns are farmed and which are visible in the Drops list. A campaign with a claimable reward always stays visible."
+  "farmUnlinkedDescription": {
+    "message": "When off, campaigns that need you to link your account are skipped. Kick still earns watch time before linking."
   },
-  "campaignFiltersFarmingGroup": {
-    "message": "Farmed campaigns"
+  "farmSubscriptionTitle": {
+    "message": "Farm campaigns that require a subscription"
   },
-  "campaignFiltersDisplayGroup": {
-    "message": "Shown in the Drops list"
+  "farmSubscriptionDescription": {
+    "message": "When off, campaigns whose rewards need a channel subscription are skipped."
+  },
+  "dropsListFilterTitle": {
+    "message": "Drops list view"
+  },
+  "dropsListFilterDescription": {
+    "message": "Choose which campaigns are shown in the Drops list. A campaign with a claimable reward always stays visible."
   },
   "forgetExcludedTitle": {
     "message": "Forget excluded campaigns"

@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Ban, ChevronDown, Search, TriangleAlert, type LucideIcon } from "lucide-react";
-import type { CampaignFilterKey } from "@lurkloot/shared/models";
+import type { ExtensionSettings } from "@lurkloot/shared/models";
 import {
   COLLAPSED_SETTINGS_SECTIONS_KEY,
-  DISPLAY_CAMPAIGN_FILTERS,
-  FARMING_CAMPAIGN_FILTERS,
+  DROPS_LIST_FILTERS,
 } from "./constants";
 import { usePopupRuntime, useT } from "./context";
 import { Toggle, cn } from "./primitives";
@@ -150,26 +149,25 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
   );
 }
 
-// Rendered as two labelled groups, because the halves have different power: the
-// farming group changes what gets earned, the display group only changes what
-// the Drops list shows. Users previously had no way to tell them apart.
-export function CampaignFilterSettingRow({ value, onChange }: { value: Record<CampaignFilterKey, boolean>; onChange(value: Record<CampaignFilterKey, boolean>): void | Promise<void> }) {
+// The Drops-list view control: one labelled group of chips over the four
+// dropsListFilter flags. Pure display — the farming axis is now separate
+// SettingRow toggles — so there is a single group here, not the old
+// farming/display split.
+export function DropsListFilterRow({ value, onChange }: { value: ExtensionSettings["dropsListFilter"]; onChange(value: ExtensionSettings["dropsListFilter"]): void | Promise<void> }) {
   const t = useT();
-  const toggle = (key: CampaignFilterKey) => onChange({ ...value, [key]: !value[key] });
-  // Readonly so the narrower FarmingFilterKey/DisplayFilterKey lists are
-  // soundly assignable to the wider CampaignFilterKey element type.
-  const group = (filters: ReadonlyArray<{ key: CampaignFilterKey; label: string }>, labelKey: string) => (
-    // role="group" + aria-labelledby, so a screen-reader user hears "Farmed
-    // campaigns" / "Shown in the Drops list" around the pills instead of two
-    // undifferentiated runs of buttons. The whole point of the split is that the
-    // halves have different power, which a sighted-only heading would not convey.
+  const toggle = (key: keyof ExtensionSettings["dropsListFilter"]) => onChange({ ...value, [key]: !value[key] });
+  return (
+    // role="group" + aria-labelledby, so a screen-reader user hears the row's
+    // name around the chips instead of an anonymous run of buttons.
     // aria-labelledby rather than aria-label keeps the visible and accessible
-    // names from drifting apart; the message key is unique per group, so it is a
-    // safe element id.
-    <div className="mt-2" role="group" aria-labelledby={`${labelKey}-label`}>
-      <div id={`${labelKey}-label`} className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t(labelKey)}</div>
-      <div className="mt-1 flex flex-wrap items-center gap-1">
-        {filters.map(({ key, label }) => {
+    // names from drifting apart; the id is unique on the page.
+    <div className="py-2.5" role="group" aria-labelledby="dropsListFilter-label">
+      <div id="dropsListFilter-label" className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("dropsListFilterTitle")}</div>
+      <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+        {t("dropsListFilterDescription")}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        {DROPS_LIST_FILTERS.map(({ key, label }) => {
           const active = value[key];
           return (
             <button
@@ -188,17 +186,6 @@ export function CampaignFilterSettingRow({ value, onChange }: { value: Record<Ca
           );
         })}
       </div>
-    </div>
-  );
-
-  return (
-    <div className="py-2.5">
-      <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("campaignFiltersTitle")}</div>
-      <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-        {t("campaignFiltersDescription")}
-      </div>
-      {group(FARMING_CAMPAIGN_FILTERS, "campaignFiltersFarmingGroup")}
-      {group(DISPLAY_CAMPAIGN_FILTERS, "campaignFiltersDisplayGroup")}
     </div>
   );
 }

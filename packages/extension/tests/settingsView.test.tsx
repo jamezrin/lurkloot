@@ -53,10 +53,12 @@ const labels: Record<string, string> = {
   campaignPriorityDescription: "How campaigns are chosen to farm.",
   idleWatchlistFallbackOnlyTitle: "Only when no drops are active",
   idleWatchlistFallbackOnlyDescription: "Preserves drop priority automatically.",
-  campaignFiltersTitle: "Campaign filters",
-  campaignFiltersDescription: "Choose which campaigns are farmed and which are visible in the Drops list.",
-  campaignFiltersFarmingGroup: "Farmed campaigns",
-  campaignFiltersDisplayGroup: "Shown in the Drops list",
+  farmUnlinkedTitle: "Farm campaigns without a linked account",
+  farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
+  farmSubscriptionTitle: "Farm campaigns that require a subscription",
+  farmSubscriptionDescription: "When off, campaigns whose rewards need a channel subscription are skipped.",
+  dropsListFilterTitle: "Drops list view",
+  dropsListFilterDescription: "Choose which campaigns are shown in the Drops list.",
   forgetExcludedTitle: "Forget excluded campaigns",
   forgetExcludedDescription: "Clear every campaign you excluded from farming.",
   tablessTitle: "Tabless low-resource mode",
@@ -157,38 +159,38 @@ describe("deadline feasibility setting", () => {
     expect(input.disabled).toBe(true);
   });
 
-  it("reconciles all platforms after campaign filter changes", () => {
+  it("re-ticks after toggling a farming-eligibility row", () => {
     const { container, onSettingsChange } = mountSettings();
-    const toggle = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("notLinked"));
+    // The two farming rows are full SettingRow toggles keyed by their title, so
+    // query by the switch's accessible name.
+    const toggle = container.querySelector('[role="switch"][aria-label="Farm campaigns without a linked account"]') as HTMLButtonElement;
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
 
-    act(() => toggle?.click());
+    act(() => toggle.click());
 
     expect(onSettingsChange).toHaveBeenCalledWith(
-      { campaignFilters: { ...DEFAULT_SETTINGS.campaignFilters, notLinked: false } },
+      { farmingEligibility: { farmUnlinkedCampaigns: false } },
       { tickAfterSave: true },
     );
   });
 
-  it("groups the campaign filters by whether they change farming", () => {
+  it("renders both farming-eligibility rows as full toggles", () => {
     const { container } = mountSettings();
     const text = container.textContent ?? "";
 
-    expect(text).toContain("Campaign filters");
-    expect(text).toContain("Farmed campaigns");
-    expect(text).toContain("Shown in the Drops list");
-    // The grouping is only meaningful if the pills sit under the right heading:
-    // the farming heading must precede notLinked, and the display heading must
-    // precede upcoming.
-    expect(text.indexOf("Farmed campaigns")).toBeLessThan(text.indexOf("notLinked"));
-    expect(text.indexOf("Shown in the Drops list")).toBeLessThan(text.indexOf("upcoming"));
-    expect(text.indexOf("notLinked")).toBeLessThan(text.indexOf("Shown in the Drops list"));
+    expect(text).toContain("Farm campaigns without a linked account");
+    expect(text).toContain("Farm campaigns that require a subscription");
+    // Both are switches, not chips: a switch role means the row carries its own
+    // description, which the compact chip row does not.
+    expect(container.querySelector('[role="switch"][aria-label="Farm campaigns without a linked account"]')).not.toBeNull();
+    expect(container.querySelector('[role="switch"][aria-label="Farm campaigns that require a subscription"]')).not.toBeNull();
   });
 
-  it("exposes each campaign filter group with an accessible name", () => {
+  it("exposes the Drops list view chip row with an accessible name", () => {
     const { container } = mountSettings();
     // Queried by role and accessible name rather than by text, so a refactor
-    // that drops the labelling leaves screen-reader users with two anonymous
-    // runs of buttons and this test fails instead of passing silently.
+    // that drops the labelling leaves screen-reader users with an anonymous run
+    // of buttons and this test fails instead of passing silently.
     const groups = [...container.querySelectorAll('[role="group"]')].map((group) => {
       const labelId = group.getAttribute("aria-labelledby")!;
       return {
@@ -198,8 +200,7 @@ describe("deadline feasibility setting", () => {
     });
 
     expect(groups).toEqual([
-      { name: "Farmed campaigns", pills: ["notLinked", "subscriptionCampaigns"] },
-      { name: "Shown in the Drops list", pills: ["upcoming", "expired", "excluded", "finished"] },
+      { name: "Drops list view", pills: ["upcoming", "expired", "excluded", "finished"] },
     ]);
   });
 

@@ -561,17 +561,23 @@
   "activityLogLevelsDescription": {
     "message": "Wähle, welche Stufen im Aktivitätsprotokoll aufgezeichnet werden. Fehler bleiben immer aktiv."
   },
-  "campaignFiltersTitle": {
-    "message": "Kampagnenfilter"
+  "farmUnlinkedTitle": {
+    "message": "Kampagnen ohne verknüpftes Konto farmen"
   },
-  "campaignFiltersDescription": {
-    "message": "Wähle, welche Kampagnen gefarmt werden und welche in der Drops-Liste sichtbar sind. Eine Kampagne mit beanspruchbarer Belohnung bleibt immer sichtbar."
+  "farmUnlinkedDescription": {
+    "message": "Wenn aus, werden Kampagnen übersprungen, die ein Verknüpfen deines Kontos erfordern. Kick sammelt vor dem Verknüpfen weiterhin Wiedergabezeit."
   },
-  "campaignFiltersFarmingGroup": {
-    "message": "Gefarmte Kampagnen"
+  "farmSubscriptionTitle": {
+    "message": "Kampagnen farmen, die ein Abo erfordern"
   },
-  "campaignFiltersDisplayGroup": {
-    "message": "In der Drops-Liste angezeigt"
+  "farmSubscriptionDescription": {
+    "message": "Wenn aus, werden Kampagnen übersprungen, deren Belohnungen ein Kanal-Abo erfordern."
+  },
+  "dropsListFilterTitle": {
+    "message": "Drops-Listenansicht"
+  },
+  "dropsListFilterDescription": {
+    "message": "Wähle, welche Kampagnen in der Drops-Liste angezeigt werden. Eine Kampagne mit beanspruchbarer Belohnung bleibt immer sichtbar."
   },
   "forgetExcludedTitle": {
     "message": "Ausgeschlossene Kampagnen vergessen"
