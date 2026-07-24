@@ -1,7 +1,148 @@
 # Campaign filters gate farming
 
 Date: 2026-07-24
-Status: approved, not yet implemented
+Status: implemented as a single `campaignFilters` control (commits on
+`feat/campaign-filters-gate-farming`); superseded before merge by Revision 2
+below, which decouples the farming and display axes. Read Revision 2 first — the
+original design in the body is retained for history but is NOT the shipping shape.
+
+---
+
+## Revision 2 — decouple the farming and display axes
+
+Date: 2026-07-24 (same branch, before PR #236 merged)
+
+### Why revise
+
+The single `campaignFilters` control shipped in the first pass conflates two
+unrelated concerns in one field, and the conflation is observable as a bug: the
+popup's `isCampaignVisible` consults *every* filter key, so turning off farming
+for the `notLinked` or `subscription` group **also hides those campaigns from the
+Drops list**. The two-group UI ("Farmed campaigns" / "Shown in the Drops list")
+promises a separation the code does not honour — the farming-group toggles also
+hide, while the display-group toggles only hide. There is no way to stop farming
+a subscription campaign while still watching for it in the list.
+
+The root cause is that "farm this" and "show this" are two independent axes fused
+into one `Record<CampaignFilterKey, boolean>` that half-belongs to the engine.
+Splitting them also fixes an architecture smell the first pass introduced: the
+CLI now accepts four display-only keys (`upcoming`/`expired`/`finished`/`excluded`)
+that do nothing headless.
+
+### The two axes, on the correct side of the engine/extension boundary
+
+**Farming eligibility — `EngineSettings.farmingEligibility`** (the CLI honours it):
+
+```ts
+farmingEligibility: {
+  farmUnlinkedCampaigns: boolean;      // default true
+  farmSubscriptionCampaigns: boolean;  // default true
+}
+```
+
+Only these two categories have farming meaning. `expired`/`finished`/`upcoming`
+describe campaigns `isEligible` already rejects, and `excluded` is enforced by
+`excludedCampaignIds`. `isEligible` reads the two flags directly:
+
+```ts
+if (!settings.farmingEligibility.farmUnlinkedCampaigns && campaign.accountLinked === false) return false;
+if (!settings.farmingEligibility.farmSubscriptionCampaigns && campaignHasSubscriptionRewards(campaign)) return false;
+```
+
+A small shared helper `campaignPassesFarmingEligibility(campaign, farmingEligibility)`
+holds this so the popup can show the same "won't be farmed" state the engine
+computes. It replaces `campaignPassesFarmingFilters`.
+
+**Drops list view — `ExtensionSettings.dropsListFilter`** (extension-only, where
+view preferences live; the CLI rejects it):
+
+```ts
+dropsListFilter: {
+  showUpcoming: boolean;   // default true
+  showExpired: boolean;    // default false
+  showFinished: boolean;   // default true
+  showExcluded: boolean;   // default false
+}
+```
+
+`isCampaignVisible(campaign, dropsListFilter, excludedIds)` consults only these
+four lifecycle/excluded categories plus the existing claimable-reward escape
+hatch. It never consults link status or subscription — so a campaign you have
+chosen not to farm still appears in the list, subject only to its lifecycle
+state. Defaults preserve today's visible set exactly.
+
+### UI
+
+Settings → Drops, sectioned so behaviour and view are visibly different kinds of
+thing:
+
+- The two **farming eligibility** toggles are full `SettingRow`s grouped with the
+  other farming-behaviour controls (auto-claim, priority mode): *Farm campaigns
+  without a linked account* and *Farm campaigns that require a subscription*.
+  Importance earns a full row with a description.
+- The four **Drops list** view toggles remain a compact chip row, inheriting the
+  `--accent-contrast` fix so active chips are legible on the Kick accent.
+
+The two-group pill widget from the first pass is removed.
+
+### Deliberately out of scope
+
+"What gets farmed" is spread across four controls (category curation, farming
+eligibility, exclusions, priority mode's `priority_list_only`). Three are
+different interaction models — per-platform selection, per-campaign imperative
+action, and an ordering mode — and merging them into one widget is worse UI, not
+better. The runtime unifier is the Drops **empty state** ("why is nothing being
+farmed / shown?"), speced separately and unblocked by this decoupling because it
+can now distinguish "hidden by a view filter" from "skipped by a farming rule".
+That is the immediate follow-up, not part of this change.
+
+### Migration
+
+Schema v2 has not shipped (`CURRENT_SETTINGS_SCHEMA_VERSION` was `1` in every
+released build, and PR #236 is unmerged), so v2 is reshaped in place rather than
+stacking a v3. The only shape any real install carries is the original
+`campaignVisibility` record; v2 maps it into the two new fields and deletes it:
+
+```
+campaignVisibility.notLinked      -> farmingEligibility.farmUnlinkedCampaigns
+campaignVisibility.subscription   -> farmingEligibility.farmSubscriptionCampaigns
+campaignVisibility.upcoming       -> dropsListFilter.showUpcoming
+campaignVisibility.expired        -> dropsListFilter.showExpired
+campaignVisibility.finished       -> dropsListFilter.showFinished
+campaignVisibility.excluded       -> dropsListFilter.showExcluded
+```
+
+Values carry over untouched, so no existing user's farming or visible set
+changes on upgrade. The interim `campaignFilters` name never shipped and is
+dropped entirely; no persisted document ever contained it.
+
+### CLI
+
+`farmingEligibility` is a real CLI knob in `EngineSettings`, validated key-and-value
+like the first pass validated `campaignFilters`. `dropsListFilter` is
+extension-only — added to `EXTENSION_ONLY_KEYS`, so a CLI config that sets it gets
+a clear "extension-only" diagnostic rather than silently accepting inert keys.
+
+### Testing delta from the first pass
+
+- shared: `campaignPassesFarmingEligibility` reads only the two flags;
+  `isCampaignVisible` provably ignores link status and subscription (the coupling
+  regression test — a not-farmed subscription campaign is still visible).
+- scheduler: the two eligibility flags gate farming; the reason branch still
+  fires; unchanged defaults farm the same set.
+- migration: v2 maps the six old keys into the two new fields with values intact.
+- cli: `farmingEligibility` accepted and validated; `dropsListFilter` rejected as
+  extension-only.
+- popup: two farming rows + one view chip row render; search still finds them.
+- storage end-to-end: a stored `campaignVisibility` document loads with both new
+  fields populated and the canonical envelope written once.
+
+---
+
+## Original design (Revision 1 — superseded, retained for history)
+
+Date: 2026-07-24
+Status: implemented then superseded by Revision 2
 
 ## Problem
 
