@@ -10,7 +10,8 @@ import {
   normalizePriorities,
 } from "@lurkloot/shared/settings";
 import { migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
-import type { CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
+import { CAMPAIGN_FILTER_KEYS } from "@lurkloot/shared/campaignFilters";
+import type { CampaignFilterKey, CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
 // ExtensionSettings. It only exposes settings that actually do something in the
@@ -34,6 +35,10 @@ export interface CliSettings {
   postClaimHandoffMaxSeconds: number;
   skipUnfinishableRewards: boolean;
   deadlineSafetyMarginMinutes: number;
+  // Not extension-only: the farming keys (see FARMING_FILTER_KEYS) gate what the
+  // scheduler is allowed to farm, so they change headless behavior too. The
+  // remaining keys only affect what the popup lists and are inert here.
+  campaignFilters: Record<CampaignFilterKey, boolean>;
   // Gate the controller's reward/no-drops notifications, which the CLI renders
   // as log lines (see runtime/run.ts createNotification).
   notifyRewardEarned: boolean;
@@ -60,6 +65,7 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   postClaimHandoffMaxSeconds: DEFAULT_SETTINGS.postClaimHandoffMaxSeconds,
   skipUnfinishableRewards: DEFAULT_SETTINGS.skipUnfinishableRewards,
   deadlineSafetyMarginMinutes: DEFAULT_SETTINGS.deadlineSafetyMarginMinutes,
+  campaignFilters: { ...DEFAULT_SETTINGS.campaignFilters },
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
   platform: {
@@ -85,6 +91,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "postClaimHandoffMaxSeconds",
   "skipUnfinishableRewards",
   "deadlineSafetyMarginMinutes",
+  "campaignFilters",
   // Accepted only so config parsing can surface the deprecation warning.
   // Runtime log filtering belongs to the global --log option and process logger.
   "enabledLogLevels",
@@ -116,7 +123,6 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "adFocusMode",
   "autoCloseFinishedDrops",
   "autoStartDropFarming",
-  "campaignVisibility",
   "languageOverride",
   "rateNudgeStatus",
   "diagnosticLogging",
@@ -193,6 +199,21 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     }
   }
 
+  // Filter keys are validated like platform/compatibility keys: a typo would
+  // otherwise silently fall back to the default and quietly farm the wrong set.
+  const campaignFiltersRaw = value.campaignFilters;
+  if (campaignFiltersRaw !== undefined) {
+    if (campaignFiltersRaw === null || typeof campaignFiltersRaw !== "object" || Array.isArray(campaignFiltersRaw)) {
+      offenders.push('"campaignFilters" must be a JSON object');
+    } else {
+      for (const key of Object.keys(campaignFiltersRaw as Record<string, unknown>)) {
+        if (!(CAMPAIGN_FILTER_KEYS as string[]).includes(key)) {
+          offenders.push(`unknown setting "${key}" under campaignFilters (expected one of: ${CAMPAIGN_FILTER_KEYS.join(", ")})`);
+        }
+      }
+    }
+  }
+
   const compatibilityRaw = value.compatibility;
   if (compatibilityRaw !== undefined) {
     if (compatibilityRaw === null || typeof compatibilityRaw !== "object" || Array.isArray(compatibilityRaw)) {
@@ -241,11 +262,20 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
       60,
       DEFAULT_CLI_SETTINGS.deadlineSafetyMarginMinutes,
     ),
+    campaignFilters: normalizeCampaignFilters(v.campaignFilters),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform),
     compatibility: normalizeCompatibility(v.compatibility),
   };
+}
+
+// Each filter key defaults to the shared default, so a config that names only
+// the farming keys it cares about keeps the display keys at their usual values.
+function normalizeCampaignFilters(raw: EngineSettings["campaignFilters"] | undefined): Record<CampaignFilterKey, boolean> {
+  return Object.fromEntries(
+    CAMPAIGN_FILTER_KEYS.map((key) => [key, booleanOr(raw?.[key], DEFAULT_CLI_SETTINGS.campaignFilters[key])]),
+  ) as Record<CampaignFilterKey, boolean>;
 }
 
 function normalizeCompatibility(raw: EngineSettings["compatibility"] | undefined): CompatibilitySettings {

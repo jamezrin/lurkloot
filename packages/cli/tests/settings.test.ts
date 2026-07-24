@@ -148,6 +148,31 @@ describe("parseCliSettings", () => {
     expect(() => parseCliSettings({ diagnosticLogging: true })).toThrow(/"diagnosticLogging" is an extension-only setting/);
   });
 
+  it("accepts campaignFilters now that it gates farming", () => {
+    const result = parseCliSettingsWithDiagnostics({ campaignFilters: { notLinked: false } });
+
+    expect(result.settings.campaignFilters.notLinked).toBe(false);
+    // Unnamed keys keep their shared defaults.
+    expect(result.settings.campaignFilters.subscription).toBe(DEFAULT_CLI_SETTINGS.campaignFilters.subscription);
+    expect(result.diagnostics).toEqual([]);
+    expect(toEngineSettings(result.settings).campaignFilters.notLinked).toBe(false);
+  });
+
+  it("migrates a config still using the old campaignVisibility name", () => {
+    const { settings, diagnostics } = parseCliSettingsWithDiagnostics({ campaignVisibility: { notLinked: false } });
+
+    expect(settings.campaignFilters.notLinked).toBe(false);
+    expect(settings).not.toHaveProperty("campaignVisibility");
+    expect(diagnostics).toEqual([
+      expect.objectContaining({ path: "campaignVisibility", replacement: "campaignFilters" }),
+    ]);
+  });
+
+  it("hard-errors on unknown campaignFilters keys", () => {
+    expect(() => parseCliSettings({ campaignFilters: { nonsense: true } }))
+      .toThrow(/unknown setting "nonsense" under campaignFilters/);
+  });
+
   it("hard-errors on a truly unknown key", () => {
     expect(() => parseCliSettings({ turbo: true })).toThrow(/unknown CLI setting "turbo"/);
   });

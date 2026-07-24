@@ -145,7 +145,7 @@ describe("parseConfig", () => {
     expect(parseConfig(raw, CONFIG_PATH).warnings).toEqual(parseConfig(raw, CONFIG_PATH).warnings);
   });
 
-  it("emits no migration warnings for a current config", () => {
+  it("emits no migration warnings for a config with no deprecated keys", () => {
     expect(parseConfig({ settings: { schemaVersion: 1, autoClaim: true } }, CONFIG_PATH).warnings).toEqual([]);
   });
 

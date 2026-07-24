@@ -78,6 +78,24 @@ describe("CLI engine event reporting", () => {
     ]);
   });
 
+  it("surfaces the campaign-filter idle reason verbatim as a warning", async () => {
+    // The scheduler emits its idle decision reason as a warn-level diagnostic
+    // (emitDiagnostic in packages/core/src/core/scheduler.ts). Diagnostics are
+    // passed through untranslated, so the CLI log is the only place a headless
+    // user learns their campaign filters left nothing to farm.
+    const lines: string[] = [];
+    await reportCliEvents([
+      {
+        category: "diagnostic",
+        level: "warn",
+        platform: "twitch",
+        message: "All campaigns are filtered out by your campaign filters",
+      },
+    ], recordingLogger(lines));
+
+    expect(lines).toEqual(["WARN [twitch] All campaigns are filtered out by your campaign filters"]);
+  });
+
   it.each([
     ["warn", ["WARN [kick] Farming interrupted: platform error (HTTP 503)"]],
     ["error", []],
