@@ -270,7 +270,9 @@ export function normalizeIdList(value: string[] | undefined): string[] {
     .filter(Boolean))];
 }
 
-function normalizeCampaignFilters(value: Partial<Record<CampaignFilterKey, boolean>> | undefined): Record<CampaignFilterKey, boolean> {
+// Exported for non-extension hosts (the CLI) that validate campaignFilters on
+// their own settings surface but must default identically to the engine.
+export function normalizeCampaignFilters(value: Partial<Record<CampaignFilterKey, boolean>> | undefined): Record<CampaignFilterKey, boolean> {
   return Object.fromEntries(
     CAMPAIGN_FILTER_KEYS.map((key) => [key, booleanOr(value?.[key], DEFAULT_ENGINE_SETTINGS.campaignFilters[key])]),
   ) as Record<CampaignFilterKey, boolean>;

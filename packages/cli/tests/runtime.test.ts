@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { EngineEvent, FarmingStopReason } from "@lurkloot/shared/events";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 import type { Logger } from "../src/logger";
+import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
 import { formatCliEvent, reportCliEvents } from "../src/events";
+import { DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { createLogger } from "../src/logger";
 import { formatDiscoveredCampaign, subscriptionWaitKeys } from "../src/runtime/status";
 
@@ -78,22 +80,36 @@ describe("CLI engine event reporting", () => {
     ]);
   });
 
-  it("surfaces the campaign-filter idle reason verbatim as a warning", async () => {
-    // The scheduler emits its idle decision reason as a warn-level diagnostic
-    // (emitDiagnostic in packages/core/src/core/scheduler.ts). Diagnostics are
-    // passed through untranslated, so the CLI log is the only place a headless
-    // user learns their campaign filters left nothing to farm.
-    const lines: string[] = [];
-    await reportCliEvents([
+  it("surfaces the scheduler's campaign-filter idle reason as a warning", async () => {
+    // Drives the real scheduler rather than asserting a hand-written string: a
+    // headless user's only signal that their campaign filters left nothing to
+    // farm is this log line, and the reason text lives in the scheduler.
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [dropCampaign({
+        accountLinked: false,
+        rewards: [dropReward({ requiredMinutes: 60 })],
+      })],
+      // notLinked off is what makes campaignPassesFarmingFilters reject it.
+      toEngineSettings({
+        ...DEFAULT_CLI_SETTINGS,
+        campaignFilters: { ...DEFAULT_CLI_SETTINGS.campaignFilters, notLinked: false },
+      }),
       {
-        category: "diagnostic",
-        level: "warn",
-        platform: "twitch",
-        message: "All campaigns are filtered out by your campaign filters",
+        listCandidateChannels: async () => [],
+        checkChannel: async (candidate) => ({ live: false, categoryMatches: false, candidate }),
       },
-    ], recordingLogger(lines));
+    );
+    expect(decision.action).toBe("idle");
 
-    expect(lines).toEqual(["WARN [twitch] All campaigns are filtered out by your campaign filters"]);
+    // Mirrors the scheduler's own idle-decision emit: warn level, reason verbatim.
+    const lines: string[] = [];
+    await reportCliEvents(
+      [{ category: "diagnostic", level: "warn", platform: "twitch", message: decision.reason }],
+      recordingLogger(lines),
+    );
+
+    expect(lines).toEqual(["WARN [twitch] All campaigns are filtered out by your campaign filters and no Idle Watchlist channels"]);
   });
 
   it.each([

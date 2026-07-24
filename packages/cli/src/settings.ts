@@ -5,6 +5,7 @@ import {
   clampNumber,
   mergeEngineSettings,
   normalizeCategorySelections,
+  normalizeCampaignFilters,
   normalizeChannelList,
   normalizeIdList,
   normalizePriorities,
@@ -268,14 +269,6 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     platform: normalizePlatform(v.platform),
     compatibility: normalizeCompatibility(v.compatibility),
   };
-}
-
-// Each filter key defaults to the shared default, so a config that names only
-// the farming keys it cares about keeps the display keys at their usual values.
-function normalizeCampaignFilters(raw: EngineSettings["campaignFilters"] | undefined): Record<CampaignFilterKey, boolean> {
-  return Object.fromEntries(
-    CAMPAIGN_FILTER_KEYS.map((key) => [key, booleanOr(raw?.[key], DEFAULT_CLI_SETTINGS.campaignFilters[key])]),
-  ) as Record<CampaignFilterKey, boolean>;
 }
 
 function normalizeCompatibility(raw: EngineSettings["compatibility"] | undefined): CompatibilitySettings {

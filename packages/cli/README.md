@@ -48,6 +48,9 @@ campaigns that need an account link or a channel subscription; when every
 discovered campaign is filtered out, the run logs a warning saying so. The other
 keys (`upcoming`, `expired`, `excluded`, `finished`) are display-only and have no
 effect headlessly, but are accepted so an extension config can be reused as-is.
+A config still using the old name `campaignVisibility` is migrated to
+`campaignFilters` automatically, with one deprecation warning per command,
+rather than rejected.
 
 Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
 `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
