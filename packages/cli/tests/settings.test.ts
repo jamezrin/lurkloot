@@ -173,6 +173,16 @@ describe("parseCliSettings", () => {
       .toThrow(/unknown setting "nonsense" under campaignFilters/);
   });
 
+  it("hard-errors on non-boolean campaignFilters values", () => {
+    // Without this the value is dropped and the default silently farms the
+    // wrong set of campaigns.
+    expect(() => parseCliSettings({ campaignFilters: { notLinked: "yes" } }))
+      .toThrow(/"campaignFilters.notLinked" must be a boolean/);
+    expect(() => parseCliSettings({ campaignFilters: { subscription: null } }))
+      .toThrow(/"campaignFilters.subscription" must be a boolean/);
+    expect(() => parseCliSettings({ campaignFilters: [] })).toThrow(/"campaignFilters" must be a JSON object/);
+  });
+
   it("hard-errors on a truly unknown key", () => {
     expect(() => parseCliSettings({ turbo: true })).toThrow(/unknown CLI setting "turbo"/);
   });

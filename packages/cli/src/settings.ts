@@ -207,10 +207,15 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     if (campaignFiltersRaw === null || typeof campaignFiltersRaw !== "object" || Array.isArray(campaignFiltersRaw)) {
       offenders.push('"campaignFilters" must be a JSON object');
     } else {
-      for (const key of Object.keys(campaignFiltersRaw as Record<string, unknown>)) {
+      for (const [key, entry] of Object.entries(campaignFiltersRaw as Record<string, unknown>)) {
         if (!(CAMPAIGN_FILTER_KEYS as string[]).includes(key)) {
           offenders.push(`unknown setting "${key}" under campaignFilters (expected one of: ${CAMPAIGN_FILTER_KEYS.join(", ")})`);
+          continue;
         }
+        // Values are checked too, not just names: booleanOr would quietly
+        // restore the default for `"notLinked": "yes"`, which is the same
+        // silent wrong-set farming the key check exists to prevent.
+        if (typeof entry !== "boolean") offenders.push(`"campaignFilters.${key}" must be a boolean`);
       }
     }
   }

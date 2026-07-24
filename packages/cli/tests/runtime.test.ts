@@ -102,7 +102,11 @@ describe("CLI engine event reporting", () => {
     );
     expect(decision.action).toBe("idle");
 
-    // Mirrors the scheduler's own idle-decision emit: warn level, reason verbatim.
+    // Mirrors the scheduler's own idle-decision emit: warn level, reason
+    // verbatim. The reason comes from the scheduler, but "warn" is asserted
+    // rather than derived — chooseCampaignDecision returns a decision, not
+    // events, so the decisionLevel mapping (idle → warn) is not covered here.
+    // Deliberate seam: it is exercised by the scheduler tick tests instead.
     const lines: string[] = [];
     await reportCliEvents(
       [{ category: "diagnostic", level: "warn", platform: "twitch", message: decision.reason }],
