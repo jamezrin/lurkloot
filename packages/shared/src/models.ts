@@ -332,13 +332,19 @@ export interface ExtensionSettings extends EngineSettings {
   muteFarmingTabs: boolean;
   keepFarmingVideosUnmuted: boolean;
   autoCloseFinishedDrops: boolean;
-  // Which campaign lifecycle states appear in the Drops list. Pure display: the
-  // engine never reads it, so it lives on ExtensionSettings, not the contract.
+  // Which campaigns appear in the Drops list. Pure display prefs: the engine
+  // never reads it, so it lives on ExtensionSettings, not the contract. The
+  // farming axis (farmingEligibility) is entirely separate. showNotLinked/
+  // showSubscription only ever hide a class that is NOT being farmed —
+  // not-linked/subscription campaigns stay visible while farmed regardless of
+  // these two flags (the visibility invariant, enforced in isCampaignVisible).
   dropsListFilter: {
-    showUpcoming: boolean;   // default true
-    showExpired: boolean;    // default false
-    showFinished: boolean;   // default true
-    showExcluded: boolean;   // default false
+    showUpcoming: boolean;     // default true
+    showExpired: boolean;      // default false
+    showFinished: boolean;     // default true
+    showExcluded: boolean;     // default false
+    showNotLinked: boolean;    // default true
+    showSubscription: boolean; // default true
   };
   adFocusMode: AdFocusMode;
   languageOverride: LanguageOverride;

@@ -228,12 +228,12 @@ describe("migration 1: legacy aliases", () => {
 });
 
 describe("schema v2", () => {
-  it("moves only the lifecycle display keys of campaignVisibility into dropsListFilter", () => {
-    // campaignVisibility was DISPLAY-ONLY in the shipped release. Only its four
-    // lifecycle keys carry over to dropsListFilter; notLinked/subscription were
-    // never farming preferences, so they are dropped and farmingEligibility is
-    // left for normalization to default (both flags on). A false lifecycle value
-    // survives verbatim.
+  it("moves all six display keys of campaignVisibility into dropsListFilter", () => {
+    // campaignVisibility was DISPLAY-ONLY in the shipped release. All six keys —
+    // including notLinked/subscription, which dropsListFilter now expresses as
+    // showNotLinked/showSubscription — carry over as display preferences.
+    // farmingEligibility is NEVER produced here, so normalization defaults both
+    // farming flags on. A false value survives verbatim.
     const result = migrateSettings({
       schemaVersion: 1,
       campaignVisibility: {
@@ -251,6 +251,8 @@ describe("schema v2", () => {
       showExpired: true,
       showFinished: false,
       showExcluded: true,
+      showNotLinked: false,
+      showSubscription: true,
     });
     // The migration never derives farming eligibility from a display-only
     // setting; normalization defaults both flags to on.
@@ -262,7 +264,7 @@ describe("schema v2", () => {
       code: "moved_property",
       path: "campaignVisibility",
       replacement: "dropsListFilter",
-      message: "campaignVisibility display states moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
+      message: "campaignVisibility display preferences moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
     });
   });
 
@@ -270,15 +272,20 @@ describe("schema v2", () => {
     // Guard for the migration-safety fix: a user who had merely hidden unlinked
     // campaigns from their list must keep farming them. farmUnlinkedCampaigns is
     // NOT derived from notLinked; farmingEligibility stays absent so it defaults
-    // to on. If the old notLinked -> farming mapping returns, this fails.
+    // to on. The notLinked display preference IS preserved — as the display flag
+    // showNotLinked, never as a farming flag. If the old notLinked -> farming
+    // mapping returns, this fails.
     const result = migrateSettings({
       schemaVersion: 1,
       campaignVisibility: { notLinked: false, subscription: false },
     });
 
     expect(result.settings.farmingEligibility).toBeUndefined();
-    // Neither key is a lifecycle key, so no dropsListFilter block is created.
-    expect(result.settings.dropsListFilter).toBeUndefined();
+    // The two class keys are display preferences, preserved on dropsListFilter.
+    expect(result.settings.dropsListFilter).toEqual({
+      showNotLinked: false,
+      showSubscription: false,
+    });
     // The move is still reported.
     expect(result.diagnostics.map((d) => d.path)).toContain("campaignVisibility");
   });

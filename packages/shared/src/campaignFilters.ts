@@ -61,24 +61,26 @@ export function campaignPassesFarmingEligibility(
 }
 
 // What the popup asks. A claimable reward always stays visible so the user can
-// claim it. Link status and subscription NEVER affect visibility — a campaign
-// you have chosen not to farm still appears in the list. The finished/expired/
-// upcoming order mirrors the precedence in campaignFilterCategories.
+// claim it. The finished/expired/upcoming order mirrors the precedence in
+// campaignFilterCategories. Not-linked and subscription campaigns can be hidden
+// via their display flags, but ONLY when they are not being farmed.
 //
 // INVARIANT: a campaign that will be farmed is always visible here. The user
-// must never farm a campaign they cannot see. This holds structurally, not by
-// coincidence: the display filter can only hide the four lifecycle/excluded
-// states (finished, expired, upcoming, excluded), and NONE of those is farmable
-// — isEligible rejects an inactive/ended campaign and any campaign whose
-// eligibility !== "eligible", and an excluded id is rejected outright. The
-// claimable-reward escape hatch above additionally keeps any campaign the user
-// can still claim from visible, covering ended campaigns with an unclaimed
-// reward. So no farmable campaign can reach a filtered branch below. If a future
-// change makes a farmable campaign hideable, the binding test in
-// campaignFilters.test.ts fails.
+// must never farm a campaign they cannot see. For the four lifecycle/excluded
+// states this holds structurally: none of them is farmable — isEligible rejects
+// an inactive/ended campaign and any campaign whose eligibility !== "eligible",
+// and an excluded id is rejected outright — so no farmable campaign can reach
+// those filtered branches. For the two class states (not-linked, subscription)
+// it is enforced explicitly: the hide only fires when farming of that class is
+// OFF, so farming-on forces the campaign visible (farming-on OR show-flag-on).
+// The claimable-reward escape hatch above additionally keeps any campaign the
+// user can still claim visible, covering ended campaigns with an unclaimed
+// reward. If a future change makes a farmable campaign hideable, the binding
+// test in campaignFilters.test.ts fails.
 export function isCampaignVisible(
   campaign: DropCampaign,
   filter: ExtensionSettings["dropsListFilter"],
+  farmingEligibility: EngineSettings["farmingEligibility"],
   excludedIds: ReadonlySet<string>,
 ): boolean {
   if (campaign.rewards.some((reward) => reward.status === "claimable")) return true;
@@ -86,5 +88,11 @@ export function isCampaignVisible(
   if (isCampaignFinished(campaign)) return filter.showFinished;
   if (isCampaignExpired(campaign)) return filter.showExpired;
   if (isCampaignUpcoming(campaign)) return filter.showUpcoming;
+  // Active campaign. A not-linked / subscription campaign may be hidden ONLY
+  // when it is not being farmed — the user can never hide something farmed (the
+  // visibility invariant), so farming-on forces it visible regardless of the
+  // display flag.
+  if (campaign.accountLinked === false && !farmingEligibility.farmUnlinkedCampaigns && !filter.showNotLinked) return false;
+  if (campaignHasSubscriptionRewards(campaign) && !farmingEligibility.farmSubscriptionCampaigns && !filter.showSubscription) return false;
   return true;
 }

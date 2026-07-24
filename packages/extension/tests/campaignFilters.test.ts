@@ -16,6 +16,19 @@ const SHOW_ALL: ExtensionSettings["dropsListFilter"] = {
   showExpired: true,
   showFinished: true,
   showExcluded: true,
+  showNotLinked: true,
+  showSubscription: true,
+};
+
+// Every display flag off — including the two class flags — so any campaign that
+// stays visible does so because farming forces it, not because a flag is on.
+const ALL_OFF: ExtensionSettings["dropsListFilter"] = {
+  showUpcoming: false,
+  showExpired: false,
+  showFinished: false,
+  showExcluded: false,
+  showNotLinked: false,
+  showSubscription: false,
 };
 
 function campaign(overrides: Partial<DropCampaign> = {}): DropCampaign {
@@ -73,37 +86,53 @@ describe("campaignPassesFarmingEligibility", () => {
   });
 });
 
-describe("isCampaignVisible decoupled from farming eligibility", () => {
-  // The coupling regression: a subscription campaign the user has chosen NOT to
-  // farm is STILL visible in the Drops list. isCampaignVisible never consults
-  // link status or subscription — only lifecycle/excluded and the claimable
-  // escape hatch.
-  it("still shows a subscription campaign that fails farming eligibility", () => {
-    const off = { ...ELIGIBLE_ALL, farmSubscriptionCampaigns: false };
-    const c = subscriptionCampaign();
-    expect(campaignPassesFarmingEligibility(c, off)).toBe(false);
-    expect(isCampaignVisible(c, SHOW_ALL, new Set())).toBe(true);
+describe("isCampaignVisible not-linked / subscription class flags", () => {
+  // These two classes obey farming-on OR show-flag-on: the display flag can hide
+  // a campaign ONLY when the user is also not farming that class. Farming-on
+  // always forces visibility (the invariant), so the flag is a free toggle only
+  // for a class you have already opted out of farming.
+  const NOT_FARMED_UNLINKED = { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false };
+  const NOT_FARMED_SUBSCRIPTION = { ...ELIGIBLE_ALL, farmSubscriptionCampaigns: false };
+
+  it("hides a not-linked campaign only when it is not farmed and showNotLinked is off", () => {
+    const c = campaign({ accountLinked: false });
+    // Not farmed + hidden → gone.
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showNotLinked: false }, NOT_FARMED_UNLINKED, new Set())).toBe(false);
+    // Not farmed + shown → visible.
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showNotLinked: true }, NOT_FARMED_UNLINKED, new Set())).toBe(true);
   });
 
-  it("still shows an unlinked campaign that fails farming eligibility", () => {
-    const off = { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false };
+  it("keeps a farmed not-linked campaign visible even with showNotLinked off (invariant)", () => {
     const c = campaign({ accountLinked: false });
-    expect(campaignPassesFarmingEligibility(c, off)).toBe(false);
-    expect(isCampaignVisible(c, SHOW_ALL, new Set())).toBe(true);
+    // Farming this class forces visibility regardless of the display flag.
+    expect(campaignPassesFarmingEligibility(c, ELIGIBLE_ALL)).toBe(true);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showNotLinked: false }, ELIGIBLE_ALL, new Set())).toBe(true);
+  });
+
+  it("hides a subscription campaign only when it is not farmed and showSubscription is off", () => {
+    const c = subscriptionCampaign();
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showSubscription: false }, NOT_FARMED_SUBSCRIPTION, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showSubscription: true }, NOT_FARMED_SUBSCRIPTION, new Set())).toBe(true);
+  });
+
+  it("keeps a farmed subscription campaign visible even with showSubscription off (invariant)", () => {
+    const c = subscriptionCampaign();
+    expect(campaignPassesFarmingEligibility(c, ELIGIBLE_ALL)).toBe(true);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showSubscription: false }, ELIGIBLE_ALL, new Set())).toBe(true);
   });
 });
 
 describe("isCampaignVisible display flags", () => {
   it("hides upcoming campaigns unless showUpcoming is on", () => {
     const c = campaign({ status: "upcoming" });
-    expect(isCampaignVisible(c, { ...SHOW_ALL, showUpcoming: false }, new Set())).toBe(false);
-    expect(isCampaignVisible(c, { ...SHOW_ALL, showUpcoming: true }, new Set())).toBe(true);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showUpcoming: false }, ELIGIBLE_ALL, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showUpcoming: true }, ELIGIBLE_ALL, new Set())).toBe(true);
   });
 
   it("hides expired campaigns unless showExpired is on", () => {
     const c = campaign({ status: "expired" });
-    expect(isCampaignVisible(c, { ...SHOW_ALL, showExpired: false }, new Set())).toBe(false);
-    expect(isCampaignVisible(c, { ...SHOW_ALL, showExpired: true }, new Set())).toBe(true);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showExpired: false }, ELIGIBLE_ALL, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showExpired: true }, ELIGIBLE_ALL, new Set())).toBe(true);
   });
 
   it("hides finished campaigns unless showFinished is on", () => {
@@ -118,14 +147,14 @@ describe("isCampaignVisible display flags", () => {
         status: "claimed",
       }],
     });
-    expect(isCampaignVisible(c, { ...SHOW_ALL, showFinished: false }, new Set())).toBe(false);
-    expect(isCampaignVisible(c, { ...SHOW_ALL, showFinished: true }, new Set())).toBe(true);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showFinished: false }, ELIGIBLE_ALL, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showFinished: true }, ELIGIBLE_ALL, new Set())).toBe(true);
   });
 
   it("hides excluded campaigns unless showExcluded is on", () => {
     const c = campaign();
-    expect(isCampaignVisible(c, { ...SHOW_ALL, showExcluded: false }, new Set(["campaign"]))).toBe(false);
-    expect(isCampaignVisible(c, { ...SHOW_ALL, showExcluded: true }, new Set(["campaign"]))).toBe(true);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showExcluded: false }, ELIGIBLE_ALL, new Set(["campaign"]))).toBe(false);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showExcluded: true }, ELIGIBLE_ALL, new Set(["campaign"]))).toBe(true);
   });
 
   it("finished wins over expired precedence", () => {
@@ -143,7 +172,7 @@ describe("isCampaignVisible display flags", () => {
         status: "claimed",
       }],
     });
-    expect(isCampaignVisible(c, { ...SHOW_ALL, showFinished: false, showExpired: true }, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...SHOW_ALL, showFinished: false, showExpired: true }, ELIGIBLE_ALL, new Set())).toBe(false);
   });
 
   it("keeps the claimable escape hatch even when every display flag is off", () => {
@@ -159,8 +188,8 @@ describe("isCampaignVisible display flags", () => {
         status: "claimable",
       }],
     });
-    const allOff = { showUpcoming: false, showExpired: false, showFinished: false, showExcluded: false };
-    expect(isCampaignVisible(c, allOff, new Set(["campaign"]))).toBe(true);
+    const allOff = ALL_OFF;
+    expect(isCampaignVisible(c, allOff, ELIGIBLE_ALL, new Set(["campaign"]))).toBe(true);
   });
 });
 
@@ -191,24 +220,24 @@ describe("eligibility-driven lifecycle hides in the Drops list", () => {
   // Aligning display with the engine's eligibility view: none of these states is
   // farmable (isEligible rejects any eligibility !== "eligible"), so hiding them
   // cannot hide a farmable campaign.
-  const allOff = { showUpcoming: false, showExpired: false, showFinished: false, showExcluded: false };
+  const allOff = ALL_OFF;
 
   it("hides an active/upcoming-eligibility campaign when showUpcoming is off", () => {
     const c = campaign({ status: "active", eligibility: "upcoming" });
-    expect(isCampaignVisible(c, allOff, new Set())).toBe(false);
-    expect(isCampaignVisible(c, { ...allOff, showUpcoming: true }, new Set())).toBe(true);
+    expect(isCampaignVisible(c, allOff, ELIGIBLE_ALL, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...allOff, showUpcoming: true }, ELIGIBLE_ALL, new Set())).toBe(true);
   });
 
   it("hides an active/expired-eligibility campaign when showExpired is off", () => {
     const c = campaign({ status: "active", eligibility: "expired" });
-    expect(isCampaignVisible(c, allOff, new Set())).toBe(false);
-    expect(isCampaignVisible(c, { ...allOff, showExpired: true }, new Set())).toBe(true);
+    expect(isCampaignVisible(c, allOff, ELIGIBLE_ALL, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...allOff, showExpired: true }, ELIGIBLE_ALL, new Set())).toBe(true);
   });
 
   it("hides an active/completed-eligibility campaign when showFinished is off", () => {
     const c = campaign({ status: "active", eligibility: "completed" });
-    expect(isCampaignVisible(c, allOff, new Set())).toBe(false);
-    expect(isCampaignVisible(c, { ...allOff, showFinished: true }, new Set())).toBe(true);
+    expect(isCampaignVisible(c, allOff, ELIGIBLE_ALL, new Set())).toBe(false);
+    expect(isCampaignVisible(c, { ...allOff, showFinished: true }, ELIGIBLE_ALL, new Set())).toBe(true);
   });
 });
 
@@ -218,11 +247,14 @@ describe("visibility invariant: every farmable campaign stays visible", () => {
   // off. A campaign the engine farms is active, not ended, eligibility
   // "eligible" (or absent), and has an earnable reward — regardless of link
   // status or subscription requirement, since farmUnlinkedCampaigns and
-  // farmSubscriptionCampaigns both default to on. isCampaignVisible only ever
-  // hides the non-farmable lifecycle/excluded states, so it must return true for
-  // all of these. If a future change makes a farmable campaign hideable, this
-  // fails.
-  const allOff = { showUpcoming: false, showExpired: false, showFinished: false, showExcluded: false };
+  // farmSubscriptionCampaigns both default to on. ALL_OFF turns off every
+  // display flag INCLUDING showNotLinked/showSubscription, so the not-linked and
+  // subscription cases here specifically prove that farming-on overrides the
+  // class show-flags: the four lifecycle/excluded states are non-farmable, and
+  // the two class states are held visible by the farming-on branch. It must
+  // return true for all of these. If a future change makes a farmable campaign
+  // hideable, this fails.
+  const allOff = ALL_OFF;
 
   // The kind of campaign the engine actually farms: active, eligible, with an
   // unclaimed watch reward that still has minutes to earn.
@@ -252,7 +284,7 @@ describe("visibility invariant: every farmable campaign stays visible", () => {
     for (const c of farmable) {
       // The engine's farming-eligibility gate passes with defaults on.
       expect(campaignPassesFarmingEligibility(c, ELIGIBLE_ALL)).toBe(true);
-      expect(isCampaignVisible(c, allOff, new Set())).toBe(true);
+      expect(isCampaignVisible(c, allOff, ELIGIBLE_ALL, new Set())).toBe(true);
     }
   });
 });

@@ -55,7 +55,7 @@ describe("settings storage migration", () => {
     expect(written.platform.twitch).not.toHaveProperty("watchQueueChannels");
   });
 
-  it("moves a stored campaignVisibility block's lifecycle keys into dropsListFilter, leaving farming at defaults", async () => {
+  it("moves a stored campaignVisibility block's display keys into dropsListFilter, leaving farming at defaults", async () => {
     get.mockResolvedValue({
       settings: {
         schemaVersion: 1,
@@ -65,10 +65,10 @@ describe("settings storage migration", () => {
 
     const settings = await loadSettings();
 
-    // campaignVisibility was display-only, so notLinked/subscription are dropped
-    // and farming stays at its defaults (both on) — no farming reduction on
-    // upgrade. Only the four lifecycle keys carry over (see
-    // CAMPAIGN_VISIBILITY_MAPPING).
+    // campaignVisibility was display-only, so all six keys carry over as display
+    // preferences (including notLinked/subscription as showNotLinked/
+    // showSubscription) while farming stays at its defaults (both on) — no
+    // farming reduction on upgrade (see CAMPAIGN_VISIBILITY_MAPPING).
     expect(settings.farmingEligibility).toEqual({
       farmUnlinkedCampaigns: true,
       farmSubscriptionCampaigns: true,
@@ -78,6 +78,8 @@ describe("settings storage migration", () => {
       showExpired: true,
       showFinished: false,
       showExcluded: true,
+      showNotLinked: false,
+      showSubscription: false,
     });
     expect(set).toHaveBeenCalledTimes(1);
     const written = set.mock.calls[0]?.[0].settings;

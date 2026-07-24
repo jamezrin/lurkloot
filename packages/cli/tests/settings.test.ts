@@ -165,27 +165,22 @@ describe("parseCliSettings", () => {
       .toThrow(/"dropsListFilter" is an extension-only setting/);
   });
 
-  it("drops a legacy campaignVisibility display preference without touching farming", () => {
-    const { settings, diagnostics } = parseCliSettingsWithDiagnostics({ campaignVisibility: { notLinked: false } });
-
-    // campaignVisibility was display-only. notLinked is not a lifecycle key, so
-    // the migration drops it: it neither creates a dropsListFilter block nor
-    // derives farming eligibility. farmUnlinkedCampaigns stays at its default
-    // (on), so upgrading never silently reduces farming. The move is still
-    // reported.
-    expect(settings.farmingEligibility.farmUnlinkedCampaigns).toBe(DEFAULT_CLI_SETTINGS.farmingEligibility.farmUnlinkedCampaigns);
-    expect(settings.farmingEligibility.farmUnlinkedCampaigns).toBe(true);
-    expect(settings).not.toHaveProperty("campaignVisibility");
-    expect(settings).not.toHaveProperty("dropsListFilter");
-    expect(diagnostics).toEqual([
-      expect.objectContaining({ path: "campaignVisibility", replacement: "dropsListFilter" }),
-    ]);
+  it("rejects a legacy campaignVisibility whose class key now migrates to dropsListFilter", () => {
+    // notLinked was formerly dropped (it had no home). It is now a DISPLAY
+    // preference — the migration maps it to dropsListFilter.showNotLinked, a
+    // display block the CLI rejects as extension-only. This never touches farming
+    // (farmingEligibility is not produced), but the display key reaches the
+    // extension-only boundary and hard-errors. Complements the lifecycle-key case
+    // below: this covers the two new class keys (notLinked/subscription), that
+    // one covers a lifecycle key.
+    expect(() => parseCliSettings({ campaignVisibility: { notLinked: false } }))
+      .toThrow(/"dropsListFilter"\) is an extension-only setting/);
   });
 
-  it("rejects a legacy campaignVisibility whose display half migrates to dropsListFilter", () => {
-    // A display key in the legacy record migrates into a dropsListFilter block,
-    // which is extension-only — so the CLI hard-errors rather than dropping it.
-    // Unreachable for any real config (campaignVisibility was already
+  it("rejects a legacy campaignVisibility whose lifecycle key migrates to dropsListFilter", () => {
+    // A lifecycle display key in the legacy record migrates into a dropsListFilter
+    // block, which is extension-only — so the CLI hard-errors rather than dropping
+    // it. Unreachable for any real config (campaignVisibility was already
     // extension-only before this feature), but the boundary must hold.
     expect(() => parseCliSettings({ campaignVisibility: { upcoming: false } }))
       .toThrow(/"dropsListFilter"\) is an extension-only setting/);

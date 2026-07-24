@@ -114,17 +114,19 @@ function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
 // Migration 2 replaces the six-key campaignVisibility record. In the shipped
 // release campaignVisibility was DISPLAY-ONLY: it decided what the popup's Drops
 // list showed and never affected farming. In this branch, farming eligibility is
-// gated by a new, separate field. So the migration must carry ONLY the four
-// lifecycle display keys into dropsListFilter — mapping the old notLinked/
-// subscription display preferences into the new farming flags would silently
-// reduce farming for anyone who had merely hidden those campaigns from their
-// list, which never meant anything about farming. Those two keys are therefore
-// dropped: farmingEligibility is never populated here, so normalization defaults
-// both flags to true, preserving today's farming behaviour for every profile.
-// This upholds the invariant "anything farmed must be visible": the four
-// migrated keys are all non-farmable lifecycle states, so the display filter can
-// never hide a campaign the engine would farm. The interim campaignFilters name
-// never shipped and is dropped defensively. Migrations reshape; they never
+// gated by a new, separate field. campaignVisibility was purely a display
+// preference, so all six keys map into the new display field dropsListFilter —
+// including notLinked/subscription, which dropsListFilter now expresses as
+// showNotLinked/showSubscription. This preserves the user's old display prefs
+// exactly. farmingEligibility is deliberately NOT populated here: mapping a
+// display preference into a farming flag would silently reduce farming for
+// anyone who had merely hidden those campaigns, which never meant anything about
+// farming. With farmingEligibility absent, normalization defaults both flags to
+// true, preserving today's farming behaviour for every profile. This upholds the
+// invariant "anything farmed must be visible": farming defaults on, so the
+// farming-on branch of isCampaignVisible keeps not-linked/subscription campaigns
+// visible regardless of the migrated show flags. The interim campaignFilters
+// name never shipped and is dropped defensively. Migrations reshape; they never
 // inspect sub-value types, so a wrong-typed old value is carried across and
 // normalization decides.
 const CAMPAIGN_VISIBILITY_MAPPING: ReadonlyArray<{ from: string; toKey: string }> = [
@@ -132,6 +134,8 @@ const CAMPAIGN_VISIBILITY_MAPPING: ReadonlyArray<{ from: string; toKey: string }
   { from: "expired", toKey: "showExpired" },
   { from: "finished", toKey: "showFinished" },
   { from: "excluded", toKey: "showExcluded" },
+  { from: "notLinked", toKey: "showNotLinked" },
+  { from: "subscription", toKey: "showSubscription" },
 ];
 
 function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
@@ -151,7 +155,7 @@ function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     code: "moved_property",
     path: "campaignVisibility",
     replacement: "dropsListFilter",
-    message: "campaignVisibility display states moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
+    message: "campaignVisibility display preferences moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
   });
 
   for (const { from, toKey } of CAMPAIGN_VISIBILITY_MAPPING) {

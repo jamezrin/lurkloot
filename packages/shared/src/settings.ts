@@ -91,6 +91,11 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
     showExpired: false,
     showFinished: true,
     showExcluded: false,
+    // Not-linked and subscription campaigns show by default. These only hide a
+    // class the user has also chosen NOT to farm; a farmed class stays visible
+    // regardless (enforced in isCampaignVisible), so the default is show-all.
+    showNotLinked: true,
+    showSubscription: true,
   },
   adFocusMode: "window",
   languageOverride: "browser",
@@ -298,6 +303,8 @@ function normalizeDropsListFilter(
     showExpired: booleanOr(value?.showExpired, DEFAULT_SETTINGS.dropsListFilter.showExpired),
     showFinished: booleanOr(value?.showFinished, DEFAULT_SETTINGS.dropsListFilter.showFinished),
     showExcluded: booleanOr(value?.showExcluded, DEFAULT_SETTINGS.dropsListFilter.showExcluded),
+    showNotLinked: booleanOr(value?.showNotLinked, DEFAULT_SETTINGS.dropsListFilter.showNotLinked),
+    showSubscription: booleanOr(value?.showSubscription, DEFAULT_SETTINGS.dropsListFilter.showSubscription),
   };
 }
 
