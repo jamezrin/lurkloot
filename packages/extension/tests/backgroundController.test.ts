@@ -1551,6 +1551,42 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
   });
 
+  it("clears accumulated playback checks as soon as the watch tab reports playback (#250)", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    await env.controller.handleMessage({ type: "setRunning", running: true });
+    env.state.sessions.twitch = { ...env.state.sessions.twitch, playbackChecks: 2 };
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 0,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 0,
+        playingVideoCount: 0,
+        blockedPlaybackCount: 0,
+        documentHidden: true,
+      },
+    }, { tab: { id: 10 } });
+
+    expect(env.state.sessions.twitch.playbackChecks).toBe(2);
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 1,
+        unmutedVideoCount: 0,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: true,
+      },
+    }, { tab: { id: 10 } });
+
+    expect(env.state.sessions.twitch.playbackChecks).toBe(0);
+  });
+
   it("records visible playback in a non-managed tab as manual watch activity", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false, pauseOnManualWatch: true });
     await env.controller.handleMessage({ type: "setRunning", running: true });

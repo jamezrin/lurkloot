@@ -5,6 +5,7 @@ import type {
   DropReward,
   EngineSettings,
   Platform,
+  PlaybackTelemetry,
   SchedulerState,
   WatchDecision,
   WatchReasonCode,
@@ -390,6 +391,7 @@ function sessionForDecision(
       reasonCode: decision.reasonCode,
       playback: undefined,
       playbackChecks: 0,
+      watchTabOpenedAt: undefined,
       watchMode: undefined,
       tablessFallback: undefined,
       heartbeatChecks: 0,
@@ -909,6 +911,7 @@ export async function runSchedulerTick(
           session.watchMode = "tabless";
           session.tablessFallback = false;
           session.tabId = undefined;
+          session.watchTabOpenedAt = undefined;
           session.tabManagedByExtension = undefined;
           // Carry heartbeat health across the same channel; reset on a switch.
           session.heartbeatChecks = sameChannel ? previous.heartbeatChecks ?? 0 : 0;
@@ -940,7 +943,13 @@ export async function runSchedulerTick(
           // channel instead of flipping back to a failing tabless heartbeat.
           session.watchMode = "tab";
           session.tablessFallback = Boolean(settings.tablessMode && adapter.supportsTabless);
-          if (!sameChannel || previous.watchMode !== "tab" || previous.tabId !== prepared.tabId) {
+          // A new tab id, a different channel, or a switch out of tabless all mean
+          // the page starts from scratch: restart the playback grace window (#250).
+          const freshTab = !sameChannel || previous.watchMode !== "tab" || previous.tabId !== prepared.tabId;
+          session.watchTabOpenedAt = freshTab ? new Date().toISOString() : previous.watchTabOpenedAt;
+          // The counter describes the tab we just replaced, not this one.
+          if (freshTab) session.playbackChecks = 0;
+          if (freshTab) {
             emitDiagnostic(emit, platform, "debug", `Watch tab ready (tab ${prepared.tabId}, ${prepared.managedByExtension ? "extension-managed" : "user tab"}) for ${decision.channel.displayName ?? decision.channel.username}`);
           }
           if (prepared.managedByExtension) {
@@ -1204,7 +1213,7 @@ async function shouldKeepWatching(
     const fallbackCheck = await adapter.checkChannel(previous.channel);
     const fallbackOfflineChecks = fallbackCheck.live ? 0 : previous.offlineChecks + 1;
     if (fallbackCheck.live && fallbackCheck.categoryMatches) {
-      const fallbackPlaybackChecks = isTabless || isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
+      const fallbackPlaybackChecks = nextPlaybackChecks(previous, isTabless);
       if (fallbackPlaybackChecks < settings.offlineRetryLimit) {
         return {
           keep: true,
@@ -1246,7 +1255,7 @@ async function shouldKeepWatching(
     return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel category no longer matches", reasonCode: "channel_mismatch" };
   }
 
-  const playbackChecks = isTabless || isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
+  const playbackChecks = nextPlaybackChecks(previous, isTabless);
   if (playbackChecks >= settings.offlineRetryLimit) {
     return {
       keep: false,
@@ -1267,16 +1276,48 @@ async function shouldKeepWatching(
   };
 }
 
+// Playing — muted or not — is what indicates farming is working. The browser
+// can block element-level unmuting in a background tab, so the content script
+// may keep the video muted; that is still healthy as long as it plays.
+export function isPlaybackTelemetryHealthy(telemetry: Pick<PlaybackTelemetry, "videoCount" | "playingVideoCount">): boolean {
+  return telemetry.videoCount > 0 && telemetry.playingVideoCount > 0;
+}
+
 function isPlaybackHealthy(session: WatchSession): boolean {
   const playback = session.playback;
   if (!playback) return false;
   const checkedAt = Date.parse(playback.checkedAt);
   if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return false;
-  // Playing — muted or not — is what indicates farming is working. The browser
-  // can block element-level unmuting in a background tab, so the content script
-  // may keep the video muted; that is still healthy as long as it plays.
-  return playback.videoCount > 0
-    && playback.playingVideoCount > 0;
+  return isPlaybackTelemetryHealthy(playback);
+}
+
+// A page that has just been opened or navigated has no player attached yet, so
+// its telemetry legitimately reads "0 videos" for a while. Counting those ticks
+// as failures makes the scheduler destroy the tab and open an equally cold
+// replacement, which is self-sustaining churn (#250). The window is measured
+// from tab creation rather than a tick count because health ticks also run
+// off-cycle (tab closed, telemetry arriving), so a count is not a duration.
+//
+// 90s is one full default poll interval (pollIntervalMinutes: 1) plus slack, so
+// a freshly opened tab is never condemned by its first scheduled evaluation
+// even on a slow/high-latency connection. A tab that genuinely never plays is
+// still replaced after offlineRetryLimit further checks.
+export const WATCH_TAB_PLAYBACK_GRACE_MS = 90 * 1000;
+
+function isWithinPlaybackGrace(session: WatchSession): boolean {
+  if (!session.watchTabOpenedAt) return false;
+  const openedAt = Date.parse(session.watchTabOpenedAt);
+  if (Number.isNaN(openedAt)) return false;
+  const elapsed = Date.now() - openedAt;
+  return elapsed >= 0 && elapsed < WATCH_TAB_PLAYBACK_GRACE_MS;
+}
+
+// Unhealthy playback only accumulates once the tab has had its grace period.
+// A healthy reading (or the grace window) resets the counter to zero, so a tab
+// that dips and recovers is never condemned by stale counters.
+function nextPlaybackChecks(session: WatchSession, isTabless: boolean): number {
+  if (isTabless || isPlaybackHealthy(session) || isWithinPlaybackGrace(session)) return 0;
+  return (session.playbackChecks ?? 0) + 1;
 }
 
 // Health of the current watch, regardless of mode: a tabless session is healthy
