@@ -199,6 +199,27 @@ describe("i18n", () => {
     }
   });
 
+  it("localizes the manual watch-tab close pause in every catalog", () => {
+    const englishMessages: Record<string, string> = {
+      automationPausedTabClosed: "Paused — tab closed",
+      watchTabClosedPauseDetail: "You closed the farming tab, so Lurkloot stopped farming here.",
+      resumeFarming: "Resume farming",
+      activityReasonManualTabClose: "farming tab closed",
+    };
+    const english = readCatalog("en");
+
+    for (const [key, message] of Object.entries(englishMessages)) {
+      expect(english[key]?.message, key).toBe(message);
+    }
+    for (const locale of localeCodes()) {
+      const catalog = readCatalog(locale);
+      for (const key of Object.keys(englishMessages)) {
+        expect(catalog[key]?.message, `${locale}:${key}`).toBeTypeOf("string");
+        expect(catalog[key].message.trim(), `${locale}:${key}`).not.toBe("");
+      }
+    }
+  });
+
   it("localizes the new settings section labels in every catalog", () => {
     const required = [
       "settingsSearchPlaceholder",

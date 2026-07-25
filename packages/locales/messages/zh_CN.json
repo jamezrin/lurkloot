@@ -958,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "Kick 拒绝了此浏览器配置文件。仅重新登录可能无法解决问题。" },
   "authCredentialCheckUnavailable": { "message": "无法检查浏览器会话。Lurkloot 将自动重试。" },
   "authNetworkTemporarilyUnavailable": { "message": "网络暂时不可用。Lurkloot 将自动重试。" },
-  "authPlatformTemporarilyUnavailable": { "message": "平台暂时不可用。Lurkloot 将自动重试。" }
+  "authPlatformTemporarilyUnavailable": { "message": "平台暂时不可用。Lurkloot 将自动重试。" },
+  "automationPausedTabClosed": { "message": "已暂停 — 标签页已关闭" },
+  "watchTabClosedPauseDetail": { "message": "你关闭了挂机标签页，因此 Lurkloot 已停止在此挂机。" },
+  "resumeFarming": { "message": "恢复挂机" },
+  "activityReasonManualTabClose": { "message": "挂机标签页已关闭" }
 }

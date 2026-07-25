@@ -1084,5 +1084,9 @@
   },
   "authPlatformTemporarilyUnavailable": {
     "message": "Platforma ulaşılamıyor. Otomatik tekrar denenecek."
-  }
+  },
+  "automationPausedTabClosed": { "message": "Duraklatıldı — sekme kapatıldı" },
+  "watchTabClosedPauseDetail": { "message": "Farm sekmesini kapattınız, bu yüzden Lurkloot burada farmı durdurdu." },
+  "resumeFarming": { "message": "Farmı sürdür" },
+  "activityReasonManualTabClose": { "message": "farm sekmesi kapatıldı" }
 }

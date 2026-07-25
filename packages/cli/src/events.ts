@@ -20,6 +20,7 @@ function formatStopReason(reason: FarmingStopReason): string {
     case "runtime_restart": return "runtime restart";
     case "target_changed": return "target changed";
     case "manual_watch": return "manual watch";
+    case "manual_tab_close": return "farming tab closed by the user";
     case "critical_failure": return "a critical failure was detected";
     default: {
       const exhaustive: never = reason;
@@ -46,6 +47,7 @@ function formatPageContextCloseReason(reason: PageContextCloseReason): string {
     case "platform_disabled": return "platform disabled";
     case "automation_disabled": return "automation disabled";
     case "manual_watch": return "manual watch detected";
+    case "manual_tab_close": return "farming tab closed by the user";
     case "authentication_unhealthy": return "authentication unavailable";
     case "runtime_restart": return "extension runtime restarted";
     case "managed_context_unusable": return "background context unusable";

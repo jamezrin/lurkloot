@@ -958,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "Kick a rejeté ce profil de navigateur. Se reconnecter uniquement ne suffira peut-être pas." },
   "authCredentialCheckUnavailable": { "message": "Votre session de navigateur n’a pas pu être vérifiée. Lurkloot réessaiera automatiquement." },
   "authNetworkTemporarilyUnavailable": { "message": "Le réseau est temporairement indisponible. Lurkloot réessaiera automatiquement." },
-  "authPlatformTemporarilyUnavailable": { "message": "La plateforme est temporairement indisponible. Lurkloot réessaiera automatiquement." }
+  "authPlatformTemporarilyUnavailable": { "message": "La plateforme est temporairement indisponible. Lurkloot réessaiera automatiquement." },
+  "automationPausedTabClosed": { "message": "En pause — onglet fermé" },
+  "watchTabClosedPauseDetail": { "message": "Vous avez fermé l'onglet de farming, Lurkloot a donc arrêté de farmer ici." },
+  "resumeFarming": { "message": "Reprendre le farming" },
+  "activityReasonManualTabClose": { "message": "onglet de farming fermé" }
 }

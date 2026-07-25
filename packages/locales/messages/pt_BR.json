@@ -958,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "A Kick rejeitou este perfil do navegador. Apenas entrar na conta pode não resolver o problema." },
   "authCredentialCheckUnavailable": { "message": "Não foi possível verificar a sessão do navegador. O Lurkloot tentará novamente automaticamente." },
   "authNetworkTemporarilyUnavailable": { "message": "A rede está temporariamente indisponível. O Lurkloot tentará novamente automaticamente." },
-  "authPlatformTemporarilyUnavailable": { "message": "A plataforma está temporariamente indisponível. O Lurkloot tentará novamente automaticamente." }
+  "authPlatformTemporarilyUnavailable": { "message": "A plataforma está temporariamente indisponível. O Lurkloot tentará novamente automaticamente." },
+  "automationPausedTabClosed": { "message": "Pausado — aba fechada" },
+  "watchTabClosedPauseDetail": { "message": "Você fechou a aba de farm, então o Lurkloot parou de farmar aqui." },
+  "resumeFarming": { "message": "Retomar farm" },
+  "activityReasonManualTabClose": { "message": "aba de farm fechada" }
 }

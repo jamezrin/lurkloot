@@ -57,6 +57,7 @@ const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   runtime_restart: true,
   target_changed: true,
   manual_watch: true,
+  manual_tab_close: true,
   critical_failure: true,
 };
 const EN_RUNTIME_MESSAGES: Record<string, string> = {
@@ -581,8 +582,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // Serialize the load-modify-persist under the state lock so it cannot race a
     // concurrent tick()/heartbeat (both fire on a ~1-minute cadence while the
     // user can close a tab at any moment). A removal never runs the scheduler
-    // directly: the next ordinary alarm may recover without fighting the user's
-    // close action by immediately recreating the tab.
+    // directly (#193): it only records state, and the next ordinary alarm reads
+    // it. Closing a tab LurkLoot owns now records a per-platform pause, so the
+    // alarm keeps the platform paused instead of reopening the tab a minute
+    // later. The user's enabled/running settings are deliberately untouched;
+    // the popup shows the pause with a one-click resume.
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const state = await deps.loadState();
       const manualPlatforms = (["twitch", "kick"] as Platform[]).filter((platform) => state.manualWatch?.[platform]?.tabId === tabId);
@@ -605,21 +609,51 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           && session.tabId === tabId
         ) {
           closedManagedPlatforms.push(platform);
-          emit({ category: "diagnostic", platform, level: "info", message: "Managed watch tab was closed; recovery deferred to the next scheduler cycle" });
+          emit({ category: "diagnostic", platform, level: "info", message: "Managed watch tab was closed manually; pausing farming for this platform until the user resumes" });
         }
       }
 
       if (closedManagedPlatforms.length > 0) {
+        const closedAt = new Date().toISOString();
         const sessions = { ...nextState.sessions };
         const managedWatchTabs = { ...nextState.managedWatchTabs };
+        const manualClosePause = { ...nextState.manualClosePause };
         for (const platform of closedManagedPlatforms) {
-          sessions[platform] = { platform, status: "idle", offlineChecks: 0 };
+          sessions[platform] = {
+            platform,
+            status: "paused",
+            offlineChecks: 0,
+            message: "Farming tab closed",
+            reasonCode: "manual_tab_close",
+          };
           delete managedWatchTabs[platform];
+          const channelUrl = state.managedWatchTabs?.[platform]?.channelUrl ?? state.sessions[platform].channel?.url;
+          manualClosePause[platform] = {
+            platform,
+            closedAt,
+            ...(channelUrl ? { channelUrl } : {}),
+          };
         }
-        nextState = { ...nextState, sessions, managedWatchTabs };
+        nextState = { ...nextState, sessions, managedWatchTabs, manualClosePause };
       }
 
       if (nextState !== state || events.length > 0) await persistAndReport(nextState, events);
+    }));
+  }
+
+  // Explicit user action: clears the manual-close pause so the next tick may
+  // farm this platform again. Only the user can undo the gesture they made.
+  async function resumeAfterManualClose(platform: Platform): Promise<void> {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      const state = await deps.loadState();
+      if (!state.manualClosePause?.[platform]) {
+        await reportBestEffort(events);
+        return;
+      }
+      const manualClosePause = { ...state.manualClosePause };
+      delete manualClosePause[platform];
+      emit({ category: "diagnostic", platform, level: "info", message: "Resuming farming after a manual watch tab close" });
+      await persistAndReport({ ...state, manualClosePause }, events);
     }));
   }
 
@@ -1236,6 +1270,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       return snapshot();
     }
 
+    if (message.type === "resumeAfterManualClose") {
+      await resumeAfterManualClose(message.platform);
+      const settings = await deps.loadSettings();
+      if (settings.running && settings.platform[message.platform].enabled) {
+        await tickAndHandOff([message.platform]);
+      }
+      return snapshot();
+    }
+
     if (message.type === "claimReward") {
       return claimRewardNow(message);
     }
@@ -1354,6 +1397,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     handleStartup,
     handleTabRemoved,
     handleMessage,
+    resumeAfterManualClose,
     captureTwitchIntegrity,
     checkAuthHealth,
     invalidateAuthHealth,

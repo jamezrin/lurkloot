@@ -958,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "Kick ने इस ब्राउज़र प्रोफ़ाइल को अस्वीकार कर दिया। केवल साइन इन करने से समस्या शायद हल न हो।" },
   "authCredentialCheckUnavailable": { "message": "आपके ब्राउज़र सत्र की जाँच नहीं हो सकी। Lurkloot अपने आप फिर प्रयास करेगा।" },
   "authNetworkTemporarilyUnavailable": { "message": "नेटवर्क अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।" },
-  "authPlatformTemporarilyUnavailable": { "message": "प्लेटफ़ॉर्म अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।" }
+  "authPlatformTemporarilyUnavailable": { "message": "प्लेटफ़ॉर्म अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।" },
+  "automationPausedTabClosed": { "message": "रुका हुआ — टैब बंद" },
+  "watchTabClosedPauseDetail": { "message": "आपने फ़ार्मिंग टैब बंद कर दिया, इसलिए Lurkloot ने यहाँ फ़ार्मिंग रोक दी।" },
+  "resumeFarming": { "message": "फ़ार्मिंग फिर से शुरू करें" },
+  "activityReasonManualTabClose": { "message": "फ़ार्मिंग टैब बंद" }
 }

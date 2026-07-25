@@ -120,6 +120,7 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
     case "target_changed": return t("activityReasonTargetChanged");
     case "critical_failure": return t("activityReasonCriticalFailure");
     case "manual_watch": return t("activityReasonManualWatch");
+    case "manual_tab_close": return t("activityReasonManualTabClose");
     case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     default: {
       const exhaustive: never = reason;
@@ -146,6 +147,7 @@ function formatPageContextCloseReason(reason: PageContextCloseReason, t: TFuncti
     case "platform_disabled": return t("activityReasonPlatformDisabled");
     case "automation_disabled": return t("activityReasonAutomationDisabled");
     case "manual_watch": return t("activityReasonManualWatch");
+    case "manual_tab_close": return t("activityReasonManualTabClose");
     case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     case "runtime_restart": return t("activityReasonRuntimeRestart");
     case "managed_context_unusable": return t("activityPageContextReasonManagedContextUnusable");

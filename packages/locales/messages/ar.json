@@ -958,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "رفض Kick ملف تعريف المتصفح هذا. قد لا يكفي تسجيل الدخول وحده لحل المشكلة." },
   "authCredentialCheckUnavailable": { "message": "تعذر التحقق من جلسة المتصفح. سيعيد Lurkloot المحاولة تلقائيًا." },
   "authNetworkTemporarilyUnavailable": { "message": "الشبكة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا." },
-  "authPlatformTemporarilyUnavailable": { "message": "المنصة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا." }
+  "authPlatformTemporarilyUnavailable": { "message": "المنصة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا." },
+  "automationPausedTabClosed": { "message": "متوقّف مؤقتًا — أُغلقت علامة التبويب" },
+  "watchTabClosedPauseDetail": { "message": "لقد أغلقت علامة تبويب الزراعة، لذا أوقف Lurkloot الزراعة هنا." },
+  "resumeFarming": { "message": "استئناف الزراعة" },
+  "activityReasonManualTabClose": { "message": "أُغلقت علامة تبويب الزراعة" }
 }

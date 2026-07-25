@@ -958,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "Kick отклонил этот профиль браузера. Одного входа может быть недостаточно для решения проблемы." },
   "authCredentialCheckUnavailable": { "message": "Не удалось проверить сеанс браузера. Lurkloot повторит попытку автоматически." },
   "authNetworkTemporarilyUnavailable": { "message": "Сеть временно недоступна. Lurkloot повторит попытку автоматически." },
-  "authPlatformTemporarilyUnavailable": { "message": "Платформа временно недоступна. Lurkloot повторит попытку автоматически." }
+  "authPlatformTemporarilyUnavailable": { "message": "Платформа временно недоступна. Lurkloot повторит попытку автоматически." },
+  "automationPausedTabClosed": { "message": "Пауза — вкладка закрыта" },
+  "watchTabClosedPauseDetail": { "message": "Вы закрыли вкладку фарма, поэтому Lurkloot остановил фарм здесь." },
+  "resumeFarming": { "message": "Возобновить фарм" },
+  "activityReasonManualTabClose": { "message": "вкладка фарма закрыта" }
 }

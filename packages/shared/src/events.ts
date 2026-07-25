@@ -19,6 +19,7 @@ export type FarmingStopReason =
   | "runtime_restart"
   | "target_changed"
   | "manual_watch"
+  | "manual_tab_close"
   // A managed-tab reopen loop was detected; the platform is parked until the
   // breaker releases or the user dismisses the prompt.
   | "critical_failure";
@@ -38,6 +39,7 @@ export type PageContextCloseReason =
   | "platform_disabled"
   | "automation_disabled"
   | "manual_watch"
+  | "manual_tab_close"
   | "authentication_unhealthy"
   | "runtime_restart"
   | "managed_context_unusable";
