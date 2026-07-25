@@ -12,6 +12,9 @@ export type CoreRuntimeMessage =
   | { type: "claimReward"; platform: Platform; campaignId: string; rewardId: string }
   | { type: "searchCategories"; platform: Platform; query: string }
   | { type: "tickNow" }
+  // Handled by the engine controller, not the extension shell: dismissing resets
+  // the detector, closes the managed-tab breaker and lets farming resume.
+  | { type: "dismissCriticalFailure"; platform: Platform }
   | {
       type: "playbackTelemetry";
       platform: Platform;
@@ -23,8 +26,7 @@ export type RuntimeMessage =
   | ({ type: "getActivity" } & ActivityQuery)
   | { type: "clearActivity" }
   | { type: "resetExtension" }
-  | { type: "exportCliCredentials" }
-  | { type: "dismissCriticalFailure"; platform: Platform };
+  | { type: "exportCliCredentials" };
 
 // Credential blob the popup exports for the headless CLI's `login --import`. It
 // carries only the session tokens the CLI transports replay — never anything the
