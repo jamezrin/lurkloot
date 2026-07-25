@@ -838,6 +838,15 @@
   "clearActivityFailed": {
     "message": "تعذر مسح سجل النشاط. حاول مرة أخرى."
   },
+  "copyActivityLog": {
+    "message": "نسخ السجل"
+  },
+  "copyActivityLogCopied": {
+    "message": "تم نسخ $1 حدثًا"
+  },
+  "copyActivityLogFailed": {
+    "message": "تعذّر نسخ السجل. حاول مرة أخرى."
+  },
   "activityViewTab": {
     "message": "النشاط"
   },

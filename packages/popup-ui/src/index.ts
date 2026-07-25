@@ -12,6 +12,7 @@ export {
   applyActivityPage,
   applyActivityPageForRequest,
   beginActivityMutation,
+  buildActivityExport,
   createActivityMutationSequence,
   createActivityRequestScope,
   createActivityStream,

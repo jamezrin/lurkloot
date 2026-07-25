@@ -42,7 +42,8 @@ describe("settings", () => {
       platform: { ...DEFAULT_SETTINGS.platform, twitch: { ...DEFAULT_SETTINGS.platform.twitch, watchQueueChannels: ["legacy"] } },
     } as never);
     expect(merged.idleWatchlistFallbackOnly).toBe(DEFAULT_SETTINGS.idleWatchlistFallbackOnly);
-    expect(merged.diagnosticLogging).toBe(false);
+    // verboseLogging is not read here; the default applies.
+    expect(merged.diagnosticLogging).toBe(true);
     expect(merged.platform.twitch.autoClaimChannelPoints).toBe(true);
     expect(merged.platform.twitch.idleWatchlistChannels).toEqual([]);
     expect(merged).not.toHaveProperty("watchQueueFallbackOnly");
@@ -102,7 +103,7 @@ describe("settings", () => {
       languageOverride: "browser",
       idleWatchlistFallbackOnly: true,
       pollIntervalMinutes: 1,
-      diagnosticLogging: false,
+      diagnosticLogging: true,
       platform: {
         twitch: { excludedChannels: [], farmAllCategories: true, categories: [] },
         kick: { excludedChannels: [], farmAllCategories: true, categories: [] },
@@ -175,7 +176,7 @@ describe("settings", () => {
   });
 
   it("keeps diagnostic logging independent from the removed engine log-level setting", () => {
-    expect(mergeSettings(undefined).diagnosticLogging).toBe(false);
+    expect(mergeSettings(undefined).diagnosticLogging).toBe(true);
     expect(mergeSettings({ diagnosticLogging: true }).diagnosticLogging).toBe(true);
     expect(mergeSettings({ diagnosticLogging: false, enabledLogLevels: ["debug"] } as never).diagnosticLogging).toBe(false);
     expect("enabledLogLevels" in mergeSettings({ enabledLogLevels: ["debug"] } as never)).toBe(false);

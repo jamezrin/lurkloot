@@ -624,9 +624,12 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   clearFailed={clearActivityFailed}
                   loadingMore={loadingMoreActivity}
                   clearing={clearingActivity}
+                  version={adapter.version}
+                  locale={locale}
                   onShowDiagnosticsChange={setShowDiagnostics}
                   onLoadMore={loadMoreActivity}
                   onClear={clearActivityHistory}
+                  writeClipboard={adapter.writeClipboard}
                 />
               </motion.div>
             ) : (

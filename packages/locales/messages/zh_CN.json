@@ -838,6 +838,15 @@
   "clearActivityFailed": {
     "message": "无法清除活动历史记录，请重试。"
   },
+  "copyActivityLog": {
+    "message": "复制日志"
+  },
+  "copyActivityLogCopied": {
+    "message": "已复制 $1 条事件"
+  },
+  "copyActivityLogFailed": {
+    "message": "无法复制日志，请重试。"
+  },
   "activityViewTab": {
     "message": "活动"
   },

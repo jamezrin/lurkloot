@@ -838,6 +838,15 @@
   "clearActivityFailed": {
     "message": "Impossibile cancellare la cronologia. Riprova."
   },
+  "copyActivityLog": {
+    "message": "Copia registro"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 eventi copiati"
+  },
+  "copyActivityLogFailed": {
+    "message": "Impossibile copiare il registro. Riprova."
+  },
   "activityViewTab": {
     "message": "Attività"
   },

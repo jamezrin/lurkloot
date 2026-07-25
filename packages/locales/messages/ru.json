@@ -838,6 +838,15 @@
   "clearActivityFailed": {
     "message": "Не удалось очистить историю. Повторите попытку."
   },
+  "copyActivityLog": {
+    "message": "Копировать журнал"
+  },
+  "copyActivityLogCopied": {
+    "message": "Скопировано событий: $1"
+  },
+  "copyActivityLogFailed": {
+    "message": "Не удалось скопировать журнал. Попробуйте ещё раз."
+  },
   "activityViewTab": {
     "message": "Активность"
   },

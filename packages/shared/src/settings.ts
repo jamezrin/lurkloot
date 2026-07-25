@@ -102,7 +102,14 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   languageOverride: "browser",
   rateNudgeStatus: "pending",
   showTips: true,
-  diagnosticLogging: false,
+  // On by default: diagnostics only capture after they are enabled, so leaving
+  // this off meant the first occurrence of any bug — the one being reported —
+  // was always already lost. Recording is bounded (IndexedDB, capped records,
+  // 7-day diagnostic retention, daily prune) and stays user-controllable, and
+  // recording is independent of the activity view's display toggle. Existing
+  // installs are unaffected: they have persisted an explicit value already, and
+  // no migration overrides it.
+  diagnosticLogging: true,
 };
 
 // Normalizes the universal engine contract. The engine (packages/core) and any

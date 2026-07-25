@@ -838,6 +838,15 @@
   "clearActivityFailed": {
     "message": "Could not clear activity history. Try again."
   },
+  "copyActivityLog": {
+    "message": "Copy log"
+  },
+  "copyActivityLogCopied": {
+    "message": "Copied $1 events"
+  },
+  "copyActivityLogFailed": {
+    "message": "Could not copy the log. Try again."
+  },
   "activityViewTab": {
     "message": "Activity"
   },

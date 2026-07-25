@@ -211,6 +211,45 @@ export function formatActivityEvent(event: ActivityHistoryRecord, t: TFunction):
   return formatCurrentActivity(event, t);
 }
 
+export interface ActivityExportInput {
+  // The full loaded list for the visible view, newest first (as held in state).
+  events: readonly ActivityHistoryRecord[];
+  platform: Platform;
+  diagnostics: boolean;
+  version: string;
+  userAgent: string;
+  locale: string;
+  at: string;
+}
+
+// Plain text, not markup: this is pasted into email, Discord and issue bodies,
+// and it has to read as-is in all of them. The header carries the environment
+// facts a bug report is usually missing (version first) and nothing else — the
+// event bodies already decide what user data leaves the machine, and this adds
+// no identity, account or channel information of its own.
+export function buildActivityExport(input: ActivityExportInput, t: TFunction): string {
+  const header = [
+    `Lurkloot ${input.diagnostics ? "diagnostics" : "activity"} log`,
+    `version: ${input.version}`,
+    `platform: ${input.platform}`,
+    `locale: ${input.locale}`,
+    `exported: ${input.at}`,
+    `browser: ${input.userAgent}`,
+    `events: ${input.events.length}`,
+  ].join("\n");
+
+  // Oldest first: a log is read top-down when you are reconstructing what
+  // happened, even though the popup lists newest first.
+  const body = input.events.length === 0
+    ? "(no events)"
+    : [...input.events]
+      .reverse()
+      .map((event) => `${event.at} [${event.level}] ${formatActivityEvent(event, t)}`)
+      .join("\n");
+
+  return `${header}\n\n${body}\n`;
+}
+
 export function mergeActivityPages(
   current: readonly ActivityHistoryRecord[],
   incoming: readonly ActivityHistoryRecord[],

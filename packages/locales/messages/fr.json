@@ -838,6 +838,15 @@
   "clearActivityFailed": {
     "message": "Impossible d’effacer l’historique. Réessayez."
   },
+  "copyActivityLog": {
+    "message": "Copier le journal"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 événements copiés"
+  },
+  "copyActivityLogFailed": {
+    "message": "Impossible de copier le journal. Réessayez."
+  },
   "activityViewTab": {
     "message": "Activité"
   },
