@@ -28,6 +28,17 @@ export interface CriticalHealthObservation {
   // still runs without charging failing time.
   failing: boolean;
   // watchedMinutes increased for the active reward this tick.
+  //
+  // Today this field cannot affect the outcome, and that is by design rather than
+  // by accident. The prompt fires only on sustained API failure or managed-tab
+  // churn — a deliberate product decision to keep it reserved for the cases we can
+  // be certain about — so the reducer uses a strict AND and the scheduler's only
+  // accrual observation reports `progressed` alongside `failing: false`, which
+  // already takes the reset branch on its own. A healthy API that accrues nothing
+  // is out of scope here; it is covered separately by the stuck detector (#53) and
+  // its own gentler notification. Do NOT "fix" this by making a healthy tick count
+  // as failing. The field is retained so the reducer stays correct for any future
+  // caller that genuinely reports progress during a failing tick.
   progressed: boolean;
   // An accrual precondition broke mid-window (channel offline, category change,
   // heartbeat unhealthy, fallback, pause, manual watch, target switch).

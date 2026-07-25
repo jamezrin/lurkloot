@@ -671,8 +671,19 @@ export async function runSchedulerTick(
       }
       if (!discoveryFailed) {
         nextState.campaigns[platform] = campaigns;
-        // The accrual arm: fresh progress data is in hand, so compare the active
-        // reward's watched minutes against what the last observation recorded.
+        // The accrual arm. Fresh progress data is in hand, so record the active
+        // reward's watched minutes and compare them with the last observation.
+        //
+        // Its value is `watchedMinutes`: persisting it as `lastWatchedMinutes`
+        // puts "was this platform actually accruing?" in the failure report, which
+        // is what whoever triages the issue needs. `progressed` itself is inert —
+        // this is the only producer and it always reports `failing: false`, which
+        // resets on its own, so the flag can never change the outcome.
+        //
+        // That is deliberate. The prompt fires only on sustained API failure or
+        // managed-tab churn, the cases we can be certain about; a healthy API that
+        // accrues nothing belongs to the stuck detector (#53), not here. Do NOT
+        // make a healthy tick report `failing: true` to "activate" this.
         const activeWatchReward = activeRewardFor(campaigns, nextState.sessions[platform]);
         const previousWatchedMinutes = nextState.criticalHealth?.[platform]?.lastWatchedMinutes;
         const watchedMinutes = activeWatchReward?.watchedMinutes;
