@@ -87,6 +87,11 @@ export function formatCliEvent(event: EngineEvent): string {
 
 export async function reportCliEvents(events: readonly EngineEvent[], logger: Logger): Promise<void> {
   for (const event of events) {
-    logger.log(event.level, formatCliEvent(event), event.platform ?? event.category);
+    // CLI output is already English, so an activity event and its diagnostic
+    // mirror would say the same thing twice at the same level. The mirror still
+    // carries ids and raw reason codes, so keep it behind `--log debug` instead
+    // of dropping it.
+    const level = event.category === "diagnostic" && event.mirroredActivity ? "debug" : event.level;
+    logger.log(level, formatCliEvent(event), event.platform ?? event.category);
   }
 }

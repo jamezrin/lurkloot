@@ -377,13 +377,24 @@ describe("background controller", () => {
 
     expect(env.state.authHealth.twitch).toEqual({ status: "checking" });
     expect(env.state.authHealth.kick).toEqual(previousKickHealth);
-    expect(env.reportEvents).toHaveBeenCalledWith([{
-      category: "activity",
-      code: "auth_health_changed",
-      level: "info",
-      platform: "twitch",
-      data: { from: "healthy", to: "checking" },
-    }]);
+    expect(env.reportEvents).toHaveBeenCalledWith([
+      {
+        category: "activity",
+        code: "auth_health_changed",
+        level: "info",
+        platform: "twitch",
+        data: { from: "healthy", to: "checking" },
+      },
+      {
+        category: "diagnostic",
+        code: "auth_health_changed",
+        level: "info",
+        platform: "twitch",
+        mirroredActivity: true,
+        message: "twitch authentication health changed from healthy to checking",
+        data: { from: "healthy", to: "checking" },
+      },
+    ]);
 
     env.reportEvents.mockClear();
     await env.controller.invalidateAuthHealth("twitch");
@@ -407,13 +418,24 @@ describe("background controller", () => {
       status: "blocked",
       reasonCode: "security_policy_blocked",
     }));
-    expect(env.reportEvents).toHaveBeenCalledWith([{
-      category: "activity",
-      code: "auth_health_changed",
-      level: "error",
-      platform: "kick",
-      data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
-    }]);
+    expect(env.reportEvents).toHaveBeenCalledWith([
+      {
+        category: "activity",
+        code: "auth_health_changed",
+        level: "error",
+        platform: "kick",
+        data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
+      },
+      {
+        category: "diagnostic",
+        code: "auth_health_changed",
+        level: "error",
+        platform: "kick",
+        mirroredActivity: true,
+        message: "kick authentication health changed from checking to blocked: reason=security_policy_blocked",
+        data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
+      },
+    ]);
   });
 
   it("stores timestamp-only auth refreshes without repeating activity", async () => {
@@ -733,12 +755,14 @@ describe("background controller", () => {
     await env.controller.tick();
 
     const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
-    expect(published.filter((event) => event.code === "farming_started")).toHaveLength(1);
+    expect(published.filter((event) => event.category === "activity" && event.code === "farming_started")).toHaveLength(1);
     expect(published).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "farming_started",
       platform: "twitch",
     }));
+    // The activity entry always brings its English diagnostic mirror along.
+    expect(published.filter((event) => event.category === "diagnostic" && event.code === "farming_started")).toHaveLength(1);
     expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
   });
 

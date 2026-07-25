@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
+import { activityDiagnostic } from "@lurkloot/core/activityDiagnostics";
 import {
   AD_FOCUS_MAX_HOLD_MS,
   applyAdFocusWithBrowser,
@@ -680,11 +681,11 @@ describe("tab manager", () => {
       { category: "activity", code: "page_context_closed", level: "info", platform: "kick", data: { host: "kick.com", reason: "managed_context_unusable" } },
       { category: "activity", code: "page_context_opened", level: "info", platform: "kick", data: { host: "kick.com", reason: "managed_context_unusable" } },
     ]);
-    expect(events).toContainEqual(expect.objectContaining({
-      category: "diagnostic",
-      platform: "kick",
-      message: expect.stringContaining("because the previous context was unusable"),
-    }));
+    // The reason survives into the diagnostic log through the controller's
+    // mirror rather than a hand-written diagnostic next to each emit site.
+    const opened = events.find((event) => event.category === "activity" && event.code === "page_context_opened");
+    expect(activityDiagnostic(opened as Extract<EngineEvent, { category: "activity" }>).message)
+      .toBe("Opened managed page context on kick.com: reason=managed_context_unusable");
   });
 
   it("does not close an existing user tab reused for a page-context fetch", async () => {

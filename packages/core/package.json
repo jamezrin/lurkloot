@@ -12,6 +12,7 @@
     "./tabs": "./src/core/tabs.ts",
     "./defaults": "./src/core/defaults.ts",
     "./authHealth": "./src/core/authHealth.ts",
+    "./activityDiagnostics": "./src/core/activityDiagnostics.ts",
     "./fetchError": "./src/core/fetchError.ts",
     "./adapter": "./src/platforms/adapter.ts",
     "./twitch": "./src/platforms/twitch/index.ts",
