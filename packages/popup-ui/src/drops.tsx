@@ -37,13 +37,35 @@ import {
   useDndSensors,
 } from "./primitives";
 
+/** Cards start collapsed; only a campaign that is actively being farmed is worth
+ * opening on mount. Anything else (completed, upcoming, merely first) would bury
+ * the list under a reward grid the user did not ask for. */
+export function initialExpandedIds(campaigns: CampaignView[]): Record<string, boolean> {
+  const farmingId = farmingCampaignId(campaigns);
+  return farmingId ? { [farmingId]: true } : {};
+}
+
+function farmingCampaignId(campaigns: CampaignView[]): string | undefined {
+  return campaigns.find((campaign) => Boolean(campaign.farmingChannel))?.id;
+}
+
 export function DropsPanel({ campaigns, gameMap, focus, refreshing, onRefreshCampaign, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; refreshing: boolean; onRefreshCampaign(id: string): void | Promise<void>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
   const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const firstId = campaigns[0]?.id;
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(firstId ? { [firstId]: true } : {});
+  const farmingId = farmingCampaignId(campaigns);
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => initialExpandedIds(campaigns));
+  const autoExpandedId = useRef<string | undefined>(farmingId);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Campaigns can arrive after mount, and the farmed campaign can change while the
+  // popup is open. Expand the new one when that happens, but never collapse anything:
+  // a card the user toggled by hand stays the way they left it.
+  useEffect(() => {
+    if (!farmingId || farmingId === autoExpandedId.current) return;
+    autoExpandedId.current = farmingId;
+    setExpandedIds((current) => ({ ...current, [farmingId]: true }));
+  }, [farmingId]);
 
   // Jump to a campaign requested from elsewhere (e.g. the "Farming {campaign}"
   // link in the hero): expand it and scroll its card into view.

@@ -5,7 +5,7 @@ import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DropCampaign, WatchSession } from "@lurkloot/shared/models";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
-import { DropsPanel } from "../../popup-ui/src/drops";
+import { DropsPanel, initialExpandedIds } from "../../popup-ui/src/drops";
 import type { PopupAdapter } from "../../popup-ui/src/types";
 import { campaignViewFromCampaign } from "../../popup-ui/src/viewModels";
 import { createDemoPopupAdapter } from "../../popup-ui/src/demo";
@@ -82,8 +82,91 @@ function mount(url?: string) {
     );
   });
 
+  // Cards open collapsed unless a campaign is farming, so expand the card under
+  // test before asserting on its body.
+  const toggle = container.querySelector<HTMLButtonElement>("button[aria-expanded]");
+  act(() => toggle?.click());
+
   return { container, openLink };
 }
+
+function farmingSession(campaignId: string): WatchSession {
+  return {
+    platform: "kick",
+    offlineChecks: 0,
+    status: "watching",
+    campaignId,
+    channel: { platform: "kick", username: "somechannel", url: "https://kick.com/somechannel" },
+  };
+}
+
+describe("initial drops expansion", () => {
+  it("expands nothing when no campaign is farming", () => {
+    const campaigns = [
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "a" }, 0, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "b" }, 1, idleSession, false),
+    ];
+
+    expect(initialExpandedIds(campaigns)).toEqual({});
+  });
+
+  it("expands only the farming campaign, even when it is not first", () => {
+    const session = farmingSession("b");
+    const campaigns = [
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "a" }, 0, session, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "b" }, 1, session, false),
+    ];
+
+    expect(campaigns[1]?.farmingChannel).toBeTruthy();
+    expect(initialExpandedIds(campaigns)).toEqual({ b: true });
+  });
+
+  it("expands no card on mount, then expands a campaign that starts farming later", () => {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
+    const container = document.getElementById("app")!;
+
+    function render(session: WatchSession) {
+      const campaign = campaignViewFromCampaign(sourceCampaign(), 0, session, false);
+      root!.render(
+        <I18nContext.Provider value={{ t: (key) => key, dir: "ltr", locale: "en" }}>
+          <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
+            <DropsPanel
+              campaigns={[campaign]}
+              gameMap={{}}
+              refreshing={false}
+              onRefreshCampaign={() => undefined}
+              onReorder={() => undefined}
+              onToggleExclude={() => undefined}
+            />
+          </PopupRuntimeContext.Provider>
+        </I18nContext.Provider>,
+      );
+    }
+
+    act(() => {
+      root = createRoot(container);
+      render(idleSession);
+    });
+
+    const expandedStates = () => Array.from(container.querySelectorAll("button[aria-expanded]")).map((toggle) => toggle.getAttribute("aria-expanded"));
+
+    expect(expandedStates()).toEqual(["false"]);
+
+    act(() => render(farmingSession("kick-campaign")));
+
+    expect(expandedStates()).toEqual(["true"]);
+  });
+});
 
 describe("claim-time account link guidance", () => {
   it("validates HTTPS again at the demo popup host boundary", () => {
