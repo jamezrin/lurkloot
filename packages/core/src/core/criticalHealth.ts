@@ -71,6 +71,23 @@ function inCooldown(health: CriticalHealthState, at: number): boolean {
   return health.cooldownUntil !== undefined && at < Date.parse(health.cooldownUntil);
 }
 
+// The trim is only safe because `churning` tests `>= TAB_CHURN_LIMIT` against the same
+// constant: keeping exactly TAB_CHURN_LIMIT stamps is enough to trip and to keep the
+// breaker open. If either the limit or that comparison changes, this must change in step
+// or the trim silently discards evidence.
+function pruneOpens(opens: readonly string[], at: number): string[] {
+  return opens.filter((stamp) => at - Date.parse(stamp) <= TAB_CHURN_WINDOW_MS).slice(-TAB_CHURN_LIMIT);
+}
+
+// While flagged the breaker stays open until the user dismisses. While unflagged it is
+// held open only by live churn evidence, so the window drains on its own — an open
+// breaker suppresses new opens — and the platform recovers without a prompt. This never
+// opens the breaker; only crossing the threshold in recordManagedTabOpen does that.
+function releaseBreaker(health: CriticalHealthState, opens: readonly string[]): boolean {
+  if (health.status === "flagged") return health.breakerOpen;
+  return health.breakerOpen && opens.length > 0;
+}
+
 function flag(
   health: CriticalHealthState,
   platform: Platform,
@@ -102,6 +119,11 @@ export function observeCriticalHealth(
   const health = current(state, platform);
   const records = appendRecord(health.records, platform, observation.at, observation.record);
   const lastObservedAt = health.lastObservedAt ? Date.parse(health.lastObservedAt) : undefined;
+  // Re-evaluated every tick, driven purely by open timestamps ageing out of the window.
+  // Deliberately NOT driven by the tick looking clean: an open breaker pauses the
+  // platform, so ticks look clean by construction and that would undo the mitigation.
+  const managedTabOpens = pruneOpens(health.managedTabOpens, observation.at);
+  const breakerOpen = releaseBreaker(health, managedTabOpens);
 
   // Any of these means the platform is not in a continuous no-value episode.
   if (!observation.failing || observation.progressed || observation.preconditionBroke) {
@@ -110,6 +132,8 @@ export function observeCriticalHealth(
       failingMs: 0,
       failingTicks: 0,
       lastObservedAt: new Date(observation.at).toISOString(),
+      managedTabOpens,
+      breakerOpen,
       records,
     };
     if (observation.watchedMinutes !== undefined) reset.lastWatchedMinutes = observation.watchedMinutes;
@@ -129,6 +153,8 @@ export function observeCriticalHealth(
     failingMs: health.failingMs + delta,
     failingTicks: health.failingTicks + 1,
     lastObservedAt: new Date(observation.at).toISOString(),
+    managedTabOpens,
+    breakerOpen,
     records,
   };
   if (observation.watchedMinutes !== undefined) next.lastWatchedMinutes = observation.watchedMinutes;
@@ -151,13 +177,12 @@ export function recordManagedTabOpen(
   const health = current(state, platform);
   // Page contexts and watch tabs share one window: a reopen storm of either kind is the
   // same symptom, and the real-world report that motivated this was watch tabs alone.
-  const opens = [...health.managedTabOpens, new Date(at).toISOString()]
-    .filter((stamp) => at - Date.parse(stamp) <= TAB_CHURN_WINDOW_MS)
-    .slice(-TAB_CHURN_LIMIT);
+  const opens = pruneOpens([...health.managedTabOpens, new Date(at).toISOString()], at);
   const churning = opens.length >= TAB_CHURN_LIMIT;
-  // The breaker is a monotonic latch and is applied independently of the prompt: a
-  // platform already flagged for another reason, or inside a post-dismissal cooldown,
-  // still needs the reopen loop stopped even though it emits no new event.
+  // The breaker is applied independently of the prompt: a platform already flagged for
+  // another reason, or inside a post-dismissal cooldown, still needs the reopen loop
+  // stopped even though it emits no new event. It never closes here — observeCriticalHealth
+  // owns the release once the evidence ages out.
   const next: CriticalHealthState = {
     ...health,
     managedTabOpens: opens,

@@ -48,6 +48,12 @@ describe("critical health normalization", () => {
     });
   });
 
+  it("freezes the default so platforms cannot share a mutated singleton", () => {
+    expect(Object.isFrozen(DEFAULT_CRITICAL_HEALTH)).toBe(true);
+    expect(Object.isFrozen(DEFAULT_CRITICAL_HEALTH.managedTabOpens)).toBe(true);
+    expect(Object.isFrozen(DEFAULT_CRITICAL_HEALTH.records)).toBe(true);
+  });
+
   it("restores a persisted flag while discarding malformed counters", () => {
     const restored = normalizeCriticalHealth({
       status: "flagged",
@@ -344,6 +350,105 @@ describe("critical health detection", () => {
 
     expect(state.criticalHealth?.kick?.status).toBe("ok");
     expect(state.criticalHealth?.kick?.breakerOpen).toBe(false);
+  });
+
+  it("keeps the breaker open on further opens inside the window", () => {
+    let state = baseState();
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, WATCH_TAB).state;
+    }
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+
+    state = recordManagedTabOpen(state, "kick", START + (TAB_CHURN_LIMIT + 1) * 60 * 1000, WATCH_TAB).state;
+
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+  });
+
+  it("does not close the breaker on an isolated open below the threshold", () => {
+    let state = baseState();
+    // Cooldown first, so the storm opens the breaker without flagging it.
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 1000, PAGE_CONTEXT).state;
+    }
+    state = dismissCriticalFailure(state, "kick", START + 60 * 1000).state;
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + 61 * 1000 + index * 1000, WATCH_TAB).state;
+    }
+    expect(state.criticalHealth?.kick?.status).toBe("ok");
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+
+    // A lone open long after the others: below the threshold, but recording never releases.
+    state = recordManagedTabOpen(state, "kick", START + 61 * 1000 + TAB_CHURN_WINDOW_MS + 5000, WATCH_TAB).state;
+
+    expect(state.criticalHealth?.kick?.managedTabOpens).toHaveLength(1);
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+  });
+
+  it("counts an open landing exactly on the window boundary", () => {
+    let state = baseState();
+    state = recordManagedTabOpen(state, "kick", START, WATCH_TAB).state;
+    for (let index = 1; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + TAB_CHURN_WINDOW_MS, WATCH_TAB).state;
+    }
+
+    // The oldest open sits at exactly TAB_CHURN_WINDOW_MS, which the window includes.
+    expect(state.criticalHealth?.kick?.managedTabOpens).toHaveLength(TAB_CHURN_LIMIT);
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+  });
+
+  it("closes the breaker once the churn evidence ages out, without a prompt", () => {
+    let state = baseState();
+    // Inside a post-dismissal cooldown, so the storm opens the breaker without flagging.
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, PAGE_CONTEXT).state;
+    }
+    state = dismissCriticalFailure(state, "kick", START + 6 * 60 * 1000).state;
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + 7 * 60 * 1000 + index * 1000, WATCH_TAB).state;
+    }
+    expect(state.criticalHealth?.kick?.status).toBe("ok");
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+
+    // A tick while the storm is still live must not release it.
+    const during = observeCriticalHealth(state, "kick", {
+      at: START + 8 * 60 * 1000,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+    }).state;
+    expect(during.criticalHealth?.kick?.breakerOpen).toBe(true);
+
+    const after = observeCriticalHealth(during, "kick", {
+      // Past the newest open (START + 7min + 4s) by more than a full window.
+      at: START + 7 * 60 * 1000 + TAB_CHURN_LIMIT * 1000 + TAB_CHURN_WINDOW_MS,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+    }).state;
+
+    expect(after.criticalHealth?.kick?.breakerOpen).toBe(false);
+    expect(after.criticalHealth?.kick?.managedTabOpens).toEqual([]);
+    expect(after.criticalHealth?.kick?.status).toBe("ok");
+  });
+
+  it("keeps a flagged platform's breaker open even after the evidence ages out", () => {
+    let state = baseState();
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, WATCH_TAB).state;
+    }
+    expect(state.criticalHealth?.kick?.status).toBe("flagged");
+
+    state = observeCriticalHealth(state, "kick", {
+      at: START + 2 * TAB_CHURN_WINDOW_MS,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+    }).state;
+
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+
+    const dismissed = dismissCriticalFailure(state, "kick", START + 3 * TAB_CHURN_WINDOW_MS).state;
+    expect(dismissed.criticalHealth?.kick?.breakerOpen).toBe(false);
   });
 
   it("keeps the failure ring buffer bounded and newest-last", () => {
