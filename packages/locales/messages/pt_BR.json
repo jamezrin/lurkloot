@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "Nenhuma atividade registrada ainda. Pressione atualizar para executar uma verificação."
   },
+  "noDiagnostics": {
+    "message": "Nenhum diagnóstico registrado ainda. Eles aparecem conforme a extensão trabalha."
+  },
   "platformActivity": {
     "message": "Atividade de $1"
+  },
+  "platformDiagnostics": {
+    "message": "Diagnósticos de $1"
   },
   "lastCheck": {
     "message": "última verificação $1"
@@ -820,9 +826,6 @@
   "activityReasonManualWatch": {
     "message": "a exibição manual assumiu"
   },
-  "hideDiagnosticLogs": {
-    "message": "Ocultar diagnósticos"
-  },
   "loadMoreActivity": {
     "message": "Carregar mais"
   },
@@ -835,8 +838,11 @@
   "clearActivityFailed": {
     "message": "Não foi possível limpar o histórico. Tente novamente."
   },
-  "showDiagnosticLogs": {
-    "message": "Mostrar diagnósticos"
+  "activityViewTab": {
+    "message": "Atividade"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnósticos"
   },
   "settingsGroupCompatibility": {
     "message": "Compatibilidade"

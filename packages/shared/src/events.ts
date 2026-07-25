@@ -60,6 +60,11 @@ export type DiagnosticEvent = {
   platform?: Platform;
   message: string;
   code?: string;
+  // Set on the English restatement of an activity event. Hosts that already
+  // render activity in English (the CLI) use it to avoid logging the same thing
+  // twice; hosts that localize activity (the popup) keep it as the pasteable,
+  // context-carrying version of the same entry.
+  mirroredActivity?: true;
   data?: Record<string, string | number | boolean | undefined>;
   compatibilityProfile?: string;
   compatibilityCapability?: string;

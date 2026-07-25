@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "Aucune activité enregistrée. Appuyez sur actualiser pour lancer une vérification."
   },
+  "noDiagnostics": {
+    "message": "Aucun diagnostic enregistré. Ils apparaissent au fil du travail de l'extension."
+  },
   "platformActivity": {
     "message": "Activité $1"
+  },
+  "platformDiagnostics": {
+    "message": "Diagnostics $1"
   },
   "lastCheck": {
     "message": "dernière vérification $1"
@@ -820,9 +826,6 @@
   "activityReasonManualWatch": {
     "message": "le visionnage manuel a pris le relais"
   },
-  "hideDiagnosticLogs": {
-    "message": "Masquer les diagnostics"
-  },
   "loadMoreActivity": {
     "message": "Charger plus"
   },
@@ -835,8 +838,11 @@
   "clearActivityFailed": {
     "message": "Impossible d’effacer l’historique. Réessayez."
   },
-  "showDiagnosticLogs": {
-    "message": "Afficher les diagnostics"
+  "activityViewTab": {
+    "message": "Activité"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnostics"
   },
   "settingsGroupCompatibility": {
     "message": "Compatibilité"

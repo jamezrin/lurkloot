@@ -182,8 +182,14 @@
   "noActivity": {
     "message": "Henüz işlem kaydı yok."
   },
+  "noDiagnostics": {
+    "message": "Henüz teknik kayıt yok. Uzantı çalıştıkça görünür."
+  },
   "platformActivity": {
     "message": "$1 geçmişi"
+  },
+  "platformDiagnostics": {
+    "message": "$1 teknik detayları"
   },
   "lastCheck": {
     "message": "Son kontrol: $1"
@@ -920,9 +926,6 @@
   "activityReasonManualWatch": {
     "message": "Kanalı izlediğiniz için durduruldu"
   },
-  "hideDiagnosticLogs": {
-    "message": "Teknik detayları gizle"
-  },
   "loadMoreActivity": {
     "message": "Daha fazla göster"
   },
@@ -935,8 +938,11 @@
   "clearActivityFailed": {
     "message": "Geçmiş temizlenemedi. Tekrar deneyin."
   },
-  "showDiagnosticLogs": {
-    "message": "Teknik detayları göster"
+  "activityViewTab": {
+    "message": "Geçmiş"
+  },
+  "diagnosticsViewTab": {
+    "message": "Teknik detaylar"
   },
   "settingsGroupCompatibility": {
     "message": "Uyumluluk"

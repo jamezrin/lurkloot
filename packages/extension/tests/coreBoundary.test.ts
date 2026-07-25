@@ -24,6 +24,11 @@ const HISTORY_API = /\b(?:ActivityPage|getActivity|clearActivity|activityStorage
 const FULL_RUNTIME_MESSAGE = /\bRuntimeMessage\b/;
 const BROWSER_COOKIE_API = /\b(?:browser|chrome)\.cookies\b/;
 const EXTENSION_IMPORT = /\b(?:import|require)\b[^\n]*["'][^"']*packages\/extension|\b(?:import|require)\b[^\n]*["'][^"']*extension\/src/;
+// Diagnostics are the English-only surface a user pastes into a bug report, and
+// core is where they are written. A locale catalog reaching core is the way that
+// guarantee would quietly break; notification copy is localized by the HOST
+// through the injected `translate` callback, never by importing a catalog here.
+const CATALOG_IMPORT = /\b(?:import|require)\b[^\n]*["'](@lurkloot\/locales(?:\/[^"']*)?|@lurkloot\/shared\/i18n)["']/;
 
 describe("@lurkloot/core browser-free boundary", () => {
   it("never imports wxt or a webextension polyfill", () => {
@@ -48,6 +53,11 @@ describe("@lurkloot/core browser-free boundary", () => {
       return BROWSER_COOKIE_API.test(code) || EXTENSION_IMPORT.test(code);
     });
     expect(offenders, `core must not access browser cookies or extension modules; offending files:\n${offenders.join("\n")}`).toEqual([]);
+  });
+
+  it("never imports a message catalog, so diagnostics cannot become localized", () => {
+    const offenders = tsFiles(coreSrc).filter((file) => CATALOG_IMPORT.test(readFileSync(file, "utf8")));
+    expect(offenders, `core must stay i18n-free so diagnostics stay English; offending files:\n${offenders.join("\n")}`).toEqual([]);
   });
 
   it("models credential availability without naming or carrying browser credentials", () => {

@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "لم يتم تسجيل أي نشاط بعد. اضغط تحديث لتشغيل فحص."
   },
+  "noDiagnostics": {
+    "message": "لم يتم تسجيل أي تشخيصات بعد. تظهر أثناء عمل الإضافة."
+  },
   "platformActivity": {
     "message": "نشاط $1"
+  },
+  "platformDiagnostics": {
+    "message": "تشخيصات $1"
   },
   "lastCheck": {
     "message": "آخر فحص $1"
@@ -820,9 +826,6 @@
   "activityReasonManualWatch": {
     "message": "تم الانتقال إلى المشاهدة اليدوية"
   },
-  "hideDiagnosticLogs": {
-    "message": "إخفاء التشخيصات"
-  },
   "loadMoreActivity": {
     "message": "تحميل المزيد"
   },
@@ -835,8 +838,11 @@
   "clearActivityFailed": {
     "message": "تعذر مسح سجل النشاط. حاول مرة أخرى."
   },
-  "showDiagnosticLogs": {
-    "message": "عرض التشخيص"
+  "activityViewTab": {
+    "message": "النشاط"
+  },
+  "diagnosticsViewTab": {
+    "message": "التشخيصات"
   },
   "settingsGroupCompatibility": {
     "message": "التوافق"

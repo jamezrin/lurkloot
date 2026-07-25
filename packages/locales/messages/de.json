@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "Noch keine Aktivität aufgezeichnet. Aktualisieren drücken, um eine Prüfung auszuführen."
   },
+  "noDiagnostics": {
+    "message": "Noch keine Diagnosen aufgezeichnet. Sie erscheinen, während die Erweiterung arbeitet."
+  },
   "platformActivity": {
     "message": "$1-Aktivität"
+  },
+  "platformDiagnostics": {
+    "message": "$1-Diagnose"
   },
   "lastCheck": {
     "message": "letzte Prüfung $1"
@@ -820,9 +826,6 @@
   "activityReasonManualWatch": {
     "message": "manuelle Wiedergabe hatte Vorrang"
   },
-  "hideDiagnosticLogs": {
-    "message": "Diagnosen ausblenden"
-  },
   "loadMoreActivity": {
     "message": "Mehr laden"
   },
@@ -835,8 +838,11 @@
   "clearActivityFailed": {
     "message": "Der Aktivitätsverlauf konnte nicht gelöscht werden. Erneut versuchen."
   },
-  "showDiagnosticLogs": {
-    "message": "Diagnose anzeigen"
+  "activityViewTab": {
+    "message": "Aktivität"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnose"
   },
   "settingsGroupCompatibility": {
     "message": "Kompatibilität"

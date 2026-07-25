@@ -253,7 +253,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     if (activityClearInFlightRef.current || clearingActivity || loadingMoreActivity) return;
     const requestScope = activityRequestScopeRef.current;
     const requests: Promise<void>[] = [];
-    if (activityStream.nextCursor) {
+    // Only the visible view pages: the toggle switches between the streams
+    // instead of merging them, so paging the hidden one just burns requests.
+    if (!showDiagnostics && activityStream.nextCursor) {
       const cursor = activityStream.nextCursor;
       const pageRequest = beginActivityMutation(activityMutationSequenceRef.current);
       requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "activity", cursor, limit: 80 })
@@ -584,7 +586,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   lastTickAt={snapshot.state.lastTickAt}
                   diagnosticLogging={settings.diagnosticLogging}
                   showDiagnostics={showDiagnostics}
-                  hasMore={Boolean(activityStream.nextCursor || (showDiagnostics && diagnosticStream.nextCursor))}
+                  hasMore={Boolean(showDiagnostics ? diagnosticStream.nextCursor : activityStream.nextCursor)}
                   clearArmed={clearActivityArmed}
                   clearFailed={clearActivityFailed}
                   loadingMore={loadingMoreActivity}

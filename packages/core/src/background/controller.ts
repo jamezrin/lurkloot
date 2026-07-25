@@ -12,6 +12,7 @@ import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 import { applyPlatformAuthHealth } from "../core/authHealth";
+import { withActivityDiagnostics } from "../core/activityDiagnostics";
 
 export const ALARM_NAME = "lurkloot.tick";
 // A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
@@ -226,7 +227,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function withEventCollector<T>(operation: (emit: EventEmitter, events: EngineEvent[]) => Promise<T>): Promise<T> {
     const events: EngineEvent[] = [];
-    const emit: EventEmitter = (event) => events.push(event);
+    const emit = withActivityDiagnostics((event) => events.push(event));
     return operation(emit, events);
   }
 

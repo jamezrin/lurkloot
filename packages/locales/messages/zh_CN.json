@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "尚未记录活动。按刷新运行检查。"
   },
+  "noDiagnostics": {
+    "message": "尚未记录诊断信息。扩展运行时会出现。"
+  },
   "platformActivity": {
     "message": "$1 活动"
+  },
+  "platformDiagnostics": {
+    "message": "$1 诊断信息"
   },
   "lastCheck": {
     "message": "上次检查 $1"
@@ -820,9 +826,6 @@
   "activityReasonManualWatch": {
     "message": "已切换为手动观看"
   },
-  "hideDiagnosticLogs": {
-    "message": "隐藏诊断信息"
-  },
   "loadMoreActivity": {
     "message": "加载更多"
   },
@@ -835,8 +838,11 @@
   "clearActivityFailed": {
     "message": "无法清除活动历史记录，请重试。"
   },
-  "showDiagnosticLogs": {
-    "message": "显示诊断信息"
+  "activityViewTab": {
+    "message": "活动"
+  },
+  "diagnosticsViewTab": {
+    "message": "诊断信息"
   },
   "settingsGroupCompatibility": {
     "message": "兼容性"
