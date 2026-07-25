@@ -35,6 +35,9 @@ export interface CliSettings {
   postClaimHandoffMaxSeconds: number;
   skipUnfinishableRewards: boolean;
   deadlineSafetyMarginMinutes: number;
+  // Kill switch for the critical-failure detector, which runs in the shared
+  // scheduler/controller regardless of host. See EngineSettings.criticalFailurePromptEnabled.
+  criticalFailurePromptEnabled: boolean;
   // Not extension-only: these two keys gate what the scheduler is allowed to
   // farm, so they change headless behavior. The display-only popup preference
   // (dropsListFilter) is rejected as extension-only instead — a headless run has
@@ -69,6 +72,7 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   postClaimHandoffMaxSeconds: DEFAULT_SETTINGS.postClaimHandoffMaxSeconds,
   skipUnfinishableRewards: DEFAULT_SETTINGS.skipUnfinishableRewards,
   deadlineSafetyMarginMinutes: DEFAULT_SETTINGS.deadlineSafetyMarginMinutes,
+  criticalFailurePromptEnabled: DEFAULT_SETTINGS.criticalFailurePromptEnabled,
   farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility },
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
@@ -95,6 +99,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "postClaimHandoffMaxSeconds",
   "skipUnfinishableRewards",
   "deadlineSafetyMarginMinutes",
+  "criticalFailurePromptEnabled",
   "farmingEligibility",
   // Accepted only so config parsing can surface the deprecation warning.
   // Runtime log filtering belongs to the global --log option and process logger.
@@ -274,6 +279,7 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
       60,
       DEFAULT_CLI_SETTINGS.deadlineSafetyMarginMinutes,
     ),
+    criticalFailurePromptEnabled: booleanOr(v.criticalFailurePromptEnabled, DEFAULT_CLI_SETTINGS.criticalFailurePromptEnabled),
     farmingEligibility: normalizeFarmingEligibility(v.farmingEligibility),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),

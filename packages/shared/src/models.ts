@@ -323,6 +323,9 @@ export interface EngineSettings {
   postClaimHandoffMaxSeconds: number;
   skipUnfinishableRewards: boolean;
   deadlineSafetyMarginMinutes: number;
+  // Kill switch for the critical-failure detector and its popup prompt. On by
+  // default; thresholds themselves are fixed constants in core.
+  criticalFailurePromptEnabled: boolean;
 }
 
 // The browser extension's full settings schema: the engine contract plus the
