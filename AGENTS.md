@@ -49,6 +49,8 @@ Follow [RELEASING.md](RELEASING.md) for the `preview` and `production` environme
 
 ## Coding Style & Naming Conventions
 
+Diagnostic messages are always English literals — never add `diagnostic*` message keys to the locale catalogs, and never translate a diagnostic body. Only activity events (structured `code` + `data`, localized by the host UI) and OS notification copy are localized. Activity events get their English diagnostic counterpart automatically from `packages/core/src/core/activityDiagnostics.ts`, so do not hand-write a diagnostic next to an activity emit.
+
 Use strict TypeScript and ES modules. Keep imports explicit and prefer `type` imports for types. Follow the existing two-space indentation, double quotes, semicolons, and camelCase functions/variables. Use PascalCase for React components and TypeScript types. Put cross-package types, models, and settings in `@lurkloot/shared` rather than duplicating them. Keep platform behavior behind `PlatformAdapter`; do not mix Twitch/Kick parsing logic into scheduler or UI code.
 
 ## Reference Implementations

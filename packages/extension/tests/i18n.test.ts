@@ -187,6 +187,8 @@ describe("i18n", () => {
       "chromeWebStoreAttributionShort",
       "githubAttributionShort",
       "siteAttributionShort",
+      // "Diagnostics" is spelled the same in French.
+      "diagnosticsViewTab",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

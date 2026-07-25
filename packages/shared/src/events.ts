@@ -1,3 +1,4 @@
+import type { CriticalFailureReason } from "./criticalHealth";
 import type { LogLevel } from "./logging";
 import type { Platform, PlatformAuthReasonCode, PlatformAuthStatus } from "./models";
 
@@ -18,7 +19,10 @@ export type FarmingStopReason =
   | "runtime_restart"
   | "target_changed"
   | "manual_watch"
-  | "manual_tab_close";
+  | "manual_tab_close"
+  // A managed-tab reopen loop was detected; the platform is parked until the
+  // breaker releases or the user dismisses the prompt.
+  | "critical_failure";
 
 type CampaignRewardData = {
   campaignId: string;
@@ -48,7 +52,9 @@ export type ActivityEvent =
   | { category: "activity"; code: "challenge_claimed"; level: "info"; platform: Platform; message?: never; data: { challengeId: string; rarity: string; recurrence: string } }
   | { category: "activity"; code: "page_context_opened"; level: "info"; platform: Platform; message?: never; data: { host: string; reason: PageContextOpenReason } }
   | { category: "activity"; code: "page_context_closed"; level: "info"; platform: Platform; message?: never; data: { host: string; reason: PageContextCloseReason } }
-  | { category: "activity"; code: "auth_health_changed"; level: "info" | "warn" | "error"; platform: Platform; message?: never; data: { from: PlatformAuthStatus; to: PlatformAuthStatus; reason?: PlatformAuthReasonCode } };
+  | { category: "activity"; code: "auth_health_changed"; level: "info" | "warn" | "error"; platform: Platform; message?: never; data: { from: PlatformAuthStatus; to: PlatformAuthStatus; reason?: PlatformAuthReasonCode } }
+  | { category: "activity"; code: "critical_failure_detected"; level: "error"; platform: Platform; message?: never; data: { reason: CriticalFailureReason } }
+  | { category: "activity"; code: "critical_failure_cleared"; level: "info"; platform: Platform; message?: never; data: { reason: CriticalFailureReason } };
 
 export type DiagnosticEvent = {
   category: "diagnostic";
@@ -56,6 +62,11 @@ export type DiagnosticEvent = {
   platform?: Platform;
   message: string;
   code?: string;
+  // Set on the English restatement of an activity event. Hosts that already
+  // render activity in English (the CLI) use it to avoid logging the same thing
+  // twice; hosts that localize activity (the popup) keep it as the pasteable,
+  // context-carrying version of the same entry.
+  mirroredActivity?: true;
   data?: Record<string, string | number | boolean | undefined>;
   compatibilityProfile?: string;
   compatibilityCapability?: string;

@@ -51,12 +51,47 @@ interface PageContextEntry {
 
 const pageContextTabs = new Map<string, PageContextEntry>();
 const retainedPageContextTabs = new Map<Platform, ManagedPageContextTab>();
+// Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
+// call sites are several layers deep and have no access to scheduler state, so
+// the scheduler (and the controller, whenever it records an open) pushes the
+// flag here instead. Watch tabs are gated directly in the scheduler, which
+// already has the state in scope.
+const openManagedTabBreakers = new Set<Platform>();
+
+export function syncManagedTabBreakers(
+  state: { criticalHealth?: Partial<Record<Platform, { breakerOpen?: boolean }>> },
+): void {
+  for (const platform of ["twitch", "kick"] as const) {
+    if (state.criticalHealth?.[platform]?.breakerOpen) openManagedTabBreakers.add(platform);
+    else openManagedTabBreakers.delete(platform);
+  }
+}
+
+export function managedTabBreakerOpen(platform: Platform): boolean {
+  return openManagedTabBreakers.has(platform);
+}
+
+function platformForOrigin(origin: string): Platform | undefined {
+  if (origin === "https://kick.com" || origin === "https://www.kick.com") return "kick";
+  if (origin === "https://www.twitch.tv" || origin === "https://twitch.tv") return "twitch";
+  return undefined;
+}
 const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   muted: true,
   closeManagedTabs: true,
   keepVideosUnmuted: true,
 };
 const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
+// Priming foreground-activates the watch tab for a moment, so it must never
+// become an open-ended loop: a tab whose player the browser permanently blocks
+// keeps reporting playingVideoCount === 0, which would otherwise flicker the tab
+// to the foreground on every scheduler tick and make the browser toolbar and the
+// extensions menu unusable. Attempts are counted per watch target, spaced by a
+// back-off, and give up after the cap with a warning. The counter resets as soon
+// as a tick finds playback healthy, so a genuinely deferred player is still
+// coaxed along.
+const PLAYBACK_PRIME_MAX_ATTEMPTS = 3;
+const PLAYBACK_PRIME_BACKOFF_MS = 5 * 60_000;
 const PAGE_CONTEXT_RECOVERY_SUCCESSES = 3;
 const PAGE_CONTEXT_RECOVERY_MIN_MS = 10 * 60_000;
 
@@ -78,8 +113,11 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
-          await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
+        if (!shouldPrimePlayback(tab, channel.url, session)) {
+          // Playback is healthy, so the budget has served its purpose.
+          resetPlaybackPriming(channel.platform);
+        } else if (tabOptions.keepVideosUnmuted) {
+          await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
         }
         diagnostic(emit, "debug", `Reusing managed watch tab ${tab.id} for ${channel.username}`, channel.platform);
         return {
@@ -100,8 +138,11 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
-          await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
+        if (!shouldPrimePlayback(tab, channel.url, session)) {
+          // Playback is healthy, so the budget has served its purpose.
+          resetPlaybackPriming(channel.platform);
+        } else if (tabOptions.keepVideosUnmuted) {
+          await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
         }
         diagnostic(emit, "debug", `Reusing your tab ${tab.id} for ${channel.username}`, channel.platform);
         return { tabId: tab.id, managedByExtension: false };
@@ -136,7 +177,9 @@ export async function openPinnedMutedTabWithBrowser(
   }
   await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
   if (tabOptions.keepVideosUnmuted) {
-    await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
+    // Deliberately no reset here: a replacement tab for the same failing channel
+    // keeps spending the same budget, or the cap never engages under tab churn.
+    await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
   }
   diagnostic(emit, "info", `Opened watch tab ${tab.id} for ${channel.username}`, channel.platform);
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
@@ -162,6 +205,66 @@ function shouldPrimePlayback(tab: BrowserTab, url: string, session?: WatchSessio
   // re-prime just because the browser kept it muted.
   return playback.videoCount === 0
     || playback.playingVideoCount === 0;
+}
+
+interface PlaybackPrimeState {
+  channelUrl: string;
+  attempts: number;
+  lastAttemptAt: number;
+  exhausted: boolean;
+}
+
+// Keyed by platform, not by tab id: when playback never becomes healthy the
+// scheduler condemns the watch tab and opens a replacement, so the tab id is
+// different on every cycle. A per-tab budget would be reissued in full each time
+// and the cap would never engage. The watch target is what we rate-limit, so the
+// state carries the channel it was accrued for — a new tab for a *different*
+// channel is a legitimate reason to prime again, a new tab for the same channel
+// that keeps failing is the loop we must stop.
+const playbackPrimeStates = new Map<Platform, PlaybackPrimeState>();
+
+export { PLAYBACK_PRIME_BACKOFF_MS, PLAYBACK_PRIME_MAX_ATTEMPTS };
+
+// Forgets the priming budget for a platform (or for every platform when none is
+// given), so the next request primes again. Called when a tick finds playback
+// healthy — genuine recovery, not merely a new tab.
+export function resetPlaybackPriming(platform?: Platform): void {
+  if (platform == null) playbackPrimeStates.clear();
+  else playbackPrimeStates.delete(platform);
+}
+
+async function maybePrimeTabPlayback(
+  browserApi: BrowserTabApi,
+  tabId: number,
+  channel: ChannelCandidate,
+  emit: EventEmitter,
+  now: number = Date.now(),
+): Promise<void> {
+  const platform = channel.platform;
+  const tracked = playbackPrimeStates.get(platform);
+  const state = tracked?.channelUrl === channel.url
+    ? tracked
+    : { channelUrl: channel.url, attempts: 0, lastAttemptAt: 0, exhausted: false };
+  if (state.exhausted) return;
+
+  if (state.attempts >= PLAYBACK_PRIME_MAX_ATTEMPTS) {
+    playbackPrimeStates.set(platform, { ...state, exhausted: true });
+    diagnostic(
+      emit,
+      "warn",
+      `Playback for ${channel.username} did not start after ${PLAYBACK_PRIME_MAX_ATTEMPTS} priming attempts; leaving the watch tab in the background`,
+      platform,
+    );
+    return;
+  }
+
+  if (state.attempts > 0 && now - state.lastAttemptAt < PLAYBACK_PRIME_BACKOFF_MS) {
+    diagnostic(emit, "debug", `Skipping playback priming on watch tab ${tabId} until the back-off elapses`, platform);
+    return;
+  }
+
+  playbackPrimeStates.set(platform, { ...state, attempts: state.attempts + 1, lastAttemptAt: now });
+  await primeTabPlayback(browserApi, tabId, platform, emit);
 }
 
 async function primeTabPlayback(browserApi: BrowserTabApi, tabId: number, platform: Platform | undefined, emit: EventEmitter): Promise<void> {
@@ -768,7 +871,6 @@ async function findOrCreatePageContextTab(
             platform: retained.platform,
             data: { host: new URL(retained.origin).host, reason: "user_tab_available" },
           });
-          diagnostic(options?.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(retained.origin).host} because a user tab is available`, retained.platform);
         } catch {
           // The retained page context may already be gone.
           diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because the tab was already gone`, retained.platform);
@@ -803,7 +905,6 @@ async function findOrCreatePageContextTab(
               platform: retained.platform,
               data: { host: new URL(origin).host, reason: "managed_context_unusable" },
             });
-            diagnostic(options?.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(origin).host} because it became unusable`, retained.platform);
           } catch {
             diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it was already gone`, retained.platform);
           }
@@ -814,6 +915,17 @@ async function findOrCreatePageContextTab(
       openReason = "managed_context_unusable";
       diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it is unusable`, retained.platform);
     }
+  }
+
+  // The breaker is open: this platform kept reopening a managed tab. Opening
+  // another one is exactly the user-hostile behaviour we detected, so the fetch
+  // fails instead. It closes on its own once the churn evidence ages out.
+  const contextPlatform = retain?.platform ?? platformForOrigin(origin);
+  if (contextPlatform && openManagedTabBreakers.has(contextPlatform)) {
+    throw new SafeFetchError({
+      kind: "security_policy_blocked",
+      reason: "Managed tab creation is suspended after repeated reopening",
+    });
   }
 
   const tab = await browserApi.tabs.create({ url: originUrl, pinned: false, active: false }) as { id?: number };
@@ -849,12 +961,6 @@ async function findOrCreatePageContextTab(
       platform: retain.platform,
       data: { host: new URL(origin).host, reason: openReason },
     });
-    diagnostic(
-      options?.emit ?? ignoreEvent,
-      "info",
-      `Created managed page context on ${new URL(origin).host} because ${openReason === "managed_context_unusable" ? "the previous context was unusable" : "background access was rejected"}`,
-      retain.platform,
-    );
     return { tabId: tab.id, createdByExtension: true, retainedContext };
   }
   return { tabId: tab.id, createdByExtension: true };
@@ -1004,7 +1110,6 @@ export async function recordManagedPageContextBackgroundSuccessWithBrowser(
       platform,
       data: { host: new URL(context.origin).host, reason: "background_recovered" },
     });
-    diagnostic(emit, "info", `Closed managed page context on ${new URL(context.origin).host} because background access recovered`, platform);
   } catch {
     diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the tab was already gone`, platform);
   }
@@ -1052,7 +1157,6 @@ export async function stopManagedPageContextTabsWithBrowser(
         platform,
         data: { host: new URL(context.origin).host, reason: options.reason ?? "automation_disabled" },
       });
-      diagnostic(options.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(context.origin).host} because ${options.reason ?? "automation_disabled"}`, platform);
     } catch {
       // The retained page context may have been closed manually.
       diagnostic(options.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the tab was already gone`, platform);

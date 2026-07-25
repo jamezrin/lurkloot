@@ -1,3 +1,5 @@
+import type { CriticalHealthState } from "./criticalHealth";
+
 export type Platform = "twitch" | "kick";
 
 export type PlatformAuthStatus = "checking" | "healthy" | "missing_credentials" | "invalid_credentials" | "blocked" | "unavailable";
@@ -165,7 +167,8 @@ export type WatchReasonCode =
   | "keeping_idle_watchlist"
   | "watch_requirement_completed"
   | "runtime_restart"
-  | "target_changed";
+  | "target_changed"
+  | "critical_failure";
 
 export interface ManagedWatchTab {
   platform: Platform;
@@ -332,6 +335,9 @@ export interface EngineSettings {
   postClaimHandoffMaxSeconds: number;
   skipUnfinishableRewards: boolean;
   deadlineSafetyMarginMinutes: number;
+  // Kill switch for the critical-failure detector and its popup prompt. On by
+  // default; thresholds themselves are fixed constants in core.
+  criticalFailurePromptEnabled: boolean;
 }
 
 // The browser extension's full settings schema: the engine contract plus the
@@ -369,6 +375,9 @@ export interface ExtensionSettings extends EngineSettings {
 export interface SchedulerState {
   sessions: Record<Platform, WatchSession>;
   authHealth: Record<Platform, PlatformAuthHealth>;
+  // Per-platform critical-failure detection. Persisted so the flag survives an
+  // MV3 service-worker restart; its counters are reset on restore.
+  criticalHealth?: Partial<Record<Platform, CriticalHealthState>>;
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;

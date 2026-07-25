@@ -43,4 +43,24 @@ describe("engine event contract", () => {
     expectTypeOf(health).toMatchTypeOf<PlatformAuthHealth>();
     expectTypeOf(event).toMatchTypeOf<EngineEvent>();
   });
+
+  it("types critical failure detection and clearing", () => {
+    const detected: EngineEvent = {
+      category: "activity",
+      code: "critical_failure_detected",
+      level: "error",
+      platform: "kick",
+      data: { reason: "page_context_churn" },
+    };
+    const cleared: EngineEvent = {
+      category: "activity",
+      code: "critical_failure_cleared",
+      level: "info",
+      platform: "kick",
+      data: { reason: "page_context_churn" },
+    };
+
+    expectTypeOf(detected).toMatchTypeOf<EngineEvent>();
+    expectTypeOf(cleared).toMatchTypeOf<EngineEvent>();
+  });
 });

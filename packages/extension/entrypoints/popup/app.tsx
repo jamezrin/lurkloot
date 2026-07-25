@@ -56,6 +56,16 @@ export function createExtensionPopupAdapter(): PopupAdapter {
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     },
+    writeClipboard: async (text) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // Clipboard access can be denied or unavailable; the caller falls back
+        // to showing the text for manual copying.
+        return false;
+      }
+    },
     resetExtension: () => browser.runtime.sendMessage({ type: "resetExtension" }),
     compatibilityRegistry: COMPATIBILITY_REGISTRY,
     resolveCompatibility: (settings) => resolveCompatibility(settings, { host: "extension", twitchIdentity: "web" }),

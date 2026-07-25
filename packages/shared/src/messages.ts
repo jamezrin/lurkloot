@@ -13,6 +13,9 @@ export type CoreRuntimeMessage =
   | { type: "searchCategories"; platform: Platform; query: string }
   | { type: "tickNow" }
   | { type: "resumeAfterManualClose"; platform: Platform }
+  // Handled by the engine controller, not the extension shell: dismissing resets
+  // the detector, closes the managed-tab breaker and lets farming resume.
+  | { type: "dismissCriticalFailure"; platform: Platform }
   | {
       type: "playbackTelemetry";
       platform: Platform;
