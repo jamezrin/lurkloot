@@ -57,6 +57,16 @@ const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   keepVideosUnmuted: true,
 };
 const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
+// Priming foreground-activates the watch tab for a moment, so it must never
+// become an open-ended loop: a tab whose player the browser permanently blocks
+// keeps reporting playingVideoCount === 0, which would otherwise flicker the tab
+// to the foreground on every scheduler tick and make the browser toolbar and the
+// extensions menu unusable. Attempts are counted per watch target, spaced by a
+// back-off, and give up after the cap with a warning. The counter resets as soon
+// as a tick finds playback healthy, so a genuinely deferred player is still
+// coaxed along.
+const PLAYBACK_PRIME_MAX_ATTEMPTS = 3;
+const PLAYBACK_PRIME_BACKOFF_MS = 5 * 60_000;
 const PAGE_CONTEXT_RECOVERY_SUCCESSES = 3;
 const PAGE_CONTEXT_RECOVERY_MIN_MS = 10 * 60_000;
 
@@ -78,8 +88,11 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
-          await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
+        if (!shouldPrimePlayback(tab, channel.url, session)) {
+          // Playback is healthy, so the budget has served its purpose.
+          resetPlaybackPriming(channel.platform);
+        } else if (tabOptions.keepVideosUnmuted) {
+          await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
         }
         diagnostic(emit, "debug", `Reusing managed watch tab ${tab.id} for ${channel.username}`, channel.platform);
         return {
@@ -100,8 +113,11 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
-          await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
+        if (!shouldPrimePlayback(tab, channel.url, session)) {
+          // Playback is healthy, so the budget has served its purpose.
+          resetPlaybackPriming(channel.platform);
+        } else if (tabOptions.keepVideosUnmuted) {
+          await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
         }
         diagnostic(emit, "debug", `Reusing your tab ${tab.id} for ${channel.username}`, channel.platform);
         return { tabId: tab.id, managedByExtension: false };
@@ -136,7 +152,9 @@ export async function openPinnedMutedTabWithBrowser(
   }
   await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
   if (tabOptions.keepVideosUnmuted) {
-    await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
+    // Deliberately no reset here: a replacement tab for the same failing channel
+    // keeps spending the same budget, or the cap never engages under tab churn.
+    await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
   }
   diagnostic(emit, "info", `Opened watch tab ${tab.id} for ${channel.username}`, channel.platform);
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
@@ -162,6 +180,66 @@ function shouldPrimePlayback(tab: BrowserTab, url: string, session?: WatchSessio
   // re-prime just because the browser kept it muted.
   return playback.videoCount === 0
     || playback.playingVideoCount === 0;
+}
+
+interface PlaybackPrimeState {
+  channelUrl: string;
+  attempts: number;
+  lastAttemptAt: number;
+  exhausted: boolean;
+}
+
+// Keyed by platform, not by tab id: when playback never becomes healthy the
+// scheduler condemns the watch tab and opens a replacement, so the tab id is
+// different on every cycle. A per-tab budget would be reissued in full each time
+// and the cap would never engage. The watch target is what we rate-limit, so the
+// state carries the channel it was accrued for — a new tab for a *different*
+// channel is a legitimate reason to prime again, a new tab for the same channel
+// that keeps failing is the loop we must stop.
+const playbackPrimeStates = new Map<Platform, PlaybackPrimeState>();
+
+export { PLAYBACK_PRIME_BACKOFF_MS, PLAYBACK_PRIME_MAX_ATTEMPTS };
+
+// Forgets the priming budget for a platform (or for every platform when none is
+// given), so the next request primes again. Called when a tick finds playback
+// healthy — genuine recovery, not merely a new tab.
+export function resetPlaybackPriming(platform?: Platform): void {
+  if (platform == null) playbackPrimeStates.clear();
+  else playbackPrimeStates.delete(platform);
+}
+
+async function maybePrimeTabPlayback(
+  browserApi: BrowserTabApi,
+  tabId: number,
+  channel: ChannelCandidate,
+  emit: EventEmitter,
+  now: number = Date.now(),
+): Promise<void> {
+  const platform = channel.platform;
+  const tracked = playbackPrimeStates.get(platform);
+  const state = tracked?.channelUrl === channel.url
+    ? tracked
+    : { channelUrl: channel.url, attempts: 0, lastAttemptAt: 0, exhausted: false };
+  if (state.exhausted) return;
+
+  if (state.attempts >= PLAYBACK_PRIME_MAX_ATTEMPTS) {
+    playbackPrimeStates.set(platform, { ...state, exhausted: true });
+    diagnostic(
+      emit,
+      "warn",
+      `Playback for ${channel.username} did not start after ${PLAYBACK_PRIME_MAX_ATTEMPTS} priming attempts; leaving the watch tab in the background`,
+      platform,
+    );
+    return;
+  }
+
+  if (state.attempts > 0 && now - state.lastAttemptAt < PLAYBACK_PRIME_BACKOFF_MS) {
+    diagnostic(emit, "debug", `Skipping playback priming on watch tab ${tabId} until the back-off elapses`, platform);
+    return;
+  }
+
+  playbackPrimeStates.set(platform, { ...state, attempts: state.attempts + 1, lastAttemptAt: now });
+  await primeTabPlayback(browserApi, tabId, platform, emit);
 }
 
 async function primeTabPlayback(browserApi: BrowserTabApi, tabId: number, platform: Platform | undefined, emit: EventEmitter): Promise<void> {
