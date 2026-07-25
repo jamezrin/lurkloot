@@ -4,7 +4,7 @@ import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventRe
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
-import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
+import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
 import { currentManagedPageContextTabs, registerManagedPageContextTabs, setTwitchIntegrity, syncManagedTabBreakers } from "../core/tabs";
 import { dismissCriticalFailure, recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
@@ -1036,6 +1036,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
               platform: message.platform,
               checkedAt: new Date().toISOString(),
             },
+            // Telemetry arrives between scheduler ticks. Clearing the counter the
+            // moment playback is confirmed means a tab that dipped unhealthy and
+            // recovered is never condemned by a stale count (#250).
+            playbackChecks: isPlaybackTelemetryHealthy(telemetry) ? 0 : session.playbackChecks,
           },
         },
       };
