@@ -16,6 +16,7 @@
     "./rewards": "./src/rewards.ts",
     "./events": "./src/events.ts",
     "./criticalHealth": "./src/criticalHealth.ts",
+    "./failureReport": "./src/failureReport.ts",
     "./compatibility": "./src/compatibility.ts"
   },
   "scripts": {
