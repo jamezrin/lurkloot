@@ -2597,7 +2597,7 @@ describe("background controller", () => {
 
   it("falls back to a watch tab once the tabless heartbeat keeps failing", async () => {
     const watcher = fakeTablessWatcher(async () => ({ ok: false, live: true }));
-    const env = tablessEnv({ offlineRetryLimit: 2 });
+    const env = tablessEnv({ offlineRetryLimit: 1, tablessFallbackFailureLimit: 2 });
     env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
 
     await env.controller.tick();
