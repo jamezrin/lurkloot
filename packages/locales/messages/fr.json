@@ -749,6 +749,10 @@
     "message": "Carte $1 réclamée depuis le défi $2"
   },
   "activityAuthHealthChanged": { "message": "L’authentification de $1 est passée de $2 à $3." },
+  "activityCriticalFailureDetected": { "message": "$1 ne fonctionne pas : $2." },
+  "activityCriticalFailureCleared": { "message": "Échec critique de $1 ignoré ; nouvelle tentative en cours." },
+  "criticalFailureReasonNoProgress": { "message": "aucune progression malgré des erreurs répétées" },
+  "criticalFailureReasonPageContextChurn": { "message": "un onglet n’arrêtait pas de se rouvrir" },
   "activityPageContextOpened": { "message": "Un contexte en arrière-plan a été ouvert sur $1 car $2." },
   "activityPageContextClosed": { "message": "Le contexte en arrière-plan sur $1 a été fermé car $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick a refusé la requête sans onglet" },

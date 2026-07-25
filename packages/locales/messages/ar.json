@@ -749,6 +749,10 @@
     "message": "تم استلام بطاقة $1 من تحدي $2"
   },
   "activityAuthHealthChanged": { "message": "تغيّرت مصادقة $1 من $2 إلى $3." },
+  "activityCriticalFailureDetected": { "message": "$1 لا يعمل: $2." },
+  "activityCriticalFailureCleared": { "message": "تم تجاهل العطل الحرج في $1؛ جارٍ إعادة المحاولة." },
+  "criticalFailureReasonNoProgress": { "message": "لا تقدّم رغم تكرار الأخطاء" },
+  "criticalFailureReasonPageContextChurn": { "message": "ظلّت علامة تبويب تُعاد فتحها باستمرار" },
   "activityPageContextOpened": { "message": "تم فتح سياق في الخلفية على $1 لأن $2." },
   "activityPageContextClosed": { "message": "تم إغلاق سياق الخلفية على $1 لأن $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick رفض الطلب دون علامة تبويب" },

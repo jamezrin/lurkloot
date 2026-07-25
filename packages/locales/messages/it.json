@@ -749,6 +749,10 @@
     "message": "Riscattata una carta $1 dalla sfida $2"
   },
   "activityAuthHealthChanged": { "message": "L’autenticazione di $1 è passata da $2 a $3." },
+  "activityCriticalFailureDetected": { "message": "$1 non funziona: $2." },
+  "activityCriticalFailureCleared": { "message": "Errore critico di $1 ignorato; nuovo tentativo in corso." },
+  "criticalFailureReasonNoProgress": { "message": "nessun progresso nonostante errori ripetuti" },
+  "criticalFailureReasonPageContextChurn": { "message": "una scheda continuava a riaprirsi" },
   "activityPageContextOpened": { "message": "È stato aperto un contesto in background su $1 perché $2." },
   "activityPageContextClosed": { "message": "Il contesto in background su $1 è stato chiuso perché $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick ha rifiutato la richiesta senza scheda" },

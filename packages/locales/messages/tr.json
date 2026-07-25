@@ -815,6 +815,18 @@
   "activityAuthHealthChanged": {
     "message": "$1 oturum durumu değişti: $2 → $3."
   },
+  "activityCriticalFailureDetected": {
+    "message": "$1 çalışmıyor: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "$1 için kritik hata yoksayıldı; yeniden deneniyor."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "tekrarlanan hatalara rağmen ilerleme yok"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "bir sekme sürekli yeniden açılıyordu"
+  },
   "activityPageContextOpened": {
     "message": "$1 üzerinde arka plan işlemi başlatıldı. Neden: $2."
   },

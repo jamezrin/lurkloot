@@ -749,6 +749,10 @@
     "message": "$1-Karte aus der $2-Challenge erhalten"
   },
   "activityAuthHealthChanged": { "message": "Die Authentifizierung von $1 wechselte von $2 zu $3." },
+  "activityCriticalFailureDetected": { "message": "$1 funktioniert nicht: $2." },
+  "activityCriticalFailureCleared": { "message": "Kritischer Fehler von $1 verworfen; erneuter Versuch läuft." },
+  "criticalFailureReasonNoProgress": { "message": "trotz wiederholter Fehler kein Fortschritt" },
+  "criticalFailureReasonPageContextChurn": { "message": "ein Tab öffnete sich immer wieder neu" },
   "activityPageContextOpened": { "message": "Ein Hintergrundkontext auf $1 wurde geöffnet, weil $2." },
   "activityPageContextClosed": { "message": "Der Hintergrundkontext auf $1 wurde geschlossen, weil $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick die Anfrage ohne Tab abgelehnt hat" },

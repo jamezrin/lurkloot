@@ -749,6 +749,10 @@
     "message": "Reclamó una carta $1 del desafío $2"
   },
   "activityAuthHealthChanged": { "message": "La autenticación de $1 cambió de $2 a $3." },
+  "activityCriticalFailureDetected": { "message": "$1 no está funcionando: $2." },
+  "activityCriticalFailureCleared": { "message": "Se descartó el fallo crítico de $1; reintentando." },
+  "criticalFailureReasonNoProgress": { "message": "sin progreso pese a errores repetidos" },
+  "criticalFailureReasonPageContextChurn": { "message": "una pestaña seguía reabriéndose" },
   "activityPageContextOpened": { "message": "Se abrió un contexto en segundo plano en $1 porque $2." },
   "activityPageContextClosed": { "message": "Se cerró el contexto en segundo plano en $1 porque $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rechazó la solicitud sin pestaña" },
