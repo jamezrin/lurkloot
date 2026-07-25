@@ -749,6 +749,10 @@
     "message": "Claimed a $1 card from the $2 challenge"
   },
   "activityAuthHealthChanged": { "message": "$1 authentication changed from $2 to $3." },
+  "activityCriticalFailureDetected": { "message": "$1 is not working: $2." },
+  "activityCriticalFailureCleared": { "message": "$1 critical failure dismissed; retrying." },
+  "criticalFailureReasonNoProgress": { "message": "no progress despite repeated errors" },
+  "criticalFailureReasonPageContextChurn": { "message": "a tab kept reopening" },
   "activityPageContextOpened": { "message": "Opened a background context on $1 because $2." },
   "activityPageContextClosed": { "message": "Closed the background context on $1 because $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rejected the tabless request" },

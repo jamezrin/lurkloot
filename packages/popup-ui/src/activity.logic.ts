@@ -7,6 +7,7 @@ import type {
 } from "@lurkloot/shared/events";
 import type { ActivityPage } from "@lurkloot/shared/messages";
 import type { Platform } from "@lurkloot/shared/models";
+import type { CriticalFailureReason } from "@lurkloot/shared/criticalHealth";
 import type { TFunction } from "./types";
 
 export type ActivityStream = {
@@ -154,6 +155,12 @@ function formatPageContextCloseReason(reason: PageContextCloseReason, t: TFuncti
   }
 }
 
+function formatCriticalFailureReason(reason: CriticalFailureReason, t: TFunction): string {
+  return reason === "page_context_churn"
+    ? t("criticalFailureReasonPageContextChurn")
+    : t("criticalFailureReasonNoProgress");
+}
+
 function formatCurrentActivity(event: StoredEngineEvent & { category: "activity" }, t: TFunction): string {
   switch (event.code) {
     case "farming_started":
@@ -180,6 +187,10 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
       return t("activityPageContextClosed", [event.data.host, formatPageContextCloseReason(event.data.reason, t)]);
     case "auth_health_changed":
       return t("activityAuthHealthChanged", [event.platform, event.data.from, event.data.to]);
+    case "critical_failure_detected":
+      return t("activityCriticalFailureDetected", [event.platform, formatCriticalFailureReason(event.data.reason, t)]);
+    case "critical_failure_cleared":
+      return t("activityCriticalFailureCleared", event.platform);
     default: {
       const exhaustive: never = event;
       return exhaustive;
