@@ -26,7 +26,7 @@ a GitHub issue.
 
 - Detect, with near-zero false-positive risk, that a platform is producing no
   value for the user.
-- Detect and **stop** a page-context reopen loop, which is user-hostile
+- Detect and **stop** a managed-tab reopen loop, which is user-hostile
   regardless of accrual.
 - Give the user a report worth pasting into an issue, even when
   `diagnosticLogging` is off (its default).
@@ -35,7 +35,7 @@ a GitHub issue.
 
 ## Non-goals
 
-- Auto-remediation beyond opening the page-context circuit breaker.
+- Auto-remediation beyond opening the managed-tab circuit breaker.
 - The transport-health canary (#51) and proxy plumbing (#52).
 - Configurable thresholds. Constants only, plus one kill switch.
 
@@ -71,16 +71,41 @@ a suspended browser does not read as a huge stuck window.
 **Threshold.** 45 minutes of accumulated failing time, and at least 6 failing
 ticks.
 
-### Trigger 2 — page-context churn
+### Trigger 2 — managed tab churn
 
-Standalone; no API-failure or accrual requirement. Five managed page-context
-creations for the same platform within 10 minutes flags immediately.
+Standalone; no API-failure or accrual requirement. Five managed tab creations
+for the same platform within 10 minutes flags immediately. **Both kinds of
+managed tab count against the same window**: page-context tabs (opened to
+borrow a site origin when a background fetch is rejected) and watch tabs
+(opened to play a stream).
 
-On flag the **circuit breaker** opens: `openPageContext` refuses to create a
-context for that platform, and any retained context tab is closed once. This
-is the fix for the reported symptom — the user regains control of the browser.
-Farming that depends on the page context stops for that platform until the
-prompt is dismissed.
+The recovered diagnostic logs from the motivating report are the reason both
+count. The storm there was watch tabs, not page contexts:
+
+```
+06:18:18 Managed watch tab was closed; re-running scheduler
+06:18:25 Managed watch tab 1450140646 is gone; opening a new one
+06:18:25 Opened watch tab 1450140650 for xqc
+06:18:32 Managed watch tab was closed; re-running scheduler
+06:18:34 Managed watch tab 1450140650 is gone; opening a new one
+```
+
+Every Kick fetch in that dump reads `service worker OK (tabless-capable)`, so
+the page-context fallback never fired at all. A page-context-only detector
+would have missed the exact case it was built for. The mechanism is visible:
+closing the managed tab fires the removal listener, which re-runs the
+scheduler, which immediately reopens it.
+
+On flag the **circuit breaker** opens and stays latched independently of the
+prompt: the scheduler refuses to create either kind of managed tab for that
+platform, and any retained page-context tab is closed once. Because watch-tab
+creation is how tab-mode farming works at all, this pauses farming for that
+platform until the prompt is dismissed. The user regains control of their
+browser, which is the point.
+
+The breaker must latch even when the platform is already flagged for
+`no_progress` or is inside a post-dismissal cooldown — those guards suppress
+duplicate *prompts*, never the mitigation.
 
 ### Event semantics
 
@@ -105,18 +130,22 @@ interface CriticalHealthState {
   flaggedAt?: string;
   failingMs: number;
   failingTicks: number;
-  lastAccrualAt?: string;
+  lastObservedAt?: string;     // tick clock, not an accrual marker
   lastWatchedMinutes?: number;
-  contextOpens: string[];      // ISO timestamps, trimmed to the churn window
+  managedTabOpens: readonly string[];  // ISO stamps, both tab kinds, trimmed to the window
   breakerOpen: boolean;
   dismissedAt?: string;
   cooldownUntil?: string;
-  records: FailureRecord[];    // always-on ring buffer, max 30
+  records: readonly FailureRecord[];   // always-on ring buffer, max 30
 }
 ```
 
+The reason value is still emitted as `page_context_churn` even for a watch-tab
+storm. That is now inaccurate and is scheduled to be renamed alongside the
+localization pass, so the eleven catalogs are edited once rather than twice.
+
 `status`, `reason`, `flaggedAt`, `breakerOpen`, `cooldownUntil` and `records`
-persist. Counters (`failingMs`, `failingTicks`, `contextOpens`) reset on
+persist. Counters (`failingMs`, `failingTicks`, `managedTabOpens`) reset on
 restart — MV3 service workers recycle constantly, so an in-memory-only flag
 would rarely survive long enough to be seen, while stale counters from an old
 outage should not accumulate across sessions.
@@ -182,7 +211,8 @@ Markdown, in this order:
 
 1. Extension version, browser/user agent, locale, platform.
 2. Detector summary: reason, flagged-at, window length, failing tick count,
-   last accrual timestamp and `watchedMinutes`, page-context open count.
+   last accrual timestamp and `watchedMinutes`, managed-tab open count,
+   `tablessMode` (the motivating report could not be diagnosed without it).
 3. Current session state, auth health, watch mode, and settings relevant to
    farming (booleans and enums only).
 4. The failure ring buffer.

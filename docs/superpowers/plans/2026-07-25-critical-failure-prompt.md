@@ -1102,74 +1102,130 @@ git commit -m "feat(core): feed critical health observations from the scheduler"
 
 ---
 
-### Task 7: Page-context churn recording and the circuit breaker
+### Task 7: Managed-tab churn recording and the circuit breaker
+
+> **Revised after Task 3.** The recovered diagnostic logs from the motivating
+> report showed the reopen storm was **managed watch tabs**, not page-context
+> tabs, and that the Kick API was healthy throughout (`service worker OK
+> (tabless-capable)` on every fetch). Both tab kinds now count against one
+> churn window, and an open breaker pauses the platform. The detector API is
+> already generalized: `recordManagedTabOpen(state, platform, at, open)` where
+> `open` is `{ source: "page_context"; reason: PageContextOpenReason }` or
+> `{ source: "watch_tab" }`, and the selector is `isManagedTabBreakerOpen`.
 
 **Files:**
-- Modify: `packages/core/src/core/tabs.ts:818` (the `browserApi.tabs.create` call in `findOrCreatePageContextTab`)
-- Test: `packages/extension/tests/criticalHealth.test.ts`
+- Modify: `packages/core/src/core/tabs.ts` (the `browserApi.tabs.create` call in `findOrCreatePageContextTab`)
+- Modify: `packages/core/src/core/scheduler.ts:745` (the `adapter.prepareWatchTab` call site)
+- Modify: `packages/core/src/background/controller.ts`
+- Modify: `packages/shared/src/events.ts` (one new `FarmingStopReason`)
+- Modify: all eleven catalogs in `packages/locales/messages/`
+- Test: `packages/extension/tests/criticalHealth.test.ts`, `packages/extension/tests/scheduler.test.ts`
 
-`tabs.ts` keeps module-level maps and has no access to `SchedulerState`, so the breaker is exposed as a tiny module-level registry that the scheduler keeps in sync with the persisted state. This keeps the deep page-context call sites unchanged.
+Two different seams, because the two tab kinds are created in very different places:
 
-- [ ] **Step 1: Write the failing test**
+- **Watch tabs** are created through `adapter.prepareWatchTab`, called from the scheduler at `scheduler.ts:745`, which has both `nextState` and `platform` in scope. Gate it right there — no registry needed.
+- **Page-context tabs** are created several layers deep inside `tabs.ts`, which keeps module-level maps and has no access to `SchedulerState`. That one needs a small module-level registry the scheduler syncs once per tick.
+
+- [ ] **Step 1: Write the failing tests**
 
 Append to `packages/extension/tests/criticalHealth.test.ts`:
 
 ```ts
-import { isPageContextBreakerOpen } from "@lurkloot/core/criticalHealth";
-import { pageContextBreakerOpen, syncPageContextBreakers } from "@lurkloot/core/tabs";
+import { isManagedTabBreakerOpen } from "@lurkloot/core/criticalHealth";
+import { managedTabBreakerOpen, syncManagedTabBreakers } from "@lurkloot/core/tabs";
 
-describe("page context circuit breaker", () => {
+describe("managed tab circuit breaker", () => {
   it("mirrors the persisted breaker state", () => {
     let state = baseState();
-    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
-      state = recordPageContextOpen(state, "kick", START + index * 60 * 1000, "background_rejected").state;
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, { source: "watch_tab" }).state;
     }
 
-    syncPageContextBreakers(state);
+    syncManagedTabBreakers(state);
 
-    expect(isPageContextBreakerOpen(state, "kick")).toBe(true);
-    expect(pageContextBreakerOpen("kick")).toBe(true);
-    expect(pageContextBreakerOpen("twitch")).toBe(false);
+    expect(isManagedTabBreakerOpen(state, "kick")).toBe(true);
+    expect(managedTabBreakerOpen("kick")).toBe(true);
+    expect(managedTabBreakerOpen("twitch")).toBe(false);
   });
 
   it("closes again once the failure is dismissed", () => {
     let state = baseState();
-    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
-      state = recordPageContextOpen(state, "kick", START + index * 60 * 1000, "background_rejected").state;
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, { source: "page_context", reason: "background_rejected" }).state;
     }
-    syncPageContextBreakers(state);
+    syncManagedTabBreakers(state);
     state = dismissCriticalFailure(state, "kick", START + 10 * 60 * 1000).state;
-    syncPageContextBreakers(state);
+    syncManagedTabBreakers(state);
 
-    expect(pageContextBreakerOpen("kick")).toBe(false);
+    expect(managedTabBreakerOpen("kick")).toBe(false);
   });
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+And append to `packages/extension/tests/scheduler.test.ts`, using that file's existing harness rather than inventing new helpers:
 
-Run: `pnpm test -- criticalHealth.test.ts`
-Expected: FAIL — `syncPageContextBreakers` is not exported from `@lurkloot/core/tabs`.
+```ts
+  it("does not open a watch tab while the breaker is open", async () => {
+    const adapter = stubAdapter({});
+    let state = seededWatchingState("kick");
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", Date.now() + index * 1000, { source: "watch_tab" }).state;
+    }
 
-- [ ] **Step 3: Add the breaker registry to `tabs.ts`**
+    const result = await runTick(adapter, { criticalFailurePromptEnabled: true }, state);
+
+    expect(adapter.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.kick.status).not.toBe("watching");
+    expect(result.state.sessions.kick.reasonCode).toBe("critical_failure");
+  });
+
+  it("records each newly created managed watch tab", async () => {
+    const adapter = stubAdapter({});
+
+    const result = await runTick(adapter, { criticalFailurePromptEnabled: true });
+
+    expect(result.state.criticalHealth?.kick?.managedTabOpens).toHaveLength(1);
+    expect(result.state.criticalHealth?.kick?.records.at(-1)?.kind).toBe("watch_tab_open");
+  });
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `pnpm test`
+Expected: FAIL — `syncManagedTabBreakers` is not exported from `@lurkloot/core/tabs`, and `"critical_failure"` is not a valid reason code.
+
+- [ ] **Step 3: Add the new stop reason**
+
+In `packages/shared/src/events.ts`, add `| "critical_failure"` to the `FarmingStopReason` union. Handle it in the exhaustive `formatStopReason` switches in **both** `packages/popup-ui/src/activity.logic.ts` and `packages/cli/src/events.ts` (each has its own copy), returning a new key `stopReasonCriticalFailure`.
+
+Add that key to `packages/locales/messages/en.json`:
+
+```json
+  "stopReasonCriticalFailure": { "message": "a critical failure was detected" },
+```
+
+and translate it into the other ten catalogs (`es`, `fr`, `it`, `ru`, `de`, `hi`, `pt_BR`, `ar`, `tr`, `zh_CN`). There are **eleven** catalogs in total — `zh_CN.json` is easy to miss. `packages/extension/tests/i18n.test.ts` asserts key parity and will fail if any is skipped.
+
+- [ ] **Step 4: Add the page-context breaker registry to `tabs.ts`**
 
 In `packages/core/src/core/tabs.ts`, next to the existing `retainedPageContextTabs` map:
 
 ```ts
 // Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
 // call sites are several layers deep and have no access to scheduler state, so
-// the scheduler pushes the flag here once per tick instead.
-const openPageContextBreakers = new Set<Platform>();
+// the scheduler pushes the flag here once per tick instead. Watch tabs are gated
+// directly in the scheduler, which already has the state in scope.
+const openManagedTabBreakers = new Set<Platform>();
 
-export function syncPageContextBreakers(state: { criticalHealth?: Partial<Record<Platform, { breakerOpen: boolean }>> }): void {
+export function syncManagedTabBreakers(state: { criticalHealth?: Partial<Record<Platform, { breakerOpen: boolean }>> }): void {
   for (const platform of ["twitch", "kick"] as const) {
-    if (state.criticalHealth?.[platform]?.breakerOpen) openPageContextBreakers.add(platform);
-    else openPageContextBreakers.delete(platform);
+    if (state.criticalHealth?.[platform]?.breakerOpen) openManagedTabBreakers.add(platform);
+    else openManagedTabBreakers.delete(platform);
   }
 }
 
-export function pageContextBreakerOpen(platform: Platform): boolean {
-  return openPageContextBreakers.has(platform);
+export function managedTabBreakerOpen(platform: Platform): boolean {
+  return openManagedTabBreakers.has(platform);
 }
 
 function platformForOrigin(origin: string): Platform | undefined {
@@ -1183,46 +1239,83 @@ Then gate creation in `findOrCreatePageContextTab`, immediately before `const ta
 
 ```ts
   const contextPlatform = retain?.platform ?? platformForOrigin(origin);
-  if (contextPlatform && openPageContextBreakers.has(contextPlatform)) {
+  if (contextPlatform && openManagedTabBreakers.has(contextPlatform)) {
     throw new SafeFetchError({
       kind: "security_policy_blocked",
-      reason: "Page context creation is suspended after repeated reopening",
+      reason: "Managed tab creation is suspended after repeated reopening",
     });
   }
 ```
 
-- [ ] **Step 4: Call the sync from the scheduler**
+- [ ] **Step 5: Sync the registry and gate watch tabs in the scheduler**
 
-In `packages/core/src/core/scheduler.ts`, import `syncPageContextBreakers` from `./tabs` and call it once at the top of the tick, after the state has been merged and before the per-platform loop:
+In `packages/core/src/core/scheduler.ts`, import `syncManagedTabBreakers` from `./tabs` and `isManagedTabBreakerOpen` plus `recordManagedTabOpen` from `./criticalHealth`. Call the sync once per tick, after the state is merged and before the per-platform loop:
 
 ```ts
-  syncPageContextBreakers(nextState);
+  syncManagedTabBreakers(nextState);
 ```
 
-- [ ] **Step 5: Record opens into the detector**
+Then, in the per-platform loop where a decision has a channel and is not idle, refuse to watch at all while the breaker is open. Place this before the `chooseTablessWatch` call so neither watch mode starts:
 
-`tabs.ts` already emits `page_context_opened`. Rather than threading state into `tabs.ts`, fold those events into the detector where they are handled. In `packages/core/src/background/controller.ts`, in the path that receives engine events, add before the event is stored:
+```ts
+        // The breaker is open: a managed tab kept reopening for this platform.
+        // Creating another one is exactly the user-hostile behaviour we detected,
+        // so the platform stays parked until the prompt is dismissed. Tabless is
+        // not used as an escape hatch — the user chose to pause, not to switch modes.
+        if (settings.criticalFailurePromptEnabled && isManagedTabBreakerOpen(nextState, platform)) {
+          await adapter.stopWatchTab?.(previous);
+          nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+          nextState.sessions[platform] = {
+            ...previous,
+            status: "idle",
+            lastCheckedAt: new Date().toISOString(),
+            message: "Paused after repeated tab reopening",
+            reasonCode: "critical_failure",
+            tabId: undefined,
+            tabManagedByExtension: undefined,
+          };
+          emitDiagnostic(emit, platform, "warn", "Paused: a managed tab kept reopening");
+          continue;
+        }
+```
+
+Match the surrounding code's real field names and its `continue` structure — the snippet above is the intent, not a literal patch. If `reasonCode` here belongs to `WatchReasonCode` rather than `FarmingStopReason`, add the value to whichever union the session field actually uses, and to the other only if a stop event carries it.
+
+Finally, record newly created watch tabs. Immediately after the `const prepared = await adapter.prepareWatchTab(...)` call, record an open **only when a new tab was actually created** — not when an existing one is reused, or the counter would trip on every ordinary tick:
+
+```ts
+          const previousManagedTabId = nextState.managedWatchTabs?.[platform]?.tabId;
+          if (prepared.managedByExtension && prepared.tabId !== previousManagedTabId) {
+            const opened = recordManagedTabOpen(nextState, platform, Date.now(), { source: "watch_tab" });
+            nextState = opened.state;
+            if (opened.event) emit(opened.event);
+          }
+```
+
+- [ ] **Step 6: Record page-context opens in the controller**
+
+`tabs.ts` already emits `page_context_opened`. Rather than threading state into `tabs.ts`, fold those events into the detector where they are handled. In `packages/core/src/background/controller.ts`, in the path that receives engine events:
 
 ```ts
       if (event.category === "activity" && event.code === "page_context_opened" && settings.criticalFailurePromptEnabled) {
-        const transition = recordPageContextOpen(state, event.platform, Date.now(), event.data.reason);
+        const transition = recordManagedTabOpen(state, event.platform, Date.now(), { source: "page_context", reason: event.data.reason });
         state = transition.state;
         if (transition.event) emit(transition.event);
       }
 ```
 
-with `import { recordPageContextOpen } from "@lurkloot/core/criticalHealth";` — or the relative path `../core/criticalHealth` given the controller lives inside core. Persist `state` through the controller's normal save path so the breaker survives a restart.
+importing `recordManagedTabOpen` from `../core/criticalHealth`. Persist `state` through the controller's normal save path so the breaker survives a restart, and call `syncManagedTabBreakers(state)` after any change so the registry cannot go stale between ticks.
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [ ] **Step 7: Run the full suite**
 
-Run: `pnpm test -- criticalHealth.test.ts backgroundController.test.ts coreBoundary.test.ts`
-Expected: PASS.
+Run: `pnpm test` and `pnpm typecheck`
+Expected: fully green. The suite must not be left red.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add packages/core/src packages/extension/tests/criticalHealth.test.ts
-git commit -m "feat(core): stop page context churn with a circuit breaker"
+git add packages/core/src packages/shared/src packages/popup-ui/src packages/cli/src packages/locales/messages packages/extension/tests
+git commit -m "feat(core): stop managed tab churn with a circuit breaker"
 ```
 
 ---
