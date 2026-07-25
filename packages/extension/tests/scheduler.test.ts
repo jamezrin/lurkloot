@@ -1407,13 +1407,216 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.message).toBe("Watch tab playback did not become active");
     expect(result.state.sessions.twitch.reasonCode).toBe("watch_unhealthy");
     expect(result.state.sessions.twitch.playback).toBeUndefined();
-    expect(result.state.sessions.twitch.playbackChecks).toBe(3);
+    // The replacement tab starts with a clean counter and a fresh grace window.
+    expect(result.state.sessions.twitch.playbackChecks).toBe(0);
+    expect(result.state.sessions.twitch.watchTabOpenedAt).toBeDefined();
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "old" }),
       expect.objectContaining({ tabId: 7 }),
       {},
     );
     expect(result.events.some((event) => event.category === "diagnostic" && event.message === "Watch tab playback did not become active")).toBe(true);
+  });
+
+  it("does not condemn a freshly opened watch tab whose player has not attached yet (#250)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const old = channel("old");
+      const twitch = adapter("twitch", [campaign("drops")], [old]);
+      vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+      vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
+      // The user log: tab opens, reports "0/0 videos playing", and only reports
+      // playback a couple of seconds later.
+      const coldTab: SchedulerState["sessions"]["twitch"] = {
+        platform: "twitch",
+        status: "watching",
+        channel: old,
+        campaignId: "drops",
+        rewardId: "reward-in_progress",
+        offlineChecks: 0,
+        playbackChecks: 0,
+        tabId: 7,
+        watchMode: "tab",
+        watchTabOpenedAt: new Date().toISOString(),
+        playback: {
+          platform: "twitch",
+          checkedAt: new Date().toISOString(),
+          videoCount: 0,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 0,
+          playingVideoCount: 0,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+        },
+      };
+      const engineSettings = settings({
+        offlineRetryLimit: 3,
+        platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+      });
+
+      let session = coldTab;
+      // Several off-cycle ticks inside the grace window must not accumulate.
+      for (let tick = 0; tick < 4; tick += 1) {
+        vi.setSystemTime(new Date(Date.parse("2026-07-19T12:00:00.000Z") + (tick + 1) * 2_000));
+        const result = await runSchedulerTick(
+          {
+            authHealth: HEALTHY_AUTH,
+            sessions: { twitch: session, kick: { platform: "kick", status: "idle", offlineChecks: 0 } },
+            campaigns: { twitch: [], kick: [] },
+          },
+          engineSettings,
+          { twitch, kick: adapter("kick", [], []) },
+        );
+        session = { ...result.state.sessions.twitch, playback: session.playback };
+        expect(session.reasonCode).not.toBe("watch_unhealthy");
+        expect(session.playbackChecks).toBe(0);
+        expect(session.tabId).toBe(7);
+      }
+
+      // Telemetry finally reports playback; the tab is kept.
+      session = {
+        ...session,
+        playback: {
+          platform: "twitch",
+          checkedAt: new Date().toISOString(),
+          videoCount: 1,
+          mutedVideoCount: 1,
+          unmutedVideoCount: 0,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+        },
+      };
+      const settled = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: { twitch: session, kick: { platform: "kick", status: "idle", offlineChecks: 0 } },
+          campaigns: { twitch: [], kick: [] },
+        },
+        engineSettings,
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(settled.state.sessions.twitch.reasonCode).toBe("keeping_current_watch");
+      expect(settled.state.sessions.twitch.playbackChecks).toBe(0);
+      expect(settled.state.sessions.twitch.tabId).toBe(7);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still replaces a watch tab that never plays once the grace period has elapsed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const old = channel("old");
+      const twitch = adapter("twitch", [campaign("drops")], [old]);
+      vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+      const deadPlayback = {
+        platform: "twitch" as const,
+        checkedAt: new Date().toISOString(),
+        videoCount: 1,
+        mutedVideoCount: 1,
+        unmutedVideoCount: 0,
+        playingVideoCount: 0,
+        blockedPlaybackCount: 1,
+        documentHidden: true,
+      };
+      const result = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: {
+              platform: "twitch",
+              status: "watching",
+              channel: old,
+              campaignId: "drops",
+              rewardId: "reward-in_progress",
+              offlineChecks: 0,
+              playbackChecks: 2,
+              tabId: 7,
+              watchMode: "tab",
+              // Opened well before the grace window closed.
+              watchTabOpenedAt: "2026-07-19T11:50:00.000Z",
+              playback: deadPlayback,
+            },
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(result.state.sessions.twitch.reasonCode).toBe("watch_unhealthy");
+      expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
+        expect.objectContaining({ username: "old" }),
+        expect.objectContaining({ tabId: 7 }),
+        {},
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stamps the watch tab open time on a new tab and keeps it while the tab survives", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const old = channel("old");
+      const twitch = adapter("twitch", [campaign("drops")], [old]);
+      vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+      vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
+
+      const opened = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(opened.state.sessions.twitch.watchTabOpenedAt).toBe("2026-07-19T12:00:00.000Z");
+
+      vi.setSystemTime("2026-07-19T12:05:00.000Z");
+      const kept = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: {
+              ...opened.state.sessions.twitch,
+              playback: {
+                platform: "twitch",
+                checkedAt: new Date().toISOString(),
+                videoCount: 1,
+                mutedVideoCount: 1,
+                unmutedVideoCount: 0,
+                playingVideoCount: 1,
+                blockedPlaybackCount: 0,
+                documentHidden: true,
+              },
+            },
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(kept.state.sessions.twitch.watchTabOpenedAt).toBe("2026-07-19T12:00:00.000Z");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("switches from a campaign watch tab to fallback when the campaign becomes ineligible", async () => {

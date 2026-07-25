@@ -118,6 +118,11 @@ export interface WatchSession {
   campaignId?: string;
   rewardId?: string;
   startedAt?: string;
+  // When the current watch tab was opened (or re-opened / re-navigated). Playback
+  // telemetry only becomes meaningful once the page has had time to attach a
+  // player, so the scheduler grants a grace period from this instant before it
+  // starts counting unhealthy playback checks.
+  watchTabOpenedAt?: string;
   lastCheckedAt?: string;
   offlineChecks: number;
   playbackChecks?: number;
