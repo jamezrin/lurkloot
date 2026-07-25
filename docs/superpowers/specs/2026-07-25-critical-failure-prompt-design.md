@@ -71,6 +71,28 @@ a suspended browser does not read as a huge stuck window.
 **Threshold.** 45 minutes of accumulated failing time, and at least 6 failing
 ticks.
 
+**What the strict AND actually means in practice.** Because a successful tick
+resets the window, the "no forward progress" conjunct can only ever be
+satisfied *during* an API outage — where it is true by definition. It
+therefore contributes no independent evidence, and `progressed` cannot change
+an outcome. This is a deliberate product decision, reaffirmed after the
+behaviour was measured:
+
+| Scenario | Flags? |
+| --- | --- |
+| Platform API erroring or in backoff for 45 continuous minutes | yes, `no_progress` |
+| Managed tab reopen storm (watch tab or page context) | yes, `page_context_churn` |
+| API healthy, farming "works", `watchedMinutes` never moves | **no, by design** |
+
+The third row — a silent stall with a healthy API — is deliberately out of
+scope for this prompt, which is reserved for cases we can be certain about. It
+belongs to issue #53's stuck-progress detector and its own gentler
+notification. Nobody should later "fix" this by making a healthy tick count as
+failing.
+
+`watchedMinutes`/`lastWatchedMinutes` are still tracked and persisted, because
+the failure report surfaces them to whoever triages the issue.
+
 ### Trigger 2 — managed tab churn
 
 Standalone; no API-failure or accrual requirement. Five managed tab creations
