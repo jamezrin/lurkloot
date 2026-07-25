@@ -272,6 +272,27 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             render: () => <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={Math.round(settings.pollIntervalMinutes * 60)} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => void onSettingsChange({ pollIntervalMinutes: value / 60 })} />,
           },
           {
+            id: "general.advanced.tablessFallbackFailureLimit",
+            titleKey: "tablessFallbackFailureLimitTitle",
+            descriptionKey: "tablessFallbackFailureLimitDescription",
+            render: () => (
+              <NumberSettingRow
+                title={t("tablessFallbackFailureLimitTitle")}
+                description={t("tablessFallbackFailureLimitDescription")}
+                value={settings.tablessFallbackFailureLimit}
+                min={1}
+                max={10}
+                suffix={t("failuresSuffix")}
+                disabled={!settings.tablessMode}
+                disabledReason={t("tablessFallbackFailureLimitDisabledReason")}
+                onChange={(value) => void onSettingsChange(
+                  { tablessFallbackFailureLimit: value },
+                  { tickAfterSave: true },
+                )}
+              />
+            ),
+          },
+          {
             id: "general.advanced.postClaimHandoff",
             titleKey: "postClaimHandoffTitle",
             descriptionKey: "postClaimHandoffDescription",

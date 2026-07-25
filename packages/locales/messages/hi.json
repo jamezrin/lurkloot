@@ -413,6 +413,10 @@
   "tablessDescription": {
     "message": "वीडियो टैब के बजाय हल्के watch signals से फ़ार्म करें। Twitch watch heartbeats उपयोग करता है; Kick viewer connection उपयोग करता है। कमाई रुकने पर अपने आप टैब पर लौटता है।"
   },
+  "tablessFallbackFailureLimitTitle": { "message": "टैबलेस फ़ॉलबैक सीमा" },
+  "tablessFallbackFailureLimitDescription": { "message": "लगातार इतनी टैबलेस वॉच सिग्नल विफलताओं के बाद वीडियो टैब खोलें।" },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "यह सेटिंग बदलने के लिए कम-संसाधन टैबलेस मोड चालू करें।" },
+  "failuresSuffix": { "message": "विफलताएँ" },
   "autoCloseTabsTitle": {
     "message": "फ़ार्मिंग टैब अपने आप बंद करें"
   },

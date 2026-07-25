@@ -413,6 +413,10 @@
   "tablessDescription": {
     "message": "Farma por sinais leves de visualização em vez de uma aba de vídeo. Twitch usa heartbeats; Kick usa uma conexão de espectador. Volta para uma aba automaticamente se parar de contar."
   },
+  "tablessFallbackFailureLimitTitle": { "message": "Limite de fallback do modo sem abas" },
+  "tablessFallbackFailureLimitDescription": { "message": "Abre uma aba de vídeo após esta quantidade de falhas consecutivas nos sinais de visualização sem abas." },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "Ative o modo de baixo consumo sem abas para alterar esta configuração." },
+  "failuresSuffix": { "message": "falhas" },
   "autoCloseTabsTitle": {
     "message": "Fechar abas de farming automaticamente"
   },

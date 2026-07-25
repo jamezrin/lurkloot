@@ -437,6 +437,10 @@
   "tablessDescription": {
     "message": "Sekme açmadan sessizce arka planda toplar. (İşlem takılırsa otomatik sekme açar.)"
   },
+  "tablessFallbackFailureLimitTitle": { "message": "Sekmesiz moddan geri dönüş eşiği" },
+  "tablessFallbackFailureLimitDescription": { "message": "Art arda bu sayıda sekmesiz izleme sinyali başarısız olduğunda bir video sekmesi açar." },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "Bu ayarı değiştirmek için düşük kaynak kullanan sekmesiz modu etkinleştirin." },
+  "failuresSuffix": { "message": "hata" },
   "autoCloseTabsTitle": {
     "message": "Gereksiz sekmeleri kapat"
   },
