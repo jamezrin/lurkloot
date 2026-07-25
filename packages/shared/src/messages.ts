@@ -23,7 +23,8 @@ export type RuntimeMessage =
   | ({ type: "getActivity" } & ActivityQuery)
   | { type: "clearActivity" }
   | { type: "resetExtension" }
-  | { type: "exportCliCredentials" };
+  | { type: "exportCliCredentials" }
+  | { type: "dismissCriticalFailure"; platform: Platform };
 
 // Credential blob the popup exports for the headless CLI's `login --import`. It
 // carries only the session tokens the CLI transports replay — never anything the

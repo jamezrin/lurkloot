@@ -6,7 +6,7 @@ import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/s
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
 import { currentManagedPageContextTabs, registerManagedPageContextTabs, setTwitchIntegrity, syncManagedTabBreakers } from "../core/tabs";
-import { recordManagedTabOpen } from "../core/criticalHealth";
+import { dismissCriticalFailure, recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
@@ -1259,6 +1259,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
 
     if (message.type === "tickNow") {
+      await tickAndHandOff();
+      return snapshot();
+    }
+    if (message.type === "dismissCriticalFailure") {
+      await withEventCollector(async (emit, events) => {
+        const state = await deps.loadState();
+        const transition = dismissCriticalFailure(state, message.platform, Date.now());
+        if (transition.event) emit(transition.event);
+        // Closing the breaker here is what lets farming resume immediately
+        // instead of waiting for the next tick to sync the registry.
+        syncManagedTabBreakers(transition.state);
+        await persistAndReport(transition.state, events);
+      });
       await tickAndHandOff();
       return snapshot();
     }
