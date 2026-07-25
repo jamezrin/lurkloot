@@ -6,6 +6,7 @@ import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurklo
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
+import { DEFAULT_CRITICAL_HEALTH } from "@lurkloot/shared/criticalHealth";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: `reward-${status}`,
@@ -2793,6 +2794,128 @@ describe("scheduler critical health observations", () => {
       kind: "api_error",
       code: "platform_backoff",
     });
+  });
+
+  it("records a failing tick when discovery throws and there is no idle watchlist", async () => {
+    const twitch = failingAdapter();
+    const result = await runSchedulerTick(
+      healthState,
+      healthSettings({ platform: { twitch: { idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).toBe("platform_error");
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "http_error",
+      status: 503,
+    });
+  });
+
+  it("records a failing tick when the watch phase throws after a successful discovery", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    vi.mocked(twitch.checkChannel).mockRejectedValue(new Error("channel lookup exploded"));
+
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+      },
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(result.state.sessions.twitch.reasonCode).toBe("platform_error");
+    // The accrual observation set before the throw must not survive as a healthy tick.
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(6);
+    expect(result.state.criticalHealth?.twitch?.failingMs).toBeGreaterThanOrEqual(2_000_000);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "unknown_error",
+      detail: "channel lookup exploded",
+    });
+  });
+
+  it.each([
+    ["platform disabled", () => healthSettings({ platform: { twitch: { enabled: false } } })],
+    ["automation stopped", () => healthSettings({ running: false })],
+  ])("prunes the tab churn window on the %s early exit", async (_name, tickSettings) => {
+    const stale = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        criticalHealth: {
+          twitch: {
+            ...DEFAULT_CRITICAL_HEALTH,
+            managedTabOpens: [stale, stale, stale, stale, stale],
+            breakerOpen: true,
+          },
+        },
+      },
+      tickSettings(),
+      { twitch: adapter("twitch", [], []), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.managedTabOpens).toEqual([]);
+    expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+  });
+
+  it("prunes the tab churn window while authentication is unhealthy", async () => {
+    const stale = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        authHealth: { ...HEALTHY_AUTH, twitch: { status: "invalid_credentials", reasonCode: "credentials_rejected" } },
+        criticalHealth: {
+          twitch: {
+            ...DEFAULT_CRITICAL_HEALTH,
+            managedTabOpens: [stale, stale, stale, stale, stale],
+            breakerOpen: true,
+          },
+        },
+      },
+      healthSettings(),
+      { twitch: adapter("twitch", [], []), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).toBe("authentication_unhealthy");
+    expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
+  });
+
+  it("does not charge a failing tick for an outage that ends in an accrual precondition break", async () => {
+    // Discovery fails (a failing observation) but the tick then finds the idle
+    // watchlist channel it was watching has been superseded — an explainable
+    // stop, so the precondition arm must win and clear the counters.
+    const twitch = failingAdapter();
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        sessions: {
+          ...healthState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            offlineChecks: 0,
+          },
+        },
+        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+      },
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_idle_watchlist");
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(0);
+    expect(result.state.criticalHealth?.twitch?.failingMs).toBe(0);
   });
 
   it("resets the failing counters when an accrual precondition breaks", async () => {

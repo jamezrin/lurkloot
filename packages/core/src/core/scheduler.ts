@@ -115,6 +115,31 @@ function preconditionBreakObservation(): CriticalHealthObservation {
   return { at: Date.now(), failing: false, progressed: false, preconditionBroke: true };
 }
 
+// The tick reached no conclusion about this platform. Not "healthy": it carries no
+// watchedMinutes and no record, it only keeps the detector's clock and its
+// time-based pruning running.
+function neutralObservation(): CriticalHealthObservation {
+  return { at: Date.now(), failing: false, progressed: false, preconditionBroke: false };
+}
+
+// A failing observation with a breadcrumb built from a SafeFetchError when the
+// error is one, and from the plain message otherwise.
+function apiErrorObservation(error: unknown): CriticalHealthObservation {
+  const failure = isSafeFetchError(error) ? error.failure : undefined;
+  return {
+    at: Date.now(),
+    failing: true,
+    progressed: false,
+    preconditionBroke: false,
+    record: {
+      kind: "api_error",
+      code: failure?.kind ?? "unknown_error",
+      ...(failure?.status === undefined ? {} : { status: failure.status }),
+      detail: error instanceof Error ? error.message : String(error),
+    },
+  };
+}
+
 // The reward the session claims to be watching, if it is still present in the
 // freshly-read campaign list. Returns undefined when nothing is being farmed,
 // which the detector reads as "no watch session sustained".
@@ -487,17 +512,29 @@ export async function runSchedulerTick(
     const previous = nextState.sessions[platform];
     const platformSettings = settings.platform[platform];
     const adapter = adapters[platform];
-    // Collected across the tick and applied exactly once per platform, so the
-    // detector sees one observation regardless of which branch the tick took.
-    let observation: CriticalHealthObservation | undefined;
+    // Seeded neutral so every exit — including the paths that never reach the
+    // farming work — still applies a truthful observation. That matters because
+    // observeCriticalHealth is what prunes the tab-churn window and releases the
+    // managed-tab breaker: a platform that only ever takes an early exit (signed
+    // out, disabled) must still be able to recover from an open breaker.
+    // Overwritten below as the tick learns what actually happened.
+    let observation: CriticalHealthObservation = neutralObservation();
     // Runs in the `finally` below, so every exit — early `continue`, thrown
-    // error, or normal completion — reaches the detector exactly once. That is
-    // what prunes the churn window and releases the managed-tab breaker.
+    // error, or normal completion — reaches the detector exactly once.
     const applyObservation = (): void => {
-      if (!settings.criticalFailurePromptEnabled || !observation) return;
+      if (!settings.criticalFailurePromptEnabled) return;
       const transition = observeCriticalHealth(nextState, platform, observation);
       nextState = transition.state;
-      if (transition.event) emit(transition.event);
+      // This runs inside a `finally`, so a throwing listener here would replace
+      // the in-flight error and abort the remaining platforms. Health reporting
+      // is never worth that.
+      if (transition.event) {
+        try {
+          emit(transition.event);
+        } catch {
+          // Ignored on purpose: see above.
+        }
+      }
     };
 
     try {
@@ -601,7 +638,13 @@ export async function runSchedulerTick(
           message: `Waiting until ${previous.retryAfter} before retrying after platform errors`,
           reasonCode: "platform_backoff",
         };
-        observation = { at: Date.now(), failing: true, progressed: false, preconditionBroke: false, record: { kind: "api_error", code: "platform_backoff" } };
+        observation = {
+          at: Date.now(),
+          failing: true,
+          progressed: false,
+          preconditionBroke: false,
+          record: { kind: "api_error", code: "platform_backoff" },
+        };
         emitDiagnostic(emit, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred");
         continue;
       }
@@ -621,19 +664,7 @@ export async function runSchedulerTick(
         // popup until the next successful tick.
         campaigns = [];
         discoveryFailed = true;
-        const failure = isSafeFetchError(error) ? error.failure : undefined;
-        observation = {
-          at: Date.now(),
-          failing: true,
-          progressed: false,
-          preconditionBroke: false,
-          record: {
-            kind: "api_error",
-            code: failure?.kind ?? "unknown_error",
-            ...(failure?.status === undefined ? {} : { status: failure.status }),
-            detail: error instanceof Error ? error.message : String(error),
-          },
-        };
+        observation = apiErrorObservation(error);
         const message = error instanceof Error ? error.message : "Drop discovery failed";
         emitDiagnostic(emit, platform, "warn", `${message}; checking Idle Watchlist fallback`);
         emitDiagnostic(emit, platform, "debug", `Drop discovery error (Idle Watchlist fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
@@ -643,7 +674,7 @@ export async function runSchedulerTick(
         // The accrual arm: fresh progress data is in hand, so compare the active
         // reward's watched minutes against what the last observation recorded.
         const activeWatchReward = activeRewardFor(campaigns, nextState.sessions[platform]);
-        const previousWatchedMinutes = state.criticalHealth?.[platform]?.lastWatchedMinutes;
+        const previousWatchedMinutes = nextState.criticalHealth?.[platform]?.lastWatchedMinutes;
         const watchedMinutes = activeWatchReward?.watchedMinutes;
         observation = {
           at: Date.now(),
@@ -733,7 +764,7 @@ export async function runSchedulerTick(
       const shouldKeep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter);
       // The single site where a stop reason is decided for an existing watch, so
       // the precondition-break arm is set here rather than at every consumer.
-      if (!shouldKeep.keep && ACCRUAL_PRECONDITION_BREAK_REASONS.has(shouldKeep.reasonCode)) {
+      if (!shouldKeep.keep && previous.status === "watching" && ACCRUAL_PRECONDITION_BREAK_REASONS.has(shouldKeep.reasonCode)) {
         observation = preconditionBreakObservation();
       }
       if (!shouldKeep.keep && previous.status === "watching") {
@@ -872,6 +903,11 @@ export async function runSchedulerTick(
         await suspendPlatformForAuthentication(platform, previous, adapter);
         continue;
       }
+      // The tick died somewhere in the farming work. Without this the accrual
+      // observation set earlier (failing: false) would be what `finally` applies,
+      // so a platform failing every tick after a successful discovery would reset
+      // its own evidence forever and could never flag.
+      observation = apiErrorObservation(error);
       const message = error instanceof Error ? error.message : "Platform scheduler failed";
       const errorChecks = (previous.errorChecks ?? 0) + 1;
       nextState.sessions[platform] = {
