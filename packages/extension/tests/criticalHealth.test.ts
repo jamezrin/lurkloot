@@ -497,6 +497,10 @@ describe("critical health persistence", () => {
     expect(mergeSchedulerState({}).criticalHealth).toBeUndefined();
   });
 
+  it("omits the block when the persisted map is an empty object", () => {
+    expect(mergeSchedulerState({ criticalHealth: {} }).criticalHealth).toBeUndefined();
+  });
+
   it("keeps each platform independent", () => {
     const merged = mergeSchedulerState({
       criticalHealth: {
