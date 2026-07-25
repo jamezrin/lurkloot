@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "Nessuna attività registrata. Premi aggiorna per eseguire un controllo."
   },
+  "noDiagnostics": {
+    "message": "Nessuna diagnostica registrata. Compare mentre l'estensione lavora."
+  },
   "platformActivity": {
     "message": "Attività $1"
+  },
+  "platformDiagnostics": {
+    "message": "Diagnostica $1"
   },
   "lastCheck": {
     "message": "ultimo controllo $1"
@@ -807,9 +813,6 @@
   "activityReasonManualWatch": {
     "message": "è subentrata la visione manuale"
   },
-  "hideDiagnosticLogs": {
-    "message": "Nascondi diagnostica"
-  },
   "loadMoreActivity": {
     "message": "Carica altro"
   },
@@ -822,8 +825,11 @@
   "clearActivityFailed": {
     "message": "Impossibile cancellare la cronologia. Riprova."
   },
-  "showDiagnosticLogs": {
-    "message": "Mostra diagnostica"
+  "activityViewTab": {
+    "message": "Attività"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnostica"
   },
   "settingsGroupCompatibility": {
     "message": "Compatibilità"

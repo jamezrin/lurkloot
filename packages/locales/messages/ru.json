@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "Активность пока не записана. Нажмите обновить, чтобы выполнить проверку."
   },
+  "noDiagnostics": {
+    "message": "Диагностика пока не записана. Она появляется по мере работы расширения."
+  },
   "platformActivity": {
     "message": "Активность $1"
+  },
+  "platformDiagnostics": {
+    "message": "Диагностика $1"
   },
   "lastCheck": {
     "message": "последняя проверка $1"
@@ -807,9 +813,6 @@
   "activityReasonManualWatch": {
     "message": "включён ручной просмотр"
   },
-  "hideDiagnosticLogs": {
-    "message": "Скрыть диагностику"
-  },
   "loadMoreActivity": {
     "message": "Загрузить ещё"
   },
@@ -822,8 +825,11 @@
   "clearActivityFailed": {
     "message": "Не удалось очистить историю. Повторите попытку."
   },
-  "showDiagnosticLogs": {
-    "message": "Показать диагностику"
+  "activityViewTab": {
+    "message": "Активность"
+  },
+  "diagnosticsViewTab": {
+    "message": "Диагностика"
   },
   "settingsGroupCompatibility": {
     "message": "Совместимость"
