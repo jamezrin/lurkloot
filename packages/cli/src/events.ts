@@ -56,7 +56,14 @@ function formatPageContextCloseReason(reason: PageContextCloseReason): string {
 }
 
 function formatCriticalFailureReason(reason: CriticalFailureReason): string {
-  return reason === "page_context_churn" ? "a tab kept reopening" : "no progress despite repeated errors";
+  switch (reason) {
+    case "page_context_churn": return "a tab kept reopening";
+    case "no_progress": return "no progress despite repeated errors";
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
 }
 
 export function formatCliEvent(event: EngineEvent): string {

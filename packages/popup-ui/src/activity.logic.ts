@@ -156,9 +156,14 @@ function formatPageContextCloseReason(reason: PageContextCloseReason, t: TFuncti
 }
 
 function formatCriticalFailureReason(reason: CriticalFailureReason, t: TFunction): string {
-  return reason === "page_context_churn"
-    ? t("criticalFailureReasonPageContextChurn")
-    : t("criticalFailureReasonNoProgress");
+  switch (reason) {
+    case "page_context_churn": return t("criticalFailureReasonPageContextChurn");
+    case "no_progress": return t("criticalFailureReasonNoProgress");
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
 }
 
 function formatCurrentActivity(event: StoredEngineEvent & { category: "activity" }, t: TFunction): string {
