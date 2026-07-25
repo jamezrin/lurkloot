@@ -40,7 +40,11 @@ export function CriticalFailurePanel({
     // The clipboard write happens inside the click gesture, and the issue only
     // opens once it succeeds. Sending someone to a blank issue form with an empty
     // clipboard is worse than showing them the text to copy by hand.
-    if (await writeClipboard(report)) {
+    // A denied or unavailable clipboard can reject rather than resolve false, and
+    // an unhandled rejection here would leave the user with neither the issue form
+    // nor the manual-copy textarea — so treat any failure the same way.
+    const copied = await writeClipboard(report).catch(() => false);
+    if (copied) {
       setFallbackReport(null);
       openHttpsLink(issueUrl(platform, reason), openLink);
       return;

@@ -513,7 +513,12 @@ export async function runSchedulerTick(
   // scheduler state, so the breaker flags are mirrored into a module registry
   // once per tick — and again after every observation, since an observation can
   // release the breaker.
-  syncManagedTabBreakers(nextState);
+  //
+  // When the kill switch is off the registry is cleared instead of mirrored.
+  // Otherwise a breaker latched before the switch was flipped would keep blocking
+  // page-context creation forever: observations no longer run to release it, and
+  // the popup no longer renders the panel that would dismiss it.
+  syncManagedTabBreakers(settings.criticalFailurePromptEnabled ? nextState : {});
 
   const platforms = options.platforms ?? PLATFORMS;
   for (const platform of platforms) {
