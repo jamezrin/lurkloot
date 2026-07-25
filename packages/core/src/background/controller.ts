@@ -1307,7 +1307,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       return snapshot();
     }
     if (message.type === "dismissCriticalFailure") {
-      await withEventCollector(async (emit, events) => {
+      // Serialized like every other load→mutate→persist handler here: a dismiss
+      // racing an alarm-driven tick would otherwise interleave loads and drop
+      // one side's write to the persisted state.
+      await withStateLock(() => withEventCollector(async (emit, events) => {
         const state = await deps.loadState();
         const transition = dismissCriticalFailure(state, message.platform, Date.now());
         if (transition.event) emit(transition.event);
@@ -1315,7 +1318,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         // instead of waiting for the next tick to sync the registry.
         syncManagedTabBreakers(transition.state);
         await persistAndReport(transition.state, events);
-      });
+      }));
       await tickAndHandOff();
       return snapshot();
     }

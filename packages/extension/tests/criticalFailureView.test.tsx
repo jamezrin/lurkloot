@@ -78,6 +78,23 @@ describe("critical failure panel", () => {
     expect(props.openLink).not.toHaveBeenCalled();
   });
 
+  it("treats a rejected clipboard write as a failed copy", async () => {
+    // A denied or unavailable clipboard rejects rather than resolving false; if
+    // that escaped, the user would get neither the issue form nor the textarea.
+    const { props, container, buttons } = await mountPanel({
+      writeClipboard: vi.fn(async () => {
+        throw new Error("Clipboard write denied");
+      }),
+    });
+
+    await act(async () => {
+      buttons()[0].click();
+    });
+
+    expect(container.querySelector("textarea")).not.toBeNull();
+    expect(props.openLink).not.toHaveBeenCalled();
+  });
+
   it("dismisses on request without building a report", async () => {
     const { props, buttons } = await mountPanel();
 

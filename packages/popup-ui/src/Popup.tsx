@@ -9,6 +9,7 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import type { ActivityPage, CategorySearchResult, CliCredentialBlob, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
@@ -83,6 +84,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [activityOpen, setActivityOpen] = useState(preview && initialVariant.view === "activity");
   const [activityStream, setActivityStream] = useState<ActivityStream>(createActivityStream);
   const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>(createActivityStream);
+  const [reportEvents, setReportEvents] = useState<ActivityHistoryRecord[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [loadingMoreActivity, setLoadingMoreActivity] = useState(false);
   const [clearActivityArmed, setClearActivityArmed] = useState(false);
@@ -219,6 +221,24 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   useEffect(() => {
     if (!snapshot?.settings.diagnosticLogging) setShowDiagnostics(false);
   }, [snapshot?.settings.diagnosticLogging]);
+
+  // The failure report needs recent activity, but the Activity view's stream is
+  // only populated once the user opens that tab — and the panel lives on the
+  // drops tab, so the report would otherwise be emptiest for exactly the user who
+  // is about to file an issue. Fetch a page of our own while the panel is up.
+  const criticalFailureFlagged = snapshot?.state.criticalHealth?.[platform]?.status === "flagged";
+  useEffect(() => {
+    if (!criticalFailureFlagged || preview) return undefined;
+    let cancelled = false;
+    void adapter.send<ActivityPage>({ type: "getActivity", platform, category: "activity", limit: 40 })
+      .then((page) => {
+        if (!cancelled) setReportEvents(page.events);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [adapter, platform, preview, criticalFailureFlagged]);
 
   useEffect(() => {
     if (!activityOpen || preview || clearingActivity || !showDiagnostics || !snapshot?.settings.diagnosticLogging) return;
@@ -652,11 +672,12 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                           at: new Date().toISOString(),
                           settings,
                           state: snapshot.state,
-                          events: activityStream.events,
+                          events: reportEvents.length > 0 ? reportEvents : activityStream.events,
                         })}
                         onDismiss={() => {
                           void adapter.send({ type: "dismissCriticalFailure", platform })
-                            .then(() => refreshNow());
+                            .then(() => refreshNow())
+                            .catch(() => undefined);
                         }}
                         openLink={adapter.openLink}
                         writeClipboard={adapter.writeClipboard ?? (async () => false)}
