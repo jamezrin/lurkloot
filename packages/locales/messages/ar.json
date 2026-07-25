@@ -808,6 +808,9 @@
   "activityReasonTargetChanged": {
     "message": "تغيّر هدف الجمع"
   },
+  "activityReasonCriticalFailure": {
+    "message": "تم اكتشاف عطل حرج"
+  },
   "activityReasonManualWatch": {
     "message": "تم الانتقال إلى المشاهدة اليدوية"
   },

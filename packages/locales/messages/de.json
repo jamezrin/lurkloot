@@ -808,6 +808,9 @@
   "activityReasonTargetChanged": {
     "message": "das Sammelziel hat sich geändert"
   },
+  "activityReasonCriticalFailure": {
+    "message": "ein kritischer Fehler wurde erkannt"
+  },
   "activityReasonManualWatch": {
     "message": "manuelle Wiedergabe hatte Vorrang"
   },

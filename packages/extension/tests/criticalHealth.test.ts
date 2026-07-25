@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { DEFAULT_CRITICAL_HEALTH, normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 import { DEFAULT_STATE, mergeSchedulerState } from "@lurkloot/core/defaults";
 import {
@@ -10,7 +10,9 @@ import {
   TAB_CHURN_LIMIT,
   TAB_CHURN_WINDOW_MS,
   recordManagedTabOpen,
+  isManagedTabBreakerOpen,
 } from "@lurkloot/core/criticalHealth";
+import { managedTabBreakerOpen, syncManagedTabBreakers } from "@lurkloot/core/tabs";
 import type { SchedulerState } from "@lurkloot/shared/models";
 
 const START = Date.parse("2026-07-25T10:00:00.000Z");
@@ -516,5 +518,40 @@ describe("critical health persistence", () => {
     const merged = mergeSchedulerState({ criticalHealth: { kick: "not an object" } } as unknown as Partial<SchedulerState>);
 
     expect(merged.criticalHealth?.kick?.status).toBe("ok");
+  });
+});
+
+describe("managed tab circuit breaker registry", () => {
+  afterEach(() => {
+    // Module-level registry: leave it closed so it cannot leak into other suites.
+    syncManagedTabBreakers(baseState());
+  });
+
+  it("mirrors the persisted breaker state", () => {
+    let state = baseState();
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, WATCH_TAB).state;
+    }
+
+    syncManagedTabBreakers(state);
+
+    expect(isManagedTabBreakerOpen(state, "kick")).toBe(true);
+    expect(managedTabBreakerOpen("kick")).toBe(true);
+    expect(managedTabBreakerOpen("twitch")).toBe(false);
+  });
+
+  it("closes again once the failure is dismissed", () => {
+    let state = baseState();
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, PAGE_CONTEXT).state;
+    }
+    syncManagedTabBreakers(state);
+    expect(managedTabBreakerOpen("kick")).toBe(true);
+
+    state = dismissCriticalFailure(state, "kick", START + 10 * 60 * 1000).state;
+    syncManagedTabBreakers(state);
+
+    expect(isManagedTabBreakerOpen(state, "kick")).toBe(false);
+    expect(managedTabBreakerOpen("kick")).toBe(false);
   });
 });

@@ -808,6 +808,9 @@
   "activityReasonTargetChanged": {
     "message": "ड्रॉप का लक्ष्य बदला"
   },
+  "activityReasonCriticalFailure": {
+    "message": "एक गंभीर विफलता का पता चला"
+  },
   "activityReasonManualWatch": {
     "message": "मैन्युअल रूप से देखना शुरू हुआ"
   },

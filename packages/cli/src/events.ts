@@ -20,6 +20,7 @@ function formatStopReason(reason: FarmingStopReason): string {
     case "runtime_restart": return "runtime restart";
     case "target_changed": return "target changed";
     case "manual_watch": return "manual watch";
+    case "critical_failure": return "a critical failure was detected";
     default: {
       const exhaustive: never = reason;
       return exhaustive;

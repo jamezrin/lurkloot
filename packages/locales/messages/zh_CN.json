@@ -808,6 +808,9 @@
   "activityReasonTargetChanged": {
     "message": "领取目标已更改"
   },
+  "activityReasonCriticalFailure": {
+    "message": "检测到严重故障"
+  },
   "activityReasonManualWatch": {
     "message": "已切换为手动观看"
   },

@@ -896,6 +896,9 @@
   "activityReasonTargetChanged": {
     "message": "Hedef değiştirildi"
   },
+  "activityReasonCriticalFailure": {
+    "message": "kritik bir hata algılandı"
+  },
   "activityReasonManualWatch": {
     "message": "Kanalı izlediğiniz için durduruldu"
   },

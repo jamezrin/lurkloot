@@ -15,12 +15,12 @@ import { campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/sh
 import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims, rewardFeasibility } from "@lurkloot/shared/rewards";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
-import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
+import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, syncManagedTabBreakers, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
-import { observeCriticalHealth } from "./criticalHealth";
+import { isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -507,6 +507,12 @@ export async function runSchedulerTick(
     }
   }
 
+  // Page-context creation lives several layers deep in tabs.ts with no access to
+  // scheduler state, so the breaker flags are mirrored into a module registry
+  // once per tick — and again after every observation, since an observation can
+  // release the breaker.
+  syncManagedTabBreakers(nextState);
+
   const platforms = options.platforms ?? PLATFORMS;
   for (const platform of platforms) {
     const previous = nextState.sessions[platform];
@@ -525,6 +531,7 @@ export async function runSchedulerTick(
       if (!settings.criticalFailurePromptEnabled) return;
       const transition = observeCriticalHealth(nextState, platform, observation);
       nextState = transition.state;
+      syncManagedTabBreakers(nextState);
       // This runs inside a `finally`, so a throwing listener here would replace
       // the in-flight error and abort the remaining platforms. Health reporting
       // is never worth that.
@@ -831,6 +838,28 @@ export async function runSchedulerTick(
       }
       const session = sessionForDecision(decision, previous, shouldKeep);
       if (decision.channel && decision.action !== "idle") {
+        // The breaker is open: a managed tab kept reopening for this platform.
+        // Opening another is exactly the user-hostile loop we detected, so the
+        // platform is parked rather than switched to tabless — the product
+        // decision is to pause, not to change watch modes behind the user's back.
+        // The `finally` on this loop still applies the tick's observation, which
+        // is what prunes the churn window and eventually releases the breaker.
+        if (settings.criticalFailurePromptEnabled && isManagedTabBreakerOpen(nextState, platform)) {
+          await adapter.stopWatchTab?.(previous);
+          nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+          nextState.sessions[platform] = {
+            ...session,
+            status: "idle",
+            lastCheckedAt: new Date().toISOString(),
+            message: "Paused after repeated tab reopening",
+            reasonCode: "critical_failure",
+            tabId: undefined,
+            tabManagedByExtension: undefined,
+            watchMode: undefined,
+          };
+          emitDiagnostic(emit, platform, "warn", "Paused: a managed tab kept reopening");
+          continue;
+        }
         const sameChannel = previous.channel?.url === decision.channel.url;
         const useTabless = chooseTablessWatch(previous, settings, adapter, sameChannel);
         session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
@@ -859,7 +888,16 @@ export async function runSchedulerTick(
           const watchTabOptions = nextState.managedWatchTabs?.[platform]
             ? { managedTab: nextState.managedWatchTabs[platform] }
             : {};
+          const previousManagedTabId = nextState.managedWatchTabs?.[platform]?.tabId;
           const prepared = await adapter.prepareWatchTab(decision.channel, previous, watchTabOptions);
+          // Only a genuinely NEW extension-managed tab counts as churn evidence.
+          // Reusing the tab we already track happens on every ordinary tick, and
+          // counting it would trip the breaker during completely normal farming.
+          if (settings.criticalFailurePromptEnabled && prepared.managedByExtension && prepared.tabId !== previousManagedTabId) {
+            const opened = recordManagedTabOpen(nextState, platform, Date.now(), { source: "watch_tab" });
+            nextState = opened.state;
+            if (opened.event) emit(opened.event);
+          }
           session.tabId = prepared.tabId;
           session.tabManagedByExtension = prepared.managedByExtension;
           // Mark a deliberate fallback so the next tick stays on the tab for this

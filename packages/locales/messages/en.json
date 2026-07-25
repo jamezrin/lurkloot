@@ -808,6 +808,9 @@
   "activityReasonTargetChanged": {
     "message": "the farming target changed"
   },
+  "activityReasonCriticalFailure": {
+    "message": "a critical failure was detected"
+  },
   "activityReasonManualWatch": {
     "message": "manual watching took over"
   },

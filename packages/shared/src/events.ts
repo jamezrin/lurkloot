@@ -18,7 +18,10 @@ export type FarmingStopReason =
   | "watch_requirement_completed"
   | "runtime_restart"
   | "target_changed"
-  | "manual_watch";
+  | "manual_watch"
+  // A managed-tab reopen loop was detected; the platform is parked until the
+  // breaker releases or the user dismisses the prompt.
+  | "critical_failure";
 
 type CampaignRewardData = {
   campaignId: string;

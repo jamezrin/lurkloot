@@ -808,6 +808,9 @@
   "activityReasonTargetChanged": {
     "message": "l’obiettivo di raccolta è cambiato"
   },
+  "activityReasonCriticalFailure": {
+    "message": "è stato rilevato un errore critico"
+  },
   "activityReasonManualWatch": {
     "message": "è subentrata la visione manuale"
   },

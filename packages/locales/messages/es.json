@@ -808,6 +808,9 @@
   "activityReasonTargetChanged": {
     "message": "cambió el objetivo de obtención"
   },
+  "activityReasonCriticalFailure": {
+    "message": "se detectó un fallo crítico"
+  },
   "activityReasonManualWatch": {
     "message": "se priorizó la visualización manual"
   },

@@ -808,6 +808,9 @@
   "activityReasonTargetChanged": {
     "message": "цель сбора изменилась"
   },
+  "activityReasonCriticalFailure": {
+    "message": "обнаружен критический сбой"
+  },
   "activityReasonManualWatch": {
     "message": "включён ручной просмотр"
   },

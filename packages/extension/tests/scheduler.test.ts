@@ -1,12 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, KickPlatformSettings, Platform, SchedulerState, TwitchPlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
-import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers } from "@lurkloot/core/tabs";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import { DEFAULT_CRITICAL_HEALTH } from "@lurkloot/shared/criticalHealth";
+import { TAB_CHURN_LIMIT, TAB_CHURN_WINDOW_MS } from "@lurkloot/core/criticalHealth";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: `reward-${status}`,
@@ -2957,5 +2958,153 @@ describe("scheduler critical health observations", () => {
     expect(second.state.sessions.twitch.reasonCode).toBe("channel_offline");
     expect(second.state.criticalHealth?.twitch?.failingTicks).toBe(0);
     expect(second.state.criticalHealth?.twitch?.failingMs).toBe(0);
+  });
+});
+
+describe("scheduler managed tab circuit breaker", () => {
+  const openBreakerHealth = () => ({
+    ...DEFAULT_CRITICAL_HEALTH,
+    breakerOpen: true,
+    managedTabOpens: Array.from({ length: TAB_CHURN_LIMIT }, (_unused, index) =>
+      new Date(Date.now() - index * 1000).toISOString()),
+  });
+
+  const breakerSettings = (patch: SettingsPatch = {}): ExtensionSettings => settings({
+    ...patch,
+    platform: {
+      twitch: { enabled: true, idleWatchlistChannels: [], ...patch.platform?.twitch },
+      kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
+    },
+  });
+
+  const watchingState = (): SchedulerState => ({
+    authHealth: HEALTHY_AUTH,
+    sessions: {
+      twitch: {
+        platform: "twitch",
+        status: "watching",
+        channel: channel("creator"),
+        campaignId: "drops",
+        rewardId: "reward-in_progress",
+        offlineChecks: 0,
+        tabId: 42,
+        tabManagedByExtension: true,
+      },
+      kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+    },
+    campaigns: { twitch: [campaign("drops")], kick: [] },
+    managedWatchTabs: {
+      twitch: { platform: "twitch", tabId: 42, channelUrl: channel("creator").url, ownedByExtension: true },
+    },
+  });
+
+  afterEach(() => {
+    syncManagedTabBreakers({});
+  });
+
+  it("does not open a watch tab while the breaker is open", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(twitch.stopWatchTab).toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).not.toBe("watching");
+    expect(result.state.sessions.twitch.reasonCode).toBe("critical_failure");
+    expect(result.state.managedWatchTabs?.twitch).toBeUndefined();
+    expect(managedTabBreakerOpen("twitch")).toBe(true);
+  });
+
+  it("keeps ticking a breaker-paused platform so the breaker can release", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    // Without this observation the churn window never prunes and an unflagged
+    // breaker would never close: farming would stall permanently.
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+  });
+
+  it("releases the breaker once the churn evidence ages out", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const stale = new Date(Date.now() - TAB_CHURN_WINDOW_MS - 60_000).toISOString();
+
+    const result = await runSchedulerTick(
+      {
+        ...watchingState(),
+        criticalHealth: {
+          twitch: { ...DEFAULT_CRITICAL_HEALTH, breakerOpen: true, managedTabOpens: [stale, stale] },
+        },
+      },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
+  });
+
+  it("does not gate anything when the prompt is disabled", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
+      breakerSettings({ criticalFailurePromptEnabled: false }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).toBe("watching");
+  });
+
+  it("records each newly created managed watch tab", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)?.kind).toBe("watch_tab_open");
+  });
+
+  it("does not record a reused managed watch tab", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const initial: SchedulerState = {
+      authHealth: HEALTHY_AUTH,
+      sessions: {
+        twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+    };
+
+    const first = await runSchedulerTick(initial, breakerSettings(), { twitch, kick: adapter("kick", [], []) }, { platforms: ["twitch"] });
+    expect(first.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
+
+    const second = await runSchedulerTick(first.state, breakerSettings(), { twitch, kick: adapter("kick", [], []) }, { platforms: ["twitch"] });
+
+    expect(second.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
   });
 });

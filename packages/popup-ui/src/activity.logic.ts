@@ -118,6 +118,7 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
     case "watch_requirement_completed": return t("activityReasonWatchRequirementCompleted");
     case "runtime_restart": return t("activityReasonRuntimeRestart");
     case "target_changed": return t("activityReasonTargetChanged");
+    case "critical_failure": return t("activityReasonCriticalFailure");
     case "manual_watch": return t("activityReasonManualWatch");
     case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     default: {

@@ -166,7 +166,8 @@ export type WatchReasonCode =
   | "keeping_idle_watchlist"
   | "watch_requirement_completed"
   | "runtime_restart"
-  | "target_changed";
+  | "target_changed"
+  | "critical_failure";
 
 export interface ManagedWatchTab {
   platform: Platform;

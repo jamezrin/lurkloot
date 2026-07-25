@@ -808,6 +808,9 @@
   "activityReasonTargetChanged": {
     "message": "o alvo da coleta mudou"
   },
+  "activityReasonCriticalFailure": {
+    "message": "uma falha crítica foi detectada"
+  },
   "activityReasonManualWatch": {
     "message": "a exibição manual assumiu"
   },
