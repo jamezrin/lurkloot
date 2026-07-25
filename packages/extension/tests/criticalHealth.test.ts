@@ -2,18 +2,21 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CRITICAL_HEALTH, normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import {
-  CONTEXT_CHURN_LIMIT,
-  CONTEXT_CHURN_WINDOW_MS,
   FAILING_WINDOW_MS,
   MAX_TICK_DELTA_MS,
   MIN_FAILING_TICKS,
   dismissCriticalFailure,
   observeCriticalHealth,
-  recordPageContextOpen,
+  TAB_CHURN_LIMIT,
+  TAB_CHURN_WINDOW_MS,
+  recordManagedTabOpen,
 } from "@lurkloot/core/criticalHealth";
 import type { SchedulerState } from "@lurkloot/shared/models";
 
 const START = Date.parse("2026-07-25T10:00:00.000Z");
+
+const PAGE_CONTEXT = { source: "page_context", reason: "background_rejected" } as const;
+const WATCH_TAB = { source: "watch_tab" } as const;
 
 function baseState(): SchedulerState {
   return structuredClone(DEFAULT_STATE);
@@ -39,7 +42,7 @@ describe("critical health normalization", () => {
       status: "ok",
       failingMs: 0,
       failingTicks: 0,
-      contextOpens: [],
+      managedTabOpens: [],
       breakerOpen: false,
       records: [],
     });
@@ -52,7 +55,7 @@ describe("critical health normalization", () => {
       flaggedAt: "2026-07-25T10:00:00.000Z",
       failingMs: "nonsense",
       failingTicks: -4,
-      contextOpens: ["2026-07-25T09:59:00.000Z", 42],
+      managedTabOpens: ["2026-07-25T09:59:00.000Z", 42],
       breakerOpen: true,
       records: [{ at: "2026-07-25T09:58:00.000Z", platform: "kick", kind: "context_open", code: "background_rejected" }],
     });
@@ -62,7 +65,7 @@ describe("critical health normalization", () => {
     expect(restored.breakerOpen).toBe(true);
     expect(restored.failingMs).toBe(0);
     expect(restored.failingTicks).toBe(0);
-    expect(restored.contextOpens).toEqual([]);
+    expect(restored.managedTabOpens).toEqual([]);
     expect(restored.records).toHaveLength(1);
   });
 
@@ -215,8 +218,8 @@ describe("critical health detection", () => {
   it("flags page-context churn immediately and opens the breaker", () => {
     let state = baseState();
     let flagged: string | undefined;
-    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
-      const transition = recordPageContextOpen(state, "kick", START + index * 60 * 1000, "background_rejected");
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      const transition = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, PAGE_CONTEXT);
       state = transition.state;
       if (transition.event?.code === "critical_failure_detected") flagged = transition.event.data.reason;
     }
@@ -228,8 +231,8 @@ describe("critical health detection", () => {
 
   it("does not flag opens spread beyond the churn window", () => {
     let state = baseState();
-    for (let index = 0; index < CONTEXT_CHURN_LIMIT + 2; index += 1) {
-      state = recordPageContextOpen(state, "kick", START + index * (CONTEXT_CHURN_WINDOW_MS / 2), "background_rejected").state;
+    for (let index = 0; index < TAB_CHURN_LIMIT + 2; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * (TAB_CHURN_WINDOW_MS / 2), PAGE_CONTEXT).state;
     }
 
     expect(state.criticalHealth?.kick?.status).toBe("ok");
@@ -238,8 +241,8 @@ describe("critical health detection", () => {
 
   it("dismissal resets counters, closes the breaker and starts a cooldown", () => {
     let state = baseState();
-    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
-      state = recordPageContextOpen(state, "kick", START + index * 60 * 1000, "background_rejected").state;
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, PAGE_CONTEXT).state;
     }
 
     const dismissed = dismissCriticalFailure(state, "kick", START + 10 * 60 * 1000);
@@ -247,18 +250,18 @@ describe("critical health detection", () => {
     expect(dismissed.event?.code).toBe("critical_failure_cleared");
     expect(dismissed.state.criticalHealth?.kick?.status).toBe("ok");
     expect(dismissed.state.criticalHealth?.kick?.breakerOpen).toBe(false);
-    expect(dismissed.state.criticalHealth?.kick?.contextOpens).toEqual([]);
+    expect(dismissed.state.criticalHealth?.kick?.managedTabOpens).toEqual([]);
     expect(Date.parse(dismissed.state.criticalHealth?.kick?.cooldownUntil ?? "")).toBeGreaterThan(START + 10 * 60 * 1000);
   });
 
   it("refuses to re-flag during the cooldown", () => {
     let state = baseState();
-    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
-      state = recordPageContextOpen(state, "kick", START + index * 60 * 1000, "background_rejected").state;
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, PAGE_CONTEXT).state;
     }
     state = dismissCriticalFailure(state, "kick", START + 10 * 60 * 1000).state;
-    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
-      state = recordPageContextOpen(state, "kick", START + 11 * 60 * 1000 + index * 1000, "background_rejected").state;
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + 11 * 60 * 1000 + index * 1000, PAGE_CONTEXT).state;
     }
 
     expect(state.criticalHealth?.kick?.status).toBe("ok");
@@ -270,8 +273,8 @@ describe("critical health detection", () => {
     expect(state.criticalHealth?.twitch?.reason).toBe("no_progress");
 
     const events: string[] = [];
-    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
-      const transition = recordPageContextOpen(state, "twitch", START + (ticks + index) * 60 * 1000, "background_rejected");
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      const transition = recordManagedTabOpen(state, "twitch", START + (ticks + index) * 60 * 1000, WATCH_TAB);
       state = transition.state;
       if (transition.event) events.push(transition.event.code);
     }
@@ -283,15 +286,15 @@ describe("critical health detection", () => {
 
   it("opens the breaker on churn during a post-dismissal cooldown", () => {
     let state = baseState();
-    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
-      state = recordPageContextOpen(state, "kick", START + index * 60 * 1000, "background_rejected").state;
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, PAGE_CONTEXT).state;
     }
     state = dismissCriticalFailure(state, "kick", START + 10 * 60 * 1000).state;
     expect(state.criticalHealth?.kick?.breakerOpen).toBe(false);
 
     const events: string[] = [];
-    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
-      const transition = recordPageContextOpen(state, "kick", START + 11 * 60 * 1000 + index * 1000, "background_rejected");
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      const transition = recordManagedTabOpen(state, "kick", START + 11 * 60 * 1000 + index * 1000, PAGE_CONTEXT);
       state = transition.state;
       if (transition.event) events.push(transition.event.code);
     }
@@ -299,6 +302,48 @@ describe("critical health detection", () => {
     expect(state.criticalHealth?.kick?.status).toBe("ok");
     expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
     expect(events).toEqual([]);
+  });
+
+  it("flags watch-tab churn on its own", () => {
+    let state = baseState();
+    let flagged: string | undefined;
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      const transition = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, WATCH_TAB);
+      state = transition.state;
+      if (transition.event?.code === "critical_failure_detected") flagged = transition.event.data.reason;
+    }
+
+    expect(flagged).toBe("page_context_churn");
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+    expect(state.criticalHealth?.kick?.records.map((record) => record.kind)).toEqual(
+      Array.from({ length: TAB_CHURN_LIMIT }, () => "watch_tab_open"),
+    );
+  });
+
+  it("counts both tab kinds against one shared churn window", () => {
+    let state = baseState();
+    const events: string[] = [];
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      // Alternate the sources so neither kind reaches the limit on its own.
+      const open = index % 2 === 0 ? WATCH_TAB : PAGE_CONTEXT;
+      const transition = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, open);
+      state = transition.state;
+      if (transition.event) events.push(transition.event.code);
+    }
+
+    expect(events).toEqual(["critical_failure_detected"]);
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+    expect(state.criticalHealth?.kick?.managedTabOpens).toHaveLength(TAB_CHURN_LIMIT);
+  });
+
+  it("does not flag watch-tab opens spread beyond the churn window", () => {
+    let state = baseState();
+    for (let index = 0; index < TAB_CHURN_LIMIT + 2; index += 1) {
+      state = recordManagedTabOpen(state, "kick", START + index * (TAB_CHURN_WINDOW_MS / 2), WATCH_TAB).state;
+    }
+
+    expect(state.criticalHealth?.kick?.status).toBe("ok");
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(false);
   });
 
   it("keeps the failure ring buffer bounded and newest-last", () => {

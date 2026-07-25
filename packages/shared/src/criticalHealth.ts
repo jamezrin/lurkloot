@@ -2,7 +2,7 @@ import type { Platform } from "./models";
 
 export type CriticalFailureReason = "no_progress" | "page_context_churn";
 
-export type FailureRecordKind = "api_error" | "auth" | "context_open" | "no_accrual";
+export type FailureRecordKind = "api_error" | "auth" | "context_open" | "watch_tab_open" | "no_accrual";
 
 // One bounded, always-on breadcrumb. Recorded regardless of the diagnosticLogging
 // setting (which defaults off), because the failure report is worthless without
@@ -27,7 +27,8 @@ export interface CriticalHealthState {
   // Written on every observation, accruing or not — it is the tick clock, not an accrual marker.
   lastObservedAt?: string;
   lastWatchedMinutes?: number;
-  contextOpens: readonly string[];
+  // Both managed page contexts and managed watch tabs, sharing one churn window.
+  managedTabOpens: readonly string[];
   breakerOpen: boolean;
   dismissedAt?: string;
   cooldownUntil?: string;
@@ -35,7 +36,13 @@ export interface CriticalHealthState {
 }
 
 export const CRITICAL_HEALTH_RECORD_LIMIT = 30;
-const FAILURE_RECORD_KINDS = new Set<FailureRecordKind>(["api_error", "auth", "context_open", "no_accrual"]);
+const FAILURE_RECORD_KINDS = new Set<FailureRecordKind>([
+  "api_error",
+  "auth",
+  "context_open",
+  "watch_tab_open",
+  "no_accrual",
+]);
 const CRITICAL_FAILURE_REASONS = new Set<CriticalFailureReason>(["no_progress", "page_context_churn"]);
 const DETAIL_MAX_LENGTH = 200;
 
@@ -45,7 +52,7 @@ export const DEFAULT_CRITICAL_HEALTH: CriticalHealthState = Object.freeze({
   status: "ok",
   failingMs: 0,
   failingTicks: 0,
-  contextOpens: Object.freeze([]),
+  managedTabOpens: Object.freeze([]),
   breakerOpen: false,
   records: Object.freeze([]),
 });

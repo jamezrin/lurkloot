@@ -14,8 +14,8 @@ export const MIN_FAILING_TICKS = 6;
 // A single tick may report a huge delta after the browser was suspended. Clamp it
 // so wall-clock sleep can never substitute for observed failing time.
 export const MAX_TICK_DELTA_MS = 5 * 60 * 1000;
-export const CONTEXT_CHURN_WINDOW_MS = 10 * 60 * 1000;
-export const CONTEXT_CHURN_LIMIT = 5;
+export const TAB_CHURN_WINDOW_MS = 10 * 60 * 1000;
+export const TAB_CHURN_LIMIT = 5;
 export const COOLDOWN_MS = FAILING_WINDOW_MS;
 
 export interface CriticalHealthObservation {
@@ -35,6 +35,18 @@ export interface CriticalHealthObservation {
 export interface CriticalHealthTransition {
   state: SchedulerState;
   event?: ActivityEvent;
+}
+
+// A managed tab this extension opened. Only page contexts carry a PageContextOpenReason,
+// so the union keeps watch-tab opens from having to invent one.
+export type ManagedTabOpen =
+  | { source: "page_context"; reason: PageContextOpenReason }
+  | { source: "watch_tab" };
+
+function breadcrumb(open: ManagedTabOpen): Omit<FailureRecord, "at" | "platform"> {
+  return open.source === "page_context"
+    ? { kind: "context_open", code: open.reason }
+    : { kind: "watch_tab_open" };
 }
 
 function current(state: SchedulerState, platform: Platform): CriticalHealthState {
@@ -130,25 +142,27 @@ export function observeCriticalHealth(
   return { state: withHealth(state, platform, flagged.health), event: flagged.event };
 }
 
-export function recordPageContextOpen(
+export function recordManagedTabOpen(
   state: SchedulerState,
   platform: Platform,
   at: number,
-  reason: PageContextOpenReason,
+  open: ManagedTabOpen,
 ): CriticalHealthTransition {
   const health = current(state, platform);
-  const opens = [...health.contextOpens, new Date(at).toISOString()]
-    .filter((stamp) => at - Date.parse(stamp) <= CONTEXT_CHURN_WINDOW_MS)
-    .slice(-CONTEXT_CHURN_LIMIT);
-  const churning = opens.length >= CONTEXT_CHURN_LIMIT;
+  // Page contexts and watch tabs share one window: a reopen storm of either kind is the
+  // same symptom, and the real-world report that motivated this was watch tabs alone.
+  const opens = [...health.managedTabOpens, new Date(at).toISOString()]
+    .filter((stamp) => at - Date.parse(stamp) <= TAB_CHURN_WINDOW_MS)
+    .slice(-TAB_CHURN_LIMIT);
+  const churning = opens.length >= TAB_CHURN_LIMIT;
   // The breaker is a monotonic latch and is applied independently of the prompt: a
   // platform already flagged for another reason, or inside a post-dismissal cooldown,
   // still needs the reopen loop stopped even though it emits no new event.
   const next: CriticalHealthState = {
     ...health,
-    contextOpens: opens,
+    managedTabOpens: opens,
     breakerOpen: health.breakerOpen || churning,
-    records: appendRecord(health.records, platform, at, { kind: "context_open", code: reason }),
+    records: appendRecord(health.records, platform, at, breadcrumb(open)),
   };
 
   if (!churning || next.status === "flagged" || inCooldown(next, at)) {
@@ -187,6 +201,7 @@ export function dismissCriticalFailure(
   };
 }
 
-export function isPageContextBreakerOpen(state: SchedulerState, platform: Platform): boolean {
+// Task 7 gates creation of BOTH managed tab kinds on this.
+export function isManagedTabBreakerOpen(state: SchedulerState, platform: Platform): boolean {
   return current(state, platform).breakerOpen;
 }
