@@ -37,6 +37,10 @@ function describe(event: ActivityEvent): string {
       return `Closed managed page context on ${event.data.host}: reason=${event.data.reason}`;
     case "auth_health_changed":
       return `${event.platform} authentication health changed from ${event.data.from} to ${event.data.to}${event.data.reason ? `: reason=${event.data.reason}` : ""}`;
+    case "critical_failure_detected":
+      return `${event.platform} flagged as critically failing: reason=${event.data.reason}`;
+    case "critical_failure_cleared":
+      return `${event.platform} critical failure dismissed by the user, retrying: reason=${event.data.reason}`;
     default: {
       const exhaustive: never = event;
       return exhaustive;

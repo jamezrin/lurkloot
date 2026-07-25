@@ -65,6 +65,20 @@ const EVENTS = {
     platform: "twitch",
     data: { from: "healthy", to: "blocked", reason: "security_policy_blocked" },
   },
+  critical_failure_detected: {
+    category: "activity",
+    code: "critical_failure_detected",
+    level: "error",
+    platform: "kick",
+    data: { reason: "page_context_churn" },
+  },
+  critical_failure_cleared: {
+    category: "activity",
+    code: "critical_failure_cleared",
+    level: "info",
+    platform: "kick",
+    data: { reason: "page_context_churn" },
+  },
   // `satisfies` keeps each entry's literal type while still failing the build if
   // a new activity code is added without a sample here.
 } satisfies Record<ActivityEvent["code"], ActivityEvent>;
@@ -92,6 +106,12 @@ describe("activity diagnostics", () => {
     );
     expect(activityDiagnostic(EVENTS.auth_health_changed).message).toBe(
       "twitch authentication health changed from healthy to blocked: reason=security_policy_blocked",
+    );
+    expect(activityDiagnostic(EVENTS.critical_failure_detected).message).toBe(
+      "kick flagged as critically failing: reason=page_context_churn",
+    );
+    expect(activityDiagnostic(EVENTS.critical_failure_cleared).message).toBe(
+      "kick critical failure dismissed by the user, retrying: reason=page_context_churn",
     );
   });
 
