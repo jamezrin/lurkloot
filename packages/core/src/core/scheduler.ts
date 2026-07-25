@@ -17,8 +17,10 @@ import { autoClaimChallengesFor, autoClaimChannelPointsFor } from "@lurkloot/sha
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import { authHealthFromError } from "./fetchError";
+import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { applyPlatformAuthHealth } from "./authHealth";
+import type { CriticalHealthObservation } from "./criticalHealth";
+import { observeCriticalHealth } from "./criticalHealth";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -93,6 +95,33 @@ function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
     && reward.preconditionsMet !== false
     && isRewardRelevantNow(reward)
     && (canClaimReward(reward) || isRewardDeadlineFeasible(campaign, reward, settings)));
+}
+
+// Reason codes that mean the watch stopped accruing for an explainable reason
+// rather than because the extension is broken. The detector treats them as
+// evidence the platform is NOT in a continuous no-value episode, so a channel
+// going offline or a target switch never counts towards the critical prompt.
+const ACCRUAL_PRECONDITION_BREAK_REASONS = new Set<WatchReasonCode>([
+  "channel_offline",
+  "channel_mismatch",
+  "watch_unhealthy",
+  "manual_watch",
+  "target_changed",
+  "higher_priority_reward",
+  "higher_priority_idle_watchlist",
+]);
+
+function preconditionBreakObservation(): CriticalHealthObservation {
+  return { at: Date.now(), failing: false, progressed: false, preconditionBroke: true };
+}
+
+// The reward the session claims to be watching, if it is still present in the
+// freshly-read campaign list. Returns undefined when nothing is being farmed,
+// which the detector reads as "no watch session sustained".
+function activeRewardFor(campaigns: readonly DropCampaign[], session: WatchSession): DropReward | undefined {
+  if (session.status !== "watching" || !session.campaignId || !session.rewardId) return undefined;
+  const campaign = campaigns.find((candidate) => candidate.id === session.campaignId);
+  return campaign?.rewards.find((reward) => reward.id === session.rewardId);
 }
 
 function isInPriorityList(campaign: DropCampaign, settings: EngineSettings): boolean {
@@ -458,6 +487,18 @@ export async function runSchedulerTick(
     const previous = nextState.sessions[platform];
     const platformSettings = settings.platform[platform];
     const adapter = adapters[platform];
+    // Collected across the tick and applied exactly once per platform, so the
+    // detector sees one observation regardless of which branch the tick took.
+    let observation: CriticalHealthObservation | undefined;
+    // Runs in the `finally` below, so every exit — early `continue`, thrown
+    // error, or normal completion — reaches the detector exactly once. That is
+    // what prunes the churn window and releases the managed-tab breaker.
+    const applyObservation = (): void => {
+      if (!settings.criticalFailurePromptEnabled || !observation) return;
+      const transition = observeCriticalHealth(nextState, platform, observation);
+      nextState = transition.state;
+      if (transition.event) emit(transition.event);
+    };
 
     try {
       if (settings.pauseOnManualWatch && hasRecentManualWatch(nextState, platform)) {
@@ -484,6 +525,7 @@ export async function runSchedulerTick(
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform], reason: "manual_watch", emit });
+        observation = preconditionBreakObservation();
         emitDiagnostic(emit, platform, "info", "Manual watch detected; pausing farming for this platform");
         continue;
       }
@@ -559,6 +601,7 @@ export async function runSchedulerTick(
           message: `Waiting until ${previous.retryAfter} before retrying after platform errors`,
           reasonCode: "platform_backoff",
         };
+        observation = { at: Date.now(), failing: true, progressed: false, preconditionBroke: false, record: { kind: "api_error", code: "platform_backoff" } };
         emitDiagnostic(emit, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred");
         continue;
       }
@@ -578,12 +621,39 @@ export async function runSchedulerTick(
         // popup until the next successful tick.
         campaigns = [];
         discoveryFailed = true;
+        const failure = isSafeFetchError(error) ? error.failure : undefined;
+        observation = {
+          at: Date.now(),
+          failing: true,
+          progressed: false,
+          preconditionBroke: false,
+          record: {
+            kind: "api_error",
+            code: failure?.kind ?? "unknown_error",
+            ...(failure?.status === undefined ? {} : { status: failure.status }),
+            detail: error instanceof Error ? error.message : String(error),
+          },
+        };
         const message = error instanceof Error ? error.message : "Drop discovery failed";
         emitDiagnostic(emit, platform, "warn", `${message}; checking Idle Watchlist fallback`);
         emitDiagnostic(emit, platform, "debug", `Drop discovery error (Idle Watchlist fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
       }
       if (!discoveryFailed) {
         nextState.campaigns[platform] = campaigns;
+        // The accrual arm: fresh progress data is in hand, so compare the active
+        // reward's watched minutes against what the last observation recorded.
+        const activeWatchReward = activeRewardFor(campaigns, nextState.sessions[platform]);
+        const previousWatchedMinutes = state.criticalHealth?.[platform]?.lastWatchedMinutes;
+        const watchedMinutes = activeWatchReward?.watchedMinutes;
+        observation = {
+          at: Date.now(),
+          failing: false,
+          progressed: watchedMinutes !== undefined
+            && previousWatchedMinutes !== undefined
+            && watchedMinutes > previousWatchedMinutes,
+          preconditionBroke: false,
+          watchedMinutes,
+        };
         if (campaignDiagnosticFingerprint(campaigns) !== campaignDiagnosticFingerprint(state.campaigns[platform])) {
           emitDiagnostic(emit, platform, "debug", `Campaign inventory changed (${campaigns.length} discovered)`);
           const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
@@ -661,6 +731,11 @@ export async function runSchedulerTick(
 
       let decision = await chooseCampaignDecision(platform, campaigns, settings, adapter);
       const shouldKeep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter);
+      // The single site where a stop reason is decided for an existing watch, so
+      // the precondition-break arm is set here rather than at every consumer.
+      if (!shouldKeep.keep && ACCRUAL_PRECONDITION_BREAK_REASONS.has(shouldKeep.reasonCode)) {
+        observation = preconditionBreakObservation();
+      }
       if (!shouldKeep.keep && previous.status === "watching") {
         emitDiagnostic(
           emit,
@@ -811,6 +886,8 @@ export async function runSchedulerTick(
       nextState.managedPageContextTabs = currentManagedPageContextTabs();
       emitDiagnostic(emit, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`);
       emitDiagnostic(emit, platform, "debug", `Tick failed from status "${previous.status}" (error #${errorChecks}); ${error instanceof Error && error.stack ? error.stack : message}`);
+    } finally {
+      applyObservation();
     }
   }
 
