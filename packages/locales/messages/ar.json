@@ -755,6 +755,16 @@
     "message": "تم استلام بطاقة $1 من تحدي $2"
   },
   "activityAuthHealthChanged": { "message": "تغيّرت مصادقة $1 من $2 إلى $3." },
+  "activityCriticalFailureDetected": { "message": "$1 لا يعمل: $2." },
+  "activityCriticalFailureCleared": { "message": "تم تجاهل العطل الحرج في $1؛ جارٍ إعادة المحاولة." },
+  "criticalFailureReasonNoProgress": { "message": "لا تقدّم رغم تكرار الأخطاء" },
+  "criticalFailureReasonPageContextChurn": { "message": "ظلّت علامة تبويب تُعاد فتحها باستمرار" },
+  "criticalFailureTitle": { "message": "توقف Lurkloot عن العمل" },
+  "criticalFailureBodyNoProgress": { "message": "أخطاء متكررة ولا يوجد أي تقدم في الدروبس منذ وقت طويل. على الأرجح تغيّر شيء في هذه المنصة ولم يعد بإمكان الإضافة كسب الدروبس." },
+  "criticalFailureBodyTabChurn": { "message": "ظلت إحدى علامات التبويب تُفتح من جديد مرارًا. تم إيقاف إعادة الفتح لتتمكن من استخدام المتصفح بشكل طبيعي، وتم إيقاف الفارم مؤقتًا لهذه المنصة." },
+  "criticalFailureCopyAndReport": { "message": "نسخ السجلات وفتح بلاغ" },
+  "criticalFailureDismiss": { "message": "تجاهل وإعادة المحاولة" },
+  "criticalFailureClipboardFallback": { "message": "تعذّر النسخ تلقائيًا. حدّد هذا النص وانسخه ثم افتح بلاغًا." },
   "activityPageContextOpened": { "message": "تم فتح سياق في الخلفية على $1 لأن $2." },
   "activityPageContextClosed": { "message": "تم إغلاق سياق الخلفية على $1 لأن $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick رفض الطلب دون علامة تبويب" },
@@ -809,6 +819,9 @@
   },
   "activityReasonTargetChanged": {
     "message": "تغيّر هدف الجمع"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "تم اكتشاف عطل حرج"
   },
   "activityReasonManualWatch": {
     "message": "تم الانتقال إلى المشاهدة اليدوية"

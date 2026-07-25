@@ -13,6 +13,7 @@ import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/s
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
+import { buildFailureReport } from "@lurkloot/shared/failureReport";
 import { I18nContext, PopupRuntimeContext } from "./context";
 import {
   PLATFORMS,
@@ -55,6 +56,7 @@ import { AttributionFooter } from "./footer";
 import { RateNudge, shouldShowRateNudge } from "./rateNudge";
 import { UpdateNotice } from "./updateNotice";
 import { DropsPanel } from "./drops";
+import { CriticalFailurePanel } from "./criticalFailure";
 import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AutomationHero, PlatformSwitcher } from "./automation";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
@@ -456,6 +458,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter((campaign) => isCampaignVisible(campaign, settings.dropsListFilter, settings.farmingEligibility, excludedIds)), settings);
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
+  const criticalFailure = snapshot.state.criticalHealth?.[platform];
+  // Only the flagged platform loses its drops list; the other one keeps working.
+  const criticalFailureReason = settings.criticalFailurePromptEnabled && criticalFailure?.status === "flagged"
+    ? criticalFailure.reason
+    : undefined;
   const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(
     campaign,
     index,
@@ -620,7 +627,28 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                 />
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}>
-                    {tab === "drops" ? (
+                    {tab === "drops" && criticalFailureReason ? (
+                      <CriticalFailurePanel
+                        platform={platform}
+                        reason={criticalFailureReason}
+                        buildReport={() => buildFailureReport({
+                          platform,
+                          version: adapter.version,
+                          userAgent: typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+                          locale,
+                          at: new Date().toISOString(),
+                          settings,
+                          state: snapshot.state,
+                          events: activityStream.events,
+                        })}
+                        onDismiss={() => {
+                          void adapter.send({ type: "dismissCriticalFailure", platform })
+                            .then(() => refreshNow());
+                        }}
+                        openLink={adapter.openLink}
+                        writeClipboard={adapter.writeClipboard ?? (async () => false)}
+                      />
+                    ) : tab === "drops" ? (
                       <DropsPanel
                         campaigns={campaigns}
                         gameMap={gameMap}

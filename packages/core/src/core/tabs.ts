@@ -51,6 +51,31 @@ interface PageContextEntry {
 
 const pageContextTabs = new Map<string, PageContextEntry>();
 const retainedPageContextTabs = new Map<Platform, ManagedPageContextTab>();
+// Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
+// call sites are several layers deep and have no access to scheduler state, so
+// the scheduler (and the controller, whenever it records an open) pushes the
+// flag here instead. Watch tabs are gated directly in the scheduler, which
+// already has the state in scope.
+const openManagedTabBreakers = new Set<Platform>();
+
+export function syncManagedTabBreakers(
+  state: { criticalHealth?: Partial<Record<Platform, { breakerOpen?: boolean }>> },
+): void {
+  for (const platform of ["twitch", "kick"] as const) {
+    if (state.criticalHealth?.[platform]?.breakerOpen) openManagedTabBreakers.add(platform);
+    else openManagedTabBreakers.delete(platform);
+  }
+}
+
+export function managedTabBreakerOpen(platform: Platform): boolean {
+  return openManagedTabBreakers.has(platform);
+}
+
+function platformForOrigin(origin: string): Platform | undefined {
+  if (origin === "https://kick.com" || origin === "https://www.kick.com") return "kick";
+  if (origin === "https://www.twitch.tv" || origin === "https://twitch.tv") return "twitch";
+  return undefined;
+}
 const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   muted: true,
   closeManagedTabs: true,
@@ -890,6 +915,17 @@ async function findOrCreatePageContextTab(
       openReason = "managed_context_unusable";
       diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it is unusable`, retained.platform);
     }
+  }
+
+  // The breaker is open: this platform kept reopening a managed tab. Opening
+  // another one is exactly the user-hostile behaviour we detected, so the fetch
+  // fails instead. It closes on its own once the churn evidence ages out.
+  const contextPlatform = retain?.platform ?? platformForOrigin(origin);
+  if (contextPlatform && openManagedTabBreakers.has(contextPlatform)) {
+    throw new SafeFetchError({
+      kind: "security_policy_blocked",
+      reason: "Managed tab creation is suspended after repeated reopening",
+    });
   }
 
   const tab = await browserApi.tabs.create({ url: originUrl, pinned: false, active: false }) as { id?: number };

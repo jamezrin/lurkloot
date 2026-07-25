@@ -1,4 +1,5 @@
 import type { EngineEvent, FarmingStopReason, PageContextCloseReason, PageContextOpenReason } from "@lurkloot/shared/events";
+import type { CriticalFailureReason } from "@lurkloot/shared/criticalHealth";
 import type { Logger } from "./logger";
 
 function formatStopReason(reason: FarmingStopReason): string {
@@ -19,6 +20,7 @@ function formatStopReason(reason: FarmingStopReason): string {
     case "runtime_restart": return "runtime restart";
     case "target_changed": return "target changed";
     case "manual_watch": return "manual watch";
+    case "critical_failure": return "a critical failure was detected";
     default: {
       const exhaustive: never = reason;
       return exhaustive;
@@ -54,6 +56,17 @@ function formatPageContextCloseReason(reason: PageContextCloseReason): string {
   }
 }
 
+function formatCriticalFailureReason(reason: CriticalFailureReason): string {
+  switch (reason) {
+    case "page_context_churn": return "a tab kept reopening";
+    case "no_progress": return "no progress despite repeated errors";
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
+
 export function formatCliEvent(event: EngineEvent): string {
   if (event.category === "diagnostic") return event.message;
 
@@ -78,6 +91,10 @@ export function formatCliEvent(event: EngineEvent): string {
       const reason = event.data.reason ? ` (${event.data.reason})` : "";
       return `${event.platform} authentication changed from ${event.data.from} to ${event.data.to}${reason}`;
     }
+    case "critical_failure_detected":
+      return `${event.platform} is not working: ${formatCriticalFailureReason(event.data.reason)}`;
+    case "critical_failure_cleared":
+      return `${event.platform} critical failure dismissed; retrying`;
     default: {
       const exhaustive: never = event;
       return exhaustive;

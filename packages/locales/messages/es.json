@@ -755,6 +755,16 @@
     "message": "Reclamó una carta $1 del desafío $2"
   },
   "activityAuthHealthChanged": { "message": "La autenticación de $1 cambió de $2 a $3." },
+  "activityCriticalFailureDetected": { "message": "$1 no está funcionando: $2." },
+  "activityCriticalFailureCleared": { "message": "Se descartó el fallo crítico de $1; reintentando." },
+  "criticalFailureReasonNoProgress": { "message": "sin progreso pese a errores repetidos" },
+  "criticalFailureReasonPageContextChurn": { "message": "una pestaña seguía reabriéndose" },
+  "criticalFailureTitle": { "message": "Lurkloot ha dejado de funcionar" },
+  "criticalFailureBodyNoProgress": { "message": "Errores repetidos y ningún progreso en los drops durante mucho tiempo. Es probable que algo haya cambiado en esta plataforma y la extensión ya no pueda conseguir drops." },
+  "criticalFailureBodyTabChurn": { "message": "Una pestaña se reabría una y otra vez. Se ha detenido la reapertura para que puedas usar el navegador con normalidad, y el farmeo está pausado en esta plataforma." },
+  "criticalFailureCopyAndReport": { "message": "Copiar registros y abrir incidencia" },
+  "criticalFailureDismiss": { "message": "Descartar y reintentar" },
+  "criticalFailureClipboardFallback": { "message": "No se pudo copiar automáticamente. Selecciona y copia esto y luego abre una incidencia." },
   "activityPageContextOpened": { "message": "Se abrió un contexto en segundo plano en $1 porque $2." },
   "activityPageContextClosed": { "message": "Se cerró el contexto en segundo plano en $1 porque $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rechazó la solicitud sin pestaña" },
@@ -809,6 +819,9 @@
   },
   "activityReasonTargetChanged": {
     "message": "cambió el objetivo de obtención"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "se detectó un fallo crítico"
   },
   "activityReasonManualWatch": {
     "message": "se priorizó la visualización manual"

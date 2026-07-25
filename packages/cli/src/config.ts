@@ -74,6 +74,9 @@ export function defaultConfigJsonc(): string {
     "skipUnfinishableRewards": ${json(defaults.skipUnfinishableRewards)},
     // 0 uses exact feasibility; 1-60 adds a safety buffer.
     "deadlineSafetyMarginMinutes": ${json(defaults.deadlineSafetyMarginMinutes)},
+    // Kill switch for the critical-failure detector that flags the extension/CLI
+    // as broken and stops farming. Thresholds are fixed constants.
+    "criticalFailurePromptEnabled": ${json(defaults.criticalFailurePromptEnabled)},
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
 

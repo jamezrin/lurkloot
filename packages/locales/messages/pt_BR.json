@@ -755,6 +755,16 @@
     "message": "Carta $1 resgatada do desafio $2"
   },
   "activityAuthHealthChanged": { "message": "A autenticação da $1 mudou de $2 para $3." },
+  "activityCriticalFailureDetected": { "message": "$1 não está funcionando: $2." },
+  "activityCriticalFailureCleared": { "message": "Falha crítica da $1 dispensada; tentando novamente." },
+  "criticalFailureReasonNoProgress": { "message": "sem progresso apesar de erros repetidos" },
+  "criticalFailureReasonPageContextChurn": { "message": "uma aba ficava reabrindo" },
+  "criticalFailureTitle": { "message": "O Lurkloot parou de funcionar" },
+  "criticalFailureBodyNoProgress": { "message": "Erros repetidos e nenhum progresso nos drops por muito tempo. Provavelmente algo mudou nesta plataforma e a extensão não consegue mais ganhar drops." },
+  "criticalFailureBodyTabChurn": { "message": "Uma aba ficava reabrindo sem parar. A reabertura foi interrompida para você usar o navegador normalmente, e o farm está pausado nesta plataforma." },
+  "criticalFailureCopyAndReport": { "message": "Copiar logs e abrir issue" },
+  "criticalFailureDismiss": { "message": "Dispensar e tentar de novo" },
+  "criticalFailureClipboardFallback": { "message": "Não foi possível copiar automaticamente. Selecione e copie este texto e abra uma issue." },
   "activityPageContextOpened": { "message": "Um contexto em segundo plano foi aberto em $1 porque $2." },
   "activityPageContextClosed": { "message": "O contexto em segundo plano em $1 foi fechado porque $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "a Kick rejeitou a solicitação sem aba" },
@@ -809,6 +819,9 @@
   },
   "activityReasonTargetChanged": {
     "message": "o alvo da coleta mudou"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "uma falha crítica foi detectada"
   },
   "activityReasonManualWatch": {
     "message": "a exibição manual assumiu"

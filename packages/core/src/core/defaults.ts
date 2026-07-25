@@ -1,4 +1,5 @@
 import type { Platform, PlatformAuthHealth, PlatformAuthMessageKey, PlatformAuthReasonCode, PlatformAuthStatus, SchedulerState } from "@lurkloot/shared/models";
+import { normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 
 const AUTH_STATUSES = new Set<PlatformAuthStatus>([
   "checking",
@@ -112,7 +113,18 @@ export const DEFAULT_STATE: SchedulerState = {
 // layer and any file-backed storage so a new top-level slice only has to be
 // added in one place.
 export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined): SchedulerState {
-  const { events: _legacyEvents, ...operationalState } = stored as (Partial<SchedulerState> & { events?: unknown }) ?? {};
+  const { events: _legacyEvents, criticalHealth: _rawCriticalHealth, ...operationalState } = stored as (Partial<SchedulerState> & { events?: unknown }) ?? {};
+  const normalizedCriticalHealth = stored?.criticalHealth
+    ? (Object.fromEntries(
+        (Object.entries(stored.criticalHealth) as [Platform, unknown][]).map(([platform, value]) => [
+          platform,
+          normalizeCriticalHealth(value),
+        ]),
+      ) as SchedulerState["criticalHealth"])
+    : undefined;
+  const criticalHealth = normalizedCriticalHealth && Object.keys(normalizedCriticalHealth).length > 0
+    ? normalizedCriticalHealth
+    : undefined;
   return {
     ...DEFAULT_STATE,
     ...operationalState,
@@ -125,5 +137,6 @@ export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined)
     managedPageContextTabs: { ...DEFAULT_STATE.managedPageContextTabs, ...stored?.managedPageContextTabs },
     manualWatch: { ...stored?.manualWatch },
     campaigns: { ...DEFAULT_STATE.campaigns, ...stored?.campaigns },
+    ...(criticalHealth ? { criticalHealth } : {}),
   };
 }

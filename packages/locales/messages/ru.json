@@ -755,6 +755,16 @@
     "message": "Получена карта $1 за испытание $2"
   },
   "activityAuthHealthChanged": { "message": "Состояние аутентификации $1 изменилось с $2 на $3." },
+  "activityCriticalFailureDetected": { "message": "$1 не работает: $2." },
+  "activityCriticalFailureCleared": { "message": "Критический сбой $1 сброшен; повтор попытки." },
+  "criticalFailureReasonNoProgress": { "message": "нет прогресса, несмотря на повторяющиеся ошибки" },
+  "criticalFailureReasonPageContextChurn": { "message": "вкладка постоянно открывалась заново" },
+  "criticalFailureTitle": { "message": "Lurkloot перестал работать" },
+  "criticalFailureBodyNoProgress": { "message": "Повторяющиеся ошибки и отсутствие прогресса дропов в течение долгого времени. Вероятно, на этой платформе что-то изменилось, и расширение больше не может получать дропы." },
+  "criticalFailureBodyTabChurn": { "message": "Вкладка постоянно открывалась заново. Повторное открытие остановлено, чтобы вы могли нормально пользоваться браузером; фарм на этой платформе приостановлен." },
+  "criticalFailureCopyAndReport": { "message": "Скопировать логи и открыть issue" },
+  "criticalFailureDismiss": { "message": "Закрыть и попробовать снова" },
+  "criticalFailureClipboardFallback": { "message": "Не удалось скопировать автоматически. Выделите и скопируйте этот текст, затем откройте issue." },
   "activityPageContextOpened": { "message": "Фоновый контекст на $1 открыт, потому что $2." },
   "activityPageContextClosed": { "message": "Фоновый контекст на $1 закрыт, потому что $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick отклонил запрос без вкладки" },
@@ -809,6 +819,9 @@
   },
   "activityReasonTargetChanged": {
     "message": "цель сбора изменилась"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "обнаружен критический сбой"
   },
   "activityReasonManualWatch": {
     "message": "включён ручной просмотр"

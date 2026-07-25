@@ -6,7 +6,7 @@
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 2;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 3;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -67,6 +67,7 @@ interface SettingsMigration {
 const MIGRATIONS: SettingsMigration[] = [
   { to: 1, migrate: migrateToV1 },
   { to: 2, migrate: migrateToV2 },
+  { to: 3, migrate: migrateToV3 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -165,6 +166,13 @@ function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     if (block && !Object.hasOwn(block, toKey)) block[toKey] = legacy[from];
   }
 
+  return raw;
+}
+
+// Migration 3 introduces the critical-failure prompt toggle. Absent means "on":
+// existing installs get the detector, and an explicit false is preserved.
+function migrateToV3(raw: Record<string, unknown>, _diagnose: Diagnose): Record<string, unknown> {
+  if (!Object.hasOwn(raw, "criticalFailurePromptEnabled")) raw.criticalFailurePromptEnabled = true;
   return raw;
 }
 

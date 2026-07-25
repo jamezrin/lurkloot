@@ -10,7 +10,8 @@ import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
-import { forgetManagedPageContextTabs, recordManagedPageContextFallback, registerManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { forgetManagedPageContextTabs, managedTabBreakerOpen, recordManagedPageContextFallback, registerManagedPageContextTabs, syncManagedTabBreakers } from "@lurkloot/core/tabs";
+import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: "reward",
@@ -2967,5 +2968,60 @@ describe("background controller", () => {
       expect(env.state.sessions.twitch.rewardId).toBe("reward-2");
       expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
     });
+  });
+});
+
+describe("background controller critical health", () => {
+  afterEach(() => {
+    syncManagedTabBreakers({});
+  });
+
+  it("records page context opens into the critical health detector", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    // Adapters are constructed with the tick's emitter before discovery runs, so
+    // the last recorded call carries the live emitter for this tick.
+    const emitFromTick = (): EventEmitter => env.deps.createAdapters.mock.calls.at(-1)![0];
+    env.kick.discoverCampaigns = vi.fn(async () => {
+      emitFromTick()({
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_rejected" },
+      });
+      return [campaign("kick")];
+    });
+
+    await env.controller.tick(["kick"]);
+
+    // This tick also opens a watch tab for the discovered campaign, and watch
+    // tabs share the churn window with page contexts by design — so assert the
+    // page-context breadcrumb specifically rather than assuming it is the only one.
+    expect(env.state.criticalHealth?.kick?.records).toContainEqual(
+      expect.objectContaining({ kind: "context_open", code: "background_rejected" }),
+    );
+    expect(env.state.criticalHealth?.kick?.managedTabOpens.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("opens the breaker and syncs the registry after repeated page context opens", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const emitFromTick = (): EventEmitter => env.deps.createAdapters.mock.calls.at(-1)![0];
+    env.kick.discoverCampaigns = vi.fn(async () => {
+      emitFromTick()({
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_rejected" },
+      });
+      return [campaign("kick")];
+    });
+
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      await env.controller.tick(["kick"]);
+    }
+
+    expect(env.state.criticalHealth?.kick?.breakerOpen).toBe(true);
+    expect(managedTabBreakerOpen("kick")).toBe(true);
   });
 });

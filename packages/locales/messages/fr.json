@@ -755,6 +755,16 @@
     "message": "Carte $1 réclamée depuis le défi $2"
   },
   "activityAuthHealthChanged": { "message": "L’authentification de $1 est passée de $2 à $3." },
+  "activityCriticalFailureDetected": { "message": "$1 ne fonctionne pas : $2." },
+  "activityCriticalFailureCleared": { "message": "Échec critique de $1 ignoré ; nouvelle tentative en cours." },
+  "criticalFailureReasonNoProgress": { "message": "aucune progression malgré des erreurs répétées" },
+  "criticalFailureReasonPageContextChurn": { "message": "un onglet n’arrêtait pas de se rouvrir" },
+  "criticalFailureTitle": { "message": "Lurkloot a cessé de fonctionner" },
+  "criticalFailureBodyNoProgress": { "message": "Des erreurs répétées et aucune progression des drops depuis longtemps. Quelque chose a probablement changé sur cette plateforme et l'extension ne peut plus obtenir de drops." },
+  "criticalFailureBodyTabChurn": { "message": "Un onglet se rouvrait sans cesse. La réouverture a été stoppée pour que vous puissiez utiliser votre navigateur normalement, et le farming est en pause sur cette plateforme." },
+  "criticalFailureCopyAndReport": { "message": "Copier les journaux et ouvrir un ticket" },
+  "criticalFailureDismiss": { "message": "Ignorer et réessayer" },
+  "criticalFailureClipboardFallback": { "message": "Copie automatique impossible. Sélectionnez et copiez ceci, puis ouvrez un ticket." },
   "activityPageContextOpened": { "message": "Un contexte en arrière-plan a été ouvert sur $1 car $2." },
   "activityPageContextClosed": { "message": "Le contexte en arrière-plan sur $1 a été fermé car $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick a refusé la requête sans onglet" },
@@ -809,6 +819,9 @@
   },
   "activityReasonTargetChanged": {
     "message": "la cible de collecte a changé"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "une défaillance critique a été détectée"
   },
   "activityReasonManualWatch": {
     "message": "le visionnage manuel a pris le relais"

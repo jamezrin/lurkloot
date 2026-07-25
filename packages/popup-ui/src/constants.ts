@@ -21,6 +21,9 @@ export const SITE_URL = "https://lurkloot.jamezrin.com";
 export const GITHUB_REPO_URL = "https://github.com/jamezrin/lurkloot";
 export const CLI_DOCS_URL = "https://github.com/jamezrin/lurkloot/tree/main/packages/cli#readme";
 export const GITHUB_NEW_ISSUE_URL = "https://github.com/jamezrin/lurkloot/issues/new/choose";
+// The chooser URL cannot carry a prefilled title/body, so the critical-failure
+// prompt targets the raw new-issue form instead.
+export const GITHUB_NEW_ISSUE_URL_BASE = "https://github.com/jamezrin/lurkloot/issues/new";
 // How long after install before the one-time "rate it" nudge appears.
 export const RATE_NUDGE_MIN_DAYS = 3;
 

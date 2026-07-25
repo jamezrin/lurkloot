@@ -1,11 +1,12 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
-import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
+import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
-import { currentManagedPageContextTabs, registerManagedPageContextTabs, setTwitchIntegrity } from "../core/tabs";
+import { currentManagedPageContextTabs, registerManagedPageContextTabs, setTwitchIntegrity, syncManagedTabBreakers } from "../core/tabs";
+import { dismissCriticalFailure, recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
@@ -56,6 +57,7 @@ const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   runtime_restart: true,
   target_changed: true,
   manual_watch: true,
+  critical_failure: true,
 };
 const EN_RUNTIME_MESSAGES: Record<string, string> = {
   notificationRewardClaimed: "Reward claimed",
@@ -497,6 +499,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           }
           emit(event);
         };
+        const eventsBeforeTick = events.length;
         const result = await runSchedulerTick(schedulerState, settings, adapters, {
           ...(platforms ? { platforms } : {}),
           stopPageContextTabs: deps.stopPageContextTabs,
@@ -509,6 +512,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await applyAdFocusForState(result.state, emit);
         await reconcileTablessWatchers(result.state, settings, adapters, emit, platforms);
         nextState = result.state;
+        if (settings.criticalFailurePromptEnabled) {
+          // Page-context tabs are created deep inside tabs.ts, which has no access
+          // to scheduler state, and their events come from the adapters' own
+          // emitter rather than the tick's. Reading them back off this tick's
+          // collected events catches every emitter, not just the wrapped one.
+          for (const event of events.slice(eventsBeforeTick)) {
+            if (event.category !== "activity" || event.code !== "page_context_opened") continue;
+            const transition = recordManagedTabOpen(nextState, event.platform, Date.now(), {
+              source: "page_context",
+              reason: event.data.reason,
+            });
+            nextState = transition.state;
+            if (transition.event) emit(transition.event);
+          }
+          // Keep the registry that gates page-context creation in step with the
+          // state we are about to persist, so the very next fetch is suppressed.
+          syncManagedTabBreakers(nextState);
+        }
       } catch (error) {
         // The tick was rolled back, so any partial claim set is not actionable.
         for (const key of Object.keys(claimedRewards) as Platform[]) delete claimedRewards[key];
@@ -1239,6 +1260,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
 
     if (message.type === "tickNow") {
+      await tickAndHandOff();
+      return snapshot();
+    }
+    if (message.type === "dismissCriticalFailure") {
+      await withEventCollector(async (emit, events) => {
+        const state = await deps.loadState();
+        const transition = dismissCriticalFailure(state, message.platform, Date.now());
+        if (transition.event) emit(transition.event);
+        // Closing the breaker here is what lets farming resume immediately
+        // instead of waiting for the next tick to sync the registry.
+        syncManagedTabBreakers(transition.state);
+        await persistAndReport(transition.state, events);
+      });
       await tickAndHandOff();
       return snapshot();
     }
