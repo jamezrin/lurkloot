@@ -24,13 +24,14 @@ export interface CriticalHealthState {
   // stale counters from an old outage must not accumulate across sessions.
   failingMs: number;
   failingTicks: number;
-  lastAccrualAt?: string;
+  // Written on every observation, accruing or not — it is the tick clock, not an accrual marker.
+  lastObservedAt?: string;
   lastWatchedMinutes?: number;
-  contextOpens: string[];
+  contextOpens: readonly string[];
   breakerOpen: boolean;
   dismissedAt?: string;
   cooldownUntil?: string;
-  records: FailureRecord[];
+  records: readonly FailureRecord[];
 }
 
 export const CRITICAL_HEALTH_RECORD_LIMIT = 30;
@@ -38,14 +39,16 @@ const FAILURE_RECORD_KINDS = new Set<FailureRecordKind>(["api_error", "auth", "c
 const CRITICAL_FAILURE_REASONS = new Set<CriticalFailureReason>(["no_progress", "page_context_churn"]);
 const DETAIL_MAX_LENGTH = 200;
 
-export const DEFAULT_CRITICAL_HEALTH: CriticalHealthState = {
+// Deep-frozen: it is handed out by reference as the fallback for a platform that
+// has no state yet, so a stray mutation would corrupt every platform at once.
+export const DEFAULT_CRITICAL_HEALTH: CriticalHealthState = Object.freeze({
   status: "ok",
   failingMs: 0,
   failingTicks: 0,
-  contextOpens: [],
+  contextOpens: Object.freeze([]),
   breakerOpen: false,
-  records: [],
-};
+  records: Object.freeze([]),
+});
 
 function isoOrUndefined(value: unknown): string | undefined {
   return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : undefined;

@@ -5,6 +5,7 @@ import {
   CONTEXT_CHURN_LIMIT,
   CONTEXT_CHURN_WINDOW_MS,
   FAILING_WINDOW_MS,
+  MAX_TICK_DELTA_MS,
   MIN_FAILING_TICKS,
   dismissCriticalFailure,
   observeCriticalHealth,
@@ -148,6 +149,51 @@ describe("critical health detection", () => {
     expect(state.criticalHealth?.twitch?.failingMs).toBe(0);
   });
 
+  it("does not flag on too few ticks even when the clock runs far past the window", () => {
+    let state = baseState();
+    for (let index = 0; index < MIN_FAILING_TICKS - 1; index += 1) {
+      state = observeCriticalHealth(state, "twitch", {
+        at: START + index * 4 * FAILING_WINDOW_MS,
+        failing: true,
+        progressed: false,
+        preconditionBroke: false,
+      }).state;
+    }
+
+    expect(state.criticalHealth?.twitch?.failingTicks).toBeLessThan(MIN_FAILING_TICKS);
+    expect(state.criticalHealth?.twitch?.status).toBe("ok");
+  });
+
+  it("flags on the exact tick the window closes, not before", () => {
+    // Ticks arrive at the clamp ceiling, the fastest the window can legally close.
+    const tickMs = MAX_TICK_DELTA_MS;
+    // The first tick charges no time, so the window closes one tick after the quotient.
+    const expected = FAILING_WINDOW_MS / tickMs + 1;
+    let state = baseState();
+    let flaggedOn: number | undefined;
+    let statusBeforeFlag: string | undefined;
+    for (let index = 0; index < expected; index += 1) {
+      const before = state.criticalHealth?.twitch?.status ?? "ok";
+      const transition = observeCriticalHealth(state, "twitch", {
+        at: START + index * tickMs,
+        failing: true,
+        progressed: false,
+        preconditionBroke: false,
+      });
+      state = transition.state;
+      if (transition.event && flaggedOn === undefined) {
+        flaggedOn = index + 1;
+        statusBeforeFlag = before;
+      }
+    }
+
+    expect(flaggedOn).toBe(expected);
+    expect(statusBeforeFlag).toBe("ok");
+    expect(state.criticalHealth?.twitch?.status).toBe("flagged");
+    // The clamp makes the tick floor a consequence of the window, never the binding constraint.
+    expect(state.criticalHealth?.twitch?.failingTicks).toBeGreaterThanOrEqual(MIN_FAILING_TICKS);
+  });
+
   it("caps a single tick delta so a suspended browser cannot flag instantly", () => {
     let state = observeCriticalHealth(baseState(), "twitch", {
       at: START,
@@ -163,7 +209,7 @@ describe("critical health detection", () => {
     }).state;
 
     expect(state.criticalHealth?.twitch?.status).toBe("ok");
-    expect(state.criticalHealth?.twitch?.failingMs).toBeLessThanOrEqual(FAILING_WINDOW_MS);
+    expect(state.criticalHealth?.twitch?.failingMs).toBe(MAX_TICK_DELTA_MS);
   });
 
   it("flags page-context churn immediately and opens the breaker", () => {
@@ -216,6 +262,43 @@ describe("critical health detection", () => {
     }
 
     expect(state.criticalHealth?.kick?.status).toBe("ok");
+  });
+
+  it("opens the breaker on churn even when already flagged for another reason", () => {
+    const ticks = Math.ceil(FAILING_WINDOW_MS / (5 * 60 * 1000)) + 2;
+    let state = runFailingTicks(baseState(), ticks);
+    expect(state.criticalHealth?.twitch?.reason).toBe("no_progress");
+
+    const events: string[] = [];
+    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
+      const transition = recordPageContextOpen(state, "twitch", START + (ticks + index) * 60 * 1000, "background_rejected");
+      state = transition.state;
+      if (transition.event) events.push(transition.event.code);
+    }
+
+    expect(state.criticalHealth?.twitch?.breakerOpen).toBe(true);
+    expect(state.criticalHealth?.twitch?.reason).toBe("no_progress");
+    expect(events).toEqual([]);
+  });
+
+  it("opens the breaker on churn during a post-dismissal cooldown", () => {
+    let state = baseState();
+    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
+      state = recordPageContextOpen(state, "kick", START + index * 60 * 1000, "background_rejected").state;
+    }
+    state = dismissCriticalFailure(state, "kick", START + 10 * 60 * 1000).state;
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(false);
+
+    const events: string[] = [];
+    for (let index = 0; index < CONTEXT_CHURN_LIMIT; index += 1) {
+      const transition = recordPageContextOpen(state, "kick", START + 11 * 60 * 1000 + index * 1000, "background_rejected");
+      state = transition.state;
+      if (transition.event) events.push(transition.event.code);
+    }
+
+    expect(state.criticalHealth?.kick?.status).toBe("ok");
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+    expect(events).toEqual([]);
   });
 
   it("keeps the failure ring buffer bounded and newest-last", () => {

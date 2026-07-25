@@ -6,6 +6,10 @@ import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 // Deliberately conservative constants, not settings. The prompt tells the user
 // the extension is broken; a false positive is worse than a late one.
 export const FAILING_WINDOW_MS = 45 * 60 * 1000;
+// A floor on observations, so a handful of ticks can never flag on wall-clock time alone.
+// Under MAX_TICK_DELTA_MS below it is implied rather than binding (reaching the window takes
+// FAILING_WINDOW_MS / MAX_TICK_DELTA_MS + 1 ticks); it is kept explicit so tightening either
+// constant cannot silently reintroduce a low-evidence flag.
 export const MIN_FAILING_TICKS = 6;
 // A single tick may report a huge delta after the browser was suspended. Clamp it
 // so wall-clock sleep can never substitute for observed failing time.
@@ -46,8 +50,8 @@ function appendRecord(
   platform: Platform,
   at: number,
   record: Omit<FailureRecord, "at" | "platform"> | undefined,
-): FailureRecord[] {
-  if (!record) return [...records];
+): readonly FailureRecord[] {
+  if (!record) return records;
   return [...records, { ...record, at: new Date(at).toISOString(), platform }].slice(-CRITICAL_HEALTH_RECORD_LIMIT);
 }
 
@@ -67,7 +71,6 @@ function flag(
       status: "flagged",
       reason,
       flaggedAt: new Date(at).toISOString(),
-      breakerOpen: reason === "page_context_churn" ? true : health.breakerOpen,
     },
     event: {
       category: "activity",
@@ -86,7 +89,7 @@ export function observeCriticalHealth(
 ): CriticalHealthTransition {
   const health = current(state, platform);
   const records = appendRecord(health.records, platform, observation.at, observation.record);
-  const lastObservedAt = health.lastAccrualAt ? Date.parse(health.lastAccrualAt) : undefined;
+  const lastObservedAt = health.lastObservedAt ? Date.parse(health.lastObservedAt) : undefined;
 
   // Any of these means the platform is not in a continuous no-value episode.
   if (!observation.failing || observation.progressed || observation.preconditionBroke) {
@@ -94,13 +97,18 @@ export function observeCriticalHealth(
       ...health,
       failingMs: 0,
       failingTicks: 0,
-      lastAccrualAt: new Date(observation.at).toISOString(),
+      lastObservedAt: new Date(observation.at).toISOString(),
       records,
     };
     if (observation.watchedMinutes !== undefined) reset.lastWatchedMinutes = observation.watchedMinutes;
     return { state: withHealth(state, platform, reset) };
   }
 
+  // Only the very first observation of a platform charges nothing, because the reset
+  // branch above also stamps lastObservedAt. So the gap between the last clean tick and
+  // the first failing tick counts as failing time, while a cold start under-counts by one
+  // tick. Both are deliberate: charging the gap keeps a platform that fails right after a
+  // clean tick honest, and under-counting a cold start only ever flags later, never sooner.
   const delta = lastObservedAt === undefined
     ? 0
     : Math.min(Math.max(observation.at - lastObservedAt, 0), MAX_TICK_DELTA_MS);
@@ -108,7 +116,7 @@ export function observeCriticalHealth(
     ...health,
     failingMs: health.failingMs + delta,
     failingTicks: health.failingTicks + 1,
-    lastAccrualAt: new Date(observation.at).toISOString(),
+    lastObservedAt: new Date(observation.at).toISOString(),
     records,
   };
   if (observation.watchedMinutes !== undefined) next.lastWatchedMinutes = observation.watchedMinutes;
@@ -132,13 +140,18 @@ export function recordPageContextOpen(
   const opens = [...health.contextOpens, new Date(at).toISOString()]
     .filter((stamp) => at - Date.parse(stamp) <= CONTEXT_CHURN_WINDOW_MS)
     .slice(-CONTEXT_CHURN_LIMIT);
+  const churning = opens.length >= CONTEXT_CHURN_LIMIT;
+  // The breaker is a monotonic latch and is applied independently of the prompt: a
+  // platform already flagged for another reason, or inside a post-dismissal cooldown,
+  // still needs the reopen loop stopped even though it emits no new event.
   const next: CriticalHealthState = {
     ...health,
     contextOpens: opens,
+    breakerOpen: health.breakerOpen || churning,
     records: appendRecord(health.records, platform, at, { kind: "context_open", code: reason }),
   };
 
-  if (opens.length < CONTEXT_CHURN_LIMIT || next.status === "flagged" || inCooldown(next, at)) {
+  if (!churning || next.status === "flagged" || inCooldown(next, at)) {
     return { state: withHealth(state, platform, next) };
   }
 
