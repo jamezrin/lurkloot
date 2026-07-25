@@ -1,11 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, KickPlatformSettings, Platform, SchedulerState, TwitchPlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
-import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers } from "@lurkloot/core/tabs";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
+import { DEFAULT_CRITICAL_HEALTH } from "@lurkloot/shared/criticalHealth";
+import { TAB_CHURN_LIMIT, TAB_CHURN_WINDOW_MS } from "@lurkloot/core/criticalHealth";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: `reward-${status}`,
@@ -2863,5 +2865,449 @@ describe("scheduler tabless mode", () => {
 
     expect(twitch.prepareWatchTab).toHaveBeenCalledTimes(1);
     expect(result.state.sessions.twitch.watchMode).toBe("tab");
+  });
+});
+
+describe("scheduler critical health observations", () => {
+  const healthState: SchedulerState = {
+    authHealth: HEALTHY_AUTH,
+    sessions: {
+      twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+      kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+    },
+    campaigns: { twitch: [], kick: [] },
+  };
+
+  const healthSettings = (patch: SettingsPatch = {}): ExtensionSettings => settings({
+    ...patch,
+    platform: {
+      twitch: { enabled: true, idleWatchlistChannels: ["fallback"], ...patch.platform?.twitch },
+      kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
+    },
+  });
+
+  function failingAdapter(): PlatformAdapter {
+    const twitch = adapter("twitch", [], [channel("fallback")]);
+    vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new SafeFetchError({ kind: "http_error", status: 503 }));
+    return twitch;
+  }
+
+  it("records a failing tick when discovery throws", async () => {
+    const twitch = failingAdapter();
+    const result = await runSchedulerTick(
+      healthState,
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)?.kind).toBe("api_error");
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      platform: "twitch",
+      code: "http_error",
+      status: 503,
+    });
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+  });
+
+  it("does not track anything when the prompt is disabled", async () => {
+    const twitch = failingAdapter();
+    const result = await runSchedulerTick(
+      healthState,
+      healthSettings({ criticalFailurePromptEnabled: false }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch).toBeUndefined();
+  });
+
+  it("clears the failing counters after a healthy tick", async () => {
+    const tickSettings = healthSettings();
+    const first = await runSchedulerTick(
+      healthState,
+      tickSettings,
+      { twitch: failingAdapter(), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+    expect(first.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+
+    const second = await runSchedulerTick(
+      first.state,
+      tickSettings,
+      { twitch: adapter("twitch", [campaign("drops")], [channel("creator")]), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(second.state.criticalHealth?.twitch?.failingMs).toBe(0);
+    expect(second.state.criticalHealth?.twitch?.failingTicks).toBe(0);
+  });
+
+  it("records the active reward's watched minutes on a healthy tick", async () => {
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        sessions: {
+          ...healthState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+          },
+        },
+      },
+      healthSettings(),
+      { twitch: adapter("twitch", [campaign("drops")], [channel("creator")]), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.lastWatchedMinutes).toBe(20);
+  });
+
+  it("observes every platform on every tick, including early exits", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        sessions: {
+          ...healthState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "error",
+            offlineChecks: 0,
+            errorChecks: 3,
+            retryAfter: "2099-01-01T00:00:00.000Z",
+          },
+        },
+      },
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    // The backoff branch exits the platform iteration early; the detector must
+    // still see this tick, otherwise the churn window never drains.
+    expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "platform_backoff",
+    });
+  });
+
+  it("records a failing tick when discovery throws and there is no idle watchlist", async () => {
+    const twitch = failingAdapter();
+    const result = await runSchedulerTick(
+      healthState,
+      healthSettings({ platform: { twitch: { idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).toBe("platform_error");
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "http_error",
+      status: 503,
+    });
+  });
+
+  it("records a failing tick when the watch phase throws after a successful discovery", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    vi.mocked(twitch.checkChannel).mockRejectedValue(new Error("channel lookup exploded"));
+
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+      },
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(result.state.sessions.twitch.reasonCode).toBe("platform_error");
+    // The accrual observation set before the throw must not survive as a healthy tick.
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(6);
+    expect(result.state.criticalHealth?.twitch?.failingMs).toBeGreaterThanOrEqual(2_000_000);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "unknown_error",
+      detail: "channel lookup exploded",
+    });
+  });
+
+  it.each([
+    ["platform disabled", () => healthSettings({ platform: { twitch: { enabled: false } } })],
+    ["automation stopped", () => healthSettings({ running: false })],
+  ])("prunes the tab churn window on the %s early exit", async (_name, tickSettings) => {
+    const stale = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        criticalHealth: {
+          twitch: {
+            ...DEFAULT_CRITICAL_HEALTH,
+            managedTabOpens: [stale, stale, stale, stale, stale],
+            breakerOpen: true,
+          },
+        },
+      },
+      tickSettings(),
+      { twitch: adapter("twitch", [], []), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.managedTabOpens).toEqual([]);
+    expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+  });
+
+  it("prunes the tab churn window while authentication is unhealthy", async () => {
+    const stale = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        authHealth: { ...HEALTHY_AUTH, twitch: { status: "invalid_credentials", reasonCode: "credentials_rejected" } },
+        criticalHealth: {
+          twitch: {
+            ...DEFAULT_CRITICAL_HEALTH,
+            managedTabOpens: [stale, stale, stale, stale, stale],
+            breakerOpen: true,
+          },
+        },
+      },
+      healthSettings(),
+      { twitch: adapter("twitch", [], []), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).toBe("authentication_unhealthy");
+    expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
+  });
+
+  it("does not charge a failing tick for an outage that ends in an accrual precondition break", async () => {
+    // Discovery fails (a failing observation) but the tick then finds the idle
+    // watchlist channel it was watching has been superseded — an explainable
+    // stop, so the precondition arm must win and clear the counters.
+    const twitch = failingAdapter();
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        sessions: {
+          ...healthState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            offlineChecks: 0,
+          },
+        },
+        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+      },
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_idle_watchlist");
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(0);
+    expect(result.state.criticalHealth?.twitch?.failingMs).toBe(0);
+  });
+
+  it("resets the failing counters when an accrual precondition breaks", async () => {
+    const tickSettings = healthSettings({ offlineRetryLimit: 1 });
+    const first = await runSchedulerTick(
+      healthState,
+      tickSettings,
+      { twitch: failingAdapter(), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+    expect(first.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+
+    const offline = adapter("twitch", [campaign("drops")], [channel("other")]);
+    vi.mocked(offline.checkChannel).mockImplementation(async (candidate) => ({
+      live: candidate.username !== "creator",
+      categoryMatches: true,
+      candidate,
+    }));
+    const second = await runSchedulerTick(
+      {
+        ...first.state,
+        sessions: {
+          ...first.state.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+          },
+        },
+      },
+      tickSettings,
+      { twitch: offline, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(second.state.sessions.twitch.reasonCode).toBe("channel_offline");
+    expect(second.state.criticalHealth?.twitch?.failingTicks).toBe(0);
+    expect(second.state.criticalHealth?.twitch?.failingMs).toBe(0);
+  });
+});
+
+describe("scheduler managed tab circuit breaker", () => {
+  const openBreakerHealth = () => ({
+    ...DEFAULT_CRITICAL_HEALTH,
+    breakerOpen: true,
+    managedTabOpens: Array.from({ length: TAB_CHURN_LIMIT }, (_unused, index) =>
+      new Date(Date.now() - index * 1000).toISOString()),
+  });
+
+  const breakerSettings = (patch: SettingsPatch = {}): ExtensionSettings => settings({
+    ...patch,
+    platform: {
+      twitch: { enabled: true, idleWatchlistChannels: [], ...patch.platform?.twitch },
+      kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
+    },
+  });
+
+  const watchingState = (): SchedulerState => ({
+    authHealth: HEALTHY_AUTH,
+    sessions: {
+      twitch: {
+        platform: "twitch",
+        status: "watching",
+        channel: channel("creator"),
+        campaignId: "drops",
+        rewardId: "reward-in_progress",
+        offlineChecks: 0,
+        tabId: 42,
+        tabManagedByExtension: true,
+      },
+      kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+    },
+    campaigns: { twitch: [campaign("drops")], kick: [] },
+    managedWatchTabs: {
+      twitch: { platform: "twitch", tabId: 42, channelUrl: channel("creator").url, ownedByExtension: true },
+    },
+  });
+
+  afterEach(() => {
+    syncManagedTabBreakers({});
+  });
+
+  it("does not open a watch tab while the breaker is open", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(twitch.stopWatchTab).toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).not.toBe("watching");
+    expect(result.state.sessions.twitch.reasonCode).toBe("critical_failure");
+    expect(result.state.managedWatchTabs?.twitch).toBeUndefined();
+    expect(managedTabBreakerOpen("twitch")).toBe(true);
+  });
+
+  it("keeps ticking a breaker-paused platform so the breaker can release", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    // Without this observation the churn window never prunes and an unflagged
+    // breaker would never close: farming would stall permanently.
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+  });
+
+  it("releases the breaker once the churn evidence ages out", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const stale = new Date(Date.now() - TAB_CHURN_WINDOW_MS - 60_000).toISOString();
+
+    const result = await runSchedulerTick(
+      {
+        ...watchingState(),
+        criticalHealth: {
+          twitch: { ...DEFAULT_CRITICAL_HEALTH, breakerOpen: true, managedTabOpens: [stale, stale] },
+        },
+      },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
+  });
+
+  it("does not gate anything when the prompt is disabled", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
+      breakerSettings({ criticalFailurePromptEnabled: false }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).toBe("watching");
+  });
+
+  it("records each newly created managed watch tab", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)?.kind).toBe("watch_tab_open");
+  });
+
+  it("does not record a reused managed watch tab", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const initial: SchedulerState = {
+      authHealth: HEALTHY_AUTH,
+      sessions: {
+        twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+    };
+
+    const first = await runSchedulerTick(initial, breakerSettings(), { twitch, kick: adapter("kick", [], []) }, { platforms: ["twitch"] });
+    expect(first.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
+
+    const second = await runSchedulerTick(first.state, breakerSettings(), { twitch, kick: adapter("kick", [], []) }, { platforms: ["twitch"] });
+
+    expect(second.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
   });
 });

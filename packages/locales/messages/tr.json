@@ -182,8 +182,14 @@
   "noActivity": {
     "message": "Henüz işlem kaydı yok."
   },
+  "noDiagnostics": {
+    "message": "Henüz teknik kayıt yok. Uzantı çalıştıkça görünür."
+  },
   "platformActivity": {
     "message": "$1 geçmişi"
+  },
+  "platformDiagnostics": {
+    "message": "$1 teknik detayları"
   },
   "lastCheck": {
     "message": "Son kontrol: $1"
@@ -815,6 +821,36 @@
   "activityAuthHealthChanged": {
     "message": "$1 oturum durumu değişti: $2 → $3."
   },
+  "activityCriticalFailureDetected": {
+    "message": "$1 çalışmıyor: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "$1 için kritik hata yoksayıldı; yeniden deneniyor."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "tekrarlanan hatalara rağmen ilerleme yok"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "bir sekme sürekli yeniden açılıyordu"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot çalışmayı durdurdu"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "Uzun süredir tekrarlanan hatalar ve drop ilerlemesi yok. Bu platformda bir şey değişmiş olabilir ve eklenti artık drop kazanamıyor."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "Bir sekme sürekli yeniden açılıyordu. Tarayıcınızı normal kullanabilmeniz için yeniden açma durduruldu ve bu platformda farm duraklatıldı."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "Günlükleri kopyala ve konu aç"
+  },
+  "criticalFailureDismiss": {
+    "message": "Kapat ve yeniden dene"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "Otomatik kopyalanamadı. Bu metni seçip kopyalayın, ardından bir konu açın."
+  },
   "activityPageContextOpened": {
     "message": "$1 üzerinde arka plan işlemi başlatıldı. Neden: $2."
   },
@@ -884,11 +920,11 @@
   "activityReasonTargetChanged": {
     "message": "Hedef değiştirildi"
   },
+  "activityReasonCriticalFailure": {
+    "message": "kritik bir hata algılandı"
+  },
   "activityReasonManualWatch": {
     "message": "Kanalı izlediğiniz için durduruldu"
-  },
-  "hideDiagnosticLogs": {
-    "message": "Teknik detayları gizle"
   },
   "loadMoreActivity": {
     "message": "Daha fazla göster"
@@ -902,8 +938,11 @@
   "clearActivityFailed": {
     "message": "Geçmiş temizlenemedi. Tekrar deneyin."
   },
-  "showDiagnosticLogs": {
-    "message": "Teknik detayları göster"
+  "activityViewTab": {
+    "message": "Geçmiş"
+  },
+  "diagnosticsViewTab": {
+    "message": "Teknik detaylar"
   },
   "settingsGroupCompatibility": {
     "message": "Uyumluluk"
@@ -1045,5 +1084,9 @@
   },
   "authPlatformTemporarilyUnavailable": {
     "message": "Platforma ulaşılamıyor. Otomatik tekrar denenecek."
-  }
+  },
+  "automationPausedTabClosed": { "message": "Duraklatıldı — sekme kapatıldı" },
+  "watchTabClosedPauseDetail": { "message": "Farm sekmesini kapattınız, bu yüzden Lurkloot burada farmı durdurdu." },
+  "resumeFarming": { "message": "Farmı sürdür" },
+  "activityReasonManualTabClose": { "message": "farm sekmesi kapatıldı" }
 }

@@ -10,7 +10,8 @@ import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
-import { forgetManagedPageContextTabs, recordManagedPageContextFallback, registerManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { forgetManagedPageContextTabs, managedTabBreakerOpen, recordManagedPageContextFallback, registerManagedPageContextTabs, syncManagedTabBreakers } from "@lurkloot/core/tabs";
+import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: "reward",
@@ -377,13 +378,24 @@ describe("background controller", () => {
 
     expect(env.state.authHealth.twitch).toEqual({ status: "checking" });
     expect(env.state.authHealth.kick).toEqual(previousKickHealth);
-    expect(env.reportEvents).toHaveBeenCalledWith([{
-      category: "activity",
-      code: "auth_health_changed",
-      level: "info",
-      platform: "twitch",
-      data: { from: "healthy", to: "checking" },
-    }]);
+    expect(env.reportEvents).toHaveBeenCalledWith([
+      {
+        category: "activity",
+        code: "auth_health_changed",
+        level: "info",
+        platform: "twitch",
+        data: { from: "healthy", to: "checking" },
+      },
+      {
+        category: "diagnostic",
+        code: "auth_health_changed",
+        level: "info",
+        platform: "twitch",
+        mirroredActivity: true,
+        message: "twitch authentication health changed from healthy to checking",
+        data: { from: "healthy", to: "checking" },
+      },
+    ]);
 
     env.reportEvents.mockClear();
     await env.controller.invalidateAuthHealth("twitch");
@@ -407,13 +419,24 @@ describe("background controller", () => {
       status: "blocked",
       reasonCode: "security_policy_blocked",
     }));
-    expect(env.reportEvents).toHaveBeenCalledWith([{
-      category: "activity",
-      code: "auth_health_changed",
-      level: "error",
-      platform: "kick",
-      data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
-    }]);
+    expect(env.reportEvents).toHaveBeenCalledWith([
+      {
+        category: "activity",
+        code: "auth_health_changed",
+        level: "error",
+        platform: "kick",
+        data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
+      },
+      {
+        category: "diagnostic",
+        code: "auth_health_changed",
+        level: "error",
+        platform: "kick",
+        mirroredActivity: true,
+        message: "kick authentication health changed from checking to blocked: reason=security_policy_blocked",
+        data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
+      },
+    ]);
   });
 
   it("stores timestamp-only auth refreshes without repeating activity", async () => {
@@ -733,12 +756,14 @@ describe("background controller", () => {
     await env.controller.tick();
 
     const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
-    expect(published.filter((event) => event.code === "farming_started")).toHaveLength(1);
+    expect(published.filter((event) => event.category === "activity" && event.code === "farming_started")).toHaveLength(1);
     expect(published).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "farming_started",
       platform: "twitch",
     }));
+    // The activity entry always brings its English diagnostic mirror along.
+    expect(published.filter((event) => event.category === "diagnostic" && event.code === "farming_started")).toHaveLength(1);
     expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
   });
 
@@ -1910,15 +1935,8 @@ describe("background controller", () => {
     )).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
   });
 
-  it("defers recovery when the active managed farming tab is closed", async () => {
-    const env = harness({
-      ...DEFAULT_SETTINGS,
-      running: true,
-      platform: {
-        ...DEFAULT_SETTINGS.platform,
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
-      },
-    });
+  it("pauses the platform when the user closes the active managed farming tab", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -1938,20 +1956,98 @@ describe("background controller", () => {
 
     await env.controller.handleTabRemoved(10);
 
+    // The removal itself never runs the scheduler (#193).
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
-    expect(env.state.sessions.twitch).toEqual({
+    expect(env.state.manualClosePause?.twitch).toMatchObject({ platform: "twitch" });
+    expect(env.state.sessions.twitch).toMatchObject({
       platform: "twitch",
-      status: "idle",
-      offlineChecks: 0,
+      status: "paused",
+      reasonCode: "manual_tab_close",
     });
     expect(env.state.managedWatchTabs?.twitch).toBeUndefined();
+    // The user's enabled/running settings are untouched: this is a pause.
+    expect(env.settings.running).toBe(true);
+    expect(env.settings.platform.twitch.enabled).toBe(true);
 
     await env.controller.tick();
 
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.state.sessions.twitch.status).toBe("paused");
+    expect(env.state.sessions.twitch.reasonCode).toBe("manual_tab_close");
+    // The other platform keeps farming.
+    expect(env.kick.prepareWatchTab).toHaveBeenCalledOnce();
+  });
+
+  it("resumes farming for the platform when the user asks to resume", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: true,
+    };
+
+    await env.controller.handleTabRemoved(10);
+    expect(env.state.manualClosePause?.twitch).toBeDefined();
+
+    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "resumeAfterManualClose", platform: "twitch" }));
+
+    expect(snapshot.state.manualClosePause?.twitch).toBeUndefined();
+    expect(env.state.manualClosePause?.twitch).toBeUndefined();
     expect(env.twitch.prepareWatchTab).toHaveBeenCalledOnce();
-    expect(env.state.sessions.twitch.tabId).toBe(10);
+    expect(env.state.sessions.twitch.status).toBe("watching");
+  });
+
+  it("does not pause when a watch tab the extension does not own is closed", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: false,
+    };
+
+    await env.controller.handleTabRemoved(10);
+
+    expect(env.state.manualClosePause?.twitch).toBeUndefined();
+
+    await env.controller.tick();
+
+    expect(env.twitch.prepareWatchTab).toHaveBeenCalledOnce();
+  });
+
+  it("does not pause when a managed page-context tab is closed", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      channel: channel("kick"),
+      offlineChecks: 0,
+      tabId: 20,
+      tabManagedByExtension: true,
+    };
+    env.state.managedPageContextTabs = {
+      kick: {
+        platform: "kick",
+        tabId: 91,
+        originUrl: "https://kick.com/drops/inventory",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.handleTabRemoved(91);
+
+    expect(env.state.manualClosePause?.kick).toBeUndefined();
+
+    await env.controller.tick();
+
+    expect(env.kick.prepareWatchTab).toHaveBeenCalledOnce();
   });
 
   it("does not confuse a removed page-context tab with the active farming tab", async () => {
@@ -2979,5 +3075,60 @@ describe("background controller", () => {
       expect(env.state.sessions.twitch.rewardId).toBe("reward-2");
       expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
     });
+  });
+});
+
+describe("background controller critical health", () => {
+  afterEach(() => {
+    syncManagedTabBreakers({});
+  });
+
+  it("records page context opens into the critical health detector", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    // Adapters are constructed with the tick's emitter before discovery runs, so
+    // the last recorded call carries the live emitter for this tick.
+    const emitFromTick = (): EventEmitter => env.deps.createAdapters.mock.calls.at(-1)![0];
+    env.kick.discoverCampaigns = vi.fn(async () => {
+      emitFromTick()({
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_rejected" },
+      });
+      return [campaign("kick")];
+    });
+
+    await env.controller.tick(["kick"]);
+
+    // This tick also opens a watch tab for the discovered campaign, and watch
+    // tabs share the churn window with page contexts by design — so assert the
+    // page-context breadcrumb specifically rather than assuming it is the only one.
+    expect(env.state.criticalHealth?.kick?.records).toContainEqual(
+      expect.objectContaining({ kind: "context_open", code: "background_rejected" }),
+    );
+    expect(env.state.criticalHealth?.kick?.managedTabOpens.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("opens the breaker and syncs the registry after repeated page context opens", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const emitFromTick = (): EventEmitter => env.deps.createAdapters.mock.calls.at(-1)![0];
+    env.kick.discoverCampaigns = vi.fn(async () => {
+      emitFromTick()({
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_rejected" },
+      });
+      return [campaign("kick")];
+    });
+
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      await env.controller.tick(["kick"]);
+    }
+
+    expect(env.state.criticalHealth?.kick?.breakerOpen).toBe(true);
+    expect(managedTabBreakerOpen("kick")).toBe(true);
   });
 });

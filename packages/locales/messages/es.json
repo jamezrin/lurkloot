@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "Aún no hay actividad registrada. Pulsa actualizar para ejecutar una comprobación."
   },
+  "noDiagnostics": {
+    "message": "Aún no hay diagnósticos registrados. Aparecen mientras la extensión trabaja."
+  },
   "platformActivity": {
     "message": "Actividad de $1"
+  },
+  "platformDiagnostics": {
+    "message": "Diagnósticos de $1"
   },
   "lastCheck": {
     "message": "última comprobación $1"
@@ -749,6 +755,16 @@
     "message": "Reclamó una carta $1 del desafío $2"
   },
   "activityAuthHealthChanged": { "message": "La autenticación de $1 cambió de $2 a $3." },
+  "activityCriticalFailureDetected": { "message": "$1 no está funcionando: $2." },
+  "activityCriticalFailureCleared": { "message": "Se descartó el fallo crítico de $1; reintentando." },
+  "criticalFailureReasonNoProgress": { "message": "sin progreso pese a errores repetidos" },
+  "criticalFailureReasonPageContextChurn": { "message": "una pestaña seguía reabriéndose" },
+  "criticalFailureTitle": { "message": "Lurkloot ha dejado de funcionar" },
+  "criticalFailureBodyNoProgress": { "message": "Errores repetidos y ningún progreso en los drops durante mucho tiempo. Es probable que algo haya cambiado en esta plataforma y la extensión ya no pueda conseguir drops." },
+  "criticalFailureBodyTabChurn": { "message": "Una pestaña se reabría una y otra vez. Se ha detenido la reapertura para que puedas usar el navegador con normalidad, y el farmeo está pausado en esta plataforma." },
+  "criticalFailureCopyAndReport": { "message": "Copiar registros y abrir incidencia" },
+  "criticalFailureDismiss": { "message": "Descartar y reintentar" },
+  "criticalFailureClipboardFallback": { "message": "No se pudo copiar automáticamente. Selecciona y copia esto y luego abre una incidencia." },
   "activityPageContextOpened": { "message": "Se abrió un contexto en segundo plano en $1 porque $2." },
   "activityPageContextClosed": { "message": "Se cerró el contexto en segundo plano en $1 porque $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rechazó la solicitud sin pestaña" },
@@ -804,11 +820,11 @@
   "activityReasonTargetChanged": {
     "message": "cambió el objetivo de obtención"
   },
+  "activityReasonCriticalFailure": {
+    "message": "se detectó un fallo crítico"
+  },
   "activityReasonManualWatch": {
     "message": "se priorizó la visualización manual"
-  },
-  "hideDiagnosticLogs": {
-    "message": "Ocultar diagnósticos"
   },
   "loadMoreActivity": {
     "message": "Cargar más"
@@ -822,8 +838,11 @@
   "clearActivityFailed": {
     "message": "No se pudo borrar el historial. Inténtalo de nuevo."
   },
-  "showDiagnosticLogs": {
-    "message": "Mostrar diagnósticos"
+  "activityViewTab": {
+    "message": "Actividad"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnósticos"
   },
   "settingsGroupCompatibility": {
     "message": "Compatibilidad"
@@ -939,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "Kick rechazó este perfil del navegador. Puede que iniciar sesión no sea suficiente para resolverlo." },
   "authCredentialCheckUnavailable": { "message": "No se pudo comprobar la sesión del navegador. Lurkloot volverá a intentarlo automáticamente." },
   "authNetworkTemporarilyUnavailable": { "message": "La red no está disponible temporalmente. Lurkloot volverá a intentarlo automáticamente." },
-  "authPlatformTemporarilyUnavailable": { "message": "La plataforma no está disponible temporalmente. Lurkloot volverá a intentarlo automáticamente." }
+  "authPlatformTemporarilyUnavailable": { "message": "La plataforma no está disponible temporalmente. Lurkloot volverá a intentarlo automáticamente." },
+  "automationPausedTabClosed": { "message": "En pausa — pestaña cerrada" },
+  "watchTabClosedPauseDetail": { "message": "Cerraste la pestaña de farmeo, así que Lurkloot dejó de farmear aquí." },
+  "resumeFarming": { "message": "Reanudar farmeo" },
+  "activityReasonManualTabClose": { "message": "pestaña de farmeo cerrada" }
 }

@@ -76,6 +76,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   postClaimHandoffMaxSeconds: 45,
   skipUnfinishableRewards: true,
   deadlineSafetyMarginMinutes: 5,
+  criticalFailurePromptEnabled: true,
 };
 
 // The extension's full defaults: the engine contract plus the host-only knobs.
@@ -169,6 +170,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
       60,
       DEFAULT_ENGINE_SETTINGS.deadlineSafetyMarginMinutes,
     ),
+    criticalFailurePromptEnabled: booleanOr(value?.criticalFailurePromptEnabled, DEFAULT_ENGINE_SETTINGS.criticalFailurePromptEnabled),
   };
 }
 

@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "अभी कोई गतिविधि रिकॉर्ड नहीं हुई। जाँच चलाने के लिए रीफ़्रेश दबाएँ।"
   },
+  "noDiagnostics": {
+    "message": "अभी कोई डायग्नोस्टिक रिकॉर्ड नहीं हुआ। एक्सटेंशन के काम करते ही ये दिखेंगे।"
+  },
   "platformActivity": {
     "message": "$1 गतिविधि"
+  },
+  "platformDiagnostics": {
+    "message": "$1 डायग्नोस्टिक"
   },
   "lastCheck": {
     "message": "अंतिम जाँच $1"
@@ -749,6 +755,16 @@
     "message": "$2 चैलेंज से $1 कार्ड प्राप्त किया"
   },
   "activityAuthHealthChanged": { "message": "$1 प्रमाणीकरण $2 से $3 में बदल गया।" },
+  "activityCriticalFailureDetected": { "message": "$1 काम नहीं कर रहा है: $2।" },
+  "activityCriticalFailureCleared": { "message": "$1 की गंभीर विफलता खारिज की गई; दोबारा प्रयास किया जा रहा है।" },
+  "criticalFailureReasonNoProgress": { "message": "बार-बार त्रुटियों के बावजूद कोई प्रगति नहीं हुई" },
+  "criticalFailureReasonPageContextChurn": { "message": "एक टैब बार-बार फिर से खुल रहा था" },
+  "criticalFailureTitle": { "message": "Lurkloot ने काम करना बंद कर दिया है" },
+  "criticalFailureBodyNoProgress": { "message": "लंबे समय से बार-बार त्रुटियाँ और ड्रॉप्स में कोई प्रगति नहीं। संभवतः इस प्लेटफ़ॉर्म पर कुछ बदल गया है और एक्सटेंशन अब ड्रॉप्स नहीं कमा पा रहा है।" },
+  "criticalFailureBodyTabChurn": { "message": "एक टैब बार-बार फिर से खुल रहा था। इसे रोक दिया गया है ताकि आप ब्राउज़र सामान्य रूप से उपयोग कर सकें, और इस प्लेटफ़ॉर्म पर फ़ार्मिंग रोक दी गई है।" },
+  "criticalFailureCopyAndReport": { "message": "लॉग कॉपी करें और issue खोलें" },
+  "criticalFailureDismiss": { "message": "खारिज करें और फिर कोशिश करें" },
+  "criticalFailureClipboardFallback": { "message": "अपने आप कॉपी नहीं हो सका। इसे चुनकर कॉपी करें, फिर issue खोलें।" },
   "activityPageContextOpened": { "message": "$1 पर बैकग्राउंड कॉन्टेक्स्ट खोला गया क्योंकि $2।" },
   "activityPageContextClosed": { "message": "$1 का बैकग्राउंड कॉन्टेक्स्ट बंद किया गया क्योंकि $2।" },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick ने बिना टैब वाला अनुरोध अस्वीकार किया" },
@@ -804,11 +820,11 @@
   "activityReasonTargetChanged": {
     "message": "ड्रॉप का लक्ष्य बदला"
   },
+  "activityReasonCriticalFailure": {
+    "message": "एक गंभीर विफलता का पता चला"
+  },
   "activityReasonManualWatch": {
     "message": "मैन्युअल रूप से देखना शुरू हुआ"
-  },
-  "hideDiagnosticLogs": {
-    "message": "डायग्नोस्टिक छिपाएँ"
   },
   "loadMoreActivity": {
     "message": "और लोड करें"
@@ -822,8 +838,11 @@
   "clearActivityFailed": {
     "message": "गतिविधि इतिहास साफ़ नहीं हो सका। फिर कोशिश करें।"
   },
-  "showDiagnosticLogs": {
-    "message": "डायग्नोस्टिक दिखाएँ"
+  "activityViewTab": {
+    "message": "गतिविधि"
+  },
+  "diagnosticsViewTab": {
+    "message": "डायग्नोस्टिक"
   },
   "settingsGroupCompatibility": {
     "message": "संगतता"
@@ -939,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "Kick ने इस ब्राउज़र प्रोफ़ाइल को अस्वीकार कर दिया। केवल साइन इन करने से समस्या शायद हल न हो।" },
   "authCredentialCheckUnavailable": { "message": "आपके ब्राउज़र सत्र की जाँच नहीं हो सकी। Lurkloot अपने आप फिर प्रयास करेगा।" },
   "authNetworkTemporarilyUnavailable": { "message": "नेटवर्क अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।" },
-  "authPlatformTemporarilyUnavailable": { "message": "प्लेटफ़ॉर्म अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।" }
+  "authPlatformTemporarilyUnavailable": { "message": "प्लेटफ़ॉर्म अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।" },
+  "automationPausedTabClosed": { "message": "रुका हुआ — टैब बंद" },
+  "watchTabClosedPauseDetail": { "message": "आपने फ़ार्मिंग टैब बंद कर दिया, इसलिए Lurkloot ने यहाँ फ़ार्मिंग रोक दी।" },
+  "resumeFarming": { "message": "फ़ार्मिंग फिर से शुरू करें" },
+  "activityReasonManualTabClose": { "message": "फ़ार्मिंग टैब बंद" }
 }

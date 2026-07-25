@@ -13,6 +13,7 @@ import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/s
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
+import { buildFailureReport } from "@lurkloot/shared/failureReport";
 import { I18nContext, PopupRuntimeContext } from "./context";
 import {
   PLATFORMS,
@@ -55,6 +56,7 @@ import { AttributionFooter } from "./footer";
 import { RateNudge, shouldShowRateNudge } from "./rateNudge";
 import { UpdateNotice } from "./updateNotice";
 import { DropsPanel } from "./drops";
+import { CriticalFailurePanel } from "./criticalFailure";
 import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AutomationHero, PlatformSwitcher } from "./automation";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
@@ -251,7 +253,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     if (activityClearInFlightRef.current || clearingActivity || loadingMoreActivity) return;
     const requestScope = activityRequestScopeRef.current;
     const requests: Promise<void>[] = [];
-    if (activityStream.nextCursor) {
+    // Only the visible view pages: the toggle switches between the streams
+    // instead of merging them, so paging the hidden one just burns requests.
+    if (!showDiagnostics && activityStream.nextCursor) {
       const cursor = activityStream.nextCursor;
       const pageRequest = beginActivityMutation(activityMutationSequenceRef.current);
       requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "activity", cursor, limit: 80 })
@@ -393,6 +397,18 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     }
   }
 
+  // Undoes the pause caused by manually closing the managed watch tab. Keeps
+  // the user's enabled/running settings untouched — only the pause is cleared.
+  async function resumeAfterManualClose(): Promise<void> {
+    if (!snapshot) return;
+    const resumingPlatform = platform;
+    try {
+      setSnapshot(snapshotWithMergedSettings(await adapter.send<RuntimeSnapshot>({ type: "resumeAfterManualClose", platform: resumingPlatform })));
+    } catch (error) {
+      console.error("Failed to resume farming", error);
+    }
+  }
+
   async function refreshNow(): Promise<void> {
     if (!snapshot || refreshing) return;
     setRefreshing(true);
@@ -454,6 +470,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter((campaign) => isCampaignVisible(campaign, settings.dropsListFilter, settings.farmingEligibility, excludedIds)), settings);
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
+  const criticalFailure = snapshot.state.criticalHealth?.[platform];
+  // Only the flagged platform loses its drops list; the other one keeps working.
+  const criticalFailureReason = settings.criticalFailurePromptEnabled && criticalFailure?.status === "flagged"
+    ? criticalFailure.reason
+    : undefined;
   const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(
     campaign,
     index,
@@ -486,6 +507,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       enabled: automation[id],
       pending: pendingAutomation[id] != null,
       authHealth: snapshot.state.authHealth[id],
+      manualClosePaused: Boolean(snapshot.state.manualClosePause?.[id]),
     })]),
   ) as Record<Platform, AutomationPresentation>;
   const presentation = automationPresentationByPlatform[platform];
@@ -577,7 +599,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   lastTickAt={snapshot.state.lastTickAt}
                   diagnosticLogging={settings.diagnosticLogging}
                   showDiagnostics={showDiagnostics}
-                  hasMore={Boolean(activityStream.nextCursor || (showDiagnostics && diagnosticStream.nextCursor))}
+                  hasMore={Boolean(showDiagnostics ? diagnosticStream.nextCursor : activityStream.nextCursor)}
                   clearArmed={clearActivityArmed}
                   clearFailed={clearActivityFailed}
                   loadingMore={loadingMoreActivity}
@@ -606,7 +628,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     />
                   ) : null}
                 </AnimatePresence>
-                <AutomationHero platform={platform} platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} presentation={presentation} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={session.message} onChange={setAutomation} />
+                <AutomationHero platform={platform} platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} presentation={presentation} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={session.message} onChange={setAutomation} onResume={resumeAfterManualClose} />
                 {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} /> : null}
                 <SubTabs
                   tabs={[
@@ -618,7 +640,28 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                 />
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}>
-                    {tab === "drops" ? (
+                    {tab === "drops" && criticalFailureReason ? (
+                      <CriticalFailurePanel
+                        platform={platform}
+                        reason={criticalFailureReason}
+                        buildReport={() => buildFailureReport({
+                          platform,
+                          version: adapter.version,
+                          userAgent: typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+                          locale,
+                          at: new Date().toISOString(),
+                          settings,
+                          state: snapshot.state,
+                          events: activityStream.events,
+                        })}
+                        onDismiss={() => {
+                          void adapter.send({ type: "dismissCriticalFailure", platform })
+                            .then(() => refreshNow());
+                        }}
+                        openLink={adapter.openLink}
+                        writeClipboard={adapter.writeClipboard ?? (async () => false)}
+                      />
+                    ) : tab === "drops" ? (
                       <DropsPanel
                         campaigns={campaigns}
                         gameMap={gameMap}

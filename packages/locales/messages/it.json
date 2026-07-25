@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "Nessuna attività registrata. Premi aggiorna per eseguire un controllo."
   },
+  "noDiagnostics": {
+    "message": "Nessuna diagnostica registrata. Compare mentre l'estensione lavora."
+  },
   "platformActivity": {
     "message": "Attività $1"
+  },
+  "platformDiagnostics": {
+    "message": "Diagnostica $1"
   },
   "lastCheck": {
     "message": "ultimo controllo $1"
@@ -749,6 +755,16 @@
     "message": "Riscattata una carta $1 dalla sfida $2"
   },
   "activityAuthHealthChanged": { "message": "L’autenticazione di $1 è passata da $2 a $3." },
+  "activityCriticalFailureDetected": { "message": "$1 non funziona: $2." },
+  "activityCriticalFailureCleared": { "message": "Errore critico di $1 ignorato; nuovo tentativo in corso." },
+  "criticalFailureReasonNoProgress": { "message": "nessun progresso nonostante errori ripetuti" },
+  "criticalFailureReasonPageContextChurn": { "message": "una scheda continuava a riaprirsi" },
+  "criticalFailureTitle": { "message": "Lurkloot ha smesso di funzionare" },
+  "criticalFailureBodyNoProgress": { "message": "Errori ripetuti e nessun progresso nei drop per molto tempo. Probabilmente qualcosa è cambiato su questa piattaforma e l'estensione non riesce più a ottenere drop." },
+  "criticalFailureBodyTabChurn": { "message": "Una scheda continuava a riaprirsi. La riapertura è stata interrotta così puoi usare il browser normalmente e il farming è in pausa su questa piattaforma." },
+  "criticalFailureCopyAndReport": { "message": "Copia i log e apri una segnalazione" },
+  "criticalFailureDismiss": { "message": "Ignora e riprova" },
+  "criticalFailureClipboardFallback": { "message": "Copia automatica non riuscita. Seleziona e copia questo testo, poi apri una segnalazione." },
   "activityPageContextOpened": { "message": "È stato aperto un contesto in background su $1 perché $2." },
   "activityPageContextClosed": { "message": "Il contesto in background su $1 è stato chiuso perché $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick ha rifiutato la richiesta senza scheda" },
@@ -804,11 +820,11 @@
   "activityReasonTargetChanged": {
     "message": "l’obiettivo di raccolta è cambiato"
   },
+  "activityReasonCriticalFailure": {
+    "message": "è stato rilevato un errore critico"
+  },
   "activityReasonManualWatch": {
     "message": "è subentrata la visione manuale"
-  },
-  "hideDiagnosticLogs": {
-    "message": "Nascondi diagnostica"
   },
   "loadMoreActivity": {
     "message": "Carica altro"
@@ -822,8 +838,11 @@
   "clearActivityFailed": {
     "message": "Impossibile cancellare la cronologia. Riprova."
   },
-  "showDiagnosticLogs": {
-    "message": "Mostra diagnostica"
+  "activityViewTab": {
+    "message": "Attività"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnostica"
   },
   "settingsGroupCompatibility": {
     "message": "Compatibilità"
@@ -939,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "Kick ha rifiutato questo profilo del browser. Il solo accesso potrebbe non risolvere il problema." },
   "authCredentialCheckUnavailable": { "message": "Non è stato possibile verificare la sessione del browser. Lurkloot riproverà automaticamente." },
   "authNetworkTemporarilyUnavailable": { "message": "La rete è temporaneamente non disponibile. Lurkloot riproverà automaticamente." },
-  "authPlatformTemporarilyUnavailable": { "message": "La piattaforma è temporaneamente non disponibile. Lurkloot riproverà automaticamente." }
+  "authPlatformTemporarilyUnavailable": { "message": "La piattaforma è temporaneamente non disponibile. Lurkloot riproverà automaticamente." },
+  "automationPausedTabClosed": { "message": "In pausa — scheda chiusa" },
+  "watchTabClosedPauseDetail": { "message": "Hai chiuso la scheda di farming, quindi Lurkloot ha smesso di farmare qui." },
+  "resumeFarming": { "message": "Riprendi il farming" },
+  "activityReasonManualTabClose": { "message": "scheda di farming chiusa" }
 }

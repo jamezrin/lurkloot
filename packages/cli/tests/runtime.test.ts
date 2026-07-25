@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { EngineEvent, FarmingStopReason } from "@lurkloot/shared/events";
+import type { ActivityEvent, EngineEvent, FarmingStopReason } from "@lurkloot/shared/events";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 import type { Logger } from "../src/logger";
 import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
+import { activityDiagnostic } from "@lurkloot/core/activityDiagnostics";
 import { formatCliEvent, reportCliEvents } from "../src/events";
 import { DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { createLogger } from "../src/logger";
@@ -165,6 +166,24 @@ describe("CLI engine event reporting", () => {
       code: "request",
       data: { status: 200 },
     })).toBe("request detail");
+  });
+
+  it("demotes mirrored activity diagnostics so CLI output never says it twice", async () => {
+    const lines: string[] = [];
+    const started = rewardEvent("farming_started", "Reward A") as ActivityEvent;
+    await reportCliEvents([
+      started,
+      activityDiagnostic(started),
+      { category: "diagnostic", level: "info", platform: "twitch", message: "unmirrored detail" },
+    ], recordingLogger(lines));
+
+    // The activity line keeps its level; the English mirror drops to debug, where
+    // its ids and raw reason codes are available under `--log debug`.
+    expect(lines).toEqual([
+      "INFO [twitch] Started farming Reward A from Campaign",
+      'DEBUG [twitch] Started farming "Reward A" from campaign "Campaign" (campaign campaign-id, reward reward-id)',
+      "INFO [twitch] unmirrored detail",
+    ]);
   });
 
   it("formats every stable stop reason", () => {

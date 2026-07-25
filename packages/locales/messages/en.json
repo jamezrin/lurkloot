@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "No activity recorded yet. Press refresh to run a check."
   },
+  "noDiagnostics": {
+    "message": "No diagnostics recorded yet. They appear as the extension works."
+  },
   "platformActivity": {
     "message": "$1 activity"
+  },
+  "platformDiagnostics": {
+    "message": "$1 diagnostics"
   },
   "lastCheck": {
     "message": "last check $1"
@@ -749,6 +755,16 @@
     "message": "Claimed a $1 card from the $2 challenge"
   },
   "activityAuthHealthChanged": { "message": "$1 authentication changed from $2 to $3." },
+  "activityCriticalFailureDetected": { "message": "$1 is not working: $2." },
+  "activityCriticalFailureCleared": { "message": "$1 critical failure dismissed; retrying." },
+  "criticalFailureReasonNoProgress": { "message": "no progress despite repeated errors" },
+  "criticalFailureReasonPageContextChurn": { "message": "a tab kept reopening" },
+  "criticalFailureTitle": { "message": "Lurkloot has stopped working" },
+  "criticalFailureBodyNoProgress": { "message": "Repeated errors and no drop progress for a long time. Something on this platform likely changed and the extension can no longer earn drops." },
+  "criticalFailureBodyTabChurn": { "message": "A tab kept reopening over and over. Reopening has been stopped so you can use your browser normally, and farming is paused for this platform." },
+  "criticalFailureCopyAndReport": { "message": "Copy logs & open issue" },
+  "criticalFailureDismiss": { "message": "Dismiss and try again" },
+  "criticalFailureClipboardFallback": { "message": "Could not copy automatically. Select and copy this, then open an issue." },
   "activityPageContextOpened": { "message": "Opened a background context on $1 because $2." },
   "activityPageContextClosed": { "message": "Closed the background context on $1 because $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rejected the tabless request" },
@@ -804,11 +820,11 @@
   "activityReasonTargetChanged": {
     "message": "the farming target changed"
   },
+  "activityReasonCriticalFailure": {
+    "message": "a critical failure was detected"
+  },
   "activityReasonManualWatch": {
     "message": "manual watching took over"
-  },
-  "hideDiagnosticLogs": {
-    "message": "Hide diagnostics"
   },
   "loadMoreActivity": {
     "message": "Load more"
@@ -822,8 +838,11 @@
   "clearActivityFailed": {
     "message": "Could not clear activity history. Try again."
   },
-  "showDiagnosticLogs": {
-    "message": "Show diagnostics"
+  "activityViewTab": {
+    "message": "Activity"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnostics"
   },
   "settingsGroupCompatibility": {
     "message": "Compatibility"
@@ -939,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "Kick rejected this browser profile. Signing in alone may not resolve it." },
   "authCredentialCheckUnavailable": { "message": "Your browser session could not be checked. Lurkloot will retry automatically." },
   "authNetworkTemporarilyUnavailable": { "message": "The network is temporarily unavailable. Lurkloot will retry automatically." },
-  "authPlatformTemporarilyUnavailable": { "message": "The platform is temporarily unavailable. Lurkloot will retry automatically." }
+  "authPlatformTemporarilyUnavailable": { "message": "The platform is temporarily unavailable. Lurkloot will retry automatically." },
+  "automationPausedTabClosed": { "message": "Paused — tab closed" },
+  "watchTabClosedPauseDetail": { "message": "You closed the farming tab, so Lurkloot stopped farming here." },
+  "resumeFarming": { "message": "Resume farming" },
+  "activityReasonManualTabClose": { "message": "farming tab closed" }
 }

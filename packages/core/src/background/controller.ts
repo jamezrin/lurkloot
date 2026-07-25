@@ -1,16 +1,18 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
-import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason } from "@lurkloot/shared/events";
+import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
-import { currentManagedPageContextTabs, registerManagedPageContextTabs, setTwitchIntegrity } from "../core/tabs";
+import { currentManagedPageContextTabs, registerManagedPageContextTabs, setTwitchIntegrity, syncManagedTabBreakers } from "../core/tabs";
+import { dismissCriticalFailure, recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 import { applyPlatformAuthHealth } from "../core/authHealth";
+import { withActivityDiagnostics } from "../core/activityDiagnostics";
 
 export const ALARM_NAME = "lurkloot.tick";
 // A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
@@ -55,6 +57,8 @@ const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   runtime_restart: true,
   target_changed: true,
   manual_watch: true,
+  manual_tab_close: true,
+  critical_failure: true,
 };
 const EN_RUNTIME_MESSAGES: Record<string, string> = {
   notificationRewardClaimed: "Reward claimed",
@@ -224,7 +228,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function withEventCollector<T>(operation: (emit: EventEmitter, events: EngineEvent[]) => Promise<T>): Promise<T> {
     const events: EngineEvent[] = [];
-    const emit: EventEmitter = (event) => events.push(event);
+    const emit = withActivityDiagnostics((event) => events.push(event));
     return operation(emit, events);
   }
 
@@ -496,6 +500,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           }
           emit(event);
         };
+        const eventsBeforeTick = events.length;
         const result = await runSchedulerTick(schedulerState, settings, adapters, {
           ...(platforms ? { platforms } : {}),
           stopPageContextTabs: deps.stopPageContextTabs,
@@ -508,6 +513,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await applyAdFocusForState(result.state, emit);
         await reconcileTablessWatchers(result.state, settings, adapters, emit, platforms);
         nextState = result.state;
+        if (settings.criticalFailurePromptEnabled) {
+          // Page-context tabs are created deep inside tabs.ts, which has no access
+          // to scheduler state, and their events come from the adapters' own
+          // emitter rather than the tick's. Reading them back off this tick's
+          // collected events catches every emitter, not just the wrapped one.
+          for (const event of events.slice(eventsBeforeTick)) {
+            if (event.category !== "activity" || event.code !== "page_context_opened") continue;
+            const transition = recordManagedTabOpen(nextState, event.platform, Date.now(), {
+              source: "page_context",
+              reason: event.data.reason,
+            });
+            nextState = transition.state;
+            if (transition.event) emit(transition.event);
+          }
+          // Keep the registry that gates page-context creation in step with the
+          // state we are about to persist, so the very next fetch is suppressed.
+          syncManagedTabBreakers(nextState);
+        }
       } catch (error) {
         // The tick was rolled back, so any partial claim set is not actionable.
         for (const key of Object.keys(claimedRewards) as Platform[]) delete claimedRewards[key];
@@ -559,8 +582,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // Serialize the load-modify-persist under the state lock so it cannot race a
     // concurrent tick()/heartbeat (both fire on a ~1-minute cadence while the
     // user can close a tab at any moment). A removal never runs the scheduler
-    // directly: the next ordinary alarm may recover without fighting the user's
-    // close action by immediately recreating the tab.
+    // directly (#193): it only records state, and the next ordinary alarm reads
+    // it. Closing a tab LurkLoot owns now records a per-platform pause, so the
+    // alarm keeps the platform paused instead of reopening the tab a minute
+    // later. The user's enabled/running settings are deliberately untouched;
+    // the popup shows the pause with a one-click resume.
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const state = await deps.loadState();
       const manualPlatforms = (["twitch", "kick"] as Platform[]).filter((platform) => state.manualWatch?.[platform]?.tabId === tabId);
@@ -583,21 +609,51 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           && session.tabId === tabId
         ) {
           closedManagedPlatforms.push(platform);
-          emit({ category: "diagnostic", platform, level: "info", message: "Managed watch tab was closed; recovery deferred to the next scheduler cycle" });
+          emit({ category: "diagnostic", platform, level: "info", message: "Managed watch tab was closed manually; pausing farming for this platform until the user resumes" });
         }
       }
 
       if (closedManagedPlatforms.length > 0) {
+        const closedAt = new Date().toISOString();
         const sessions = { ...nextState.sessions };
         const managedWatchTabs = { ...nextState.managedWatchTabs };
+        const manualClosePause = { ...nextState.manualClosePause };
         for (const platform of closedManagedPlatforms) {
-          sessions[platform] = { platform, status: "idle", offlineChecks: 0 };
+          sessions[platform] = {
+            platform,
+            status: "paused",
+            offlineChecks: 0,
+            message: "Farming tab closed",
+            reasonCode: "manual_tab_close",
+          };
           delete managedWatchTabs[platform];
+          const channelUrl = state.managedWatchTabs?.[platform]?.channelUrl ?? state.sessions[platform].channel?.url;
+          manualClosePause[platform] = {
+            platform,
+            closedAt,
+            ...(channelUrl ? { channelUrl } : {}),
+          };
         }
-        nextState = { ...nextState, sessions, managedWatchTabs };
+        nextState = { ...nextState, sessions, managedWatchTabs, manualClosePause };
       }
 
       if (nextState !== state || events.length > 0) await persistAndReport(nextState, events);
+    }));
+  }
+
+  // Explicit user action: clears the manual-close pause so the next tick may
+  // farm this platform again. Only the user can undo the gesture they made.
+  async function resumeAfterManualClose(platform: Platform): Promise<void> {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      const state = await deps.loadState();
+      if (!state.manualClosePause?.[platform]) {
+        await reportBestEffort(events);
+        return;
+      }
+      const manualClosePause = { ...state.manualClosePause };
+      delete manualClosePause[platform];
+      emit({ category: "diagnostic", platform, level: "info", message: "Resuming farming after a manual watch tab close" });
+      await persistAndReport({ ...state, manualClosePause }, events);
     }));
   }
 
@@ -1218,6 +1274,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       return snapshot();
     }
 
+    if (message.type === "resumeAfterManualClose") {
+      await resumeAfterManualClose(message.platform);
+      const settings = await deps.loadSettings();
+      if (settings.running && settings.platform[message.platform].enabled) {
+        await tickAndHandOff([message.platform]);
+      }
+      return snapshot();
+    }
+
     if (message.type === "claimReward") {
       return claimRewardNow(message);
     }
@@ -1242,6 +1307,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
 
     if (message.type === "tickNow") {
+      await tickAndHandOff();
+      return snapshot();
+    }
+    if (message.type === "dismissCriticalFailure") {
+      await withEventCollector(async (emit, events) => {
+        const state = await deps.loadState();
+        const transition = dismissCriticalFailure(state, message.platform, Date.now());
+        if (transition.event) emit(transition.event);
+        // Closing the breaker here is what lets farming resume immediately
+        // instead of waiting for the next tick to sync the registry.
+        syncManagedTabBreakers(transition.state);
+        await persistAndReport(transition.state, events);
+      });
       await tickAndHandOff();
       return snapshot();
     }
@@ -1323,6 +1401,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     handleStartup,
     handleTabRemoved,
     handleMessage,
+    resumeAfterManualClose,
     captureTwitchIntegrity,
     checkAuthHealth,
     invalidateAuthHealth,

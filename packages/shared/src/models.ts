@@ -1,3 +1,5 @@
+import type { CriticalHealthState } from "./criticalHealth";
+
 export type Platform = "twitch" | "kick";
 
 export type PlatformAuthStatus = "checking" | "healthy" | "missing_credentials" | "invalid_credentials" | "blocked" | "unavailable";
@@ -153,6 +155,7 @@ export type WatchReasonCode =
   | "no_eligible_channel"
   | "no_existing_session"
   | "manual_watch"
+  | "manual_tab_close"
   | "automation_disabled"
   | "platform_disabled"
   | "authentication_unhealthy"
@@ -169,7 +172,8 @@ export type WatchReasonCode =
   | "keeping_idle_watchlist"
   | "watch_requirement_completed"
   | "runtime_restart"
-  | "target_changed";
+  | "target_changed"
+  | "critical_failure";
 
 export interface ManagedWatchTab {
   platform: Platform;
@@ -187,6 +191,16 @@ export interface ManagedPageContextTab {
   lastFallbackAt?: string;
   fallbackHost?: string;
   backgroundSuccesses?: number;
+}
+
+// Recorded when the user closes an extension-owned watch tab. Closing the
+// window LurkLoot opened is the most direct "stop" gesture available, so the
+// scheduler treats it as an explicit per-platform pause until the user resumes
+// from the popup. It never touches the user's enabled/running settings.
+export interface ManualClosePauseState {
+  platform: Platform;
+  closedAt: string;
+  channelUrl?: string;
 }
 
 export interface ManualWatchState {
@@ -326,6 +340,9 @@ export interface EngineSettings {
   postClaimHandoffMaxSeconds: number;
   skipUnfinishableRewards: boolean;
   deadlineSafetyMarginMinutes: number;
+  // Kill switch for the critical-failure detector and its popup prompt. On by
+  // default; thresholds themselves are fixed constants in core.
+  criticalFailurePromptEnabled: boolean;
 }
 
 // The browser extension's full settings schema: the engine contract plus the
@@ -363,9 +380,15 @@ export interface ExtensionSettings extends EngineSettings {
 export interface SchedulerState {
   sessions: Record<Platform, WatchSession>;
   authHealth: Record<Platform, PlatformAuthHealth>;
+  // Per-platform critical-failure detection. Persisted so the flag survives an
+  // MV3 service-worker restart; its counters are reset on restore.
+  criticalHealth?: Partial<Record<Platform, CriticalHealthState>>;
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
+  // Platforms paused because the user manually closed their managed watch tab.
+  // Cleared only by an explicit resume from the popup/CLI host.
+  manualClosePause?: Partial<Record<Platform, ManualClosePauseState>>;
   // Last time each platform's account-level gamification endpoints were polled.
   // Persisted because adapters are rebuilt every tick, so an in-memory throttle
   // would never survive to the next one.

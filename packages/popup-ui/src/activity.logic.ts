@@ -7,6 +7,7 @@ import type {
 } from "@lurkloot/shared/events";
 import type { ActivityPage } from "@lurkloot/shared/messages";
 import type { Platform } from "@lurkloot/shared/models";
+import type { CriticalFailureReason } from "@lurkloot/shared/criticalHealth";
 import type { TFunction } from "./types";
 
 export type ActivityStream = {
@@ -117,7 +118,9 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
     case "watch_requirement_completed": return t("activityReasonWatchRequirementCompleted");
     case "runtime_restart": return t("activityReasonRuntimeRestart");
     case "target_changed": return t("activityReasonTargetChanged");
+    case "critical_failure": return t("activityReasonCriticalFailure");
     case "manual_watch": return t("activityReasonManualWatch");
+    case "manual_tab_close": return t("activityReasonManualTabClose");
     case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     default: {
       const exhaustive: never = reason;
@@ -144,9 +147,21 @@ function formatPageContextCloseReason(reason: PageContextCloseReason, t: TFuncti
     case "platform_disabled": return t("activityReasonPlatformDisabled");
     case "automation_disabled": return t("activityReasonAutomationDisabled");
     case "manual_watch": return t("activityReasonManualWatch");
+    case "manual_tab_close": return t("activityReasonManualTabClose");
     case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     case "runtime_restart": return t("activityReasonRuntimeRestart");
     case "managed_context_unusable": return t("activityPageContextReasonManagedContextUnusable");
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
+
+function formatCriticalFailureReason(reason: CriticalFailureReason, t: TFunction): string {
+  switch (reason) {
+    case "page_context_churn": return t("criticalFailureReasonPageContextChurn");
+    case "no_progress": return t("criticalFailureReasonNoProgress");
     default: {
       const exhaustive: never = reason;
       return exhaustive;
@@ -180,6 +195,10 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
       return t("activityPageContextClosed", [event.data.host, formatPageContextCloseReason(event.data.reason, t)]);
     case "auth_health_changed":
       return t("activityAuthHealthChanged", [event.platform, event.data.from, event.data.to]);
+    case "critical_failure_detected":
+      return t("activityCriticalFailureDetected", [event.platform, formatCriticalFailureReason(event.data.reason, t)]);
+    case "critical_failure_cleared":
+      return t("activityCriticalFailureCleared", event.platform);
     default: {
       const exhaustive: never = event;
       return exhaustive;

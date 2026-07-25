@@ -67,13 +67,13 @@ describe("automation authentication presentation", () => {
         enabled: true,
         pending: false,
         authHealth: health(status),
-      }).action).toEqual({ labelKey: "signInToTwitch", url: "https://www.twitch.tv/login" });
+      }).action).toEqual({ kind: "link", labelKey: "signInToTwitch", url: "https://www.twitch.tv/login" });
       expect(automationPresentation({
         platform: "kick",
         enabled: true,
         pending: false,
         authHealth: health(status),
-      }).action).toEqual({ labelKey: "signInToKick", url: "https://kick.com/login" });
+      }).action).toEqual({ kind: "link", labelKey: "signInToKick", url: "https://kick.com/login" });
     },
   );
 
@@ -88,6 +88,52 @@ describe("automation authentication presentation", () => {
       }).action).toBeUndefined();
     },
   );
+
+  it("surfaces a manual watch-tab close as a resumable pause", () => {
+    const result = automationPresentation({
+      platform: "kick",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      manualClosePaused: true,
+    });
+
+    expect(result).toMatchObject({
+      state: "paused_tab_closed",
+      badgeKey: "automationPausedTabClosed",
+      detailKey: "watchTabClosedPauseDetail",
+      tone: "warning",
+      operational: false,
+      action: { kind: "resume", labelKey: "resumeFarming" },
+    });
+  });
+
+  it("keeps the manual-close pause visible even while authentication is degraded", () => {
+    expect(automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("missing_credentials"),
+      manualClosePaused: true,
+    }).state).toBe("paused_tab_closed");
+  });
+
+  it("ignores the manual-close pause when the platform is off or pending", () => {
+    expect(automationPresentation({
+      platform: "twitch",
+      enabled: false,
+      pending: false,
+      authHealth: health("healthy"),
+      manualClosePaused: true,
+    }).state).toBe("paused");
+    expect(automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: true,
+      authHealth: health("healthy"),
+      manualClosePaused: true,
+    }).state).toBe("starting");
+  });
 
   it("does not propagate authentication message values", () => {
     const result = automationPresentation({

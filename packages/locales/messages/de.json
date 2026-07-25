@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "Noch keine Aktivität aufgezeichnet. Aktualisieren drücken, um eine Prüfung auszuführen."
   },
+  "noDiagnostics": {
+    "message": "Noch keine Diagnosen aufgezeichnet. Sie erscheinen, während die Erweiterung arbeitet."
+  },
   "platformActivity": {
     "message": "$1-Aktivität"
+  },
+  "platformDiagnostics": {
+    "message": "$1-Diagnose"
   },
   "lastCheck": {
     "message": "letzte Prüfung $1"
@@ -749,6 +755,16 @@
     "message": "$1-Karte aus der $2-Challenge erhalten"
   },
   "activityAuthHealthChanged": { "message": "Die Authentifizierung von $1 wechselte von $2 zu $3." },
+  "activityCriticalFailureDetected": { "message": "$1 funktioniert nicht: $2." },
+  "activityCriticalFailureCleared": { "message": "Kritischer Fehler von $1 verworfen; erneuter Versuch läuft." },
+  "criticalFailureReasonNoProgress": { "message": "trotz wiederholter Fehler kein Fortschritt" },
+  "criticalFailureReasonPageContextChurn": { "message": "ein Tab öffnete sich immer wieder neu" },
+  "criticalFailureTitle": { "message": "Lurkloot funktioniert nicht mehr" },
+  "criticalFailureBodyNoProgress": { "message": "Wiederholte Fehler und seit Langem kein Drop-Fortschritt. Auf dieser Plattform hat sich vermutlich etwas geändert und die Erweiterung kann keine Drops mehr sammeln." },
+  "criticalFailureBodyTabChurn": { "message": "Ein Tab wurde immer wieder neu geöffnet. Das Neuöffnen wurde gestoppt, damit du den Browser normal nutzen kannst; das Farmen ist für diese Plattform pausiert." },
+  "criticalFailureCopyAndReport": { "message": "Logs kopieren & Issue öffnen" },
+  "criticalFailureDismiss": { "message": "Verwerfen und erneut versuchen" },
+  "criticalFailureClipboardFallback": { "message": "Automatisches Kopieren fehlgeschlagen. Markiere und kopiere diesen Text und öffne dann ein Issue." },
   "activityPageContextOpened": { "message": "Ein Hintergrundkontext auf $1 wurde geöffnet, weil $2." },
   "activityPageContextClosed": { "message": "Der Hintergrundkontext auf $1 wurde geschlossen, weil $2." },
   "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick die Anfrage ohne Tab abgelehnt hat" },
@@ -804,11 +820,11 @@
   "activityReasonTargetChanged": {
     "message": "das Sammelziel hat sich geändert"
   },
+  "activityReasonCriticalFailure": {
+    "message": "ein kritischer Fehler wurde erkannt"
+  },
   "activityReasonManualWatch": {
     "message": "manuelle Wiedergabe hatte Vorrang"
-  },
-  "hideDiagnosticLogs": {
-    "message": "Diagnosen ausblenden"
   },
   "loadMoreActivity": {
     "message": "Mehr laden"
@@ -822,8 +838,11 @@
   "clearActivityFailed": {
     "message": "Der Aktivitätsverlauf konnte nicht gelöscht werden. Erneut versuchen."
   },
-  "showDiagnosticLogs": {
-    "message": "Diagnose anzeigen"
+  "activityViewTab": {
+    "message": "Aktivität"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnose"
   },
   "settingsGroupCompatibility": {
     "message": "Kompatibilität"
@@ -939,5 +958,9 @@
   "authBrowserProfileBlocked": { "message": "Kick hat dieses Browserprofil abgelehnt. Eine Anmeldung allein behebt das Problem möglicherweise nicht." },
   "authCredentialCheckUnavailable": { "message": "Deine Browsersitzung konnte nicht geprüft werden. Lurkloot versucht es automatisch erneut." },
   "authNetworkTemporarilyUnavailable": { "message": "Das Netzwerk ist vorübergehend nicht verfügbar. Lurkloot versucht es automatisch erneut." },
-  "authPlatformTemporarilyUnavailable": { "message": "Die Plattform ist vorübergehend nicht verfügbar. Lurkloot versucht es automatisch erneut." }
+  "authPlatformTemporarilyUnavailable": { "message": "Die Plattform ist vorübergehend nicht verfügbar. Lurkloot versucht es automatisch erneut." },
+  "automationPausedTabClosed": { "message": "Pausiert — Tab geschlossen" },
+  "watchTabClosedPauseDetail": { "message": "Du hast den Farming-Tab geschlossen, daher hat Lurkloot das Farmen hier gestoppt." },
+  "resumeFarming": { "message": "Farmen fortsetzen" },
+  "activityReasonManualTabClose": { "message": "Farming-Tab geschlossen" }
 }
