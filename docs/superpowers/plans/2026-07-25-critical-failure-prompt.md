@@ -1165,6 +1165,20 @@ describe("managed tab circuit breaker", () => {
 And append to `packages/extension/tests/scheduler.test.ts`, using that file's existing harness rather than inventing new helpers:
 
 ```ts
+  it("keeps ticking a breaker-paused platform so the breaker can release", async () => {
+    const adapter = stubAdapter({});
+    let state = seededWatchingState("kick");
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      state = recordManagedTabOpen(state, "kick", Date.now() + index * 1000, { source: "watch_tab" }).state;
+    }
+
+    const result = await runTick(adapter, { criticalFailurePromptEnabled: true }, state);
+
+    // The observation ran even though the platform was paused; without it the
+    // churn window never prunes and an unflagged breaker never closes.
+    expect(result.state.criticalHealth?.kick?.lastObservedAt).toBeDefined();
+  });
+
   it("does not open a watch tab while the breaker is open", async () => {
     const adapter = stubAdapter({});
     let state = seededWatchingState("kick");
@@ -1262,6 +1276,14 @@ Then, in the per-platform loop where a decision has a channel and is not idle, r
         // Creating another one is exactly the user-hostile behaviour we detected,
         // so the platform stays parked until the prompt is dismissed. Tabless is
         // not used as an escape hatch — the user chose to pause, not to switch modes.
+        //
+        // CRITICAL WIRING CONSTRAINT: this path must still run the per-tick
+        // observation before it continues. `observeCriticalHealth` is what prunes
+        // the churn window and releases an unflagged breaker once the evidence
+        // ages out. Short-circuiting the tick here would strand a
+        // `{ status: "ok", breakerOpen: true }` platform with farming permanently
+        // paused and no prompt to dismiss. Call `applyObservation()` (the closure
+        // from Task 6) before every `continue`, including this one.
         if (settings.criticalFailurePromptEnabled && isManagedTabBreakerOpen(nextState, platform)) {
           await adapter.stopWatchTab?.(previous);
           nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
