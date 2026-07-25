@@ -1287,12 +1287,22 @@ describe("background controller", () => {
 
   it("saves and normalizes settings without forcing a scheduler tick", async () => {
     const env = harness();
-    const nextSettings = { ...DEFAULT_SETTINGS, running: true, pollIntervalMinutes: Number.NaN, offlineRetryLimit: 0 };
+    const nextSettings = {
+      ...DEFAULT_SETTINGS,
+      running: true,
+      pollIntervalMinutes: Number.NaN,
+      offlineRetryLimit: 0,
+      tablessFallbackFailureLimit: 99,
+    };
 
     await env.controller.handleMessage({ type: "saveSettings", settingsPatch: nextSettings });
 
     expect(env.settings.pollIntervalMinutes).toBe(DEFAULT_SETTINGS.pollIntervalMinutes);
     expect(env.settings.offlineRetryLimit).toBe(1);
+    expect(env.settings.tablessFallbackFailureLimit).toBe(10);
+    expect(env.deps.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ tablessFallbackFailureLimit: 10 }),
+    );
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
   });
