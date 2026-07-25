@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import type { ChannelCandidate } from "@lurkloot/shared/models";
+import type { ChannelCandidate, WatchSession } from "@lurkloot/shared/models";
 import {
   AD_FOCUS_MAX_HOLD_MS,
   applyAdFocusWithBrowser,
@@ -12,9 +12,12 @@ import {
   hasValidTwitchIntegrity,
   KickWafBlockedError,
   openPinnedMutedTabWithBrowser,
+  PLAYBACK_PRIME_BACKOFF_MS,
+  PLAYBACK_PRIME_MAX_ATTEMPTS,
   recordManagedPageContextBackgroundSuccessWithBrowser,
   recordManagedPageContextFallback,
   registerManagedPageContextTabs,
+  resetPlaybackPriming,
   setTwitchIntegrity,
   stopManagedPageContextTabsWithBrowser,
   stopWatchTabWithBrowser,
@@ -39,9 +42,40 @@ function browserMock() {
   };
 }
 
+// Foreground activations issued by playback priming (`tabs.update(id, { active: true })`).
+function activationCalls(browser: ReturnType<typeof browserMock>): unknown[][] {
+  return (browser.tabs.update.mock.calls as unknown as unknown[][])
+    .filter((call) => (call[1] as { active?: boolean } | undefined)?.active === true);
+}
+
+function managedSession(playingVideoCount: number): WatchSession {
+  return {
+    platform: "twitch",
+    status: "watching",
+    offlineChecks: 0,
+    tabId: 4,
+    tabManagedByExtension: true,
+    playback: {
+      platform: "twitch",
+      checkedAt: new Date().toISOString(),
+      videoCount: 1,
+      mutedVideoCount: 1,
+      unmutedVideoCount: 0,
+      playingVideoCount,
+      blockedPlaybackCount: 1 - playingVideoCount,
+      documentHidden: false,
+    },
+  };
+}
+
+// The player never starts, so shouldPrimePlayback stays true on every tick.
+const stalledSession = () => managedSession(0);
+const healthySession = () => managedSession(1);
+
 describe("tab manager", () => {
   beforeEach(() => {
     registerManagedPageContextTabs({});
+    resetPlaybackPriming();
   });
 
   it("reports tab lifecycle events to the supplied emitter", async () => {
@@ -288,6 +322,86 @@ describe("tab manager", () => {
 
     expect(browser.tabs.update).not.toHaveBeenCalled();
     expect(browser.tabs.query).not.toHaveBeenCalled();
+  });
+
+  it("stops priming a managed tab whose playback never starts", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(Date.parse("2026-07-21T12:00:00.000Z"));
+      const browser = browserMock();
+      browser.tabs.get.mockResolvedValue({
+        id: 4,
+        url: channel.url,
+        pinned: true,
+        mutedInfo: { muted: true },
+        active: false,
+      });
+      const events: EngineEvent[] = [];
+
+      for (let tick = 0; tick < PLAYBACK_PRIME_MAX_ATTEMPTS + 3; tick += 1) {
+        await openPinnedMutedTabWithBrowser(browser, channel, stalledSession(), undefined, (event) => events.push(event));
+        vi.setSystemTime(Date.now() + PLAYBACK_PRIME_BACKOFF_MS);
+      }
+
+      expect(activationCalls(browser)).toHaveLength(PLAYBACK_PRIME_MAX_ATTEMPTS);
+      expect(events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("priming"))).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("backs off instead of priming a managed tab on every tick", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(Date.parse("2026-07-21T12:00:00.000Z"));
+      const browser = browserMock();
+      browser.tabs.get.mockResolvedValue({
+        id: 4,
+        url: channel.url,
+        pinned: true,
+        mutedInfo: { muted: true },
+        active: false,
+      });
+
+      await openPinnedMutedTabWithBrowser(browser, channel, stalledSession());
+      vi.setSystemTime(Date.now() + 1_000);
+      await openPinnedMutedTabWithBrowser(browser, channel, stalledSession());
+
+      expect(activationCalls(browser)).toHaveLength(1);
+
+      vi.setSystemTime(Date.now() + PLAYBACK_PRIME_BACKOFF_MS);
+      await openPinnedMutedTabWithBrowser(browser, channel, stalledSession());
+      expect(activationCalls(browser)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("allows priming again once playback recovers on a managed tab", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(Date.parse("2026-07-21T12:00:00.000Z"));
+      const browser = browserMock();
+      browser.tabs.get.mockResolvedValue({
+        id: 4,
+        url: channel.url,
+        pinned: true,
+        mutedInfo: { muted: true },
+        active: false,
+      });
+
+      for (let tick = 0; tick < PLAYBACK_PRIME_MAX_ATTEMPTS; tick += 1) {
+        await openPinnedMutedTabWithBrowser(browser, channel, stalledSession());
+        vi.setSystemTime(Date.now() + PLAYBACK_PRIME_BACKOFF_MS);
+      }
+      await openPinnedMutedTabWithBrowser(browser, channel, healthySession());
+      vi.setSystemTime(Date.now() + PLAYBACK_PRIME_BACKOFF_MS);
+      await openPinnedMutedTabWithBrowser(browser, channel, stalledSession());
+
+      expect(activationCalls(browser)).toHaveLength(PLAYBACK_PRIME_MAX_ATTEMPTS + 1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("creates one new managed tab when the registered tab is stale", async () => {

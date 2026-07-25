@@ -57,6 +57,15 @@ const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   keepVideosUnmuted: true,
 };
 const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
+// Priming foreground-activates the watch tab for a moment, so it must never
+// become an open-ended loop: a tab whose player the browser permanently blocks
+// keeps reporting playingVideoCount === 0, which would otherwise flicker the tab
+// to the foreground on every scheduler tick and make the browser toolbar and the
+// extensions menu unusable. Attempts are counted per tab, spaced by a back-off,
+// and give up after the cap with a warning. The counter resets as soon as a tick
+// finds playback healthy, so a genuinely deferred player is still coaxed along.
+const PLAYBACK_PRIME_MAX_ATTEMPTS = 3;
+const PLAYBACK_PRIME_BACKOFF_MS = 5 * 60_000;
 const PAGE_CONTEXT_RECOVERY_SUCCESSES = 3;
 const PAGE_CONTEXT_RECOVERY_MIN_MS = 10 * 60_000;
 
@@ -78,8 +87,12 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
-          await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
+        // A retargeted tab is a fresh player, so its priming budget starts over.
+        if (tab.url !== channel.url) resetPlaybackPriming(tab.id);
+        if (!shouldPrimePlayback(tab, channel.url, session)) {
+          resetPlaybackPriming(tab.id);
+        } else if (tabOptions.keepVideosUnmuted) {
+          await maybePrimeTabPlayback(browserApi, tab.id, channel.platform, emit);
         }
         diagnostic(emit, "debug", `Reusing managed watch tab ${tab.id} for ${channel.username}`, channel.platform);
         return {
@@ -100,8 +113,11 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        if (tabOptions.keepVideosUnmuted && shouldPrimePlayback(tab, channel.url, session)) {
-          await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
+        if (tab.url !== channel.url) resetPlaybackPriming(tab.id);
+        if (!shouldPrimePlayback(tab, channel.url, session)) {
+          resetPlaybackPriming(tab.id);
+        } else if (tabOptions.keepVideosUnmuted) {
+          await maybePrimeTabPlayback(browserApi, tab.id, channel.platform, emit);
         }
         diagnostic(emit, "debug", `Reusing your tab ${tab.id} for ${channel.username}`, channel.platform);
         return { tabId: tab.id, managedByExtension: false };
@@ -119,6 +135,7 @@ export async function openPinnedMutedTabWithBrowser(
     if (!browserApi.tabs.remove) continue;
     try {
       await browserApi.tabs.remove(tabId);
+      resetPlaybackPriming(tabId);
       diagnostic(emit, "debug", `Removed stale watch tab ${tabId}`, channel.platform);
     } catch {
       // Stale managed tab ids should not block creating the replacement.
@@ -136,7 +153,10 @@ export async function openPinnedMutedTabWithBrowser(
   }
   await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
   if (tabOptions.keepVideosUnmuted) {
-    await primeTabPlayback(browserApi, tab.id, channel.platform, emit);
+    // A brand new tab always starts with a full priming budget, even if the
+    // browser recycled a tab id we had given up on.
+    resetPlaybackPriming(tab.id);
+    await maybePrimeTabPlayback(browserApi, tab.id, channel.platform, emit);
   }
   diagnostic(emit, "info", `Opened watch tab ${tab.id} for ${channel.username}`, channel.platform);
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
@@ -162,6 +182,55 @@ function shouldPrimePlayback(tab: BrowserTab, url: string, session?: WatchSessio
   // re-prime just because the browser kept it muted.
   return playback.videoCount === 0
     || playback.playingVideoCount === 0;
+}
+
+interface PlaybackPrimeState {
+  attempts: number;
+  lastAttemptAt: number;
+  exhausted: boolean;
+}
+
+const playbackPrimeStates = new Map<number, PlaybackPrimeState>();
+
+export { PLAYBACK_PRIME_BACKOFF_MS, PLAYBACK_PRIME_MAX_ATTEMPTS };
+
+// Forgets the priming budget for a tab (or for every tab when no id is given),
+// so the next request primes again. Called when a tick finds playback healthy,
+// when a managed tab is retargeted at another channel, and when a stale managed
+// tab is discarded.
+export function resetPlaybackPriming(tabId?: number): void {
+  if (tabId == null) playbackPrimeStates.clear();
+  else playbackPrimeStates.delete(tabId);
+}
+
+async function maybePrimeTabPlayback(
+  browserApi: BrowserTabApi,
+  tabId: number,
+  platform: Platform | undefined,
+  emit: EventEmitter,
+  now: number = Date.now(),
+): Promise<void> {
+  const state = playbackPrimeStates.get(tabId) ?? { attempts: 0, lastAttemptAt: 0, exhausted: false };
+  if (state.exhausted) return;
+
+  if (state.attempts >= PLAYBACK_PRIME_MAX_ATTEMPTS) {
+    playbackPrimeStates.set(tabId, { ...state, exhausted: true });
+    diagnostic(
+      emit,
+      "warn",
+      `Playback on watch tab ${tabId} did not start after ${PLAYBACK_PRIME_MAX_ATTEMPTS} priming attempts; leaving the tab in the background`,
+      platform,
+    );
+    return;
+  }
+
+  if (state.attempts > 0 && now - state.lastAttemptAt < PLAYBACK_PRIME_BACKOFF_MS) {
+    diagnostic(emit, "debug", `Skipping playback priming on watch tab ${tabId} until the back-off elapses`, platform);
+    return;
+  }
+
+  playbackPrimeStates.set(tabId, { attempts: state.attempts + 1, lastAttemptAt: now, exhausted: false });
+  await primeTabPlayback(browserApi, tabId, platform, emit);
 }
 
 async function primeTabPlayback(browserApi: BrowserTabApi, tabId: number, platform: Platform | undefined, emit: EventEmitter): Promise<void> {
