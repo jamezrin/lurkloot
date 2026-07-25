@@ -1,4 +1,5 @@
 import type { Platform, PlatformAuthHealth, PlatformAuthMessageKey, PlatformAuthReasonCode, PlatformAuthStatus, SchedulerState } from "@lurkloot/shared/models";
+import { normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 
 const AUTH_STATUSES = new Set<PlatformAuthStatus>([
   "checking",
@@ -113,6 +114,14 @@ export const DEFAULT_STATE: SchedulerState = {
 // added in one place.
 export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined): SchedulerState {
   const { events: _legacyEvents, ...operationalState } = stored as (Partial<SchedulerState> & { events?: unknown }) ?? {};
+  const criticalHealth = stored?.criticalHealth
+    ? (Object.fromEntries(
+        (Object.entries(stored.criticalHealth) as [Platform, unknown][]).map(([platform, value]) => [
+          platform,
+          normalizeCriticalHealth(value),
+        ]),
+      ) as SchedulerState["criticalHealth"])
+    : undefined;
   return {
     ...DEFAULT_STATE,
     ...operationalState,
@@ -125,5 +134,6 @@ export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined)
     managedPageContextTabs: { ...DEFAULT_STATE.managedPageContextTabs, ...stored?.managedPageContextTabs },
     manualWatch: { ...stored?.manualWatch },
     campaigns: { ...DEFAULT_STATE.campaigns, ...stored?.campaigns },
+    ...(criticalHealth ? { criticalHealth } : {}),
   };
 }

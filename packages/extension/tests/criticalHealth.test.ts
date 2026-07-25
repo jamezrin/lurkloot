@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CRITICAL_HEALTH, normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
-import { DEFAULT_STATE } from "@lurkloot/core/defaults";
+import { DEFAULT_STATE, mergeSchedulerState } from "@lurkloot/core/defaults";
 import {
   FAILING_WINDOW_MS,
   MAX_TICK_DELTA_MS,
@@ -466,5 +466,51 @@ describe("critical health detection", () => {
     const records = state.criticalHealth?.twitch?.records ?? [];
     expect(records).toHaveLength(30);
     expect(records.at(-1)?.detail).toBe("failure 39");
+  });
+});
+
+describe("critical health persistence", () => {
+  it("restores a flagged platform but resets its counters across a restart", () => {
+    const merged = mergeSchedulerState({
+      criticalHealth: {
+        kick: {
+          status: "flagged",
+          reason: "page_context_churn",
+          flaggedAt: "2026-07-25T10:00:00.000Z",
+          breakerOpen: true,
+          failingMs: 999_999,
+          failingTicks: 99,
+          managedTabOpens: ["2026-07-25T09:59:00.000Z"],
+          records: [{ at: "2026-07-25T09:58:00.000Z", platform: "kick", kind: "context_open", code: "background_rejected" }],
+        },
+      },
+    });
+
+    expect(merged.criticalHealth?.kick?.status).toBe("flagged");
+    expect(merged.criticalHealth?.kick?.breakerOpen).toBe(true);
+    expect(merged.criticalHealth?.kick?.failingMs).toBe(0);
+    expect(merged.criticalHealth?.kick?.managedTabOpens).toEqual([]);
+    expect(merged.criticalHealth?.kick?.records).toHaveLength(1);
+  });
+
+  it("omits the block entirely when nothing was persisted", () => {
+    expect(mergeSchedulerState({}).criticalHealth).toBeUndefined();
+  });
+
+  it("keeps each platform independent", () => {
+    const merged = mergeSchedulerState({
+      criticalHealth: {
+        kick: { status: "flagged", reason: "page_context_churn", breakerOpen: true, records: [] },
+      },
+    } as unknown as Partial<SchedulerState>);
+
+    expect(merged.criticalHealth?.kick?.status).toBe("flagged");
+    expect(merged.criticalHealth?.twitch).toBeUndefined();
+  });
+
+  it("discards a malformed platform block", () => {
+    const merged = mergeSchedulerState({ criticalHealth: { kick: "not an object" } } as unknown as Partial<SchedulerState>);
+
+    expect(merged.criticalHealth?.kick?.status).toBe("ok");
   });
 });
