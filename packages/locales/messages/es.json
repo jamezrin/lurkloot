@@ -838,6 +838,15 @@
   "clearActivityFailed": {
     "message": "No se pudo borrar el historial. Inténtalo de nuevo."
   },
+  "copyActivityLog": {
+    "message": "Copiar registro"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 eventos copiados"
+  },
+  "copyActivityLogFailed": {
+    "message": "No se pudo copiar el registro. Inténtalo de nuevo."
+  },
   "activityViewTab": {
     "message": "Actividad"
   },

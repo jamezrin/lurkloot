@@ -838,6 +838,15 @@
   "clearActivityFailed": {
     "message": "Der Aktivitätsverlauf konnte nicht gelöscht werden. Erneut versuchen."
   },
+  "copyActivityLog": {
+    "message": "Protokoll kopieren"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 Ereignisse kopiert"
+  },
+  "copyActivityLogFailed": {
+    "message": "Das Protokoll konnte nicht kopiert werden. Bitte erneut versuchen."
+  },
   "activityViewTab": {
     "message": "Aktivität"
   },

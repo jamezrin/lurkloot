@@ -938,6 +938,15 @@
   "clearActivityFailed": {
     "message": "Geçmiş temizlenemedi. Tekrar deneyin."
   },
+  "copyActivityLog": {
+    "message": "Günlüğü kopyala"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 olay kopyalandı"
+  },
+  "copyActivityLogFailed": {
+    "message": "Günlük kopyalanamadı. Tekrar deneyin."
+  },
   "activityViewTab": {
     "message": "Geçmiş"
   },

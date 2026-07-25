@@ -838,6 +838,15 @@
   "clearActivityFailed": {
     "message": "गतिविधि इतिहास साफ़ नहीं हो सका। फिर कोशिश करें।"
   },
+  "copyActivityLog": {
+    "message": "लॉग कॉपी करें"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 इवेंट कॉपी किए गए"
+  },
+  "copyActivityLogFailed": {
+    "message": "लॉग कॉपी नहीं हो सका। फिर से कोशिश करें।"
+  },
   "activityViewTab": {
     "message": "गतिविधि"
   },
