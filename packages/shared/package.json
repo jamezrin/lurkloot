@@ -15,6 +15,7 @@
     "./logging": "./src/logging.ts",
     "./rewards": "./src/rewards.ts",
     "./events": "./src/events.ts",
+    "./criticalHealth": "./src/criticalHealth.ts",
     "./compatibility": "./src/compatibility.ts"
   },
   "scripts": {

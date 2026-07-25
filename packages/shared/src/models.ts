@@ -1,3 +1,5 @@
+import type { CriticalHealthState } from "./criticalHealth";
+
 export type Platform = "twitch" | "kick";
 
 export type PlatformAuthStatus = "checking" | "healthy" | "missing_credentials" | "invalid_credentials" | "blocked" | "unavailable";
@@ -358,6 +360,9 @@ export interface ExtensionSettings extends EngineSettings {
 export interface SchedulerState {
   sessions: Record<Platform, WatchSession>;
   authHealth: Record<Platform, PlatformAuthHealth>;
+  // Per-platform critical-failure detection. Persisted so the flag survives an
+  // MV3 service-worker restart; its counters are reset on restore.
+  criticalHealth?: Partial<Record<Platform, CriticalHealthState>>;
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
