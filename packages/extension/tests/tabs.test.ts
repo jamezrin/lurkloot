@@ -404,6 +404,61 @@ describe("tab manager", () => {
     }
   });
 
+  // The scheduler condemns a watch tab whose playback never reports healthy and
+  // recreates it, so the tab id is different on every cycle. The priming budget
+  // must survive that churn or the cap never engages.
+  it("stops priming across watch tab recreation for the same channel", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(Date.parse("2026-07-21T12:00:00.000Z"));
+      const browser = browserMock();
+      browser.tabs.get.mockRejectedValue(new Error("missing"));
+      let nextTabId = 1450140654;
+      browser.tabs.create.mockImplementation(async () => ({ id: (nextTabId += 4) }));
+      const events: EngineEvent[] = [];
+
+      for (let cycle = 0; cycle < PLAYBACK_PRIME_MAX_ATTEMPTS + 3; cycle += 1) {
+        await openPinnedMutedTabWithBrowser(
+          browser,
+          channel,
+          { platform: "twitch", status: "watching", offlineChecks: 0, tabId: nextTabId, tabManagedByExtension: true },
+          undefined,
+          (event) => events.push(event),
+        );
+        vi.setSystemTime(Date.now() + PLAYBACK_PRIME_BACKOFF_MS);
+      }
+
+      expect(browser.tabs.create).toHaveBeenCalledTimes(PLAYBACK_PRIME_MAX_ATTEMPTS + 3);
+      expect(activationCalls(browser)).toHaveLength(PLAYBACK_PRIME_MAX_ATTEMPTS);
+      expect(events.filter((event) => event.category === "diagnostic" && event.level === "warn")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("primes a recreated watch tab again when the channel changed", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(Date.parse("2026-07-21T12:00:00.000Z"));
+      const browser = browserMock();
+      browser.tabs.get.mockRejectedValue(new Error("missing"));
+      let nextTabId = 1450140654;
+      browser.tabs.create.mockImplementation(async () => ({ id: (nextTabId += 4) }));
+
+      for (let cycle = 0; cycle < PLAYBACK_PRIME_MAX_ATTEMPTS + 1; cycle += 1) {
+        await openPinnedMutedTabWithBrowser(browser, channel);
+        vi.setSystemTime(Date.now() + PLAYBACK_PRIME_BACKOFF_MS);
+      }
+      expect(activationCalls(browser)).toHaveLength(PLAYBACK_PRIME_MAX_ATTEMPTS);
+
+      await openPinnedMutedTabWithBrowser(browser, { ...channel, username: "next", url: "https://www.twitch.tv/next" });
+
+      expect(activationCalls(browser)).toHaveLength(PLAYBACK_PRIME_MAX_ATTEMPTS + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("creates one new managed tab when the registered tab is stale", async () => {
     const browser = browserMock();
     browser.tabs.get.mockRejectedValue(new Error("missing"));
