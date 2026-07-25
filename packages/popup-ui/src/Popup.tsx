@@ -393,6 +393,18 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     }
   }
 
+  // Undoes the pause caused by manually closing the managed watch tab. Keeps
+  // the user's enabled/running settings untouched — only the pause is cleared.
+  async function resumeAfterManualClose(): Promise<void> {
+    if (!snapshot) return;
+    const resumingPlatform = platform;
+    try {
+      setSnapshot(snapshotWithMergedSettings(await adapter.send<RuntimeSnapshot>({ type: "resumeAfterManualClose", platform: resumingPlatform })));
+    } catch (error) {
+      console.error("Failed to resume farming", error);
+    }
+  }
+
   async function refreshNow(): Promise<void> {
     if (!snapshot || refreshing) return;
     setRefreshing(true);
@@ -486,6 +498,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       enabled: automation[id],
       pending: pendingAutomation[id] != null,
       authHealth: snapshot.state.authHealth[id],
+      manualClosePaused: Boolean(snapshot.state.manualClosePause?.[id]),
     })]),
   ) as Record<Platform, AutomationPresentation>;
   const presentation = automationPresentationByPlatform[platform];
@@ -606,7 +619,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     />
                   ) : null}
                 </AnimatePresence>
-                <AutomationHero platform={platform} platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} presentation={presentation} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={session.message} onChange={setAutomation} />
+                <AutomationHero platform={platform} platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} presentation={presentation} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={session.message} onChange={setAutomation} onResume={resumeAfterManualClose} />
                 {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} /> : null}
                 <SubTabs
                   tabs={[

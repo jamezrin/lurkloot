@@ -460,6 +460,37 @@ export async function runSchedulerTick(
     const adapter = adapters[platform];
 
     try {
+      // The user closed the watch tab LurkLoot opened. That is an explicit stop
+      // gesture, so stay paused until they resume from the popup rather than
+      // recovering on this (or any later) tick. Checked before every other gate
+      // so nothing re-opens a tab behind the user's back.
+      if (nextState.manualClosePause?.[platform]) {
+        await adapter.stopWatchTab?.(previous);
+        nextState.sessions[platform] = {
+          ...previous,
+          status: "paused",
+          channel: undefined,
+          campaignId: undefined,
+          rewardId: undefined,
+          tabId: undefined,
+          tabManagedByExtension: undefined,
+          playback: undefined,
+          playbackChecks: 0,
+          errorChecks: 0,
+          retryAfter: undefined,
+          message: "Farming tab closed",
+          reasonCode: "manual_tab_close",
+          watchMode: undefined,
+          tablessFallback: undefined,
+          heartbeatChecks: 0,
+          lastHeartbeatAt: undefined,
+          lastHeartbeatOk: undefined,
+        };
+        nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform], reason: "manual_tab_close", emit });
+        emitDiagnostic(emit, platform, "info", "Farming tab was closed manually; staying paused until the user resumes");
+        continue;
+      }
       if (settings.pauseOnManualWatch && hasRecentManualWatch(nextState, platform)) {
         await adapter.stopWatchTab?.(previous);
         nextState.sessions[platform] = {

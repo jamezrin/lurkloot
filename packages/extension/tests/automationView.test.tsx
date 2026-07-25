@@ -23,6 +23,9 @@ const messages: Record<string, string> = {
   signInToKick: "Sign in to Kick",
   watchingLabel: "Watching",
   farmingLabel: "Farming",
+  automationPausedTabClosed: "Paused — tab closed",
+  watchTabClosedPauseDetail: "You closed the farming tab, so Lurkloot stopped farming here.",
+  resumeFarming: "Resume farming",
 };
 
 let root: Root | undefined;
@@ -88,6 +91,36 @@ describe("automation authentication status UI", () => {
     act(() => action?.click());
     expect(openLink).toHaveBeenCalledWith("https://www.twitch.tv/login");
     expect(container.querySelector('[role="switch"]')?.hasAttribute("disabled")).toBe(false);
+  });
+
+  it("offers a one-click resume after the user closed the farming tab", () => {
+    const onResume = vi.fn();
+    const { container } = mount(
+      <AutomationHero
+        platform="kick"
+        platformLabel="Kick"
+        enabled
+        pending={false}
+        presentation={automationPresentation({
+          platform: "kick",
+          enabled: true,
+          pending: false,
+          authHealth: { status: "healthy" },
+          manualClosePaused: true,
+        })}
+        onChange={async () => undefined}
+        onResume={onResume}
+      />,
+    );
+
+    expect(container.querySelector('[data-automation-state="paused_tab_closed"]')).not.toBeNull();
+    expect(container.textContent).toContain("Paused — tab closed");
+    expect(container.textContent).toContain("You closed the farming tab");
+    const resume = container.querySelector<HTMLButtonElement>('[data-resume-action="kick"]');
+    expect(resume).not.toBeNull();
+    expect(resume?.textContent).toContain("Resume farming");
+    act(() => resume?.click());
+    expect(onResume).toHaveBeenCalledOnce();
   });
 
   it("explains a Kick browser-profile block without offering sign-in", () => {

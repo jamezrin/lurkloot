@@ -17,7 +17,8 @@ export type FarmingStopReason =
   | "watch_requirement_completed"
   | "runtime_restart"
   | "target_changed"
-  | "manual_watch";
+  | "manual_watch"
+  | "manual_tab_close";
 
 type CampaignRewardData = {
   campaignId: string;
@@ -34,6 +35,7 @@ export type PageContextCloseReason =
   | "platform_disabled"
   | "automation_disabled"
   | "manual_watch"
+  | "manual_tab_close"
   | "authentication_unhealthy"
   | "runtime_restart"
   | "managed_context_unusable";

@@ -1874,15 +1874,8 @@ describe("background controller", () => {
     )).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
   });
 
-  it("defers recovery when the active managed farming tab is closed", async () => {
-    const env = harness({
-      ...DEFAULT_SETTINGS,
-      running: true,
-      platform: {
-        ...DEFAULT_SETTINGS.platform,
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
-      },
-    });
+  it("pauses the platform when the user closes the active managed farming tab", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -1902,20 +1895,98 @@ describe("background controller", () => {
 
     await env.controller.handleTabRemoved(10);
 
+    // The removal itself never runs the scheduler (#193).
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
-    expect(env.state.sessions.twitch).toEqual({
+    expect(env.state.manualClosePause?.twitch).toMatchObject({ platform: "twitch" });
+    expect(env.state.sessions.twitch).toMatchObject({
       platform: "twitch",
-      status: "idle",
-      offlineChecks: 0,
+      status: "paused",
+      reasonCode: "manual_tab_close",
     });
     expect(env.state.managedWatchTabs?.twitch).toBeUndefined();
+    // The user's enabled/running settings are untouched: this is a pause.
+    expect(env.settings.running).toBe(true);
+    expect(env.settings.platform.twitch.enabled).toBe(true);
 
     await env.controller.tick();
 
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.state.sessions.twitch.status).toBe("paused");
+    expect(env.state.sessions.twitch.reasonCode).toBe("manual_tab_close");
+    // The other platform keeps farming.
+    expect(env.kick.prepareWatchTab).toHaveBeenCalledOnce();
+  });
+
+  it("resumes farming for the platform when the user asks to resume", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: true,
+    };
+
+    await env.controller.handleTabRemoved(10);
+    expect(env.state.manualClosePause?.twitch).toBeDefined();
+
+    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "resumeAfterManualClose", platform: "twitch" }));
+
+    expect(snapshot.state.manualClosePause?.twitch).toBeUndefined();
+    expect(env.state.manualClosePause?.twitch).toBeUndefined();
     expect(env.twitch.prepareWatchTab).toHaveBeenCalledOnce();
-    expect(env.state.sessions.twitch.tabId).toBe(10);
+    expect(env.state.sessions.twitch.status).toBe("watching");
+  });
+
+  it("does not pause when a watch tab the extension does not own is closed", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: false,
+    };
+
+    await env.controller.handleTabRemoved(10);
+
+    expect(env.state.manualClosePause?.twitch).toBeUndefined();
+
+    await env.controller.tick();
+
+    expect(env.twitch.prepareWatchTab).toHaveBeenCalledOnce();
+  });
+
+  it("does not pause when a managed page-context tab is closed", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.state.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      channel: channel("kick"),
+      offlineChecks: 0,
+      tabId: 20,
+      tabManagedByExtension: true,
+    };
+    env.state.managedPageContextTabs = {
+      kick: {
+        platform: "kick",
+        tabId: 91,
+        originUrl: "https://kick.com/drops/inventory",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
+    };
+
+    await env.controller.handleTabRemoved(91);
+
+    expect(env.state.manualClosePause?.kick).toBeUndefined();
+
+    await env.controller.tick();
+
+    expect(env.kick.prepareWatchTab).toHaveBeenCalledOnce();
   });
 
   it("does not confuse a removed page-context tab with the active farming tab", async () => {

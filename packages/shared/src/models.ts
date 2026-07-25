@@ -148,6 +148,7 @@ export type WatchReasonCode =
   | "no_eligible_channel"
   | "no_existing_session"
   | "manual_watch"
+  | "manual_tab_close"
   | "automation_disabled"
   | "platform_disabled"
   | "authentication_unhealthy"
@@ -182,6 +183,16 @@ export interface ManagedPageContextTab {
   lastFallbackAt?: string;
   fallbackHost?: string;
   backgroundSuccesses?: number;
+}
+
+// Recorded when the user closes an extension-owned watch tab. Closing the
+// window LurkLoot opened is the most direct "stop" gesture available, so the
+// scheduler treats it as an explicit per-platform pause until the user resumes
+// from the popup. It never touches the user's enabled/running settings.
+export interface ManualClosePauseState {
+  platform: Platform;
+  closedAt: string;
+  channelUrl?: string;
 }
 
 export interface ManualWatchState {
@@ -361,6 +372,9 @@ export interface SchedulerState {
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
+  // Platforms paused because the user manually closed their managed watch tab.
+  // Cleared only by an explicit resume from the popup/CLI host.
+  manualClosePause?: Partial<Record<Platform, ManualClosePauseState>>;
   // Last time each platform's account-level gamification endpoints were polled.
   // Persisted because adapters are rebuilt every tick, so an in-memory throttle
   // would never survive to the next one.
