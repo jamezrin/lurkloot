@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "अभी कोई गतिविधि रिकॉर्ड नहीं हुई। जाँच चलाने के लिए रीफ़्रेश दबाएँ।"
   },
+  "noDiagnostics": {
+    "message": "अभी कोई डायग्नोस्टिक रिकॉर्ड नहीं हुआ। एक्सटेंशन के काम करते ही ये दिखेंगे।"
+  },
   "platformActivity": {
     "message": "$1 गतिविधि"
+  },
+  "platformDiagnostics": {
+    "message": "$1 डायग्नोस्टिक"
   },
   "lastCheck": {
     "message": "अंतिम जाँच $1"
@@ -807,9 +813,6 @@
   "activityReasonManualWatch": {
     "message": "मैन्युअल रूप से देखना शुरू हुआ"
   },
-  "hideDiagnosticLogs": {
-    "message": "डायग्नोस्टिक छिपाएँ"
-  },
   "loadMoreActivity": {
     "message": "और लोड करें"
   },
@@ -822,8 +825,11 @@
   "clearActivityFailed": {
     "message": "गतिविधि इतिहास साफ़ नहीं हो सका। फिर कोशिश करें।"
   },
-  "showDiagnosticLogs": {
-    "message": "डायग्नोस्टिक दिखाएँ"
+  "activityViewTab": {
+    "message": "गतिविधि"
+  },
+  "diagnosticsViewTab": {
+    "message": "डायग्नोस्टिक"
   },
   "settingsGroupCompatibility": {
     "message": "संगतता"

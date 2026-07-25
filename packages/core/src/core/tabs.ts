@@ -846,7 +846,6 @@ async function findOrCreatePageContextTab(
             platform: retained.platform,
             data: { host: new URL(retained.origin).host, reason: "user_tab_available" },
           });
-          diagnostic(options?.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(retained.origin).host} because a user tab is available`, retained.platform);
         } catch {
           // The retained page context may already be gone.
           diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because the tab was already gone`, retained.platform);
@@ -881,7 +880,6 @@ async function findOrCreatePageContextTab(
               platform: retained.platform,
               data: { host: new URL(origin).host, reason: "managed_context_unusable" },
             });
-            diagnostic(options?.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(origin).host} because it became unusable`, retained.platform);
           } catch {
             diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it was already gone`, retained.platform);
           }
@@ -927,12 +925,6 @@ async function findOrCreatePageContextTab(
       platform: retain.platform,
       data: { host: new URL(origin).host, reason: openReason },
     });
-    diagnostic(
-      options?.emit ?? ignoreEvent,
-      "info",
-      `Created managed page context on ${new URL(origin).host} because ${openReason === "managed_context_unusable" ? "the previous context was unusable" : "background access was rejected"}`,
-      retain.platform,
-    );
     return { tabId: tab.id, createdByExtension: true, retainedContext };
   }
   return { tabId: tab.id, createdByExtension: true };
@@ -1082,7 +1074,6 @@ export async function recordManagedPageContextBackgroundSuccessWithBrowser(
       platform,
       data: { host: new URL(context.origin).host, reason: "background_recovered" },
     });
-    diagnostic(emit, "info", `Closed managed page context on ${new URL(context.origin).host} because background access recovered`, platform);
   } catch {
     diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the tab was already gone`, platform);
   }
@@ -1130,7 +1121,6 @@ export async function stopManagedPageContextTabsWithBrowser(
         platform,
         data: { host: new URL(context.origin).host, reason: options.reason ?? "automation_disabled" },
       });
-      diagnostic(options.emit ?? ignoreEvent, "info", `Closed managed page context on ${new URL(context.origin).host} because ${options.reason ?? "automation_disabled"}`, platform);
     } catch {
       // The retained page context may have been closed manually.
       diagnostic(options.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the tab was already gone`, platform);

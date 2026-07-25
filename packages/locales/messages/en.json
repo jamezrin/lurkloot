@@ -158,8 +158,14 @@
   "noActivity": {
     "message": "No activity recorded yet. Press refresh to run a check."
   },
+  "noDiagnostics": {
+    "message": "No diagnostics recorded yet. They appear as the extension works."
+  },
   "platformActivity": {
     "message": "$1 activity"
+  },
+  "platformDiagnostics": {
+    "message": "$1 diagnostics"
   },
   "lastCheck": {
     "message": "last check $1"
@@ -807,9 +813,6 @@
   "activityReasonManualWatch": {
     "message": "manual watching took over"
   },
-  "hideDiagnosticLogs": {
-    "message": "Hide diagnostics"
-  },
   "loadMoreActivity": {
     "message": "Load more"
   },
@@ -822,8 +825,11 @@
   "clearActivityFailed": {
     "message": "Could not clear activity history. Try again."
   },
-  "showDiagnosticLogs": {
-    "message": "Show diagnostics"
+  "activityViewTab": {
+    "message": "Activity"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnostics"
   },
   "settingsGroupCompatibility": {
     "message": "Compatibility"
