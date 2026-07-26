@@ -62,12 +62,19 @@ interface TwitchGameEventDrop {
 }
 
 export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]): DropCampaign[] {
+  const inProgress = Array.isArray(input)
+    ? undefined
+    : input.data?.currentUser?.inventory?.dropCampaignsInProgress;
   const campaigns = Array.isArray(input)
     ? input
-    : input.data?.currentUser?.inventory?.dropCampaignsInProgress
+    : inProgress
       ?? input.data?.currentUser?.inventory?.dropCampaigns
       ?? input.data?.currentUser?.dropCampaigns
       ?? [];
+  // Only dropCampaignsInProgress carries a per-tier self edge. Everything else
+  // (campaign details, reward campaigns) reports no per-user claim state, so
+  // shared-benefit tiers there must keep using the owned-benefit fallback.
+  const hasPerTierProgress = campaigns === inProgress;
   const gameEventDrops = Array.isArray(input) ? [] : input.data?.currentUser?.inventory?.gameEventDrops ?? [];
   const userId = Array.isArray(input) ? undefined : input.data?.currentUser?.id;
   const now = Date.now();
@@ -99,10 +106,12 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
     // Twitch includes subscription, purchase, and other action-gated rewards in
     // timeBasedDrops. Retain them internally so an obtained reward can still be
     // claimed, but mark them as non-watch rewards so they never drive farming.
-    const sharedBenefitIds = benefitIdsSharedAcrossRewards(
-      (campaign.timeBasedDrops ?? []).map((drop) =>
-        (drop.benefitEdges ?? []).map((edge) => edge.benefit?.id)),
-    );
+    const sharedBenefitIds = hasPerTierProgress
+      ? benefitIdsSharedAcrossRewards(
+        (campaign.timeBasedDrops ?? []).map((drop) =>
+          (drop.benefitEdges ?? []).map((edge) => edge.benefit?.id)),
+      )
+      : new Set<string>();
     const parsedRewards = (campaign.timeBasedDrops ?? [])
       .map((drop) => parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops, sharedBenefitIds));
     const rewards = parsedRewards.map((reward) => ({
@@ -254,9 +263,14 @@ export function mergeTwitchCampaignProgress(
   const gameEventDrops = Array.isArray(inventory) ? [] : inventory.data?.currentUser?.inventory?.gameEventDrops ?? [];
   return campaigns.map((campaign) => {
     const progress = progressCampaigns.find((item) => item.id === campaign.id);
-    const sharedBenefitIds = benefitIdsSharedAcrossRewards(
-      campaign.rewards.map((reward) => reward.benefitIds ?? []),
-    );
+    // Withholding the owned-benefit fallback from shared benefits is only safe
+    // while a per-tier self edge exists to answer in its place. A campaign absent
+    // from the progress payload has no such edge — every tier would read
+    // unclaimed forever and the scheduler would re-farm a finished campaign — so
+    // there the fallback still applies.
+    const sharedBenefitIds = progress
+      ? benefitIdsSharedAcrossRewards(campaign.rewards.map((reward) => reward.benefitIds ?? []))
+      : new Set<string>();
     const rewards = campaign.rewards.map((reward) => {
       const progressReward = progress?.rewards.find((item) => item.id === reward.id);
       const merged = progressReward ? { ...reward, ...progressReward } : reward;

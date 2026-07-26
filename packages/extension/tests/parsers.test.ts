@@ -887,6 +887,44 @@ describe("Twitch parsers", () => {
       .toBe("sanitized-user#26935687-0a71-4e48-a978-71f63abd8e1f#29773938-2614-11f1-a132-0a58a9feac02");
   });
 
+  // Regression: once every tier is claimed the campaign leaves
+  // dropCampaignsInProgress, so no self edge survives to say which tiers are
+  // claimed. Without the owned-benefit fallback the shared tiers read as
+  // unclaimed forever and the scheduler re-farms a finished campaign.
+  it("treats shared-benefit tiers as claimed when the campaign has no progress data", () => {
+    const details = parseTwitchInventory([{
+      id: "hunt",
+      name: "Hunt 1896 (Week 1, Pt. 2)",
+      timeBasedDrops: [30, 60, 120, 180].map((minutes) => ({
+        id: `tier-${minutes}`,
+        name: "Supply Crate",
+        requiredMinutesWatched: minutes,
+        benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+      })),
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{ id: "supply-crate", lastAwardedAt: "2026-07-25T13:33:09.586Z" }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards.map((reward) => reward.status)).toEqual([
+      "claimed",
+      "claimed",
+      "claimed",
+      "claimed",
+    ]);
+    expect(merged[0].status).toBe("completed");
+    expect(merged[0].eligibility).toBe("completed");
+    expect(campaignHasClaimableReward(merged[0])).toBe(false);
+  });
+
   it("keeps a shared-benefit tier claimable when merging progress into campaign details", () => {
     const details = parseTwitchInventory([{
       id: "hunt",
