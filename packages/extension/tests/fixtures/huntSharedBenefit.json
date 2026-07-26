@@ -1,0 +1,106 @@
+{
+  "data": {
+    "currentUser": {
+      "id": "sanitized-user",
+      "inventory": {
+        "gameEventDrops": [
+          {
+            "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02",
+            "benefit": { "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02" },
+            "lastAwardedAt": "2026-07-25T12:33:11.274Z"
+          },
+          {
+            "id": "8152c851-2605-11f1-b46f-0a58a9feac02",
+            "benefit": { "id": "8152c851-2605-11f1-b46f-0a58a9feac02" },
+            "lastAwardedAt": "2026-07-25T14:33:08.131Z"
+          }
+        ],
+        "dropCampaignsInProgress": [
+          {
+            "id": "26935687-0a71-4e48-a978-71f63abd8e1f",
+            "name": "Hunt 1896 (Week 1, Pt. 2)",
+            "status": "ACTIVE",
+            "endAt": "2099-07-26T14:59:59.999Z",
+            "timeBasedDrops": [
+              {
+                "id": "1eb61564-2614-11f1-9942-0a58a9feac02",
+                "name": "Supply Crate",
+                "requiredMinutesWatched": 30,
+                "requiredSubs": 0,
+                "preconditionDrops": null,
+                "benefitEdges": [
+                  { "benefit": { "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02", "name": "Supply Crate" } }
+                ],
+                "self": {
+                  "currentMinutesWatched": 240,
+                  "isClaimed": true,
+                  "dropInstanceID": "sanitized-user#26935687-0a71-4e48-a978-71f63abd8e1f#1eb61564-2614-11f1-9942-0a58a9feac02"
+                }
+              },
+              {
+                "id": "221e60c7-2614-11f1-ab67-0a58a9feac02",
+                "name": "Supply Crate",
+                "requiredMinutesWatched": 60,
+                "requiredSubs": 0,
+                "preconditionDrops": null,
+                "benefitEdges": [
+                  { "benefit": { "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02", "name": "Supply Crate" } }
+                ],
+                "self": {
+                  "currentMinutesWatched": 240,
+                  "isClaimed": true,
+                  "dropInstanceID": "sanitized-user#26935687-0a71-4e48-a978-71f63abd8e1f#221e60c7-2614-11f1-ab67-0a58a9feac02"
+                }
+              },
+              {
+                "id": "2741c22f-2614-11f1-8ab9-0a58a9feac02",
+                "name": "Supply Crate",
+                "requiredMinutesWatched": 120,
+                "requiredSubs": 0,
+                "preconditionDrops": null,
+                "benefitEdges": [
+                  { "benefit": { "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02", "name": "Supply Crate" } }
+                ],
+                "self": {
+                  "currentMinutesWatched": 240,
+                  "isClaimed": true,
+                  "dropInstanceID": "sanitized-user#26935687-0a71-4e48-a978-71f63abd8e1f#2741c22f-2614-11f1-8ab9-0a58a9feac02"
+                }
+              },
+              {
+                "id": "29773938-2614-11f1-a132-0a58a9feac02",
+                "name": "Supply Crate",
+                "requiredMinutesWatched": 180,
+                "requiredSubs": 0,
+                "preconditionDrops": null,
+                "benefitEdges": [
+                  { "benefit": { "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02", "name": "Supply Crate" } }
+                ],
+                "self": {
+                  "currentMinutesWatched": 240,
+                  "isClaimed": false,
+                  "dropInstanceID": "sanitized-user#26935687-0a71-4e48-a978-71f63abd8e1f#29773938-2614-11f1-a132-0a58a9feac02"
+                }
+              },
+              {
+                "id": "2bcf61f3-2614-11f1-95f7-0a58a9feac02",
+                "name": "Random Legendary Skin",
+                "requiredMinutesWatched": 240,
+                "requiredSubs": 0,
+                "preconditionDrops": null,
+                "benefitEdges": [
+                  { "benefit": { "id": "8152c851-2605-11f1-b46f-0a58a9feac02", "name": "Random Legendary Skin" } }
+                ],
+                "self": {
+                  "currentMinutesWatched": 240,
+                  "isClaimed": true,
+                  "dropInstanceID": "sanitized-user#26935687-0a71-4e48-a978-71f63abd8e1f#2bcf61f3-2614-11f1-95f7-0a58a9feac02"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

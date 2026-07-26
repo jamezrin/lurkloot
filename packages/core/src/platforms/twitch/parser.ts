@@ -99,8 +99,9 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
     // Twitch includes subscription, purchase, and other action-gated rewards in
     // timeBasedDrops. Retain them internally so an obtained reward can still be
     // claimed, but mark them as non-watch rewards so they never drive farming.
+    const sharedBenefitIds = benefitIdsSharedAcrossRewards(campaign.timeBasedDrops ?? []);
     const parsedRewards = (campaign.timeBasedDrops ?? [])
-      .map((drop) => parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops));
+      .map((drop) => parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops, sharedBenefitIds));
     const rewards = parsedRewards.map((reward) => ({
       ...reward,
       preconditionsMet: (reward.preconditionRewardIds ?? []).every((id) =>
@@ -156,6 +157,7 @@ function parseTwitchReward(
   userId?: string,
   campaignEndsAt?: string,
   gameEventDrops: TwitchGameEventDrop[] = [],
+  sharedBenefitIds: ReadonlySet<string> = new Set(),
 ): DropReward {
   const watchedMinutes = reward.self?.currentMinutesWatched ?? 0;
   const requiredMinutes = reward.requiredMinutesWatched ?? 0;
@@ -173,8 +175,17 @@ function parseTwitchReward(
   // user owns this reward even if Twitch still reports isClaimed=false. That
   // inventory is campaign-agnostic, so subscription rewards must rely only on
   // their campaign-specific self state / drop instance.
-  const ownsBenefit = isWatchBased
-    && ownsRewardBenefit(benefits.map((benefit) => benefit.id), gameEventDrops);
+  //
+  // The shortcut also cannot speak for a benefit that several tiers of the same
+  // campaign award (Hunt: Showdown hands out one "Supply Crate" benefit at 30 /
+  // 60 / 120 / 180 minutes): owning it proves only that *some* tier paid out,
+  // and gameEventDrops carries no per-tier count. Claiming the earliest tier
+  // would otherwise mark every later tier claimed and strand a real pending
+  // claim, so those tiers defer to their own self edge.
+  const benefitIdsForOwnership = benefits
+    .map((benefit) => benefit.id)
+    .filter((id) => id == null || !sharedBenefitIds.has(id));
+  const ownsBenefit = isWatchBased && ownsRewardBenefit(benefitIdsForOwnership, gameEventDrops);
   const isClaimed = reward.self?.isClaimed === true || ownsBenefit;
   // Twitch's real dropInstanceID has the form `userID#campaignID#dropID` (see
   // TwitchDropsMiner inventory.py generate_claim and its inventory dump, which
@@ -240,17 +251,22 @@ export function mergeTwitchCampaignProgress(
   const gameEventDrops = Array.isArray(inventory) ? [] : inventory.data?.currentUser?.inventory?.gameEventDrops ?? [];
   return campaigns.map((campaign) => {
     const progress = progressCampaigns.find((item) => item.id === campaign.id);
+    const sharedBenefitIds = sharedBenefitIdsOfRewards(campaign.rewards);
     const rewards = campaign.rewards.map((reward) => {
       const progressReward = progress?.rewards.find((item) => item.id === reward.id);
       const merged = progressReward ? { ...reward, ...progressReward } : reward;
       // A claimed watch campaign falls out of dropCampaignsInProgress, so the
       // merge above can't update it. gameEventDrops is always returned, so
       // cross-check watch ownership without applying its campaign-agnostic
-      // benefit ids to subscription rewards.
+      // benefit ids to subscription rewards, or to a benefit shared by several
+      // tiers of this campaign (see parseTwitchReward).
       if (
         merged.status !== "claimed"
         && isWatchReward(merged)
-        && ownsRewardBenefit(merged.benefitIds ?? [], gameEventDrops)
+        && ownsRewardBenefit(
+          (merged.benefitIds ?? []).filter((id) => !sharedBenefitIds.has(id)),
+          gameEventDrops,
+        )
       ) {
         return { ...merged, status: "claimed" as const, watchedMinutes: merged.requiredMinutes };
       }
@@ -281,6 +297,37 @@ function addHours(value: string, hours: number): string | undefined {
 // `<gameId>_CUSTOM_ID_BackpackCharmCannedTomatoes`); there is no `benefit`
 // sub-object. We match on `id` and keep `benefit.id` only as a defensive
 // fallback for the inline query shape.
+// Benefit ids that more than one reward of the same campaign awards. Ownership of
+// such a benefit cannot identify which of those rewards is still unclaimed.
+function benefitIdsSharedAcrossRewards(
+  rewards: ReadonlyArray<{ benefitEdges?: TwitchReward["benefitEdges"] }>,
+): ReadonlySet<string> {
+  const seen = new Set<string>();
+  const shared = new Set<string>();
+  for (const reward of rewards) {
+    const ids = new Set(
+      (reward.benefitEdges ?? [])
+        .map((edge) => edge.benefit?.id)
+        .filter((id): id is string => Boolean(id)),
+    );
+    for (const id of ids) {
+      if (seen.has(id)) shared.add(id);
+      else seen.add(id);
+    }
+  }
+  return shared;
+}
+
+// Same rule as benefitIdsSharedAcrossRewards, for rewards already parsed into the
+// shared DropReward model.
+function sharedBenefitIdsOfRewards(rewards: ReadonlyArray<DropReward>): ReadonlySet<string> {
+  return benefitIdsSharedAcrossRewards(
+    rewards.map((reward) => ({
+      benefitEdges: (reward.benefitIds ?? []).map((id) => ({ benefit: { id } })),
+    })),
+  );
+}
+
 function ownsRewardBenefit(benefitIds: (string | undefined)[], gameEventDrops: TwitchGameEventDrop[]): boolean {
   return benefitIds.some((id) =>
     id != null && gameEventDrops.some((drop) => drop.id === id || drop.benefit?.id === id),
