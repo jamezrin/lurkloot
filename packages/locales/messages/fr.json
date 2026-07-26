@@ -140,18 +140,42 @@
   "watchingPausedHint": {
     "message": "Visionnage en pause. Activez le bouton pour reprendre le farm de drops."
   },
-  "hideTipsTitle": { "message": "Masquer les astuces" },
-  "hideTipsDescription": { "message": "Masque les astuces de la fenêtre principale." },
-  "tipCampaignPriority": { "message": "Les drops ont priorité sur la liste de veille inactive. Faites glisser les campagnes par la poignée pour les ordonner." },
-  "tipMissingCampaigns": { "message": "Une campagne manque ? Vérifiez l’inventaire Drops de la plateforme puis les filtres dans les paramètres." },
-  "tipCategorySelection": { "message": "Seulement certains jeux ? Désactivez « Farmer toutes les catégories » et choisissez vos catégories." },
-  "tipIdleWatchlist": { "message": "La liste de veille inactive farme les chaînes choisies lorsqu’aucun drop éligible n’est disponible." },
-  "tipTablessMode": { "message": "Le mode sans onglet utilise moins de ressources et ouvre un onglet muet si nécessaire." },
-  "tipCli": { "message": "Vous préférez éviter l’extension ? Lurkloot existe aussi en CLI Docker." },
-  "tipCliAction": { "message": "Lire le guide CLI" },
-  "tipFeedback": { "message": "Un bug ou une idée ?" },
-  "tipFeedbackAction": { "message": "Ouvrir une issue GitHub" },
-  "tipExcludedCampaigns": { "message": "Campagne exclue par erreur ? Restaurez-la dans les paramètres des Drops." },
+  "hideTipsTitle": {
+    "message": "Masquer les astuces"
+  },
+  "hideTipsDescription": {
+    "message": "Masque les astuces de la fenêtre principale."
+  },
+  "tipCampaignPriority": {
+    "message": "Les drops ont priorité sur la liste de veille inactive. Faites glisser les campagnes par la poignée pour les ordonner."
+  },
+  "tipMissingCampaigns": {
+    "message": "Une campagne manque ? Vérifiez l’inventaire Drops de la plateforme puis les filtres dans les paramètres."
+  },
+  "tipCategorySelection": {
+    "message": "Seulement certains jeux ? Désactivez « Farmer toutes les catégories » et choisissez vos catégories."
+  },
+  "tipIdleWatchlist": {
+    "message": "La liste de veille inactive farme les chaînes choisies lorsqu’aucun drop éligible n’est disponible."
+  },
+  "tipTablessMode": {
+    "message": "Le mode sans onglet utilise moins de ressources et ouvre un onglet muet si nécessaire."
+  },
+  "tipCli": {
+    "message": "Vous préférez éviter l’extension ? Lurkloot existe aussi en CLI Docker."
+  },
+  "tipCliAction": {
+    "message": "Lire le guide CLI"
+  },
+  "tipFeedback": {
+    "message": "Un bug ou une idée ?"
+  },
+  "tipFeedbackAction": {
+    "message": "Ouvrir une issue GitHub"
+  },
+  "tipExcludedCampaigns": {
+    "message": "Campagne exclue par erreur ? Restaurez-la dans les paramètres des Drops."
+  },
   "noCampaigns": {
     "message": "Aucune campagne découverte pour le moment."
   },
@@ -413,10 +437,18 @@
   "tablessDescription": {
     "message": "Farme via des signaux légers au lieu d’un onglet vidéo. Twitch utilise des heartbeats de visionnage ; Kick utilise une connexion spectateur. Revient automatiquement à un onglet si cela ne progresse plus."
   },
-  "tablessFallbackFailureLimitTitle": { "message": "Seuil de repli du mode sans onglet" },
-  "tablessFallbackFailureLimitDescription": { "message": "Ouvre un onglet vidéo après ce nombre d’échecs consécutifs des signaux de visionnage sans onglet." },
-  "tablessFallbackFailureLimitDisabledReason": { "message": "Activez le mode basse consommation sans onglet pour modifier ce réglage." },
-  "failuresSuffix": { "message": "échecs" },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "Seuil de repli du mode sans onglet"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "Ouvre un onglet vidéo après ce nombre d’échecs consécutifs des signaux de visionnage sans onglet."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "Activez le mode basse consommation sans onglet pour modifier ce réglage."
+  },
+  "failuresSuffix": {
+    "message": "échecs"
+  },
   "autoCloseTabsTitle": {
     "message": "Fermer automatiquement les onglets de farm"
   },
@@ -489,13 +521,27 @@
   "secondsSuffix": {
     "message": "s"
   },
-  "deadlineSafetyMarginTitle": { "message": "Marge de sécurité avant échéance" },
-  "deadlineSafetyMarginDescription": { "message": "Minutes supplémentaires requises avant de farmer une récompense." },
-  "deadlineSafetyMarginDisabledReason": { "message": "Activez le filtre des échéances pour modifier la marge." },
-  "skipUnfinishableRewardsTitle": { "message": "Ignorer les récompenses impossibles à terminer" },
-  "skipUnfinishableRewardsDescription": { "message": "Ne pas farmer une récompense si le temps de visionnage restant dépasse son échéance." },
-  "minutesSuffix": { "message": "min." },
-  "insufficientTimeRemaining": { "message": "Temps restant insuffisant" },
+  "deadlineSafetyMarginTitle": {
+    "message": "Marge de sécurité avant échéance"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "Minutes supplémentaires requises avant de farmer une récompense."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "Activez le filtre des échéances pour modifier la marge."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "Ignorer les récompenses impossibles à terminer"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "Ne pas farmer une récompense si le temps de visionnage restant dépasse son échéance."
+  },
+  "minutesSuffix": {
+    "message": "min."
+  },
+  "insufficientTimeRemaining": {
+    "message": "Temps restant insuffisant"
+  },
   "automationSectionTitle": {
     "message": "Automatisation"
   },
@@ -691,10 +737,18 @@
   "siteAttributionShort": {
     "message": "Site web"
   },
-  "updateNoticeTitle": { "message": "Lurkloot a été mis à jour vers la version $1" },
-  "updateNoticeBody": { "message": "Découvrez les nouveautés et les changements." },
-  "updateNoticeAction": { "message": "Voir les changements" },
-  "updateNoticeDismiss": { "message": "Fermer l’avis de mise à jour" },
+  "updateNoticeTitle": {
+    "message": "Lurkloot a été mis à jour vers la version $1"
+  },
+  "updateNoticeBody": {
+    "message": "Découvrez les nouveautés et les changements."
+  },
+  "updateNoticeAction": {
+    "message": "Voir les changements"
+  },
+  "updateNoticeDismiss": {
+    "message": "Fermer l’avis de mise à jour"
+  },
   "rateNudgeTitle": {
     "message": "Lurkloot vous plaît ?"
   },
@@ -731,15 +785,33 @@
   "cliExportButton": {
     "message": "Exporter les identifiants"
   },
-  "factoryResetTitle": { "message": "Réinitialiser Lurkloot" },
-  "factoryResetHint": { "message": "Efface tous les réglages, la progression de farming et l’historique d’activité de Lurkloot. Vos comptes Twitch et Kick restent connectés." },
-  "factoryResetButton": { "message": "Réinitialiser Lurkloot" },
-  "factoryResetConfirm": { "message": "Cela arrête le farming, ferme les onglets ouverts par Lurkloot et efface définitivement toutes ses données. Twitch et Kick restent connectés." },
-  "factoryResetCancel": { "message": "Annuler" },
-  "factoryResetConfirmButton": { "message": "Tout réinitialiser" },
-  "factoryResetProgress": { "message": "Réinitialisation…" },
-  "factoryResetFailed": { "message": "Lurkloot n’a pas pu être entièrement réinitialisé. Réessayez." },
-  "factoryResetRetry": { "message": "Réessayer" },
+  "factoryResetTitle": {
+    "message": "Réinitialiser Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "Efface tous les réglages, la progression de farming et l’historique d’activité de Lurkloot. Vos comptes Twitch et Kick restent connectés."
+  },
+  "factoryResetButton": {
+    "message": "Réinitialiser Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "Cela arrête le farming, ferme les onglets ouverts par Lurkloot et efface définitivement toutes ses données. Twitch et Kick restent connectés."
+  },
+  "factoryResetCancel": {
+    "message": "Annuler"
+  },
+  "factoryResetConfirmButton": {
+    "message": "Tout réinitialiser"
+  },
+  "factoryResetProgress": {
+    "message": "Réinitialisation…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot n’a pas pu être entièrement réinitialisé. Réessayez."
+  },
+  "factoryResetRetry": {
+    "message": "Réessayer"
+  },
   "diagnosticLoggingTitle": {
     "message": "Inclure les journaux de diagnostic"
   },
@@ -758,23 +830,57 @@
   "activityChallengeClaimed": {
     "message": "Carte $1 réclamée depuis le défi $2"
   },
-  "activityAuthHealthChanged": { "message": "L’authentification de $1 est passée de $2 à $3." },
-  "activityCriticalFailureDetected": { "message": "$1 ne fonctionne pas : $2." },
-  "activityCriticalFailureCleared": { "message": "Échec critique de $1 ignoré ; nouvelle tentative en cours." },
-  "criticalFailureReasonNoProgress": { "message": "aucune progression malgré des erreurs répétées" },
-  "criticalFailureReasonPageContextChurn": { "message": "un onglet n’arrêtait pas de se rouvrir" },
-  "criticalFailureTitle": { "message": "Lurkloot a cessé de fonctionner" },
-  "criticalFailureBodyNoProgress": { "message": "Des erreurs répétées et aucune progression des drops depuis longtemps. Quelque chose a probablement changé sur cette plateforme et l'extension ne peut plus obtenir de drops." },
-  "criticalFailureBodyTabChurn": { "message": "Un onglet se rouvrait sans cesse. La réouverture a été stoppée pour que vous puissiez utiliser votre navigateur normalement, et le farming est en pause sur cette plateforme." },
-  "criticalFailureCopyAndReport": { "message": "Copier les journaux et ouvrir un ticket" },
-  "criticalFailureDismiss": { "message": "Ignorer et réessayer" },
-  "criticalFailureClipboardFallback": { "message": "Copie automatique impossible. Sélectionnez et copiez ceci, puis ouvrez un ticket." },
-  "activityPageContextOpened": { "message": "Un contexte en arrière-plan a été ouvert sur $1 car $2." },
-  "activityPageContextClosed": { "message": "Le contexte en arrière-plan sur $1 a été fermé car $2." },
-  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick a refusé la requête sans onglet" },
-  "activityPageContextReasonManagedContextUnusable": { "message": "le contexte précédent était inutilisable" },
-  "activityPageContextCloseReasonBackgroundRecovered": { "message": "les requêtes sans onglet ont été rétablies" },
-  "activityPageContextCloseReasonUserTabAvailable": { "message": "un onglet Kick existant est devenu disponible" },
+  "activityAuthHealthChanged": {
+    "message": "L’authentification de $1 est passée de $2 à $3."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 ne fonctionne pas : $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "Échec critique de $1 ignoré ; nouvelle tentative en cours."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "aucune progression malgré des erreurs répétées"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "un onglet n’arrêtait pas de se rouvrir"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot a cessé de fonctionner"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "Des erreurs répétées et aucune progression des drops depuis longtemps. Quelque chose a probablement changé sur cette plateforme et l'extension ne peut plus obtenir de drops."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "Un onglet se rouvrait sans cesse. La réouverture a été stoppée pour que vous puissiez utiliser votre navigateur normalement, et le farming est en pause sur cette plateforme."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "Copier les journaux et ouvrir un ticket"
+  },
+  "criticalFailureDismiss": {
+    "message": "Ignorer et réessayer"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "Copie automatique impossible. Sélectionnez et copiez ceci, puis ouvrez un ticket."
+  },
+  "activityPageContextOpened": {
+    "message": "Un contexte en arrière-plan a été ouvert sur $1 car $2."
+  },
+  "activityPageContextClosed": {
+    "message": "Le contexte en arrière-plan sur $1 a été fermé car $2."
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick a refusé la requête sans onglet"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "le contexte précédent était inutilisable"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "les requêtes sans onglet ont été rétablies"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "un onglet Kick existant est devenu disponible"
+  },
   "activityInterruption": {
     "message": "Collecte interrompue : $1."
   },
@@ -787,7 +893,9 @@
   "activityReasonPlatformDisabled": {
     "message": "la plateforme a été désactivée"
   },
-  "activityReasonAuthenticationUnhealthy": { "message": "l’authentification est indisponible" },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "l’authentification est indisponible"
+  },
   "activityReasonPlatformBackoff": {
     "message": "la plateforme est temporairement en attente"
   },
@@ -950,6 +1058,9 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "Requête d’inventaire v1"
   },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Requête d’inventaire v2"
+  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick juillet 2026"
   },
@@ -959,21 +1070,55 @@
   "compatibilityOptionKickClaimV2": {
     "message": "Gestion des liens v2"
   },
-  "automationChecking": { "message": "Vérification" },
-  "automationNeedsSignIn": { "message": "Connexion requise" },
-  "automationBlocked": { "message": "Bloqué" },
-  "automationUnavailable": { "message": "Indisponible" },
-  "authCheckingDetail": { "message": "Vérification de votre session connectée…" },
-  "authSignInMissing": { "message": "Connectez-vous pour continuer à récupérer des drops." },
-  "authSignInRejected": { "message": "Votre session n’est plus valide. Reconnectez-vous pour continuer." },
-  "signInToTwitch": { "message": "Se connecter à Twitch" },
-  "signInToKick": { "message": "Se connecter à Kick" },
-  "authBrowserProfileBlocked": { "message": "Kick a rejeté ce profil de navigateur. Se reconnecter uniquement ne suffira peut-être pas." },
-  "authCredentialCheckUnavailable": { "message": "Votre session de navigateur n’a pas pu être vérifiée. Lurkloot réessaiera automatiquement." },
-  "authNetworkTemporarilyUnavailable": { "message": "Le réseau est temporairement indisponible. Lurkloot réessaiera automatiquement." },
-  "authPlatformTemporarilyUnavailable": { "message": "La plateforme est temporairement indisponible. Lurkloot réessaiera automatiquement." },
-  "automationPausedTabClosed": { "message": "En pause — onglet fermé" },
-  "watchTabClosedPauseDetail": { "message": "Vous avez fermé l'onglet de farming, Lurkloot a donc arrêté de farmer ici." },
-  "resumeFarming": { "message": "Reprendre le farming" },
-  "activityReasonManualTabClose": { "message": "onglet de farming fermé" }
+  "automationChecking": {
+    "message": "Vérification"
+  },
+  "automationNeedsSignIn": {
+    "message": "Connexion requise"
+  },
+  "automationBlocked": {
+    "message": "Bloqué"
+  },
+  "automationUnavailable": {
+    "message": "Indisponible"
+  },
+  "authCheckingDetail": {
+    "message": "Vérification de votre session connectée…"
+  },
+  "authSignInMissing": {
+    "message": "Connectez-vous pour continuer à récupérer des drops."
+  },
+  "authSignInRejected": {
+    "message": "Votre session n’est plus valide. Reconnectez-vous pour continuer."
+  },
+  "signInToTwitch": {
+    "message": "Se connecter à Twitch"
+  },
+  "signInToKick": {
+    "message": "Se connecter à Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick a rejeté ce profil de navigateur. Se reconnecter uniquement ne suffira peut-être pas."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "Votre session de navigateur n’a pas pu être vérifiée. Lurkloot réessaiera automatiquement."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "Le réseau est temporairement indisponible. Lurkloot réessaiera automatiquement."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "La plateforme est temporairement indisponible. Lurkloot réessaiera automatiquement."
+  },
+  "automationPausedTabClosed": {
+    "message": "En pause — onglet fermé"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "Vous avez fermé l'onglet de farming, Lurkloot a donc arrêté de farmer ici."
+  },
+  "resumeFarming": {
+    "message": "Reprendre le farming"
+  },
+  "activityReasonManualTabClose": {
+    "message": "onglet de farming fermé"
+  }
 }

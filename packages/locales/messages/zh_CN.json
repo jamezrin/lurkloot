@@ -140,18 +140,42 @@
   "watchingPausedHint": {
     "message": "观看已暂停。切换开关以继续刷掉宝。"
   },
-  "hideTipsTitle": { "message": "隐藏提示" },
-  "hideTipsDescription": { "message": "在主弹窗中隐藏实用提示。" },
-  "tipCampaignPriority": { "message": "Drops 优先于空闲观看列表。拖动活动把手即可设置刷取顺序。" },
-  "tipMissingCampaigns": { "message": "找不到活动？请检查平台的 Drops 库存，然后查看设置中的活动筛选器。" },
-  "tipCategorySelection": { "message": "只刷特定游戏？关闭平台设置中的“刷取所有类别”，然后选择类别。" },
-  "tipIdleWatchlist": { "message": "没有符合条件的 Drops 时，空闲观看列表会刷取所选频道。" },
-  "tipTablessMode": { "message": "无标签页模式占用更少资源，并在需要时回退到静音标签页。" },
-  "tipCli": { "message": "不想使用扩展？Lurkloot 也提供基于 Docker 的 CLI。" },
-  "tipCliAction": { "message": "阅读 CLI 指南" },
-  "tipFeedback": { "message": "发现错误或有建议？" },
-  "tipFeedbackAction": { "message": "提交 GitHub issue" },
-  "tipExcludedCampaigns": { "message": "误排除了活动？可在 Drops 设置中恢复。" },
+  "hideTipsTitle": {
+    "message": "隐藏提示"
+  },
+  "hideTipsDescription": {
+    "message": "在主弹窗中隐藏实用提示。"
+  },
+  "tipCampaignPriority": {
+    "message": "Drops 优先于空闲观看列表。拖动活动把手即可设置刷取顺序。"
+  },
+  "tipMissingCampaigns": {
+    "message": "找不到活动？请检查平台的 Drops 库存，然后查看设置中的活动筛选器。"
+  },
+  "tipCategorySelection": {
+    "message": "只刷特定游戏？关闭平台设置中的“刷取所有类别”，然后选择类别。"
+  },
+  "tipIdleWatchlist": {
+    "message": "没有符合条件的 Drops 时，空闲观看列表会刷取所选频道。"
+  },
+  "tipTablessMode": {
+    "message": "无标签页模式占用更少资源，并在需要时回退到静音标签页。"
+  },
+  "tipCli": {
+    "message": "不想使用扩展？Lurkloot 也提供基于 Docker 的 CLI。"
+  },
+  "tipCliAction": {
+    "message": "阅读 CLI 指南"
+  },
+  "tipFeedback": {
+    "message": "发现错误或有建议？"
+  },
+  "tipFeedbackAction": {
+    "message": "提交 GitHub issue"
+  },
+  "tipExcludedCampaigns": {
+    "message": "误排除了活动？可在 Drops 设置中恢复。"
+  },
   "noCampaigns": {
     "message": "尚未发现活动。"
   },
@@ -413,10 +437,18 @@
   "tablessDescription": {
     "message": "通过轻量观看信号而不是视频标签页刷取。Twitch 使用观看心跳；Kick 使用观众连接。如果停止计数，会自动退回标签页。"
   },
-  "tablessFallbackFailureLimitTitle": { "message": "无标签页回退阈值" },
-  "tablessFallbackFailureLimitDescription": { "message": "连续发生这么多次无标签页观看信号失败后打开视频标签页。" },
-  "tablessFallbackFailureLimitDisabledReason": { "message": "启用无标签页低资源模式以更改此设置。" },
-  "failuresSuffix": { "message": "次失败" },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "无标签页回退阈值"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "连续发生这么多次无标签页观看信号失败后打开视频标签页。"
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "启用无标签页低资源模式以更改此设置。"
+  },
+  "failuresSuffix": {
+    "message": "次失败"
+  },
   "autoCloseTabsTitle": {
     "message": "自动关闭刷取标签页"
   },
@@ -489,13 +521,27 @@
   "secondsSuffix": {
     "message": "秒"
   },
-  "deadlineSafetyMarginTitle": { "message": "截止时间安全余量" },
-  "deadlineSafetyMarginDescription": { "message": "开始获取奖励前需额外预留的分钟数。" },
-  "deadlineSafetyMarginDisabledReason": { "message": "启用截止时间筛选后才能修改安全余量。" },
-  "skipUnfinishableRewardsTitle": { "message": "跳过无法完成的奖励" },
-  "skipUnfinishableRewardsDescription": { "message": "当剩余观看时间超过截止前可用时间时，不再获取该奖励。" },
-  "minutesSuffix": { "message": "分钟" },
-  "insufficientTimeRemaining": { "message": "剩余时间不足" },
+  "deadlineSafetyMarginTitle": {
+    "message": "截止时间安全余量"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "开始获取奖励前需额外预留的分钟数。"
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "启用截止时间筛选后才能修改安全余量。"
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "跳过无法完成的奖励"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "当剩余观看时间超过截止前可用时间时，不再获取该奖励。"
+  },
+  "minutesSuffix": {
+    "message": "分钟"
+  },
+  "insufficientTimeRemaining": {
+    "message": "剩余时间不足"
+  },
   "automationSectionTitle": {
     "message": "自动化"
   },
@@ -691,10 +737,18 @@
   "siteAttributionShort": {
     "message": "网站"
   },
-  "updateNoticeTitle": { "message": "Lurkloot 已更新至 $1" },
-  "updateNoticeBody": { "message": "查看新增内容和改动。" },
-  "updateNoticeAction": { "message": "查看改动" },
-  "updateNoticeDismiss": { "message": "关闭更新通知" },
+  "updateNoticeTitle": {
+    "message": "Lurkloot 已更新至 $1"
+  },
+  "updateNoticeBody": {
+    "message": "查看新增内容和改动。"
+  },
+  "updateNoticeAction": {
+    "message": "查看改动"
+  },
+  "updateNoticeDismiss": {
+    "message": "关闭更新通知"
+  },
   "rateNudgeTitle": {
     "message": "喜欢 Lurkloot 吗？"
   },
@@ -731,15 +785,33 @@
   "cliExportButton": {
     "message": "导出凭据"
   },
-  "factoryResetTitle": { "message": "重置 Lurkloot" },
-  "factoryResetHint": { "message": "清除所有 Lurkloot 设置、挂机进度和活动记录。你的 Twitch 和 Kick 账号仍会保持登录。" },
-  "factoryResetButton": { "message": "重置 Lurkloot" },
-  "factoryResetConfirm": { "message": "此操作会停止挂机、关闭 Lurkloot 打开的标签页，并永久清除所有 Lurkloot 数据。Twitch 和 Kick 仍会保持登录。" },
-  "factoryResetCancel": { "message": "取消" },
-  "factoryResetConfirmButton": { "message": "全部重置" },
-  "factoryResetProgress": { "message": "正在重置…" },
-  "factoryResetFailed": { "message": "Lurkloot 未能完全重置，请重试。" },
-  "factoryResetRetry": { "message": "重新尝试重置" },
+  "factoryResetTitle": {
+    "message": "重置 Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "清除所有 Lurkloot 设置、挂机进度和活动记录。你的 Twitch 和 Kick 账号仍会保持登录。"
+  },
+  "factoryResetButton": {
+    "message": "重置 Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "此操作会停止挂机、关闭 Lurkloot 打开的标签页，并永久清除所有 Lurkloot 数据。Twitch 和 Kick 仍会保持登录。"
+  },
+  "factoryResetCancel": {
+    "message": "取消"
+  },
+  "factoryResetConfirmButton": {
+    "message": "全部重置"
+  },
+  "factoryResetProgress": {
+    "message": "正在重置…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot 未能完全重置，请重试。"
+  },
+  "factoryResetRetry": {
+    "message": "重新尝试重置"
+  },
   "diagnosticLoggingTitle": {
     "message": "包含诊断日志"
   },
@@ -758,23 +830,57 @@
   "activityChallengeClaimed": {
     "message": "已领取 $2 挑战的 $1 卡片"
   },
-  "activityAuthHealthChanged": { "message": "$1 的身份验证状态从 $2 变为 $3。" },
-  "activityCriticalFailureDetected": { "message": "$1 无法正常工作：$2。" },
-  "activityCriticalFailureCleared": { "message": "已忽略 $1 的严重故障，正在重试。" },
-  "criticalFailureReasonNoProgress": { "message": "尽管反复出错，仍无进展" },
-  "criticalFailureReasonPageContextChurn": { "message": "有一个标签页不断重新打开" },
-  "criticalFailureTitle": { "message": "Lurkloot 已停止工作" },
-  "criticalFailureBodyNoProgress": { "message": "长时间反复出错且掉宝没有任何进度。该平台可能发生了变化，扩展已无法获得掉宝。" },
-  "criticalFailureBodyTabChurn": { "message": "某个标签页不断重新打开。已停止重新打开，让你可以正常使用浏览器，该平台的挂机已暂停。" },
-  "criticalFailureCopyAndReport": { "message": "复制日志并提交问题" },
-  "criticalFailureDismiss": { "message": "忽略并重试" },
-  "criticalFailureClipboardFallback": { "message": "无法自动复制。请选中并复制以下内容，然后提交问题。" },
-  "activityPageContextOpened": { "message": "已在 $1 打开后台上下文，因为$2。" },
-  "activityPageContextClosed": { "message": "已关闭 $1 的后台上下文，因为$2。" },
-  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick 拒绝了无标签页请求" },
-  "activityPageContextReasonManagedContextUnusable": { "message": "之前的后台上下文无法使用" },
-  "activityPageContextCloseReasonBackgroundRecovered": { "message": "无标签页请求已恢复" },
-  "activityPageContextCloseReasonUserTabAvailable": { "message": "已有 Kick 标签页可用" },
+  "activityAuthHealthChanged": {
+    "message": "$1 的身份验证状态从 $2 变为 $3。"
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 无法正常工作：$2。"
+  },
+  "activityCriticalFailureCleared": {
+    "message": "已忽略 $1 的严重故障，正在重试。"
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "尽管反复出错，仍无进展"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "有一个标签页不断重新打开"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot 已停止工作"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "长时间反复出错且掉宝没有任何进度。该平台可能发生了变化，扩展已无法获得掉宝。"
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "某个标签页不断重新打开。已停止重新打开，让你可以正常使用浏览器，该平台的挂机已暂停。"
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "复制日志并提交问题"
+  },
+  "criticalFailureDismiss": {
+    "message": "忽略并重试"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "无法自动复制。请选中并复制以下内容，然后提交问题。"
+  },
+  "activityPageContextOpened": {
+    "message": "已在 $1 打开后台上下文，因为$2。"
+  },
+  "activityPageContextClosed": {
+    "message": "已关闭 $1 的后台上下文，因为$2。"
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick 拒绝了无标签页请求"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "之前的后台上下文无法使用"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "无标签页请求已恢复"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "已有 Kick 标签页可用"
+  },
   "activityInterruption": {
     "message": "领取已中断：$1。"
   },
@@ -787,7 +893,9 @@
   "activityReasonPlatformDisabled": {
     "message": "平台已停用"
   },
-  "activityReasonAuthenticationUnhealthy": { "message": "身份验证不可用" },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "身份验证不可用"
+  },
   "activityReasonPlatformBackoff": {
     "message": "平台正在暂时等待"
   },
@@ -950,6 +1058,9 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "库存查询 v1"
   },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "库存查询 v2"
+  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick 2026 年 7 月版"
   },
@@ -959,21 +1070,55 @@
   "compatibilityOptionKickClaimV2": {
     "message": "链接处理 v2"
   },
-  "automationChecking": { "message": "正在检查" },
-  "automationNeedsSignIn": { "message": "需要登录" },
-  "automationBlocked": { "message": "已阻止" },
-  "automationUnavailable": { "message": "暂时不可用" },
-  "authCheckingDetail": { "message": "正在检查你的登录会话…" },
-  "authSignInMissing": { "message": "请登录以继续获取掉宝。" },
-  "authSignInRejected": { "message": "你的会话已失效。请重新登录以继续。" },
-  "signInToTwitch": { "message": "登录 Twitch" },
-  "signInToKick": { "message": "登录 Kick" },
-  "authBrowserProfileBlocked": { "message": "Kick 拒绝了此浏览器配置文件。仅重新登录可能无法解决问题。" },
-  "authCredentialCheckUnavailable": { "message": "无法检查浏览器会话。Lurkloot 将自动重试。" },
-  "authNetworkTemporarilyUnavailable": { "message": "网络暂时不可用。Lurkloot 将自动重试。" },
-  "authPlatformTemporarilyUnavailable": { "message": "平台暂时不可用。Lurkloot 将自动重试。" },
-  "automationPausedTabClosed": { "message": "已暂停 — 标签页已关闭" },
-  "watchTabClosedPauseDetail": { "message": "你关闭了挂机标签页，因此 Lurkloot 已停止在此挂机。" },
-  "resumeFarming": { "message": "恢复挂机" },
-  "activityReasonManualTabClose": { "message": "挂机标签页已关闭" }
+  "automationChecking": {
+    "message": "正在检查"
+  },
+  "automationNeedsSignIn": {
+    "message": "需要登录"
+  },
+  "automationBlocked": {
+    "message": "已阻止"
+  },
+  "automationUnavailable": {
+    "message": "暂时不可用"
+  },
+  "authCheckingDetail": {
+    "message": "正在检查你的登录会话…"
+  },
+  "authSignInMissing": {
+    "message": "请登录以继续获取掉宝。"
+  },
+  "authSignInRejected": {
+    "message": "你的会话已失效。请重新登录以继续。"
+  },
+  "signInToTwitch": {
+    "message": "登录 Twitch"
+  },
+  "signInToKick": {
+    "message": "登录 Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick 拒绝了此浏览器配置文件。仅重新登录可能无法解决问题。"
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "无法检查浏览器会话。Lurkloot 将自动重试。"
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "网络暂时不可用。Lurkloot 将自动重试。"
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "平台暂时不可用。Lurkloot 将自动重试。"
+  },
+  "automationPausedTabClosed": {
+    "message": "已暂停 — 标签页已关闭"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "你关闭了挂机标签页，因此 Lurkloot 已停止在此挂机。"
+  },
+  "resumeFarming": {
+    "message": "恢复挂机"
+  },
+  "activityReasonManualTabClose": {
+    "message": "挂机标签页已关闭"
+  }
 }

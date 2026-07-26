@@ -9,6 +9,8 @@ interface TwitchInventory {
         dropCampaignsInProgress?: TwitchCampaign[];
         dropCampaigns?: TwitchCampaign[];
         gameEventDrops?: TwitchGameEventDrop[];
+        // twitch-inventory-v2 only; absent on v1 responses.
+        earnedDropRewards?: { edges?: Array<{ node?: TwitchEarnedDropReward }> };
       };
       dropCampaigns?: TwitchCampaign[];
     };
@@ -61,6 +63,72 @@ interface TwitchGameEventDrop {
   lastAwardedAt?: string;
 }
 
+// One edge per claim, campaign-scoped, keyed by benefit (item) id rather than by
+// drop id. Counting edges is therefore the only way to learn how many tiers of a
+// shared benefit were claimed — gameEventDrops deduplicates them away.
+export interface TwitchEarnedDropReward {
+  id?: string;
+  item?: { id?: string };
+  campaign?: { id?: string };
+  status?: string;
+  earnedAt?: string;
+}
+
+// claimedCount[campaignId][benefitId] = number of claimed rewards of that benefit.
+export type EarnedRewardCounts = ReadonlyMap<string, ReadonlyMap<string, number>>;
+
+export function earnedRewardCounts(
+  edges: ReadonlyArray<{ node?: TwitchEarnedDropReward } | TwitchEarnedDropReward>,
+): EarnedRewardCounts {
+  const counts = new Map<string, Map<string, number>>();
+  for (const edge of edges) {
+    const node = ("node" in edge ? edge.node : edge) as TwitchEarnedDropReward | undefined;
+    if (node?.status !== "CLAIMED") continue;
+    const campaignId = node.campaign?.id;
+    const benefitId = node.item?.id ?? node.id;
+    if (!campaignId || !benefitId) continue;
+    const byBenefit = counts.get(campaignId) ?? new Map<string, number>();
+    byBenefit.set(benefitId, (byBenefit.get(benefitId) ?? 0) + 1);
+    counts.set(campaignId, byBenefit);
+  }
+  return counts;
+}
+
+// Resolves which reward ids a campaign's earned counts account for. A benefit
+// claimed N times covers the N cheapest tiers that award it: Twitch releases a
+// tier's claim only once its watch requirement is met, so claims accrue in
+// ascending requiredMinutesWatched order.
+function rewardIdsClaimedByEarnedCounts(
+  rewards: ReadonlyArray<{ id: string; requiredMinutes: number; benefitIds?: readonly (string | undefined)[] }>,
+  countsForCampaign: ReadonlyMap<string, number> | undefined,
+): ReadonlySet<string> {
+  const claimed = new Set<string>();
+  if (!countsForCampaign || countsForCampaign.size === 0) return claimed;
+  const byBenefit = new Map<string, Array<{ id: string; requiredMinutes: number }>>();
+  for (const reward of rewards) {
+    for (const benefitId of new Set(reward.benefitIds ?? [])) {
+      if (!benefitId) continue;
+      const tiers = byBenefit.get(benefitId) ?? [];
+      tiers.push({ id: reward.id, requiredMinutes: reward.requiredMinutes });
+      byBenefit.set(benefitId, tiers);
+    }
+  }
+  for (const [benefitId, tiers] of byBenefit) {
+    const count = countsForCampaign.get(benefitId) ?? 0;
+    if (count === 0) continue;
+    tiers
+      .sort((left, right) => left.requiredMinutes - right.requiredMinutes)
+      .slice(0, count)
+      .forEach((tier) => claimed.add(tier.id));
+  }
+  return claimed;
+}
+
+function earnedRewardCountsFromInventory(input: TwitchInventory): EarnedRewardCounts | undefined {
+  const edges = input.data?.currentUser?.inventory?.earnedDropRewards?.edges;
+  return edges ? earnedRewardCounts(edges) : undefined;
+}
+
 export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]): DropCampaign[] {
   const inProgress = Array.isArray(input)
     ? undefined
@@ -76,6 +144,11 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
   // shared-benefit tiers there must keep using the owned-benefit fallback.
   const hasPerTierProgress = campaigns === inProgress;
   const gameEventDrops = Array.isArray(input) ? [] : input.data?.currentUser?.inventory?.gameEventDrops ?? [];
+  // v2 responses carry one edge per claim, which answers per tier what
+  // gameEventDrops can only answer per benefit. Empty on v1.
+  const earnedCounts = Array.isArray(input)
+    ? undefined
+    : earnedRewardCountsFromInventory(input);
   const userId = Array.isArray(input) ? undefined : input.data?.currentUser?.id;
   const now = Date.now();
 
@@ -112,8 +185,17 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
           (drop.benefitEdges ?? []).map((edge) => edge.benefit?.id)),
       )
       : new Set<string>();
+    const claimedByEarned = rewardIdsClaimedByEarnedCounts(
+      (campaign.timeBasedDrops ?? []).map((drop) => ({
+        id: drop.id,
+        requiredMinutes: drop.requiredMinutesWatched ?? 0,
+        benefitIds: (drop.benefitEdges ?? []).map((edge) => edge.benefit?.id),
+      })),
+      earnedCounts?.get(campaign.id),
+    );
+    const earnedBenefitIds = new Set(earnedCounts?.get(campaign.id)?.keys() ?? []);
     const parsedRewards = (campaign.timeBasedDrops ?? [])
-      .map((drop) => parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops, sharedBenefitIds));
+      .map((drop) => parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops, sharedBenefitIds, claimedByEarned, earnedBenefitIds));
     const rewards = parsedRewards.map((reward) => ({
       ...reward,
       preconditionsMet: (reward.preconditionRewardIds ?? []).every((id) =>
@@ -170,6 +252,8 @@ function parseTwitchReward(
   campaignEndsAt?: string,
   gameEventDrops: TwitchGameEventDrop[] = [],
   sharedBenefitIds: ReadonlySet<string> = new Set(),
+  claimedByEarnedRewardIds: ReadonlySet<string> = new Set(),
+  earnedBenefitIds: ReadonlySet<string> = new Set(),
 ): DropReward {
   const watchedMinutes = reward.self?.currentMinutesWatched ?? 0;
   const requiredMinutes = reward.requiredMinutesWatched ?? 0;
@@ -194,11 +278,21 @@ function parseTwitchReward(
   // and gameEventDrops carries no per-tier count. Claiming the earliest tier
   // would otherwise mark every later tier claimed and strand a real pending
   // claim, so those tiers defer to their own self edge.
+  // A benefit the earned-reward counts mention is fully accounted for by them, so
+  // the owned-benefit fallback must not add claims on top — otherwise a count of 3
+  // over 4 tiers would still mark the fourth claimed. Benefits absent from the
+  // counts keep the fallback: Twitch only surfaces recently earned rewards, so an
+  // old campaign may have no edges at all.
   const benefitIdsForOwnership = benefits
     .map((benefit) => benefit.id)
-    .filter((id) => id != null && !sharedBenefitIds.has(id));
+    .filter((id) => id != null && !sharedBenefitIds.has(id) && !earnedBenefitIds.has(id));
   const ownsBenefit = isWatchBased && ownsRewardBenefit(benefitIdsForOwnership, gameEventDrops);
-  const isClaimed = reward.self?.isClaimed === true || ownsBenefit;
+  // An earned-reward count is per claim and campaign-scoped, so it outranks both
+  // the self edge (absent once a campaign leaves the progress payload) and the
+  // owned-benefit fallback (blind to how many tiers of a shared benefit paid out).
+  const isClaimed = claimedByEarnedRewardIds.has(reward.id)
+    || reward.self?.isClaimed === true
+    || ownsBenefit;
   // Twitch's real dropInstanceID has the form `userID#campaignID#dropID` (see
   // TwitchDropsMiner inventory.py generate_claim and its inventory dump, which
   // strips user ids out of these). Prefer the value Twitch returns on the self
@@ -261,6 +355,7 @@ export function mergeTwitchCampaignProgress(
 ): DropCampaign[] {
   const progressCampaigns = parseTwitchInventory(inventory);
   const gameEventDrops = Array.isArray(inventory) ? [] : inventory.data?.currentUser?.inventory?.gameEventDrops ?? [];
+  const earnedCounts = Array.isArray(inventory) ? undefined : earnedRewardCountsFromInventory(inventory);
   return campaigns.map((campaign) => {
     const progress = progressCampaigns.find((item) => item.id === campaign.id);
     // Withholding the owned-benefit fallback from shared benefits is only safe
@@ -271,9 +366,24 @@ export function mergeTwitchCampaignProgress(
     const sharedBenefitIds = progress
       ? benefitIdsSharedAcrossRewards(campaign.rewards.map((reward) => reward.benefitIds ?? []))
       : new Set<string>();
+    // Per-claim truth for this campaign, when the response carries it (v2). It
+    // answers the shared-benefit question outright, so it applies whether or not
+    // the campaign is still in the progress payload.
+    const claimedByEarned = rewardIdsClaimedByEarnedCounts(
+      campaign.rewards.map((reward) => ({
+        id: reward.id,
+        requiredMinutes: reward.requiredMinutes,
+        benefitIds: reward.benefitIds,
+      })),
+      earnedCounts?.get(campaign.id),
+    );
+    const earnedBenefitIds = new Set(earnedCounts?.get(campaign.id)?.keys() ?? []);
     const rewards = campaign.rewards.map((reward) => {
       const progressReward = progress?.rewards.find((item) => item.id === reward.id);
       const merged = progressReward ? { ...reward, ...progressReward } : reward;
+      if (merged.status !== "claimed" && claimedByEarned.has(merged.id)) {
+        return { ...merged, status: "claimed" as const, watchedMinutes: merged.requiredMinutes };
+      }
       // A claimed watch campaign falls out of dropCampaignsInProgress, so the
       // merge above can't update it. gameEventDrops is always returned, so
       // cross-check watch ownership without applying its campaign-agnostic
@@ -283,7 +393,7 @@ export function mergeTwitchCampaignProgress(
         merged.status !== "claimed"
         && isWatchReward(merged)
         && ownsRewardBenefit(
-          (merged.benefitIds ?? []).filter((id) => !sharedBenefitIds.has(id)),
+          (merged.benefitIds ?? []).filter((id) => !sharedBenefitIds.has(id) && !earnedBenefitIds.has(id)),
           gameEventDrops,
         )
       ) {

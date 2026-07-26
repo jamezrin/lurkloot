@@ -19,7 +19,7 @@ const twitchProfiles = frozen({
       web: "twitch-heartbeat-spade-v1",
       android: "twitch-heartbeat-trowel-v1",
     }),
-    inventory: "twitch-inventory-v1",
+    inventory: "twitch-inventory-v2",
   }),
 });
 
@@ -55,7 +55,16 @@ const twitchInventory = frozen({
   "twitch-inventory-v1": frozen({
     id: "twitch-inventory-v1",
     title: "Inventory query v1",
-    description: "Current verified Twitch inventory query and parser contract.",
+    description: "Inventory query without earned-reward counts; infers shared-benefit claims.",
+    lifecycle: "legacy",
+    replacement: "twitch-inventory-v2",
+    hosts: ALL_HOSTS,
+    identities: ALL_IDENTITIES,
+  }),
+  "twitch-inventory-v2": frozen({
+    id: "twitch-inventory-v2",
+    title: "Inventory query v2",
+    description: "Adds earnedDropRewards, giving per-tier claim counts for a shared benefit.",
     lifecycle: "recommended",
     hosts: ALL_HOSTS,
     identities: ALL_IDENTITIES,
