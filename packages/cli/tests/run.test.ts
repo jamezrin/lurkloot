@@ -45,8 +45,17 @@ async function fakeTransport(health: Record<Platform, PlatformAuthHealth>): Prom
       warnings,
     };
   };
+  const buildOne = (platform: Platform, emit: EventEmitter, settings: EngineSettings) => {
+    const { adapters, ...resolution } = build(emit, settings);
+    return { adapter: adapters[platform], ...resolution };
+  };
   const initial = build(() => {}, DEFAULT_CLI_SETTINGS as unknown as EngineSettings);
-  return { adapters: initial.adapters, createAdapters: build, dispose: async () => { await real.dispose(); } };
+  return {
+    adapters: initial.adapters,
+    createAdapter: buildOne,
+    createAdapters: build,
+    dispose: async () => { await real.dispose(); },
+  };
 }
 
 const HEALTHY: PlatformAuthHealth = { status: "healthy", message: { key: "authHealthy" } };

@@ -43,6 +43,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     reportEvents: (events) => reportCliEvents(events, logger),
     // The CLI drives its own interval below, so alarm scheduling is a no-op.
     createAlarm: async () => {},
+    createAdapter: (platform, emit, currentSettings) => transport.createAdapter(platform, emit, currentSettings),
     createAdapters: (emit, currentSettings) => transport.createAdapters(emit, currentSettings),
     createNotification: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
     ...(options.checkCredentialAvailability ? { checkCredentialAvailability: options.checkCredentialAvailability } : {}),

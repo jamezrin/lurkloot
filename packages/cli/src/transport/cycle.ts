@@ -28,7 +28,11 @@ export function kickHeaders(url: string, init: RequestInit | undefined, creds: P
 
 // cycletls-backed Kick PageFetcher: carries a Chrome JA3/HTTP-2 fingerprint past
 // Cloudflare's WAF (pure-Node fetch 403s). Shared by the impersonate and browser
-// transports, which both reach Kick this way.
+// transports, which both reach Kick this way. CycleTLS 2.x has no per-request
+// cancellation primitive: its only interruption API is process-wide exit(),
+// which would terminate sibling requests and the shared transport. The
+// controller deadline therefore bounds the caller while an aborted host request
+// finishes in CycleTLS.
 export function createCycleKickFetcher(cycleTLS: CycleTLSClient, creds: PlatformCredentials): PageFetcher {
   return {
     async fetchJson<T>(url: string, init?: RequestInit): Promise<T> {

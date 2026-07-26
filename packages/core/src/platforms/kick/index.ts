@@ -127,15 +127,18 @@ export function createKickFetcher(deps: {
   };
   return {
     fetchJson: async <T,>(url: string, init?: RequestInit, emit: EventEmitter = ignoreEvent): Promise<T> => {
+      init?.signal?.throwIfAborted();
       const host = safeHost(url);
       let result: unknown;
       try {
         result = await background(url, init);
       } catch (error) {
+        init?.signal?.throwIfAborted();
         report(emit, host, "fallback", error instanceof KickWafBlockedError
           ? "→ WAF-blocked from service worker, using page tab"
           : "→ service worker error, using page tab");
         await notifyLifecycle(onPageFallback, host, emit);
+        init?.signal?.throwIfAborted();
         result = await pageFetch(url, init);
         return result as T;
       }
@@ -186,7 +189,7 @@ export class KickAdapter implements PlatformAdapter {
   readonly compatibility?: ResolvedCompatibility["kick"];
   private readonly claimCapability: KickClaimCapability;
 
-  async checkAuthHealth(): Promise<PlatformAuthHealth> {
+  async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
     try {
       // Kick serves this endpoint anonymously as `200 {}` instead of rejecting it, so the
@@ -194,7 +197,11 @@ export class KickAdapter implements PlatformAdapter {
       // It only works because kick.com is in KICK_AUTH_HOSTS (core/tabs.ts) and therefore
       // gets session_token replayed as a Bearer; without that header Kick returns the
       // empty object and a signed-in account looks signed out.
-      const response = await this.fetcher.fetchJson<KickIdentityResponse>("https://kick.com/api/v1/user", undefined, this.emit);
+      const response = await this.fetcher.fetchJson<KickIdentityResponse>(
+        "https://kick.com/api/v1/user",
+        signal ? { signal } : undefined,
+        this.emit,
+      );
       if (hasKickIdentity(response)) return { status: "healthy", checkedAt };
       // An empty/unrecognized body means the request went out without credentials, which
       // is a transport fault rather than proof of a signed-out session. Only an explicit

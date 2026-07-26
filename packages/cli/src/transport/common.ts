@@ -8,6 +8,9 @@ import type { CompatibilityResolution } from "@lurkloot/core";
 // this shape so the commands can dispose uniformly.
 export interface TransportHandle {
   adapters: Record<Platform, PlatformAdapter>;
+  createAdapter(platform: Platform, emit: EventEmitter, settings: EngineSettings): {
+    adapter: PlatformAdapter;
+  } & CompatibilityResolution;
   createAdapters(emit: EventEmitter, settings: EngineSettings): {
     adapters: Record<Platform, PlatformAdapter>;
   } & CompatibilityResolution;
@@ -19,6 +22,21 @@ export interface TransportHandle {
 export interface EnabledPlatforms {
   twitch: boolean;
   kick: boolean;
+}
+
+export function createLazyAdapters(
+  createAdapter: (platform: Platform) => PlatformAdapter,
+): Record<Platform, PlatformAdapter> {
+  let twitch: PlatformAdapter | undefined;
+  let kick: PlatformAdapter | undefined;
+  return {
+    get twitch() {
+      return twitch ??= createAdapter("twitch");
+    },
+    get kick() {
+      return kick ??= createAdapter("kick");
+    },
+  };
 }
 
 export const HEARTBEAT_REQUEST_TIMEOUT_MS = 15_000;
