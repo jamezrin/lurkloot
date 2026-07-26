@@ -822,6 +822,116 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].eligibility).toBe("completed");
   });
 
+  // Hunt: Showdown grants one "Supply Crate" benefit across several watch tiers, so
+  // owning the benefit says nothing about which tiers are still unclaimed. Only the
+  // per-tier self edge can answer that.
+  it("keeps a shared-benefit Twitch tier claimable when its self edge reports isClaimed false", () => {
+    const tier = (id: string, requiredMinutesWatched: number, isClaimed: boolean) => ({
+      id,
+      name: "Supply Crate",
+      requiredMinutesWatched,
+      benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+      self: { currentMinutesWatched: 240, isClaimed, dropInstanceID: `user#hunt#${id}` },
+    });
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{ id: "supply-crate", lastAwardedAt: "2026-07-25T12:33:11.274Z" }],
+            dropCampaignsInProgress: [{
+              id: "hunt",
+              name: "Hunt 1896 (Week 1, Pt. 2)",
+              status: "ACTIVE",
+              endAt: "2026-07-26T14:59:59.999Z",
+              timeBasedDrops: [
+                tier("tier-30", 30, true),
+                tier("tier-60", 60, true),
+                tier("tier-120", 120, true),
+                tier("tier-180", 180, false),
+              ],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards.map((reward) => reward.status)).toEqual([
+      "claimed",
+      "claimed",
+      "claimed",
+      "claimable",
+    ]);
+    expect(campaigns[0].rewards[3].claimId).toBe("user#hunt#tier-180");
+    expect(campaigns[0].status).not.toBe("completed");
+    expect(campaignHasClaimableReward(campaigns[0])).toBe(true);
+  });
+
+  it("keeps the pending tier claimable for the captured shared-benefit inventory", () => {
+    // Real gql Inventory capture (user id sanitized, endAt pushed out so the
+    // campaign never expires): Hunt awards one Supply Crate benefit at 30/60/120/
+    // 180 minutes, the benefit is owned, and only the 180 tier is unclaimed.
+    const fixture = JSON.parse(readFileSync(new URL("./fixtures/huntSharedBenefit.json", import.meta.url), "utf8"));
+    const [campaign] = createTwitchInventory("twitch-inventory-v1").parse(fixture);
+
+    expect(campaign.rewards.map((reward) => reward.status)).toEqual([
+      "claimed",
+      "claimed",
+      "claimed",
+      "claimable",
+      "claimed",
+    ]);
+    expect(campaign.status).toBe("active");
+    expect(campaign.eligibility).toBe("eligible");
+    expect(campaignHasClaimableReward(campaign)).toBe(true);
+    expect(campaign.rewards[3].claimId)
+      .toBe("sanitized-user#26935687-0a71-4e48-a978-71f63abd8e1f#29773938-2614-11f1-a132-0a58a9feac02");
+  });
+
+  it("keeps a shared-benefit tier claimable when merging progress into campaign details", () => {
+    const details = parseTwitchInventory([{
+      id: "hunt",
+      name: "Hunt 1896 (Week 1, Pt. 2)",
+      timeBasedDrops: [{
+        id: "tier-120",
+        name: "Supply Crate",
+        requiredMinutesWatched: 120,
+        benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+      }, {
+        id: "tier-180",
+        name: "Supply Crate",
+        requiredMinutesWatched: 180,
+        benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{ id: "supply-crate", lastAwardedAt: "2026-07-25T12:33:11.274Z" }],
+            dropCampaignsInProgress: [{
+              id: "hunt",
+              timeBasedDrops: [{
+                id: "tier-120",
+                requiredMinutesWatched: 120,
+                benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+                self: { currentMinutesWatched: 240, isClaimed: true, dropInstanceID: "user#hunt#tier-120" },
+              }, {
+                id: "tier-180",
+                requiredMinutesWatched: 180,
+                benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+                self: { currentMinutesWatched: 240, isClaimed: false, dropInstanceID: "user#hunt#tier-180" },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards.map((reward) => reward.status)).toEqual(["claimed", "claimable"]);
+    expect(merged[0].status).not.toBe("completed");
+  });
+
   it("infers a Twitch reward is claimed from a matching benefit awarded during the drop window", () => {
     const campaigns = parseTwitchInventory({
       data: {
