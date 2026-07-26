@@ -7,6 +7,13 @@ export const PLATFORMS: Record<Platform, { label: string; mark: string; color: s
   kick: { label: "Kick", mark: "K", color: "#53fc18" },
 };
 
+// Public drop-inventory pages, opened from the popup header so the user does not
+// have to navigate there by hand.
+export const PLATFORM_INVENTORY_URLS: Record<Platform, string> = {
+  twitch: "https://www.twitch.tv/drops/inventory",
+  kick: "https://kick.com/drops/inventory",
+};
+
 export const SELECTED_PLATFORM_KEY = "popup:selectedPlatform";
 export const COLLAPSED_SETTINGS_SECTIONS_KEY = "popup:collapsedSettingsSections";
 export const SHOW_ADVANCED_SETTINGS_KEY = "popup:showAdvancedSettings";

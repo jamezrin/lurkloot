@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Clock3,
   Gift,
+  Package,
   Play,
   RotateCcw,
   Settings as SettingsIcon,
@@ -17,6 +18,7 @@ import { loadCatalog } from "@lurkloot/locales";
 import { buildFailureReport } from "@lurkloot/shared/failureReport";
 import { I18nContext, PopupRuntimeContext } from "./context";
 import {
+  PLATFORM_INVENTORY_URLS,
   PLATFORMS,
   RATE_NUDGE_MIN_DAYS,
   SCREENSHOT_VARIANTS,
@@ -58,6 +60,7 @@ import { RateNudge, shouldShowRateNudge } from "./rateNudge";
 import { UpdateNotice } from "./updateNotice";
 import { DropsPanel } from "./drops";
 import { CriticalFailurePanel } from "./criticalFailure";
+import { openHttpsLink } from "./links";
 import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AutomationHero, PlatformSwitcher } from "./automation";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
@@ -583,6 +586,12 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
               <>
                 <IconButton label={t("refreshSchedule")} onClick={() => void refreshNow()} disabled={refreshing}>
                   <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
+                </IconButton>
+                <IconButton
+                  label={t("openInventory")}
+                  onClick={() => openHttpsLink(PLATFORM_INVENTORY_URLS[platform], adapter.openLink)}
+                >
+                  <Package size={16} />
                 </IconButton>
                 <IconButton label={t("openActivity")} onClick={() => { setActivityOpen(true); setSettingsOpen(false); }}>
                   <Clock3 size={16} />

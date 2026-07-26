@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "تحديث الجدول"
   },
+  "openInventory": {
+    "message": "فتح المخزون"
+  },
   "openActivity": {
     "message": "فتح النشاط"
   },

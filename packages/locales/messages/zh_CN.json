@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "刷新计划"
   },
+  "openInventory": {
+    "message": "打开库存"
+  },
   "openActivity": {
     "message": "打开活动"
   },
