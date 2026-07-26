@@ -1,6 +1,6 @@
 import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
 import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
-import { TwitchAdapter } from "@lurkloot/core/twitch";
+import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
@@ -18,6 +18,7 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
   const twitchApi = twitchCookieApi(creds);
   const kickApi = kickCookieApi(creds);
   const kickClaimState = new KickClaimState();
+  const twitchDiscoveryState = new TwitchDiscoveryState();
   const createAdapter = (platform: Platform, emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => {
     const identity = twitchClientIdentity(creds);
     const twitchIdentity = identity.userAgent ? "android" : "web";
@@ -30,6 +31,7 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
         {
           ...identity,
           compatibility: resolution.compatibility.twitch,
+          discoveryState: twitchDiscoveryState,
           heartbeatIdentity: twitchIdentity,
           heartbeatFetchText: async (url, init) => {
             const response = await withHeartbeatTimeout(

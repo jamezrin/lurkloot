@@ -22,7 +22,7 @@ import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/sha
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { WatchTabPort } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
-import { TwitchAdapter } from "@lurkloot/core/twitch";
+import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
 import { appendActivityEvents, clearActivityEvents, loadActivityEvents } from "../src/core/activityStorage";
@@ -46,6 +46,7 @@ const reportEvents = createActivityEventReporter({
   append: appendActivityEvents,
 });
 const kickClaimState = new KickClaimState();
+const twitchDiscoveryState = new TwitchDiscoveryState();
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const checkCredentialAvailability = createCredentialAvailabilityProvider({
   get: (details) => browser.cookies.get(details),
@@ -97,6 +98,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
       watchTabPort,
       {
         compatibility: resolution.compatibility.twitch,
+        discoveryState: twitchDiscoveryState,
         heartbeatIdentity: "web",
         heartbeatFetchText: twitchHeartbeatFetchText,
         heartbeatPost: twitchHeartbeatPost,
