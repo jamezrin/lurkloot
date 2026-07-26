@@ -502,7 +502,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function refreshAuthHealth(platforms: Platform[], loadedSettings?: S): Promise<void> {
     const settings = loadedSettings ?? await deps.loadSettings();
     const enabled = platforms.filter((platform) => settings.platform[platform].enabled);
-    await Promise.all(enabled.map(async (platform) => {
+    const results = await Promise.allSettled(enabled.map(async (platform) => {
       const result = await withEventCollector(async (emit, events) => {
         let adapter: PlatformAdapter;
         try {
@@ -515,6 +515,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       });
       await persistAuthHealth(platform, result.health, result.events);
     }));
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected") throw failure.reason;
   }
 
   async function tick(platforms?: Platform[]): Promise<ClaimedRewards> {

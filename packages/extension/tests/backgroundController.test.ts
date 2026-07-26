@@ -165,6 +165,58 @@ describe("background controller", () => {
     expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
   });
 
+  it("waits for started auth probes before reporting a sibling setup failure", async () => {
+    vi.useFakeTimers();
+    try {
+      const env = harness(
+        { ...DEFAULT_SETTINGS, running: true },
+        { authProbeTimeoutMs: 25 },
+      );
+      const oldTwitchHealth = deferred<PlatformAuthHealth>();
+      vi.mocked(env.twitch.checkAuthHealth)
+        .mockReturnValueOnce(oldTwitchHealth.promise)
+        .mockResolvedValueOnce({
+          status: "healthy",
+          checkedAt: "2026-07-26T12:00:01.000Z",
+        });
+      let adapterCreations = 0;
+      vi.mocked(env.deps.createAdapters).mockImplementation((emit, settings) => {
+        adapterCreations += 1;
+        if (adapterCreations === 2) {
+          throw new Error("kick adapter setup failed");
+        }
+        return {
+          adapters: { twitch: env.twitch, kick: env.kick },
+          ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
+        };
+      });
+
+      let tickSettled = false;
+      const ticking = env.controller.tick().then(() => {
+        tickSettled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      const settledBeforeDeadline = tickSettled;
+      const refreshing = ticking.then(() => env.controller.checkAuthHealth("twitch"));
+
+      await vi.advanceTimersByTimeAsync(25);
+      await refreshing;
+
+      expect(env.state.authHealth.twitch).toMatchObject({
+        status: "healthy",
+        checkedAt: "2026-07-26T12:00:01.000Z",
+      });
+      expect(settledBeforeDeadline).toBe(false);
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+        category: "activity",
+        code: "interruption",
+        data: expect.objectContaining({ detail: "kick adapter setup failed" }),
+      }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("times out and aborts a stalled auth probe at the configured deadline", async () => {
     vi.useFakeTimers();
     try {
@@ -869,14 +921,27 @@ describe("background controller", () => {
   });
 
   it("does not publish tick events when the corresponding state save fails", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
-      saveState: vi.fn().mockRejectedValueOnce(new Error("storage unavailable")),
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    let saveCalls = 0;
+    env.deps.saveState.mockImplementation(async (next: SchedulerState) => {
+      saveCalls += 1;
+      if (saveCalls === 2) throw new Error("storage unavailable");
+      Object.assign(env.state, next);
     });
 
     await expect(env.controller.tick(["twitch"])).rejects.toThrow("storage unavailable");
 
-    expect(env.deps.saveState).toHaveBeenCalledTimes(1);
-    expect(env.reportEvents).not.toHaveBeenCalled();
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.deps.saveState).toHaveBeenCalledTimes(2);
+    expect(env.reportEvents).toHaveBeenCalledTimes(1);
+    expect(env.reportEvents.mock.calls[0]?.[0]).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "auth_health_changed",
+      platform: "twitch",
+    }));
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
+      event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed")
+    )).toBe(false);
   });
 
   it("never persists an event outbox in scheduler state", async () => {
@@ -899,9 +964,12 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
-    const adapterIndex = published.findIndex((event) => event.category === "diagnostic" && event.message === "adapter-created");
-    const schedulerIndex = published.findIndex((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"));
+    const schedulerBatch = env.reportEvents.mock.calls.map(([events]) => events).find((events) =>
+      events.some((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"))
+    );
+    expect(schedulerBatch).toBeDefined();
+    const adapterIndex = schedulerBatch!.findIndex((event) => event.category === "diagnostic" && event.message === "adapter-created");
+    const schedulerIndex = schedulerBatch!.findIndex((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"));
     expect(adapterIndex).toBeGreaterThanOrEqual(0);
     expect(schedulerIndex).toBeGreaterThan(adapterIndex);
   });
