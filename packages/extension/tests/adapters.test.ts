@@ -79,6 +79,21 @@ function twitchCampaignDetails(dropID: string): unknown {
 }
 
 describe("KickAdapter", () => {
+  it("passes the auth probe signal to the Kick identity request", async () => {
+    const abort = new AbortController();
+    const emit = vi.fn();
+    const fetchJson = vi.fn(async () => ({ id: 42 }));
+    const fetcher = { fetchJson: fetchJson as PageFetcher["fetchJson"] };
+
+    await new KickAdapter(fetcher, undefined, undefined, emit).checkAuthHealth(abort.signal);
+
+    expect(fetchJson).toHaveBeenCalledWith(
+      "https://kick.com/api/v1/user",
+      { signal: abort.signal },
+      emit,
+    );
+  });
+
   it("does not swallow authentication failures while reading progress", async () => {
     const failure = new SafeFetchError({ kind: "authentication_rejected", status: 401 });
     const adapter = new KickAdapter(jsonFetcher(() => { throw failure; }));
@@ -785,6 +800,56 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
     expect(onPageFallback).toHaveBeenCalledWith("web.kick.com", expect.any(Function));
   });
 
+  it("does not enter page fallback for an already-aborted request", async () => {
+    const reason = new Error("auth deadline elapsed");
+    const abort = new AbortController();
+    abort.abort(reason);
+    const background = vi.fn(async () => {
+      throw new KickWafBlockedError("background rejected after deadline");
+    });
+    const pageFetch = vi.fn(async () => ({ id: 42 }));
+    const onPageFallback = vi.fn(async () => undefined);
+    const fetcher = createKickFetcher({ background, pageFetch, onPageFallback });
+
+    await expect(fetcher.fetchJson(
+      "https://kick.com/api/v1/user",
+      { signal: abort.signal },
+    )).rejects.toBe(reason);
+
+    expect(pageFetch).not.toHaveBeenCalled();
+    expect(onPageFallback).not.toHaveBeenCalled();
+  });
+
+  it("does not enter page fallback when an in-flight background request is aborted", async () => {
+    const reason = new Error("auth deadline elapsed");
+    const abort = new AbortController();
+    let backgroundStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      backgroundStarted = resolve;
+    });
+    const background = vi.fn(async (_url: string, init?: RequestInit) => {
+      backgroundStarted();
+      await new Promise<void>((resolve) => {
+        init?.signal?.addEventListener("abort", () => resolve(), { once: true });
+      });
+      throw new KickWafBlockedError("background rejected after deadline");
+    });
+    const pageFetch = vi.fn(async () => ({ id: 42 }));
+    const onPageFallback = vi.fn(async () => undefined);
+    const fetcher = createKickFetcher({ background, pageFetch, onPageFallback });
+
+    const request = fetcher.fetchJson(
+      "https://kick.com/api/v1/user",
+      { signal: abort.signal },
+    );
+    await started;
+    abort.abort(reason);
+
+    await expect(request).rejects.toBe(reason);
+    expect(pageFetch).not.toHaveBeenCalled();
+    expect(onPageFallback).not.toHaveBeenCalled();
+  });
+
   it("records fallback before page execution even when the page request fails", async () => {
     const order: string[] = [];
     const fetcher = createKickFetcher({
@@ -853,6 +918,21 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
 });
 
 describe("TwitchAdapter", () => {
+  it("passes the auth probe signal to the Twitch CurrentUser request", async () => {
+    const abort = new AbortController();
+    const emit = vi.fn();
+    const fetchJson = vi.fn(async () => ({ data: { currentUser: { id: "u" } } }));
+    const fetcher = { fetchJson: fetchJson as PageFetcher["fetchJson"] };
+
+    await new TwitchAdapter(fetcher, undefined, undefined, undefined, emit).checkAuthHealth(abort.signal);
+
+    expect(fetchJson).toHaveBeenCalledWith(
+      "https://gql.twitch.tv/gql",
+      expect.objectContaining({ signal: abort.signal }),
+      emit,
+    );
+  });
+
   it("reports healthy only when the authenticated CurrentUser probe returns a user", async () => {
     const ensureIntegrity = vi.fn(async () => true);
     const fetcher = jsonFetcher((_url, init) => {

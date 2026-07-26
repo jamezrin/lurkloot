@@ -294,6 +294,7 @@ export type TwitchGqlTransport = <T>(
   query?: string,
   credentials?: RequestCredentials,
   emit?: EventEmitter,
+  signal?: AbortSignal,
 ) => Promise<TwitchGqlResponse<T>>;
 
 // Reporter-neutral transport: it captures only the request transport and
@@ -312,6 +313,7 @@ export function createTwitchGqlTransport(
     query?: string,
     credentials?: RequestCredentials,
     emit: EventEmitter = ignoreEvent,
+    signal?: AbortSignal,
   ): Promise<TwitchGqlResponse<T>> => {
     const buildRequest = (queryText?: string) => ({
       method: "POST",
@@ -323,6 +325,7 @@ export function createTwitchGqlTransport(
         ...(userAgent ? { "User-Agent": userAgent } : {}),
       },
       ...(credentials ? { credentials } : {}),
+      ...(signal ? { signal } : {}),
       body: JSON.stringify(
         queryText
           ? { operationName, variables, query: queryText }
@@ -398,7 +401,7 @@ export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
   readonly compatibility?: ResolvedCompatibility["twitch"];
 
-  async checkAuthHealth(): Promise<PlatformAuthHealth> {
+  async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
     try {
       const response = await this.gqlTransport<{ currentUser?: { id?: string } | null }>(
@@ -408,6 +411,7 @@ export class TwitchAdapter implements PlatformAdapter {
         CURRENT_USER_QUERY,
         undefined,
         this.emit,
+        signal,
       );
       if (response.data?.currentUser) {
         return { status: "healthy", checkedAt, message: { key: "authHealthy" } };

@@ -44,7 +44,7 @@ export interface ClaimedChallenge {
 export interface PlatformAdapter {
   platform: Platform;
   readonly compatibility?: ResolvedCompatibility[Platform];
-  checkAuthHealth(): Promise<PlatformAuthHealth>;
+  checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth>;
   discoverCampaigns(): Promise<DropCampaign[]>;
   readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]>;
   listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]>;

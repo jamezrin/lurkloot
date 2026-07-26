@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ALARM_NAME, createBackgroundController, type CredentialAvailability } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformAuthHealth, SchedulerState } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
-import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
+import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
-import { forgetManagedPageContextTabs, managedTabBreakerOpen, recordManagedPageContextFallback, registerManagedPageContextTabs, syncManagedTabBreakers } from "@lurkloot/core/tabs";
+import { forgetManagedPageContextTabs, KickWafBlockedError, managedTabBreakerOpen, recordManagedPageContextFallback, registerManagedPageContextTabs, syncManagedTabBreakers } from "@lurkloot/core/tabs";
 import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
@@ -39,6 +39,16 @@ function asSnapshot(value: unknown): RuntimeSnapshot {
   return value as RuntimeSnapshot;
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
 function adapter(platform: Platform): PlatformAdapter {
   return {
     platform,
@@ -61,6 +71,7 @@ function harness(
     stopPageContextTabs?: StopPageContextTabs;
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
     checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
+    authProbeTimeoutMs?: number;
   } = {},
 ) {
   let currentSettings = settings;
@@ -94,12 +105,19 @@ function harness(
       adapters: { twitch, kick },
       ...resolveCompatibility(nextSettings.compatibility, { host: "extension", twitchIdentity: "web" }),
     })),
+    createAdapter: vi.fn((platform: Platform, _emit: EventEmitter, nextSettings: ExtensionSettings) => ({
+      adapter: platform === "twitch" ? twitch : kick,
+      ...resolveCompatibility(nextSettings.compatibility, { host: "extension", twitchIdentity: "web" }),
+    })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
     stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? forgetManagedPageContextTabs),
     wait: overrides.wait,
     ...(overrides.checkCredentialAvailability
       ? { checkCredentialAvailability: vi.fn(overrides.checkCredentialAvailability) }
       : {}),
+    ...(overrides.authProbeTimeoutMs === undefined
+      ? {}
+      : { authProbeTimeoutMs: overrides.authProbeTimeoutMs }),
   };
 
   return {
@@ -118,6 +136,508 @@ function harness(
 }
 
 describe("background controller", () => {
+  it("starts enabled auth probes concurrently and persists each before scheduler work", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const twitchHealth = deferred<PlatformAuthHealth>();
+    const kickHealth = deferred<PlatformAuthHealth>();
+    vi.mocked(env.twitch.checkAuthHealth).mockReturnValue(twitchHealth.promise);
+    vi.mocked(env.kick.checkAuthHealth).mockReturnValue(kickHealth.promise);
+
+    const ticking = env.controller.tick();
+    await vi.waitFor(() => {
+      expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+      expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+    });
+
+    kickHealth.resolve({
+      status: "healthy",
+      checkedAt: "2026-07-26T12:00:00.000Z",
+    });
+    await vi.waitFor(() => expect(env.state.authHealth.kick.status).toBe("healthy"));
+
+    expect(env.state.authHealth.twitch.status).toBe("checking");
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+
+    twitchHealth.resolve({
+      status: "healthy",
+      checkedAt: "2026-07-26T12:00:01.000Z",
+    });
+    await ticking;
+
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
+  });
+
+  it("waits for started auth probes before reporting a sibling setup failure", async () => {
+    vi.useFakeTimers();
+    try {
+      const env = harness(
+        { ...DEFAULT_SETTINGS, running: true },
+        { authProbeTimeoutMs: 25 },
+      );
+      const oldTwitchHealth = deferred<PlatformAuthHealth>();
+      vi.mocked(env.twitch.checkAuthHealth)
+        .mockReturnValueOnce(oldTwitchHealth.promise)
+        .mockResolvedValueOnce({
+          status: "healthy",
+          checkedAt: "2026-07-26T12:00:01.000Z",
+        });
+      vi.mocked(env.deps.createAdapter).mockImplementation((platform, emit, settings) => {
+        if (platform === "kick") {
+          throw new Error("kick adapter setup failed");
+        }
+        return {
+          adapter: env.twitch,
+          ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
+        };
+      });
+
+      let tickSettled = false;
+      const ticking = env.controller.tick().then(() => {
+        tickSettled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      const settledBeforeDeadline = tickSettled;
+      const refreshing = ticking.then(() => env.controller.checkAuthHealth("twitch"));
+
+      await vi.advanceTimersByTimeAsync(25);
+      await refreshing;
+
+      expect(env.state.authHealth.twitch).toMatchObject({
+        status: "healthy",
+        checkedAt: "2026-07-26T12:00:01.000Z",
+      });
+      expect(settledBeforeDeadline).toBe(false);
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+        category: "activity",
+        code: "interruption",
+        data: expect.objectContaining({ detail: "kick adapter setup failed" }),
+      }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("times out and aborts a stalled auth probe at the configured deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const env = harness(
+        { ...DEFAULT_SETTINGS, running: false },
+        { authProbeTimeoutMs: 25 },
+      );
+      let signal: AbortSignal | undefined;
+      vi.mocked(env.twitch.checkAuthHealth).mockImplementation((nextSignal) => {
+        signal = nextSignal;
+        return new Promise(() => undefined);
+      });
+
+      const checking = env.controller.checkAuthHealth("twitch");
+      await vi.advanceTimersByTimeAsync(24);
+      expect(env.state.authHealth.twitch.status).toBe("checking");
+      await vi.advanceTimersByTimeAsync(1);
+      await checking;
+
+      expect(signal?.aborted).toBe(true);
+      expect(env.state.authHealth.twitch).toMatchObject({
+        status: "unavailable",
+        reasonCode: "network_unavailable",
+        message: { key: "authNetworkUnavailable" },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not start a Kick page fallback after the auth deadline aborts background fetch", async () => {
+    vi.useFakeTimers();
+    try {
+      const env = harness(
+        { ...DEFAULT_SETTINGS, running: false },
+        { authProbeTimeoutMs: 25 },
+      );
+      let backgroundStarted!: () => void;
+      const started = new Promise<void>((resolve) => {
+        backgroundStarted = resolve;
+      });
+      const pageFetch = vi.fn(async () => ({ id: 42 }));
+      const kick = new KickAdapter(createKickFetcher({
+        background: async (_url, init) => {
+          backgroundStarted();
+          await new Promise<void>((resolve) => {
+            init?.signal?.addEventListener("abort", () => resolve(), { once: true });
+          });
+          throw new KickWafBlockedError("background rejected after deadline");
+        },
+        pageFetch,
+      }));
+      vi.mocked(env.kick.checkAuthHealth).mockImplementation((signal) => kick.checkAuthHealth(signal));
+
+      const checking = env.controller.checkAuthHealth("kick");
+      await started;
+      await vi.advanceTimersByTimeAsync(25);
+      await checking;
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pageFetch).not.toHaveBeenCalled();
+      expect(env.state.authHealth.kick).toMatchObject({
+        status: "unavailable",
+        reasonCode: "network_unavailable",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not delay a resolved platform while another probe awaits its own deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const env = harness(
+        { ...DEFAULT_SETTINGS, running: true },
+        { authProbeTimeoutMs: 25 },
+      );
+      vi.mocked(env.twitch.checkAuthHealth).mockImplementation(() => new Promise(() => undefined));
+      vi.mocked(env.kick.checkAuthHealth).mockResolvedValue({
+        status: "healthy",
+        checkedAt: "2026-07-26T12:00:00.000Z",
+      });
+
+      let settled = false;
+      const ticking = env.controller.tick().then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(env.state.authHealth.kick.status).toBe("healthy");
+      expect(env.state.authHealth.twitch.status).toBe("checking");
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(24);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await ticking;
+
+      expect(settled).toBe(true);
+      expect(env.state.authHealth.twitch).toMatchObject({
+        status: "unavailable",
+        reasonCode: "network_unavailable",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("settles once when a timed out auth adapter rejects later", async () => {
+    vi.useFakeTimers();
+    try {
+      const env = harness(
+        { ...DEFAULT_SETTINGS, running: false },
+        { authProbeTimeoutMs: 25 },
+      );
+      const health = deferred<PlatformAuthHealth>();
+      vi.mocked(env.twitch.checkAuthHealth).mockReturnValue(health.promise);
+
+      const checking = env.controller.checkAuthHealth("twitch");
+      await vi.advanceTimersByTimeAsync(25);
+      await checking;
+      const saveCount = env.deps.saveState.mock.calls.length;
+      const transitionCount = env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
+        event.category === "activity" && event.code === "auth_health_changed"
+      ).length;
+
+      health.reject(new Error("late adapter failure"));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(env.deps.saveState).toHaveBeenCalledTimes(saveCount);
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
+        event.category === "activity" && event.code === "auth_health_changed"
+      )).toHaveLength(transitionCount);
+      expect(env.state.authHealth.twitch.reasonCode).toBe("network_unavailable");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("merges a completed auth probe into state written while the probe was pending", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const health = deferred<PlatformAuthHealth>();
+    vi.mocked(env.twitch.checkAuthHealth).mockReturnValue(health.promise);
+
+    const checking = env.controller.checkAuthHealth("twitch");
+    await vi.waitFor(() => expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce());
+
+    env.state.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      channel: channel("kick"),
+      offlineChecks: 0,
+      tabId: 20,
+      tabManagedByExtension: true,
+    };
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "kick",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 1,
+        unmutedVideoCount: 0,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: true,
+        readyState: 4,
+        currentTime: 12,
+        duration: 1200,
+      },
+    }, { tab: { id: 20 } });
+    health.resolve({ status: "healthy", checkedAt: "2026-07-26T12:00:01.000Z" });
+    await checking;
+
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.state.sessions.kick.playback?.videoCount).toBe(1);
+  });
+
+  it("keeps a newer same-platform refresh when an older tick probe settles last", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    });
+    const older = deferred<PlatformAuthHealth>();
+    const newer = deferred<PlatformAuthHealth>();
+    vi.mocked(env.twitch.checkAuthHealth)
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise);
+
+    const ticking = env.controller.tick(["twitch"]);
+    await vi.waitFor(() => expect(env.twitch.checkAuthHealth).toHaveBeenCalledTimes(1));
+    const cookieRefresh = env.controller.checkAuthHealth("twitch");
+    await vi.waitFor(() => expect(env.twitch.checkAuthHealth).toHaveBeenCalledTimes(2));
+
+    newer.resolve({
+      status: "healthy",
+      checkedAt: "2026-07-26T12:05:00.000Z",
+      message: { key: "authHealthy" },
+    });
+    await cookieRefresh;
+    older.resolve({
+      status: "invalid_credentials",
+      checkedAt: "2026-07-26T12:00:00.000Z",
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    });
+    await ticking;
+
+    expect(env.state.authHealth.twitch).toEqual({
+      status: "healthy",
+      checkedAt: "2026-07-26T12:05:00.000Z",
+      message: { key: "authHealthy" },
+    });
+  });
+
+  it("keeps invalidation checking when it supersedes an in-flight probe", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const older = deferred<PlatformAuthHealth>();
+    vi.mocked(env.twitch.checkAuthHealth).mockReturnValueOnce(older.promise);
+
+    const checking = env.controller.checkAuthHealth("twitch");
+    await vi.waitFor(() => expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce());
+    await env.controller.invalidateAuthHealth("twitch");
+
+    older.resolve({
+      status: "healthy",
+      checkedAt: "2026-07-26T12:00:00.000Z",
+      message: { key: "authHealthy" },
+    });
+    await checking;
+
+    expect(env.state.authHealth.twitch).toEqual({ status: "checking" });
+  });
+
+  it("supersedes an in-flight probe without putting a newly disabled platform in checking", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    env.state.authHealth = {
+      ...env.state.authHealth,
+      twitch: {
+        status: "healthy",
+        checkedAt: "2026-07-26T12:00:00.000Z",
+        message: { key: "authHealthy" },
+      },
+    };
+    const older = deferred<PlatformAuthHealth>();
+    vi.mocked(env.twitch.checkAuthHealth).mockReturnValueOnce(older.promise);
+
+    const checking = env.controller.checkAuthHealth("twitch");
+    await vi.waitFor(() => expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce());
+    await env.deps.saveSettings({
+      ...env.settings,
+      platform: {
+        ...env.settings.platform,
+        twitch: { ...env.settings.platform.twitch, enabled: false },
+      },
+    });
+    await env.controller.invalidateAuthHealth("twitch");
+
+    older.resolve({
+      status: "invalid_credentials",
+      checkedAt: "2026-07-26T12:01:00.000Z",
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    });
+    await checking;
+
+    expect(env.state.authHealth.twitch).toEqual({
+      status: "healthy",
+      checkedAt: "2026-07-26T12:00:00.000Z",
+      message: { key: "authHealthy" },
+    });
+  });
+
+  it("terminalizes direct adapter setup failures with platform context", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    vi.mocked(env.deps.createAdapter).mockImplementation(() => {
+      throw new Error("twitch adapter setup failed");
+    });
+
+    const error = await env.controller.checkAuthHealth("twitch").catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toMatchObject({
+      platform: "twitch",
+      message: "twitch adapter setup failed",
+    });
+    expect(env.state.authHealth.twitch).toMatchObject({
+      status: "unavailable",
+      reasonCode: "platform_unavailable",
+      message: { key: "authPlatformUnavailable" },
+    });
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "auth_health_changed",
+      platform: "twitch",
+      data: expect.objectContaining({ to: "unavailable" }),
+    }));
+  });
+
+  it("surfaces sibling auth persistence failure alongside adapter setup failure", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const kickHealth = deferred<PlatformAuthHealth>();
+    vi.mocked(env.kick.checkAuthHealth).mockReturnValue(kickHealth.promise);
+    vi.mocked(env.deps.createAdapter).mockImplementation((platform, emit, settings) => {
+      if (platform === "twitch") {
+        throw new Error("twitch adapter setup failed");
+      }
+      return {
+        adapter: env.kick,
+        ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
+      };
+    });
+    const persist = env.deps.saveState.getMockImplementation();
+    if (!persist) throw new Error("Expected harness state persistence");
+    env.deps.saveState.mockImplementation(async (state) => {
+      if (state.authHealth.kick.status === "healthy") {
+        throw new Error("kick auth persistence failed");
+      }
+      await persist(state);
+    });
+
+    const ticking = env.controller.tick();
+    await vi.waitFor(() => expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce());
+    kickHealth.resolve({
+      status: "healthy",
+      checkedAt: "2026-07-26T12:00:00.000Z",
+    });
+    const error = await ticking.catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(AggregateError);
+    expect((error as AggregateError).errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ platform: "twitch", message: "twitch adapter setup failed" }),
+      expect.objectContaining({ message: "kick auth persistence failed" }),
+    ]));
+    expect(env.state.authHealth.twitch).toMatchObject({
+      status: "unavailable",
+      reasonCode: "platform_unavailable",
+    });
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "interruption",
+      platform: "twitch",
+      data: expect.objectContaining({ detail: "twitch adapter setup failed" }),
+    }));
+  });
+
+  it("isolates a consistently failing Kick constructor from Twitch auth health", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    vi.mocked(env.deps.createAdapters).mockImplementation(() => {
+      throw new Error("combined construction reached failing Kick adapter");
+    });
+    vi.mocked(env.deps.createAdapter).mockImplementation((platform, emit, settings) => {
+      if (platform === "kick") throw new Error("kick adapter setup failed");
+      return {
+        adapter: env.twitch,
+        ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
+      };
+    });
+
+    await env.controller.tick();
+
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.state.authHealth.kick).toMatchObject({
+      status: "unavailable",
+      reasonCode: "platform_unavailable",
+    });
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    const interruptions = published.filter((event) =>
+      event.category === "activity" && event.code === "interruption");
+    expect(interruptions).toEqual([
+      expect.objectContaining({ platform: "kick" }),
+    ]);
+    expect(published.filter((event) =>
+      event.category === "diagnostic"
+      && event.platform === "kick"
+      && event.message.includes("kick adapter setup failed")
+    )).toEqual([
+      expect.objectContaining({
+        code: "interruption",
+        mirroredActivity: true,
+        message: "Farming interrupted: reason=platform_error (kick adapter setup failed)",
+      }),
+    ]);
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("terminalizes startup adapter setup failure instead of leaving checking", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    });
+    vi.mocked(env.deps.createAdapters).mockImplementation(() => {
+      throw new Error("combined startup construction failed");
+    });
+    vi.mocked(env.deps.createAdapter).mockImplementation(() => {
+      throw new Error("twitch startup adapter failed");
+    });
+
+    const error = await env.controller.handleStartup().catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      platform: "twitch",
+      message: "twitch startup adapter failed",
+    });
+    expect(env.state.authHealth.twitch).toMatchObject({
+      status: "unavailable",
+      reasonCode: "platform_unavailable",
+    });
+  });
+
   it("reports missing credentials without calling the platform probe", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
       checkCredentialAvailability: async () => ({ status: "missing" }),
@@ -672,7 +1192,7 @@ describe("background controller", () => {
     }));
   });
 
-  it("saves operational state before publishing the ordered batch", async () => {
+  it("saves each operational state before publishing its ordered batch", async () => {
     const calls: string[] = [];
     const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
       saveState: async () => { calls.push("state"); },
@@ -681,18 +1201,35 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    expect(calls).toEqual(["state", "events"]);
+    expect(calls).toEqual([
+      "state", "events",
+      "state", "events",
+      "state", "events",
+    ]);
   });
 
   it("does not publish tick events when the corresponding state save fails", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
-      saveState: vi.fn().mockRejectedValueOnce(new Error("storage unavailable")),
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    let saveCalls = 0;
+    env.deps.saveState.mockImplementation(async (next: SchedulerState) => {
+      saveCalls += 1;
+      if (saveCalls === 2) throw new Error("storage unavailable");
+      Object.assign(env.state, next);
     });
 
-    await expect(env.controller.tick()).rejects.toThrow("storage unavailable");
+    await expect(env.controller.tick(["twitch"])).rejects.toThrow("storage unavailable");
 
-    expect(env.deps.saveState).toHaveBeenCalledTimes(1);
-    expect(env.reportEvents).not.toHaveBeenCalled();
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.deps.saveState).toHaveBeenCalledTimes(2);
+    expect(env.reportEvents).toHaveBeenCalledTimes(1);
+    expect(env.reportEvents.mock.calls[0]?.[0]).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "auth_health_changed",
+      platform: "twitch",
+    }));
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
+      event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed")
+    )).toBe(false);
   });
 
   it("never persists an event outbox in scheduler state", async () => {
@@ -715,9 +1252,12 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
-    const adapterIndex = published.findIndex((event) => event.category === "diagnostic" && event.message === "adapter-created");
-    const schedulerIndex = published.findIndex((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"));
+    const schedulerBatch = env.reportEvents.mock.calls.map(([events]) => events).find((events) =>
+      events.some((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"))
+    );
+    expect(schedulerBatch).toBeDefined();
+    const adapterIndex = schedulerBatch!.findIndex((event) => event.category === "diagnostic" && event.message === "adapter-created");
+    const schedulerIndex = schedulerBatch!.findIndex((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"));
     expect(adapterIndex).toBeGreaterThanOrEqual(0);
     expect(schedulerIndex).toBeGreaterThan(adapterIndex);
   });
@@ -916,12 +1456,100 @@ describe("background controller", () => {
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: 11 });
   });
 
+  it("stamps the install time once through the serialized controller lifecycle", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+
+    await env.controller.ensureInstalledAt("2026-07-26T12:00:00.000Z");
+    await env.controller.ensureInstalledAt("2026-07-26T13:00:00.000Z");
+
+    expect(env.state.installedAt).toBe("2026-07-26T12:00:00.000Z");
+  });
+
+  it("preserves a state write that lands while startup setup reporting is pending", async () => {
+    const setupReported = deferred<void>();
+    const env = harness(
+      { ...DEFAULT_SETTINGS, running: false },
+      { reportEvents: async () => setupReported.promise },
+    );
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      tabId: 44,
+      tabManagedByExtension: true,
+    };
+
+    const startup = env.controller.handleStartup();
+    await vi.waitFor(() => expect(env.reportEvents).toHaveBeenCalled());
+    await env.deps.saveState({
+      ...env.state,
+      installedAt: "2026-07-26T12:00:00.000Z",
+    });
+    setupReported.resolve();
+    await startup;
+
+    expect(env.state.installedAt).toBe("2026-07-26T12:00:00.000Z");
+  });
+
+  it("preserves a settings patch that lands while startup setup reporting is pending", async () => {
+    const setupReported = deferred<void>();
+    const env = harness(
+      { ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: false },
+      { reportEvents: async () => setupReported.promise },
+    );
+
+    const startup = env.controller.handleStartup();
+    await vi.waitFor(() => expect(env.reportEvents).toHaveBeenCalled());
+    await env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { diagnosticLogging: false },
+      tickAfterSave: false,
+    });
+    setupReported.resolve();
+    await startup;
+
+    expect(env.settings.running).toBe(false);
+    expect(env.settings.diagnosticLogging).toBe(false);
+  });
+
+  it("refreshes enabled auth health from ensureAlarm while farming is stopped", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      platform: {
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    });
+
+    await env.controller.ensureAlarm();
+
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("refreshes enabled auth health on startup without starting farming", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+
+    await env.controller.handleStartup();
+
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.state.authHealth.kick.status).toBe("healthy");
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+  });
+
   it("auto-starts on launch only when the persisted running state is enabled", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: true });
 
     await env.controller.ensureAlarm();
 
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
   });
 
   it("clears stale restart tabs and auto-resumes with fresh tabs when auto-start is enabled", async () => {
@@ -970,6 +1598,8 @@ describe("background controller", () => {
       expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
     ]);
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.state.sessions.twitch.status).toBe("watching");
     expect(env.state.sessions.twitch.tabId).toBe(10);
     expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
@@ -1114,7 +1744,6 @@ describe("background controller", () => {
 
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
-    expect(env.deps.saveState).not.toHaveBeenCalled();
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
       event.category === "diagnostic" && event.message.includes("Browser restarted")
     )).toBe(false);
@@ -1128,7 +1757,8 @@ describe("background controller", () => {
     expect(env.settings.running).toBe(false);
     expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: false }));
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-    expect(env.deps.saveState).not.toHaveBeenCalled();
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.state.authHealth.kick.status).toBe("healthy");
   });
 
   it("starts automation, persists settings, creates alarm, and runs an immediate tick", async () => {
