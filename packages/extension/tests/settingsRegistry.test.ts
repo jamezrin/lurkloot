@@ -132,6 +132,7 @@ describe("settings registry", () => {
         "general.farmingTabs.keepUnmuted",
         "general.farmingTabs.adFocus",
         "general.advanced.pollInterval",
+        "general.advanced.tablessFallbackFailureLimit",
         "general.advanced.postClaimHandoff",
         "general.advanced.postClaimHandoffInterval",
         "general.advanced.postClaimHandoffMax",

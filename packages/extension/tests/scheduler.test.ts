@@ -2759,6 +2759,41 @@ describe("scheduler tabless mode", () => {
     return { ...adapter("twitch", campaigns, candidates), supportsTabless: true };
   }
 
+  async function runTablessFallbackCase(heartbeatChecks: number, overrides: SettingsPatch) {
+    const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: channel("creator") });
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            watchMode: "tabless",
+            heartbeatChecks,
+            lastHeartbeatOk: false,
+            lastHeartbeatAt: new Date().toISOString(),
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [campaign("drops")], kick: [] },
+      },
+      settings({
+        ...overrides,
+        tablessMode: true,
+        platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    return { result, twitch };
+  }
+
   it("does not open a watch tab and marks the session tabless when tabless mode is on", async () => {
     const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
 
@@ -2782,37 +2817,36 @@ describe("scheduler tabless mode", () => {
     expect(result.state.managedWatchTabs?.twitch).toBeUndefined();
   });
 
-  it("falls back to a watch tab after the tabless heartbeat keeps failing", async () => {
-    const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: channel("creator") });
+  it("stays tabless below its configured fallback threshold", async () => {
+    const { result, twitch } = await runTablessFallbackCase(4, {
+      offlineRetryLimit: 1,
+      tablessFallbackFailureLimit: 5,
+    });
 
-    const result = await runSchedulerTick(
-      {
-        authHealth: HEALTHY_AUTH,
-        sessions: {
-          twitch: {
-            platform: "twitch",
-            status: "watching",
-            channel: channel("creator"),
-            campaignId: "drops",
-            rewardId: "reward-in_progress",
-            offlineChecks: 0,
-            watchMode: "tabless",
-            heartbeatChecks: 3,
-            lastHeartbeatOk: false,
-            lastHeartbeatAt: new Date().toISOString(),
-          },
-          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
-        },
-        campaigns: { twitch: [campaign("drops")], kick: [] },
-      },
-      settings({ offlineRetryLimit: 3, tablessMode: true, platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
-      { twitch, kick: adapter("kick", [], []) },
-    );
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch.watchMode).toBe("tabless");
+  });
 
-    expect(twitch.prepareWatchTab).toHaveBeenCalledTimes(1);
+  it("falls back exactly at its configured fallback threshold", async () => {
+    const { result, twitch } = await runTablessFallbackCase(5, {
+      offlineRetryLimit: 10,
+      tablessFallbackFailureLimit: 5,
+    });
+
+    expect(twitch.prepareWatchTab).toHaveBeenCalledOnce();
+    expect(result.state.sessions.twitch).toMatchObject({
+      watchMode: "tab",
+      tablessFallback: true,
+    });
+  });
+
+  it("honors a non-default tabless fallback threshold", async () => {
+    const { result } = await runTablessFallbackCase(2, {
+      offlineRetryLimit: 9,
+      tablessFallbackFailureLimit: 2,
+    });
+
     expect(result.state.sessions.twitch.watchMode).toBe("tab");
-    expect(result.state.sessions.twitch.tablessFallback).toBe(true);
   });
 
   it("stays tabless while heartbeats remain healthy on the same channel", async () => {

@@ -144,6 +144,20 @@ describe("settings", () => {
     expect(mergeSettings({ pollIntervalMinutes: Number.NaN, offlineRetryLimit: Number.NaN }).pollIntervalMinutes)
       .toBe(DEFAULT_SETTINGS.pollIntervalMinutes);
     expect(mergeSettings({ offlineRetryLimit: Number.NaN }).offlineRetryLimit).toBe(DEFAULT_SETTINGS.offlineRetryLimit);
+
+    expect(DEFAULT_ENGINE_SETTINGS.tablessFallbackFailureLimit).toBe(5);
+    expect(mergeEngineSettings({}).tablessFallbackFailureLimit).toBe(5);
+    expect(mergeEngineSettings({ tablessFallbackFailureLimit: 0 }).tablessFallbackFailureLimit).toBe(1);
+    expect(mergeEngineSettings({ tablessFallbackFailureLimit: 11 }).tablessFallbackFailureLimit).toBe(10);
+    expect(mergeEngineSettings({ tablessFallbackFailureLimit: 4.6 }).tablessFallbackFailureLimit).toBe(5);
+    expect(mergeEngineSettings({ tablessFallbackFailureLimit: Number.NaN }).tablessFallbackFailureLimit).toBe(5);
+    expect(mergeEngineSettings({
+      offlineRetryLimit: 9,
+      tablessFallbackFailureLimit: 2,
+    })).toMatchObject({
+      offlineRetryLimit: 9,
+      tablessFallbackFailureLimit: 2,
+    });
   });
 
   it("clamps post-claim handoff settings and defaults them when absent", () => {

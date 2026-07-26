@@ -64,6 +64,10 @@ const labels: Record<string, string> = {
   adFocusDescription: "Ad countdowns freeze in background tabs.",
   schedulerIntervalTitle: "Scheduler interval",
   schedulerIntervalDescription: "How often campaign and streamer status refreshes.",
+  tablessFallbackFailureLimitTitle: "Tabless fallback threshold",
+  tablessFallbackFailureLimitDescription: "Open a video tab after this many consecutive failed tabless watch signals.",
+  tablessFallbackFailureLimitDisabledReason: "Enable tabless low-resource mode to change this setting.",
+  failuresSuffix: "failures",
   postClaimHandoffTitle: "Fast reward handoff",
   postClaimHandoffDescription: "After claiming a drop, briefly check for the next reward.",
   postClaimHandoffIntervalTitle: "Handoff check interval",
@@ -196,9 +200,9 @@ describe("settings search view", () => {
     const { container } = mountSettings();
     const search = container.querySelector("input[type=search]") as HTMLInputElement;
     act(() => {
-      setInputValue(search, "scheduler interval");
+      setInputValue(search, "tabless fallback");
     });
-    expect(container.textContent).toContain("Scheduler interval");
+    expect(container.textContent).toContain("Tabless fallback threshold");
     const advancedSwitch = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Show advanced settings");
     expect(advancedSwitch?.getAttribute("aria-checked")).toBe("false");
   });

@@ -413,6 +413,10 @@
   "tablessDescription": {
     "message": "Farme via des signaux légers au lieu d’un onglet vidéo. Twitch utilise des heartbeats de visionnage ; Kick utilise une connexion spectateur. Revient automatiquement à un onglet si cela ne progresse plus."
   },
+  "tablessFallbackFailureLimitTitle": { "message": "Seuil de repli du mode sans onglet" },
+  "tablessFallbackFailureLimitDescription": { "message": "Ouvre un onglet vidéo après ce nombre d’échecs consécutifs des signaux de visionnage sans onglet." },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "Activez le mode basse consommation sans onglet pour modifier ce réglage." },
+  "failuresSuffix": { "message": "échecs" },
   "autoCloseTabsTitle": {
     "message": "Fermer automatiquement les onglets de farm"
   },

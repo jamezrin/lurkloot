@@ -413,6 +413,10 @@
   "tablessDescription": {
     "message": "Фармит лёгкими сигналами просмотра вместо видеовкладки. Twitch использует heartbeats просмотра; Kick — соединение зрителя. Автоматически возвращается к вкладке, если прогресс останавливается."
   },
+  "tablessFallbackFailureLimitTitle": { "message": "Порог перехода из режима без вкладок" },
+  "tablessFallbackFailureLimitDescription": { "message": "Открывает вкладку с видео после указанного числа последовательных сбоев сигналов просмотра без вкладки." },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "Включите ресурсосберегающий режим без вкладок, чтобы изменить эту настройку." },
+  "failuresSuffix": { "message": "сбоев" },
   "autoCloseTabsTitle": {
     "message": "Автозакрытие вкладок фарма"
   },

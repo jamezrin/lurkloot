@@ -413,6 +413,10 @@
   "tablessDescription": {
     "message": "Farm via lightweight watch signals instead of a video tab. Twitch uses watch heartbeats; Kick uses a viewer connection. Falls back to a tab automatically if it stops earning."
   },
+  "tablessFallbackFailureLimitTitle": { "message": "Tabless fallback threshold" },
+  "tablessFallbackFailureLimitDescription": { "message": "Open a video tab after this many consecutive failed tabless watch signals." },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "Enable tabless low-resource mode to change this setting." },
+  "failuresSuffix": { "message": "failures" },
   "autoCloseTabsTitle": {
     "message": "Auto-close farming tabs"
   },

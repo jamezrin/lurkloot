@@ -413,6 +413,10 @@
   "tablessDescription": {
     "message": "Farma tramite segnali leggeri invece di una scheda video. Twitch usa heartbeat di visione; Kick usa una connessione viewer. Torna automaticamente a una scheda se smette di funzionare."
   },
+  "tablessFallbackFailureLimitTitle": { "message": "Soglia di fallback della modalità senza schede" },
+  "tablessFallbackFailureLimitDescription": { "message": "Apre una scheda video dopo questo numero di segnali di visione senza schede falliti consecutivamente." },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "Attiva la modalità a basso consumo senza schede per modificare questa impostazione." },
+  "failuresSuffix": { "message": "errori" },
   "autoCloseTabsTitle": {
     "message": "Chiudi automaticamente le schede di farming"
   },

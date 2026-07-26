@@ -805,7 +805,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         } else if (!ok && previousChecks === 0) {
           emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
         }
-        if (!ok && heartbeatChecks >= settings.offlineRetryLimit && !fallbacks.includes(platform)) {
+        if (!ok && heartbeatChecks >= settings.tablessFallbackFailureLimit && !fallbacks.includes(platform)) {
           fallbacks.push(platform);
           emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
         }
@@ -821,7 +821,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       return fallbacks;
     }));
 
-    // chooseTablessWatch now sees heartbeatChecks past the limit and opens a tab.
+    // chooseTablessWatch now sees heartbeatChecks past the tabless fallback limit and opens a tab.
     // Run outside the lock: tick() acquires the lock itself.
     for (const platform of fallbackPlatforms) {
       await tick([platform]);
