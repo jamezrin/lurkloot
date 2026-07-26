@@ -32,7 +32,7 @@ import {
 } from "../src/core/activityMessages";
 import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
 import { createCredentialAvailabilityProvider } from "../src/core/credentialAvailability";
-import { createCredentialObserver } from "../src/core/credentialObserver";
+import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -207,14 +207,13 @@ const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
 });
 
 export default defineBackground(() => {
-  createCredentialObserver({
-    onChanged: {
+  createCredentialHealthObserver(
+    {
       addListener: (listener) => browser.cookies.onChanged.addListener(listener),
       removeListener: (listener) => browser.cookies.onChanged.removeListener(listener),
     },
-    invalidate: (platform) => controller.invalidateAuthHealth(platform),
-    recheck: (platform) => controller.checkAuthHealth(platform),
-  });
+    controller,
+  );
 
   browser.runtime.onInstalled.addListener(async (details) => {
     await controller.ensureAlarm();

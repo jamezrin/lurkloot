@@ -24,6 +24,14 @@ export interface CredentialObserverDeps {
   clearTimer?: (timer: TimerHandle) => void;
 }
 
+// The background owns the concrete controller, but credential changes must
+// remain auth-only: they invalidate immediately, then run the controller's
+// bounded platform-local health refresh after the observer debounce.
+export interface CredentialHealthController {
+  invalidateAuthHealth(platform: Platform): Promise<void>;
+  checkAuthHealth(platform: Platform): Promise<void>;
+}
+
 function normalizedDomain(domain: string): string {
   return domain.replace(/^\./, "").toLowerCase();
 }
@@ -64,4 +72,15 @@ export function createCredentialObserver(deps: CredentialObserverDeps): () => vo
     for (const timer of timers.values()) clearTimer(timer);
     timers.clear();
   };
+}
+
+export function createCredentialHealthObserver(
+  onChanged: CredentialCookieChangeEvent,
+  controller: CredentialHealthController,
+): () => void {
+  return createCredentialObserver({
+    onChanged,
+    invalidate: (platform) => controller.invalidateAuthHealth(platform),
+    recheck: (platform) => controller.checkAuthHealth(platform),
+  });
 }

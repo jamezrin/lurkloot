@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createCredentialObserver, type CredentialCookieChange } from "../src/core/credentialObserver";
+import {
+  createCredentialHealthObserver,
+  createCredentialObserver,
+  type CredentialCookieChange,
+  type CredentialCookieChangeEvent,
+} from "../src/core/credentialObserver";
+import type { Platform } from "@lurkloot/shared/models";
 
 function harness() {
   let listener: ((change: CredentialCookieChange) => void) | undefined;
@@ -95,6 +101,45 @@ describe("credential cookie observer", () => {
     expect(env.recheck).toHaveBeenCalledTimes(2);
     expect(env.recheck).toHaveBeenCalledWith("twitch");
     expect(env.recheck).toHaveBeenCalledWith("kick");
+  });
+
+  it("uses bounded auth-only refreshes after independently debounced credential changes", async () => {
+    let listener: ((event: CredentialCookieChange) => void) | undefined;
+    const states = new Map<Platform, "checking" | "healthy" | "scheduler-ran">();
+    const events: CredentialCookieChangeEvent = {
+      addListener(next) {
+        listener = next;
+      },
+      removeListener() {},
+    };
+    const controller = {
+      async invalidateAuthHealth(platform: Platform) {
+        states.set(platform, "checking");
+      },
+      async checkAuthHealth(platform: Platform) {
+        states.set(platform, "healthy");
+      },
+      async tickAndHandOff(platforms: Platform[]) {
+        for (const platform of platforms) states.set(platform, "scheduler-ran");
+      },
+    };
+
+    const dispose = createCredentialHealthObserver(events, controller);
+    listener?.(change("auth-token", "twitch.tv"));
+    listener?.(change("session_token", "kick.com"));
+
+    expect(states).toEqual(new Map<Platform, "checking" | "healthy" | "scheduler-ran">([
+      ["twitch", "checking"],
+      ["kick", "checking"],
+    ]));
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(states).toEqual(new Map<Platform, "checking" | "healthy" | "scheduler-ran">([
+      ["twitch", "healthy"],
+      ["kick", "healthy"],
+    ]));
+    dispose();
   });
 
   it("clears a valid zero-valued timer handle when coalescing", () => {
