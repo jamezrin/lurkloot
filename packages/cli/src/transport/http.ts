@@ -8,7 +8,7 @@ import type { Platform } from "@lurkloot/shared/models";
 import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
 import { kickCookieApi, twitchCookieApi } from "./cookieApi";
-import { tablessWatchPort, withHeartbeatTimeout, type EnabledPlatforms, type TransportHandle } from "./common";
+import { createLazyAdapters, tablessWatchPort, withHeartbeatTimeout, type EnabledPlatforms, type TransportHandle } from "./common";
 
 // Plain Node fetch transport. Twitch GQL works (no WAF). Kick's Cloudflare WAF
 // fingerprints the TLS/HTTP-2 stack, so pure-Node requests get HTTP 403 — that
@@ -70,7 +70,7 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
     };
   };
   return {
-    adapters: createAdapters(undefined).adapters,
+    adapters: createLazyAdapters((platform) => createAdapter(platform, undefined).adapter),
     createAdapter,
     createAdapters,
     async dispose() {

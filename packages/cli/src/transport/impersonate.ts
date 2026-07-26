@@ -9,7 +9,7 @@ import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
 import { twitchCookieApi } from "./cookieApi";
 import { createCycleKickFetcher, createCycleKickWebSocketFactory, initCycle, type CycleTLSClient } from "./cycle";
-import { CHROME_HTTP2, CHROME_JA3, headersToObject, tablessWatchPort, withHeartbeatTimeout, type EnabledPlatforms, type TransportHandle } from "./common";
+import { CHROME_HTTP2, CHROME_JA3, createLazyAdapters, headersToObject, tablessWatchPort, withHeartbeatTimeout, type EnabledPlatforms, type TransportHandle } from "./common";
 
 export interface ImpersonateDeps {
   // Injectable for tests; defaults to spawning the real cycletls subprocess.
@@ -89,7 +89,7 @@ export async function createImpersonateTransport(
   };
 
   return {
-    adapters: createAdapters(undefined).adapters,
+    adapters: createLazyAdapters((platform) => createAdapter(platform, undefined).adapter),
     createAdapter,
     createAdapters,
     async dispose() {

@@ -24,6 +24,21 @@ export interface EnabledPlatforms {
   kick: boolean;
 }
 
+export function createLazyAdapters(
+  createAdapter: (platform: Platform) => PlatformAdapter,
+): Record<Platform, PlatformAdapter> {
+  let twitch: PlatformAdapter | undefined;
+  let kick: PlatformAdapter | undefined;
+  return {
+    get twitch() {
+      return twitch ??= createAdapter("twitch");
+    },
+    get kick() {
+      return kick ??= createAdapter("kick");
+    },
+  };
+}
+
 export const HEARTBEAT_REQUEST_TIMEOUT_MS = 15_000;
 
 export async function withHeartbeatTimeout<T>(
