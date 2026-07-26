@@ -271,6 +271,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return construction.adapter;
   }
 
+  function createSelectedAdapters(
+    settings: S,
+    emit: EventEmitter,
+    platforms: readonly Platform[],
+  ): Record<Platform, PlatformAdapter> {
+    if (platforms.length === PLATFORMS.length) return createAdapters(settings, emit);
+    const adapters: Partial<Record<Platform, PlatformAdapter>> = {};
+    for (const platform of platforms) {
+      adapters[platform] = createAdapter(platform, settings, emit, true);
+    }
+    return adapters as Record<Platform, PlatformAdapter>;
+  }
+
   async function withEventCollector<T>(operation: (emit: EventEmitter, events: EngineEvent[]) => Promise<T>): Promise<T> {
     const events: EngineEvent[] = [];
     const emit = withActivityDiagnostics((event) => events.push(event));
@@ -658,12 +671,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           platform: failure.platform,
           data: { reason: "platform_error", detail: failure.message },
         });
-        emit({
-          category: "diagnostic",
-          platform: failure.platform,
-          level: "error",
-          message: failure.message,
-        });
       }
       await persistAndReport(state, events);
     }));
@@ -672,6 +679,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function tick(platforms?: Platform[]): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
     const settings = await deps.loadSettings();
+    const setupFailedPlatforms = new Set<Platform>();
     if (settings.running) {
       try {
         await refreshAuthHealth(platforms ?? PLATFORMS, settings);
@@ -680,6 +688,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         const setupFailures = failures.filter((failure): failure is AuthProbeSetupError =>
           failure instanceof AuthProbeSetupError);
         if (setupFailures.length === 0) throw error;
+        for (const failure of setupFailures) setupFailedPlatforms.add(failure.platform);
         let reportingFailure: unknown;
         try {
           await reportAuthSetupFailures(setupFailures);
@@ -697,9 +706,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           throw error;
         }
         if (reportingFailure !== undefined) throw reportingFailure;
-        return claimedRewards;
       }
     }
+    const schedulerPlatforms = (platforms ?? PLATFORMS).filter((platform) =>
+      !setupFailedPlatforms.has(platform));
+    if (schedulerPlatforms.length === 0) return claimedRewards;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const settings = await deps.loadSettings();
       const state = await deps.loadState();
@@ -709,7 +720,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       };
       let nextState: SchedulerState;
       try {
-        const adapters = createAdapters(settings, emit);
+        const adapters = setupFailedPlatforms.size > 0
+          ? createSelectedAdapters(settings, emit, schedulerPlatforms)
+          : createAdapters(settings, emit);
         // Observed here rather than returned by the scheduler: the controller
         // already sees every emitted event, and the post-claim handoff only
         // needs to know which platforms claimed.
@@ -721,7 +734,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         };
         const eventsBeforeTick = events.length;
         const result = await runSchedulerTick(state, settings, adapters, {
-          ...(platforms ? { platforms } : {}),
+          platforms: schedulerPlatforms,
           stopPageContextTabs: deps.stopPageContextTabs,
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
           emit: claimObservingEmit,
@@ -730,7 +743,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         for (const event of lifecycleEvents) emit(event);
         await emitNotifications(settings, state, result.state, result.events);
         await applyAdFocusForState(result.state, emit);
-        await reconcileTablessWatchers(result.state, settings, adapters, emit, platforms);
+        await reconcileTablessWatchers(result.state, settings, adapters, emit, schedulerPlatforms);
         nextState = result.state;
         if (settings.criticalFailurePromptEnabled) {
           // Page-context tabs are created deep inside tabs.ts, which has no access

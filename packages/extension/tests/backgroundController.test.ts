@@ -589,11 +589,25 @@ describe("background controller", () => {
       status: "unavailable",
       reasonCode: "platform_unavailable",
     });
-    const interruptions = env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
+    const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    const interruptions = published.filter((event) =>
       event.category === "activity" && event.code === "interruption");
     expect(interruptions).toEqual([
       expect.objectContaining({ platform: "kick" }),
     ]);
+    expect(published.filter((event) =>
+      event.category === "diagnostic"
+      && event.platform === "kick"
+      && event.message.includes("kick adapter setup failed")
+    )).toEqual([
+      expect.objectContaining({
+        code: "interruption",
+        mirroredActivity: true,
+        message: "Farming interrupted: reason=platform_error (kick adapter setup failed)",
+      }),
+    ]);
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
   });
 
   it("terminalizes startup adapter setup failure instead of leaving checking", async () => {
