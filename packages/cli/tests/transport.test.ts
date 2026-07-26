@@ -134,6 +134,33 @@ describe("createTransport", () => {
     await handle.dispose();
   });
 
+  it("isolates retained Twitch discovery between HTTP transport handles", async () => {
+    let seedFirstHandle = true;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      switch (twitchOperation(init)) {
+        case "Inventory":
+          return twitchResponse(emptyTwitchInventory());
+        case "ViewerDropsDashboard":
+          if (seedFirstHandle) return twitchResponse(retainedTwitchDashboard());
+          throw new Error("dashboard unavailable");
+        case "DropCampaignDetails":
+          return twitchResponse(retainedTwitchCampaignDetails());
+        default:
+          throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
+      }
+    }));
+    const firstHandle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+    const secondHandle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+
+    expect((await firstHandle.adapters.twitch.discoverCampaigns()).map((campaign) => campaign.id))
+      .toEqual(["retained"]);
+    seedFirstHandle = false;
+
+    await expect(secondHandle.adapters.twitch.discoverCampaigns()).resolves.toEqual([]);
+    await firstHandle.dispose();
+    await secondHandle.dispose();
+  });
+
   it("sends Trowel through the HTTP transport request path", async () => {
     const fetchMock = vi.fn(async (url: string) => new Response(url.includes("trowel.twitch.tv") ? null : JSON.stringify({
       data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },

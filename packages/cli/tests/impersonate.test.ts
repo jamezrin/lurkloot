@@ -177,6 +177,34 @@ describe("impersonate transport", () => {
     await handle.dispose();
   });
 
+  it("isolates retained Twitch discovery between impersonated transport handles", async () => {
+    let seedFirstHandle = true;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      switch (twitchOperation(init)) {
+        case "Inventory":
+          return twitchResponse(emptyTwitchInventory());
+        case "ViewerDropsDashboard":
+          if (seedFirstHandle) return twitchResponse(retainedTwitchDashboard());
+          throw new Error("dashboard unavailable");
+        case "DropCampaignDetails":
+          return twitchResponse(retainedTwitchCampaignDetails());
+        default:
+          throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
+      }
+    }));
+    const client = fakeClient(() => Promise.resolve({ status: 200, data: {} }));
+    const firstHandle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const secondHandle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+
+    expect((await firstHandle.adapters.twitch.discoverCampaigns()).map((campaign) => campaign.id))
+      .toEqual(["retained"]);
+    seedFirstHandle = false;
+
+    await expect(secondHandle.adapters.twitch.discoverCampaigns()).resolves.toEqual([]);
+    await firstHandle.dispose();
+    await secondHandle.dispose();
+  });
+
   it("sends Trowel through the injected cycletls transport", async () => {
     const calls: Captured[] = [];
     const client = fakeClient((url, options, method) => {

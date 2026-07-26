@@ -290,7 +290,16 @@ interface CachedDashboardCampaigns {
 
 export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
+  private authenticatedUserId?: string;
   private retainedDashboard?: CachedDashboardCampaigns;
+
+  setAuthenticatedUser(userId: string): void {
+    if (this.authenticatedUserId && this.authenticatedUserId !== userId) {
+      this.retainedDashboard = undefined;
+      this.campaignDetailsByDropId.clear();
+    }
+    this.authenticatedUserId = userId;
+  }
 
   rememberDashboardCampaignIds(campaignIds: string[]): void {
     this.retainedDashboard = {
@@ -521,9 +530,12 @@ export class TwitchAdapter implements PlatformAdapter {
 
     if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
       inventory = await this.fetchInventory({ fetchRewardCampaigns: true });
-      dashboardResult = await this.fetchDashboard({ fetchRewardCampaigns: true });
+      const fallbackDashboardResult = await this.fetchDashboard({ fetchRewardCampaigns: true });
       inventoryCampaigns = this.inventoryCapability.parse(inventory);
-      dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
+      if (fallbackDashboardResult.ok || !dashboardResult.ok) {
+        dashboardResult = fallbackDashboardResult;
+        dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
+      }
     }
     const dashboard = dashboardResult.response;
 
@@ -534,7 +546,9 @@ export class TwitchAdapter implements PlatformAdapter {
       });
     }
 
-    const userLogin = twitchCurrentUserId(inventory) ?? dashboard.data?.currentUser?.id ?? dashboard.data?.currentUser?.login ?? "";
+    const authenticatedUserId = twitchCurrentUserId(inventory) ?? dashboard.data?.currentUser?.id;
+    if (authenticatedUserId) this.discoveryState.setAuthenticatedUser(authenticatedUserId);
+    const userLogin = authenticatedUserId ?? dashboard.data?.currentUser?.login ?? "";
     const freshCampaignIds = dashboardCampaigns
       .filter((campaign) =>
         campaign.id
@@ -547,8 +561,14 @@ export class TwitchAdapter implements PlatformAdapter {
     // already started — so falling back to it hides every campaign they have
     // not. Reuse the last dashboard we did get instead. `dashboardResponded`
     // stays false so the expiry stamping below never fires off a stale list.
-    if (dashboardResult.ok) this.discoveryState.rememberDashboardCampaignIds(freshCampaignIds);
-    const discoverableCampaignIds = dashboardResult.ok ? freshCampaignIds : this.discoveryState.retainedDashboardCampaignIds();
+    if (dashboardResult.ok && authenticatedUserId) {
+      this.discoveryState.rememberDashboardCampaignIds(freshCampaignIds);
+    }
+    const discoverableCampaignIds = dashboardResult.ok
+      ? freshCampaignIds
+      : authenticatedUserId
+        ? this.discoveryState.retainedDashboardCampaignIds()
+        : [];
     const dashboardResponded = dashboardResult.ok && dashboardCampaigns.length > 0;
 
     if (discoverableCampaignIds.length === 0) {
@@ -575,11 +595,13 @@ export class TwitchAdapter implements PlatformAdapter {
       if (result.status === "fulfilled") {
         const campaign = result.value.data?.dropCampaign ?? result.value.data?.user?.dropCampaign;
         if (!campaign) return;
-        this.discoveryState.rememberCampaignDetails(dropID, campaign);
+        if (authenticatedUserId) this.discoveryState.rememberCampaignDetails(dropID, campaign);
         detailedCampaigns.push(campaign);
         return;
       }
-      const retained = this.discoveryState.retainedCampaignDetails(dropID);
+      const retained = authenticatedUserId
+        ? this.discoveryState.retainedCampaignDetails(dropID)
+        : undefined;
       const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
       diagnostic(
         this.emit,
