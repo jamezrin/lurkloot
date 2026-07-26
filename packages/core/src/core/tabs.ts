@@ -38,10 +38,17 @@ interface BrowserTab {
   mutedInfo?: { muted?: boolean };
 }
 
+// Where a page-context tab came from. Only used for diagnostics: a freshly
+// created tab boots the SPA and issues authenticated GQL, while an inherited one
+// may be idle and issue nothing, which decides whether waiting for a token can
+// succeed at all.
+type PageContextSource = "created" | "user_tab" | "managed_tab" | "shared_entry";
+
 interface PageContextTab {
   tabId: number;
   createdByExtension: boolean;
   retainedContext?: ManagedPageContextTab;
+  source?: PageContextSource;
 }
 
 interface PageContextEntry {
@@ -519,18 +526,26 @@ export async function ensureTwitchIntegrityWithBrowser(
 ): Promise<boolean> {
   if (hasValidTwitchIntegrity()) return true;
 
-  diagnostic(emit, "info", "No valid Twitch integrity token; opening a twitch.tv tab to capture one", "twitch");
+  diagnostic(emit, "info", "No valid Twitch integrity token; using a twitch.tv page context to capture one", "twitch");
   const origin = new URL(originUrl).origin;
   let pageContext: PageContextTab | undefined;
   try {
     pageContext = await acquirePageContextTab(browserApi, originUrl, origin, {
       retainPageContext: { platform: "twitch" },
+      emit,
     });
+    // Which context we got decides whether waiting can work at all: only a
+    // freshly created tab is guaranteed to boot the SPA and issue authenticated
+    // GQL for the listener to read a token from. An inherited or already-idle tab
+    // may issue nothing, and the wait can only ever time out.
+    const source = pageContext.source ?? "unknown";
+    diagnostic(emit, "debug", `Waiting up to ${timeoutMs}ms for a Twitch integrity token from a ${source} page context (tab ${pageContext.tabId})`, "twitch");
     // On success the capture itself is logged once by setTwitchIntegrity (info);
     // here we only surface the failure case so the log isn't doubled up.
+    const startedAt = Date.now();
     const captured = await waitForIntegrityCapture(timeoutMs);
     if (!captured) {
-      diagnostic(emit, "warn", `Timed out waiting for a Twitch integrity token after ${timeoutMs}ms (is twitch.tv logged in?)`, "twitch");
+      diagnostic(emit, "warn", `Timed out waiting for a Twitch integrity token after ${Date.now() - startedAt}ms from a ${source} page context (is twitch.tv logged in?)`, "twitch");
     }
     return captured;
   } catch (error) {
@@ -792,7 +807,10 @@ async function acquirePageContextTab(
   const existing = pageContextTabs.get(origin);
   if (existing) {
     existing.refs += 1;
-    return existing.promise;
+    // Inherited from a concurrent caller: this tab has already served its own
+    // request and may now be idle, which matters to anyone waiting for the page
+    // to issue a fresh request (see ensureTwitchIntegrityWithBrowser).
+    return existing.promise.then((tab) => ({ ...tab, source: "shared_entry" as const }));
   }
 
   const entry: PageContextEntry = {
@@ -878,7 +896,7 @@ async function findOrCreatePageContextTab(
       }
     }
     diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused user page context on ${new URL(origin).host}`, retain?.platform);
-    return { tabId, createdByExtension: false };
+    return { tabId, createdByExtension: false, source: "user_tab" };
   }
 
   if (retained?.origin === origin) {
@@ -887,7 +905,7 @@ async function findOrCreatePageContextTab(
       if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin)) {
         retainedPageContextTabs.set(retained.platform, retained);
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused managed page context on ${new URL(origin).host}`, retained.platform);
-        return { tabId: tab.id, createdByExtension: true, retainedContext: retained };
+        return { tabId: tab.id, createdByExtension: true, retainedContext: retained, source: "managed_tab" };
       }
       retainedPageContextTabs.delete(retained.platform);
       openReason = "managed_context_unusable";
@@ -961,9 +979,9 @@ async function findOrCreatePageContextTab(
       platform: retain.platform,
       data: { host: new URL(origin).host, reason: openReason },
     });
-    return { tabId: tab.id, createdByExtension: true, retainedContext };
+    return { tabId: tab.id, createdByExtension: true, retainedContext, source: "created" };
   }
-  return { tabId: tab.id, createdByExtension: true };
+  return { tabId: tab.id, createdByExtension: true, source: "created" };
 }
 
 async function isUsablePageContext(browserApi: BrowserTabApi, tabId: number, origin: string): Promise<boolean> {
