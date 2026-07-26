@@ -140,18 +140,42 @@
   "watchingPausedHint": {
     "message": "المشاهدة متوقفة مؤقتًا. فعّل المفتاح لاستئناف فارم Drops."
   },
-  "hideTipsTitle": { "message": "إخفاء النصائح" },
-  "hideTipsDescription": { "message": "يخفي النصائح المفيدة من النافذة الرئيسية." },
-  "tipCampaignPriority": { "message": "تأخذ Drops الأولوية على قائمة المشاهدة الخاملة. اسحب الحملات من المقبض لترتيب الفارم." },
-  "tipMissingCampaigns": { "message": "هل هناك حملة مفقودة؟ تحقق من مخزون Drops في المنصة ثم من عوامل التصفية في الإعدادات." },
-  "tipCategorySelection": { "message": "تريد ألعابًا محددة فقط؟ عطّل «فارم كل الفئات» واختر فئاتك." },
-  "tipIdleWatchlist": { "message": "تفارم قائمة المشاهدة الخاملة القنوات المختارة عند عدم توفر Drops مؤهلة." },
-  "tipTablessMode": { "message": "يستهلك الوضع بلا تبويبات موارد أقل ويفتح تبويبًا مكتومًا عند الحاجة." },
-  "tipCli": { "message": "تفضّل العمل بلا إضافة؟ يتوفر Lurkloot أيضًا كواجهة CLI عبر Docker." },
-  "tipCliAction": { "message": "اقرأ دليل CLI" },
-  "tipFeedback": { "message": "وجدت خطأ أو لديك فكرة؟" },
-  "tipFeedbackAction": { "message": "افتح issue على GitHub" },
-  "tipExcludedCampaigns": { "message": "استبعدت حملة بالخطأ؟ استعدها من إعدادات Drops." },
+  "hideTipsTitle": {
+    "message": "إخفاء النصائح"
+  },
+  "hideTipsDescription": {
+    "message": "يخفي النصائح المفيدة من النافذة الرئيسية."
+  },
+  "tipCampaignPriority": {
+    "message": "تأخذ Drops الأولوية على قائمة المشاهدة الخاملة. اسحب الحملات من المقبض لترتيب الفارم."
+  },
+  "tipMissingCampaigns": {
+    "message": "هل هناك حملة مفقودة؟ تحقق من مخزون Drops في المنصة ثم من عوامل التصفية في الإعدادات."
+  },
+  "tipCategorySelection": {
+    "message": "تريد ألعابًا محددة فقط؟ عطّل «فارم كل الفئات» واختر فئاتك."
+  },
+  "tipIdleWatchlist": {
+    "message": "تفارم قائمة المشاهدة الخاملة القنوات المختارة عند عدم توفر Drops مؤهلة."
+  },
+  "tipTablessMode": {
+    "message": "يستهلك الوضع بلا تبويبات موارد أقل ويفتح تبويبًا مكتومًا عند الحاجة."
+  },
+  "tipCli": {
+    "message": "تفضّل العمل بلا إضافة؟ يتوفر Lurkloot أيضًا كواجهة CLI عبر Docker."
+  },
+  "tipCliAction": {
+    "message": "اقرأ دليل CLI"
+  },
+  "tipFeedback": {
+    "message": "وجدت خطأ أو لديك فكرة؟"
+  },
+  "tipFeedbackAction": {
+    "message": "افتح issue على GitHub"
+  },
+  "tipExcludedCampaigns": {
+    "message": "استبعدت حملة بالخطأ؟ استعدها من إعدادات Drops."
+  },
   "noCampaigns": {
     "message": "لم يتم اكتشاف أي حملات بعد."
   },
@@ -413,10 +437,18 @@
   "tablessDescription": {
     "message": "فارم عبر إشارات مشاهدة خفيفة بدل تبويب فيديو. يستخدم Twitch نبضات مشاهدة؛ ويستخدم Kick اتصال مشاهد. يعود تلقائيًا إلى تبويب إذا توقف عن الاحتساب."
   },
-  "tablessFallbackFailureLimitTitle": { "message": "حد الرجوع عن وضع بلا علامات تبويب" },
-  "tablessFallbackFailureLimitDescription": { "message": "يفتح علامة تبويب فيديو بعد هذا العدد من حالات فشل إشارات المشاهدة المتتالية بلا علامة تبويب." },
-  "tablessFallbackFailureLimitDisabledReason": { "message": "فعّل وضع الموارد المنخفضة بلا علامات تبويب لتغيير هذا الإعداد." },
-  "failuresSuffix": { "message": "حالات فشل" },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "حد الرجوع عن وضع بلا علامات تبويب"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "يفتح علامة تبويب فيديو بعد هذا العدد من حالات فشل إشارات المشاهدة المتتالية بلا علامة تبويب."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "فعّل وضع الموارد المنخفضة بلا علامات تبويب لتغيير هذا الإعداد."
+  },
+  "failuresSuffix": {
+    "message": "حالات فشل"
+  },
   "autoCloseTabsTitle": {
     "message": "إغلاق تبويبات الفارم تلقائيًا"
   },
@@ -489,13 +521,27 @@
   "secondsSuffix": {
     "message": "ث"
   },
-  "deadlineSafetyMarginTitle": { "message": "هامش أمان الموعد النهائي" },
-  "deadlineSafetyMarginDescription": { "message": "دقائق إضافية مطلوبة قبل جمع المكافأة." },
-  "deadlineSafetyMarginDisabledReason": { "message": "فعّل تصفية الموعد النهائي لتغيير هامش الأمان." },
-  "skipUnfinishableRewardsTitle": { "message": "تخطي المكافآت التي لا يمكن إكمالها" },
-  "skipUnfinishableRewardsDescription": { "message": "لا تجمع المكافآت عندما يتجاوز وقت المشاهدة المتبقي الوقت المتاح قبل الموعد النهائي." },
-  "minutesSuffix": { "message": "د" },
-  "insufficientTimeRemaining": { "message": "الوقت المتبقي غير كافٍ" },
+  "deadlineSafetyMarginTitle": {
+    "message": "هامش أمان الموعد النهائي"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "دقائق إضافية مطلوبة قبل جمع المكافأة."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "فعّل تصفية الموعد النهائي لتغيير هامش الأمان."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "تخطي المكافآت التي لا يمكن إكمالها"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "لا تجمع المكافآت عندما يتجاوز وقت المشاهدة المتبقي الوقت المتاح قبل الموعد النهائي."
+  },
+  "minutesSuffix": {
+    "message": "د"
+  },
+  "insufficientTimeRemaining": {
+    "message": "الوقت المتبقي غير كافٍ"
+  },
   "automationSectionTitle": {
     "message": "الأتمتة"
   },
@@ -691,10 +737,18 @@
   "siteAttributionShort": {
     "message": "الموقع"
   },
-  "updateNoticeTitle": { "message": "تم تحديث Lurkloot إلى الإصدار $1" },
-  "updateNoticeBody": { "message": "تعرّف على الميزات الجديدة والتغييرات." },
-  "updateNoticeAction": { "message": "عرض التغييرات" },
-  "updateNoticeDismiss": { "message": "تجاهل إشعار التحديث" },
+  "updateNoticeTitle": {
+    "message": "تم تحديث Lurkloot إلى الإصدار $1"
+  },
+  "updateNoticeBody": {
+    "message": "تعرّف على الميزات الجديدة والتغييرات."
+  },
+  "updateNoticeAction": {
+    "message": "عرض التغييرات"
+  },
+  "updateNoticeDismiss": {
+    "message": "تجاهل إشعار التحديث"
+  },
   "rateNudgeTitle": {
     "message": "هل يعجبك Lurkloot؟"
   },
@@ -731,15 +785,33 @@
   "cliExportButton": {
     "message": "تصدير بيانات الاعتماد"
   },
-  "factoryResetTitle": { "message": "إعادة ضبط Lurkloot" },
-  "factoryResetHint": { "message": "يمسح جميع إعدادات Lurkloot وتقدم التجميع وسجل النشاط. ستبقى مسجّلًا في Twitch وKick." },
-  "factoryResetButton": { "message": "إعادة ضبط Lurkloot" },
-  "factoryResetConfirm": { "message": "يؤدي هذا إلى إيقاف التجميع وإغلاق علامات التبويب التي فتحها Lurkloot ومسح جميع بياناته نهائيًا. ستبقى مسجّلًا في Twitch وKick." },
-  "factoryResetCancel": { "message": "إلغاء" },
-  "factoryResetConfirmButton": { "message": "إعادة ضبط الكل" },
-  "factoryResetProgress": { "message": "جارٍ إعادة الضبط…" },
-  "factoryResetFailed": { "message": "تعذّرت إعادة ضبط Lurkloot بالكامل. حاول مرة أخرى." },
-  "factoryResetRetry": { "message": "حاول إعادة الضبط مجددًا" },
+  "factoryResetTitle": {
+    "message": "إعادة ضبط Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "يمسح جميع إعدادات Lurkloot وتقدم التجميع وسجل النشاط. ستبقى مسجّلًا في Twitch وKick."
+  },
+  "factoryResetButton": {
+    "message": "إعادة ضبط Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "يؤدي هذا إلى إيقاف التجميع وإغلاق علامات التبويب التي فتحها Lurkloot ومسح جميع بياناته نهائيًا. ستبقى مسجّلًا في Twitch وKick."
+  },
+  "factoryResetCancel": {
+    "message": "إلغاء"
+  },
+  "factoryResetConfirmButton": {
+    "message": "إعادة ضبط الكل"
+  },
+  "factoryResetProgress": {
+    "message": "جارٍ إعادة الضبط…"
+  },
+  "factoryResetFailed": {
+    "message": "تعذّرت إعادة ضبط Lurkloot بالكامل. حاول مرة أخرى."
+  },
+  "factoryResetRetry": {
+    "message": "حاول إعادة الضبط مجددًا"
+  },
   "diagnosticLoggingTitle": {
     "message": "تضمين سجلات التشخيص"
   },
@@ -758,23 +830,57 @@
   "activityChallengeClaimed": {
     "message": "تم استلام بطاقة $1 من تحدي $2"
   },
-  "activityAuthHealthChanged": { "message": "تغيّرت مصادقة $1 من $2 إلى $3." },
-  "activityCriticalFailureDetected": { "message": "$1 لا يعمل: $2." },
-  "activityCriticalFailureCleared": { "message": "تم تجاهل العطل الحرج في $1؛ جارٍ إعادة المحاولة." },
-  "criticalFailureReasonNoProgress": { "message": "لا تقدّم رغم تكرار الأخطاء" },
-  "criticalFailureReasonPageContextChurn": { "message": "ظلّت علامة تبويب تُعاد فتحها باستمرار" },
-  "criticalFailureTitle": { "message": "توقف Lurkloot عن العمل" },
-  "criticalFailureBodyNoProgress": { "message": "أخطاء متكررة ولا يوجد أي تقدم في الدروبس منذ وقت طويل. على الأرجح تغيّر شيء في هذه المنصة ولم يعد بإمكان الإضافة كسب الدروبس." },
-  "criticalFailureBodyTabChurn": { "message": "ظلت إحدى علامات التبويب تُفتح من جديد مرارًا. تم إيقاف إعادة الفتح لتتمكن من استخدام المتصفح بشكل طبيعي، وتم إيقاف الفارم مؤقتًا لهذه المنصة." },
-  "criticalFailureCopyAndReport": { "message": "نسخ السجلات وفتح بلاغ" },
-  "criticalFailureDismiss": { "message": "تجاهل وإعادة المحاولة" },
-  "criticalFailureClipboardFallback": { "message": "تعذّر النسخ تلقائيًا. حدّد هذا النص وانسخه ثم افتح بلاغًا." },
-  "activityPageContextOpened": { "message": "تم فتح سياق في الخلفية على $1 لأن $2." },
-  "activityPageContextClosed": { "message": "تم إغلاق سياق الخلفية على $1 لأن $2." },
-  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick رفض الطلب دون علامة تبويب" },
-  "activityPageContextReasonManagedContextUnusable": { "message": "سياق الخلفية السابق لم يكن صالحًا للاستخدام" },
-  "activityPageContextCloseReasonBackgroundRecovered": { "message": "طلبات العمل دون علامة تبويب عادت للعمل" },
-  "activityPageContextCloseReasonUserTabAvailable": { "message": "أصبحت علامة تبويب Kick موجودة متاحة" },
+  "activityAuthHealthChanged": {
+    "message": "تغيّرت مصادقة $1 من $2 إلى $3."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 لا يعمل: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "تم تجاهل العطل الحرج في $1؛ جارٍ إعادة المحاولة."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "لا تقدّم رغم تكرار الأخطاء"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "ظلّت علامة تبويب تُعاد فتحها باستمرار"
+  },
+  "criticalFailureTitle": {
+    "message": "توقف Lurkloot عن العمل"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "أخطاء متكررة ولا يوجد أي تقدم في الدروبس منذ وقت طويل. على الأرجح تغيّر شيء في هذه المنصة ولم يعد بإمكان الإضافة كسب الدروبس."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "ظلت إحدى علامات التبويب تُفتح من جديد مرارًا. تم إيقاف إعادة الفتح لتتمكن من استخدام المتصفح بشكل طبيعي، وتم إيقاف الفارم مؤقتًا لهذه المنصة."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "نسخ السجلات وفتح بلاغ"
+  },
+  "criticalFailureDismiss": {
+    "message": "تجاهل وإعادة المحاولة"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "تعذّر النسخ تلقائيًا. حدّد هذا النص وانسخه ثم افتح بلاغًا."
+  },
+  "activityPageContextOpened": {
+    "message": "تم فتح سياق في الخلفية على $1 لأن $2."
+  },
+  "activityPageContextClosed": {
+    "message": "تم إغلاق سياق الخلفية على $1 لأن $2."
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick رفض الطلب دون علامة تبويب"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "سياق الخلفية السابق لم يكن صالحًا للاستخدام"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "طلبات العمل دون علامة تبويب عادت للعمل"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "أصبحت علامة تبويب Kick موجودة متاحة"
+  },
   "activityInterruption": {
     "message": "توقف الجمع: $1."
   },
@@ -787,7 +893,9 @@
   "activityReasonPlatformDisabled": {
     "message": "تم تعطيل المنصة"
   },
-  "activityReasonAuthenticationUnhealthy": { "message": "المصادقة غير متاحة" },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "المصادقة غير متاحة"
+  },
   "activityReasonPlatformBackoff": {
     "message": "المنصة في انتظار مؤقت"
   },
@@ -950,6 +1058,9 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "استعلام المخزون الإصدار 1"
   },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "استعلام المخزون الإصدار 2"
+  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick يوليو 2026"
   },
@@ -959,21 +1070,55 @@
   "compatibilityOptionKickClaimV2": {
     "message": "معالجة الروابط الإصدار 2"
   },
-  "automationChecking": { "message": "جارٍ التحقق" },
-  "automationNeedsSignIn": { "message": "يلزم تسجيل الدخول" },
-  "automationBlocked": { "message": "محظور" },
-  "automationUnavailable": { "message": "غير متاح" },
-  "authCheckingDetail": { "message": "جارٍ التحقق من جلسة تسجيل دخولك…" },
-  "authSignInMissing": { "message": "سجّل الدخول لمواصلة جمع المكافآت." },
-  "authSignInRejected": { "message": "لم تعد جلستك صالحة. سجّل الدخول مجددًا للمتابعة." },
-  "signInToTwitch": { "message": "تسجيل الدخول إلى Twitch" },
-  "signInToKick": { "message": "تسجيل الدخول إلى Kick" },
-  "authBrowserProfileBlocked": { "message": "رفض Kick ملف تعريف المتصفح هذا. قد لا يكفي تسجيل الدخول وحده لحل المشكلة." },
-  "authCredentialCheckUnavailable": { "message": "تعذر التحقق من جلسة المتصفح. سيعيد Lurkloot المحاولة تلقائيًا." },
-  "authNetworkTemporarilyUnavailable": { "message": "الشبكة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا." },
-  "authPlatformTemporarilyUnavailable": { "message": "المنصة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا." },
-  "automationPausedTabClosed": { "message": "متوقّف مؤقتًا — أُغلقت علامة التبويب" },
-  "watchTabClosedPauseDetail": { "message": "لقد أغلقت علامة تبويب الزراعة، لذا أوقف Lurkloot الزراعة هنا." },
-  "resumeFarming": { "message": "استئناف الزراعة" },
-  "activityReasonManualTabClose": { "message": "أُغلقت علامة تبويب الزراعة" }
+  "automationChecking": {
+    "message": "جارٍ التحقق"
+  },
+  "automationNeedsSignIn": {
+    "message": "يلزم تسجيل الدخول"
+  },
+  "automationBlocked": {
+    "message": "محظور"
+  },
+  "automationUnavailable": {
+    "message": "غير متاح"
+  },
+  "authCheckingDetail": {
+    "message": "جارٍ التحقق من جلسة تسجيل دخولك…"
+  },
+  "authSignInMissing": {
+    "message": "سجّل الدخول لمواصلة جمع المكافآت."
+  },
+  "authSignInRejected": {
+    "message": "لم تعد جلستك صالحة. سجّل الدخول مجددًا للمتابعة."
+  },
+  "signInToTwitch": {
+    "message": "تسجيل الدخول إلى Twitch"
+  },
+  "signInToKick": {
+    "message": "تسجيل الدخول إلى Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "رفض Kick ملف تعريف المتصفح هذا. قد لا يكفي تسجيل الدخول وحده لحل المشكلة."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "تعذر التحقق من جلسة المتصفح. سيعيد Lurkloot المحاولة تلقائيًا."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "الشبكة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "المنصة غير متاحة مؤقتًا. سيعيد Lurkloot المحاولة تلقائيًا."
+  },
+  "automationPausedTabClosed": {
+    "message": "متوقّف مؤقتًا — أُغلقت علامة التبويب"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "لقد أغلقت علامة تبويب الزراعة، لذا أوقف Lurkloot الزراعة هنا."
+  },
+  "resumeFarming": {
+    "message": "استئناف الزراعة"
+  },
+  "activityReasonManualTabClose": {
+    "message": "أُغلقت علامة تبويب الزراعة"
+  }
 }

@@ -6,31 +6,17 @@ import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages"
 import type { Platform } from "@lurkloot/shared/models";
 import { DEFAULT_CRITICAL_HEALTH } from "@lurkloot/shared/criticalHealth";
 import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popup-ui";
+import { catalogDelay, resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
-// Reproduces the cold module cache deterministically: the real loadCatalog is a
-// dynamic import(), so its resolution can take several macrotasks the first time
-// a worker loads the catalog. Tests set this to emulate that first load.
-const catalogDelay = { ticks: 0 };
-
-vi.mock("@lurkloot/locales", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@lurkloot/locales")>();
-  return {
-    ...actual,
-    loadCatalog: async (locale: Parameters<typeof actual.loadCatalog>[0]) => {
-      for (let tick = 0; tick < catalogDelay.ticks; tick += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-      return actual.loadCatalog(locale);
-    },
-  };
-});
+vi.mock("@lurkloot/locales", async (importOriginal) =>
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
 
 let root: Root | undefined;
 
 afterEach(() => {
   if (root) act(() => root?.unmount());
   root = undefined;
-  catalogDelay.ticks = 0;
+  resetCatalogTracking();
   vi.unstubAllGlobals();
 });
 
@@ -89,33 +75,9 @@ async function mountPopup(options: { flagged: Platform | null; promptEnabled?: b
     root.render(<Popup adapter={adapter} />);
     await Promise.resolve();
   });
-  await waitForCatalog(container);
+  await waitForCatalog();
 
   return { container, sent, adapter };
-}
-
-// The popup fills its labels from loadCatalog(), a dynamic import() of a JSON
-// catalog. That needs real module resolution rather than a fixed number of
-// microtask flushes, so whether the labels are translated by the time the
-// assertions run depends on which test file warmed the module cache first. Until
-// it resolves the header status line renders its raw key ("automationRunning ·
-// Twitch" instead of "Running · Twitch") and every copy assertion fails.
-//
-// Yield to the macrotask queue until the status line is translated. Match on the
-// untranslated form: a raw "automationRunning" also appears elsewhere in the
-// header regardless of the catalog, and "Running · Twitch" is a substring of the
-// untranslated "automationRunning · Twitch", so neither works as a positive
-// signal.
-async function waitForCatalog(container: Element): Promise<void> {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    if (!container.textContent?.includes("automationRunning · Twitch")) return;
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-  }
-  throw new Error(
-    `Popup message catalog never loaded; rendered text was: ${container.textContent?.slice(0, 200)}`,
-  );
 }
 
 describe("critical failure prompt in the popup", () => {

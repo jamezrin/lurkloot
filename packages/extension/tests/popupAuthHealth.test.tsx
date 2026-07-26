@@ -4,10 +4,15 @@ import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popup-ui";
+import { catalogDelay, resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
+
+vi.mock("@lurkloot/locales", async (importOriginal) =>
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
 
 let root: Root | undefined;
 
 afterEach(() => {
+  resetCatalogTracking();
   if (root) act(() => root?.unmount());
   root = undefined;
   vi.useRealTimers();
@@ -72,13 +77,28 @@ async function mountWithSnapshots(authStatuses: Array<RuntimeSnapshot["state"]["
   await act(async () => {
     root = createRoot(container);
     root.render(<Popup adapter={adapter} />);
-    await Promise.resolve();
-    await Promise.resolve();
   });
+  await waitForCatalog();
   return { container, sent };
 }
 
 describe("popup authentication health", () => {
+  // Guards the race these mount helpers used to lose: the copy below is only
+  // present once the catalog import resolves. This file installs fake timers, so
+  // it also covers waitForCatalog advancing them instead of waiting on a
+  // setTimeout that would never fire.
+  it("renders translated copy even when the catalog import resolves late", async () => {
+    catalogDelay.ticks = 5;
+
+    const { container } = await mountWithSnapshots([{
+      status: "missing_credentials",
+      reasonCode: "credentials_missing",
+    }]);
+
+    expect(container.textContent).toContain("Needs sign-in · Twitch");
+    expect(container.textContent).not.toContain("authNeedsSignIn");
+  });
+
   it("keeps the header, switcher, and hero consistent in a degraded state", async () => {
     const { container } = await mountWithSnapshots([{
       status: "missing_credentials",
