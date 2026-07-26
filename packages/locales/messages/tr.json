@@ -437,10 +437,18 @@
   "tablessDescription": {
     "message": "Sekme açmadan sessizce arka planda toplar. (İşlem takılırsa otomatik sekme açar.)"
   },
-  "tablessFallbackFailureLimitTitle": { "message": "Sekmesiz moddan geri dönüş eşiği" },
-  "tablessFallbackFailureLimitDescription": { "message": "Art arda bu sayıda sekmesiz izleme sinyali başarısız olduğunda bir video sekmesi açar." },
-  "tablessFallbackFailureLimitDisabledReason": { "message": "Bu ayarı değiştirmek için düşük kaynak kullanan sekmesiz modu etkinleştirin." },
-  "failuresSuffix": { "message": "hata" },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "Sekmesiz moddan geri dönüş eşiği"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "Art arda bu sayıda sekmesiz izleme sinyali başarısız olduğunda bir video sekmesi açar."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "Bu ayarı değiştirmek için düşük kaynak kullanan sekmesiz modu etkinleştirin."
+  },
+  "failuresSuffix": {
+    "message": "hata"
+  },
   "autoCloseTabsTitle": {
     "message": "Gereksiz sekmeleri kapat"
   },
@@ -1050,6 +1058,9 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "Envanter sorgusu v1"
   },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Envanter sorgusu v2"
+  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick Temmuz 2026"
   },
@@ -1098,8 +1109,16 @@
   "authPlatformTemporarilyUnavailable": {
     "message": "Platforma ulaşılamıyor. Otomatik tekrar denenecek."
   },
-  "automationPausedTabClosed": { "message": "Duraklatıldı — sekme kapatıldı" },
-  "watchTabClosedPauseDetail": { "message": "Farm sekmesini kapattınız, bu yüzden Lurkloot burada farmı durdurdu." },
-  "resumeFarming": { "message": "Farmı sürdür" },
-  "activityReasonManualTabClose": { "message": "farm sekmesi kapatıldı" }
+  "automationPausedTabClosed": {
+    "message": "Duraklatıldı — sekme kapatıldı"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "Farm sekmesini kapattınız, bu yüzden Lurkloot burada farmı durdurdu."
+  },
+  "resumeFarming": {
+    "message": "Farmı sürdür"
+  },
+  "activityReasonManualTabClose": {
+    "message": "farm sekmesi kapatıldı"
+  }
 }

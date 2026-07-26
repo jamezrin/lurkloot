@@ -1,0 +1,95 @@
+{
+  "data": {
+    "currentUser": {
+      "id": "sanitized-user",
+      "inventory": {
+        "gameEventDrops": [
+          {
+            "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02",
+            "benefit": {
+              "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02"
+            },
+            "lastAwardedAt": "2026-07-25T13:33:09.586Z"
+          },
+          {
+            "id": "8152c851-2605-11f1-b46f-0a58a9feac02",
+            "benefit": {
+              "id": "8152c851-2605-11f1-b46f-0a58a9feac02"
+            },
+            "lastAwardedAt": "2026-07-25T14:33:08.131Z"
+          }
+        ],
+        "earnedDropRewards": {
+          "edges": [
+            {
+              "node": {
+                "id": "8152c851-2605-11f1-b46f-0a58a9feac02",
+                "item": {
+                  "id": "8152c851-2605-11f1-b46f-0a58a9feac02"
+                },
+                "campaign": {
+                  "id": "26935687-0a71-4e48-a978-71f63abd8e1f"
+                },
+                "status": "CLAIMED",
+                "earnedAt": "2026-07-25T14:33:08.131Z"
+              }
+            },
+            {
+              "node": {
+                "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02",
+                "item": {
+                  "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02"
+                },
+                "campaign": {
+                  "id": "26935687-0a71-4e48-a978-71f63abd8e1f"
+                },
+                "status": "CLAIMED",
+                "earnedAt": "2026-07-25T13:33:09.586Z"
+              }
+            },
+            {
+              "node": {
+                "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02",
+                "item": {
+                  "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02"
+                },
+                "campaign": {
+                  "id": "26935687-0a71-4e48-a978-71f63abd8e1f"
+                },
+                "status": "CLAIMED",
+                "earnedAt": "2026-07-25T12:33:11.274Z"
+              }
+            },
+            {
+              "node": {
+                "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02",
+                "item": {
+                  "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02"
+                },
+                "campaign": {
+                  "id": "26935687-0a71-4e48-a978-71f63abd8e1f"
+                },
+                "status": "CLAIMED",
+                "earnedAt": "2026-07-25T11:33:07.886Z"
+              }
+            },
+            {
+              "node": {
+                "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02",
+                "item": {
+                  "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02"
+                },
+                "campaign": {
+                  "id": "26935687-0a71-4e48-a978-71f63abd8e1f"
+                },
+                "status": "CLAIMED",
+                "earnedAt": "2026-07-25T11:03:10.765Z"
+              }
+            }
+          ]
+        },
+        "dropCampaignsInProgress": []
+      }
+    }
+  }
+}

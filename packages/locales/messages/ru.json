@@ -140,18 +140,42 @@
   "watchingPausedHint": {
     "message": "Просмотр приостановлен. Включите переключатель, чтобы продолжить фарм drops."
   },
-  "hideTipsTitle": { "message": "Скрыть советы" },
-  "hideTipsDescription": { "message": "Скрывает полезные советы в главном окне." },
-  "tipCampaignPriority": { "message": "Drops имеют приоритет над списком. Перетаскивайте кампании за ручку, чтобы задать порядок." },
-  "tipMissingCampaigns": { "message": "Нет кампании? Проверьте инвентарь Drops платформы и фильтры в настройках." },
-  "tipCategorySelection": { "message": "Нужны только отдельные игры? Отключите «Фармить все категории» и выберите категории." },
-  "tipIdleWatchlist": { "message": "Список фармит выбранные каналы, когда нет доступных Drops." },
-  "tipTablessMode": { "message": "Режим без вкладок экономит ресурсы и при необходимости открывает вкладку без звука." },
-  "tipCli": { "message": "Не хотите расширение? Lurkloot также доступен как CLI для Docker." },
-  "tipCliAction": { "message": "Открыть руководство CLI" },
-  "tipFeedback": { "message": "Нашли ошибку или есть идея?" },
-  "tipFeedbackAction": { "message": "Создать issue на GitHub" },
-  "tipExcludedCampaigns": { "message": "Исключили кампанию случайно? Восстановите её в настройках Drops." },
+  "hideTipsTitle": {
+    "message": "Скрыть советы"
+  },
+  "hideTipsDescription": {
+    "message": "Скрывает полезные советы в главном окне."
+  },
+  "tipCampaignPriority": {
+    "message": "Drops имеют приоритет над списком. Перетаскивайте кампании за ручку, чтобы задать порядок."
+  },
+  "tipMissingCampaigns": {
+    "message": "Нет кампании? Проверьте инвентарь Drops платформы и фильтры в настройках."
+  },
+  "tipCategorySelection": {
+    "message": "Нужны только отдельные игры? Отключите «Фармить все категории» и выберите категории."
+  },
+  "tipIdleWatchlist": {
+    "message": "Список фармит выбранные каналы, когда нет доступных Drops."
+  },
+  "tipTablessMode": {
+    "message": "Режим без вкладок экономит ресурсы и при необходимости открывает вкладку без звука."
+  },
+  "tipCli": {
+    "message": "Не хотите расширение? Lurkloot также доступен как CLI для Docker."
+  },
+  "tipCliAction": {
+    "message": "Открыть руководство CLI"
+  },
+  "tipFeedback": {
+    "message": "Нашли ошибку или есть идея?"
+  },
+  "tipFeedbackAction": {
+    "message": "Создать issue на GitHub"
+  },
+  "tipExcludedCampaigns": {
+    "message": "Исключили кампанию случайно? Восстановите её в настройках Drops."
+  },
   "noCampaigns": {
     "message": "Кампании пока не обнаружены."
   },
@@ -413,10 +437,18 @@
   "tablessDescription": {
     "message": "Фармит лёгкими сигналами просмотра вместо видеовкладки. Twitch использует heartbeats просмотра; Kick — соединение зрителя. Автоматически возвращается к вкладке, если прогресс останавливается."
   },
-  "tablessFallbackFailureLimitTitle": { "message": "Порог перехода из режима без вкладок" },
-  "tablessFallbackFailureLimitDescription": { "message": "Открывает вкладку с видео после указанного числа последовательных сбоев сигналов просмотра без вкладки." },
-  "tablessFallbackFailureLimitDisabledReason": { "message": "Включите ресурсосберегающий режим без вкладок, чтобы изменить эту настройку." },
-  "failuresSuffix": { "message": "сбоев" },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "Порог перехода из режима без вкладок"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "Открывает вкладку с видео после указанного числа последовательных сбоев сигналов просмотра без вкладки."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "Включите ресурсосберегающий режим без вкладок, чтобы изменить эту настройку."
+  },
+  "failuresSuffix": {
+    "message": "сбоев"
+  },
   "autoCloseTabsTitle": {
     "message": "Автозакрытие вкладок фарма"
   },
@@ -489,13 +521,27 @@
   "secondsSuffix": {
     "message": "с"
   },
-  "deadlineSafetyMarginTitle": { "message": "Запас времени до окончания" },
-  "deadlineSafetyMarginDescription": { "message": "Дополнительные минуты перед фармом награды." },
-  "deadlineSafetyMarginDisabledReason": { "message": "Включите фильтр сроков, чтобы изменить запас времени." },
-  "skipUnfinishableRewardsTitle": { "message": "Пропускать награды, которые нельзя завершить" },
-  "skipUnfinishableRewardsDescription": { "message": "Не фармить награды, если оставшееся время просмотра превышает доступный срок." },
-  "minutesSuffix": { "message": "мин" },
-  "insufficientTimeRemaining": { "message": "Недостаточно оставшегося времени" },
+  "deadlineSafetyMarginTitle": {
+    "message": "Запас времени до окончания"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "Дополнительные минуты перед фармом награды."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "Включите фильтр сроков, чтобы изменить запас времени."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "Пропускать награды, которые нельзя завершить"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "Не фармить награды, если оставшееся время просмотра превышает доступный срок."
+  },
+  "minutesSuffix": {
+    "message": "мин"
+  },
+  "insufficientTimeRemaining": {
+    "message": "Недостаточно оставшегося времени"
+  },
   "automationSectionTitle": {
     "message": "Автоматизация"
   },
@@ -691,10 +737,18 @@
   "siteAttributionShort": {
     "message": "Сайт"
   },
-  "updateNoticeTitle": { "message": "Lurkloot обновлён до версии $1" },
-  "updateNoticeBody": { "message": "Узнайте о новых функциях и изменениях." },
-  "updateNoticeAction": { "message": "Посмотреть изменения" },
-  "updateNoticeDismiss": { "message": "Закрыть уведомление об обновлении" },
+  "updateNoticeTitle": {
+    "message": "Lurkloot обновлён до версии $1"
+  },
+  "updateNoticeBody": {
+    "message": "Узнайте о новых функциях и изменениях."
+  },
+  "updateNoticeAction": {
+    "message": "Посмотреть изменения"
+  },
+  "updateNoticeDismiss": {
+    "message": "Закрыть уведомление об обновлении"
+  },
   "rateNudgeTitle": {
     "message": "Нравится Lurkloot?"
   },
@@ -731,15 +785,33 @@
   "cliExportButton": {
     "message": "Экспортировать учётные данные"
   },
-  "factoryResetTitle": { "message": "Сбросить Lurkloot" },
-  "factoryResetHint": { "message": "Удаляет все настройки Lurkloot, прогресс фарма и историю действий. Вы останетесь в своих аккаунтах Twitch и Kick." },
-  "factoryResetButton": { "message": "Сбросить Lurkloot" },
-  "factoryResetConfirm": { "message": "Фарм будет остановлен, открытые Lurkloot вкладки закрыты, а все данные Lurkloot удалены навсегда. Вход в Twitch и Kick сохранится." },
-  "factoryResetCancel": { "message": "Отмена" },
-  "factoryResetConfirmButton": { "message": "Сбросить всё" },
-  "factoryResetProgress": { "message": "Сброс…" },
-  "factoryResetFailed": { "message": "Не удалось полностью сбросить Lurkloot. Попробуйте ещё раз." },
-  "factoryResetRetry": { "message": "Повторить сброс" },
+  "factoryResetTitle": {
+    "message": "Сбросить Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "Удаляет все настройки Lurkloot, прогресс фарма и историю действий. Вы останетесь в своих аккаунтах Twitch и Kick."
+  },
+  "factoryResetButton": {
+    "message": "Сбросить Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "Фарм будет остановлен, открытые Lurkloot вкладки закрыты, а все данные Lurkloot удалены навсегда. Вход в Twitch и Kick сохранится."
+  },
+  "factoryResetCancel": {
+    "message": "Отмена"
+  },
+  "factoryResetConfirmButton": {
+    "message": "Сбросить всё"
+  },
+  "factoryResetProgress": {
+    "message": "Сброс…"
+  },
+  "factoryResetFailed": {
+    "message": "Не удалось полностью сбросить Lurkloot. Попробуйте ещё раз."
+  },
+  "factoryResetRetry": {
+    "message": "Повторить сброс"
+  },
   "diagnosticLoggingTitle": {
     "message": "Включить диагностические журналы"
   },
@@ -758,23 +830,57 @@
   "activityChallengeClaimed": {
     "message": "Получена карта $1 за испытание $2"
   },
-  "activityAuthHealthChanged": { "message": "Состояние аутентификации $1 изменилось с $2 на $3." },
-  "activityCriticalFailureDetected": { "message": "$1 не работает: $2." },
-  "activityCriticalFailureCleared": { "message": "Критический сбой $1 сброшен; повтор попытки." },
-  "criticalFailureReasonNoProgress": { "message": "нет прогресса, несмотря на повторяющиеся ошибки" },
-  "criticalFailureReasonPageContextChurn": { "message": "вкладка постоянно открывалась заново" },
-  "criticalFailureTitle": { "message": "Lurkloot перестал работать" },
-  "criticalFailureBodyNoProgress": { "message": "Повторяющиеся ошибки и отсутствие прогресса дропов в течение долгого времени. Вероятно, на этой платформе что-то изменилось, и расширение больше не может получать дропы." },
-  "criticalFailureBodyTabChurn": { "message": "Вкладка постоянно открывалась заново. Повторное открытие остановлено, чтобы вы могли нормально пользоваться браузером; фарм на этой платформе приостановлен." },
-  "criticalFailureCopyAndReport": { "message": "Скопировать логи и открыть issue" },
-  "criticalFailureDismiss": { "message": "Закрыть и попробовать снова" },
-  "criticalFailureClipboardFallback": { "message": "Не удалось скопировать автоматически. Выделите и скопируйте этот текст, затем откройте issue." },
-  "activityPageContextOpened": { "message": "Фоновый контекст на $1 открыт, потому что $2." },
-  "activityPageContextClosed": { "message": "Фоновый контекст на $1 закрыт, потому что $2." },
-  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick отклонил запрос без вкладки" },
-  "activityPageContextReasonManagedContextUnusable": { "message": "предыдущий фоновый контекст был непригоден" },
-  "activityPageContextCloseReasonBackgroundRecovered": { "message": "запросы без вкладки снова работают" },
-  "activityPageContextCloseReasonUserTabAvailable": { "message": "стала доступна существующая вкладка Kick" },
+  "activityAuthHealthChanged": {
+    "message": "Состояние аутентификации $1 изменилось с $2 на $3."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 не работает: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "Критический сбой $1 сброшен; повтор попытки."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "нет прогресса, несмотря на повторяющиеся ошибки"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "вкладка постоянно открывалась заново"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot перестал работать"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "Повторяющиеся ошибки и отсутствие прогресса дропов в течение долгого времени. Вероятно, на этой платформе что-то изменилось, и расширение больше не может получать дропы."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "Вкладка постоянно открывалась заново. Повторное открытие остановлено, чтобы вы могли нормально пользоваться браузером; фарм на этой платформе приостановлен."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "Скопировать логи и открыть issue"
+  },
+  "criticalFailureDismiss": {
+    "message": "Закрыть и попробовать снова"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "Не удалось скопировать автоматически. Выделите и скопируйте этот текст, затем откройте issue."
+  },
+  "activityPageContextOpened": {
+    "message": "Фоновый контекст на $1 открыт, потому что $2."
+  },
+  "activityPageContextClosed": {
+    "message": "Фоновый контекст на $1 закрыт, потому что $2."
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick отклонил запрос без вкладки"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "предыдущий фоновый контекст был непригоден"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "запросы без вкладки снова работают"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "стала доступна существующая вкладка Kick"
+  },
   "activityInterruption": {
     "message": "Сбор прерван: $1."
   },
@@ -787,7 +893,9 @@
   "activityReasonPlatformDisabled": {
     "message": "платформа отключена"
   },
-  "activityReasonAuthenticationUnhealthy": { "message": "аутентификация недоступна" },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "аутентификация недоступна"
+  },
   "activityReasonPlatformBackoff": {
     "message": "платформа временно ожидает"
   },
@@ -950,6 +1058,9 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "Запрос инвентаря v1"
   },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Запрос инвентаря v2"
+  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick, июль 2026"
   },
@@ -959,21 +1070,55 @@
   "compatibilityOptionKickClaimV2": {
     "message": "Обработка ссылок v2"
   },
-  "automationChecking": { "message": "Проверка" },
-  "automationNeedsSignIn": { "message": "Требуется вход" },
-  "automationBlocked": { "message": "Заблокировано" },
-  "automationUnavailable": { "message": "Недоступно" },
-  "authCheckingDetail": { "message": "Проверяем активный сеанс…" },
-  "authSignInMissing": { "message": "Войдите, чтобы продолжить получать награды." },
-  "authSignInRejected": { "message": "Сеанс больше недействителен. Войдите снова, чтобы продолжить." },
-  "signInToTwitch": { "message": "Войти в Twitch" },
-  "signInToKick": { "message": "Войти в Kick" },
-  "authBrowserProfileBlocked": { "message": "Kick отклонил этот профиль браузера. Одного входа может быть недостаточно для решения проблемы." },
-  "authCredentialCheckUnavailable": { "message": "Не удалось проверить сеанс браузера. Lurkloot повторит попытку автоматически." },
-  "authNetworkTemporarilyUnavailable": { "message": "Сеть временно недоступна. Lurkloot повторит попытку автоматически." },
-  "authPlatformTemporarilyUnavailable": { "message": "Платформа временно недоступна. Lurkloot повторит попытку автоматически." },
-  "automationPausedTabClosed": { "message": "Пауза — вкладка закрыта" },
-  "watchTabClosedPauseDetail": { "message": "Вы закрыли вкладку фарма, поэтому Lurkloot остановил фарм здесь." },
-  "resumeFarming": { "message": "Возобновить фарм" },
-  "activityReasonManualTabClose": { "message": "вкладка фарма закрыта" }
+  "automationChecking": {
+    "message": "Проверка"
+  },
+  "automationNeedsSignIn": {
+    "message": "Требуется вход"
+  },
+  "automationBlocked": {
+    "message": "Заблокировано"
+  },
+  "automationUnavailable": {
+    "message": "Недоступно"
+  },
+  "authCheckingDetail": {
+    "message": "Проверяем активный сеанс…"
+  },
+  "authSignInMissing": {
+    "message": "Войдите, чтобы продолжить получать награды."
+  },
+  "authSignInRejected": {
+    "message": "Сеанс больше недействителен. Войдите снова, чтобы продолжить."
+  },
+  "signInToTwitch": {
+    "message": "Войти в Twitch"
+  },
+  "signInToKick": {
+    "message": "Войти в Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick отклонил этот профиль браузера. Одного входа может быть недостаточно для решения проблемы."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "Не удалось проверить сеанс браузера. Lurkloot повторит попытку автоматически."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "Сеть временно недоступна. Lurkloot повторит попытку автоматически."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "Платформа временно недоступна. Lurkloot повторит попытку автоматически."
+  },
+  "automationPausedTabClosed": {
+    "message": "Пауза — вкладка закрыта"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "Вы закрыли вкладку фарма, поэтому Lurkloot остановил фарм здесь."
+  },
+  "resumeFarming": {
+    "message": "Возобновить фарм"
+  },
+  "activityReasonManualTabClose": {
+    "message": "вкладка фарма закрыта"
+  }
 }

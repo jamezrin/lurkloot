@@ -40,6 +40,7 @@ const labels: Record<string, string> = {
   compatibilityOptionTwitchHeartbeatSpadeV1: "Spade heartbeat v1",
   compatibilityOptionTwitchHeartbeatTrowelV1: "Trowel heartbeat v1",
   compatibilityOptionTwitchInventoryV1: "Inventory query v1",
+  compatibilityOptionTwitchInventoryV2: "Inventory query v2",
   compatibilityOptionKickProfile202607: "Kick July 2026",
   compatibilityOptionKickClaimV1: "Claim handling v1",
   compatibilityOptionKickClaimV2: "Claim handling v2",
@@ -116,7 +117,7 @@ describe("extension compatibility settings", () => {
     expect(container.textContent).not.toContain("Claim handling");
     // The resolved id sits on the row itself rather than in a separate summary
     // block, so "Automatic" always states what it actually picked.
-    for (const id of ["twitch-2026-07", "twitch-heartbeat-spade-v1", "twitch-inventory-v1"]) {
+    for (const id of ["twitch-2026-07", "twitch-heartbeat-spade-v1", "twitch-inventory-v2"]) {
       expect(container.textContent).toContain(id);
     }
     // Full capability names stay as accessible names for the controls.
@@ -168,7 +169,7 @@ describe("extension compatibility settings", () => {
     const { container, onChange } = mount(undefined, "twitch");
     expect(container.querySelectorAll('input[type="text"]')).toHaveLength(0);
 
-    expect([...select(container, "Twitch inventory query").options].map((option) => option.value)).toEqual(["auto", "twitch-inventory-v1"]);
+    expect([...select(container, "Twitch inventory query").options].map((option) => option.value)).toEqual(["auto", "twitch-inventory-v1", "twitch-inventory-v2"]);
 
     const heartbeat = select(container, "Twitch heartbeat transport");
     expect(heartbeat.textContent).not.toContain("Trowel");
