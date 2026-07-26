@@ -4,6 +4,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Popup, createDemoPopupAdapter, screenshotVariant, type PopupAdapter } from "@lurkloot/popup-ui";
+import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
+
+vi.mock("@lurkloot/locales", async (importOriginal) =>
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
 
 const labels: Record<string, string> = {
   openSettings: "Open settings",
@@ -20,6 +24,7 @@ const labels: Record<string, string> = {
 let root: Root | undefined;
 
 afterEach(() => {
+  resetCatalogTracking();
   if (root) act(() => root?.unmount());
   root = undefined;
   vi.unstubAllGlobals();
@@ -46,8 +51,8 @@ async function mount() {
   await act(async () => {
     root = createRoot(container);
     root.render(<Popup adapter={adapter} initialState={{ preview: true, variant: screenshotVariant("settings") }} />);
-    await Promise.resolve();
   });
+  await waitForCatalog();
   return { confirm, container, exportCredentials };
 }
 
