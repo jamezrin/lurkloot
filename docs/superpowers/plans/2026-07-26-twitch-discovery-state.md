@@ -31,6 +31,10 @@
 - `packages/cli/tests/transport.test.ts`: prove the HTTP transport shares discovery state across adapter constructions.
 - `packages/cli/tests/impersonate.test.ts`: prove the impersonate transport shares discovery state across adapter constructions.
 
+## As Built
+
+Final review hardened the planned state boundary in two ways. `TwitchDiscoveryState` tracks the stable authenticated Twitch user ID and clears both retained dashboard IDs and campaign-detail payloads whenever that identity changes. Successful authoritative responses also invalidate obsolete retained data: an empty dashboard clears dashboard IDs, and an explicit null campaign-detail response clears that campaign's cached details. Regression coverage includes account switching, empty-dashboard fallback failures, null detail responses, expired detail pruning, and isolation between separate CLI transport handles.
+
 ### Task 1: Extract and inject Twitch discovery state
 
 **Files:**

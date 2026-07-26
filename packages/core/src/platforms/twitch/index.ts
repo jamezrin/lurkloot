@@ -21,6 +21,7 @@ const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
+const DISCOVERY_DETAIL_PRUNE_LIMIT = 32;
 // How long a discovery result stays usable when Twitch stops answering. Long
 // enough to ride out an outage of many ticks, short enough that a campaign
 // Twitch quietly stopped serving does not linger for a whole session.
@@ -288,6 +289,20 @@ interface CachedDashboardCampaigns {
   expiresAt: number;
 }
 
+function reconcileInventoryCampaignStatuses(
+  campaigns: DropCampaign[],
+  activeDashboardIds: ReadonlySet<string>,
+  dashboardResponded: boolean,
+): DropCampaign[] {
+  return campaigns.map((campaign) =>
+    dashboardResponded
+    && !activeDashboardIds.has(campaign.id)
+    && !campaignHasClaimableReward(campaign)
+      ? withCampaignStatus(campaign, "expired")
+      : campaign,
+  );
+}
+
 export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
   private authenticatedUserId?: string;
@@ -318,10 +333,21 @@ export class TwitchDiscoveryState {
   }
 
   rememberCampaignDetails(dropID: string, campaign: unknown): void {
+    const now = Date.now();
+    let inspected = 0;
+    for (const [cachedDropID, cached] of this.campaignDetailsByDropId) {
+      if (inspected >= DISCOVERY_DETAIL_PRUNE_LIMIT) break;
+      inspected += 1;
+      if (cached.expiresAt <= now) this.campaignDetailsByDropId.delete(cachedDropID);
+    }
     this.campaignDetailsByDropId.set(dropID, {
       campaign,
-      expiresAt: Date.now() + DISCOVERY_RETENTION_TTL_MS,
+      expiresAt: now + DISCOVERY_RETENTION_TTL_MS,
     });
+  }
+
+  forgetCampaignDetails(dropID: string): void {
+    this.campaignDetailsByDropId.delete(dropID);
   }
 
   retainedCampaignDetails(dropID: string): unknown {
@@ -529,12 +555,23 @@ export class TwitchAdapter implements PlatformAdapter {
     let dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
 
     if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
-      inventory = await this.fetchInventory({ fetchRewardCampaigns: true });
-      const fallbackDashboardResult = await this.fetchDashboard({ fetchRewardCampaigns: true });
-      inventoryCampaigns = this.inventoryCapability.parse(inventory);
-      if (fallbackDashboardResult.ok || !dashboardResult.ok) {
-        dashboardResult = fallbackDashboardResult;
-        dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
+      try {
+        inventory = await this.fetchInventory({ fetchRewardCampaigns: true });
+        const fallbackDashboardResult = await this.fetchDashboard({ fetchRewardCampaigns: true });
+        inventoryCampaigns = this.inventoryCapability.parse(inventory);
+        if (fallbackDashboardResult.ok || !dashboardResult.ok) {
+          dashboardResult = fallbackDashboardResult;
+          dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
+        }
+      } catch (error) {
+        if (authHealthFromError(error)) throw error;
+        const message = error instanceof Error ? error.message : String(error);
+        diagnostic(
+          this.emit,
+          "warn",
+          `Twitch reward-campaign inventory request failed; preserving the initial dashboard result: ${message}`,
+          "twitch",
+        );
       }
     }
     const dashboard = dashboardResult.response;
@@ -572,7 +609,11 @@ export class TwitchAdapter implements PlatformAdapter {
     const dashboardResponded = dashboardResult.ok && dashboardCampaigns.length > 0;
 
     if (discoverableCampaignIds.length === 0) {
-      return inventoryCampaigns;
+      return reconcileInventoryCampaignStatuses(
+        inventoryCampaigns,
+        new Set(discoverableCampaignIds),
+        dashboardResponded,
+      );
     }
 
     const details = await Promise.allSettled(
@@ -593,8 +634,24 @@ export class TwitchAdapter implements PlatformAdapter {
     details.forEach((result, index) => {
       const dropID = discoverableCampaignIds[index];
       if (result.status === "fulfilled") {
-        const campaign = result.value.data?.dropCampaign ?? result.value.data?.user?.dropCampaign;
-        if (!campaign) return;
+        const data = result.value.data;
+        const campaign = data?.dropCampaign ?? data?.user?.dropCampaign;
+        if (!campaign) {
+          const campaignWasAuthoritativelyMissing = Boolean(
+            data
+            && (
+              Object.prototype.hasOwnProperty.call(data, "dropCampaign")
+              || (
+                data.user
+                && Object.prototype.hasOwnProperty.call(data.user, "dropCampaign")
+              )
+            ),
+          );
+          if (authenticatedUserId && campaignWasAuthoritativelyMissing) {
+            this.discoveryState.forgetCampaignDetails(dropID);
+          }
+          return;
+        }
         if (authenticatedUserId) this.discoveryState.rememberCampaignDetails(dropID, campaign);
         detailedCampaigns.push(campaign);
         return;
@@ -624,15 +681,11 @@ export class TwitchAdapter implements PlatformAdapter {
     // inventory-only campaign as expired (unless it still has a claimable reward
     // we should keep surfacing so the user can claim it).
     const activeDashboardIds = new Set(discoverableCampaignIds);
-    const inventoryOnly = inventoryCampaigns
-      .filter((campaign) => !detailedIds.has(campaign.id))
-      .map((campaign) =>
-        dashboardResponded
-        && !activeDashboardIds.has(campaign.id)
-        && !campaignHasClaimableReward(campaign)
-          ? withCampaignStatus(campaign, "expired")
-          : campaign,
-      );
+    const inventoryOnly = reconcileInventoryCampaignStatuses(
+      inventoryCampaigns.filter((campaign) => !detailedIds.has(campaign.id)),
+      activeDashboardIds,
+      dashboardResponded,
+    );
     return [...mergedDetails, ...inventoryOnly];
   }
 

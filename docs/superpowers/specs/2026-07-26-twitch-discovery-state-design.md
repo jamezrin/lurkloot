@@ -26,6 +26,8 @@ Add an exported `TwitchDiscoveryState` class to the Twitch platform module. It o
 
 The state exposes focused methods to remember and retrieve those values. Retrieval removes expired entries. Remembering a successful empty dashboard stores an empty ID list, so a later failure cannot revive obsolete campaigns.
 
+The state also tracks the stable authenticated Twitch user ID. Every discovery establishes that identity before reading or writing retained data. When the user ID changes, the state clears both dashboard IDs and campaign-detail responses so one account can never inherit another account's discovery or progress fields.
+
 `TwitchAdapterOptions` gains an optional `discoveryState`. A `TwitchAdapter` uses the supplied state or creates a private state when none is supplied. The private default preserves existing standalone callers and tests without introducing global state.
 
 Each host creates one shared state at its existing process-lifetime boundary:
@@ -53,10 +55,11 @@ A module singleton would survive reconstruction with minimal wiring, but would l
 
 1. A host creates one `TwitchDiscoveryState`.
 2. Each controller operation constructs a fresh `TwitchAdapter` with current dependencies and the shared state.
-3. Successful Twitch dashboard and detail responses update the shared state with a 30-minute expiration.
-4. A later adapter reads the shared state only when the corresponding Twitch request fails.
-5. Successful responses, including an empty dashboard, remain authoritative and replace retained data.
-6. State disappears naturally when the extension background process or CLI transport ends.
+3. Each discovery binds the state to the authenticated Twitch user ID, clearing both caches if the account changed.
+4. Successful Twitch dashboard and detail responses update the shared state with a 30-minute expiration.
+5. A later adapter reads the shared state only when the corresponding Twitch request fails.
+6. Successful responses, including an empty dashboard or a missing campaign detail, remain authoritative and invalidate obsolete retained data.
+7. State disappears naturally when the extension background process or CLI transport ends.
 
 ## Testing
 
@@ -66,6 +69,7 @@ Adapter regression tests will share one `TwitchDiscoveryState` across two separa
 - The second adapter encounters a dashboard failure and still returns a previously discovered campaign not present in inventory.
 - The second adapter encounters a campaign-detail failure and still returns the retained campaign details.
 - A separate reconstruction test receives a successful empty dashboard and confirms obsolete dashboard campaigns are not retained.
+- Account-switch tests confirm dashboard IDs and raw campaign details from the previous authenticated user are cleared.
 
 Host tests or source-boundary assertions will verify that the extension background and both CLI transports create one state outside their adapter factories and inject it into reconstructed Twitch adapters.
 

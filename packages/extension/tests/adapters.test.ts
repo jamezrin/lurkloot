@@ -1343,6 +1343,61 @@ describe("TwitchAdapter", () => {
     expect(campaigns).toEqual([]);
   });
 
+  it("keeps a successful empty dashboard authoritative when the reward-campaign inventory fallback fails", async () => {
+    let refresh = 1;
+    let fallbackInventoryFails = false;
+    let dashboardFails = false;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      const variables = requestBody(init).variables as { fetchRewardCampaigns?: boolean };
+      if (op === "Inventory") {
+        if (fallbackInventoryFails && variables.fetchRewardCampaigns) {
+          throw new Error("reward-campaign inventory unavailable");
+        }
+        return twitchInventory([]);
+      }
+      if (op === "ViewerDropsDashboard") {
+        if (dashboardFails) throw new Error("dashboard unavailable");
+        return twitchDashboard(refresh === 1 ? ["retained"] : []);
+      }
+      if (op === "DropCampaignDetails") {
+        return twitchCampaignDetails(String((requestBody(init).variables as Record<string, unknown>).dropID));
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+    const discoveryState = new TwitchDiscoveryState();
+
+    expect((await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).discoverCampaigns())
+      .map((campaign) => campaign.id)).toEqual(["retained"]);
+    refresh = 2;
+    fallbackInventoryFails = true;
+
+    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).discoverCampaigns())
+      .resolves.toEqual([]);
+
+    fallbackInventoryFails = false;
+    dashboardFails = true;
+    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).discoverCampaigns())
+      .resolves.toEqual([]);
+  });
+
+  it("still propagates authentication failures from the reward-campaign inventory fallback", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      const variables = requestBody(init).variables as { fetchRewardCampaigns?: boolean };
+      if (op === "Inventory") {
+        if (variables.fetchRewardCampaigns) {
+          throw new SafeFetchError({ kind: "authentication_rejected", status: 401, reason: "rejected" });
+        }
+        return twitchInventory([]);
+      }
+      if (op === "ViewerDropsDashboard") return twitchDashboard([]);
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await expect(new TwitchAdapter(fetcher).discoverCampaigns()).rejects.toThrow(SafeFetchError);
+  });
+
   it("does not reuse discovery retained for another authenticated Twitch user", async () => {
     let userId = "user-a";
     let dashboardFails = false;
@@ -1394,6 +1449,75 @@ describe("TwitchAdapter", () => {
     const campaigns = await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).discoverCampaigns();
 
     expect(campaigns).toEqual([]);
+  });
+
+  it("marks inventory campaigns expired when a successful dashboard contains only ended campaigns", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") return twitchInventory(["ended"]);
+      if (op === "ViewerDropsDashboard") {
+        return {
+          data: {
+            currentUser: {
+              id: "user-id",
+              login: "viewer",
+              dropCampaigns: [{ id: "ended", status: "EXPIRED" }],
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    const campaigns = await new TwitchAdapter(fetcher).discoverCampaigns();
+
+    expect(campaigns).toHaveLength(1);
+    expect(campaigns[0]).toMatchObject({ id: "ended", status: "expired", eligibility: "expired" });
+  });
+
+  it("does not reuse retained campaign details after Twitch authoritatively returns no campaign", async () => {
+    let detailResponse: "campaign" | "missing" | "failure" = "campaign";
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") return twitchInventory([]);
+      if (op === "ViewerDropsDashboard") return twitchDashboard(["campaign"]);
+      if (op === "DropCampaignDetails") {
+        if (detailResponse === "failure") throw new Error("details unavailable");
+        if (detailResponse === "missing") return { data: { dropCampaign: null } };
+        return twitchCampaignDetails("campaign");
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+    const discoveryState = new TwitchDiscoveryState();
+
+    expect((await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).discoverCampaigns())
+      .map((campaign) => campaign.id)).toEqual(["campaign"]);
+    detailResponse = "missing";
+    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).discoverCampaigns())
+      .resolves.toEqual([]);
+    detailResponse = "failure";
+
+    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).discoverCampaigns())
+      .resolves.toEqual([]);
+  });
+
+  it("prunes expired retained campaign details during a later write", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime("2026-07-26T12:00:00.000Z");
+      const discoveryState = new TwitchDiscoveryState();
+      const details = (discoveryState as unknown as {
+        campaignDetailsByDropId: Map<string, unknown>;
+      }).campaignDetailsByDropId;
+
+      discoveryState.rememberCampaignDetails("expired", { id: "expired" });
+      vi.setSystemTime("2026-07-26T12:31:00.000Z");
+      discoveryState.rememberCampaignDetails("fresh", { id: "fresh" });
+
+      expect([...details.keys()]).toEqual(["fresh"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("marks in-progress inventory campaigns the dashboard no longer lists active as expired", async () => {
