@@ -99,7 +99,10 @@ export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]):
     // Twitch includes subscription, purchase, and other action-gated rewards in
     // timeBasedDrops. Retain them internally so an obtained reward can still be
     // claimed, but mark them as non-watch rewards so they never drive farming.
-    const sharedBenefitIds = benefitIdsSharedAcrossRewards(campaign.timeBasedDrops ?? []);
+    const sharedBenefitIds = benefitIdsSharedAcrossRewards(
+      (campaign.timeBasedDrops ?? []).map((drop) =>
+        (drop.benefitEdges ?? []).map((edge) => edge.benefit?.id)),
+    );
     const parsedRewards = (campaign.timeBasedDrops ?? [])
       .map((drop) => parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops, sharedBenefitIds));
     const rewards = parsedRewards.map((reward) => ({
@@ -184,7 +187,7 @@ function parseTwitchReward(
   // claim, so those tiers defer to their own self edge.
   const benefitIdsForOwnership = benefits
     .map((benefit) => benefit.id)
-    .filter((id) => id == null || !sharedBenefitIds.has(id));
+    .filter((id) => id != null && !sharedBenefitIds.has(id));
   const ownsBenefit = isWatchBased && ownsRewardBenefit(benefitIdsForOwnership, gameEventDrops);
   const isClaimed = reward.self?.isClaimed === true || ownsBenefit;
   // Twitch's real dropInstanceID has the form `userID#campaignID#dropID` (see
@@ -251,7 +254,9 @@ export function mergeTwitchCampaignProgress(
   const gameEventDrops = Array.isArray(inventory) ? [] : inventory.data?.currentUser?.inventory?.gameEventDrops ?? [];
   return campaigns.map((campaign) => {
     const progress = progressCampaigns.find((item) => item.id === campaign.id);
-    const sharedBenefitIds = sharedBenefitIdsOfRewards(campaign.rewards);
+    const sharedBenefitIds = benefitIdsSharedAcrossRewards(
+      campaign.rewards.map((reward) => reward.benefitIds ?? []),
+    );
     const rewards = campaign.rewards.map((reward) => {
       const progressReward = progress?.rewards.find((item) => item.id === reward.id);
       const merged = progressReward ? { ...reward, ...progressReward } : reward;
@@ -297,41 +302,28 @@ function addHours(value: string, hours: number): string | undefined {
 // `<gameId>_CUSTOM_ID_BackpackCharmCannedTomatoes`); there is no `benefit`
 // sub-object. We match on `id` and keep `benefit.id` only as a defensive
 // fallback for the inline query shape.
-// Benefit ids that more than one reward of the same campaign awards. Ownership of
-// such a benefit cannot identify which of those rewards is still unclaimed.
+function ownsRewardBenefit(benefitIds: (string | undefined)[], gameEventDrops: TwitchGameEventDrop[]): boolean {
+  return benefitIds.some((id) =>
+    id != null && gameEventDrops.some((drop) => drop.id === id || drop.benefit?.id === id),
+  );
+}
+
+// Benefit ids that more than one reward of the same campaign awards, given one
+// entry of benefit ids per reward. Ownership of such a benefit cannot identify
+// which of those rewards is still unclaimed.
 function benefitIdsSharedAcrossRewards(
-  rewards: ReadonlyArray<{ benefitEdges?: TwitchReward["benefitEdges"] }>,
+  rewardBenefitIds: ReadonlyArray<ReadonlyArray<string | undefined>>,
 ): ReadonlySet<string> {
   const seen = new Set<string>();
   const shared = new Set<string>();
-  for (const reward of rewards) {
-    const ids = new Set(
-      (reward.benefitEdges ?? [])
-        .map((edge) => edge.benefit?.id)
-        .filter((id): id is string => Boolean(id)),
-    );
-    for (const id of ids) {
+  for (const benefitIds of rewardBenefitIds) {
+    // Deduplicate within a reward: the same id twice on one reward is not shared.
+    for (const id of new Set(benefitIds.filter((id): id is string => Boolean(id)))) {
       if (seen.has(id)) shared.add(id);
       else seen.add(id);
     }
   }
   return shared;
-}
-
-// Same rule as benefitIdsSharedAcrossRewards, for rewards already parsed into the
-// shared DropReward model.
-function sharedBenefitIdsOfRewards(rewards: ReadonlyArray<DropReward>): ReadonlySet<string> {
-  return benefitIdsSharedAcrossRewards(
-    rewards.map((reward) => ({
-      benefitEdges: (reward.benefitIds ?? []).map((id) => ({ benefit: { id } })),
-    })),
-  );
-}
-
-function ownsRewardBenefit(benefitIds: (string | undefined)[], gameEventDrops: TwitchGameEventDrop[]): boolean {
-  return benefitIds.some((id) =>
-    id != null && gameEventDrops.some((drop) => drop.id === id || drop.benefit?.id === id),
-  );
 }
 
 function eligibility(
