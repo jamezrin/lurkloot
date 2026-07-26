@@ -385,6 +385,7 @@ describe("background controller", () => {
         level: "info",
         platform: "twitch",
         data: { from: "healthy", to: "checking" },
+        emittedAt: expect.any(String),
       },
       {
         category: "diagnostic",
@@ -394,6 +395,7 @@ describe("background controller", () => {
         mirroredActivity: true,
         message: "twitch authentication health changed from healthy to checking",
         data: { from: "healthy", to: "checking" },
+        emittedAt: expect.any(String),
       },
     ]);
 
@@ -426,6 +428,7 @@ describe("background controller", () => {
         level: "error",
         platform: "kick",
         data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
+        emittedAt: expect.any(String),
       },
       {
         category: "diagnostic",
@@ -435,6 +438,7 @@ describe("background controller", () => {
         mirroredActivity: true,
         message: "kick authentication health changed from checking to blocked: reason=security_policy_blocked",
         data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
+        emittedAt: expect.any(String),
       },
     ]);
   });

@@ -144,13 +144,21 @@ class IndexedDbActivityRepository implements ActivityRepository {
 
   async append(events: readonly EngineEvent[]): Promise<void> {
     if (events.length === 0) return;
-    const at = new Date().toISOString();
-    const stored: StoredEngineEvent[] = events.map((event, index) => ({
-      ...event,
-      id: `${at}-${String(index).padStart(6, "0")}-${crypto.randomUUID()}`,
-      at,
-      ...(event.data ? { data: { ...event.data } } : {}),
-    })) as StoredEngineEvent[];
+    const writtenAt = new Date().toISOString();
+    const stored: StoredEngineEvent[] = events.map((event, index) => {
+      // Prefer when the event was emitted; the batch write time is only a
+      // fallback for events that reach storage without one.
+      const { emittedAt, ...rest } = event;
+      const at = emittedAt ?? writtenAt;
+      return {
+        ...rest,
+        // The index keeps events that share a timestamp sorting by emission
+        // order, since load() falls back to comparing ids when `at` ties.
+        id: `${at}-${String(index).padStart(6, "0")}-${crypto.randomUUID()}`,
+        at,
+        ...(event.data ? { data: { ...event.data } } : {}),
+      };
+    }) as StoredEngineEvent[];
     await this.putAll(stored);
     await this.pruneIfDue();
   }

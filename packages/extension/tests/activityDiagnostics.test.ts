@@ -168,11 +168,33 @@ describe("activity diagnostics", () => {
     emit(EVENTS.reward_claimed);
     emit({ category: "diagnostic", level: "debug", message: "Kick fetch kick.com 200" });
 
-    expect(events).toEqual([
+    expect(events.map(({ emittedAt, ...event }) => event)).toEqual([
       EVENTS.reward_claimed,
       activityDiagnostic(EVENTS.reward_claimed),
       { category: "diagnostic", level: "debug", message: "Kick fetch kick.com 200" },
     ]);
+  });
+
+  it("stamps every emitted event with the time it was emitted", () => {
+    const events: EngineEvent[] = [];
+    const emit = withActivityDiagnostics((event) => events.push(event));
+
+    emit(EVENTS.reward_claimed);
+
+    // An activity event and its mirror describe one moment, so they share it.
+    const [activity, mirror] = events;
+    expect(activity.emittedAt).toMatch(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/);
+    expect(mirror.emittedAt).toBe(activity.emittedAt);
+  });
+
+  it("keeps an emittedAt the caller already set", () => {
+    const events: EngineEvent[] = [];
+    const emit = withActivityDiagnostics((event) => events.push(event));
+
+    emit({ ...EVENTS.reward_claimed, emittedAt: "2020-01-01T00:00:00.000Z" });
+
+    expect(events.map((event) => event.emittedAt))
+      .toEqual(["2020-01-01T00:00:00.000Z", "2020-01-01T00:00:00.000Z"]);
   });
 
   it("emits the mirror right after its activity event so the log stays ordered", () => {

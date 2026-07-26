@@ -75,7 +75,10 @@ export type DiagnosticEvent = {
 };
 
 export type EventCategory = EngineEvent["category"];
-export type EngineEvent = ActivityEvent | DiagnosticEvent;
+// emittedAt is stamped at the emit choke point (withActivityDiagnostics) because
+// a host persists a tick's events in one batch long after some of them happened.
+// Hosts that log immediately can ignore it; storage falls back to the write time.
+export type EngineEvent = (ActivityEvent | DiagnosticEvent) & { emittedAt?: string };
 export type EventEmitter = (event: EngineEvent) => void;
 export type EventReporter = (events: readonly EngineEvent[]) => void | Promise<void>;
 export type StoredEngineEvent = EngineEvent & { id: string; at: string };
