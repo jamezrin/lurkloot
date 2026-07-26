@@ -2594,3 +2594,350 @@ describe("TwitchAdapter client identity", () => {
     expect(headers["User-Agent"]).toBeUndefined();
   });
 });
+
+// Twitch can reject an authenticated request with "failed integrity check" even
+// while the session is healthy and the captured token has not locally expired.
+// Recovery is a single forced refresh plus a single identical retry — never a
+// loop, never for anonymous requests, and never for other failure kinds.
+describe("TwitchAdapter integrity recovery", () => {
+  const INTEGRITY_REJECTION = { error: "failed integrity check" };
+
+  // Models the real callback contract: only a forced request can produce a token
+  // different from the one Twitch just rejected.
+  function integrityCallback() {
+    return vi.fn(async (request?: { forceRefresh?: boolean }) => request?.forceRefresh === true);
+  }
+
+  // Rejects the named operation on its first call only, then serves `payload`.
+  function rejectFirst(target: string, payload: (init?: RequestInit) => unknown) {
+    const attempts = new Map<string, number>();
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      attempts.set(op, (attempts.get(op) ?? 0) + 1);
+      if (op === target && attempts.get(op) === 1) return INTEGRITY_REJECTION;
+      return payload(init);
+    });
+    return { fetcher, attempts };
+  }
+
+  describe("safe authenticated reads", () => {
+    const dropID = (init?: RequestInit) =>
+      String((requestBody(init).variables as Record<string, unknown>).dropID);
+
+    const discoveryPayload = (init?: RequestInit) => {
+      const op = operation(init);
+      if (op === "Inventory") return twitchInventory([]);
+      if (op === "ViewerDropsDashboard") return twitchDashboard(["campaign"]);
+      if (op === "DropCampaignDetails") return twitchCampaignDetails(dropID(init));
+      throw new Error(`Unexpected op ${op}`);
+    };
+
+    it.each(["ViewerDropsDashboard", "Inventory", "DropCampaignDetails"])(
+      "refreshes integrity once and retries %s once during discovery",
+      async (target) => {
+        const ensureIntegrity = integrityCallback();
+        const { fetcher, attempts } = rejectFirst(target, discoveryPayload);
+
+        const campaigns = await new TwitchAdapter(fetcher, ensureIntegrity).discoverCampaigns();
+
+        expect(campaigns.map((campaign) => campaign.id)).toEqual(["campaign"]);
+        expect(ensureIntegrity).toHaveBeenCalledOnce();
+        expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+        expect(attempts.get(target)).toBe(2);
+      },
+    );
+
+    it("recovers the dashboard without warning about retained campaigns", async () => {
+      const events: EngineEvent[] = [];
+      const ensureIntegrity = integrityCallback();
+      const { fetcher } = rejectFirst("ViewerDropsDashboard", discoveryPayload);
+
+      const campaigns = await new TwitchAdapter(
+        fetcher,
+        ensureIntegrity,
+        undefined,
+        {},
+        (event) => events.push(event),
+      ).discoverCampaigns();
+
+      expect(campaigns.map((campaign) => campaign.id)).toEqual(["campaign"]);
+      expect(events).not.toContainEqual(expect.objectContaining({
+        message: expect.stringContaining("reusing the last campaign list"),
+      }));
+    });
+
+    it("falls back to retained campaigns when the forced refresh fails", async () => {
+      const events: EngineEvent[] = [];
+      const ensureIntegrity = vi.fn(async () => false);
+      let dashboardAttempts = 0;
+      const fetcher = jsonFetcher((_url, init) => {
+        const op = operation(init);
+        if (op === "Inventory") return twitchInventory([]);
+        if (op === "ViewerDropsDashboard") {
+          dashboardAttempts += 1;
+          return INTEGRITY_REJECTION;
+        }
+        if (op === "DropCampaignDetails") return twitchCampaignDetails(dropID(init));
+        throw new Error(`Unexpected op ${op}`);
+      });
+
+      await new TwitchAdapter(fetcher, ensureIntegrity, undefined, {}, (event) => events.push(event))
+        .discoverCampaigns();
+
+      // Discovery makes two dashboard requests when both lists come back empty
+      // (the second asks for reward campaigns). Each gets one refresh attempt
+      // and, because the refresh failed, no retry at all.
+      expect(ensureIntegrity).toHaveBeenCalledTimes(2);
+      expect(ensureIntegrity.mock.calls).toEqual([[{ forceRefresh: true }], [{ forceRefresh: true }]]);
+      expect(dashboardAttempts).toBe(2);
+      expect(events).toContainEqual(expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining("reusing the last campaign list"),
+      }));
+    });
+
+    it("stops after one retry when the refreshed token is rejected again", async () => {
+      const ensureIntegrity = integrityCallback();
+      let dashboardAttempts = 0;
+      const fetcher = jsonFetcher((_url, init) => {
+        const op = operation(init);
+        if (op === "Inventory") return twitchInventory([]);
+        if (op === "ViewerDropsDashboard") {
+          dashboardAttempts += 1;
+          return INTEGRITY_REJECTION;
+        }
+        throw new Error(`Unexpected op ${op}`);
+      });
+
+      await new TwitchAdapter(fetcher, ensureIntegrity).discoverCampaigns();
+
+      // Two dashboard requests, each bounded to exactly one refresh and one
+      // retry — the second rejection is never refreshed or replayed again.
+      expect(ensureIntegrity).toHaveBeenCalledTimes(2);
+      expect(dashboardAttempts).toBe(4);
+    });
+
+    it("does not enter integrity recovery for a generic dashboard failure", async () => {
+      const ensureIntegrity = integrityCallback();
+      let dashboardAttempts = 0;
+      const fetcher = jsonFetcher((_url, init) => {
+        const op = operation(init);
+        if (op === "Inventory") return twitchInventory([]);
+        if (op === "ViewerDropsDashboard") {
+          dashboardAttempts += 1;
+          throw new Error("dashboard unavailable");
+        }
+        throw new Error(`Unexpected op ${op}`);
+      });
+
+      await new TwitchAdapter(fetcher, ensureIntegrity).discoverCampaigns();
+
+      // Both dashboard requests fail generically: no refresh, and no replay of
+      // either request.
+      expect(ensureIntegrity).not.toHaveBeenCalled();
+      expect(dashboardAttempts).toBe(2);
+    });
+
+    it("refreshes integrity once and retries DirectoryPage_Game once", async () => {
+      const ensureIntegrity = integrityCallback();
+      const { fetcher, attempts } = rejectFirst("DirectoryPage_Game", () => ({
+        data: {
+          game: {
+            streams: {
+              edges: [{ node: { broadcaster: { login: "Creator", displayName: "Creator" }, viewersCount: 5 } }],
+            },
+          },
+        },
+      }));
+
+      const candidates = await new TwitchAdapter(fetcher, ensureIntegrity)
+        .listCandidateChannels({ id: "campaign", slug: "game-slug" } as DropCampaign);
+
+      expect(candidates.map((candidate) => candidate.username)).toEqual(["creator"]);
+      expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+      expect(attempts.get("DirectoryPage_Game")).toBe(2);
+    });
+
+    it("refreshes integrity once and retries DropsHighlightService_AvailableDrops once", async () => {
+      const ensureIntegrity = integrityCallback();
+      const { fetcher, attempts } = rejectFirst("DropsHighlightService_AvailableDrops", (init) => {
+        const op = operation(init);
+        if (op === "StreamInfo") {
+          return { data: { user: { id: "channel-id", displayName: "Creator", stream: { id: "b", game: { id: "game" } } } } };
+        }
+        if (op === "DropsHighlightService_AvailableDrops") {
+          return { data: { channel: { viewerDropCampaigns: [{ id: "campaign" }] } } };
+        }
+        throw new Error(`Unexpected op ${op}`);
+      });
+
+      const check = await new TwitchAdapter(fetcher, ensureIntegrity).checkChannel(
+        { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+        { id: "campaign", categoryId: "game" } as DropCampaign,
+      );
+
+      expect(check.campaignMatches).toBe(true);
+      expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+      expect(attempts.get("DropsHighlightService_AvailableDrops")).toBe(2);
+    });
+
+    it.each(["VideoPlayerStreamInfoOverlayChannel", "DropCurrentSessionContext"])(
+      "refreshes integrity once and retries %s once while merging session progress",
+      async (target) => {
+        const ensureIntegrity = integrityCallback();
+        const { fetcher, attempts } = rejectFirst(target, (init) => {
+          const op = operation(init);
+          if (op === "Inventory") return twitchInventory(["campaign"]);
+          if (op === "VideoPlayerStreamInfoOverlayChannel") return { data: { user: { id: "channel-id" } } };
+          if (op === "DropCurrentSessionContext") {
+            return { data: { currentUser: { dropCurrentSession: { dropID: "campaign-drop", currentMinutesWatched: 42 } } } };
+          }
+          throw new Error(`Unexpected op ${op}`);
+        });
+        const campaigns = [{
+          id: "campaign",
+          rewards: [{ id: "campaign-drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 20, status: "in_progress" }],
+        }] as DropCampaign[];
+
+        const progressed = await new TwitchAdapter(fetcher, ensureIntegrity).readProgress(campaigns, {
+          platform: "twitch",
+          status: "watching",
+          offlineChecks: 0,
+          channel: { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+        } as never);
+
+        expect(progressed[0]?.rewards[0]?.watchedMinutes).toBe(42);
+        expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+        expect(attempts.get(target)).toBe(2);
+      },
+    );
+
+    it("refreshes integrity once and retries the authenticated CurrentUser probe once", async () => {
+      const ensureIntegrity = integrityCallback();
+      const { fetcher, attempts } = rejectFirst("CurrentUser", () => ({
+        data: { currentUser: { id: "user-id" } },
+      }));
+
+      const health = await new TwitchAdapter(fetcher, ensureIntegrity).checkAuthHealth();
+
+      expect(health.status).toBe("healthy");
+      expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+      expect(attempts.get("CurrentUser")).toBe(2);
+    });
+  });
+
+  describe("anonymous reads", () => {
+    it.each([
+      ["StreamInfo", (adapter: TwitchAdapter) => adapter.checkChannel({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" })],
+      ["SearchCategories", (adapter: TwitchAdapter) => adapter.searchCategories("rust")],
+    ])("keeps %s anonymous and never acquires integrity", async (target, run) => {
+      const ensureIntegrity = integrityCallback();
+      let captured: RequestInit | undefined;
+      let attempts = 0;
+      const fetcher = jsonFetcher((_url, init) => {
+        if (operation(init) !== target) throw new Error(`Unexpected op ${operation(init)}`);
+        captured = init;
+        attempts += 1;
+        return INTEGRITY_REJECTION;
+      });
+
+      await run(new TwitchAdapter(fetcher, ensureIntegrity)).catch(() => undefined);
+
+      expect(captured?.credentials).toBe("omit");
+      expect(ensureIntegrity).not.toHaveBeenCalled();
+      // Anonymous requests must not be replayed by integrity recovery.
+      expect(attempts).toBe(1);
+    });
+  });
+
+  describe("mutations", () => {
+    const reward = {
+      id: "drop",
+      name: "Reward",
+      requiredMinutes: 60,
+      watchedMinutes: 60,
+      status: "claimable",
+      claimId: "instance-id",
+    } as DropReward;
+
+    it("forces a genuinely fresh token before retrying a rejected drop claim", async () => {
+      const ensureIntegrity = integrityCallback();
+      const { fetcher, attempts } = rejectFirst("DropsPage_ClaimDropRewards", () => ({
+        data: { claimDropRewards: { status: "ELIGIBLE_FOR_ALL" } },
+      }));
+
+      await expect(new TwitchAdapter(fetcher, ensureIntegrity)
+        .claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
+
+      expect(attempts.get("DropsPage_ClaimDropRewards")).toBe(2);
+      // Proactive fast path first, then an explicit forced refresh.
+      expect(ensureIntegrity.mock.calls).toEqual([[], [{ forceRefresh: true }]]);
+    });
+
+    it("recovers the channel-points context through the safe-read path", async () => {
+      const ensureIntegrity = integrityCallback();
+      const { fetcher, attempts } = rejectFirst("ChannelPointsContext", (init) => {
+        const op = operation(init);
+        if (op === "ChannelPointsContext") {
+          return { data: { community: { channel: { id: "channel-id", self: { communityPoints: { availableClaim: { id: "claim-id" } } } } } } };
+        }
+        if (op === "ClaimCommunityPoints") return { data: { claimCommunityPoints: { status: "SUCCESS" } } };
+        throw new Error(`Unexpected op ${op}`);
+      });
+
+      await expect(new TwitchAdapter(fetcher, ensureIntegrity).claimChannelPoints({
+        platform: "twitch",
+        username: "creator",
+        url: "https://www.twitch.tv/creator",
+      })).resolves.toBe(true);
+
+      expect(attempts.get("ChannelPointsContext")).toBe(2);
+      expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+    });
+
+    it("ensures integrity before the channel-points mutation and retries it exactly once", async () => {
+      const ensureIntegrity = integrityCallback();
+      const { fetcher, attempts } = rejectFirst("ClaimCommunityPoints", (init) => {
+        const op = operation(init);
+        if (op === "ChannelPointsContext") {
+          return { data: { community: { channel: { id: "channel-id", self: { communityPoints: { availableClaim: { id: "claim-id" } } } } } } };
+        }
+        if (op === "ClaimCommunityPoints") return { data: { claimCommunityPoints: { status: "SUCCESS" } } };
+        throw new Error(`Unexpected op ${op}`);
+      });
+
+      await expect(new TwitchAdapter(fetcher, ensureIntegrity).claimChannelPoints({
+        platform: "twitch",
+        username: "creator",
+        url: "https://www.twitch.tv/creator",
+      })).resolves.toBe(true);
+
+      expect(attempts.get("ClaimCommunityPoints")).toBe(2);
+      expect(ensureIntegrity.mock.calls).toEqual([[], [{ forceRefresh: true }]]);
+    });
+
+    it("propagates a second channel-points rejection without a third attempt", async () => {
+      const ensureIntegrity = integrityCallback();
+      let claimAttempts = 0;
+      const fetcher = jsonFetcher((_url, init) => {
+        const op = operation(init);
+        if (op === "ChannelPointsContext") {
+          return { data: { community: { channel: { id: "channel-id", self: { communityPoints: { availableClaim: { id: "claim-id" } } } } } } };
+        }
+        if (op === "ClaimCommunityPoints") {
+          claimAttempts += 1;
+          return INTEGRITY_REJECTION;
+        }
+        throw new Error(`Unexpected op ${op}`);
+      });
+
+      await expect(new TwitchAdapter(fetcher, ensureIntegrity).claimChannelPoints({
+        platform: "twitch",
+        username: "creator",
+        url: "https://www.twitch.tv/creator",
+      })).rejects.toThrow(/integrity/i);
+
+      expect(claimAttempts).toBe(2);
+    });
+  });
+});
