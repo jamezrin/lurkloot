@@ -8,6 +8,7 @@ import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings"
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
+import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import { forgetManagedPageContextTabs, KickWafBlockedError, managedTabBreakerOpen, recordManagedPageContextFallback, registerManagedPageContextTabs, syncManagedTabBreakers } from "@lurkloot/core/tabs";
@@ -60,6 +61,50 @@ function adapter(platform: Platform): PlatformAdapter {
     claimReward: vi.fn(async () => true),
     prepareWatchTab: vi.fn(async () => ({ tabId: platform === "twitch" ? 10 : 20, managedByExtension: true })),
     stopWatchTab: vi.fn(async () => undefined),
+  };
+}
+
+function twitchOperation(init?: RequestInit): string {
+  return JSON.parse(String(init?.body)).operationName;
+}
+
+function twitchInventory(): unknown {
+  return {
+    data: {
+      currentUser: {
+        id: "user-id",
+        inventory: { dropCampaignsInProgress: [] },
+      },
+    },
+  };
+}
+
+function twitchDashboard(campaignIds: string[]): unknown {
+  return {
+    data: {
+      currentUser: {
+        id: "user-id",
+        login: "viewer",
+        dropCampaigns: campaignIds.map((id) => ({ id, status: "ACTIVE", self: { isAccountConnected: true } })),
+      },
+    },
+  };
+}
+
+function twitchCampaignDetails(dropID: string): unknown {
+  return {
+    data: {
+      dropCampaign: {
+        id: dropID,
+        name: `Campaign ${dropID}`,
+        game: { id: "game", slug: "game-slug", displayName: "Game" },
+        timeBasedDrops: [{
+          id: `${dropID}-drop`,
+          requiredMinutesWatched: 60,
+          benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
+        }],
+      },
+    },
   };
 }
 
@@ -136,6 +181,54 @@ function harness(
 }
 
 describe("background controller", () => {
+  it("retains Twitch discovery when each controller tick constructs a fresh adapter", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+      },
+    });
+    let dashboardFails = false;
+    let detailsFail = false;
+    const discoveryState = new TwitchDiscoveryState();
+    const fetcher: PageFetcher = {
+      fetchJson: vi.fn(async (_url: string, init?: RequestInit): Promise<unknown> => {
+        const operation = twitchOperation(init);
+        if (operation === "CurrentUser") return { data: { currentUser: { id: "user-id" } } };
+        if (operation === "Inventory") return twitchInventory();
+        if (operation === "ViewerDropsDashboard") {
+          if (dashboardFails) throw new Error("service unavailable");
+          return twitchDashboard(["retained"]);
+        }
+        if (operation === "DropCampaignDetails") {
+          if (detailsFail) throw new Error("service unavailable");
+          return twitchCampaignDetails("retained");
+        }
+        if (operation === "DirectoryPage_Game") return { data: { game: { streams: { edges: [] } } } };
+        throw new Error(`Unexpected Twitch operation ${operation}`);
+      }) as PageFetcher["fetchJson"],
+    };
+    vi.mocked(env.deps.createAdapters).mockImplementation((emit, settings) => ({
+      adapters: {
+        twitch: new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit),
+      },
+      ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
+    }));
+
+    await env.controller.tick();
+    expect(env.state.campaigns.twitch.map((item) => item.id)).toEqual(["retained"]);
+
+    dashboardFails = true;
+    detailsFail = true;
+    await env.controller.tick();
+
+    expect(env.deps.createAdapters).toHaveBeenCalledTimes(2);
+    expect(env.state.campaigns.twitch.map((item) => item.id)).toEqual(["retained"]);
+  });
+
   it("starts enabled auth probes concurrently and persists each before scheduler work", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true });
     const twitchHealth = deferred<PlatformAuthHealth>();
