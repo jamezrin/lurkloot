@@ -1074,6 +1074,42 @@ describe("twitch integrity refresh", () => {
         message: expect.stringContaining("Timed out waiting for a Twitch integrity token"),
       }));
     });
+
+    // Which page context answered decides whether the wait could ever succeed:
+    // only a freshly created tab is guaranteed to boot the SPA and issue the
+    // authenticated GQL the listener reads the token from. Reporting it turns a
+    // bare timeout into something a diagnostics log can be read against.
+    it("names a reused user tab as the page context it waited on", async () => {
+      const browser = browserMock();
+      browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+      const events: EngineEvent[] = [];
+
+      await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+
+      expect(browser.tabs.create).not.toHaveBeenCalled();
+      expect(events).toContainEqual(expect.objectContaining({
+        level: "debug",
+        message: expect.stringContaining("from a user_tab page context (tab 3)"),
+      }));
+      expect(events).toContainEqual(expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining("from a user_tab page context"),
+      }));
+    });
+
+    it("names a freshly created tab as the page context it waited on", async () => {
+      const browser = browserMock();
+      browser.tabs.query.mockResolvedValue([]);
+      browser.tabs.create.mockResolvedValue({ id: 21 });
+      const events: EngineEvent[] = [];
+
+      await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+
+      expect(events).toContainEqual(expect.objectContaining({
+        level: "debug",
+        message: expect.stringContaining("from a created page context (tab 21)"),
+      }));
+    });
   });
 });
 
