@@ -43,6 +43,16 @@ function browserMock() {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
 // Foreground activations issued by playback priming (`tabs.update(id, { active: true })`).
 function activationCalls(browser: ReturnType<typeof browserMock>): unknown[][] {
   return (browser.tabs.update.mock.calls as unknown as unknown[][])
@@ -625,6 +635,121 @@ describe("tab manager", () => {
       args: ["https://web.kick.com/api/v1/drops/progress", null],
     }));
     expect(browser.tabs.remove).not.toHaveBeenCalled();
+  });
+
+  it("omits AbortSignal from page-world RequestInit while preserving request fields", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => [{ result: { ok: true } }]),
+      },
+    };
+    browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+    const abort = new AbortController();
+
+    await fetchJsonInPageWithBrowser(
+      browser,
+      "https://kick.com",
+      "https://web.kick.com/api/v1/drops/progress",
+      { method: "POST", body: "{\"campaign\":\"drop\"}", signal: abort.signal },
+    );
+
+    expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
+      args: [
+        "https://web.kick.com/api/v1/drops/progress",
+        JSON.stringify({ method: "POST", body: "{\"campaign\":\"drop\"}" }),
+      ],
+    }));
+  });
+
+  it("aborts an active page fallback without retaining its newly opened context", async () => {
+    const pageExecution = deferred<Array<{ result?: unknown }>>();
+    const executeScript = vi.fn()
+      .mockResolvedValueOnce([{ result: { usable: true } }])
+      .mockReturnValueOnce(pageExecution.promise);
+    const browser = {
+      ...browserMock(),
+      scripting: { executeScript },
+    };
+    browser.tabs.create.mockResolvedValue({ id: 14 });
+    const abort = new AbortController();
+    const reason = new Error("auth deadline elapsed");
+
+    const request = fetchJsonInPageWithBrowser(
+      browser,
+      "https://kick.com/drops/inventory",
+      "https://kick.com/api/v1/user",
+      { signal: abort.signal },
+      { retainPageContext: { platform: "kick" } },
+    );
+    await vi.waitFor(() => expect(executeScript).toHaveBeenCalledTimes(2));
+
+    abort.abort(reason);
+    pageExecution.reject(new Error("page execution closed after abort"));
+
+    await expect(request).rejects.toBe(reason);
+    expect(browser.tabs.remove).toHaveBeenCalledWith(14);
+    expect(currentManagedPageContextTabs().kick).toBeUndefined();
+  });
+
+  it("does not create a page-context tab when abort lands during tab discovery", async () => {
+    const query = deferred<Array<{ id?: number; url?: string; status?: string }>>();
+    const browser = {
+      ...browserMock(),
+      scripting: { executeScript: vi.fn(async () => [{ result: { usable: true } }]) },
+    };
+    browser.tabs.query.mockReturnValue(query.promise);
+    const abort = new AbortController();
+    const reason = new Error("auth deadline elapsed during tab discovery");
+
+    const request = fetchJsonInPageWithBrowser(
+      browser,
+      "https://kick.com/drops/inventory",
+      "https://kick.com/api/v1/user",
+      { signal: abort.signal },
+      { retainPageContext: { platform: "kick" } },
+    );
+    abort.abort(reason);
+    query.resolve([]);
+
+    await expect(request).rejects.toBe(reason);
+    expect(browser.tabs.create).not.toHaveBeenCalled();
+  });
+
+  it("removes a newly created page-context tab immediately when readiness aborts", async () => {
+    const validation = deferred<Array<{ result?: unknown }>>();
+    const browser = {
+      ...browserMock(),
+      scripting: { executeScript: vi.fn(() => validation.promise) },
+    };
+    browser.tabs.create.mockResolvedValue({ id: 14 });
+    const abort = new AbortController();
+    const reason = new Error("auth deadline elapsed during page readiness");
+
+    const request = fetchJsonInPageWithBrowser(
+      browser,
+      "https://kick.com/drops/inventory",
+      "https://kick.com/api/v1/user",
+      { signal: abort.signal },
+      { retainPageContext: { platform: "kick" } },
+    );
+    const outcome = request.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(browser.scripting.executeScript).toHaveBeenCalledOnce());
+    abort.abort(reason);
+    let cleanupFailure: unknown;
+    try {
+      await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledWith(14), {
+        timeout: 50,
+        interval: 5,
+      });
+    } catch (error) {
+      cleanupFailure = error;
+    }
+    validation.resolve([{ result: { usable: true } }]);
+
+    expect(await outcome).toBe(reason);
+    expect(cleanupFailure).toBeUndefined();
+    expect(currentManagedPageContextTabs().kick).toBeUndefined();
   });
 
   it("reconstructs sanitized page-context failures", async () => {

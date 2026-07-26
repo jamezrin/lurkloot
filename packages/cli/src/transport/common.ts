@@ -8,6 +8,9 @@ import type { CompatibilityResolution } from "@lurkloot/core";
 // this shape so the commands can dispose uniformly.
 export interface TransportHandle {
   adapters: Record<Platform, PlatformAdapter>;
+  createAdapter(platform: Platform, emit: EventEmitter, settings: EngineSettings): {
+    adapter: PlatformAdapter;
+  } & CompatibilityResolution;
   createAdapters(emit: EventEmitter, settings: EngineSettings): {
     adapters: Record<Platform, PlatformAdapter>;
   } & CompatibilityResolution;

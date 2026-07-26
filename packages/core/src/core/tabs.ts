@@ -42,11 +42,13 @@ interface PageContextTab {
   tabId: number;
   createdByExtension: boolean;
   retainedContext?: ManagedPageContextTab;
+  openedForRequest?: boolean;
 }
 
 interface PageContextEntry {
   promise: Promise<PageContextTab>;
   refs: number;
+  abort: AbortController;
 }
 
 const pageContextTabs = new Map<string, PageContextEntry>();
@@ -737,24 +739,29 @@ export async function fetchJsonInPageWithBrowser<T>(
   init?: RequestInit,
   options?: PageFetchOptions,
 ): Promise<T> {
+  const signal = init?.signal;
+  signal?.throwIfAborted();
   const origin = new URL(originUrl).origin;
-  const pageContext = await acquirePageContextTab(browserApi, originUrl, origin, options);
+  const pageContext = await acquirePageContextTab(browserApi, originUrl, origin, options, signal);
 
   try {
+    signal?.throwIfAborted();
+    const initJson = pageFetchInitJson(init);
     const runtimeBrowser = browserApi;
 
     if (runtimeBrowser.scripting?.executeScript) {
-      const [result] = await runtimeBrowser.scripting.executeScript({
+      const execution = runtimeBrowser.scripting.executeScript({
         target: { tabId: pageContext.tabId },
         // args must be JSON-serializable; `undefined` is rejected ("unserializable"),
         // so pass `null` when there is no init (e.g. Kick GET requests).
-        args: [url, init ? JSON.stringify(init) : null],
+        args: [url, initJson],
         // Kick needs the page MAIN world for Cloudflare/session context.
         // Twitch GQL also runs in MAIN, but uses XHR below to avoid Twitch's
         // page fetch wrappers.
         world: "MAIN",
         func: pageFetchJson,
       });
+      const [result] = await withAbortSignal(execution, signal);
       // executeScript resolves one entry per injected frame; an empty array
       // means the context tab was closed or navigated away before injection.
       // Surface that clearly instead of dereferencing undefined.
@@ -763,15 +770,43 @@ export async function fetchJsonInPageWithBrowser<T>(
     }
 
     if (runtimeBrowser.tabs.executeScript) {
-      const code = `(${pageFetchJson.toString()})(${JSON.stringify(url)}, ${JSON.stringify(init ? JSON.stringify(init) : undefined)})`;
-      const results = await runtimeBrowser.tabs.executeScript(pageContext.tabId, { code });
+      const code = `(${pageFetchJson.toString()})(${JSON.stringify(url)}, ${JSON.stringify(initJson ?? undefined)})`;
+      const execution = runtimeBrowser.tabs.executeScript(pageContext.tabId, { code });
+      const results = await withAbortSignal(execution, signal);
       const result = results?.[0];
       return unwrapPageFetchResult<T>(result);
     }
 
     throw new Error("No supported page script execution API is available");
   } finally {
-    await releasePageContextTab(browserApi, origin, pageContext, options?.emit);
+    await releasePageContextTab(
+      browserApi,
+      origin,
+      pageContext,
+      options?.emit,
+      signal?.aborted === true && pageContext.openedForRequest === true,
+    );
+  }
+}
+
+function pageFetchInitJson(init?: RequestInit): string | null {
+  if (!init) return null;
+  const { signal: _signal, ...serializableInit } = init;
+  return JSON.stringify(serializableInit);
+}
+
+async function withAbortSignal<T>(operation: Promise<T>, signal?: AbortSignal | null): Promise<T> {
+  if (!signal) return operation;
+  signal.throwIfAborted();
+  let onAbort!: () => void;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([operation, aborted]);
+  } finally {
+    signal.removeEventListener("abort", onAbort);
   }
 }
 
@@ -788,29 +823,39 @@ async function acquirePageContextTab(
   originUrl: string,
   origin: string,
   options?: PageFetchOptions,
+  signal?: AbortSignal | null,
 ): Promise<PageContextTab> {
-  const existing = pageContextTabs.get(origin);
-  if (existing) {
-    existing.refs += 1;
-    return existing.promise;
+  signal?.throwIfAborted();
+  let entry = pageContextTabs.get(origin);
+  if (!entry) {
+    const abort = new AbortController();
+    entry = {
+      promise: findOrCreatePageContextTab(browserApi, originUrl, origin, options, abort.signal),
+      refs: 0,
+      abort,
+    };
+    pageContextTabs.set(origin, entry);
   }
-
-  const entry: PageContextEntry = {
-    promise: findOrCreatePageContextTab(browserApi, originUrl, origin, options),
-    refs: 1,
-  };
-  pageContextTabs.set(origin, entry);
+  entry.refs += 1;
   try {
-    return await entry.promise;
+    return await withAbortSignal(entry.promise, signal);
   } catch (error) {
-    if (pageContextTabs.get(origin) === entry) {
+    entry.refs -= 1;
+    if (entry.refs === 0 && pageContextTabs.get(origin) === entry) {
       pageContextTabs.delete(origin);
+      entry.abort.abort(signal?.aborted ? signal.reason : error);
     }
     throw error;
   }
 }
 
-async function releasePageContextTab(browserApi: BrowserTabApi, origin: string, pageContext: PageContextTab, emit: EventEmitter = ignoreEvent): Promise<void> {
+async function releasePageContextTab(
+  browserApi: BrowserTabApi,
+  origin: string,
+  pageContext: PageContextTab,
+  emit: EventEmitter = ignoreEvent,
+  discardRetainedContext = false,
+): Promise<void> {
   const entry = pageContextTabs.get(origin);
   if (!entry) return;
 
@@ -818,12 +863,19 @@ async function releasePageContextTab(browserApi: BrowserTabApi, origin: string, 
   if (entry.refs > 0) return;
 
   pageContextTabs.delete(origin);
-  if (!pageContext.createdByExtension || !browserApi.tabs.remove) return;
-  if (pageContext.retainedContext) {
+  if (!pageContext.createdByExtension) return;
+  if (pageContext.retainedContext && !discardRetainedContext) {
     retainedPageContextTabs.set(pageContext.retainedContext.platform, pageContext.retainedContext);
     diagnostic(emit, "debug", `Retained managed page context on ${new URL(pageContext.retainedContext.origin).host} because it may still be required`, pageContext.retainedContext.platform);
     return;
   }
+  if (pageContext.retainedContext) {
+    const retained = retainedPageContextTabs.get(pageContext.retainedContext.platform);
+    if (retained?.tabId === pageContext.tabId) {
+      retainedPageContextTabs.delete(pageContext.retainedContext.platform);
+    }
+  }
+  if (!browserApi.tabs.remove) return;
 
   try {
     await browserApi.tabs.remove(pageContext.tabId);
@@ -837,11 +889,13 @@ async function findOrCreatePageContextTab(
   originUrl: string,
   origin: string,
   options?: PageFetchOptions,
+  signal?: AbortSignal,
 ): Promise<PageContextTab> {
+  signal?.throwIfAborted();
   const retain = options?.retainPageContext;
   let openReason = options?.openReason ?? "background_rejected";
   const retained = retain?.managedContext ?? (retain ? retainedPageContextTabs.get(retain.platform) : undefined);
-  const tabs = await browserApi.tabs.query({ url: `${origin}/*` });
+  const tabs = await withAbortSignal(browserApi.tabs.query({ url: `${origin}/*` }), signal);
   const retainedIds = new Set(
     [...retainedPageContextTabs.values(), retained]
       .filter((tab): tab is ManagedPageContextTab => tab != null && tab.origin === origin)
@@ -850,7 +904,7 @@ async function findOrCreatePageContextTab(
   let tabId: number | undefined;
   for (const tab of tabs) {
     if (tab.id == null || retainedIds.has(tab.id)) continue;
-    if (await isUsablePageContext(browserApi, tab.id, origin)) {
+    if (await isUsablePageContext(browserApi, tab.id, origin, signal)) {
       tabId = tab.id;
       break;
     }
@@ -863,7 +917,7 @@ async function findOrCreatePageContextTab(
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because tab removal is unavailable`, retained.platform);
       } else {
         try {
-          await remove(retained.tabId);
+          await withAbortSignal(remove(retained.tabId), signal);
           options?.emit?.({
             category: "activity",
             code: "page_context_closed",
@@ -877,14 +931,15 @@ async function findOrCreatePageContextTab(
         }
       }
     }
+    signal?.throwIfAborted();
     diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused user page context on ${new URL(origin).host}`, retain?.platform);
     return { tabId, createdByExtension: false };
   }
 
   if (retained?.origin === origin) {
     try {
-      const tab = await browserApi.tabs.get(retained.tabId);
-      if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin)) {
+      const tab = await withAbortSignal(browserApi.tabs.get(retained.tabId), signal);
+      if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin, signal)) {
         retainedPageContextTabs.set(retained.platform, retained);
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused managed page context on ${new URL(origin).host}`, retained.platform);
         return { tabId: tab.id, createdByExtension: true, retainedContext: retained };
@@ -897,7 +952,7 @@ async function findOrCreatePageContextTab(
           diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because tab removal is unavailable`, retained.platform);
         } else {
           try {
-            await remove(retained.tabId);
+            await withAbortSignal(remove(retained.tabId), signal);
             options?.emit?.({
               category: "activity",
               code: "page_context_closed",
@@ -910,7 +965,8 @@ async function findOrCreatePageContextTab(
           }
         }
       }
-    } catch {
+    } catch (error) {
+      signal?.throwIfAborted();
       retainedPageContextTabs.delete(retained.platform);
       openReason = "managed_context_unusable";
       diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it is unusable`, retained.platform);
@@ -928,22 +984,30 @@ async function findOrCreatePageContextTab(
     });
   }
 
+  signal?.throwIfAborted();
   const tab = await browserApi.tabs.create({ url: originUrl, pinned: false, active: false }) as { id?: number };
   if (tab.id == null) {
+    signal?.throwIfAborted();
     throw new Error(`Could not open page context for ${originUrl}`);
   }
-  await browserApi.tabs.update(tab.id, { muted: true, active: false });
-  await waitForPageContextReady(browserApi, tab.id, origin);
-  if (!await isUsablePageContext(browserApi, tab.id, origin)) {
+  try {
+    signal?.throwIfAborted();
+    await withAbortSignal(browserApi.tabs.update(tab.id, { muted: true, active: false }), signal);
+    await waitForPageContextReady(browserApi, tab.id, origin, signal);
+    if (!await isUsablePageContext(browserApi, tab.id, origin, signal)) {
+      throw new SafeFetchError({
+        kind: "security_policy_blocked",
+        reason: "Kick page context is blocked or unusable",
+      });
+    }
+    signal?.throwIfAborted();
+  } catch (error) {
     try {
       await browserApi.tabs.remove?.(tab.id);
     } catch {
       // The unusable page may already have been closed.
     }
-    throw new SafeFetchError({
-      kind: "security_policy_blocked",
-      reason: "Kick page context is blocked or unusable",
-    });
+    throw error;
   }
   if (retain) {
     const retainedContext: ManagedPageContextTab = {
@@ -961,29 +1025,39 @@ async function findOrCreatePageContextTab(
       platform: retain.platform,
       data: { host: new URL(origin).host, reason: openReason },
     });
-    return { tabId: tab.id, createdByExtension: true, retainedContext };
+    return { tabId: tab.id, createdByExtension: true, retainedContext, openedForRequest: true };
   }
-  return { tabId: tab.id, createdByExtension: true };
+  return { tabId: tab.id, createdByExtension: true, openedForRequest: true };
 }
 
-async function isUsablePageContext(browserApi: BrowserTabApi, tabId: number, origin: string): Promise<boolean> {
+async function isUsablePageContext(
+  browserApi: BrowserTabApi,
+  tabId: number,
+  origin: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  signal?.throwIfAborted();
   if (origin !== "https://kick.com") return true;
   try {
     if (browserApi.scripting?.executeScript) {
-      const [result] = await browserApi.scripting.executeScript({
+      const [result] = await withAbortSignal(browserApi.scripting.executeScript({
         target: { tabId },
         world: "MAIN",
         func: validateKickPageContext,
-      });
+      }), signal);
       const value = result?.result as { usable?: unknown } | undefined;
       return value?.usable === true || (value as { ok?: unknown } | undefined)?.ok === true;
     }
     if (browserApi.tabs.executeScript) {
-      const results = await browserApi.tabs.executeScript(tabId, { code: `(${validateKickPageContext.toString()})()` });
+      const results = await withAbortSignal(
+        browserApi.tabs.executeScript(tabId, { code: `(${validateKickPageContext.toString()})()` }),
+        signal,
+      );
       const value = results?.[0] as { usable?: unknown; ok?: unknown } | undefined;
       return value?.usable === true || value?.ok === true;
     }
-  } catch {
+  } catch (error) {
+    signal?.throwIfAborted();
     return false;
   }
   return false;
@@ -1026,18 +1100,25 @@ function validateKickPageContext(): { usable: boolean; failure?: SafeFetchFailur
   return { usable: contentType.includes("html") || document.documentElement?.tagName === "HTML" };
 }
 
-async function waitForPageContextReady(browserApi: BrowserTabApi, tabId: number, origin: string): Promise<void> {
+async function waitForPageContextReady(
+  browserApi: BrowserTabApi,
+  tabId: number,
+  origin: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  signal?.throwIfAborted();
   if (typeof process !== "undefined" && process.env.NODE_ENV === "test") return;
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     try {
-      const tab = await browserApi.tabs.get(tabId);
+      const tab = await withAbortSignal(browserApi.tabs.get(tabId), signal);
       const url = tab?.url;
       if (tab && url?.startsWith(origin) && (tab.status == null || tab.status === "complete")) return;
-    } catch {
+    } catch (error) {
+      signal?.throwIfAborted();
       // Keep polling until the page either becomes ready or times out.
     }
-    await wait(100);
+    await withAbortSignal(wait(100), signal);
   }
 }
 

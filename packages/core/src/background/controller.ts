@@ -41,7 +41,15 @@ function isNothingLeftToFarm(reasonCode: WatchReasonCode | undefined): boolean {
 const RECENT_HEARTBEAT_MS = 30_000;
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const DEFAULT_AUTH_PROBE_TIMEOUT_MS = 10_000;
-class AuthProbeSetupError extends Error {}
+class AuthProbeSetupError extends Error {
+  constructor(
+    readonly platform: Platform,
+    message: string,
+  ) {
+    super(message);
+    this.name = "AuthProbeSetupError";
+  }
+}
 const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   automation_disabled: true,
   platform_disabled: true,
@@ -117,6 +125,11 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
     compatibility: ResolvedCompatibility;
     warnings: CompatibilityResolution["warnings"];
   };
+  createAdapter(platform: Platform, emit: EventEmitter, settings: S): {
+    adapter: PlatformAdapter;
+    compatibility: ResolvedCompatibility;
+    warnings: CompatibilityResolution["warnings"];
+  };
   checkCredentialAvailability?(platform: Platform): Promise<CredentialAvailability>;
   createNotification?(notification: { title: string; message: string }): Promise<void>;
   translate?(key: string, substitutions?: string | string[]): string | Promise<string>;
@@ -146,6 +159,10 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
   const reportedCompatibility = new Map<Platform, string>();
   const reportedCompatibilityWarnings = new Set<string>();
+  const authRefreshGeneration: Record<Platform, number> = {
+    twitch: 0,
+    kick: 0,
+  };
   // In-flight post-claim handoffs, one per platform. A claim arriving while a
   // handoff is already running for that platform is absorbed by the running
   // loop rather than starting a second one, which is what keeps the work
@@ -187,10 +204,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return field === "profile" ? "Kick profile" : "Kick claim";
   };
 
-  function createAdapters(settings: S, emit: EventEmitter): Record<Platform, PlatformAdapter> {
-    const construction = deps.createAdapters(emit, settings);
+  function reportAdapterCompatibility(
+    construction: {
+      compatibility: ResolvedCompatibility;
+      warnings: CompatibilityResolution["warnings"];
+    },
+    settings: S,
+    emit: EventEmitter,
+    platforms: readonly Platform[],
+  ): void {
     for (const warning of construction.warnings) {
-      if (!settings.platform[warning.platform].enabled) continue;
+      if (!platforms.includes(warning.platform) || !settings.platform[warning.platform].enabled) continue;
       const key = `${warning.code}:${warning.platform}:${warning.field}:${warning.resolved}:${selectionFingerprint(warning.requested)}`;
       if (reportedCompatibilityWarnings.has(key)) continue;
       const reason = warning.code === "unknown_selection" ? "Unknown" : "Host-incompatible";
@@ -205,7 +229,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       });
       reportedCompatibilityWarnings.add(key);
     }
-    for (const platform of PLATFORMS) {
+    for (const platform of platforms) {
       if (!settings.platform[platform].enabled) continue;
       const profile = construction.compatibility[platform].profile;
       const capabilities = platform === "twitch"
@@ -226,7 +250,25 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       });
       reportedCompatibility.set(platform, key);
     }
+  }
+
+  function createAdapters(settings: S, emit: EventEmitter): Record<Platform, PlatformAdapter> {
+    const construction = deps.createAdapters(emit, settings);
+    reportAdapterCompatibility(construction, settings, emit, PLATFORMS);
     return construction.adapters;
+  }
+
+  function createAdapter(
+    platform: Platform,
+    settings: S,
+    emit: EventEmitter,
+    reportCompatibility = false,
+  ): PlatformAdapter {
+    const construction = deps.createAdapter(platform, emit, settings);
+    if (reportCompatibility) {
+      reportAdapterCompatibility(construction, settings, emit, [platform]);
+    }
+    return construction.adapter;
   }
 
   async function withEventCollector<T>(operation: (emit: EventEmitter, events: EngineEvent[]) => Promise<T>): Promise<T> {
@@ -357,33 +399,51 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  async function ensureInstalledAt(installedAt = new Date().toISOString()): Promise<void> {
+    await withStateLock(async () => {
+      const state = await deps.loadState();
+      if (state.installedAt) return;
+      await saveOperationalState({ ...state, installedAt });
+    });
+  }
+
+  async function normalizeStartupSettings(): Promise<S> {
+    return withSettingsLock(async () => {
+      const settings = await deps.loadSettings();
+      if (!settings.running || settings.autoStartDropFarming) return settings;
+      const nextSettings = { ...settings, running: false };
+      await deps.saveSettings(nextSettings);
+      return nextSettings;
+    });
+  }
+
   async function handleStartup(): Promise<void> {
     // A restart kills the watchers a handoff would transmit through, so leave
     // no loop running against them.
     abortClaimHandoffs();
-    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    const settings = await deps.loadSettings();
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
-    await withEventCollector(async (emit, events) => {
-      createAdapters(settings, emit);
-      await reportBestEffort(events);
-    });
     // A restart kills any in-memory watchers; start clean and let tick() rebuild.
     tablessWatchers.clear();
 
     const preservePageContexts = settings.running && settings.autoStartDropFarming;
-    registerManagedPageContextTabs(preservePageContexts ? state.managedPageContextTabs ?? {} : {});
-    const cleanup = staleStartupCleanup(state, preservePageContexts);
-    if (!cleanup.hasStaleSession) {
-      let nextSettings = settings;
-      if (settings.running && !settings.autoStartDropFarming) {
-        nextSettings = { ...settings, running: false };
-        await deps.saveSettings(nextSettings);
+    const { state, cleanup } = await withStateLock(async () => {
+      const state = await deps.loadState();
+      registerManagedPageContextTabs(preservePageContexts ? state.managedPageContextTabs ?? {} : {});
+      const cleanup = staleStartupCleanup(state, preservePageContexts);
+      if (cleanup.hasStaleSession) {
+        const restartEvents = farmingLifecycleEvents(state, cleanup.state);
+        await persistAndReport(cleanup.state, restartEvents);
       }
+      return { state, cleanup };
+    });
+    if (!cleanup.hasStaleSession) {
+      const nextSettings = await normalizeStartupSettings();
       if (nextSettings.autoStartDropFarming && nextSettings.running) {
         await tick();
       } else {
-        await refreshAuthHealth(PLATFORMS, nextSettings);
+        await refreshAuthHealth(PLATFORMS, nextSettings, true);
       }
       return;
     }
@@ -402,19 +462,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       });
     }
 
-    let nextSettings = settings;
-    if (settings.running && !settings.autoStartDropFarming) {
-      nextSettings = { ...settings, running: false };
-      await deps.saveSettings(nextSettings);
-    }
-
-    const restartEvents = farmingLifecycleEvents(state, cleanup.state);
-    await persistAndReport(cleanup.state, restartEvents);
+    const nextSettings = await normalizeStartupSettings();
 
     if (nextSettings.running && nextSettings.autoStartDropFarming) {
       await tick();
     } else {
-      await refreshAuthHealth(PLATFORMS, nextSettings);
+      await refreshAuthHealth(PLATFORMS, nextSettings, true);
     }
   }
 
@@ -501,34 +554,119 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     platform: Platform,
     health: PlatformAuthHealth,
     probeEvents: readonly EngineEvent[] = [],
-  ): Promise<void> {
-    await withStateLock(() => withEventCollector(async (emit, events) => {
+    generation: number,
+  ): Promise<boolean> {
+    return withStateLock(() => withEventCollector(async (emit, events) => {
+      if (authRefreshGeneration[platform] !== generation) return false;
       events.push(...probeEvents);
       const state = await deps.loadState();
       const transition = applyPlatformAuthHealth(state, platform, health);
       if (transition.event) emit(transition.event);
       await persistAndReport(transition.state, events);
+      return true;
     }));
   }
 
-  async function refreshAuthHealth(platforms: Platform[], loadedSettings?: S): Promise<void> {
+  async function beginAuthRefresh(platforms: readonly Platform[]): Promise<Partial<Record<Platform, number>>> {
+    return withStateLock(async () => {
+      const generations: Partial<Record<Platform, number>> = {};
+      for (const platform of platforms) {
+        authRefreshGeneration[platform] += 1;
+        generations[platform] = authRefreshGeneration[platform];
+      }
+      return generations;
+    });
+  }
+
+  function unavailableAfterAdapterSetup(): PlatformAuthHealth {
+    return {
+      status: "unavailable",
+      checkedAt: new Date().toISOString(),
+      reasonCode: "platform_unavailable",
+      message: { key: "authPlatformUnavailable" },
+    };
+  }
+
+  function flattenedRefreshFailures(error: unknown): unknown[] {
+    if (error instanceof AggregateError) {
+      return error.errors.flatMap((failure) => flattenedRefreshFailures(failure));
+    }
+    return [error];
+  }
+
+  function throwRefreshFailures(results: PromiseSettledResult<void>[]): void {
+    const failures = results.flatMap((result) =>
+      result.status === "rejected" ? flattenedRefreshFailures(result.reason) : []);
+    if (failures.length === 0) return;
+    if (failures.length === 1) throw failures[0];
+    throw new AggregateError(failures, "Authentication refresh failed");
+  }
+
+  async function refreshAuthHealth(
+    platforms: Platform[],
+    loadedSettings?: S,
+    reportCompatibility = false,
+  ): Promise<void> {
+    const generations = await beginAuthRefresh(platforms);
     const settings = loadedSettings ?? await deps.loadSettings();
     const enabled = platforms.filter((platform) => settings.platform[platform].enabled);
     const results = await Promise.allSettled(enabled.map(async (platform) => {
       const result = await withEventCollector(async (emit, events) => {
-        let adapter: PlatformAdapter;
+        let setupFailure: AuthProbeSetupError | undefined;
+        let health: PlatformAuthHealth;
+        let adapter: PlatformAdapter | undefined;
         try {
-          adapter = deps.createAdapters(emit, settings).adapters[platform];
+          adapter = createAdapter(platform, settings, emit, reportCompatibility);
         } catch (error) {
-          throw new AuthProbeSetupError(error instanceof Error ? error.message : "Adapter factory failed");
+          setupFailure = new AuthProbeSetupError(
+            platform,
+            error instanceof Error ? error.message : "Adapter factory failed",
+          );
         }
-        const health = await probeAuthHealth(platform, adapter);
-        return { health, events };
+        health = adapter
+          ? await probeAuthHealth(platform, adapter)
+          : unavailableAfterAdapterSetup();
+        return { health, events, setupFailure };
       });
-      await persistAuthHealth(platform, result.health, result.events);
+      const generation = generations[platform];
+      if (generation === undefined) return;
+      let accepted: boolean;
+      try {
+        accepted = await persistAuthHealth(platform, result.health, result.events, generation);
+      } catch (error) {
+        if (result.setupFailure) {
+          throw new AggregateError(
+            [result.setupFailure, error],
+            `${platform} authentication setup and persistence failed`,
+          );
+        }
+        throw error;
+      }
+      if (accepted && result.setupFailure) throw result.setupFailure;
     }));
-    const failure = results.find((result) => result.status === "rejected");
-    if (failure?.status === "rejected") throw failure.reason;
+    throwRefreshFailures(results);
+  }
+
+  async function reportAuthSetupFailures(failures: readonly AuthProbeSetupError[]): Promise<void> {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      const state = await deps.loadState();
+      for (const failure of failures) {
+        emit({
+          category: "activity",
+          code: "interruption",
+          level: "error",
+          platform: failure.platform,
+          data: { reason: "platform_error", detail: failure.message },
+        });
+        emit({
+          category: "diagnostic",
+          platform: failure.platform,
+          level: "error",
+          message: failure.message,
+        });
+      }
+      await persistAndReport(state, events);
+    }));
   }
 
   async function tick(platforms?: Platform[]): Promise<ClaimedRewards> {
@@ -538,18 +676,27 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       try {
         await refreshAuthHealth(platforms ?? PLATFORMS, settings);
       } catch (error) {
-        if (!(error instanceof AuthProbeSetupError)) throw error;
-        await withStateLock(() => withEventCollector(async (emit, events) => {
-          const state = await deps.loadState();
-          emit({
-            category: "activity",
-            code: "interruption",
-            level: "error",
-            data: { reason: "platform_error", detail: error.message },
-          });
-          emit({ category: "diagnostic", level: "error", message: error.message });
-          await persistAndReport(state, events);
-        }));
+        const failures = flattenedRefreshFailures(error);
+        const setupFailures = failures.filter((failure): failure is AuthProbeSetupError =>
+          failure instanceof AuthProbeSetupError);
+        if (setupFailures.length === 0) throw error;
+        let reportingFailure: unknown;
+        try {
+          await reportAuthSetupFailures(setupFailures);
+        } catch (failure) {
+          reportingFailure = failure;
+        }
+        const nonSetupFailures = failures.filter((failure) => !(failure instanceof AuthProbeSetupError));
+        if (nonSetupFailures.length > 0) {
+          if (reportingFailure !== undefined) {
+            throw new AggregateError(
+              [...failures, reportingFailure],
+              "Authentication refresh and interruption persistence failed",
+            );
+          }
+          throw error;
+        }
+        if (reportingFailure !== undefined) throw reportingFailure;
         return claimedRewards;
       }
     }
@@ -629,7 +776,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function invalidateAuthHealth(platform: Platform): Promise<void> {
+    const generations = await beginAuthRefresh([platform]);
+    const generation = generations[platform];
+    const settings = await deps.loadSettings();
+    if (!settings.platform[platform].enabled) return;
     await withStateLock(() => withEventCollector(async (emit, events) => {
+      if (generation === undefined || authRefreshGeneration[platform] !== generation) return;
       const state = await deps.loadState();
       const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
       if (transition.event) emit(transition.event);
@@ -1460,6 +1612,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   return {
     ensureAlarm,
+    ensureInstalledAt,
     handleStartup,
     handleTabRemoved,
     handleMessage,

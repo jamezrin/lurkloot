@@ -127,15 +127,18 @@ export function createKickFetcher(deps: {
   };
   return {
     fetchJson: async <T,>(url: string, init?: RequestInit, emit: EventEmitter = ignoreEvent): Promise<T> => {
+      init?.signal?.throwIfAborted();
       const host = safeHost(url);
       let result: unknown;
       try {
         result = await background(url, init);
       } catch (error) {
+        init?.signal?.throwIfAborted();
         report(emit, host, "fallback", error instanceof KickWafBlockedError
           ? "→ WAF-blocked from service worker, using page tab"
           : "→ service worker error, using page tab");
         await notifyLifecycle(onPageFallback, host, emit);
+        init?.signal?.throwIfAborted();
         result = await pageFetch(url, init);
         return result as T;
       }

@@ -800,6 +800,56 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
     expect(onPageFallback).toHaveBeenCalledWith("web.kick.com", expect.any(Function));
   });
 
+  it("does not enter page fallback for an already-aborted request", async () => {
+    const reason = new Error("auth deadline elapsed");
+    const abort = new AbortController();
+    abort.abort(reason);
+    const background = vi.fn(async () => {
+      throw new KickWafBlockedError("background rejected after deadline");
+    });
+    const pageFetch = vi.fn(async () => ({ id: 42 }));
+    const onPageFallback = vi.fn(async () => undefined);
+    const fetcher = createKickFetcher({ background, pageFetch, onPageFallback });
+
+    await expect(fetcher.fetchJson(
+      "https://kick.com/api/v1/user",
+      { signal: abort.signal },
+    )).rejects.toBe(reason);
+
+    expect(pageFetch).not.toHaveBeenCalled();
+    expect(onPageFallback).not.toHaveBeenCalled();
+  });
+
+  it("does not enter page fallback when an in-flight background request is aborted", async () => {
+    const reason = new Error("auth deadline elapsed");
+    const abort = new AbortController();
+    let backgroundStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      backgroundStarted = resolve;
+    });
+    const background = vi.fn(async (_url: string, init?: RequestInit) => {
+      backgroundStarted();
+      await new Promise<void>((resolve) => {
+        init?.signal?.addEventListener("abort", () => resolve(), { once: true });
+      });
+      throw new KickWafBlockedError("background rejected after deadline");
+    });
+    const pageFetch = vi.fn(async () => ({ id: 42 }));
+    const onPageFallback = vi.fn(async () => undefined);
+    const fetcher = createKickFetcher({ background, pageFetch, onPageFallback });
+
+    const request = fetcher.fetchJson(
+      "https://kick.com/api/v1/user",
+      { signal: abort.signal },
+    );
+    await started;
+    abort.abort(reason);
+
+    await expect(request).rejects.toBe(reason);
+    expect(pageFetch).not.toHaveBeenCalled();
+    expect(onPageFallback).not.toHaveBeenCalled();
+  });
+
   it("records fallback before page execution even when the page request fails", async () => {
     const order: string[] = [];
     const fetcher = createKickFetcher({

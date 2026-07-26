@@ -18,7 +18,8 @@ import { resolveCompatibility } from "@lurkloot/core";
 import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
-import type { ExtensionSettings, SupportedLocale } from "@lurkloot/shared/models";
+import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/shared/models";
+import type { EventEmitter } from "@lurkloot/shared/events";
 import type { WatchTabPort } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import { TwitchAdapter } from "@lurkloot/core/twitch";
@@ -70,6 +71,57 @@ async function translate(key: string, substitutions?: string | string[]): Promis
   return translateFromCatalogs(key, substitutions, active, fallback ?? {});
 }
 
+function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings: ExtensionSettings) {
+  const resolution = resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" });
+  // The watch-tab port is operation-scoped so every browser diagnostic joins
+  // the same controller event batch as the adapter and scheduler events.
+  const watchTabPort: WatchTabPort = {
+    openPinnedMutedTab: async (channel, session, options) => {
+      const settings = await loadSettings();
+      return openPinnedMutedTab(channel, session, {
+        muted: settings.muteFarmingTabs,
+        keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
+        closeManagedTabs: settings.autoCloseFinishedDrops,
+        ...options,
+      }, emit);
+    },
+    stopWatchTab: async (session, options) => {
+      const settings = await loadSettings();
+      return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options }, emit);
+    },
+  };
+  const adapter = platform === "twitch"
+    ? new TwitchAdapter(
+      { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
+      () => ensureTwitchIntegrity(emit),
+      watchTabPort,
+      {
+        compatibility: resolution.compatibility.twitch,
+        heartbeatIdentity: "web",
+        heartbeatFetchText: twitchHeartbeatFetchText,
+        heartbeatPost: twitchHeartbeatPost,
+      },
+      emit,
+    )
+    : new KickAdapter(
+      createKickFetcher({
+        background: (url, init) => fetchKickInBackground<unknown>(url, init),
+        pageFetch: (url, init) => fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
+          retainPageContext: { platform: "kick" },
+          emit,
+          openReason: "background_rejected",
+        }),
+        onBackgroundSuccess: (host, operationEmit) => recordManagedPageContextBackgroundSuccess(host, operationEmit),
+        onPageFallback: (host, operationEmit) => recordManagedPageContextFallback(host, operationEmit),
+      }),
+      watchTabPort,
+      undefined,
+      emit,
+      { compatibility: resolution.compatibility.kick, claimState: kickClaimState },
+    );
+  return { adapter, ...resolution };
+}
+
 const controller = createBackgroundController<ExtensionSettings>({
   loadSettings,
   saveSettings,
@@ -106,57 +158,17 @@ const controller = createBackgroundController<ExtensionSettings>({
   loadTwitchIntegrity,
   saveTwitchIntegrity,
   stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
+  createAdapter: createExtensionAdapter,
   createAdapters: (emit, settings) => {
-    const resolution = resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" });
-    // The watch-tab port is operation-scoped so every browser diagnostic joins
-    // the same controller event batch as the adapter and scheduler events.
-    const watchTabPort: WatchTabPort = {
-      openPinnedMutedTab: async (channel, session, options) => {
-        const settings = await loadSettings();
-        return openPinnedMutedTab(channel, session, {
-          muted: settings.muteFarmingTabs,
-          keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
-          closeManagedTabs: settings.autoCloseFinishedDrops,
-          ...options,
-        }, emit);
-      },
-      stopWatchTab: async (session, options) => {
-        const settings = await loadSettings();
-        return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options }, emit);
-      },
-    };
+    const twitch = createExtensionAdapter("twitch", emit, settings);
+    const kick = createExtensionAdapter("kick", emit, settings);
     return {
       adapters: {
-        twitch: new TwitchAdapter(
-          { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
-          () => ensureTwitchIntegrity(emit),
-          watchTabPort,
-          {
-            compatibility: resolution.compatibility.twitch,
-            heartbeatIdentity: "web",
-            heartbeatFetchText: twitchHeartbeatFetchText,
-            heartbeatPost: twitchHeartbeatPost,
-          },
-          emit,
-        ),
-        kick: new KickAdapter(
-          createKickFetcher({
-            background: (url, init) => fetchKickInBackground<unknown>(url, init),
-            pageFetch: (url, init) => fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
-              retainPageContext: { platform: "kick" },
-              emit,
-              openReason: "background_rejected",
-            }),
-            onBackgroundSuccess: (host, operationEmit) => recordManagedPageContextBackgroundSuccess(host, operationEmit),
-            onPageFallback: (host, operationEmit) => recordManagedPageContextFallback(host, operationEmit),
-          }),
-          watchTabPort,
-          undefined,
-          emit,
-          { compatibility: resolution.compatibility.kick, claimState: kickClaimState },
-        ),
+        twitch: twitch.adapter,
+        kick: kick.adapter,
       },
-      ...resolution,
+      compatibility: twitch.compatibility,
+      warnings: twitch.warnings,
     };
   },
 });
@@ -220,10 +232,7 @@ export default defineBackground(() => {
     // Stamp the install date once so the popup can time the rate/review nudge.
     // Set-if-missing (rather than gating on reason === "install") also backfills
     // a sane date for users upgrading from a pre-nudge version.
-    const state = await loadState();
-    if (!state.installedAt) {
-      await saveState({ ...state, installedAt: new Date().toISOString() });
-    }
+    await controller.ensureInstalledAt();
 
     // On a meaningful update (major/minor — not a patch bugfix, not a fresh
     // install), queue a popup notice so returning users can choose to see
