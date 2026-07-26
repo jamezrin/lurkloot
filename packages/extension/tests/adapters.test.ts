@@ -3,7 +3,7 @@ import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
 import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
-import { TwitchAdapter } from "@lurkloot/core/twitch";
+import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shared/models";
 import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
@@ -1206,11 +1206,13 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
     const events: EngineEvent[] = [];
-    const adapter = new TwitchAdapter(fetcher, undefined, undefined, undefined, (event) => events.push(event));
+    const discoveryState = new TwitchDiscoveryState();
+    const firstAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
 
-    expect((await adapter.discoverCampaigns()).map((campaign) => campaign.id)).toEqual(["a", "b"]);
+    expect((await firstAdapter.discoverCampaigns()).map((campaign) => campaign.id)).toEqual(["a", "b"]);
     failing = "b";
-    const campaigns = await adapter.discoverCampaigns();
+    const secondAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
+    const campaigns = await secondAdapter.discoverCampaigns();
 
     expect(campaigns.map((campaign) => campaign.id)).toEqual(["a", "b"]);
     expect(events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("b"))).toBe(true);
@@ -1266,38 +1268,51 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
     const events: EngineEvent[] = [];
-    const adapter = new TwitchAdapter(fetcher, undefined, undefined, undefined, (event) => events.push(event));
+    const discoveryState = new TwitchDiscoveryState();
+    const firstAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
 
-    expect((await adapter.discoverCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
+    expect((await firstAdapter.discoverCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
     dashboardFails = true;
-    const campaigns = await adapter.discoverCampaigns();
+    const secondAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
+    const campaigns = await secondAdapter.discoverCampaigns();
 
     expect(campaigns.map((campaign) => campaign.id)).toEqual(["a"]);
     expect(events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("dashboard"))).toBe(true);
 
     dashboardFails = false;
-    expect((await adapter.discoverCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
+    expect((await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).discoverCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
   });
 
   it("does not retain dashboard campaigns when the dashboard genuinely returns none", async () => {
     let dashboardIds = ["campaign"];
+    let dashboardFails = false;
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
-      if (op === "Inventory") return twitchInventory(["campaign"]);
-      if (op === "ViewerDropsDashboard") return twitchDashboard(dashboardIds);
+      if (op === "Inventory") return twitchInventory([]);
+      if (op === "ViewerDropsDashboard") {
+        if (dashboardFails) throw new Error("service unavailable");
+        return twitchDashboard(dashboardIds);
+      }
       if (op === "DropCampaignDetails") {
         return twitchCampaignDetails(String((requestBody(init).variables as Record<string, unknown>).dropID));
       }
       throw new Error(`Unexpected op ${op}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const discoveryState = new TwitchDiscoveryState();
+    const firstAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
 
-    expect((await adapter.discoverCampaigns()).map((campaign) => campaign.id)).toEqual(["campaign"]);
+    expect((await firstAdapter.discoverCampaigns()).map((campaign) => campaign.id)).toEqual(["campaign"]);
     dashboardIds = [];
-    const campaigns = await adapter.discoverCampaigns();
+    const secondAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const campaigns = await secondAdapter.discoverCampaigns();
 
-    expect(campaigns).toHaveLength(1);
-    expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Inventory Campaign", status: "active" });
+    expect(campaigns).toEqual([]);
+
+    dashboardFails = true;
+    const thirdAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const failedCampaigns = await thirdAdapter.discoverCampaigns();
+
+    expect(failedCampaigns).toEqual([]);
   });
 
   it("marks in-progress inventory campaigns the dashboard no longer lists active as expired", async () => {
