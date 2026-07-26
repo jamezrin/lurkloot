@@ -143,7 +143,7 @@ export interface WatchSession {
   tablessFallback?: boolean;
   // Health of the tabless heartbeat. lastHeartbeatOk is whether the last watch
   // signal was accepted; heartbeatChecks counts consecutive unhealthy checks so
-  // the scheduler can fall back to a real tab after offlineRetryLimit.
+  // the scheduler can fall back to a real tab after tablessFallbackFailureLimit.
   lastHeartbeatAt?: string;
   lastHeartbeatOk?: boolean;
   heartbeatChecks?: number;
@@ -330,6 +330,8 @@ export interface EngineSettings {
     farmSubscriptionCampaigns: boolean;
   };
   offlineRetryLimit: number;
+  // Consecutive failed tabless heartbeats before falling back to a watch tab.
+  tablessFallbackFailureLimit: number;
   pollIntervalMinutes: number;
   // Bounded post-claim handoff. After a reward is claimed, re-run discovery for
   // that platform on this cadence until the next eligible reward appears, then

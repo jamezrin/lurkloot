@@ -413,6 +413,10 @@
   "tablessDescription": {
     "message": "فارم عبر إشارات مشاهدة خفيفة بدل تبويب فيديو. يستخدم Twitch نبضات مشاهدة؛ ويستخدم Kick اتصال مشاهد. يعود تلقائيًا إلى تبويب إذا توقف عن الاحتساب."
   },
+  "tablessFallbackFailureLimitTitle": { "message": "حد الرجوع عن وضع بلا علامات تبويب" },
+  "tablessFallbackFailureLimitDescription": { "message": "يفتح علامة تبويب فيديو بعد هذا العدد من حالات فشل إشارات المشاهدة المتتالية بلا علامة تبويب." },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "فعّل وضع الموارد المنخفضة بلا علامات تبويب لتغيير هذا الإعداد." },
+  "failuresSuffix": { "message": "حالات فشل" },
   "autoCloseTabsTitle": {
     "message": "إغلاق تبويبات الفارم تلقائيًا"
   },

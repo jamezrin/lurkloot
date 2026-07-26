@@ -54,7 +54,7 @@ function activeReward(campaign: DropCampaign, settings: EngineSettings): DropRew
 // Decides whether to farm this channel without a tab. Off unless tabless mode is
 // enabled and the platform supports it; falls back to a tab (returns false) when
 // we deliberately switched to a tab for this same channel, or when tabless
-// heartbeats have been failing past the retry limit.
+// heartbeats have been failing past the tabless fallback limit.
 function chooseTablessWatch(
   previous: WatchSession,
   settings: EngineSettings,
@@ -63,7 +63,7 @@ function chooseTablessWatch(
 ): boolean {
   if (!settings.tablessMode || !adapter.supportsTabless) return false;
   if (sameChannel && previous.watchMode === "tab" && previous.tablessFallback) return false;
-  if (sameChannel && previous.watchMode === "tabless" && (previous.heartbeatChecks ?? 0) >= settings.offlineRetryLimit) return false;
+  if (sameChannel && previous.watchMode === "tabless" && (previous.heartbeatChecks ?? 0) >= settings.tablessFallbackFailureLimit) return false;
   return true;
 }
 

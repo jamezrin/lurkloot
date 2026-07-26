@@ -68,6 +68,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
     farmSubscriptionCampaigns: true,
   },
   offlineRetryLimit: 3,
+  tablessFallbackFailureLimit: 5,
   pollIntervalMinutes: 1,
   postClaimHandoff: true,
   // Nine refreshes at most, always finishing before the next one-minute watch
@@ -165,6 +166,12 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     excludedCampaignIds: normalizeIdList(value?.excludedCampaignIds),
     farmingEligibility: normalizeFarmingEligibility(value?.farmingEligibility),
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_ENGINE_SETTINGS.offlineRetryLimit),
+    tablessFallbackFailureLimit: clampInteger(
+      value?.tablessFallbackFailureLimit,
+      1,
+      10,
+      DEFAULT_ENGINE_SETTINGS.tablessFallbackFailureLimit,
+    ),
     // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
     pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_ENGINE_SETTINGS.pollIntervalMinutes),
     postClaimHandoff: booleanOr(value?.postClaimHandoff, DEFAULT_ENGINE_SETTINGS.postClaimHandoff),

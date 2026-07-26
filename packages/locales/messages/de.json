@@ -413,6 +413,10 @@
   "tablessDescription": {
     "message": "Farmt über leichte Watch-Signale statt Video-Tab. Twitch nutzt Watch-Heartbeats; Kick nutzt eine Zuschauerverbindung. Fällt automatisch auf einen Tab zurück, wenn es nicht mehr zählt."
   },
+  "tablessFallbackFailureLimitTitle": { "message": "Schwellenwert für den Tabless-Rückfall" },
+  "tablessFallbackFailureLimitDescription": { "message": "Öffnet nach dieser Anzahl aufeinanderfolgender fehlgeschlagener Tabless-Wiedergabesignale einen Video-Tab." },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "Aktiviere den ressourcenschonenden Tabless-Modus, um diese Einstellung zu ändern." },
+  "failuresSuffix": { "message": "Fehler" },
   "autoCloseTabsTitle": {
     "message": "Farming-Tabs automatisch schließen"
   },

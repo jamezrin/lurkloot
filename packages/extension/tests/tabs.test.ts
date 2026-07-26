@@ -1039,6 +1039,28 @@ describe("twitch integrity refresh", () => {
       expect(currentManagedPageContextTabs()).toMatchObject({ twitch: { tabId: 14 } });
     });
 
+    it("opens page context immediately on the first missing-token check", async () => {
+      const browser = browserMock();
+      browser.tabs.query.mockResolvedValue([]);
+      browser.tabs.create.mockResolvedValue({ id: 14 });
+
+      const pending = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        50,
+      );
+
+      await vi.waitFor(() => {
+        expect(browser.tabs.create).toHaveBeenCalledTimes(1);
+      });
+      expect(browser.tabs.create).toHaveBeenCalledWith({
+        url: "https://www.twitch.tv/drops/inventory",
+        pinned: false,
+        active: false,
+      });
+      await expect(pending).resolves.toBe(false);
+    });
+
     it("resolves false and warns when no token is captured before the timeout", async () => {
       const browser = browserMock();
       browser.tabs.query.mockResolvedValue([{ id: 3 }]);

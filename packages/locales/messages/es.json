@@ -413,6 +413,10 @@
   "tablessDescription": {
     "message": "Farmea con señales ligeras de visualización en lugar de una pestaña de vídeo. Twitch usa heartbeats de visualización; Kick usa una conexión de espectador. Vuelve automáticamente a una pestaña si deja de contar."
   },
+  "tablessFallbackFailureLimitTitle": { "message": "Umbral de cambio desde el modo sin pestañas" },
+  "tablessFallbackFailureLimitDescription": { "message": "Abre una pestaña de vídeo después de esta cantidad de señales de visualización sin pestañas fallidas consecutivas." },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "Activa el modo de bajo consumo sin pestañas para cambiar este ajuste." },
+  "failuresSuffix": { "message": "fallos" },
   "autoCloseTabsTitle": {
     "message": "Cerrar pestañas de farmeo automáticamente"
   },

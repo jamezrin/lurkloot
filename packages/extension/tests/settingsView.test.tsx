@@ -76,6 +76,10 @@ const labels: Record<string, string> = {
   adFocusDescription: "Ad countdowns freeze in background tabs.",
   schedulerIntervalTitle: "Scheduler interval",
   schedulerIntervalDescription: "How often campaign and streamer status refreshes.",
+  tablessFallbackFailureLimitTitle: "Tabless fallback threshold",
+  tablessFallbackFailureLimitDescription: "Open a video tab after this many consecutive failed tabless watch signals.",
+  tablessFallbackFailureLimitDisabledReason: "Enable tabless low-resource mode to change this setting.",
+  failuresSuffix: "failures",
   postClaimHandoffTitle: "Fast reward handoff",
   postClaimHandoffDescription: "After claiming a drop, briefly check for the next reward.",
   postClaimHandoffIntervalTitle: "Handoff check interval",
@@ -143,6 +147,19 @@ describe("deadline feasibility setting", () => {
     return { container, onSettingsChange };
   }
 
+  function setNumberInput(input: HTMLInputElement, value: string): void {
+    input.value = value;
+    input.dispatchEvent(new window.Event("input", { bubbles: true }));
+    input.dispatchEvent(new window.Event("change", { bubbles: true }));
+    // Linkedom does not route these events through React's ChangeEventPlugin,
+    // so mirror the browser's input-and-blur sequence through the stashed host
+    // props. The search-view test uses the same focused workaround.
+    const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
+    const props = propsKey ? (input as unknown as Record<string, { onBlur?(event: unknown): void; onChange?(event: unknown): void }>)[propsKey] : undefined;
+    props?.onChange?.({ target: input, currentTarget: input });
+    props?.onBlur?.({ currentTarget: input });
+  }
+
   it("defaults the toggle on and saves changes immediately", () => {
     const { container, onSettingsChange } = mountSettings();
     const toggle = container.querySelector('[role="switch"][aria-label="Skip rewards that cannot be completed"]') as HTMLButtonElement;
@@ -159,6 +176,30 @@ describe("deadline feasibility setting", () => {
     const { container } = mountSettings({ ...DEFAULT_SETTINGS, skipUnfinishableRewards: false, deadlineSafetyMarginMinutes: 17 });
     const input = container.querySelector('input[aria-label="Deadline safety margin"]') as HTMLInputElement;
     expect(input.value).toBe("17");
+    expect(input.disabled).toBe(true);
+  });
+
+  it("renders and saves the tabless fallback threshold", () => {
+    const { container, onSettingsChange } = mountSettings();
+    const input = container.querySelector(
+      'input[aria-label="Tabless fallback threshold"]',
+    ) as HTMLInputElement;
+    expect(input.value).toBe("5");
+    expect(input.getAttribute("min")).toBe("1");
+    expect(input.getAttribute("max")).toBe("10");
+
+    act(() => setNumberInput(input, "7"));
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      { tablessFallbackFailureLimit: 7 },
+      { tickAfterSave: true },
+    );
+  });
+
+  it("disables the tabless fallback threshold when tabless mode is off", () => {
+    const { container } = mountSettings({ ...DEFAULT_SETTINGS, tablessMode: false });
+    const input = container.querySelector(
+      'input[aria-label="Tabless fallback threshold"]',
+    ) as HTMLInputElement;
     expect(input.disabled).toBe(true);
   });
 

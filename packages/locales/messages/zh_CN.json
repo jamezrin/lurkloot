@@ -413,6 +413,10 @@
   "tablessDescription": {
     "message": "通过轻量观看信号而不是视频标签页刷取。Twitch 使用观看心跳；Kick 使用观众连接。如果停止计数，会自动退回标签页。"
   },
+  "tablessFallbackFailureLimitTitle": { "message": "无标签页回退阈值" },
+  "tablessFallbackFailureLimitDescription": { "message": "连续发生这么多次无标签页观看信号失败后打开视频标签页。" },
+  "tablessFallbackFailureLimitDisabledReason": { "message": "启用无标签页低资源模式以更改此设置。" },
+  "failuresSuffix": { "message": "次失败" },
   "autoCloseTabsTitle": {
     "message": "自动关闭刷取标签页"
   },
