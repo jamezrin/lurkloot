@@ -213,7 +213,7 @@ export default defineBackground(() => {
       removeListener: (listener) => browser.cookies.onChanged.removeListener(listener),
     },
     invalidate: (platform) => controller.invalidateAuthHealth(platform),
-    recheck: (platform) => controller.tickAndHandOff([platform]),
+    recheck: (platform) => controller.checkAuthHealth(platform),
   });
 
   browser.runtime.onInstalled.addListener(async (details) => {

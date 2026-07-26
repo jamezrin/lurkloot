@@ -350,7 +350,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const settings = await deps.loadSettings();
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
-    if (settings.autoStartDropFarming && settings.running) await tick();
+    if (settings.autoStartDropFarming && settings.running) {
+      await tick();
+    } else {
+      await refreshAuthHealth(PLATFORMS, settings);
+    }
   }
 
   async function handleStartup(): Promise<void> {
@@ -371,9 +375,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     registerManagedPageContextTabs(preservePageContexts ? state.managedPageContextTabs ?? {} : {});
     const cleanup = staleStartupCleanup(state, preservePageContexts);
     if (!cleanup.hasStaleSession) {
-      if (settings.autoStartDropFarming && settings.running) await tick();
+      let nextSettings = settings;
       if (settings.running && !settings.autoStartDropFarming) {
-        await deps.saveSettings({ ...settings, running: false });
+        nextSettings = { ...settings, running: false };
+        await deps.saveSettings(nextSettings);
+      }
+      if (nextSettings.autoStartDropFarming && nextSettings.running) {
+        await tick();
+      } else {
+        await refreshAuthHealth(PLATFORMS, nextSettings);
       }
       return;
     }
@@ -403,6 +413,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
     if (nextSettings.running && nextSettings.autoStartDropFarming) {
       await tick();
+    } else {
+      await refreshAuthHealth(PLATFORMS, nextSettings);
     }
   }
 

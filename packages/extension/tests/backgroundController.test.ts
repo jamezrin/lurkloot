@@ -1168,12 +1168,43 @@ describe("background controller", () => {
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: 11 });
   });
 
+  it("refreshes enabled auth health from ensureAlarm while farming is stopped", async () => {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      running: false,
+      platform: {
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    });
+
+    await env.controller.ensureAlarm();
+
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("refreshes enabled auth health on startup without starting farming", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+
+    await env.controller.handleStartup();
+
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.state.authHealth.kick.status).toBe("healthy");
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+  });
+
   it("auto-starts on launch only when the persisted running state is enabled", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: true });
 
     await env.controller.ensureAlarm();
 
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
   });
 
   it("clears stale restart tabs and auto-resumes with fresh tabs when auto-start is enabled", async () => {
@@ -1222,6 +1253,8 @@ describe("background controller", () => {
       expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
     ]);
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.state.sessions.twitch.status).toBe("watching");
     expect(env.state.sessions.twitch.tabId).toBe(10);
     expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
@@ -1366,7 +1399,6 @@ describe("background controller", () => {
 
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
-    expect(env.deps.saveState).not.toHaveBeenCalled();
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
       event.category === "diagnostic" && event.message.includes("Browser restarted")
     )).toBe(false);
@@ -1380,7 +1412,8 @@ describe("background controller", () => {
     expect(env.settings.running).toBe(false);
     expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: false }));
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-    expect(env.deps.saveState).not.toHaveBeenCalled();
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.state.authHealth.kick.status).toBe("healthy");
   });
 
   it("starts automation, persists settings, creates alarm, and runs an immediate tick", async () => {
