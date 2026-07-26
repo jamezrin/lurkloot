@@ -10,6 +10,57 @@ const ENABLED = { twitch: true, kick: true };
 
 afterEach(() => vi.unstubAllGlobals());
 
+function twitchOperation(init?: RequestInit): string {
+  return JSON.parse(String(init?.body)).operationName;
+}
+
+function twitchResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function emptyTwitchInventory(): unknown {
+  return {
+    data: {
+      currentUser: {
+        id: "viewer-id",
+        inventory: { dropCampaignsInProgress: [] },
+      },
+    },
+  };
+}
+
+function retainedTwitchDashboard(): unknown {
+  return {
+    data: {
+      currentUser: {
+        id: "viewer-id",
+        login: "viewer",
+        dropCampaigns: [{ id: "retained", status: "ACTIVE", self: { isAccountConnected: true } }],
+      },
+    },
+  };
+}
+
+function retainedTwitchCampaignDetails(): unknown {
+  return {
+    data: {
+      dropCampaign: {
+        id: "retained",
+        name: "Retained Campaign",
+        game: { id: "game", slug: "game-slug", displayName: "Game" },
+        timeBasedDrops: [{
+          id: "retained-drop",
+          requiredMinutesWatched: 60,
+          benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
+        }],
+      },
+    },
+  };
+}
+
 interface Captured {
   url: string;
   options: { ja3?: string; userAgent?: string; headers: Record<string, string>; disableRedirect?: boolean };
@@ -89,6 +140,40 @@ describe("impersonate transport", () => {
     await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.kick.claimReward(campaign, reward);
 
     expect(claimPosts).toBe(1);
+    await handle.dispose();
+  });
+
+  it("retains Twitch discovery across fresh impersonated adapter constructions", async () => {
+    let dashboardAvailable = true;
+    let detailsAvailable = true;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      switch (twitchOperation(init)) {
+        case "Inventory":
+          return twitchResponse(emptyTwitchInventory());
+        case "ViewerDropsDashboard":
+          if (dashboardAvailable) {
+            dashboardAvailable = false;
+            return twitchResponse(retainedTwitchDashboard());
+          }
+          throw new Error("dashboard unavailable");
+        case "DropCampaignDetails":
+          if (detailsAvailable) {
+            detailsAvailable = false;
+            return twitchResponse(retainedTwitchCampaignDetails());
+          }
+          throw new Error("details unavailable");
+        default:
+          throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
+      }
+    }));
+    const client = fakeClient(() => Promise.resolve({ status: 200, data: {} }));
+    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+
+    const first = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.discoverCampaigns();
+    const second = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.discoverCampaigns();
+
+    expect(first.map((campaign) => campaign.id)).toEqual(["retained"]);
+    expect(second.map((campaign) => campaign.id)).toEqual(["retained"]);
     await handle.dispose();
   });
 

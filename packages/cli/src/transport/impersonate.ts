@@ -1,6 +1,6 @@
 import { fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
 import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
-import { TwitchAdapter } from "@lurkloot/core/twitch";
+import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
@@ -28,6 +28,7 @@ export async function createImpersonateTransport(
 ): Promise<TransportHandle> {
   const cycleTLS = await (deps.initClient ?? initCycle)();
   const kickClaimState = new KickClaimState();
+  const twitchDiscoveryState = new TwitchDiscoveryState();
   const createAdapter = (platform: Platform, emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => {
     const identity = twitchClientIdentity(creds);
     const twitchIdentity = identity.userAgent ? "android" : "web";
@@ -40,6 +41,7 @@ export async function createImpersonateTransport(
         {
           ...identity,
           compatibility: resolution.compatibility.twitch,
+          discoveryState: twitchDiscoveryState,
           heartbeatIdentity: twitchIdentity,
           heartbeatFetchText: async (url, init) => {
             const response = await withHeartbeatTimeout(() => cycleTLS(url, {
