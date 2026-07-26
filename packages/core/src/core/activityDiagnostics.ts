@@ -69,7 +69,12 @@ export function activityDiagnostic(event: ActivityEvent): DiagnosticEvent {
 // the mirror when they filter by category, so this costs them no storage.
 export function withActivityDiagnostics(emit: EventEmitter): EventEmitter {
   return (event: EngineEvent) => {
-    emit(event);
-    if (event.category === "activity") emit(activityDiagnostic(event));
+    // Stamp the moment of emission here: a host collects a tick's events and
+    // writes them in one batch, so the write time can be many seconds later and
+    // identical for events that happened far apart. An event that already
+    // carries emittedAt (a replayed or host-synthesised one) keeps it.
+    const emittedAt = event.emittedAt ?? new Date().toISOString();
+    emit({ ...event, emittedAt });
+    if (event.category === "activity") emit({ ...activityDiagnostic(event), emittedAt });
   };
 }
