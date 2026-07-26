@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ALARM_NAME, createBackgroundController, type CredentialAvailability } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformAuthHealth, SchedulerState } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
@@ -39,6 +39,16 @@ function asSnapshot(value: unknown): RuntimeSnapshot {
   return value as RuntimeSnapshot;
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
 function adapter(platform: Platform): PlatformAdapter {
   return {
     platform,
@@ -61,6 +71,7 @@ function harness(
     stopPageContextTabs?: StopPageContextTabs;
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
     checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
+    authProbeTimeoutMs?: number;
   } = {},
 ) {
   let currentSettings = settings;
@@ -100,6 +111,9 @@ function harness(
     ...(overrides.checkCredentialAvailability
       ? { checkCredentialAvailability: vi.fn(overrides.checkCredentialAvailability) }
       : {}),
+    ...(overrides.authProbeTimeoutMs === undefined
+      ? {}
+      : { authProbeTimeoutMs: overrides.authProbeTimeoutMs }),
   };
 
   return {
@@ -118,6 +132,176 @@ function harness(
 }
 
 describe("background controller", () => {
+  it("starts enabled auth probes concurrently and persists each before scheduler work", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const twitchHealth = deferred<PlatformAuthHealth>();
+    const kickHealth = deferred<PlatformAuthHealth>();
+    vi.mocked(env.twitch.checkAuthHealth).mockReturnValue(twitchHealth.promise);
+    vi.mocked(env.kick.checkAuthHealth).mockReturnValue(kickHealth.promise);
+
+    const ticking = env.controller.tick();
+    await vi.waitFor(() => {
+      expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
+      expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+    });
+
+    kickHealth.resolve({
+      status: "healthy",
+      checkedAt: "2026-07-26T12:00:00.000Z",
+    });
+    await vi.waitFor(() => expect(env.state.authHealth.kick.status).toBe("healthy"));
+
+    expect(env.state.authHealth.twitch.status).toBe("checking");
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+
+    twitchHealth.resolve({
+      status: "healthy",
+      checkedAt: "2026-07-26T12:00:01.000Z",
+    });
+    await ticking;
+
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
+  });
+
+  it("times out and aborts a stalled auth probe at the configured deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const env = harness(
+        { ...DEFAULT_SETTINGS, running: false },
+        { authProbeTimeoutMs: 25 },
+      );
+      let signal: AbortSignal | undefined;
+      vi.mocked(env.twitch.checkAuthHealth).mockImplementation((nextSignal) => {
+        signal = nextSignal;
+        return new Promise(() => undefined);
+      });
+
+      const checking = env.controller.checkAuthHealth("twitch");
+      await vi.advanceTimersByTimeAsync(24);
+      expect(env.state.authHealth.twitch.status).toBe("checking");
+      await vi.advanceTimersByTimeAsync(1);
+      await checking;
+
+      expect(signal?.aborted).toBe(true);
+      expect(env.state.authHealth.twitch).toMatchObject({
+        status: "unavailable",
+        reasonCode: "network_unavailable",
+        message: { key: "authNetworkUnavailable" },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not delay a resolved platform while another probe awaits its own deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const env = harness(
+        { ...DEFAULT_SETTINGS, running: true },
+        { authProbeTimeoutMs: 25 },
+      );
+      vi.mocked(env.twitch.checkAuthHealth).mockImplementation(() => new Promise(() => undefined));
+      vi.mocked(env.kick.checkAuthHealth).mockResolvedValue({
+        status: "healthy",
+        checkedAt: "2026-07-26T12:00:00.000Z",
+      });
+
+      let settled = false;
+      const ticking = env.controller.tick().then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(env.state.authHealth.kick.status).toBe("healthy");
+      expect(env.state.authHealth.twitch.status).toBe("checking");
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(24);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await ticking;
+
+      expect(settled).toBe(true);
+      expect(env.state.authHealth.twitch).toMatchObject({
+        status: "unavailable",
+        reasonCode: "network_unavailable",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("settles once when a timed out auth adapter rejects later", async () => {
+    vi.useFakeTimers();
+    try {
+      const env = harness(
+        { ...DEFAULT_SETTINGS, running: false },
+        { authProbeTimeoutMs: 25 },
+      );
+      const health = deferred<PlatformAuthHealth>();
+      vi.mocked(env.twitch.checkAuthHealth).mockReturnValue(health.promise);
+
+      const checking = env.controller.checkAuthHealth("twitch");
+      await vi.advanceTimersByTimeAsync(25);
+      await checking;
+      const saveCount = env.deps.saveState.mock.calls.length;
+      const transitionCount = env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
+        event.category === "activity" && event.code === "auth_health_changed"
+      ).length;
+
+      health.reject(new Error("late adapter failure"));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(env.deps.saveState).toHaveBeenCalledTimes(saveCount);
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
+        event.category === "activity" && event.code === "auth_health_changed"
+      )).toHaveLength(transitionCount);
+      expect(env.state.authHealth.twitch.reasonCode).toBe("network_unavailable");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("merges a completed auth probe into state written while the probe was pending", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const health = deferred<PlatformAuthHealth>();
+    vi.mocked(env.twitch.checkAuthHealth).mockReturnValue(health.promise);
+
+    const checking = env.controller.checkAuthHealth("twitch");
+    await vi.waitFor(() => expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce());
+
+    env.state.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      channel: channel("kick"),
+      offlineChecks: 0,
+      tabId: 20,
+      tabManagedByExtension: true,
+    };
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "kick",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 1,
+        unmutedVideoCount: 0,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: true,
+        readyState: 4,
+        currentTime: 12,
+        duration: 1200,
+      },
+    }, { tab: { id: 20 } });
+    health.resolve({ status: "healthy", checkedAt: "2026-07-26T12:00:01.000Z" });
+    await checking;
+
+    expect(env.state.authHealth.twitch.status).toBe("healthy");
+    expect(env.state.sessions.kick.playback?.videoCount).toBe(1);
+  });
+
   it("reports missing credentials without calling the platform probe", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
       checkCredentialAvailability: async () => ({ status: "missing" }),
@@ -668,7 +852,7 @@ describe("background controller", () => {
     }));
   });
 
-  it("saves operational state before publishing the ordered batch", async () => {
+  it("saves each operational state before publishing its ordered batch", async () => {
     const calls: string[] = [];
     const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
       saveState: async () => { calls.push("state"); },
@@ -677,7 +861,11 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    expect(calls).toEqual(["state", "events"]);
+    expect(calls).toEqual([
+      "state", "events",
+      "state", "events",
+      "state", "events",
+    ]);
   });
 
   it("does not publish tick events when the corresponding state save fails", async () => {
@@ -685,7 +873,7 @@ describe("background controller", () => {
       saveState: vi.fn().mockRejectedValueOnce(new Error("storage unavailable")),
     });
 
-    await expect(env.controller.tick()).rejects.toThrow("storage unavailable");
+    await expect(env.controller.tick(["twitch"])).rejects.toThrow("storage unavailable");
 
     expect(env.deps.saveState).toHaveBeenCalledTimes(1);
     expect(env.reportEvents).not.toHaveBeenCalled();

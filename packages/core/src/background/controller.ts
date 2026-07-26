@@ -40,6 +40,8 @@ function isNothingLeftToFarm(reasonCode: WatchReasonCode | undefined): boolean {
 // still transmits.
 const RECENT_HEARTBEAT_MS = 30_000;
 const PLATFORMS: Platform[] = ["twitch", "kick"];
+const DEFAULT_AUTH_PROBE_TIMEOUT_MS = 10_000;
+class AuthProbeSetupError extends Error {}
 const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   automation_disabled: true,
   platform_disabled: true,
@@ -107,6 +109,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   saveSettings(settings: S): Promise<void>;
   loadState(): Promise<SchedulerState>;
   saveState(state: SchedulerState): Promise<void>;
+  authProbeTimeoutMs?: number;
   reportEvents?: EventReporter;
   createAlarm(name: string, options: { periodInMinutes: number }): Promise<void>;
   createAdapters(emit: EventEmitter, settings: S): {
@@ -433,17 +436,29 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // cookies (or the adapter probe) throws, mapping it to "unavailable" here
     // keeps the failure from propagating into the tick, where a rollback would
     // strand the popup on "Checking your signed-in session…" indefinitely.
-    try {
-      const availability = await deps.checkCredentialAvailability?.(platform);
-      if (availability?.status === "missing") {
-        return {
-          status: "missing_credentials",
-          checkedAt: new Date().toISOString(),
-          reasonCode: "credentials_missing",
-          message: { key: "authMissingCredentials" },
-        };
-      }
-      if (availability?.status === "unavailable") {
+    const abort = new AbortController();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const terminalProbe = (async (): Promise<PlatformAuthHealth> => {
+      try {
+        const availability = await deps.checkCredentialAvailability?.(platform);
+        if (availability?.status === "missing") {
+          return {
+            status: "missing_credentials",
+            checkedAt: new Date().toISOString(),
+            reasonCode: "credentials_missing",
+            message: { key: "authMissingCredentials" },
+          };
+        }
+        if (availability?.status === "unavailable") {
+          return {
+            status: "unavailable",
+            checkedAt: new Date().toISOString(),
+            reasonCode: "credential_lookup_failed",
+            message: { key: "authCredentialLookupFailed" },
+          };
+        }
+        return await adapter.checkAuthHealth(abort.signal);
+      } catch {
         return {
           status: "unavailable",
           checkedAt: new Date().toISOString(),
@@ -451,19 +466,79 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           message: { key: "authCredentialLookupFailed" },
         };
       }
-      return await adapter.checkAuthHealth();
-    } catch {
-      return {
-        status: "unavailable",
-        checkedAt: new Date().toISOString(),
-        reasonCode: "credential_lookup_failed",
-        message: { key: "authCredentialLookupFailed" },
-      };
+    })();
+    const timedOut = new Promise<PlatformAuthHealth>((resolve) => {
+      timeout = setTimeout(() => {
+        abort.abort();
+        resolve({
+          status: "unavailable",
+          checkedAt: new Date().toISOString(),
+          reasonCode: "network_unavailable",
+          message: { key: "authNetworkUnavailable" },
+        });
+      }, deps.authProbeTimeoutMs ?? DEFAULT_AUTH_PROBE_TIMEOUT_MS);
+    });
+    try {
+      return await Promise.race([terminalProbe, timedOut]);
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
     }
+  }
+
+  async function persistAuthHealth(
+    platform: Platform,
+    health: PlatformAuthHealth,
+    probeEvents: readonly EngineEvent[] = [],
+  ): Promise<void> {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      events.push(...probeEvents);
+      const state = await deps.loadState();
+      const transition = applyPlatformAuthHealth(state, platform, health);
+      if (transition.event) emit(transition.event);
+      await persistAndReport(transition.state, events);
+    }));
+  }
+
+  async function refreshAuthHealth(platforms: Platform[], loadedSettings?: S): Promise<void> {
+    const settings = loadedSettings ?? await deps.loadSettings();
+    const enabled = platforms.filter((platform) => settings.platform[platform].enabled);
+    await Promise.all(enabled.map(async (platform) => {
+      const result = await withEventCollector(async (emit, events) => {
+        let adapter: PlatformAdapter;
+        try {
+          adapter = deps.createAdapters(emit, settings).adapters[platform];
+        } catch (error) {
+          throw new AuthProbeSetupError(error instanceof Error ? error.message : "Adapter factory failed");
+        }
+        const health = await probeAuthHealth(platform, adapter);
+        return { health, events };
+      });
+      await persistAuthHealth(platform, result.health, result.events);
+    }));
   }
 
   async function tick(platforms?: Platform[]): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
+    const settings = await deps.loadSettings();
+    if (settings.running) {
+      try {
+        await refreshAuthHealth(platforms ?? PLATFORMS, settings);
+      } catch (error) {
+        if (!(error instanceof AuthProbeSetupError)) throw error;
+        await withStateLock(() => withEventCollector(async (emit, events) => {
+          const state = await deps.loadState();
+          emit({
+            category: "activity",
+            code: "interruption",
+            level: "error",
+            data: { reason: "platform_error", detail: error.message },
+          });
+          emit({ category: "diagnostic", level: "error", message: error.message });
+          await persistAndReport(state, events);
+        }));
+        return claimedRewards;
+      }
+    }
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const settings = await deps.loadSettings();
       const state = await deps.loadState();
@@ -472,25 +547,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         kick: new Set(waitingClaimRewardIds.kick),
       };
       let nextState: SchedulerState;
-      // Auth health is account-level, not tick-scoped: once probed it must be
-      // persisted even if the scheduler body below throws. Remember each probe
-      // so the rollback path can re-apply it instead of reverting the popup to
-      // its prior "checking" value.
-      const probedHealth: Partial<Record<Platform, PlatformAuthHealth>> = {};
       try {
         const adapters = createAdapters(settings, emit);
-        let schedulerState = state;
-        const tickPlatforms = platforms ?? PLATFORMS;
-        if (settings.running) {
-          for (const platform of tickPlatforms) {
-            if (!settings.platform[platform].enabled) continue;
-            const health = await probeAuthHealth(platform, adapters[platform]);
-            probedHealth[platform] = health;
-            const transition = applyPlatformAuthHealth(schedulerState, platform, health);
-            schedulerState = transition.state;
-            if (transition.event) emit(transition.event);
-          }
-        }
         // Observed here rather than returned by the scheduler: the controller
         // already sees every emitted event, and the post-claim handoff only
         // needs to know which platforms claimed.
@@ -501,7 +559,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           emit(event);
         };
         const eventsBeforeTick = events.length;
-        const result = await runSchedulerTick(schedulerState, settings, adapters, {
+        const result = await runSchedulerTick(state, settings, adapters, {
           ...(platforms ? { platforms } : {}),
           stopPageContextTabs: deps.stopPageContextTabs,
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
@@ -538,14 +596,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
         emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
         emit({ category: "diagnostic", level: "error", message: detail });
-        // Roll back the scheduler work but keep the auth-health probe results:
-        // discarding them would leave the popup stuck on "checking".
-        let rolledBack = state;
-        for (const platform of Object.keys(probedHealth) as Platform[]) {
-          const health = probedHealth[platform];
-          if (health) rolledBack = applyPlatformAuthHealth(rolledBack, platform, health).state;
-        }
-        await persistAndReport(rolledBack, events);
+        await persistAndReport(state, events);
         return;
       }
       await persistAndReport(nextState, events);
@@ -560,13 +611,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function checkAuthHealth(platform: Platform): Promise<void> {
-    await withStateLock(() => withEventCollector(async (emit, events) => {
-      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
-      const health = await probeAuthHealth(platform, deps.createAdapters(emit, settings).adapters[platform]);
-      const transition = applyPlatformAuthHealth(state, platform, health);
-      if (transition.event) emit(transition.event);
-      await persistAndReport(transition.state, events);
-    }));
+    await refreshAuthHealth([platform]);
   }
 
   async function invalidateAuthHealth(platform: Platform): Promise<void> {
