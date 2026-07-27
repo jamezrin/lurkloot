@@ -42,11 +42,10 @@ type SettingsPatch = Partial<Omit<ExtensionSettings, "platform">> & {
 function settings(patch: SettingsPatch = {}): ExtensionSettings {
   return {
     ...DEFAULT_SETTINGS,
-    running: true,
     ...patch,
     platform: {
-      twitch: { ...DEFAULT_SETTINGS.platform.twitch, ...patch.platform?.twitch },
-      kick: { ...DEFAULT_SETTINGS.platform.kick, ...patch.platform?.kick },
+      twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true, ...patch.platform?.twitch },
+      kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, ...patch.platform?.kick },
     },
   };
 }
@@ -2253,7 +2252,7 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ running: false }),
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: false } } }),
       { twitch, kick: adapter("kick", [], []) },
       { stopPageContextTabs },
     );
@@ -3080,7 +3079,7 @@ describe("scheduler critical health observations", () => {
 
   it.each([
     ["platform disabled", () => healthSettings({ platform: { twitch: { enabled: false } } })],
-    ["automation stopped", () => healthSettings({ running: false })],
+    ["automation stopped", () => healthSettings({ platform: { twitch: { enabled: false }, kick: { enabled: false } } })],
   ])("prunes the tab churn window on the %s early exit", async (_name, tickSettings) => {
     const stale = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const result = await runSchedulerTick(

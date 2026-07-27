@@ -303,7 +303,13 @@ export interface CompatibilitySettings {
 // host (extension or CLI). Host-only knobs (browser tab policy, popup UI) live on
 // ExtensionSettings below, never here.
 export interface EngineSettings {
-  running: boolean;
+  // There is deliberately no global `running` flag. Farming is active for a
+  // platform when that platform is enabled, and nothing else — see
+  // isFarmingActive(). A separate master switch used to drift out of step with
+  // the per-platform flags (the popup rendered `running && enabled`, so a
+  // cleared master hid still-enabled platforms and re-enabling one resurrected
+  // the others), and autoStartDropFarming now expresses "do not resume on
+  // restart" by clearing the per-platform flags instead.
   autoClaim: boolean;
   // Low-resource mode: farm by sending watch signals instead of opening a
   // video tab. Twitch uses API heartbeats; Kick uses a viewer WebSocket. Falls

@@ -76,9 +76,13 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility },
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
+  // Both platforms on by default. The extension ships them off so a fresh
+  // install sits idle until the user opts in; the CLI has no such moment — it is
+  // started deliberately, and running it with everything disabled would do
+  // nothing at all.
   platform: {
-    twitch: { ...DEFAULT_SETTINGS.platform.twitch },
-    kick: { ...DEFAULT_SETTINGS.platform.kick },
+    twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+    kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
   },
   compatibility: {
     twitch: { ...DEFAULT_SETTINGS.compatibility.twitch },
@@ -121,10 +125,11 @@ const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
 
 // Settings that exist in the extension but are inert in the CLI's tabless path.
 // Called out by name so a config copy-pasted from the extension gets an
-// actionable error instead of a silently-ignored knob. `running` and
-// `tablessMode` live here too: the CLI always runs and is always tabless.
+// actionable error instead of a silently-ignored knob. `tablessMode` lives here
+// too: the CLI is always tabless. `running` is deliberately absent: it was
+// removed from the settings contract, so the schema migration strips it (with a
+// diagnostic) before this scan ever sees it.
 const EXTENSION_ONLY_KEYS = new Set<string>([
-  "running",
   "tablessMode",
   "muteFarmingTabs",
   "keepFarmingVideosUnmuted",
@@ -334,14 +339,13 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Platfor
 }
 
 // Expands the CLI settings into the EngineSettings contract the shared engine
-// consumes. The CLI invariants are pinned: always running, always tabless, never
+// consumes. The CLI invariants are pinned: always tabless, never
 // pausing on a (nonexistent) manual watch, and never auto-starting via the
 // controller (the CLI drives tick() directly). Tab-policy fields are not part of
 // the engine contract — the CLI never opens a tab — so there is nothing to force.
 export function toEngineSettings(cli: CliSettings): EngineSettings {
   return mergeEngineSettings({
     ...cli,
-    running: true,
     tablessMode: true,
     pauseOnManualWatch: false,
     autoStartDropFarming: false,

@@ -260,7 +260,7 @@ describe("schema v2", () => {
     // setting; normalization defaults both flags to on.
     expect(result.settings.farmingEligibility).toBeUndefined();
     expect(result.settings.campaignVisibility).toBeUndefined();
-    expect(result.toVersion).toBe(3);
+    expect(result.toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
     expect(result.changed).toBe(true);
     expect(result.diagnostics).toContainEqual({
       code: "moved_property",
@@ -325,12 +325,72 @@ describe("schema v2", () => {
   });
 });
 
+describe("schema v4", () => {
+  it("drops the running flag and keeps enabled platforms farming when it was on", () => {
+    const migrated = migrateSettings({
+      schemaVersion: 3,
+      running: true,
+      platform: { twitch: { enabled: true }, kick: { enabled: true } },
+    });
+
+    expect(migrated.settings.running).toBeUndefined();
+    expect(migrated.settings.platform).toMatchObject({
+      twitch: { enabled: true },
+      kick: { enabled: true },
+    });
+    expect(migrated.toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+  });
+
+  // The popup rendered `running && enabled`, so a stored `running: false` showed
+  // every platform as off. Carrying the enabled flags across unchanged would
+  // start farming on upgrade for platforms the user last saw switched off.
+  it("switches every platform off when automation was off, whatever the flags said", () => {
+    const migrated = migrateSettings({
+      schemaVersion: 3,
+      running: false,
+      platform: { twitch: { enabled: true }, kick: { enabled: true } },
+    });
+
+    expect(migrated.settings.running).toBeUndefined();
+    expect(migrated.settings.platform).toMatchObject({
+      twitch: { enabled: false },
+      kick: { enabled: false },
+    });
+    expect(migrated.diagnostics).toContainEqual(expect.objectContaining({
+      code: "deprecated_property",
+      path: "running",
+    }));
+  });
+
+  it("reports nothing when automation was off and the platforms already were", () => {
+    const migrated = migrateSettings({
+      schemaVersion: 3,
+      running: false,
+      platform: { twitch: { enabled: false }, kick: { enabled: false } },
+    });
+
+    expect(migrated.diagnostics.filter((diagnostic) => diagnostic.path === "running")).toEqual([]);
+  });
+
+  it("leaves a document without the flag untouched", () => {
+    const migrated = migrateSettings({
+      schemaVersion: 3,
+      platform: { twitch: { enabled: true }, kick: { enabled: false } },
+    });
+
+    expect(migrated.settings.platform).toMatchObject({
+      twitch: { enabled: true },
+      kick: { enabled: false },
+    });
+  });
+});
+
 describe("schema v3", () => {
   it("adds the critical failure prompt toggle at version 3", () => {
     const migrated = migrateSettings({ schemaVersion: 2, running: true });
 
     expect(migrated.settings.criticalFailurePromptEnabled).toBe(true);
-    expect(migrated.toVersion).toBe(3);
+    expect(migrated.toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
   });
 
   it("preserves an explicit opt-out through migration", () => {

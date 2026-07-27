@@ -2,6 +2,7 @@ import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, Runtime
 import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
+import { isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
@@ -428,7 +429,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const settings = await deps.loadSettings();
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
-    if (settings.autoStartDropFarming && settings.running) {
+    if (settings.autoStartDropFarming && isFarmingActive(settings)) {
       await tick(undefined, "install");
     } else {
       await refreshAuthHealth(PLATFORMS, settings);
@@ -443,11 +444,23 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     });
   }
 
+  // On restart, autoStartDropFarming decides what happens to the platforms that
+  // were farming: enabled means keep going, disabled means switch them off. It
+  // used to clear a global `running` flag instead, which left the per-platform
+  // flags set — so the popup showed everything off while a stale enabled flag
+  // waited to resurrect a platform the moment the master switch came back.
   async function normalizeStartupSettings(): Promise<S> {
     return withSettingsLock(async () => {
       const settings = await deps.loadSettings();
-      if (!settings.running || settings.autoStartDropFarming) return settings;
-      const nextSettings = { ...settings, running: false };
+      if (settings.autoStartDropFarming || !isFarmingActive(settings)) return settings;
+      const nextSettings = {
+        ...settings,
+        platform: {
+          ...settings.platform,
+          twitch: { ...settings.platform.twitch, enabled: false },
+          kick: { ...settings.platform.kick, enabled: false },
+        },
+      };
       await deps.saveSettings(nextSettings);
       return nextSettings;
     });
@@ -463,7 +476,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // A restart kills any in-memory watchers; start clean and let tick() rebuild.
     tablessWatchers.clear();
 
-    const preservePageContexts = settings.running && settings.autoStartDropFarming;
+    const preservePageContexts = isFarmingActive(settings) && settings.autoStartDropFarming;
     const { state, cleanup } = await withStateLock(async () => {
       const state = await deps.loadState();
       registerManagedPageContextTabs(preservePageContexts ? state.managedPageContextTabs ?? {} : {});
@@ -476,7 +489,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     });
     if (!cleanup.hasStaleSession) {
       const nextSettings = await normalizeStartupSettings();
-      if (nextSettings.autoStartDropFarming && nextSettings.running) {
+      if (nextSettings.autoStartDropFarming && isFarmingActive(nextSettings)) {
         await tick(undefined, "startup");
       } else {
         await refreshAuthHealth(PLATFORMS, nextSettings, true);
@@ -500,7 +513,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
     const nextSettings = await normalizeStartupSettings();
 
-    if (nextSettings.running && nextSettings.autoStartDropFarming) {
+    if (isFarmingActive(nextSettings) && nextSettings.autoStartDropFarming) {
       await tick(undefined, "startup");
     } else {
       await refreshAuthHealth(PLATFORMS, nextSettings, true);
@@ -722,7 +735,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const claimedRewards: ClaimedRewards = {};
     const settings = await deps.loadSettings();
     const setupFailedPlatforms = new Set<Platform>();
-    if (settings.running) {
+    if (isFarmingActive(settings)) {
       const authStartedAt = Date.now();
       try {
         await refreshAuthHealth(platforms ?? PLATFORMS, settings);
@@ -944,8 +957,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     for (const platform of targets) {
       const session = state.sessions[platform];
       const adapter = adapters[platform];
-      const wantsTabless = settings.running
-        && settings.platform[platform].enabled
+      const wantsTabless = settings.platform[platform].enabled
         && state.authHealth[platform].status === "healthy"
         && session.status === "watching"
         && session.watchMode === "tabless"
@@ -999,7 +1011,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // (by re-running the scheduler) when a heartbeat keeps failing.
   async function runWatchHeartbeat(): Promise<void> {
     const settings = await deps.loadSettings();
-    if (!settings.running) return;
+    if (!isFarmingActive(settings)) return;
     const fallbackPlatforms = await withStateLock<Platform[]>(() => withEventCollector(async (emit, events) => {
       let nextState = await deps.loadState();
       registerManagedPageContextTabs(nextState.managedPageContextTabs ?? {});
@@ -1098,9 +1110,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   // Aborts every in-flight handoff. Called when farming stops, when a settings
   // session begins, and on runtime restart.
-  function abortClaimHandoffs(): void {
-    for (const controller of claimHandoffs.values()) controller.abort();
-    claimHandoffs.clear();
+  // Scoped when a single platform is switched off: with per-platform toggles,
+  // cancelling every handoff would abort work the other platform still needs.
+  function abortClaimHandoffs(platform?: Platform): void {
+    for (const [handoffPlatform, controller] of claimHandoffs) {
+      if (platform && handoffPlatform !== platform) continue;
+      controller.abort();
+      claimHandoffs.delete(handoffPlatform);
+    }
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
@@ -1149,7 +1166,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     try {
       const settings = await deps.loadSettings();
       if (abort.signal.aborted) return;
-      if (!settings.postClaimHandoff || !settings.running) return;
+      if (!settings.postClaimHandoff) return;
       if (!settings.platform[platform].enabled) return;
 
       // Deliberately bypasses the createAdapters() wrapper: that records every
@@ -1551,60 +1568,30 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       return snapshot();
     }
 
-    if (message.type === "setRunning") {
+    // setPlatformEnabled and setAutomation are the same operation now that there
+    // is no master switch to flip alongside the platform flag. Both are kept:
+    // they are separate wire messages with existing callers.
+    if (message.type === "setPlatformEnabled" || message.type === "setAutomation") {
       // Stopping must cancel any loop still refreshing in the background.
-      if (!message.running) abortClaimHandoffs();
-      const settings = await updateStoredSettings({ running: message.running });
-      if (message.running) {
-        await markPlatformsStarting(PLATFORMS.filter((platform) => settings.platform[platform].enabled));
-      }
-      tickInBackground(undefined, "automation_toggle");
-      return snapshot();
-    }
-
-    if (message.type === "setPlatformEnabled") {
-      const settings = await updateStoredSettings({
+      if (!message.enabled) abortClaimHandoffs(message.platform);
+      await updateStoredSettings({
         platform: {
           [message.platform]: {
             enabled: message.enabled,
           },
         },
       });
-      if (settings.running) {
-        if (message.enabled) await markPlatformsStarting([message.platform]);
-        // Scoped to the toggled platform: the other one is unaffected by this
-        // change, and making it wait behind an unrelated platform's discovery is
-        // exactly the coupling that made this slow.
-        tickInBackground([message.platform], "platform_toggle");
-      }
-      return snapshot();
-    }
-
-    if (message.type === "setAutomation") {
-      const patch: SettingsPatch = {
-        platform: {
-          [message.platform]: {
-            enabled: message.enabled,
-          },
-        },
-      };
-      const wasRunning = (await deps.loadSettings()).running;
-      if (message.enabled) patch.running = true;
-      const settings = await updateStoredSettings(patch);
-      if (settings.running) {
-        if (message.enabled) await markPlatformsStarting([message.platform]);
-        // Scoped to the toggled platform so the other one is not dragged through
-        // this platform's discovery. The exception is a patch that also flips the
-        // global `running` flag: that changes the *other* platform's situation
-        // too, and leaving it unreconciled would strand it on a stale status.
-        tickInBackground(settings.running === wasRunning ? [message.platform] : undefined, "automation_toggle");
-      }
+      if (message.enabled) await markPlatformsStarting([message.platform]);
+      // Always scoped to the toggled platform. Nothing about this change can
+      // affect the other one any more, so it is never dragged through this
+      // platform's discovery.
+      tickInBackground([message.platform], message.type === "setAutomation" ? "automation_toggle" : "platform_toggle");
       return snapshot();
     }
 
     if (message.type === "saveSettings") {
       const settings = await updateStoredSettings(message.settingsPatch);
-      if (message.tickAfterSave && settings.running && hasEnabledPlatform(settings)) {
+      if (message.tickAfterSave && isFarmingActive(settings)) {
         tickInBackground(message.tickAfterSavePlatforms, "settings_saved");
       }
       return snapshot();
@@ -1613,7 +1600,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (message.type === "resumeAfterManualClose") {
       await resumeAfterManualClose(message.platform);
       const settings = await deps.loadSettings();
-      if (settings.running && settings.platform[message.platform].enabled) {
+      if (settings.platform[message.platform].enabled) {
         await markPlatformsStarting([message.platform]);
         tickInBackground([message.platform], "manual_resume");
       }
@@ -1719,8 +1706,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       for (const platform of ["twitch", "kick"] as Platform[]) {
         if (
-          settings.running
-          && settings.platform[platform].enabled
+          settings.platform[platform].enabled
           // Only on the transition into the exhausted state, so the
           // notification fires once instead of re-firing every tick (~1/min)
           // for as long as the platform stays out of earnable drops.

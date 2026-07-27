@@ -519,8 +519,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const idleWatchlistChannels = settings.platform[platform].idleWatchlistChannels;
   const idleWatchlist = idleWatchlistChannels.map((username) => streamerItemFromFallback(username, session, t));
   const automation = {
-    twitch: pendingAutomation.twitch ?? (settings.running && settings.platform.twitch.enabled),
-    kick: pendingAutomation.kick ?? (settings.running && settings.platform.kick.enabled),
+    twitch: pendingAutomation.twitch ?? settings.platform.twitch.enabled,
+    kick: pendingAutomation.kick ?? settings.platform.kick.enabled,
   };
   const enabled = automation[platform];
   const automationPending = pendingAutomation[platform] != null;
