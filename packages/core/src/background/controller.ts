@@ -23,6 +23,22 @@ export const WATCH_ALARM_NAME = "lurkloot.watch";
 // the ids (not just the platforms) so it can tell a genuine successor from the
 // reward that was just claimed.
 export type ClaimedRewards = Partial<Record<Platform, string[]>>;
+// What caused a tick to run. Recorded in the tick's lifecycle diagnostics so an
+// exported log distinguishes a user action from a timer or a post-claim handoff.
+export type TickTrigger =
+  | "alarm"
+  | "watch_alarm"
+  | "startup"
+  | "install"
+  | "automation_toggle"
+  | "platform_toggle"
+  | "settings_saved"
+  | "manual_resume"
+  | "manual_tick"
+  | "critical_failure_dismissed"
+  | "tabless_fallback"
+  | "claim_handoff"
+  | "unknown";
 export type CredentialAvailability =
   | { status: "available" }
   | { status: "missing" }
@@ -365,6 +381,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     await deps.saveState(operationalState);
   }
 
+  // Reports a single diagnostic immediately rather than collecting it into a
+  // tick's event batch. Tick lifecycle lines must land as they happen: batching
+  // them would defeat the point of timing a tick that is still running.
+  function diagnosticEvent(level: "debug" | "info" | "warn", message: string, platform?: Platform): void {
+    void reportBestEffort([{ category: "diagnostic", level, message, platform }]);
+  }
+
   async function reportBestEffort(events: readonly EngineEvent[]): Promise<void> {
     if (events.length === 0 || !deps.reportEvents) return;
     try {
@@ -406,7 +429,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
     if (settings.autoStartDropFarming && settings.running) {
-      await tick();
+      await tick(undefined, "install");
     } else {
       await refreshAuthHealth(PLATFORMS, settings);
     }
@@ -454,7 +477,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (!cleanup.hasStaleSession) {
       const nextSettings = await normalizeStartupSettings();
       if (nextSettings.autoStartDropFarming && nextSettings.running) {
-        await tick();
+        await tick(undefined, "startup");
       } else {
         await refreshAuthHealth(PLATFORMS, nextSettings, true);
       }
@@ -478,7 +501,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const nextSettings = await normalizeStartupSettings();
 
     if (nextSettings.running && nextSettings.autoStartDropFarming) {
-      await tick();
+      await tick(undefined, "startup");
     } else {
       await refreshAuthHealth(PLATFORMS, nextSettings, true);
     }
@@ -676,13 +699,34 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }));
   }
 
-  async function tick(platforms?: Platform[]): Promise<ClaimedRewards> {
+  // Every tick is bracketed by a start/finish diagnostic carrying its trigger and
+  // elapsed time. A tick that succeeds otherwise emits nothing about itself, which
+  // makes a slow one indistinguishable from an idle gap in an exported log.
+  let tickSequence = 0;
+  // Chain of detached ticks, drained by settleBackgroundWork().
+  let backgroundWork: Promise<unknown> = Promise.resolve();
+
+  async function tick(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<ClaimedRewards> {
+    const tickId = ++tickSequence;
+    const tickStartedAt = Date.now();
+    const scope = platforms ? platforms.join("+") : "all";
+    diagnosticEvent("debug", `Tick #${tickId} started (trigger=${trigger}, platforms=${scope})`);
+    try {
+      return await runTick(tickId, tickStartedAt, platforms);
+    } finally {
+      diagnosticEvent("debug", `Tick #${tickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${scope})`);
+    }
+  }
+
+  async function runTick(tickId: number, tickStartedAt: number, platforms?: Platform[]): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
     const settings = await deps.loadSettings();
     const setupFailedPlatforms = new Set<Platform>();
     if (settings.running) {
+      const authStartedAt = Date.now();
       try {
         await refreshAuthHealth(platforms ?? PLATFORMS, settings);
+        diagnosticEvent("debug", `Tick #${tickId} refreshed auth health in ${Date.now() - authStartedAt}ms`);
       } catch (error) {
         const failures = flattenedRefreshFailures(error);
         const setupFailures = failures.filter((failure): failure is AuthProbeSetupError =>
@@ -1048,7 +1092,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // chooseTablessWatch now sees heartbeatChecks past the tabless fallback limit and opens a tab.
     // Run outside the lock: tick() acquires the lock itself.
     for (const platform of fallbackPlatforms) {
-      await tick([platform]);
+      await tick([platform], "tabless_fallback");
     }
   }
 
@@ -1143,7 +1187,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await wait(Math.min(intervalMs, deadline - Date.now()), abort.signal);
         if (abort.signal.aborted || Date.now() >= deadline) break;
 
-        await tick([platform]);
+        await tick([platform], "claim_handoff");
         if (abort.signal.aborted) break;
 
         const session = (await deps.loadState()).sessions[platform];
@@ -1163,11 +1207,62 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  // Runs a tick without holding the caller open for it. A user action gets its
+  // snapshot back immediately; the popup re-polls getSnapshot on its own cadence
+  // and picks the result up when the tick lands.
+  function tickInBackground(platforms: Platform[] | undefined, trigger: TickTrigger): void {
+    const run = tickAndHandOff(platforms, trigger).catch((error) => {
+      diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    backgroundWork = backgroundWork.then(() => run, () => run);
+  }
+
+  // Detached ticks have no caller to await them, which leaves observers (tests,
+  // and the CLI's one-shot mode) with no way to know when the work they just
+  // triggered has actually landed. Settling drains the chain until it stops
+  // growing, so a tick that queues a post-claim handoff is covered too.
+  async function settleBackgroundWork(): Promise<void> {
+    let pending = backgroundWork;
+    for (;;) {
+      await pending;
+      if (backgroundWork === pending) return;
+      pending = backgroundWork;
+    }
+  }
+
+  // The persisted session still describes the platform as it was *before* the
+  // toggle ("Automation disabled"), and nothing rewrites it until the tick
+  // finishes. Detaching the tick alone would not fix that: the popup polls the
+  // stored state, so a slow tick leaves it rendering a status that contradicts
+  // the switch the user just flipped. Stamp the transition up front instead.
+  async function markPlatformsStarting(platforms: readonly Platform[]): Promise<void> {
+    await withStateLock(async () => {
+      const state = await deps.loadState();
+      let changed = false;
+      const sessions = { ...state.sessions };
+      for (const platform of platforms) {
+        const session = state.sessions[platform];
+        // An already-watching platform is not "starting" — leave its live status
+        // (and its channel) alone so a toggle elsewhere never blanks it.
+        if (session.status === "watching") continue;
+        sessions[platform] = {
+          ...session,
+          status: "idle",
+          message: "Starting automation",
+          reasonCode: "no_existing_session",
+        };
+        changed = true;
+      }
+      if (!changed) return;
+      await persistAndReport({ ...state, sessions });
+    });
+  }
+
   // The normal entry point for alarm- and message-driven ticks: run the tick,
   // then hand off for every platform that claimed. Kept separate from tick() so
   // the handoff's own inner ticks cannot recurse into another handoff.
-  async function tickAndHandOff(platforms?: Platform[]): Promise<void> {
-    const claimed = await tick(platforms);
+  async function tickAndHandOff(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<void> {
+    const claimed = await tick(platforms, trigger);
     for (const platform of Object.keys(claimed) as Platform[]) {
       await runClaimHandoff(platform, claimed[platform] ?? []);
     }
@@ -1459,8 +1554,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (message.type === "setRunning") {
       // Stopping must cancel any loop still refreshing in the background.
       if (!message.running) abortClaimHandoffs();
-      await updateStoredSettings({ running: message.running });
-      await tickAndHandOff();
+      const settings = await updateStoredSettings({ running: message.running });
+      if (message.running) {
+        await markPlatformsStarting(PLATFORMS.filter((platform) => settings.platform[platform].enabled));
+      }
+      tickInBackground(undefined, "automation_toggle");
       return snapshot();
     }
 
@@ -1472,7 +1570,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           },
         },
       });
-      if (settings.running) await tickAndHandOff();
+      if (settings.running) {
+        if (message.enabled) await markPlatformsStarting([message.platform]);
+        // Scoped to the toggled platform: the other one is unaffected by this
+        // change, and making it wait behind an unrelated platform's discovery is
+        // exactly the coupling that made this slow.
+        tickInBackground([message.platform], "platform_toggle");
+      }
       return snapshot();
     }
 
@@ -1484,16 +1588,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           },
         },
       };
+      const wasRunning = (await deps.loadSettings()).running;
       if (message.enabled) patch.running = true;
       const settings = await updateStoredSettings(patch);
-      if (settings.running) await tickAndHandOff();
+      if (settings.running) {
+        if (message.enabled) await markPlatformsStarting([message.platform]);
+        // Scoped to the toggled platform so the other one is not dragged through
+        // this platform's discovery. The exception is a patch that also flips the
+        // global `running` flag: that changes the *other* platform's situation
+        // too, and leaving it unreconciled would strand it on a stale status.
+        tickInBackground(settings.running === wasRunning ? [message.platform] : undefined, "automation_toggle");
+      }
       return snapshot();
     }
 
     if (message.type === "saveSettings") {
       const settings = await updateStoredSettings(message.settingsPatch);
       if (message.tickAfterSave && settings.running && hasEnabledPlatform(settings)) {
-        await tickAndHandOff(message.tickAfterSavePlatforms);
+        tickInBackground(message.tickAfterSavePlatforms, "settings_saved");
       }
       return snapshot();
     }
@@ -1502,7 +1614,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await resumeAfterManualClose(message.platform);
       const settings = await deps.loadSettings();
       if (settings.running && settings.platform[message.platform].enabled) {
-        await tickAndHandOff([message.platform]);
+        await markPlatformsStarting([message.platform]);
+        tickInBackground([message.platform], "manual_resume");
       }
       return snapshot();
     }
@@ -1531,7 +1644,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
 
     if (message.type === "tickNow") {
-      await tickAndHandOff();
+      await tickAndHandOff(undefined, "manual_tick");
       return snapshot();
     }
     if (message.type === "dismissCriticalFailure") {
@@ -1547,7 +1660,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         syncManagedTabBreakers(transition.state);
         await persistAndReport(transition.state, events);
       }));
-      await tickAndHandOff();
+      await tickAndHandOff(undefined, "critical_failure_dismissed");
       return snapshot();
     }
   }
@@ -1639,6 +1752,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     runClaimHandoff,
     abortClaimHandoffs,
     prepareForHostReset,
+    settleBackgroundWork,
   };
 }
 

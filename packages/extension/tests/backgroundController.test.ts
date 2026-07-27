@@ -165,8 +165,23 @@ function harness(
       : { authProbeTimeoutMs: overrides.authProbeTimeoutMs }),
   };
 
+  const controller = createBackgroundController(deps);
+  // User-action messages dispatch their scheduler tick in the background and
+  // return the snapshot immediately, so the popup is never held open for a
+  // network-bound tick. Tests here assert on what the tick produced, so the
+  // harness settles that work before handing control back — keeping every
+  // assertion about tick behavior meaningful. Tests that specifically exercise
+  // the detachment use `rawHandleMessage`.
+  const rawHandleMessage = controller.handleMessage;
+  const handleMessage: typeof rawHandleMessage = async (message, sender) => {
+    const result = await rawHandleMessage(message, sender);
+    await controller.settleBackgroundWork();
+    return result;
+  };
+
   return {
-    controller: createBackgroundController(deps),
+    controller: { ...controller, handleMessage },
+    rawController: controller,
     deps,
     get settings() {
       return currentSettings;
@@ -1289,7 +1304,13 @@ describe("background controller", () => {
     const calls: string[] = [];
     const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
       saveState: async () => { calls.push("state"); },
-      reportEvents: async () => { calls.push("events"); },
+      // Tick lifecycle diagnostics are published as they happen and describe no
+      // state, so they are outside the state-before-events batching invariant
+      // this test guards. Only operational batches are recorded.
+      reportEvents: async (events) => {
+        if (events.every((event) => event.category === "diagnostic" && /^Tick #/.test(event.message))) return;
+        calls.push("events");
+      },
     });
 
     await env.controller.tick();
@@ -1314,8 +1335,13 @@ describe("background controller", () => {
 
     expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
     expect(env.deps.saveState).toHaveBeenCalledTimes(2);
-    expect(env.reportEvents).toHaveBeenCalledTimes(1);
-    expect(env.reportEvents.mock.calls[0]?.[0]).toContainEqual(expect.objectContaining({
+    // Tick lifecycle diagnostics publish independently of state, so the
+    // invariant under test is about the operational batches only.
+    const operationalBatches = env.reportEvents.mock.calls
+      .map(([events]) => events)
+      .filter((events) => !events.every((event) => event.category === "diagnostic" && /^Tick #/.test(event.message)));
+    expect(operationalBatches).toHaveLength(1);
+    expect(operationalBatches[0]).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "auth_health_changed",
       platform: "twitch",
@@ -1854,6 +1880,65 @@ describe("background controller", () => {
     expect(env.state.authHealth.kick.status).toBe("healthy");
   });
 
+  it("answers an automation toggle without waiting for the scheduler tick", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    let startDiscovery = (): void => {};
+    const discoveryStarted = new Promise<void>((resolve) => {
+      const blocked = new Promise<void>((release) => { startDiscovery = () => release(); });
+      vi.mocked(env.twitch.discoverCampaigns).mockImplementation(async () => {
+        resolve();
+        await blocked;
+        return [];
+      });
+    });
+
+    // The raw controller, so the harness does not settle the background tick for
+    // us — that is exactly what this test is about.
+    const snapshot = asSnapshot(await env.rawController.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    }));
+
+    // The reply landed while discovery is still blocked: a slow tick can no
+    // longer hold the popup open (the 65s stall reported in the wild).
+    await discoveryStarted;
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(snapshot.settings.running).toBe(true);
+    // And the session already reflects the toggle rather than the pre-toggle
+    // "Automation disabled" the popup used to render for the whole tick.
+    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+
+    startDiscovery();
+    await env.rawController.settleBackgroundWork();
+  });
+
+  it("brackets every tick with a lifecycle diagnostic naming its trigger and duration", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+
+    await env.controller.tick(["twitch"], "manual_tick");
+
+    const messages = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event) => event.category === "diagnostic")
+      .map((event) => event.message);
+    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ started \(trigger=manual_tick, platforms=twitch\)$/));
+    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=manual_tick, platforms=twitch\)$/));
+  });
+
+  it("reports a tick lifecycle even when the tick throws", async () => {
+    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    env.deps.saveState.mockRejectedValue(new Error("storage unavailable"));
+
+    await expect(env.controller.tick(["twitch"], "alarm")).rejects.toThrow("storage unavailable");
+
+    const messages = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event) => event.category === "diagnostic")
+      .map((event) => event.message);
+    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=alarm/));
+  });
+
   it("starts automation, persists settings, creates alarm, and runs an immediate tick", async () => {
     const env = harness({ ...DEFAULT_SETTINGS, running: false });
 
@@ -1863,7 +1948,11 @@ describe("background controller", () => {
     expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: true }));
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
-    expect(snapshot.state.sessions.twitch.status).toBe("watching");
+    // The snapshot returns ahead of the tick, reporting the prompt "starting"
+    // transition; the watching status lands once the tick settles.
+    expect(snapshot.state.sessions.twitch.status).toBe("idle");
+    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+    expect(env.state.sessions.twitch.status).toBe("watching");
   });
 
   it("stops automation immediately and applies auto-close behavior to active watch tabs", async () => {
@@ -1879,14 +1968,16 @@ describe("background controller", () => {
       },
     };
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "setRunning", running: false }));
+    await env.controller.handleMessage({ type: "setRunning", running: false });
 
     expect(env.settings.running).toBe(false);
     expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 10 }));
     expect(env.kick.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 20 }));
-    expect(snapshot.state.sessions.twitch.status).toBe("paused");
-    expect(snapshot.state.sessions.kick.status).toBe("paused");
-    expect(snapshot.state.managedPageContextTabs?.twitch).toBeUndefined();
+    // Read from settled state rather than the returned snapshot: the snapshot is
+    // now taken before the tick that applies the stop.
+    expect(env.state.sessions.twitch.status).toBe("paused");
+    expect(env.state.sessions.kick.status).toBe("paused");
+    expect(env.state.managedPageContextTabs?.twitch).toBeUndefined();
   });
 
   it("prepares a host reset by force-closing managed tabs", async () => {
@@ -1981,8 +2072,10 @@ describe("background controller", () => {
 
     expect(snapshot.settings.platform.twitch.enabled).toBe(false);
     expect(snapshot.settings.platform.kick.enabled).toBe(true);
-    expect(snapshot.state.sessions.twitch.status).toBe("paused");
-    expect(snapshot.state.sessions.kick.status).toBe("watching");
+    // Settings are applied synchronously; the session statuses follow from the
+    // background tick, so they are read from settled state.
+    expect(env.state.sessions.twitch.status).toBe("paused");
+    expect(env.state.sessions.kick.status).toBe("watching");
   });
 
   it("enables popup automation with one settings save and one initial scheduler pass", async () => {
@@ -2008,8 +2101,10 @@ describe("background controller", () => {
     expect(env.settings.platform.kick.enabled).toBe(false);
     expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(1);
     expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
-    expect(snapshot.state.sessions.twitch.status).toBe("watching");
-    expect(snapshot.state.sessions.kick.status).toBe("paused");
+    // Returned ahead of the tick, so the enabled platform reads as starting.
+    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+    expect(env.state.sessions.twitch.status).toBe("watching");
+    expect(env.state.sessions.kick.status).toBe("paused");
   });
 
   it("saves and normalizes settings without forcing a scheduler tick", async () => {
