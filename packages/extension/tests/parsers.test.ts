@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { mergeKickProgress, parseKickCampaigns } from "@lurkloot/core/kick/parser";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, withCampaignStatus } from "@lurkloot/core/twitch/parser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, parseTwitchInventory, withCampaignStatus } from "@lurkloot/core/twitch/parser";
 import { createTwitchInventory } from "@lurkloot/core/twitch";
 
 describe("Kick parsers", () => {
@@ -303,6 +303,13 @@ describe("Kick parsers", () => {
 });
 
 describe("Twitch parsers", () => {
+  // Wraps a bare campaign list in an inventory payload that carries no per-tier
+  // claim state, matching what campaign details / reward campaigns look like.
+  const inventoryOf = (campaigns: unknown[]) =>
+    ({ data: { currentUser: { inventory: { dropCampaigns: campaigns } } } }) as Parameters<
+      typeof mergeTwitchCampaignProgress
+    >[1];
+
   it.each([
     { data: { currentUser: { inventory: {} } } },
     { data: { currentUser: { inventory: { unrelated: [] } } } },
@@ -397,7 +404,7 @@ describe("Twitch parsers", () => {
   });
 
   it("classifies subscription-only campaigns as waiting for a qualifying subscription", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "subscription-campaign",
       name: "Jubilee Badge",
       timeBasedDrops: [{ id: "subscription", name: "Jubilee Badge", requiredMinutesWatched: 0, requiredSubs: 1 }],
@@ -415,7 +422,7 @@ describe("Twitch parsers", () => {
   });
 
   it("classifies unknown zero-minute rewards as action-gated with no farmable rewards", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "action-campaign",
       timeBasedDrops: [{ id: "purchase", name: "Purchase Reward" }],
     }]);
@@ -428,7 +435,7 @@ describe("Twitch parsers", () => {
   });
 
   it("marks claimed subscription-only campaigns completed", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "claimed-subscription-campaign",
       timeBasedDrops: [{
         id: "subscription",
@@ -446,7 +453,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps only watch-based rewards in mixed campaigns", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "mixed-campaign",
       name: "Detroit Badge Drop",
       timeBasedDrops: [
@@ -467,7 +474,7 @@ describe("Twitch parsers", () => {
   });
 
   it("does not farm a mixed watch-and-subscription reward without a real claim instance", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "mixed-only",
       self: { isAccountConnected: true },
       timeBasedDrops: [{
@@ -488,7 +495,7 @@ describe("Twitch parsers", () => {
   });
 
   it("makes an obtained mixed-requirement reward claimable with Twitch's real instance id", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "mixed-obtained",
       timeBasedDrops: [{
         id: "combined",
@@ -506,7 +513,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps linked native badge and emote watch rewards farmable", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "native-rewards",
       self: { isAccountConnected: true },
       timeBasedDrops: [
@@ -531,7 +538,7 @@ describe("Twitch parsers", () => {
   });
 
   it("does not bypass account linking for unconfirmed native reward payloads", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "unlinked-native",
       self: { isAccountConnected: false },
       accountLinkURL: "https://example.test/connect",
@@ -546,7 +553,7 @@ describe("Twitch parsers", () => {
   });
 
   it("treats a URL-less disconnected Twitch campaign as linked", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "url-less-ewc-like",
       self: { isAccountConnected: false },
       timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
@@ -559,7 +566,7 @@ describe("Twitch parsers", () => {
   });
 
   it("treats an empty-link disconnected Twitch campaign as linked", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "empty-link-ewc-like",
       self: { isAccountConnected: false },
       accountLinkURL: "",
@@ -573,7 +580,7 @@ describe("Twitch parsers", () => {
   });
 
   it("ignores Twitch-hosted account links for disconnected Twitch campaigns", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "twitch-link-ewc-like",
       self: { isAccountConnected: false },
       accountLinkURL: "https://www.twitch.tv/drops/inventory",
@@ -588,7 +595,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps a genuine disconnected Twitch campaign unlinked when it provides a link URL", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "genuine-unlinked",
       self: { isAccountConnected: false },
       accountLinkURL: "https://example.test/connect",
@@ -603,7 +610,7 @@ describe("Twitch parsers", () => {
   });
 
   it("does not unlock a watch reward whose paid prerequisite was excluded", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "paid-prerequisite-campaign",
       timeBasedDrops: [
         { id: "subscription", requiredMinutesWatched: 0, requiredSubs: 1 },
@@ -616,7 +623,7 @@ describe("Twitch parsers", () => {
   });
 
   it("makes an obtained subscription reward claimable only with Twitch's real instance id", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "subscription-campaign",
       timeBasedDrops: [{
         id: "subscription",
@@ -634,7 +641,7 @@ describe("Twitch parsers", () => {
   });
 
   it("does not call a Twitch-confirmed claimable subscription reward waiting", () => {
-    const [campaign] = parseTwitchInventory([{
+    const [campaign] = parseTwitchCampaigns([{
       id: "claimable-subscription-campaign",
       timeBasedDrops: [{
         id: "subscription",
@@ -892,7 +899,7 @@ describe("Twitch parsers", () => {
   // claimed. Without the owned-benefit fallback the shared tiers read as
   // unclaimed forever and the scheduler re-farms a finished campaign.
   it("treats shared-benefit tiers as claimed when the campaign has no progress data", () => {
-    const details = parseTwitchInventory([{
+    const details = parseTwitchCampaigns([{
       id: "hunt",
       name: "Hunt 1896 (Week 1, Pt. 2)",
       timeBasedDrops: [30, 60, 120, 180].map((minutes) => ({
@@ -931,7 +938,7 @@ describe("Twitch parsers", () => {
     const HUNT = "26935687-0a71-4e48-a978-71f63abd8e1f";
     const CRATE = "9a0d24bc-2604-11f1-9ba4-0a58a9feac02";
 
-    const huntDetails = () => parseTwitchInventory([{
+    const huntDetails = () => parseTwitchCampaigns([{
       id: HUNT,
       name: "Hunt 1896 (Week 1, Pt. 2)",
       timeBasedDrops: [30, 60, 120, 180].map((minutes) => ({
@@ -1015,7 +1022,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps a shared-benefit tier claimable when merging progress into campaign details", () => {
-    const details = parseTwitchInventory([{
+    const details = parseTwitchCampaigns([{
       id: "hunt",
       name: "Hunt 1896 (Week 1, Pt. 2)",
       timeBasedDrops: [{
@@ -1119,7 +1126,7 @@ describe("Twitch parsers", () => {
   });
 
   it("merges Twitch inventory progress into campaign details", () => {
-    const details = parseTwitchInventory([{
+    const details = parseTwitchCampaigns([{
       id: "campaign",
       name: "Details",
       game: { slug: "game-slug", displayName: "Game" },
@@ -1155,7 +1162,7 @@ describe("Twitch parsers", () => {
   });
 
   it("marks a tracked campaign completed when its benefit is owned but it dropped out of in-progress", () => {
-    const details = parseTwitchInventory([{
+    const details = parseTwitchCampaigns([{
       id: "campaign",
       name: "Update 1.29.0",
       timeBasedDrops: [{
@@ -1213,7 +1220,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps a mixed campaign active when only its watch reward is claimed", () => {
-    const details = parseTwitchInventory([{
+    const details = parseTwitchCampaigns([{
       id: "mixed-campaign",
       timeBasedDrops: [{
         id: "watch",
@@ -1224,7 +1231,7 @@ describe("Twitch parsers", () => {
       }],
     }]);
 
-    const merged = mergeTwitchCampaignProgress(details, [{
+    const merged = mergeTwitchCampaignProgress(details, inventoryOf([{
       id: "mixed-campaign",
       timeBasedDrops: [{
         id: "watch",
@@ -1234,7 +1241,7 @@ describe("Twitch parsers", () => {
         id: "subscription",
         requiredSubs: 1,
       }],
-    }]);
+    }]));
 
     expect(merged[0].status).toBe("active");
     expect(merged[0].eligibility).toBe("eligible");
@@ -1245,7 +1252,7 @@ describe("Twitch parsers", () => {
   });
 
   it("completes a mixed campaign when every tracked reward is claimed", () => {
-    const details = parseTwitchInventory([{
+    const details = parseTwitchCampaigns([{
       id: "mixed-campaign",
       timeBasedDrops: [{
         id: "watch",
@@ -1256,7 +1263,7 @@ describe("Twitch parsers", () => {
       }],
     }]);
 
-    const merged = mergeTwitchCampaignProgress(details, [{
+    const merged = mergeTwitchCampaignProgress(details, inventoryOf([{
       id: "mixed-campaign",
       timeBasedDrops: [{
         id: "watch",
@@ -1267,7 +1274,7 @@ describe("Twitch parsers", () => {
         requiredSubs: 1,
         self: { isClaimed: true },
       }],
-    }]);
+    }]));
 
     expect(merged[0].status).toBe("completed");
     expect(merged[0].eligibility).toBe("completed");
@@ -1275,7 +1282,7 @@ describe("Twitch parsers", () => {
   });
 
   it("evaluates Twitch reward preconditions from claimed prior drops", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "campaign",
       name: "Chain",
       timeBasedDrops: [{
@@ -1295,7 +1302,7 @@ describe("Twitch parsers", () => {
   });
 
   it("marks all-claimed Twitch campaigns as completed and not eligible", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "campaign",
       name: "Done",
       status: "ACTIVE",
@@ -1311,7 +1318,7 @@ describe("Twitch parsers", () => {
   });
 
   it("preserves upcoming and no-reward Twitch campaign states", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "future",
       name: "Future",
       status: "UPCOMING",
@@ -1335,7 +1342,7 @@ describe("Twitch parsers", () => {
   });
 
   it("downgrades a campaign status and re-derives eligibility with withCampaignStatus", () => {
-    const [campaign] = parseTwitchInventory([{
+    const [campaign] = parseTwitchCampaigns([{
       id: "campaign",
       name: "Campaign",
       timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 20 } }],
@@ -1352,7 +1359,7 @@ describe("Twitch parsers", () => {
   });
 
   it("re-derives subscription eligibility with withCampaignStatus", () => {
-    const [campaign] = parseTwitchInventory([{
+    const [campaign] = parseTwitchCampaigns([{
       id: "subscription-campaign",
       timeBasedDrops: [{ id: "subscription", requiredSubs: 1 }],
     }]);
@@ -1364,7 +1371,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps an active-status fallback completed when every reward is claimed", () => {
-    const [campaign] = parseTwitchInventory([{
+    const [campaign] = parseTwitchCampaigns([{
       id: "claimed-mixed-campaign",
       timeBasedDrops: [
         { id: "watch", requiredMinutesWatched: 60, self: { isClaimed: true } },
@@ -1379,12 +1386,12 @@ describe("Twitch parsers", () => {
   });
 
   it("detects claimable rewards with campaignHasClaimableReward", () => {
-    const [inProgress] = parseTwitchInventory([{
+    const [inProgress] = parseTwitchCampaigns([{
       id: "in-progress",
       name: "In progress",
       timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 20 } }],
     }]);
-    const [claimable] = parseTwitchInventory([{
+    const [claimable] = parseTwitchCampaigns([{
       id: "claimable",
       name: "Claimable",
       timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 60 } }],
