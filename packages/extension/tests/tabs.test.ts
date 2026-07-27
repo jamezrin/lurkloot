@@ -1347,6 +1347,45 @@ describe("twitch integrity refresh", () => {
         });
       });
 
+      // Concurrent authenticated reads (discovery fans DropCampaignDetails out
+      // with Promise.allSettled) can all be rejected by the same token and all
+      // force a refresh at once. Without sharing, a later caller reads the
+      // *replacement* as its own rejected token and waits for one that never comes.
+      it("shares one in-flight forced refresh between concurrent callers", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 34 });
+        setTwitchIntegrity(rejected());
+
+        setTimeout(() => setTwitchIntegrity(replacement(), { isNew: true }), 20);
+        const results = await Promise.all([
+          ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true }),
+          ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true }),
+          ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true }),
+        ]);
+
+        expect(results).toEqual([true, true, true]);
+        // One page context booted for the whole burst, not one per caller.
+        expect(browser.tabs.create).toHaveBeenCalledTimes(1);
+      });
+
+      it("starts a new forced refresh once the previous one has settled", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 35 });
+        setTwitchIntegrity(rejected());
+
+        setTimeout(() => setTwitchIntegrity(replacement(), { isNew: true }), 20);
+        await expect(ensureTwitchIntegrityWithBrowser(
+          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true },
+        )).resolves.toBe(true);
+
+        // Twitch later rejects the replacement too: a genuinely new refresh must
+        // run rather than handing back the settled result.
+        setTimeout(() => setTwitchIntegrity({ ...replacement(), integrity: "third-token" }, { isNew: true }), 20);
+        await expect(ensureTwitchIntegrityWithBrowser(
+          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true },
+        )).resolves.toBe(true);
+      });
+
       it("leaves the non-forced fast path intact", async () => {
         const browser = browserMock();
         setTwitchIntegrity(fresh());

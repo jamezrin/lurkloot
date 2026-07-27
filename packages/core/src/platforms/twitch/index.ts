@@ -172,6 +172,18 @@ interface TwitchGqlResponse<T> {
   message?: string;
 }
 
+// The single definition of "Twitch rejected this for Client-Integrity, and a
+// fresh token could fix it" — shared by the adapter's safe reads, both claim
+// mutations, and the tabless watcher, so the rule cannot drift between them.
+// Authentication rejection is excluded first: an invalid session fails the same
+// request, but no integrity token can repair it. Anonymous requests are excluded
+// because they carry no token and must never open a page context.
+function isIntegrityRejection(error: unknown, credentials?: RequestCredentials): boolean {
+  if (credentials === "omit") return false;
+  if (authHealthFromError(error)) return false;
+  return error instanceof Error && /integrity/i.test(error.message);
+}
+
 type TwitchGqlFailureKind = "network" | "credentials" | "platform";
 
 class TwitchGqlFailure extends Error {
@@ -897,7 +909,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const message = error instanceof Error ? error.message : String(error);
       // Only integrity rejections are worth a refresh + retry; everything else
       // (e.g. an unexpected status or a stale id) propagates unchanged.
-      if (!/integrity/i.test(message)) throw error;
+      if (!isIntegrityRejection(error)) throw error;
       diagnostic(this.emit, "warn", `Claim for ${reward.name} was rejected for integrity; refreshing the token and retrying once`, "twitch");
       // Twitch rejected the token it was sent, so the local expiry says nothing:
       // only a forced refresh replaces it. Retry exactly once; a second failure
@@ -939,7 +951,7 @@ export class TwitchAdapter implements PlatformAdapter {
     try {
       return await this.runChannelPointsClaim(claimId, channelId);
     } catch (error) {
-      if (!this.shouldRecoverIntegrity(error)) throw error;
+      if (!isIntegrityRejection(error)) throw error;
       diagnostic(this.emit, "warn", `Channel-points claim for ${channel.username} was rejected for integrity; refreshing the token and retrying once`, "twitch");
       if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
       return await this.runChannelPointsClaim(claimId, channelId);
@@ -1053,19 +1065,11 @@ export class TwitchAdapter implements PlatformAdapter {
     try {
       return await this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
     } catch (error) {
-      if (!this.shouldRecoverIntegrity(error, credentials)) throw error;
+      if (!isIntegrityRejection(error, credentials)) throw error;
       diagnostic(emit, "debug", `GQL ${operationName} was rejected for integrity; refreshing the token and retrying once`, "twitch");
       if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
       return this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
     }
-  }
-
-  // Authentication rejection is checked first: an invalid session also fails the
-  // request, but no integrity token can fix it.
-  private shouldRecoverIntegrity(error: unknown, credentials?: RequestCredentials): boolean {
-    if (credentials === "omit") return false;
-    if (authHealthFromError(error)) return false;
-    return error instanceof Error && /integrity/i.test(error.message);
   }
 
   private async checkChannelFromPage(
@@ -1203,7 +1207,7 @@ class TwitchWatcher implements TablessWatchController {
       } catch (error) {
         // Bounded to one forced refresh and one identical replay, like the
         // adapter's safe authenticated reads.
-        if (authHealthFromError(error) || !(error instanceof Error) || !/integrity/i.test(error.message)) throw error;
+        if (!isIntegrityRejection(error)) throw error;
         this.log("debug", "Twitch viewer id lookup was rejected for integrity; refreshing the token and retrying once");
         if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
         response = await currentUser();
