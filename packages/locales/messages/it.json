@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "Aggiorna pianificazione"
   },
+  "openInventory": {
+    "message": "Apri inventario"
+  },
   "openActivity": {
     "message": "Apri attività"
   },

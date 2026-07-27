@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "Yenile"
   },
+  "openInventory": {
+    "message": "Envanteri aç"
+  },
   "openActivity": {
     "message": "Geçmişi aç"
   },
