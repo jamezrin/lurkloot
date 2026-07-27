@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "Обновить расписание"
   },
+  "openInventory": {
+    "message": "Открыть инвентарь"
+  },
   "openActivity": {
     "message": "Открыть активность"
   },

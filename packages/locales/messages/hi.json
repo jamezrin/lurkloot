@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "शेड्यूल रीफ़्रेश करें"
   },
+  "openInventory": {
+    "message": "इन्वेंटरी खोलें"
+  },
   "openActivity": {
     "message": "गतिविधि खोलें"
   },

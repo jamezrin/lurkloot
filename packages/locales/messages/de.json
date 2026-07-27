@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "Zeitplan aktualisieren"
   },
+  "openInventory": {
+    "message": "Inventar öffnen"
+  },
   "openActivity": {
     "message": "Aktivität öffnen"
   },
