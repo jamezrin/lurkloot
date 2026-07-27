@@ -1377,13 +1377,27 @@ describe("twitch integrity refresh", () => {
         await expect(ensureTwitchIntegrityWithBrowser(
           browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true },
         )).resolves.toBe(true);
+        const contextsAfterFirstRefresh = browser.tabs.create.mock.calls.length;
 
-        // Twitch later rejects the replacement too: a genuinely new refresh must
-        // run rather than handing back the settled result.
-        setTimeout(() => setTwitchIntegrity({ ...replacement(), integrity: "third-token" }, { isNew: true }), 20);
-        await expect(ensureTwitchIntegrityWithBrowser(
+        // Twitch later rejects the replacement too. Even though replacement-token
+        // is still locally valid, the second forced refresh must boot its own
+        // page context and stay pending until a genuinely different token lands —
+        // never hand back the first refresh's settled result.
+        let settled = false;
+        const second = ensureTwitchIntegrityWithBrowser(
           browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true },
-        )).resolves.toBe(true);
+        ).then((ok) => {
+          settled = true;
+          return ok;
+        });
+
+        await vi.waitFor(() => {
+          expect(browser.tabs.create.mock.calls.length).toBeGreaterThan(contextsAfterFirstRefresh);
+        });
+        expect(settled).toBe(false);
+
+        setTwitchIntegrity({ ...replacement(), integrity: "third-token" }, { isNew: true });
+        await expect(second).resolves.toBe(true);
       });
 
       it("leaves the non-forced fast path intact", async () => {
