@@ -442,6 +442,12 @@ export interface PageFetchOptions {
   };
   emit?: EventEmitter;
   openReason?: PageContextOpenReason;
+  // Demands a context that is about to boot the SPA from scratch, because the
+  // caller is waiting for the page to issue something (see ensureTwitchIntegrity-
+  // WithBrowser). An already-loaded user tab is idle and would only time out, and
+  // reloading it to force activity is not ours to do — so user tabs are skipped
+  // and an extension-owned context is created or explicitly navigated instead.
+  requireFreshPageContext?: boolean;
 }
 
 export interface CookieApi {
@@ -498,21 +504,45 @@ export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?:
   }
 }
 
-// Resolves true once a valid token is present, or after timeoutMs (re-checking
+// A forced refresh runs after Twitch rejected a token the extension still
+// considers unexpired, so local expiry alone cannot decide success: the captured
+// token must also differ from the one that was rejected.
+export interface TwitchIntegrityRequest {
+  forceRefresh?: boolean;
+}
+
+function hasReplacementTwitchIntegrity(rejectedToken?: string): boolean {
+  if (!hasValidTwitchIntegrity()) return false;
+  return rejectedToken == null || twitchIntegrity?.integrity !== rejectedToken;
+}
+
+// Resolves true once a usable token is present, or after timeoutMs (re-checking
 // validity at the deadline). A captured token can be near-expiry — captureTwitch-
 // Integrity does not gate on expiry — so resolvers re-check hasValidTwitchIntegrity.
-function waitForIntegrityCapture(timeoutMs: number): Promise<boolean> {
-  if (hasValidTwitchIntegrity()) return Promise.resolve(true);
+// When rejectedToken is set, re-capturing that same token does not settle the
+// wait; the page may replay it before minting a replacement.
+function waitForIntegrityCapture(timeoutMs: number, rejectedToken?: string): Promise<boolean> {
+  if (hasReplacementTwitchIntegrity(rejectedToken)) return Promise.resolve(true);
   return new Promise((resolve) => {
     let settled = false;
     const finish = () => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve(hasValidTwitchIntegrity());
+      resolve(hasReplacementTwitchIntegrity(rejectedToken));
+    };
+    const onCapture = () => {
+      if (settled) return;
+      // Not a replacement yet — keep waiting until the deadline instead of
+      // reporting the rejected token back as a successful refresh.
+      if (!hasReplacementTwitchIntegrity(rejectedToken)) {
+        integrityWaiters.push(onCapture);
+        return;
+      }
+      finish();
     };
     const timer = setTimeout(finish, timeoutMs);
-    integrityWaiters.push(finish);
+    integrityWaiters.push(onCapture);
   });
 }
 
@@ -520,21 +550,36 @@ function waitForIntegrityCapture(timeoutMs: number): Promise<boolean> {
 // (drop claims). When none is captured — e.g. tabless farming with no twitch.tv
 // tab open — opens or reuses a logged-in twitch.tv page-context tab so the SPA
 // mints one the webRequest listener captures, waits for it, then releases the tab.
+// A forced refresh additionally covers the case where Twitch rejected a token
+// that has not locally expired: it skips the fast path, demands a token
+// different from the rejected one, and only ever boots an extension-owned
+// context so a user's own twitch.tv tab is never navigated or closed.
 export async function ensureTwitchIntegrityWithBrowser(
   browserApi: BrowserTabApi,
   originUrl: string,
   timeoutMs: number = INTEGRITY_REFRESH_TIMEOUT_MS,
   emit: EventEmitter = ignoreEvent,
+  request?: TwitchIntegrityRequest,
 ): Promise<boolean> {
-  if (hasValidTwitchIntegrity()) return true;
+  const forceRefresh = request?.forceRefresh === true;
+  const rejectedToken = forceRefresh ? twitchIntegrity?.integrity : undefined;
+  if (!forceRefresh && hasValidTwitchIntegrity()) return true;
 
-  diagnostic(emit, "info", "No valid Twitch integrity token; using a twitch.tv page context to capture one", "twitch");
+  diagnostic(
+    emit,
+    "info",
+    forceRefresh
+      ? "Twitch rejected the current integrity token; using a twitch.tv page context to mint a replacement"
+      : "No valid Twitch integrity token; using a twitch.tv page context to capture one",
+    "twitch",
+  );
   const origin = new URL(originUrl).origin;
   let pageContext: PageContextTab | undefined;
   try {
     pageContext = await acquirePageContextTab(browserApi, originUrl, origin, {
       retainPageContext: { platform: "twitch" },
       emit,
+      requireFreshPageContext: forceRefresh,
     });
     // Which context we got decides whether waiting can work at all: only a
     // freshly created tab is guaranteed to boot the SPA and issue authenticated
@@ -545,7 +590,7 @@ export async function ensureTwitchIntegrityWithBrowser(
     // On success the capture itself is logged once by setTwitchIntegrity (info);
     // here we only surface the failure case so the log isn't doubled up.
     const startedAt = Date.now();
-    const captured = await waitForIntegrityCapture(timeoutMs);
+    const captured = await waitForIntegrityCapture(timeoutMs, rejectedToken);
     if (!captured) {
       diagnostic(emit, "warn", `Timed out waiting for a Twitch integrity token after ${Date.now() - startedAt}ms from a ${source} page context (is twitch.tv logged in?)`, "twitch");
     }
@@ -928,8 +973,10 @@ async function findOrCreatePageContextTab(
       .filter((tab): tab is ManagedPageContextTab => tab != null && tab.origin === origin)
       .map((tab) => tab.tabId),
   );
+  const requireFresh = options?.requireFreshPageContext === true;
   let tabId: number | undefined;
   for (const tab of tabs) {
+    if (requireFresh) break;
     if (tab.id == null || retainedIds.has(tab.id)) continue;
     if (await isUsablePageContext(browserApi, tab.id, origin, signal)) {
       tabId = tab.id;
@@ -968,6 +1015,16 @@ async function findOrCreatePageContextTab(
       const tab = await withAbortSignal(browserApi.tabs.get(retained.tabId), signal);
       if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin, signal)) {
         retainedPageContextTabs.set(retained.platform, retained);
+        // We own this tab, so re-navigating it to boot the SPA again is safe —
+        // it is the only way a retained (and by now idle) context issues the
+        // authenticated request the caller is waiting on.
+        if (requireFresh) {
+          signal?.throwIfAborted();
+          await withAbortSignal(browserApi.tabs.update(tab.id, { url: originUrl }), signal);
+          await waitForPageContextReady(browserApi, tab.id, origin, signal);
+          diagnostic(options?.emit ?? ignoreEvent, "debug", `Reloaded managed page context on ${new URL(origin).host} to force a fresh page request`, retained.platform);
+          return { tabId: tab.id, createdByExtension: true, retainedContext: retained, openedForRequest: true, source: "managed_tab" };
+        }
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused managed page context on ${new URL(origin).host}`, retained.platform);
         return { tabId: tab.id, createdByExtension: true, retainedContext: retained, source: "managed_tab" };
       }

@@ -498,4 +498,43 @@ describe("adapter-created twitch watcher diagnostics", () => {
     ]));
     expect(creationEvents.filter((event) => event.message.includes("GQL StreamInfo returned a transient error"))).toEqual([]);
   });
+
+  // The watcher resolves its own viewer id when discovery did not supply one.
+  // That CurrentUser read is authenticated, so an integrity rejection must be
+  // recoverable — while the anonymous StreamInfo and the heartbeat telemetry
+  // around it stay out of integrity recovery entirely.
+  it("recovers its authenticated CurrentUser fallback from an integrity rejection", async () => {
+    let currentUserCalls = 0;
+    let sendEventsCalls = 0;
+    const fetchJson = vi.fn(async (_url: string, init?: RequestInit) => {
+      const operationName = JSON.parse(String(init?.body)).operationName;
+      if (operationName === "StreamInfo") {
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game", name: "Game" } } } } };
+      }
+      if (operationName === "CurrentUser") {
+        currentUserCalls += 1;
+        if (currentUserCalls === 1) return { error: "failed integrity check" };
+        return { data: { currentUser: { id: "viewer-id" } } };
+      }
+      if (operationName === "SendEvents") {
+        sendEventsCalls += 1;
+        return { data: { sendSpadeEvents: { statusCode: 204 } } };
+      }
+      throw new Error(`unexpected operation ${operationName}`);
+    });
+    const ensureIntegrity = vi.fn(async (request?: { forceRefresh?: boolean }) => request?.forceRefresh === true);
+    const adapter = new TwitchAdapter({ fetchJson: fetchJson as never }, ensureIntegrity);
+    const watcher = adapter.createTablessWatcher?.();
+
+    // No userId in the context, so the watcher must resolve it itself.
+    await watcher?.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, {});
+    const result = await watcher?.tick({});
+
+    expect(result).toMatchObject({ ok: true });
+    expect(currentUserCalls).toBe(2);
+    expect(ensureIntegrity).toHaveBeenCalledOnce();
+    expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+    // The heartbeat itself is never replayed by integrity recovery.
+    expect(sendEventsCalls).toBe(1);
+  });
 });

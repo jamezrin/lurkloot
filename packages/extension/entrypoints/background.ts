@@ -94,7 +94,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
   const adapter = platform === "twitch"
     ? new TwitchAdapter(
       { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
-      () => ensureTwitchIntegrity(emit),
+      (request) => ensureTwitchIntegrity(emit, request),
       watchTabPort,
       {
         compatibility: resolution.compatibility.twitch,

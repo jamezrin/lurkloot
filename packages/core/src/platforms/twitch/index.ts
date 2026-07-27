@@ -2,6 +2,7 @@ import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, D
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
+import type { TwitchIntegrityRequest } from "../../core/tabs";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
@@ -169,6 +170,18 @@ interface TwitchGqlResponse<T> {
   // twitch.py:1352). Surface it instead of treating the response as usable.
   error?: string;
   message?: string;
+}
+
+// The single definition of "Twitch rejected this for Client-Integrity, and a
+// fresh token could fix it" — shared by the adapter's safe reads, both claim
+// mutations, and the tabless watcher, so the rule cannot drift between them.
+// Authentication rejection is excluded first: an invalid session fails the same
+// request, but no integrity token can repair it. Anonymous requests are excluded
+// because they carry no token and must never open a page context.
+function isIntegrityRejection(error: unknown, credentials?: RequestCredentials): boolean {
+  if (credentials === "omit") return false;
+  if (authHealthFromError(error)) return false;
+  return error instanceof Error && /integrity/i.test(error.message);
 }
 
 type TwitchGqlFailureKind = "network" | "credentials" | "platform";
@@ -478,7 +491,7 @@ export class TwitchAdapter implements PlatformAdapter {
   async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
     try {
-      const response = await this.gqlTransport<{ currentUser?: { id?: string } | null }>(
+      const response = await this.gqlWithIntegrityRetry<{ currentUser?: { id?: string } | null }>(
         "CurrentUser",
         "",
         {},
@@ -530,7 +543,7 @@ export class TwitchAdapter implements PlatformAdapter {
     // this is only meaningful under that id (the extension, which captures the
     // page-minted token). A runtime using a non-web client id never needs it, so
     // it defaults to "no integrity available".
-    private readonly ensureIntegrity: () => Promise<boolean> = async () => false,
+    private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean> = async () => false,
     // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
     private readonly watchTabPort: WatchTabPort = unavailableWatchTabPort,
     // Identity the GQL requests present. Defaults to the WEB client (what the
@@ -618,7 +631,7 @@ export class TwitchAdapter implements PlatformAdapter {
 
     const details = await Promise.allSettled(
       discoverableCampaignIds.map((dropID) =>
-        this.gql<TwitchCampaignDetailsData>("DropCampaignDetails", TWITCH_QUERIES.campaignDetailsHash, {
+        this.gqlWithIntegrityRetry<TwitchCampaignDetailsData>("DropCampaignDetails", TWITCH_QUERIES.campaignDetailsHash, {
           channelLogin: userLogin,
           dropID,
         }),
@@ -701,7 +714,7 @@ export class TwitchAdapter implements PlatformAdapter {
     if (aclCandidates.length > 0) return aclCandidates;
     if (!campaign.slug && !campaign.categoryId) return [];
 
-    const response = await this.gql<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
+    const response = await this.gqlWithIntegrityRetry<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
       slug: campaign.slug ?? campaign.gameName,
       imageWidth: 50,
       includeCostreaming: false,
@@ -796,7 +809,7 @@ export class TwitchAdapter implements PlatformAdapter {
     if (cached) this.availableCampaignsByChannel.delete(channelId);
 
     try {
-      const response = await this.gql<TwitchAvailableDropsData>(
+      const response = await this.gqlWithIntegrityRetry<TwitchAvailableDropsData>(
         "DropsHighlightService_AvailableDrops",
         TWITCH_QUERIES.availableDropsHash,
         { channelID: channelId },
@@ -846,11 +859,11 @@ export class TwitchAdapter implements PlatformAdapter {
 
   private async fetchInventory(variables: Record<string, unknown> = { ...this.inventoryCapability.variables }): Promise<unknown> {
     try {
-      return await this.gql<unknown>("Inventory", this.inventoryCapability.hash, variables);
+      return await this.gqlWithIntegrityRetry<unknown>("Inventory", this.inventoryCapability.hash, variables);
     } catch (error) {
       if (!(error instanceof Error) || !/PersistedQueryNotFound/i.test(error.message)) throw error;
       diagnostic(this.emit, "debug", `GQL Inventory persisted query not found for ${this.inventoryCapability.id}; retrying with its inline query`, "twitch");
-      return this.gql<unknown>("Inventory", this.inventoryCapability.hash, variables, this.inventoryCapability.inlineQuery);
+      return this.gqlWithIntegrityRetry<unknown>("Inventory", this.inventoryCapability.hash, variables, this.inventoryCapability.inlineQuery);
     }
   }
 
@@ -860,7 +873,7 @@ export class TwitchAdapter implements PlatformAdapter {
     variables: Record<string, unknown>,
   ): Promise<{ response: TwitchGqlResponse<TwitchDashboardData>; ok: boolean }> {
     try {
-      const response = await this.gql<TwitchDashboardData>(
+      const response = await this.gqlWithIntegrityRetry<TwitchDashboardData>(
         TWITCH_QUERIES.dashboard.operationName,
         TWITCH_QUERIES.dashboard.sha256Hash,
         variables,
@@ -896,11 +909,12 @@ export class TwitchAdapter implements PlatformAdapter {
       const message = error instanceof Error ? error.message : String(error);
       // Only integrity rejections are worth a refresh + retry; everything else
       // (e.g. an unexpected status or a stale id) propagates unchanged.
-      if (!/integrity/i.test(message)) throw error;
+      if (!isIntegrityRejection(error)) throw error;
       diagnostic(this.emit, "warn", `Claim for ${reward.name} was rejected for integrity; refreshing the token and retrying once`, "twitch");
-      // The captured token may have just expired or been anonymous; force one
-      // refresh and retry exactly once. A second failure propagates.
-      const refreshed = await this.ensureIntegrity();
+      // Twitch rejected the token it was sent, so the local expiry says nothing:
+      // only a forced refresh replaces it. Retry exactly once; a second failure
+      // propagates.
+      const refreshed = await this.ensureIntegrity({ forceRefresh: true });
       if (refreshed) return await this.runClaim(reward);
       throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
     }
@@ -920,7 +934,7 @@ export class TwitchAdapter implements PlatformAdapter {
   }
 
   async claimChannelPoints(channel: ChannelCandidate): Promise<boolean> {
-    const context = await this.gql<TwitchChannelPointsData>(
+    const context = await this.gqlWithIntegrityRetry<TwitchChannelPointsData>(
       "ChannelPointsContext",
       TWITCH_QUERIES.channelPointsHash,
       { channelLogin: channel.username },
@@ -929,6 +943,22 @@ export class TwitchAdapter implements PlatformAdapter {
     const claimId = context.data?.community?.channel?.self?.communityPoints?.availableClaim?.id;
     if (!channelId || !claimId) return false;
 
+    // Like a drop claim, this mutation is gated on Client-Integrity. Ensure one
+    // exists first (a no-op fast path when a token is already captured), then
+    // recover explicitly rather than through a generic transport retry — the
+    // same claim id must never be replayed more than once.
+    await this.ensureIntegrity();
+    try {
+      return await this.runChannelPointsClaim(claimId, channelId);
+    } catch (error) {
+      if (!isIntegrityRejection(error)) throw error;
+      diagnostic(this.emit, "warn", `Channel-points claim for ${channel.username} was rejected for integrity; refreshing the token and retrying once`, "twitch");
+      if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
+      return await this.runChannelPointsClaim(claimId, channelId);
+    }
+  }
+
+  private async runChannelPointsClaim(claimId: string, channelId: string): Promise<boolean> {
     const result = await this.gql<{ claimCommunityPoints?: { status?: string } }>(
       "ClaimCommunityPoints",
       TWITCH_QUERIES.claimCommunityPointsHash,
@@ -956,7 +986,7 @@ export class TwitchAdapter implements PlatformAdapter {
   supportsPostClaimHandoff = true;
 
   createTablessWatcher(): TablessWatchController {
-    return new TwitchWatcher(this.gqlTransport, this.options);
+    return new TwitchWatcher(this.gqlTransport, this.options, this.ensureIntegrity);
   }
 
   private async mergeCurrentSessionProgress(
@@ -964,7 +994,7 @@ export class TwitchAdapter implements PlatformAdapter {
     channel: ChannelCandidate,
   ): Promise<DropCampaign[]> {
     try {
-      const streamInfo = await this.gql<TwitchStreamInfoData>(
+      const streamInfo = await this.gqlWithIntegrityRetry<TwitchStreamInfoData>(
         "VideoPlayerStreamInfoOverlayChannel",
         TWITCH_QUERIES.streamInfoHash,
         { channel: channel.username },
@@ -972,7 +1002,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const channelId = streamInfo.data?.user?.id;
       if (!channelId) return campaigns;
 
-      const current = await this.gql<TwitchCurrentDropData>(
+      const current = await this.gqlWithIntegrityRetry<TwitchCurrentDropData>(
         "DropCurrentSessionContext",
         TWITCH_QUERIES.currentDropHash,
         { channelID: channelId, channelLogin: "" },
@@ -1010,8 +1040,36 @@ export class TwitchAdapter implements PlatformAdapter {
     query?: string,
     credentials?: RequestCredentials,
     emit: EventEmitter = this.emit,
+    signal?: AbortSignal,
   ): Promise<TwitchGqlResponse<T>> {
-    return this.gqlTransport(operationName, sha256Hash, variables, query, credentials, emit);
+    return this.gqlTransport(operationName, sha256Hash, variables, query, credentials, emit, signal);
+  }
+
+  // Twitch can reject an authenticated request for Client-Integrity while the
+  // session itself is fine and the captured token has not locally expired, so
+  // the only recovery is a genuinely fresh token. Bounded to one forced refresh
+  // and one identical replay; the caller's own fallback handles the rest.
+  //
+  // This deliberately lives above the transport rather than inside it: the same
+  // transport carries mutations (which must never be replayed implicitly) and
+  // anonymous requests (which must never open a page context).
+  private async gqlWithIntegrityRetry<T>(
+    operationName: string,
+    sha256Hash: string,
+    variables: Record<string, unknown>,
+    query?: string,
+    credentials?: RequestCredentials,
+    emit: EventEmitter = this.emit,
+    signal?: AbortSignal,
+  ): Promise<TwitchGqlResponse<T>> {
+    try {
+      return await this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
+    } catch (error) {
+      if (!isIntegrityRejection(error, credentials)) throw error;
+      diagnostic(emit, "debug", `GQL ${operationName} was rejected for integrity; refreshing the token and retrying once`, "twitch");
+      if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
+      return this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
+    }
   }
 
   private async checkChannelFromPage(
@@ -1064,6 +1122,9 @@ class TwitchWatcher implements TablessWatchController {
   constructor(
     private readonly gql: TwitchGqlTransport,
     options: TwitchAdapterOptions,
+    // Only the authenticated CurrentUser fallback below uses this. The anonymous
+    // stream lookup and the heartbeat telemetry are deliberately excluded.
+    private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean> = async () => false,
   ) {
     this.heartbeatStrategy = options.heartbeatStrategy ?? createTwitchHeartbeat(
       options.compatibility?.heartbeat ?? "twitch-heartbeat-gql-v1",
@@ -1138,8 +1199,19 @@ class TwitchWatcher implements TablessWatchController {
 
   private async resolveUserId(): Promise<string | undefined> {
     if (this.viewerUserId) return this.viewerUserId;
+    const currentUser = () => this.gql<{ currentUser?: { id?: string } }>("CurrentUser", "", {}, CURRENT_USER_QUERY, undefined, this.diagnostics.emit);
     try {
-      const response = await this.gql<{ currentUser?: { id?: string } }>("CurrentUser", "", {}, CURRENT_USER_QUERY, undefined, this.diagnostics.emit);
+      let response;
+      try {
+        response = await currentUser();
+      } catch (error) {
+        // Bounded to one forced refresh and one identical replay, like the
+        // adapter's safe authenticated reads.
+        if (!isIntegrityRejection(error)) throw error;
+        this.log("debug", "Twitch viewer id lookup was rejected for integrity; refreshing the token and retrying once");
+        if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
+        response = await currentUser();
+      }
       this.viewerUserId = response.data?.currentUser?.id;
     } catch (error) {
       // Leave unresolved; tick() reports the missing-user case to the scheduler.

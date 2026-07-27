@@ -1235,6 +1235,182 @@ describe("twitch integrity refresh", () => {
         message: expect.stringContaining("from a created page context (tab 21)"),
       }));
     });
+
+    // Twitch can reject a token the extension still considers unexpired. Forced
+    // refresh exists for exactly that case, so the local expiry must not be
+    // allowed to short-circuit it.
+    describe("forced refresh", () => {
+      const rejected = () => ({
+        integrity: "rejected-token",
+        clientSessionId: "page-session",
+        deviceId: "page-device",
+        expiresAt: Date.now() + 60_000,
+      });
+
+      const replacement = () => ({
+        integrity: "replacement-token",
+        clientSessionId: "page-session",
+        deviceId: "page-device",
+        expiresAt: Date.now() + 60_000,
+      });
+
+      it("does not fast-return for an apparently unexpired rejected token", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 31 });
+        setTwitchIntegrity(rejected());
+
+        setTimeout(() => setTwitchIntegrity(replacement(), { isNew: true }), 20);
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          undefined,
+          { forceRefresh: true },
+        );
+
+        expect(ok).toBe(true);
+        expect(browser.tabs.create).toHaveBeenCalledTimes(1);
+      });
+
+      it("succeeds only once a token different from the rejected one is captured", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 32 });
+        setTwitchIntegrity(rejected());
+
+        // Re-capturing the same token must not satisfy the wait.
+        setTimeout(() => setTwitchIntegrity(rejected(), { isNew: true }), 10);
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          60,
+          undefined,
+          { forceRefresh: true },
+        );
+
+        expect(ok).toBe(false);
+      });
+
+      it("creates a fresh inactive page context instead of reusing a user-owned tab", async () => {
+        const browser = browserMock();
+        browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+        browser.tabs.create.mockResolvedValue({ id: 33 });
+        setTwitchIntegrity(rejected());
+
+        setTimeout(() => setTwitchIntegrity(replacement(), { isNew: true }), 20);
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          undefined,
+          { forceRefresh: true },
+        );
+
+        expect(ok).toBe(true);
+        expect(browser.tabs.create).toHaveBeenCalledWith({
+          url: "https://www.twitch.tv/drops/inventory",
+          pinned: false,
+          active: false,
+        });
+        // The user's own twitch.tv tab must never be navigated, reloaded or closed.
+        const touchedTabIds = (browser.tabs.update.mock.calls as unknown as unknown[][]).map((call) => call[0]);
+        expect(touchedTabIds).not.toContain(3);
+        expect(browser.tabs.remove).not.toHaveBeenCalledWith(3);
+      });
+
+      it("reloads an extension-owned retained context rather than opening another tab", async () => {
+        const browser = browserMock();
+        registerManagedPageContextTabs({
+          twitch: {
+            platform: "twitch",
+            tabId: 44,
+            origin: "https://www.twitch.tv",
+            originUrl: "https://www.twitch.tv/drops/inventory",
+            ownedByExtension: true,
+          },
+        });
+        browser.tabs.get.mockResolvedValue({ id: 44, url: "https://www.twitch.tv/drops/inventory" });
+        setTwitchIntegrity(rejected());
+
+        setTimeout(() => setTwitchIntegrity(replacement(), { isNew: true }), 20);
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          undefined,
+          { forceRefresh: true },
+        );
+
+        expect(ok).toBe(true);
+        expect(browser.tabs.create).not.toHaveBeenCalled();
+        expect(browser.tabs.update).toHaveBeenCalledWith(44, {
+          url: "https://www.twitch.tv/drops/inventory",
+        });
+      });
+
+      // Concurrent authenticated reads (discovery fans DropCampaignDetails out
+      // with Promise.allSettled) can all be rejected by the same token and all
+      // force a refresh at once. Without sharing, a later caller reads the
+      // *replacement* as its own rejected token and waits for one that never comes.
+      it("shares one in-flight forced refresh between concurrent callers", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 34 });
+        setTwitchIntegrity(rejected());
+
+        setTimeout(() => setTwitchIntegrity(replacement(), { isNew: true }), 20);
+        const results = await Promise.all([
+          ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true }),
+          ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true }),
+          ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true }),
+        ]);
+
+        expect(results).toEqual([true, true, true]);
+        // One page context booted for the whole burst, not one per caller.
+        expect(browser.tabs.create).toHaveBeenCalledTimes(1);
+      });
+
+      it("starts a new forced refresh once the previous one has settled", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 35 });
+        setTwitchIntegrity(rejected());
+
+        setTimeout(() => setTwitchIntegrity(replacement(), { isNew: true }), 20);
+        await expect(ensureTwitchIntegrityWithBrowser(
+          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true },
+        )).resolves.toBe(true);
+        const contextsAfterFirstRefresh = browser.tabs.create.mock.calls.length;
+
+        // Twitch later rejects the replacement too. Even though replacement-token
+        // is still locally valid, the second forced refresh must boot its own
+        // page context and stay pending until a genuinely different token lands —
+        // never hand back the first refresh's settled result.
+        let settled = false;
+        const second = ensureTwitchIntegrityWithBrowser(
+          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true },
+        ).then((ok) => {
+          settled = true;
+          return ok;
+        });
+
+        await vi.waitFor(() => {
+          expect(browser.tabs.create.mock.calls.length).toBeGreaterThan(contextsAfterFirstRefresh);
+        });
+        expect(settled).toBe(false);
+
+        setTwitchIntegrity({ ...replacement(), integrity: "third-token" }, { isNew: true });
+        await expect(second).resolves.toBe(true);
+      });
+
+      it("leaves the non-forced fast path intact", async () => {
+        const browser = browserMock();
+        setTwitchIntegrity(fresh());
+
+        const ok = await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory");
+
+        expect(ok).toBe(true);
+        expect(browser.tabs.query).not.toHaveBeenCalled();
+        expect(browser.tabs.create).not.toHaveBeenCalled();
+      });
+    });
   });
 });
 
