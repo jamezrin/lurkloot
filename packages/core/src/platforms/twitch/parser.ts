@@ -129,27 +129,55 @@ function earnedRewardCountsFromInventory(input: TwitchInventory): EarnedRewardCo
   return edges ? earnedRewardCounts(edges) : undefined;
 }
 
-export function parseTwitchInventory(input: TwitchInventory | TwitchCampaign[]): DropCampaign[] {
-  const inProgress = Array.isArray(input)
-    ? undefined
-    : input.data?.currentUser?.inventory?.dropCampaignsInProgress;
-  const campaigns = Array.isArray(input)
-    ? input
-    : inProgress
-      ?? input.data?.currentUser?.inventory?.dropCampaigns
-      ?? input.data?.currentUser?.dropCampaigns
-      ?? [];
+// The per-user claim state a set of campaigns comes with. An Inventory response
+// carries all of it; a bare campaign list (campaign details, reward campaigns)
+// carries none, so every field falls back to its empty value there.
+interface TwitchCampaignSource {
+  campaigns: readonly TwitchCampaign[];
   // Only dropCampaignsInProgress carries a per-tier self edge. Everything else
-  // (campaign details, reward campaigns) reports no per-user claim state, so
-  // shared-benefit tiers there must keep using the owned-benefit fallback.
-  const hasPerTierProgress = campaigns === inProgress;
-  const gameEventDrops = Array.isArray(input) ? [] : input.data?.currentUser?.inventory?.gameEventDrops ?? [];
+  // reports no per-user claim state, so shared-benefit tiers there must keep
+  // using the owned-benefit fallback.
+  hasPerTierProgress: boolean;
+  gameEventDrops: readonly TwitchGameEventDrop[];
   // v2 responses carry one edge per claim, which answers per tier what
-  // gameEventDrops can only answer per benefit. Empty on v1.
-  const earnedCounts = Array.isArray(input)
-    ? undefined
-    : earnedRewardCountsFromInventory(input);
-  const userId = Array.isArray(input) ? undefined : input.data?.currentUser?.id;
+  // gameEventDrops can only answer per benefit. Absent on v1.
+  earnedCounts?: EarnedRewardCounts;
+  userId?: string;
+}
+
+function inventorySource(inventory: TwitchInventory): TwitchCampaignSource {
+  const inProgress = inventory.data?.currentUser?.inventory?.dropCampaignsInProgress;
+  const campaigns = inProgress
+    ?? inventory.data?.currentUser?.inventory?.dropCampaigns
+    ?? inventory.data?.currentUser?.dropCampaigns
+    ?? [];
+  return {
+    campaigns,
+    hasPerTierProgress: campaigns === inProgress,
+    gameEventDrops: inventory.data?.currentUser?.inventory?.gameEventDrops ?? [],
+    earnedCounts: earnedRewardCountsFromInventory(inventory),
+    userId: inventory.data?.currentUser?.id,
+  };
+}
+
+function campaignListSource(campaigns: readonly TwitchCampaign[]): TwitchCampaignSource {
+  return { campaigns, hasPerTierProgress: false, gameEventDrops: [] };
+}
+
+// Parses a full Inventory response: campaigns plus the per-user claim state that
+// comes with them.
+export function parseTwitchInventory(inventory: TwitchInventory): DropCampaign[] {
+  return parseTwitchCampaignSource(inventorySource(inventory));
+}
+
+// Parses a bare campaign list (campaign details, reward campaigns), which
+// carries no per-user claim state.
+export function parseTwitchCampaigns(campaigns: readonly TwitchCampaign[]): DropCampaign[] {
+  return parseTwitchCampaignSource(campaignListSource(campaigns));
+}
+
+function parseTwitchCampaignSource(source: TwitchCampaignSource): DropCampaign[] {
+  const { campaigns, hasPerTierProgress, gameEventDrops, earnedCounts, userId } = source;
   const now = Date.now();
 
   return campaigns.map((campaign) => {
@@ -250,7 +278,7 @@ function parseTwitchReward(
   campaignId: string,
   userId?: string,
   campaignEndsAt?: string,
-  gameEventDrops: TwitchGameEventDrop[] = [],
+  gameEventDrops: readonly TwitchGameEventDrop[] = [],
   sharedBenefitIds: ReadonlySet<string> = new Set(),
   claimedByEarnedRewardIds: ReadonlySet<string> = new Set(),
   earnedBenefitIds: ReadonlySet<string> = new Set(),
@@ -351,11 +379,10 @@ export function twitchCandidatesFromCampaign(campaign: DropCampaign): ChannelCan
 
 export function mergeTwitchCampaignProgress(
   campaigns: DropCampaign[],
-  inventory: TwitchInventory | TwitchCampaign[],
+  inventory: TwitchInventory,
 ): DropCampaign[] {
+  const { gameEventDrops, earnedCounts } = inventorySource(inventory);
   const progressCampaigns = parseTwitchInventory(inventory);
-  const gameEventDrops = Array.isArray(inventory) ? [] : inventory.data?.currentUser?.inventory?.gameEventDrops ?? [];
-  const earnedCounts = Array.isArray(inventory) ? undefined : earnedRewardCountsFromInventory(inventory);
   return campaigns.map((campaign) => {
     const progress = progressCampaigns.find((item) => item.id === campaign.id);
     // Withholding the owned-benefit fallback from shared benefits is only safe
@@ -426,7 +453,10 @@ function addHours(value: string, hours: number): string | undefined {
 // `<gameId>_CUSTOM_ID_BackpackCharmCannedTomatoes`); there is no `benefit`
 // sub-object. We match on `id` and keep `benefit.id` only as a defensive
 // fallback for the inline query shape.
-function ownsRewardBenefit(benefitIds: (string | undefined)[], gameEventDrops: TwitchGameEventDrop[]): boolean {
+function ownsRewardBenefit(
+  benefitIds: readonly (string | undefined)[],
+  gameEventDrops: readonly TwitchGameEventDrop[],
+): boolean {
   return benefitIds.some((id) =>
     id != null && gameEventDrops.some((drop) => drop.id === id || drop.benefit?.id === id),
   );

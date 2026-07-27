@@ -117,9 +117,6 @@ export const twitchInventoryV2: TwitchInventoryCapability = {
     if (!hasV2Schema(response)) {
       throw new Error("twitch-inventory-v2 inventory response schema mismatch");
     }
-    return mergeTwitchCampaignProgress(
-      campaigns,
-      response as Parameters<typeof mergeTwitchCampaignProgress>[1],
-    );
+    return mergeTwitchCampaignProgress(campaigns, response as Parameters<typeof mergeTwitchCampaignProgress>[1]);
   },
 };
