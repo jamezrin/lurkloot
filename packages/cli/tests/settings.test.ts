@@ -143,7 +143,6 @@ describe("parseCliSettings", () => {
 
   it("hard-errors on extension-only keys, naming them", () => {
     expect(() => parseCliSettings({ adFocusMode: "window" })).toThrow(/"adFocusMode" is an extension-only setting/);
-    expect(() => parseCliSettings({ running: true })).toThrow(/"running" is an extension-only setting/);
     expect(() => parseCliSettings({ tablessMode: true })).toThrow(/"tablessMode" is an extension-only setting/);
     expect(() => parseCliSettings({ diagnosticLogging: true })).toThrow(/"diagnosticLogging" is an extension-only setting/);
   });
@@ -249,7 +248,6 @@ describe("parseCliSettings", () => {
 describe("toEngineSettings", () => {
   it("pins the headless invariants regardless of CLI input", () => {
     const engine = toEngineSettings(DEFAULT_CLI_SETTINGS);
-    expect(engine.running).toBe(true);
     expect(engine.tablessMode).toBe(true);
     expect(engine.pauseOnManualWatch).toBe(false);
     expect(engine.autoStartDropFarming).toBe(false);

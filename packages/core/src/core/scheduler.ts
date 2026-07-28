@@ -14,7 +14,7 @@ import type {
 import { categoryListIndex } from "@lurkloot/shared/categories";
 import { campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims, rewardFeasibility } from "@lurkloot/shared/rewards";
-import { autoClaimChallengesFor, autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
+import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, syncManagedTabBreakers, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
@@ -611,7 +611,11 @@ export async function runSchedulerTick(
         emitDiagnostic(emit, platform, "info", "Manual watch detected; pausing farming for this platform");
         continue;
       }
-      if (!settings.running || !platformSettings.enabled) {
+      if (!platformSettings.enabled) {
+        // With no master switch, "automation is off" simply means no platform is
+        // enabled; this one being off while the other still farms stays a
+        // platform-scoped stop. Both reason codes remain meaningful.
+        const automationOff = !isFarmingActive(settings);
         await adapter.stopWatchTab?.(previous);
         nextState.sessions[platform] = {
           ...previous,
@@ -626,7 +630,7 @@ export async function runSchedulerTick(
           errorChecks: 0,
           retryAfter: undefined,
           message: "Automation disabled",
-          reasonCode: settings.running ? "platform_disabled" : "automation_disabled",
+          reasonCode: automationOff ? "automation_disabled" : "platform_disabled",
           watchMode: undefined,
           tablessFallback: undefined,
           heartbeatChecks: 0,
@@ -636,10 +640,10 @@ export async function runSchedulerTick(
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, {
           platforms: [platform],
-          reason: settings.running ? "platform_disabled" : "automation_disabled",
+          reason: automationOff ? "automation_disabled" : "platform_disabled",
           emit,
         });
-        emitDiagnostic(emit, platform, "info", "Automation disabled");
+        emitDiagnostic(emit, platform, "info", automationOff ? "Automation disabled" : "Platform disabled");
         continue;
       }
 

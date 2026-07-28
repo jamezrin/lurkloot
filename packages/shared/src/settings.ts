@@ -1,5 +1,6 @@
 import type { AdFocusMode, CategorySelection, CompatibilitySettings, EngineSettings, ExtensionSettings, KickPlatformSettings, LanguageOverride, Platform, PriorityMode, RateNudgeStatus, SupportedLocale, TwitchPlatformSettings } from "./models";
 
+const FARMING_PLATFORMS: Platform[] = ["twitch", "kick"];
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
 const RATE_NUDGE_STATUSES: RateNudgeStatus[] = ["pending", "rated", "dismissed"];
@@ -21,7 +22,6 @@ export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compat
 
 // The engine-contract defaults: the universal subset every host shares.
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
-  running: false,
   autoClaim: true,
   tablessMode: true,
   pauseOnManualWatch: true,
@@ -32,7 +32,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   priorityMode: "ending_soonest",
   platform: {
     twitch: {
-      enabled: true,
+      enabled: false,
       idleWatchlistChannels: [],
       excludedChannels: [],
       farmAllCategories: true,
@@ -40,7 +40,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       autoClaimChannelPoints: true,
     },
     kick: {
-      enabled: true,
+      enabled: false,
       idleWatchlistChannels: [],
       excludedChannels: [],
       farmAllCategories: true,
@@ -122,7 +122,6 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
   const platform = value?.platform;
   const compatibility = value?.compatibility;
   return {
-    running: booleanOr(value?.running, DEFAULT_ENGINE_SETTINGS.running),
     autoClaim: booleanOr(value?.autoClaim, DEFAULT_ENGINE_SETTINGS.autoClaim),
     tablessMode: booleanOr(value?.tablessMode, DEFAULT_ENGINE_SETTINGS.tablessMode),
     pauseOnManualWatch: booleanOr(value?.pauseOnManualWatch, DEFAULT_ENGINE_SETTINGS.pauseOnManualWatch),
@@ -351,4 +350,11 @@ export function autoClaimChannelPointsFor(settings: EngineSettings, platform: Pl
 
 export function autoClaimChallengesFor(settings: EngineSettings, platform: Platform): boolean {
   return platform === "kick" ? settings.platform.kick.autoClaimChallenges : false;
+}
+
+// Farming is active when at least one platform is enabled. This replaces the
+// former stored `running` master switch: a single source of truth cannot drift
+// out of step with the per-platform flags the way two of them could.
+export function isFarmingActive(settings: EngineSettings): boolean {
+  return FARMING_PLATFORMS.some((platform) => settings.platform[platform].enabled);
 }

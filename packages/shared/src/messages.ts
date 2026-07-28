@@ -5,7 +5,6 @@ import type { SettingsPatch } from "./settings";
 export type CoreRuntimeMessage =
   | { type: "getSnapshot" }
   | { type: "getPlaybackControl"; platform: Platform }
-  | { type: "setRunning"; running: boolean }
   | { type: "setPlatformEnabled"; platform: Platform; enabled: boolean }
   | { type: "setAutomation"; platform: Platform; enabled: boolean }
   | { type: "saveSettings"; settingsPatch: SettingsPatch; tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }

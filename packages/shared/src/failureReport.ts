@@ -1,6 +1,7 @@
 import type { CriticalHealthState } from "./criticalHealth";
 import type { ActivityHistoryRecord } from "./events";
 import type { EngineSettings, Platform, SchedulerState } from "./models";
+import { isFarmingActive } from "./settings";
 
 export interface FailureReportInput {
   platform: Platform;
@@ -70,7 +71,7 @@ function recentEvents(entries: readonly ActivityHistoryRecord[]): string {
 // motivating user report could not be diagnosed without knowing it.
 function settingsSummary(settings: EngineSettings, platform: Platform): string {
   return bullets([
-    ["running", settings.running],
+    ["farming active", isFarmingActive(settings)],
     ["tablessMode", settings.tablessMode],
     ["autoClaim", settings.autoClaim],
     ["pauseOnManualWatch", settings.pauseOnManualWatch],

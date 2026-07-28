@@ -218,7 +218,6 @@ describe("settings", () => {
       excludedCampaignIds: [" Abc ", "abc", "Abc"],
     } as unknown as Parameters<typeof mergeSettings>[0]);
 
-    expect(settings.running).toBe(DEFAULT_SETTINGS.running);
     expect(settings.keepFarmingVideosUnmuted).toBe(false);
     expect(settings.pauseOnManualWatch).toBe(DEFAULT_SETTINGS.pauseOnManualWatch);
     expect(settings.priorityMode).toBe(DEFAULT_SETTINGS.priorityMode);

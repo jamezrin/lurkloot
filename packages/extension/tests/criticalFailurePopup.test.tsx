@@ -46,7 +46,6 @@ async function mountPopup(options: { flagged: Platform | null; promptEnabled?: b
     ...base,
     settings: {
       ...base.settings,
-      running: true,
       criticalFailurePromptEnabled: options.promptEnabled ?? true,
     },
     state: {

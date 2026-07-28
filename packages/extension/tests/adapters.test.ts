@@ -316,7 +316,6 @@ describe("KickAdapter", () => {
     const adapter = new KickAdapter(fetcher);
     const settings: ExtensionSettings = {
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
@@ -364,7 +363,7 @@ describe("KickAdapter", () => {
         rewards: [{ id: "reward", name: "Reward", requiredMinutes: 30, watchedMinutes: 0, status: "locked" }],
         isGeneralDrop: true,
       }],
-      { ...DEFAULT_SETTINGS, running: true },
+      { ...DEFAULT_SETTINGS },
       adapter,
     );
 

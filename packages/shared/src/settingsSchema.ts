@@ -6,7 +6,7 @@
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 3;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 4;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -68,6 +68,7 @@ const MIGRATIONS: SettingsMigration[] = [
   { to: 1, migrate: migrateToV1 },
   { to: 2, migrate: migrateToV2 },
   { to: 3, migrate: migrateToV3 },
+  { to: 4, migrate: migrateToV4 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -173,6 +174,37 @@ function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
 // existing installs get the detector, and an explicit false is preserved.
 function migrateToV3(raw: Record<string, unknown>, _diagnose: Diagnose): Record<string, unknown> {
   if (!Object.hasOwn(raw, "criticalFailurePromptEnabled")) raw.criticalFailurePromptEnabled = true;
+  return raw;
+}
+
+// Drops the global `running` master switch: farming is now active for a platform
+// when that platform is enabled, and nothing else.
+//
+// The value cannot simply be discarded. The popup used to render each toggle as
+// `running && platform.enabled`, so a stored `running: false` displayed every
+// platform as off no matter what the per-platform flags said. Keeping those
+// flags as-is would silently start farming on upgrade for platforms the user
+// last saw switched off. Committing what was displayed is the faithful
+// translation, and it matches how autoStartDropFarming now suspends farming.
+function migrateToV4(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  if (!Object.hasOwn(raw, "running")) return raw;
+  const wasRunning = raw.running;
+  delete raw.running;
+  if (wasRunning !== false) return raw;
+  const disabled: string[] = [];
+  for (const key of ["twitch", "kick"]) {
+    const block = platformBlock(raw, key);
+    if (!block || block.enabled === false) continue;
+    block.enabled = false;
+    disabled.push(key);
+  }
+  if (disabled.length > 0) {
+    diagnose({
+      code: "deprecated_property",
+      path: "running",
+      message: `running was removed; automation was switched off, so ${disabled.join(" and ")} kept the disabled state they were shown with`,
+    });
+  }
   return raw;
 }
 

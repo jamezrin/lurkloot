@@ -24,7 +24,6 @@ function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackC
         ...demoSnapshot(),
         settings: mergeSettings({
           ...demoSnapshot().settings,
-          running: message.enabled,
           platform: {
             ...demoSnapshot().settings.platform,
             [message.platform]: {
@@ -34,8 +33,6 @@ function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackC
           },
         }),
       };
-    case "setRunning":
-      return { ...demoSnapshot(), settings: mergeSettings({ ...demoSnapshot().settings, running: message.running }) };
     case "setPlatformEnabled":
       return {
         ...demoSnapshot(),
@@ -91,7 +88,6 @@ function demoSnapshot(): RuntimeSnapshot {
   const inHours = (hours: number) => new Date(now + hours * 3_600_000).toISOString();
   const settings = mergeSettings({
     ...DEFAULT_SETTINGS,
-    running: true,
     platform: {
       twitch: {
         enabled: true,

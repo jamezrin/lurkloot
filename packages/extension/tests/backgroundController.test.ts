@@ -4,7 +4,7 @@ import { resolveCompatibility } from "@lurkloot/core";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformAuthHealth, SchedulerState } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
-import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_SETTINGS, isFarmingActive } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
@@ -48,6 +48,29 @@ function deferred<T>() {
     reject = nextReject;
   });
   return { promise, resolve, reject };
+}
+
+// `running: true` used to be what made a fixture farm; with the master switch
+// gone, farming means the platform flags are on. DEFAULT_SETTINGS now ships them
+// off (a fresh install sits idle), so fixtures opt in explicitly. Both wrappers
+// apply last so they win over any platform block in the literal they wrap.
+function farming<T extends ExtensionSettings>(settings: T): T {
+  return withPlatformsEnabled(settings, true);
+}
+
+function notFarming<T extends ExtensionSettings>(settings: T): T {
+  return withPlatformsEnabled(settings, false);
+}
+
+function withPlatformsEnabled<T extends ExtensionSettings>(settings: T, enabled: boolean): T {
+  return {
+    ...settings,
+    platform: {
+      ...settings.platform,
+      twitch: { ...settings.platform.twitch, enabled },
+      kick: { ...settings.platform.kick, enabled },
+    },
+  };
 }
 
 function adapter(platform: Platform): PlatformAdapter {
@@ -109,7 +132,7 @@ function twitchCampaignDetails(dropID: string): unknown {
 }
 
 function harness(
-  settings: ExtensionSettings = { ...DEFAULT_SETTINGS, running: true },
+  settings: ExtensionSettings = farming(DEFAULT_SETTINGS),
   overrides: {
     saveState?: (state: SchedulerState) => Promise<void>;
     reportEvents?: (events: readonly EngineEvent[]) => Promise<void>;
@@ -165,8 +188,23 @@ function harness(
       : { authProbeTimeoutMs: overrides.authProbeTimeoutMs }),
   };
 
+  const controller = createBackgroundController(deps);
+  // User-action messages dispatch their scheduler tick in the background and
+  // return the snapshot immediately, so the popup is never held open for a
+  // network-bound tick. Tests here assert on what the tick produced, so the
+  // harness settles that work before handing control back — keeping every
+  // assertion about tick behavior meaningful. Tests that specifically exercise
+  // the detachment use `rawHandleMessage`.
+  const rawHandleMessage = controller.handleMessage;
+  const handleMessage: typeof rawHandleMessage = async (message, sender) => {
+    const result = await rawHandleMessage(message, sender);
+    await controller.settleBackgroundWork();
+    return result;
+  };
+
   return {
-    controller: createBackgroundController(deps),
+    controller: { ...controller, handleMessage },
+    rawController: controller,
     deps,
     get settings() {
       return currentSettings;
@@ -184,7 +222,6 @@ describe("background controller", () => {
   it("retains Twitch discovery when each controller tick constructs a fresh adapter", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true, idleWatchlistChannels: [] },
@@ -230,7 +267,7 @@ describe("background controller", () => {
   });
 
   it("starts enabled auth probes concurrently and persists each before scheduler work", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     const twitchHealth = deferred<PlatformAuthHealth>();
     const kickHealth = deferred<PlatformAuthHealth>();
     vi.mocked(env.twitch.checkAuthHealth).mockReturnValue(twitchHealth.promise);
@@ -266,7 +303,7 @@ describe("background controller", () => {
     vi.useFakeTimers();
     try {
       const env = harness(
-        { ...DEFAULT_SETTINGS, running: true },
+        farming(DEFAULT_SETTINGS),
         { authProbeTimeoutMs: 25 },
       );
       const oldTwitchHealth = deferred<PlatformAuthHealth>();
@@ -316,7 +353,7 @@ describe("background controller", () => {
     vi.useFakeTimers();
     try {
       const env = harness(
-        { ...DEFAULT_SETTINGS, running: false },
+        farming(DEFAULT_SETTINGS),
         { authProbeTimeoutMs: 25 },
       );
       let signal: AbortSignal | undefined;
@@ -346,7 +383,7 @@ describe("background controller", () => {
     vi.useFakeTimers();
     try {
       const env = harness(
-        { ...DEFAULT_SETTINGS, running: false },
+        farming(DEFAULT_SETTINGS),
         { authProbeTimeoutMs: 25 },
       );
       let backgroundStarted!: () => void;
@@ -386,7 +423,7 @@ describe("background controller", () => {
     vi.useFakeTimers();
     try {
       const env = harness(
-        { ...DEFAULT_SETTINGS, running: true },
+        farming(DEFAULT_SETTINGS),
         { authProbeTimeoutMs: 25 },
       );
       vi.mocked(env.twitch.checkAuthHealth).mockImplementation(() => new Promise(() => undefined));
@@ -424,7 +461,7 @@ describe("background controller", () => {
     vi.useFakeTimers();
     try {
       const env = harness(
-        { ...DEFAULT_SETTINGS, running: false },
+        farming(DEFAULT_SETTINGS),
         { authProbeTimeoutMs: 25 },
       );
       const health = deferred<PlatformAuthHealth>();
@@ -452,7 +489,7 @@ describe("background controller", () => {
   });
 
   it("merges a completed auth probe into state written while the probe was pending", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
     const health = deferred<PlatformAuthHealth>();
     vi.mocked(env.twitch.checkAuthHealth).mockReturnValue(health.promise);
 
@@ -492,9 +529,9 @@ describe("background controller", () => {
   it("keeps a newer same-platform refresh when an older tick probe settles last", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
@@ -531,7 +568,7 @@ describe("background controller", () => {
   });
 
   it("keeps invalidation checking when it supersedes an in-flight probe", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
     const older = deferred<PlatformAuthHealth>();
     vi.mocked(env.twitch.checkAuthHealth).mockReturnValueOnce(older.promise);
 
@@ -550,7 +587,7 @@ describe("background controller", () => {
   });
 
   it("supersedes an in-flight probe without putting a newly disabled platform in checking", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.state.authHealth = {
       ...env.state.authHealth,
       twitch: {
@@ -589,7 +626,7 @@ describe("background controller", () => {
   });
 
   it("terminalizes direct adapter setup failures with platform context", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
     vi.mocked(env.deps.createAdapter).mockImplementation(() => {
       throw new Error("twitch adapter setup failed");
     });
@@ -615,7 +652,7 @@ describe("background controller", () => {
   });
 
   it("surfaces sibling auth persistence failure alongside adapter setup failure", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     const kickHealth = deferred<PlatformAuthHealth>();
     vi.mocked(env.kick.checkAuthHealth).mockReturnValue(kickHealth.promise);
     vi.mocked(env.deps.createAdapter).mockImplementation((platform, emit, settings) => {
@@ -662,7 +699,7 @@ describe("background controller", () => {
   });
 
   it("isolates a consistently failing Kick constructor from Twitch auth health", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     vi.mocked(env.deps.createAdapters).mockImplementation(() => {
       throw new Error("combined construction reached failing Kick adapter");
     });
@@ -706,9 +743,9 @@ describe("background controller", () => {
   it("terminalizes startup adapter setup failure instead of leaving checking", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: false,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
@@ -719,12 +756,12 @@ describe("background controller", () => {
       throw new Error("twitch startup adapter failed");
     });
 
-    const error = await env.controller.handleStartup().catch((caught: unknown) => caught);
+    // Startup now runs a tick (the platform is enabled, and auto-start is on),
+    // and a tick absorbs adapter setup failures into a reported interruption
+    // rather than rethrowing. What matters is the same: the platform lands on a
+    // terminal auth status instead of being stranded in "checking".
+    await env.controller.handleStartup().catch(() => undefined);
 
-    expect(error).toMatchObject({
-      platform: "twitch",
-      message: "twitch startup adapter failed",
-    });
     expect(env.state.authHealth.twitch).toMatchObject({
       status: "unavailable",
       reasonCode: "platform_unavailable",
@@ -732,7 +769,7 @@ describe("background controller", () => {
   });
 
   it("reports missing credentials without calling the platform probe", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+    const env = harness(farming(DEFAULT_SETTINGS), {
       checkCredentialAvailability: async () => ({ status: "missing" }),
     });
 
@@ -746,7 +783,7 @@ describe("background controller", () => {
   });
 
   it("reports credential lookup failure without calling the platform probe", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+    const env = harness(farming(DEFAULT_SETTINGS), {
       checkCredentialAvailability: async () => ({ status: "unavailable" }),
     });
 
@@ -760,7 +797,7 @@ describe("background controller", () => {
   });
 
   it("continues to the authenticated probe when credentials are available", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+    const env = harness(farming(DEFAULT_SETTINGS), {
       checkCredentialAvailability: async () => ({ status: "available" }),
     });
 
@@ -773,7 +810,6 @@ describe("background controller", () => {
   it("blocks startup account work when credentials are missing without disabling the platform", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
@@ -801,7 +837,6 @@ describe("background controller", () => {
   it("automatically resumes a platform after a healthy authentication recheck", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
@@ -840,7 +875,7 @@ describe("background controller", () => {
   });
 
   it("publishes authentication transitions when diagnostic logging is disabled", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false, diagnosticLogging: false });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, diagnosticLogging: false }));
     vi.mocked(env.kick.checkAuthHealth).mockResolvedValueOnce({
       status: "blocked",
       checkedAt: "2026-07-22T12:00:00.000Z",
@@ -861,7 +896,6 @@ describe("background controller", () => {
   it("does not strand the popup on \"checking\" when the credential probe throws", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
@@ -885,7 +919,6 @@ describe("background controller", () => {
   it("preserves a healthy auth-health probe when a later scheduler step throws", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       tablessMode: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
@@ -915,7 +948,6 @@ describe("background controller", () => {
   it("reports authentication as the reason farming stopped after logout", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
@@ -943,7 +975,7 @@ describe("background controller", () => {
   });
 
   it("recovers Twitch authentication health after login without changing enabled settings", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
+    const env = harness(farming(DEFAULT_SETTINGS), {
       checkCredentialAvailability: async () => ({ status: "available" }),
     });
     vi.mocked(env.twitch.checkAuthHealth)
@@ -975,7 +1007,7 @@ describe("background controller", () => {
   });
 
   it("invalidates only the requested authentication health and reports the transition once", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
     vi.mocked(env.twitch.checkAuthHealth).mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:00:00.000Z" });
     vi.mocked(env.kick.checkAuthHealth).mockResolvedValueOnce({
       status: "missing_credentials",
@@ -1018,7 +1050,7 @@ describe("background controller", () => {
   });
 
   it("checks and persists authentication health for only the requested platform", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
     vi.mocked(env.kick.checkAuthHealth).mockResolvedValueOnce({
       status: "blocked",
       checkedAt: "2026-07-22T12:00:00.000Z",
@@ -1057,7 +1089,7 @@ describe("background controller", () => {
   });
 
   it("stores timestamp-only auth refreshes without repeating activity", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
     vi.mocked(env.kick.checkAuthHealth)
       .mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:00:00.000Z" })
       .mockResolvedValueOnce({ status: "healthy", checkedAt: "2026-07-22T12:05:00.000Z" });
@@ -1071,7 +1103,7 @@ describe("background controller", () => {
   });
 
   it("strips hostile adapter fields before auth state and events are persisted", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
     vi.mocked(env.twitch.checkAuthHealth).mockResolvedValueOnce({
       status: "healthy",
       checkedAt: "2026-07-22T12:00:00.000Z",
@@ -1086,7 +1118,7 @@ describe("background controller", () => {
   });
 
   it("reports the effective compatibility profile and capability once per enabled platform", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
 
     await env.controller.tick();
     await env.controller.tick();
@@ -1119,7 +1151,7 @@ describe("background controller", () => {
   });
 
   it("reports enabled compatibility selections on startup while farming is paused", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
 
     await env.controller.handleStartup();
 
@@ -1132,7 +1164,7 @@ describe("background controller", () => {
   });
 
   it("reports compatibility again only when the effective selection changes", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
 
     await env.controller.tick();
     await env.controller.handleMessage({
@@ -1151,9 +1183,8 @@ describe("background controller", () => {
 
   it("emits credential-safe resolver warnings without echoing persisted selections", async () => {
     const hostileSelection = "unknown-auth-token=secret-cookie";
-    const env = harness({
+    const env = harness(farming({
       ...DEFAULT_SETTINGS,
-      running: false,
       compatibility: {
         ...DEFAULT_SETTINGS.compatibility,
         twitch: {
@@ -1161,7 +1192,7 @@ describe("background controller", () => {
           heartbeatTransport: hostileSelection,
         },
       },
-    });
+    }));
 
     await env.controller.handleStartup();
 
@@ -1177,14 +1208,13 @@ describe("background controller", () => {
   });
 
   it("uses profile metadata for profile resolver warnings", async () => {
-    const env = harness({
+    const env = harness(farming({
       ...DEFAULT_SETTINGS,
-      running: false,
       compatibility: {
         ...DEFAULT_SETTINGS.compatibility,
         twitch: { ...DEFAULT_SETTINGS.compatibility.twitch, profile: "unknown-profile" },
       },
-    });
+    }));
 
     await env.controller.handleStartup();
 
@@ -1201,7 +1231,7 @@ describe("background controller", () => {
   });
 
   it("preserves compatibility diagnostics when a scheduler tick fails", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.twitch.discoverCampaigns = vi.fn(async () => { throw new Error("discovery failed"); });
 
     await env.controller.tick();
@@ -1216,10 +1246,10 @@ describe("background controller", () => {
   it("does not emit resolver warnings for a disabled platform", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: false,
       platform: {
         ...DEFAULT_SETTINGS.platform,
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
       },
       compatibility: {
         ...DEFAULT_SETTINGS.compatibility,
@@ -1235,14 +1265,13 @@ describe("background controller", () => {
   });
 
   it("emits a fresh warning when a different invalid selection resolves identically", async () => {
-    const env = harness({
+    const env = harness(farming({
       ...DEFAULT_SETTINGS,
-      running: true,
       compatibility: {
         ...DEFAULT_SETTINGS.compatibility,
         twitch: { ...DEFAULT_SETTINGS.compatibility.twitch, heartbeatTransport: "first-secret" },
       },
-    });
+    }));
 
     await env.controller.handleStartup();
     await env.controller.handleMessage({
@@ -1263,9 +1292,8 @@ describe("background controller", () => {
   });
 
   it("emits a fixed host-incompatible warning with only the safe fallback identifier", async () => {
-    const env = harness({
+    const env = harness(farming({
       ...DEFAULT_SETTINGS,
-      running: false,
       compatibility: {
         ...DEFAULT_SETTINGS.compatibility,
         twitch: {
@@ -1273,7 +1301,7 @@ describe("background controller", () => {
           heartbeatTransport: "twitch-heartbeat-trowel-v1",
         },
       },
-    });
+    }));
 
     await env.controller.handleStartup();
 
@@ -1287,9 +1315,15 @@ describe("background controller", () => {
 
   it("saves each operational state before publishing its ordered batch", async () => {
     const calls: string[] = [];
-    const env = harness({ ...DEFAULT_SETTINGS, running: true }, {
+    const env = harness(farming(DEFAULT_SETTINGS), {
       saveState: async () => { calls.push("state"); },
-      reportEvents: async () => { calls.push("events"); },
+      // Tick lifecycle diagnostics are published as they happen and describe no
+      // state, so they are outside the state-before-events batching invariant
+      // this test guards. Only operational batches are recorded.
+      reportEvents: async (events) => {
+        if (events.every((event) => event.category === "diagnostic" && /^Tick #/.test(event.message))) return;
+        calls.push("events");
+      },
     });
 
     await env.controller.tick();
@@ -1302,7 +1336,7 @@ describe("background controller", () => {
   });
 
   it("does not publish tick events when the corresponding state save fails", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     let saveCalls = 0;
     env.deps.saveState.mockImplementation(async (next: SchedulerState) => {
       saveCalls += 1;
@@ -1314,8 +1348,13 @@ describe("background controller", () => {
 
     expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
     expect(env.deps.saveState).toHaveBeenCalledTimes(2);
-    expect(env.reportEvents).toHaveBeenCalledTimes(1);
-    expect(env.reportEvents.mock.calls[0]?.[0]).toContainEqual(expect.objectContaining({
+    // Tick lifecycle diagnostics publish independently of state, so the
+    // invariant under test is about the operational batches only.
+    const operationalBatches = env.reportEvents.mock.calls
+      .map(([events]) => events)
+      .filter((events) => !events.every((event) => event.category === "diagnostic" && /^Tick #/.test(event.message)));
+    expect(operationalBatches).toHaveLength(1);
+    expect(operationalBatches[0]).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "auth_health_changed",
       platform: "twitch",
@@ -1382,9 +1421,9 @@ describe("background controller", () => {
   it("publishes lifecycle events through the host sink without persisting log history", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
@@ -1407,9 +1446,9 @@ describe("background controller", () => {
   it("does not commit pending-claim diagnostics when scheduler state persistence fails", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
@@ -1429,9 +1468,9 @@ describe("background controller", () => {
   it("publishes one actionable link-required diagnostic while repeated automatic claims are suppressed", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
       },
     });
@@ -1492,15 +1531,15 @@ describe("background controller", () => {
   it("publishes a farming stop reason when automation is disabled", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
     await env.controller.tick();
 
-    await env.controller.handleMessage({ type: "setRunning", running: false });
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
 
     const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
     expect(published).toContainEqual(expect.objectContaining({
@@ -1514,10 +1553,10 @@ describe("background controller", () => {
   it("publishes an interruption when an idle platform is paused by manual watch", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       pauseOnManualWatch: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
@@ -1542,7 +1581,7 @@ describe("background controller", () => {
   });
 
   it("creates the scheduler alarm from persisted settings", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, pollIntervalMinutes: 11 });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pollIntervalMinutes: 11 }));
 
     await env.controller.ensureAlarm();
 
@@ -1550,7 +1589,7 @@ describe("background controller", () => {
   });
 
   it("stamps the install time once through the serialized controller lifecycle", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
 
     await env.controller.ensureInstalledAt("2026-07-26T12:00:00.000Z");
     await env.controller.ensureInstalledAt("2026-07-26T13:00:00.000Z");
@@ -1561,7 +1600,7 @@ describe("background controller", () => {
   it("preserves a state write that lands while startup setup reporting is pending", async () => {
     const setupReported = deferred<void>();
     const env = harness(
-      { ...DEFAULT_SETTINGS, running: false },
+      farming(DEFAULT_SETTINGS),
       { reportEvents: async () => setupReported.promise },
     );
     env.state.sessions.twitch = {
@@ -1588,7 +1627,7 @@ describe("background controller", () => {
   it("preserves a settings patch that lands while startup setup reporting is pending", async () => {
     const setupReported = deferred<void>();
     const env = harness(
-      { ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: false },
+      farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: true }),
       { reportEvents: async () => setupReported.promise },
     );
 
@@ -1602,14 +1641,14 @@ describe("background controller", () => {
     setupReported.resolve();
     await startup;
 
-    expect(env.settings.running).toBe(false);
+    expect(isFarmingActive(env.settings)).toBe(true);
     expect(env.settings.diagnosticLogging).toBe(false);
   });
 
   it("refreshes enabled auth health from ensureAlarm while farming is stopped", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: false,
+      autoStartDropFarming: false,
       platform: {
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
@@ -1624,19 +1663,31 @@ describe("background controller", () => {
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
   });
 
-  it("refreshes enabled auth health on startup without starting farming", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+  // Auth health is only probed for enabled platforms, and auto-start off now
+  // disables them on launch — so startup neither farms nor probes, and the popup
+  // reports auth once the user switches a platform back on.
+  it("neither farms nor probes on startup when auto-start disabled every platform", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: false }));
+
+    await env.controller.handleStartup();
+
+    expect(isFarmingActive(env.settings)).toBe(false);
+    expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("refreshes enabled auth health on startup while auto-start keeps farming", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: true }));
 
     await env.controller.handleStartup();
 
     expect(env.state.authHealth.twitch.status).toBe("healthy");
     expect(env.state.authHealth.kick.status).toBe("healthy");
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
   });
 
-  it("auto-starts on launch only when the persisted running state is enabled", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: true });
+  it("auto-starts on launch only when a platform is enabled", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: true }));
 
     await env.controller.ensureAlarm();
 
@@ -1646,7 +1697,7 @@ describe("background controller", () => {
   });
 
   it("clears stale restart tabs and auto-resumes with fresh tabs when auto-start is enabled", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: true }));
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -1705,7 +1756,7 @@ describe("background controller", () => {
   });
 
   it("pauses stale restart sessions and disables running when auto-start is disabled", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: false });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: false }));
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -1725,8 +1776,7 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.settings.running).toBe(false);
-    expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: false }));
+    expect(isFarmingActive(env.settings)).toBe(false);
     expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
       expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
     ]);
@@ -1742,7 +1792,7 @@ describe("background controller", () => {
   });
 
   it("cleans stale restart state without starting farming when automation is already stopped", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false, autoStartDropFarming: true });
+    const env = harness(notFarming({ ...DEFAULT_SETTINGS, autoStartDropFarming: true }));
     env.state.sessions.kick = {
       platform: "kick",
       status: "paused",
@@ -1762,7 +1812,7 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.settings.running).toBe(false);
+    expect(isFarmingActive(env.settings)).toBe(false);
     expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
       expect.objectContaining({ tabId: 55, channelUrl: "https://kick.com/kick-creator", ownedByExtension: true }),
     ]);
@@ -1772,7 +1822,7 @@ describe("background controller", () => {
   });
 
   it("clears stale retained page-context tabs on startup", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false, autoStartDropFarming: true });
+    const env = harness(notFarming({ ...DEFAULT_SETTINGS, autoStartDropFarming: true }));
     env.state.managedPageContextTabs = {
       twitch: {
         platform: "twitch",
@@ -1801,7 +1851,6 @@ describe("background controller", () => {
   it("preserves a retained Kick page context across a running service-worker restart", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       autoStartDropFarming: true,
       platform: {
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
@@ -1831,7 +1880,7 @@ describe("background controller", () => {
   });
 
   it("does not log startup cleanup when there is no stale farming state", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false, autoStartDropFarming: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: true }));
 
     await env.controller.handleStartup();
 
@@ -1842,32 +1891,91 @@ describe("background controller", () => {
     )).toBe(false);
   });
 
-  it("disables running on startup when auto-start is disabled even without stale tabs", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoStartDropFarming: false });
+  it("disables every platform on startup when auto-start is disabled even without stale tabs", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: false }));
 
     await env.controller.handleStartup();
 
-    expect(env.settings.running).toBe(false);
-    expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: false }));
+    expect(isFarmingActive(env.settings)).toBe(false);
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-    expect(env.state.authHealth.twitch.status).toBe("healthy");
-    expect(env.state.authHealth.kick.status).toBe("healthy");
+  });
+
+  it("answers an automation toggle without waiting for the scheduler tick", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    let startDiscovery = (): void => {};
+    const discoveryStarted = new Promise<void>((resolve) => {
+      const blocked = new Promise<void>((release) => { startDiscovery = () => release(); });
+      vi.mocked(env.twitch.discoverCampaigns).mockImplementation(async () => {
+        resolve();
+        await blocked;
+        return [];
+      });
+    });
+
+    // The raw controller, so the harness does not settle the background tick for
+    // us — that is exactly what this test is about.
+    const snapshot = asSnapshot(await env.rawController.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    }));
+
+    // The reply landed while discovery is still blocked: a slow tick can no
+    // longer hold the popup open (the 65s stall reported in the wild).
+    await discoveryStarted;
+    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(isFarmingActive(snapshot.settings)).toBe(true);
+    // And the session already reflects the toggle rather than the pre-toggle
+    // "Automation disabled" the popup used to render for the whole tick.
+    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+
+    startDiscovery();
+    await env.rawController.settleBackgroundWork();
+  });
+
+  it("brackets every tick with a lifecycle diagnostic naming its trigger and duration", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    await env.controller.tick(["twitch"], "manual_tick");
+
+    const messages = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event) => event.category === "diagnostic")
+      .map((event) => event.message);
+    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ started \(trigger=manual_tick, platforms=twitch\)$/));
+    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=manual_tick, platforms=twitch\)$/));
+  });
+
+  it("reports a tick lifecycle even when the tick throws", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    env.deps.saveState.mockRejectedValue(new Error("storage unavailable"));
+
+    await expect(env.controller.tick(["twitch"], "alarm")).rejects.toThrow("storage unavailable");
+
+    const messages = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event) => event.category === "diagnostic")
+      .map((event) => event.message);
+    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=alarm/));
   });
 
   it("starts automation, persists settings, creates alarm, and runs an immediate tick", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "setRunning", running: true }));
+    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true }));
 
-    expect(env.settings.running).toBe(true);
-    expect(env.deps.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ running: true }));
+    expect(env.settings.platform.twitch.enabled).toBe(true);
     expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
-    expect(snapshot.state.sessions.twitch.status).toBe("watching");
+    // The snapshot returns ahead of the tick, reporting the prompt "starting"
+    // transition; the watching status lands once the tick settles.
+    expect(snapshot.state.sessions.twitch.status).toBe("idle");
+    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+    expect(env.state.sessions.twitch.status).toBe("watching");
   });
 
   it("stops automation immediately and applies auto-close behavior to active watch tabs", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoCloseFinishedDrops: false });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoCloseFinishedDrops: false }));
     await env.controller.tick();
     env.state.managedPageContextTabs = {
       twitch: {
@@ -1879,18 +1987,21 @@ describe("background controller", () => {
       },
     };
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "setRunning", running: false }));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
+    await env.controller.handleMessage({ type: "setAutomation", platform: "kick", enabled: false });
 
-    expect(env.settings.running).toBe(false);
+    expect(isFarmingActive(env.settings)).toBe(false);
     expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 10 }));
     expect(env.kick.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 20 }));
-    expect(snapshot.state.sessions.twitch.status).toBe("paused");
-    expect(snapshot.state.sessions.kick.status).toBe("paused");
-    expect(snapshot.state.managedPageContextTabs?.twitch).toBeUndefined();
+    // Read from settled state rather than the returned snapshot: the snapshot is
+    // now taken before the tick that applies the stop.
+    expect(env.state.sessions.twitch.status).toBe("paused");
+    expect(env.state.sessions.kick.status).toBe("paused");
+    expect(env.state.managedPageContextTabs?.twitch).toBeUndefined();
   });
 
   it("prepares a host reset by force-closing managed tabs", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoCloseFinishedDrops: false });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoCloseFinishedDrops: false }));
     await env.controller.tick();
     env.state.managedPageContextTabs = {
       twitch: {
@@ -1919,7 +2030,7 @@ describe("background controller", () => {
   });
 
   it("allows host-reset cleanup to be retried", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     await env.controller.tick();
 
     await env.controller.prepareForHostReset();
@@ -1928,7 +2039,7 @@ describe("background controller", () => {
   });
 
   it("force-closes registry-owned tabs even when no live session references them", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.state.managedWatchTabs = {
       twitch: {
         platform: "twitch",
@@ -1944,7 +2055,7 @@ describe("background controller", () => {
   });
 
   it("holds controller mutations until host storage reset finishes", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     let releaseReset!: () => void;
     const resetBlocked = new Promise<void>((resolve) => {
       releaseReset = resolve;
@@ -1970,7 +2081,7 @@ describe("background controller", () => {
   });
 
   it("toggles one platform and immediately applies the scheduler when running", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     await env.controller.tick();
 
     const snapshot = asSnapshot(await env.controller.handleMessage({
@@ -1981,20 +2092,21 @@ describe("background controller", () => {
 
     expect(snapshot.settings.platform.twitch.enabled).toBe(false);
     expect(snapshot.settings.platform.kick.enabled).toBe(true);
-    expect(snapshot.state.sessions.twitch.status).toBe("paused");
-    expect(snapshot.state.sessions.kick.status).toBe("watching");
+    // Settings are applied synchronously; the session statuses follow from the
+    // background tick, so they are read from settled state.
+    expect(env.state.sessions.twitch.status).toBe("paused");
+    expect(env.state.sessions.kick.status).toBe("watching");
   });
 
   it("enables popup automation with one settings save and one initial scheduler pass", async () => {
-    const env = harness({
+    const env = harness(notFarming({
       ...DEFAULT_SETTINGS,
-      running: false,
       platform: {
         ...DEFAULT_SETTINGS.platform,
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
       },
-    });
+    }));
 
     const snapshot = asSnapshot(await env.controller.handleMessage({
       type: "setAutomation",
@@ -2003,20 +2115,22 @@ describe("background controller", () => {
     }));
 
     expect(env.deps.saveSettings).toHaveBeenCalledTimes(1);
-    expect(env.settings.running).toBe(true);
+    expect(isFarmingActive(env.settings)).toBe(true);
     expect(env.settings.platform.twitch.enabled).toBe(true);
     expect(env.settings.platform.kick.enabled).toBe(false);
     expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(1);
     expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
-    expect(snapshot.state.sessions.twitch.status).toBe("watching");
-    expect(snapshot.state.sessions.kick.status).toBe("paused");
+    // Returned ahead of the tick, so the enabled platform reads as starting.
+    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+    expect(env.state.sessions.twitch.status).toBe("watching");
+    // Untouched: the toggle ticks only the platform it changed.
+    expect(env.state.sessions.kick.status).toBe("idle");
   });
 
   it("saves and normalizes settings without forcing a scheduler tick", async () => {
     const env = harness();
     const nextSettings = {
       ...DEFAULT_SETTINGS,
-      running: true,
       pollIntervalMinutes: Number.NaN,
       offlineRetryLimit: 0,
       tablessFallbackFailureLimit: 99,
@@ -2048,9 +2162,8 @@ describe("background controller", () => {
   });
 
   it("merges overlapping settings patches without clobbering previous saves", async () => {
-    const env = harness({
+    const env = harness(farming({
       ...DEFAULT_SETTINGS,
-      running: true,
       notifyRewardEarned: true,
       notifyNoDropsLeft: true,
       platform: {
@@ -2058,7 +2171,7 @@ describe("background controller", () => {
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, excludedChannels: [] },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
       },
-    });
+    }));
 
     await Promise.all([
       env.controller.handleMessage({
@@ -2084,12 +2197,11 @@ describe("background controller", () => {
   });
 
   it("preserves rapid scheduling patches without overlapping reconciliation", async () => {
-    const env = harness({
+    const env = harness(farming({
       ...DEFAULT_SETTINGS,
-      running: true,
       notifyRewardEarned: true,
       notifyNoDropsLeft: true,
-    });
+    }));
     let activeDiscoveries = 0;
     let maxActiveDiscoveries = 0;
     let discoveryCalls = 0;
@@ -2137,7 +2249,7 @@ describe("background controller", () => {
   });
 
   it("runs a scheduler tick after saving settings when requested and automation is active", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     const nextSettings = {
       ...env.settings,
       platform: {
@@ -2157,7 +2269,7 @@ describe("background controller", () => {
   });
 
   it("only ticks requested platforms after saving settings with targeted platforms", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     const nextSettings = {
       ...env.settings,
       platform: {
@@ -2180,7 +2292,7 @@ describe("background controller", () => {
   });
 
   it("does not start automation after saving Idle Watchlist settings while paused", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(notFarming(DEFAULT_SETTINGS));
     const nextSettings = {
       ...env.settings,
       platform: {
@@ -2196,12 +2308,12 @@ describe("background controller", () => {
     }));
 
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-    expect(snapshot.settings.running).toBe(false);
+    expect(isFarmingActive(snapshot.settings)).toBe(false);
     expect(snapshot.settings.platform.twitch.idleWatchlistChannels).toEqual(["fallback"]);
   });
 
   it("keeps active farming untouched when saving a non-scheduling setting", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -2222,7 +2334,7 @@ describe("background controller", () => {
   });
 
   it("runs an immediate scheduler tick when requested from the popup", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
 
     const snapshot = asSnapshot(await env.controller.handleMessage({ type: "tickNow" }));
 
@@ -2236,7 +2348,7 @@ describe("background controller", () => {
   });
 
   it("reports scheduler diagnostics without consulting host diagnostic settings", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, diagnosticLogging: false });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, diagnosticLogging: false }));
 
     await env.controller.handleMessage({ type: "tickNow" });
 
@@ -2245,8 +2357,8 @@ describe("background controller", () => {
   });
 
   it("records playback telemetry only for the managed watch tab", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
 
     await env.controller.handleMessage({
       type: "playbackTelemetry",
@@ -2289,8 +2401,8 @@ describe("background controller", () => {
   });
 
   it("clears accumulated playback checks as soon as the watch tab reports playback (#250)", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
     env.state.sessions.twitch = { ...env.state.sessions.twitch, playbackChecks: 2 };
 
     await env.controller.handleMessage({
@@ -2325,8 +2437,8 @@ describe("background controller", () => {
   });
 
   it("records visible playback in a non-managed tab as manual watch activity", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false, pauseOnManualWatch: true });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
 
     await env.controller.handleMessage({
       type: "playbackTelemetry",
@@ -2350,7 +2462,7 @@ describe("background controller", () => {
   });
 
   it("clears manual watch activity when the source tab is closed", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false, pauseOnManualWatch: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
     env.state.manualWatch = {
       twitch: {
         platform: "twitch",
@@ -2366,7 +2478,7 @@ describe("background controller", () => {
   });
 
   it("marks manual watch inactive when the same tab stops visible playback", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false, pauseOnManualWatch: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
     env.state.manualWatch = {
       twitch: {
         platform: "twitch",
@@ -2396,8 +2508,8 @@ describe("background controller", () => {
   });
 
   it("logs playback transitions such as ad starts and blocked playback", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
 
     // Baseline healthy telemetry — no ad, nothing blocked.
     await env.controller.handleMessage({
@@ -2421,10 +2533,10 @@ describe("background controller", () => {
 
   it("publishes focus diagnostics exactly once in the telemetry operation batch", async () => {
     const reported: EngineEvent[][] = [];
-    const env = harness({ ...DEFAULT_SETTINGS, running: false }, {
+    const env = harness(farming(DEFAULT_SETTINGS), {
       reportEvents: async (events) => { reported.push([...events]); },
     });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
     reported.length = 0;
     env.deps.applyAdFocus.mockImplementation(async (_platform, _tabId, _adActive, emit) => {
       emit({ category: "diagnostic", level: "info", message: "focus-adjusted", platform: "twitch" });
@@ -2451,8 +2563,8 @@ describe("background controller", () => {
   });
 
   it("keeps persisted playback telemetry when applying ad focus fails", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
     env.deps.applyAdFocus.mockRejectedValue(new Error("focus callback failed"));
 
     await expect(env.controller.handleMessage({
@@ -2479,8 +2591,8 @@ describe("background controller", () => {
   });
 
   it("focuses the watch tab when an ad is reported on the managed tab", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false, adFocusMode: "window" });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, adFocusMode: "window" }));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
     env.deps.applyAdFocus.mockClear();
 
     await env.controller.handleMessage({
@@ -2501,8 +2613,8 @@ describe("background controller", () => {
   });
 
   it("releases ad focus when telemetry reports no ad", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false, adFocusMode: "tab" });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, adFocusMode: "tab" }));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
     env.deps.applyAdFocus.mockClear();
 
     await env.controller.handleMessage({
@@ -2523,8 +2635,8 @@ describe("background controller", () => {
   });
 
   it("does not focus for telemetry from a tab that is not the watch tab", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
     env.deps.applyAdFocus.mockClear();
 
     await env.controller.handleMessage({
@@ -2545,8 +2657,8 @@ describe("background controller", () => {
   });
 
   it("ignores playback telemetry without a sender tab", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
     env.deps.applyAdFocus.mockClear();
 
     await env.controller.handleMessage({
@@ -2571,7 +2683,7 @@ describe("background controller", () => {
   });
 
   it("does not treat tabless sessions as managed playback telemetry targets", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -2603,7 +2715,7 @@ describe("background controller", () => {
   });
 
   it("re-applies ad focus from playback state on each scheduler tick", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
 
     await env.controller.handleMessage({ type: "tickNow" });
 
@@ -2612,7 +2724,7 @@ describe("background controller", () => {
   });
 
   it("keeps successful scheduler state when re-applying ad focus fails", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.deps.applyAdFocus.mockRejectedValue(new Error("focus refresh failed"));
 
     await env.controller.tick();
@@ -2627,8 +2739,8 @@ describe("background controller", () => {
   });
 
   it("allows playback control only for the current watch tab", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
 
     await expect(env.controller.handleMessage(
       { type: "getPlaybackControl", platform: "twitch" },
@@ -2642,8 +2754,8 @@ describe("background controller", () => {
   });
 
   it("passes the playback control setting to managed watch tabs", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false, keepFarmingVideosUnmuted: false });
-    await env.controller.handleMessage({ type: "setRunning", running: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, keepFarmingVideosUnmuted: false }));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
 
     await expect(env.controller.handleMessage(
       { type: "getPlaybackControl", platform: "twitch" },
@@ -2652,12 +2764,11 @@ describe("background controller", () => {
   });
 
   it("defaults playback control on when stored settings are missing the advanced flag", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: false });
-    env.deps.loadSettings.mockResolvedValueOnce({
+    const env = harness(farming(DEFAULT_SETTINGS));
+    env.deps.loadSettings.mockResolvedValueOnce(farming({
       ...DEFAULT_SETTINGS,
-      running: true,
       keepFarmingVideosUnmuted: undefined,
-    } as unknown as typeof DEFAULT_SETTINGS);
+    } as unknown as typeof DEFAULT_SETTINGS));
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -2673,7 +2784,7 @@ describe("background controller", () => {
   });
 
   it("pauses the platform when the user closes the active managed farming tab", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -2704,7 +2815,7 @@ describe("background controller", () => {
     });
     expect(env.state.managedWatchTabs?.twitch).toBeUndefined();
     // The user's enabled/running settings are untouched: this is a pause.
-    expect(env.settings.running).toBe(true);
+    expect(isFarmingActive(env.settings)).toBe(true);
     expect(env.settings.platform.twitch.enabled).toBe(true);
 
     await env.controller.tick();
@@ -2717,7 +2828,7 @@ describe("background controller", () => {
   });
 
   it("resumes farming for the platform when the user asks to resume", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -2739,7 +2850,7 @@ describe("background controller", () => {
   });
 
   it("does not pause when a watch tab the extension does not own is closed", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -2759,7 +2870,7 @@ describe("background controller", () => {
   });
 
   it("does not pause when a managed page-context tab is closed", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.state.sessions.kick = {
       platform: "kick",
       status: "watching",
@@ -2788,7 +2899,7 @@ describe("background controller", () => {
   });
 
   it("does not confuse a removed page-context tab with the active farming tab", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.state.sessions.kick = {
       platform: "kick",
       status: "watching",
@@ -2823,7 +2934,7 @@ describe("background controller", () => {
   });
 
   it("ignores removed tabs that are not the active managed watch tab", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -2842,9 +2953,9 @@ describe("background controller", () => {
   it("does not reopen a closed tab for a disabled platform", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
       },
     });
@@ -2864,7 +2975,7 @@ describe("background controller", () => {
   });
 
   it("tracks one managed watch tab per running platform", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
 
     await env.controller.tick();
 
@@ -2887,7 +2998,7 @@ describe("background controller", () => {
   });
 
   it("completes a campaign after manually claiming its last subscription reward", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: false });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: false }));
     const subscriptionReward: DropReward = {
       ...reward("claimable"),
       id: "subscription-reward",
@@ -2932,7 +3043,7 @@ describe("background controller", () => {
   });
 
   it("keeps a mixed campaign active after manually claiming its subscription reward", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: false });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: false }));
     const subscriptionReward: DropReward = {
       ...reward("claimable"),
       id: "subscription-reward",
@@ -2966,7 +3077,7 @@ describe("background controller", () => {
   });
 
   it("unlocks a dependent watch reward immediately after a manual subscription claim", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: false });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: false }));
     const subscriptionReward: DropReward = {
       ...reward("claimable"),
       id: "subscription-reward",
@@ -3011,7 +3122,7 @@ describe("background controller", () => {
   });
 
   it("does not publish manual-claim events when the corresponding state save fails", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: false }, {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: false }), {
       saveState: vi.fn().mockRejectedValueOnce(new Error("storage unavailable")),
     });
     env.state.campaigns.twitch = [campaign("twitch", "claimable")];
@@ -3049,7 +3160,7 @@ describe("background controller", () => {
   });
 
   it("emits reward notifications best-effort when rewards become earned", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, notifyRewardEarned: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, notifyRewardEarned: true }));
     env.state.campaigns.twitch = [campaign("twitch", "in_progress")];
     vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimable")]);
 
@@ -3062,7 +3173,7 @@ describe("background controller", () => {
   });
 
   it("emits a notification when a Kick challenge is claimed", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, notifyRewardEarned: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, notifyRewardEarned: true }));
     env.kick.claimChallenges = vi.fn(async () => [{ id: "daily", rarity: "mythic", recurrence: "daily" }]);
 
     await env.controller.tick();
@@ -3074,7 +3185,7 @@ describe("background controller", () => {
   });
 
   it("does not emit a challenge notification when reward notifications are off", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, notifyRewardEarned: false });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, notifyRewardEarned: false }));
     env.kick.claimChallenges = vi.fn(async () => [{ id: "daily", rarity: "mythic", recurrence: "daily" }]);
 
     await env.controller.tick();
@@ -3085,7 +3196,7 @@ describe("background controller", () => {
   });
 
   it("does not emit disabled reward notifications", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, notifyRewardEarned: false });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, notifyRewardEarned: false }));
     env.state.campaigns.twitch = [campaign("twitch", "in_progress")];
     vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimable")]);
 
@@ -3097,9 +3208,9 @@ describe("background controller", () => {
   it("emits the no-drops-left notification once when entering the exhausted state", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       notifyNoDropsLeft: true,
-      platform: { ...DEFAULT_SETTINGS.platform, kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false } },
+      platform: { ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true }, kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false } },
     });
     // A fully claimed campaign is present but has nothing earnable, so the
     // scheduler goes idle into the "no drops left" condition.
@@ -3113,10 +3224,10 @@ describe("background controller", () => {
   it("does not re-emit the no-drops-left notification while the exhausted state persists", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       notifyNoDropsLeft: true,
       notifyRewardEarned: false,
-      platform: { ...DEFAULT_SETTINGS.platform, kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false } },
+      platform: { ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true }, kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false } },
     });
     vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimed")]);
 
@@ -3164,10 +3275,10 @@ describe("background controller", () => {
     const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       tablessMode: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
@@ -3222,10 +3333,10 @@ describe("background controller", () => {
   function tablessEnv(overrides: Partial<ExtensionSettings> = {}) {
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       tablessMode: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
       },
       ...overrides,
@@ -3287,10 +3398,10 @@ describe("background controller", () => {
     const reported: EngineEvent[][] = [];
     const env = harness({
       ...DEFAULT_SETTINGS,
-      running: true,
       tablessMode: true,
       platform: {
         ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
       },
     }, {
@@ -3348,7 +3459,7 @@ describe("background controller", () => {
     await env.controller.tick();
     watcher.stop.mockRejectedValue(new Error("watcher stop failed"));
 
-    await expect(env.controller.handleMessage({ type: "setRunning", running: false })).resolves.toBeDefined();
+    await expect(env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false })).resolves.toBeDefined();
 
     expect(env.state.sessions.twitch.status).toBe("paused");
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
@@ -3492,7 +3603,7 @@ describe("background controller", () => {
   });
 
   it("reports the reward ids claimed during a tick, per platform", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true, autoClaim: true });
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: true }));
     env.twitch.discoverCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
 
     const claimed = await env.controller.tick();
@@ -3515,10 +3626,10 @@ describe("background controller", () => {
       const timer = manualWait();
       const env = harness({
         ...DEFAULT_SETTINGS,
-        running: true,
         autoClaim: true,
         platform: {
           ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
           kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
         },
         ...overrides,
@@ -3721,7 +3832,7 @@ describe("background controller", () => {
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
       await drainMicrotasks();
-      await env.controller.handleMessage({ type: "setRunning", running: false });
+      await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
       await env.timer.flush();
       await handoff;
 
@@ -3821,7 +3932,7 @@ describe("background controller critical health", () => {
   });
 
   it("records page context opens into the critical health detector", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     // Adapters are constructed with the tick's emitter before discovery runs, so
     // the last recorded call carries the live emitter for this tick.
     const emitFromTick = (): EventEmitter => env.deps.createAdapters.mock.calls.at(-1)![0];
@@ -3848,7 +3959,7 @@ describe("background controller critical health", () => {
   });
 
   it("opens the breaker and syncs the registry after repeated page context opens", async () => {
-    const env = harness({ ...DEFAULT_SETTINGS, running: true });
+    const env = harness(farming(DEFAULT_SETTINGS));
     const emitFromTick = (): EventEmitter => env.deps.createAdapters.mock.calls.at(-1)![0];
     env.kick.discoverCampaigns = vi.fn(async () => {
       emitFromTick()({
