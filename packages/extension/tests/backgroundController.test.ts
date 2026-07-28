@@ -817,6 +817,50 @@ describe("background controller", () => {
       expect(env.deps.createAlarm).toHaveBeenCalledOnce();
     });
 
+    it.each(["disable", "reset", "shutdown"] as const)(
+      "does not schedule from a pending startup token load after %s cleanup",
+      async (cleanup) => {
+        const stored = integrityBundle({
+          integrity: `startup-${cleanup}-future-token`,
+          expiresAt: Date.now() + 30 * 60_000,
+        });
+        const integrityRead = deferred<TwitchIntegrity | undefined>();
+        const env = harness(undefined, {
+          loadTwitchIntegrity: async () => integrityRead.promise,
+          ensureTwitchIntegrity: async () => true,
+        });
+        await vi.waitFor(() => expect(env.deps.loadTwitchIntegrity).toHaveBeenCalledOnce());
+        env.deps.createAlarm.mockClear();
+        env.deps.clearAlarm.mockClear();
+        env.deps.ensureTwitchIntegrity.mockClear();
+
+        let cleanupFinished: Promise<void> | undefined;
+        if (cleanup === "disable") {
+          await env.rawController.handleMessage({
+            type: "setPlatformEnabled",
+            platform: "twitch",
+            enabled: false,
+          });
+        } else if (cleanup === "reset") {
+          cleanupFinished = env.controller.prepareForHostReset();
+          await vi.waitFor(() => expect(env.deps.clearAlarm).toHaveBeenCalledWith(
+            TWITCH_INTEGRITY_ALARM_NAME,
+          ));
+        } else {
+          env.controller.shutdown();
+        }
+
+        integrityRead.resolve(stored);
+        await cleanupFinished;
+        await env.rawController.settleBackgroundWork();
+
+        expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
+        expect(env.deps.createAlarm.mock.calls.some(
+          ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+        )).toBe(false);
+      },
+    );
+
     it.each([
       ["settings", "disable", true],
       ["settings", "reset", false],

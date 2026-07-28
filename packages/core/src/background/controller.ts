@@ -351,6 +351,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   };
   let settingsMutation: Promise<unknown> = Promise.resolve();
   let integrityRefreshAbort: AbortController | undefined;
+  let integrityLifecycleGeneration = 0;
 
   // The last token handed to setTwitchIntegrity; used to skip re-persisting on
   // every page GQL call (the page sends integrity on most requests).
@@ -359,7 +360,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Prime the in-memory integrity token from storage whenever the background
   // script (re)evaluates, so a claim right after a service-worker wake can use
   // the last captured token before any fresh page traffic is observed.
-  const initialTwitchIntegrityLoad = loadStoredTwitchIntegrity();
+  const initialTwitchIntegrityLoad = loadStoredTwitchIntegrity(integrityLifecycleGeneration);
 
   function integrityRefreshJitter(token: string): number {
     let hash = 2166136261;
@@ -437,10 +438,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
-  async function loadStoredTwitchIntegrity(): Promise<void> {
+  async function loadStoredTwitchIntegrity(lifecycleGeneration: number): Promise<void> {
     await withStateLock(() => withEventCollector(async (emit, events) => {
       try {
         const integrity = await deps.loadTwitchIntegrity?.();
+        if (integrityLifecycleGeneration !== lifecycleGeneration) return;
         if (isValidTwitchIntegrity(integrity)) {
           lastIntegrityToken = integrity.integrity;
           setTwitchIntegrity(integrity);
@@ -454,6 +456,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           });
         }
       } catch (error) {
+        if (integrityLifecycleGeneration !== lifecycleGeneration) return;
         // A missing/corrupt stored token is non-fatal: fresh page traffic will
         // re-capture one, and claims simply stay best-effort until then.
         emit({
@@ -471,8 +474,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (integrityRefreshAbort) return;
     const abort = new AbortController();
     integrityRefreshAbort = abort;
+    const lifecycleGeneration = integrityLifecycleGeneration;
     const ownsRefresh = (): boolean =>
-      integrityRefreshAbort === abort && !abort.signal.aborted;
+      integrityRefreshAbort === abort
+      && !abort.signal.aborted
+      && integrityLifecycleGeneration === lifecycleGeneration;
     const refreshStillEnabled = async (): Promise<boolean> => {
       if (!ownsRefresh()) return false;
       const currentSettings = await deps.loadSettings();
@@ -1399,6 +1405,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   function cancelTwitchIntegrityWork(reason: string): void {
     const error = new Error(reason);
+    integrityLifecycleGeneration += 1;
     integrityRefreshAbort?.abort(error);
     deps.cancelTwitchIntegrityAcquisition?.(error);
   }
