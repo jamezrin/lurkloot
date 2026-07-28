@@ -490,7 +490,7 @@ let twitchIntegrity: TwitchIntegrity | undefined;
 // Treat a token expiring within this window as already stale, so a claim never
 // ships with one that expires mid-flight (the captured token is replayed and
 // the round-trip plus Twitch-side clock skew can otherwise straddle expiry).
-const INTEGRITY_EXPIRY_SKEW_MS = 30_000;
+export const INTEGRITY_EXPIRY_SKEW_MS = 30_000;
 
 // Page context to open when no token has been captured: a logged-in twitch.tv
 // SPA route that immediately issues authenticated GQL carrying Client-Integrity,
@@ -545,8 +545,15 @@ function describeContextBoot(boot: TwitchContextBootTiming, now: number): string
   return `tab ready at ${since(boot.readyAt)}, first GQL at ${since(boot.firstGqlAt)}, ${now - boot.createdAt}ms since the tab was created`;
 }
 
+export function isValidTwitchIntegrity(
+  value: TwitchIntegrity | undefined,
+  now: number = Date.now(),
+): value is TwitchIntegrity {
+  return value != null && value.expiresAt > now + INTEGRITY_EXPIRY_SKEW_MS;
+}
+
 export function hasValidTwitchIntegrity(now: number = Date.now()): boolean {
-  return twitchIntegrity != null && twitchIntegrity.expiresAt > now + INTEGRITY_EXPIRY_SKEW_MS;
+  return isValidTwitchIntegrity(twitchIntegrity, now);
 }
 
 export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?: { isNew?: boolean }, emit: EventEmitter = ignoreEvent): void {
@@ -588,25 +595,27 @@ export function currentValidTwitchIntegrity(): TwitchIntegrity | undefined {
   return hasValidTwitchIntegrity() ? twitchIntegrity : undefined;
 }
 
-// A forced refresh boots a cold twitch.tv context and waits for Kasada's
-// proof-of-work, which is the single most expensive thing this module does
-// (~22s observed). It is wired into ~10 operations, several of which run
-// sequentially inside one discovery pass, so a broadly-rejecting session used to
-// stack that cost several times in one tick.
-//
-// Concurrent callers share the in-flight refresh rather than racing into
-// acquirePageContextTab, where the origin-keyed dedupe hands the later ones an
-// inherited context that requireFreshPageContext cannot make fresh — so they
-// would wait out the full timeout on a tab that was never going to mint for
-// them. Sequential callers are bounded by rejectedToken instead: once the first
-// refresh lands, the rest were rejected on a token that no longer exists.
-let inFlightForcedRefresh: Promise<boolean> | undefined;
+// Minting boots a twitch.tv context and may wait ~22s for Kasada's proof-of-work,
+// so every caller shares one owned acquisition. The owned abort cancels the
+// underlying page context; only the creator's signal owns that lifecycle, while
+// later joiners race their own signal without disturbing everyone else.
+interface TwitchIntegrityAcquisition {
+  promise: Promise<boolean>;
+  abort: AbortController;
+}
+
+let inFlightIntegrityAcquisition: TwitchIntegrityAcquisition | undefined;
+
+export function cancelTwitchIntegrityAcquisition(reason?: unknown): void {
+  inFlightIntegrityAcquisition?.abort.abort(reason);
+}
 
 // Test seam: this module's integrity state is process-global by design (the
 // webRequest listener feeds it from outside any call), so suites that exercise
 // the bounds need a way back to a known state.
 export function resetTwitchIntegrityRefreshBounds(): void {
-  inFlightForcedRefresh = undefined;
+  inFlightIntegrityAcquisition?.abort.abort();
+  inFlightIntegrityAcquisition = undefined;
 }
 
 function hasReplacementTwitchIntegrity(rejectedToken?: string): boolean {
@@ -676,7 +685,15 @@ export async function ensureTwitchIntegrityWithBrowser(
   const forceRefresh = request?.forceRefresh === true;
   if (!forceRefresh) {
     if (hasValidTwitchIntegrity()) return true;
-    return mintTwitchIntegrity(browserApi, originUrl, timeoutMs, emit, undefined, false, request?.signal);
+    return startTwitchIntegrityAcquisition(
+      browserApi,
+      originUrl,
+      timeoutMs,
+      emit,
+      undefined,
+      false,
+      request?.signal,
+    );
   }
 
   // Another operation's refresh already replaced the token this caller was
@@ -687,18 +704,52 @@ export async function ensureTwitchIntegrityWithBrowser(
     return true;
   }
 
-  if (inFlightForcedRefresh) {
-    diagnostic(emit, "debug", "Joining the Twitch integrity refresh already in flight", "twitch");
-    return withAbortSignal(inFlightForcedRefresh, request?.signal);
+  const rejectedToken = request?.rejectedToken ?? twitchIntegrity?.integrity;
+  return startTwitchIntegrityAcquisition(
+    browserApi,
+    originUrl,
+    timeoutMs,
+    emit,
+    rejectedToken,
+    true,
+    request?.signal,
+  );
+}
+
+function startTwitchIntegrityAcquisition(
+  browserApi: BrowserTabApi,
+  originUrl: string,
+  timeoutMs: number,
+  emit: EventEmitter,
+  rejectedToken: string | undefined,
+  forceRefresh: boolean,
+  ownerSignal?: AbortSignal,
+): Promise<boolean> {
+  if (inFlightIntegrityAcquisition) {
+    diagnostic(emit, "debug", "Joining the Twitch integrity acquisition already in flight", "twitch");
+    return withAbortSignal(inFlightIntegrityAcquisition.promise, ownerSignal);
   }
 
-  const rejectedToken = request?.rejectedToken ?? twitchIntegrity?.integrity;
-  const refresh = mintTwitchIntegrity(browserApi, originUrl, timeoutMs, emit, rejectedToken, true, request?.signal)
-    .finally(() => {
-      inFlightForcedRefresh = undefined;
-    });
-  inFlightForcedRefresh = refresh;
-  return refresh;
+  const abort = new AbortController();
+  const abortFromOwner = () => abort.abort(ownerSignal?.reason);
+  ownerSignal?.addEventListener("abort", abortFromOwner, { once: true });
+
+  const promise = mintTwitchIntegrity(
+    browserApi,
+    originUrl,
+    timeoutMs,
+    emit,
+    rejectedToken,
+    forceRefresh,
+    abort.signal,
+  ).finally(() => {
+    ownerSignal?.removeEventListener("abort", abortFromOwner);
+    if (inFlightIntegrityAcquisition?.promise === promise) {
+      inFlightIntegrityAcquisition = undefined;
+    }
+  });
+  inFlightIntegrityAcquisition = { promise, abort };
+  return promise;
 }
 
 // The page-context boot itself, with no bounding logic: callers reach it through

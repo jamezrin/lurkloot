@@ -5,12 +5,14 @@ import { activityDiagnostic } from "@lurkloot/core/activityDiagnostics";
 import {
   AD_FOCUS_MAX_HOLD_MS,
   applyAdFocusWithBrowser,
+  cancelTwitchIntegrityAcquisition,
   currentManagedPageContextTabs,
   ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
   fetchKickInBackgroundWith,
   fetchTwitchInBackgroundWith,
   hasValidTwitchIntegrity,
+  isValidTwitchIntegrity,
   KickWafBlockedError,
   noteTwitchGqlRequest,
   openPinnedMutedTabWithBrowser,
@@ -1142,6 +1144,35 @@ describe("twitch integrity refresh", () => {
     });
   });
 
+  describe("isValidTwitchIntegrity", () => {
+    const now = 1_000_000;
+
+    it("accepts a token outside the 30-second expiry skew", () => {
+      expect(isValidTwitchIntegrity({
+        integrity: "valid-token",
+        expiresAt: now + 30_001,
+      }, now)).toBe(true);
+    });
+
+    it("rejects a missing token", () => {
+      expect(isValidTwitchIntegrity(undefined, now)).toBe(false);
+    });
+
+    it("rejects an expired token", () => {
+      expect(isValidTwitchIntegrity({
+        integrity: "expired-token",
+        expiresAt: now,
+      }, now)).toBe(false);
+    });
+
+    it("rejects a token at the 30-second expiry skew boundary", () => {
+      expect(isValidTwitchIntegrity({
+        integrity: "inside-skew-token",
+        expiresAt: now + 30_000,
+      }, now)).toBe(false);
+    });
+  });
+
   describe("ensureTwitchIntegrityWithBrowser", () => {
     it("fast-returns without touching tabs when a valid token already exists", async () => {
       const browser = browserMock();
@@ -1206,6 +1237,108 @@ describe("twitch integrity refresh", () => {
         active: false,
       });
       await expect(pending).resolves.toBe(false);
+    });
+
+    it("shares one page-context mint between concurrent ordinary acquisitions", async () => {
+      const browser = browserMock();
+      browser.tabs.create.mockResolvedValue({ id: 51 });
+
+      const first = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+      );
+      const second = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+      );
+
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledTimes(1));
+      setTwitchIntegrity(fresh(), { isNew: true });
+
+      await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+      expect(browser.tabs.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("cancels the shared acquisition, removes its new context, and rejects every caller", async () => {
+      const browser = browserMock();
+      browser.tabs.create.mockResolvedValue({ id: 52 });
+      const reason = new DOMException("Host reset", "AbortError");
+
+      const first = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+      );
+      const second = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+      );
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledTimes(1));
+
+      cancelTwitchIntegrityAcquisition(reason);
+
+      await expect(first).rejects.toBe(reason);
+      await expect(second).rejects.toBe(reason);
+      expect(browser.tabs.remove).toHaveBeenCalledWith(52);
+    });
+
+    it("starts a new acquisition after cancellation settles", async () => {
+      const browser = browserMock();
+      browser.tabs.create
+        .mockResolvedValueOnce({ id: 53 })
+        .mockResolvedValueOnce({ id: 54 });
+      const reason = new DOMException("Host reset", "AbortError");
+
+      const cancelled = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+      );
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledTimes(1));
+      cancelTwitchIntegrityAcquisition(reason);
+      await expect(cancelled).rejects.toBe(reason);
+
+      const restarted = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+      );
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledTimes(2));
+      setTwitchIntegrity(fresh(), { isNew: true });
+
+      await expect(restarted).resolves.toBe(true);
+      expect(browser.tabs.remove).toHaveBeenCalledWith(53);
+    });
+
+    it("aborts only a joined caller without cancelling the shared acquisition", async () => {
+      const browser = browserMock();
+      browser.tabs.create.mockResolvedValue({ id: 55 });
+      const joinerAbort = new AbortController();
+      const reason = new DOMException("Caller stopped", "AbortError");
+
+      const owner = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+      );
+      const joined = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+        undefined,
+        { signal: joinerAbort.signal },
+      );
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledTimes(1));
+
+      joinerAbort.abort(reason);
+
+      await expect(joined).rejects.toBe(reason);
+      expect(browser.tabs.remove).not.toHaveBeenCalled();
+      setTwitchIntegrity(fresh(), { isNew: true });
+      await expect(owner).resolves.toBe(true);
     });
 
     it("resolves false and warns when no token is captured before the timeout", async () => {
