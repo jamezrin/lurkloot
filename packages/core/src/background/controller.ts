@@ -468,73 +468,85 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function runTwitchIntegrityRefresh(): Promise<void> {
-    await initialTwitchIntegrityLoad;
-    await withEventCollector(async (emit, events) => {
-      const settings = await deps.loadSettings();
-      let integrity: TwitchIntegrity | undefined;
-      try {
-        integrity = await deps.loadTwitchIntegrity?.();
-      } catch {
-        emit({
-          category: "diagnostic",
-          platform: "twitch",
-          level: "debug",
-          message: "Could not reload stored Twitch integrity before proactive refresh",
-        });
-      }
+    if (integrityRefreshAbort) return;
+    const abort = new AbortController();
+    integrityRefreshAbort = abort;
+    const ownsRefresh = (): boolean =>
+      integrityRefreshAbort === abort && !abort.signal.aborted;
+    const refreshStillEnabled = async (): Promise<boolean> => {
+      if (!ownsRefresh()) return false;
+      const currentSettings = await deps.loadSettings();
+      return ownsRefresh() && currentSettings.platform.twitch.enabled;
+    };
 
-      if (!settings.platform.twitch.enabled) {
-        integrityRefreshAbort?.abort(new Error("Twitch disabled"));
-        deps.cancelTwitchIntegrityAcquisition?.(new Error("Twitch disabled"));
-        await clearTwitchIntegrityAlarmBestEffort(emit);
-        await reportBestEffort(events);
-        return;
-      }
+    try {
+      await initialTwitchIntegrityLoad;
+      if (!ownsRefresh()) return;
+      await withEventCollector(async (emit, events) => {
+        try {
+          const settings = await deps.loadSettings();
+          if (!ownsRefresh()) return;
+          let integrity: TwitchIntegrity | undefined;
+          try {
+            integrity = await deps.loadTwitchIntegrity?.();
+          } catch {
+            emit({
+              category: "diagnostic",
+              platform: "twitch",
+              level: "debug",
+              message: "Could not reload stored Twitch integrity before proactive refresh",
+            });
+          }
+          if (!ownsRefresh()) return;
 
-      if (isValidTwitchIntegrity(integrity)) {
-        lastIntegrityToken = integrity.integrity;
-        setTwitchIntegrity(integrity);
-        if (twitchIntegrityRefreshTarget(integrity) > Date.now()) {
-          await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
+          if (!settings.platform.twitch.enabled) {
+            cancelTwitchIntegrityWork("Twitch disabled");
+            await clearTwitchIntegrityAlarmBestEffort(emit);
+            return;
+          }
+
+          if (isValidTwitchIntegrity(integrity)) {
+            lastIntegrityToken = integrity.integrity;
+            setTwitchIntegrity(integrity);
+            if (twitchIntegrityRefreshTarget(integrity) > Date.now()) {
+              if (!await refreshStillEnabled()) return;
+              await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
+              return;
+            }
+          }
+
+          if (!deps.ensureTwitchIntegrity || !await refreshStillEnabled()) return;
+
+          const ready = await deps.ensureTwitchIntegrity(emit, {
+            forceRefresh: true,
+            signal: abort.signal,
+          });
+          if (!ready && !abort.signal.aborted) {
+            emit({
+              category: "diagnostic",
+              platform: "twitch",
+              level: "warn",
+              message: "Could not refresh Twitch integrity; the next normal scheduler alarm will retry",
+            });
+          }
+        } catch {
+          if (!abort.signal.aborted) {
+            emit({
+              category: "diagnostic",
+              platform: "twitch",
+              level: "warn",
+              message: "Could not refresh Twitch integrity; the next normal scheduler alarm will retry",
+            });
+          }
+        } finally {
           await reportBestEffort(events);
-          return;
         }
+      });
+    } finally {
+      if (integrityRefreshAbort === abort) {
+        integrityRefreshAbort = undefined;
       }
-
-      if (!deps.ensureTwitchIntegrity || integrityRefreshAbort) {
-        await reportBestEffort(events);
-        return;
-      }
-
-      const abort = new AbortController();
-      integrityRefreshAbort = abort;
-      try {
-        const ready = await deps.ensureTwitchIntegrity(emit, {
-          forceRefresh: true,
-          signal: abort.signal,
-        });
-        if (!ready && !abort.signal.aborted) {
-          emit({
-            category: "diagnostic",
-            platform: "twitch",
-            level: "warn",
-            message: "Could not refresh Twitch integrity; the next normal scheduler alarm will retry",
-          });
-        }
-      } catch {
-        if (!abort.signal.aborted) {
-          emit({
-            category: "diagnostic",
-            platform: "twitch",
-            level: "warn",
-            message: "Could not refresh Twitch integrity; the next normal scheduler alarm will retry",
-          });
-        }
-      } finally {
-        if (integrityRefreshAbort === abort) integrityRefreshAbort = undefined;
-        await reportBestEffort(events);
-      }
-    });
+    }
   }
 
   // Fed by the background's webRequest listener with the outgoing headers of

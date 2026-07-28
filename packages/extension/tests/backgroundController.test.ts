@@ -647,7 +647,7 @@ describe("background controller", () => {
       await env.controller.runTwitchIntegrityRefresh();
       await env.controller.runTwitchIntegrityRefresh();
 
-      expect(env.deps.loadSettings).toHaveBeenCalledTimes(2);
+      expect(env.deps.loadSettings).toHaveBeenCalledTimes(4);
       expect(loadTwitchIntegrity).toHaveBeenCalledTimes(2);
     });
 
@@ -816,6 +816,76 @@ describe("background controller", () => {
       expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
       expect(env.deps.createAlarm).toHaveBeenCalledOnce();
     });
+
+    it.each([
+      ["settings", "disable", true],
+      ["settings", "reset", false],
+      ["settings", "shutdown", false],
+      ["integrity", "disable", true],
+      ["integrity", "reset", false],
+      ["integrity", "shutdown", true],
+    ] as const)(
+      "does not restart Twitch work when %s preflight resumes after %s",
+      async (pausedRead, cleanup, hasFutureToken) => {
+        const stored = hasFutureToken
+          ? integrityBundle({
+              integrity: `${pausedRead}-${cleanup}-future-token`,
+              expiresAt: Date.now() + 30 * 60_000,
+            })
+          : undefined;
+        const env = harness(undefined, {
+          loadTwitchIntegrity: async () => stored,
+          ensureTwitchIntegrity: async () => true,
+        });
+        await env.controller.settleBackgroundWork();
+        env.deps.createAlarm.mockClear();
+        env.deps.ensureTwitchIntegrity.mockClear();
+        env.deps.loadSettings.mockClear();
+        const loadTwitchIntegrity = env.deps.loadTwitchIntegrity!;
+        loadTwitchIntegrity.mockClear();
+        const settingsRead = deferred<ExtensionSettings>();
+        const integrityRead = deferred<TwitchIntegrity | undefined>();
+        if (pausedRead === "settings") {
+          env.deps.loadSettings.mockImplementationOnce(() => settingsRead.promise);
+        } else {
+          loadTwitchIntegrity.mockImplementationOnce(() => integrityRead.promise);
+        }
+
+        const refreshing = env.controller.runTwitchIntegrityRefresh();
+        if (pausedRead === "settings") {
+          await vi.waitFor(() => expect(env.deps.loadSettings).toHaveBeenCalledOnce());
+        } else {
+          await vi.waitFor(() => expect(loadTwitchIntegrity).toHaveBeenCalledOnce());
+        }
+
+        if (cleanup === "disable") {
+          await env.rawController.handleMessage({
+            type: "setPlatformEnabled",
+            platform: "twitch",
+            enabled: false,
+          });
+        } else if (cleanup === "reset") {
+          await env.controller.prepareForHostReset();
+        } else {
+          env.controller.shutdown();
+        }
+
+        if (pausedRead === "settings") {
+          settingsRead.resolve(farming(DEFAULT_SETTINGS));
+        } else {
+          integrityRead.resolve(stored);
+        }
+        await refreshing;
+        if (cleanup === "disable") {
+          await env.rawController.settleBackgroundWork();
+        }
+
+        expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
+        expect(env.deps.createAlarm.mock.calls.some(
+          ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+        )).toBe(false);
+      },
+    );
 
     it("cancels acquisition and clears the alarm when Twitch is disabled", async () => {
       const acquisition = deferred<boolean>();
