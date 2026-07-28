@@ -350,6 +350,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     kick: new Set<string>(),
   };
   let settingsMutation: Promise<unknown> = Promise.resolve();
+  let integrityRefreshAbort: AbortController | undefined;
 
   // The last token handed to setTwitchIntegrity; used to skip re-persisting on
   // every page GQL call (the page sends integrity on most requests).
@@ -369,17 +370,39 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return (hash >>> 0) % (TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS + 1);
   }
 
+  function twitchIntegrityRefreshTarget(integrity: TwitchIntegrity): number {
+    return integrity.expiresAt
+      - TWITCH_INTEGRITY_REFRESH_LEAD_MS
+      - integrityRefreshJitter(integrity.integrity);
+  }
+
   async function clearTwitchIntegrityAlarm(): Promise<void> {
     await deps.clearAlarm?.(TWITCH_INTEGRITY_ALARM_NAME);
+  }
+
+  async function clearTwitchIntegrityAlarmBestEffort(emit?: EventEmitter): Promise<void> {
+    try {
+      await clearTwitchIntegrityAlarm();
+    } catch {
+      const event: DiagnosticEvent = {
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "Could not clear the Twitch integrity refresh alarm",
+      };
+      if (emit) {
+        emit(event);
+      } else {
+        await reportBestEffort([event]);
+      }
+    }
   }
 
   async function scheduleTwitchIntegrityRefresh(
     integrity: TwitchIntegrity,
     emit?: EventEmitter,
   ): Promise<void> {
-    const when = integrity.expiresAt
-      - TWITCH_INTEGRITY_REFRESH_LEAD_MS
-      - integrityRefreshJitter(integrity.integrity);
+    const when = twitchIntegrityRefreshTarget(integrity);
     if (when <= Date.now()) {
       await clearTwitchIntegrityAlarm();
       return;
@@ -445,7 +468,73 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function runTwitchIntegrityRefresh(): Promise<void> {
-    await loadStoredTwitchIntegrity();
+    await initialTwitchIntegrityLoad;
+    await withEventCollector(async (emit, events) => {
+      const settings = await deps.loadSettings();
+      let integrity: TwitchIntegrity | undefined;
+      try {
+        integrity = await deps.loadTwitchIntegrity?.();
+      } catch {
+        emit({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "debug",
+          message: "Could not reload stored Twitch integrity before proactive refresh",
+        });
+      }
+
+      if (!settings.platform.twitch.enabled) {
+        integrityRefreshAbort?.abort(new Error("Twitch disabled"));
+        deps.cancelTwitchIntegrityAcquisition?.(new Error("Twitch disabled"));
+        await clearTwitchIntegrityAlarmBestEffort(emit);
+        await reportBestEffort(events);
+        return;
+      }
+
+      if (isValidTwitchIntegrity(integrity)) {
+        lastIntegrityToken = integrity.integrity;
+        setTwitchIntegrity(integrity);
+        if (twitchIntegrityRefreshTarget(integrity) > Date.now()) {
+          await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
+          await reportBestEffort(events);
+          return;
+        }
+      }
+
+      if (!deps.ensureTwitchIntegrity || integrityRefreshAbort) {
+        await reportBestEffort(events);
+        return;
+      }
+
+      const abort = new AbortController();
+      integrityRefreshAbort = abort;
+      try {
+        const ready = await deps.ensureTwitchIntegrity(emit, {
+          forceRefresh: true,
+          signal: abort.signal,
+        });
+        if (!ready && !abort.signal.aborted) {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "warn",
+            message: "Could not refresh Twitch integrity; the next normal scheduler alarm will retry",
+          });
+        }
+      } catch {
+        if (!abort.signal.aborted) {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "warn",
+            message: "Could not refresh Twitch integrity; the next normal scheduler alarm will retry",
+          });
+        }
+      } finally {
+        if (integrityRefreshAbort === abort) integrityRefreshAbort = undefined;
+        await reportBestEffort(events);
+      }
+    });
   }
 
   // Fed by the background's webRequest listener with the outgoing headers of
@@ -831,6 +920,30 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }));
   }
 
+  async function prepareTwitchIntegrity(
+    settings: S,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    const ensureTwitchIntegrity = deps.ensureTwitchIntegrity;
+    if (!settings.platform.twitch.enabled || !ensureTwitchIntegrity) return true;
+    return withEventCollector(async (emit, events) => {
+      try {
+        const ready = await ensureTwitchIntegrity(emit, { signal });
+        if (!ready) {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "warn",
+            message: "No valid Twitch integrity token; delaying authenticated Twitch work until the next normal scheduler alarm",
+          });
+        }
+        return ready;
+      } finally {
+        await reportBestEffort(events);
+      }
+    });
+  }
+
   // Every tick is bracketed by a start/finish diagnostic carrying its trigger and
   // elapsed time. A tick that succeeds otherwise emits nothing about itself, which
   // makes a slow one indistinguishable from an idle gap in an exported log.
@@ -865,39 +978,47 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   ): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
     const settings = await deps.loadSettings();
-    const setupFailedPlatforms = new Set<Platform>();
+    const requestedPlatforms = platforms ?? PLATFORMS;
+    const excludedPlatforms = new Set<Platform>();
     if (isFarmingActive(settings)) {
-      const authStartedAt = Date.now();
-      try {
-        await refreshAuthHealth(platforms ?? PLATFORMS, settings, false, signal);
-        diagnosticEvent("debug", `Tick #${tickId} refreshed auth health in ${Date.now() - authStartedAt}ms`);
-      } catch (error) {
-        const failures = flattenedRefreshFailures(error);
-        const setupFailures = failures.filter((failure): failure is AuthProbeSetupError =>
-          failure instanceof AuthProbeSetupError);
-        if (setupFailures.length === 0) throw error;
-        for (const failure of setupFailures) setupFailedPlatforms.add(failure.platform);
-        let reportingFailure: unknown;
+      if (requestedPlatforms.includes("twitch")) {
+        const twitchReady = await prepareTwitchIntegrity(settings, signal);
+        if (!twitchReady) excludedPlatforms.add("twitch");
+      }
+      const authPlatforms = requestedPlatforms.filter((platform) => !excludedPlatforms.has(platform));
+      if (authPlatforms.length > 0) {
+        const authStartedAt = Date.now();
         try {
-          await reportAuthSetupFailures(setupFailures);
-        } catch (failure) {
-          reportingFailure = failure;
-        }
-        const nonSetupFailures = failures.filter((failure) => !(failure instanceof AuthProbeSetupError));
-        if (nonSetupFailures.length > 0) {
-          if (reportingFailure !== undefined) {
-            throw new AggregateError(
-              [...failures, reportingFailure],
-              "Authentication refresh and interruption persistence failed",
-            );
+          await refreshAuthHealth(authPlatforms, settings, false, signal);
+          diagnosticEvent("debug", `Tick #${tickId} refreshed auth health in ${Date.now() - authStartedAt}ms`);
+        } catch (error) {
+          const failures = flattenedRefreshFailures(error);
+          const setupFailures = failures.filter((failure): failure is AuthProbeSetupError =>
+            failure instanceof AuthProbeSetupError);
+          if (setupFailures.length === 0) throw error;
+          for (const failure of setupFailures) excludedPlatforms.add(failure.platform);
+          let reportingFailure: unknown;
+          try {
+            await reportAuthSetupFailures(setupFailures);
+          } catch (failure) {
+            reportingFailure = failure;
           }
-          throw error;
+          const nonSetupFailures = failures.filter((failure) => !(failure instanceof AuthProbeSetupError));
+          if (nonSetupFailures.length > 0) {
+            if (reportingFailure !== undefined) {
+              throw new AggregateError(
+                [...failures, reportingFailure],
+                "Authentication refresh and interruption persistence failed",
+              );
+            }
+            throw error;
+          }
+          if (reportingFailure !== undefined) throw reportingFailure;
         }
-        if (reportingFailure !== undefined) throw reportingFailure;
       }
     }
-    const schedulerPlatforms = (platforms ?? PLATFORMS).filter((platform) =>
-      !setupFailedPlatforms.has(platform));
+    const schedulerPlatforms = requestedPlatforms.filter((platform) =>
+      !excludedPlatforms.has(platform));
     if (schedulerPlatforms.length === 0) return claimedRewards;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       signal.throwIfAborted();
@@ -909,7 +1030,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       };
       let nextState: SchedulerState;
       try {
-        const adapters = setupFailedPlatforms.size > 0
+        const adapters = excludedPlatforms.size > 0
           ? createSelectedAdapters(settings, emit, schedulerPlatforms)
           : createAdapters(settings, emit);
         // Observed here rather than returned by the scheduler: the controller
@@ -1264,13 +1385,23 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  function cancelTwitchIntegrityWork(reason: string): void {
+    const error = new Error(reason);
+    integrityRefreshAbort?.abort(error);
+    deps.cancelTwitchIntegrityAcquisition?.(error);
+  }
+
   function shutdown(): void {
     abortActiveTicks("Controller shutdown");
+    cancelTwitchIntegrityWork("Controller shutdown");
+    void clearTwitchIntegrityAlarmBestEffort();
     abortClaimHandoffs();
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
     abortActiveTicks("Host reset");
+    cancelTwitchIntegrityWork("Host reset");
+    await clearTwitchIntegrityAlarmBestEffort();
     abortClaimHandoffs();
     await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
@@ -1725,6 +1856,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (message.type === "setPlatformEnabled" || message.type === "setAutomation") {
       // Stopping must cancel any loop still refreshing in the background.
       if (!message.enabled) abortClaimHandoffs(message.platform);
+      if (message.platform === "twitch" && !message.enabled) {
+        cancelTwitchIntegrityWork("Twitch disabled");
+        await clearTwitchIntegrityAlarmBestEffort();
+      }
       await updateStoredSettings({
         platform: {
           [message.platform]: {
