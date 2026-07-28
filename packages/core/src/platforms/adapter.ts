@@ -45,25 +45,25 @@ export interface PlatformAdapter {
   platform: Platform;
   readonly compatibility?: ResolvedCompatibility[Platform];
   checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth>;
-  discoverCampaigns(): Promise<DropCampaign[]>;
-  readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]>;
-  listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]>;
-  checkChannel(channel: ChannelCandidate, campaign?: DropCampaign): Promise<ChannelCheck>;
-  claimReward(campaign: DropCampaign, reward: DropReward): Promise<boolean>;
+  discoverCampaigns(signal?: AbortSignal): Promise<DropCampaign[]>;
+  readProgress(campaigns: DropCampaign[], session?: WatchSession, signal?: AbortSignal): Promise<DropCampaign[]>;
+  listCandidateChannels(campaign: DropCampaign, signal?: AbortSignal): Promise<ChannelCandidate[]>;
+  checkChannel(channel: ChannelCandidate, campaign?: DropCampaign, signal?: AbortSignal): Promise<ChannelCheck>;
+  claimReward(campaign: DropCampaign, reward: DropReward, signal?: AbortSignal): Promise<boolean>;
   // Whether a "claimable" reward can actually be claimed right now. Twitch only
   // exposes the real drop-instance id once it releases the claim, so auto-claim
   // must defer until then instead of POSTing a value Twitch will reject.
   isClaimReady?(reward: DropReward): boolean;
-  claimChannelPoints?(channel: ChannelCandidate): Promise<boolean>;
+  claimChannelPoints?(channel: ChannelCandidate, signal?: AbortSignal): Promise<boolean>;
   // Claims any completed, unclaimed gamification challenges for the logged-in
   // account and reports what was won. Account-level, so it takes no channel and
   // runs regardless of whether a watch session is active.
-  claimChallenges?(): Promise<ClaimedChallenge[]>;
+  claimChallenges?(signal?: AbortSignal): Promise<ClaimedChallenge[]>;
   // Live search of the platform's categories/games, powering the "Farm only these
   // categories" picker in Settings. Returns id + name (+ box art) matches.
   searchCategories?(query: string): Promise<CategorySelection[]>;
-  prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab>;
-  stopWatchTab?(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;
+  prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>, signal?: AbortSignal): Promise<PreparedWatchTab>;
+  stopWatchTab?(session: WatchSession, options?: Partial<WatchTabOptions>, signal?: AbortSignal): Promise<void>;
   // Tabless (low-resource) farming. When supported, the controller drives a
   // TablessWatchController instead of opening a watch tab; the tab path stays as
   // the automatic fallback when heartbeats stop earning.

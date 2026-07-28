@@ -472,6 +472,7 @@ export function createTwitchGqlTransport(
       try {
         raw = await fetcher.fetchJson<unknown>("https://gql.twitch.tv/gql", request, emit);
       } catch (error) {
+        signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
         const message = error instanceof Error ? error.message : `${operationName} request failed`;
         throw stamp(new TwitchGqlFailure("network", message));
@@ -599,22 +600,23 @@ export class TwitchAdapter implements PlatformAdapter {
     );
   }
 
-  async discoverCampaigns(): Promise<DropCampaign[]> {
-    let inventory = await this.fetchInventory();
-    let dashboardResult = await this.fetchDashboard(TWITCH_QUERIES.dashboard.variables);
+  async discoverCampaigns(signal?: AbortSignal): Promise<DropCampaign[]> {
+    let inventory = await this.fetchInventory(undefined, signal);
+    let dashboardResult = await this.fetchDashboard(TWITCH_QUERIES.dashboard.variables, signal);
     let inventoryCampaigns = this.inventoryCapability.parse(inventory);
     let dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
 
     if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
       try {
-        inventory = await this.fetchInventory({ fetchRewardCampaigns: true });
-        const fallbackDashboardResult = await this.fetchDashboard({ fetchRewardCampaigns: true });
+        inventory = await this.fetchInventory({ fetchRewardCampaigns: true }, signal);
+        const fallbackDashboardResult = await this.fetchDashboard({ fetchRewardCampaigns: true }, signal);
         inventoryCampaigns = this.inventoryCapability.parse(inventory);
         if (fallbackDashboardResult.ok || !dashboardResult.ok) {
           dashboardResult = fallbackDashboardResult;
           dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
         }
       } catch (error) {
+        signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
         const message = error instanceof Error ? error.message : String(error);
         diagnostic(
@@ -672,9 +674,10 @@ export class TwitchAdapter implements PlatformAdapter {
         this.gqlWithIntegrityRetry<TwitchCampaignDetailsData>("DropCampaignDetails", TWITCH_QUERIES.campaignDetailsHash, {
           channelLogin: userLogin,
           dropID,
-        }),
+        }, undefined, undefined, this.emit, signal),
       ),
     );
+    signal?.throwIfAborted();
     for (const result of details) {
       if (result.status === "rejected" && authHealthFromError(result.reason)) throw result.reason;
     }
@@ -740,14 +743,14 @@ export class TwitchAdapter implements PlatformAdapter {
     return [...mergedDetails, ...inventoryOnly];
   }
 
-  async readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]> {
-    const inventory = await this.fetchInventory();
+  async readProgress(campaigns: DropCampaign[], session?: WatchSession, signal?: AbortSignal): Promise<DropCampaign[]> {
+    const inventory = await this.fetchInventory(undefined, signal);
     const inventoryProgress = this.inventoryCapability.reconcileProgress(campaigns, inventory);
     if (!session?.channel || session.status !== "watching") return inventoryProgress;
-    return this.mergeCurrentSessionProgress(inventoryProgress, session.channel);
+    return this.mergeCurrentSessionProgress(inventoryProgress, session.channel, signal);
   }
 
-  async listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]> {
+  async listCandidateChannels(campaign: DropCampaign, signal?: AbortSignal): Promise<ChannelCandidate[]> {
     const aclCandidates = twitchCandidatesFromCampaign(campaign);
     if (aclCandidates.length > 0) return aclCandidates;
     if (!campaign.slug && !campaign.categoryId) return [];
@@ -768,7 +771,7 @@ export class TwitchAdapter implements PlatformAdapter {
       },
       sortTypeIsRecency: false,
       limit: 25,
-    });
+    }, undefined, undefined, this.emit, signal);
 
     return (response.data?.game?.streams?.edges ?? [])
       .map((edge): ChannelCandidate | undefined => {
@@ -792,7 +795,7 @@ export class TwitchAdapter implements PlatformAdapter {
       .filter((candidate): candidate is ChannelCandidate => Boolean(candidate));
   }
 
-  async checkChannel(channel: ChannelCandidate, campaign?: DropCampaign): Promise<ChannelCheck> {
+  async checkChannel(channel: ChannelCandidate, campaign?: DropCampaign, signal?: AbortSignal): Promise<ChannelCheck> {
     try {
       const response = await this.gql<TwitchStreamInfoData>(
         "StreamInfo",
@@ -802,6 +805,8 @@ export class TwitchAdapter implements PlatformAdapter {
         // Anonymous: this is public data, and logged-in GQL calls without an
         // integrity token are rejected (which would mask the channel as live).
         "omit",
+        this.emit,
+        signal,
       );
       const stream = response.data?.user?.stream;
       const channelId = response.data?.user?.id;
@@ -809,7 +814,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
       const categoryMatches = !expectedCategoryId || actualCategoryId === expectedCategoryId;
       const campaignMatches = stream && categoryMatches && campaign && channelId
-        ? await this.checkCampaignAvailability(channelId, campaign.id, channel.username)
+        ? await this.checkCampaignAvailability(channelId, campaign.id, channel.username, signal)
         : undefined;
       return {
         live: Boolean(stream),
@@ -831,6 +836,7 @@ export class TwitchAdapter implements PlatformAdapter {
         },
       };
     } catch (error) {
+      signal?.throwIfAborted();
       return this.checkChannelFromPage(channel, campaign, error);
     }
   }
@@ -839,6 +845,7 @@ export class TwitchAdapter implements PlatformAdapter {
     channelId: string,
     campaignId: string,
     channelLogin: string,
+    signal?: AbortSignal,
   ): Promise<boolean | undefined> {
     const cached = this.availableCampaignsByChannel.get(channelId);
     if (cached && cached.expiresAt > Date.now()) {
@@ -851,6 +858,10 @@ export class TwitchAdapter implements PlatformAdapter {
         "DropsHighlightService_AvailableDrops",
         TWITCH_QUERIES.availableDropsHash,
         { channelID: channelId },
+        undefined,
+        undefined,
+        this.emit,
+        signal,
       );
       const campaigns = response.data?.channel?.viewerDropCampaigns;
       if (!Array.isArray(campaigns)) {
@@ -867,6 +878,7 @@ export class TwitchAdapter implements PlatformAdapter {
       });
       return campaignIds.has(campaignId);
     } catch (error) {
+      signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "debug", `Could not confirm available Twitch campaigns for ${channelLogin}; using live/category validation: ${message}`, "twitch");
@@ -895,13 +907,16 @@ export class TwitchAdapter implements PlatformAdapter {
       .filter((category) => category.id && category.name);
   }
 
-  private async fetchInventory(variables: Record<string, unknown> = { ...this.inventoryCapability.variables }): Promise<unknown> {
+  private async fetchInventory(
+    variables: Record<string, unknown> = { ...this.inventoryCapability.variables },
+    signal?: AbortSignal,
+  ): Promise<unknown> {
     try {
-      return await this.gqlWithIntegrityRetry<unknown>("Inventory", this.inventoryCapability.hash, variables);
+      return await this.gqlWithIntegrityRetry<unknown>("Inventory", this.inventoryCapability.hash, variables, undefined, undefined, this.emit, signal);
     } catch (error) {
       if (!(error instanceof Error) || !/PersistedQueryNotFound/i.test(error.message)) throw error;
       diagnostic(this.emit, "debug", `GQL Inventory persisted query not found for ${this.inventoryCapability.id}; retrying with its inline query`, "twitch");
-      return this.gqlWithIntegrityRetry<unknown>("Inventory", this.inventoryCapability.hash, variables, this.inventoryCapability.inlineQuery);
+      return this.gqlWithIntegrityRetry<unknown>("Inventory", this.inventoryCapability.hash, variables, this.inventoryCapability.inlineQuery, undefined, this.emit, signal);
     }
   }
 
@@ -909,15 +924,21 @@ export class TwitchAdapter implements PlatformAdapter {
   // "Twitch says there are no campaigns" from "Twitch did not answer".
   private async fetchDashboard(
     variables: Record<string, unknown>,
+    signal?: AbortSignal,
   ): Promise<{ response: TwitchGqlResponse<TwitchDashboardData>; ok: boolean }> {
     try {
       const response = await this.gqlWithIntegrityRetry<TwitchDashboardData>(
         TWITCH_QUERIES.dashboard.operationName,
         TWITCH_QUERIES.dashboard.sha256Hash,
         variables,
+        undefined,
+        undefined,
+        this.emit,
+        signal,
       );
       return { response, ok: true };
     } catch (error) {
+      signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "warn", `Twitch drops dashboard request failed; reusing the last campaign list it returned: ${message}`, "twitch");
@@ -931,7 +952,7 @@ export class TwitchAdapter implements PlatformAdapter {
     return Boolean(reward.claimId);
   }
 
-  async claimReward(campaign: DropCampaign, reward: DropReward): Promise<boolean> {
+  async claimReward(campaign: DropCampaign, reward: DropReward, signal?: AbortSignal): Promise<boolean> {
     if (!reward.claimId) return false;
 
     diagnostic(this.emit, "debug", `Claiming ${reward.name} from ${campaign.name} (instance ${reward.claimId})`, "twitch");
@@ -939,10 +960,11 @@ export class TwitchAdapter implements PlatformAdapter {
     // live twitch.tv page (see src/core/twitchIntegrity.ts). Proactively ensure one
     // exists first so a tabless / no-tab session can still claim. This is a no-op
     // fast path when a token is already captured.
-    await this.ensureIntegrity();
+    if (signal) await this.ensureIntegrity({ signal });
+    else await this.ensureIntegrity();
 
     try {
-      return await this.runClaim(reward);
+      return await this.runClaim(reward, signal);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       // Only integrity rejections are worth a refresh + retry; everything else
@@ -952,17 +974,26 @@ export class TwitchAdapter implements PlatformAdapter {
       // Twitch rejected the token it was sent, so the local expiry says nothing:
       // only a forced refresh replaces it. Retry exactly once; a second failure
       // propagates.
-      const refreshed = await this.ensureIntegrity({ forceRefresh: true, rejectedToken: sentIntegrityToken(error) });
-      if (refreshed) return await this.runClaim(reward);
+      const rejectedToken = sentIntegrityToken(error);
+      const refreshed = await this.ensureIntegrity({
+        forceRefresh: true,
+        ...(rejectedToken ? { rejectedToken } : {}),
+        ...(signal ? { signal } : {}),
+      });
+      if (refreshed) return await this.runClaim(reward, signal);
       throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
     }
   }
 
-  private async runClaim(reward: DropReward): Promise<boolean> {
+  private async runClaim(reward: DropReward, signal?: AbortSignal): Promise<boolean> {
     const result = await this.gql<{ claimDropRewards?: { status?: string } }>(
       "DropsPage_ClaimDropRewards",
       TWITCH_QUERIES.claimHash,
       { input: { dropInstanceID: reward.claimId } },
+      undefined,
+      undefined,
+      this.emit,
+      signal,
     );
     const status = result.data?.claimDropRewards?.status;
     if (status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED") return true;
@@ -971,11 +1002,15 @@ export class TwitchAdapter implements PlatformAdapter {
     throw new Error(`Twitch refused claim for ${reward.name}: status=${status ?? "unknown"}`);
   }
 
-  async claimChannelPoints(channel: ChannelCandidate): Promise<boolean> {
+  async claimChannelPoints(channel: ChannelCandidate, signal?: AbortSignal): Promise<boolean> {
     const context = await this.gqlWithIntegrityRetry<TwitchChannelPointsData>(
       "ChannelPointsContext",
       TWITCH_QUERIES.channelPointsHash,
       { channelLogin: channel.username },
+      undefined,
+      undefined,
+      this.emit,
+      signal,
     );
     const channelId = context.data?.community?.channel?.id;
     const claimId = context.data?.community?.channel?.self?.communityPoints?.availableClaim?.id;
@@ -985,22 +1020,32 @@ export class TwitchAdapter implements PlatformAdapter {
     // exists first (a no-op fast path when a token is already captured), then
     // recover explicitly rather than through a generic transport retry — the
     // same claim id must never be replayed more than once.
-    await this.ensureIntegrity();
+    if (signal) await this.ensureIntegrity({ signal });
+    else await this.ensureIntegrity();
     try {
-      return await this.runChannelPointsClaim(claimId, channelId);
+      return await this.runChannelPointsClaim(claimId, channelId, signal);
     } catch (error) {
       if (!isIntegrityRejection(error)) throw error;
       diagnostic(this.emit, "warn", `Channel-points claim for ${channel.username} was rejected for integrity; refreshing the token and retrying once`, "twitch");
-      if (!await this.ensureIntegrity({ forceRefresh: true, rejectedToken: sentIntegrityToken(error) })) throw error;
-      return await this.runChannelPointsClaim(claimId, channelId);
+      const rejectedToken = sentIntegrityToken(error);
+      if (!await this.ensureIntegrity({
+        forceRefresh: true,
+        ...(rejectedToken ? { rejectedToken } : {}),
+        ...(signal ? { signal } : {}),
+      })) throw error;
+      return await this.runChannelPointsClaim(claimId, channelId, signal);
     }
   }
 
-  private async runChannelPointsClaim(claimId: string, channelId: string): Promise<boolean> {
+  private async runChannelPointsClaim(claimId: string, channelId: string, signal?: AbortSignal): Promise<boolean> {
     const result = await this.gql<{ claimCommunityPoints?: { status?: string } }>(
       "ClaimCommunityPoints",
       TWITCH_QUERIES.claimCommunityPointsHash,
       { input: { claimID: claimId, channelID: channelId } },
+      undefined,
+      undefined,
+      this.emit,
+      signal,
     );
     return result.data?.claimCommunityPoints?.status !== "CLAIM_NOT_AVAILABLE";
   }
@@ -1030,12 +1075,17 @@ export class TwitchAdapter implements PlatformAdapter {
   private async mergeCurrentSessionProgress(
     campaigns: DropCampaign[],
     channel: ChannelCandidate,
+    signal?: AbortSignal,
   ): Promise<DropCampaign[]> {
     try {
       const streamInfo = await this.gqlWithIntegrityRetry<TwitchStreamInfoData>(
         "VideoPlayerStreamInfoOverlayChannel",
         TWITCH_QUERIES.streamInfoHash,
         { channel: channel.username },
+        undefined,
+        undefined,
+        this.emit,
+        signal,
       );
       const channelId = streamInfo.data?.user?.id;
       if (!channelId) return campaigns;
@@ -1044,6 +1094,10 @@ export class TwitchAdapter implements PlatformAdapter {
         "DropCurrentSessionContext",
         TWITCH_QUERIES.currentDropHash,
         { channelID: channelId, channelLogin: "" },
+        undefined,
+        undefined,
+        this.emit,
+        signal,
       );
       const drop = current.data?.currentUser?.dropCurrentSession;
       if (!drop?.dropID || drop.currentMinutesWatched == null) return campaigns;
@@ -1065,6 +1119,7 @@ export class TwitchAdapter implements PlatformAdapter {
           : { ...reward, isCurrentReward: false }),
       }));
     } catch (error) {
+      signal?.throwIfAborted();
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "warn", `Could not merge current session progress for ${channel.username}: ${message}`, "twitch");
       return campaigns;
@@ -1108,7 +1163,12 @@ export class TwitchAdapter implements PlatformAdapter {
       // Taken from the failure, which carries the token the request actually
       // sent. Re-reading it here would race a concurrent capture and could
       // report a token this request never used.
-      if (!await this.ensureIntegrity({ forceRefresh: true, rejectedToken: sentIntegrityToken(error) })) throw error;
+      const rejectedToken = sentIntegrityToken(error);
+      if (!await this.ensureIntegrity({
+        forceRefresh: true,
+        ...(rejectedToken ? { rejectedToken } : {}),
+        ...(signal ? { signal } : {}),
+      })) throw error;
       return this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
     }
   }

@@ -87,7 +87,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
       // Before disposing the transport: a post-claim handoff started by the last
       // tick would otherwise keep refreshing against disposed resources, and its
       // pending delay would hold the process open until the handoff's deadline.
-      controller.abortClaimHandoffs();
+      controller.shutdown();
       await transport.dispose();
       resolveLoop();
     };

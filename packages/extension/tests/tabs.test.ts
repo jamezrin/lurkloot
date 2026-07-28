@@ -1447,6 +1447,26 @@ describe("twitch integrity refresh", () => {
         expect(browser.tabs.create).toHaveBeenCalledTimes(1);
       });
 
+      it("aborts an integrity wait and removes the page context it opened", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 43 });
+        const abort = new AbortController();
+
+        const pending = ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          undefined,
+          { signal: abort.signal },
+        );
+        await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+
+        abort.abort(new DOMException("Host reset", "AbortError"));
+
+        await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+        expect(browser.tabs.remove).toHaveBeenCalledWith(43);
+      });
+
       it("starts a new forced refresh once the previous one has settled", async () => {
         const browser = browserMock();
         browser.tabs.create.mockResolvedValue({ id: 35 });
