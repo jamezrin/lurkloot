@@ -268,7 +268,7 @@ export default defineBackground(() => {
   // Chrome build hides it, add "extraHeaders" to this spec.
   browser.webRequest.onBeforeSendHeaders.addListener(
     (details) => {
-      void controller.captureTwitchIntegrity(details.requestHeaders);
+      void controller.captureTwitchIntegrity(details.requestHeaders, details.tabId);
       return undefined;
     },
     { urls: ["https://gql.twitch.tv/*"] },

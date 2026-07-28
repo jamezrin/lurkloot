@@ -487,6 +487,37 @@ const INTEGRITY_REFRESH_TIMEOUT_MS = 12_000;
 // Resolvers waiting for the next captured token (see waitForIntegrityCapture).
 let integrityWaiters: Array<() => void> = [];
 
+// Phase timings for the twitch.tv page context currently being booted to mint an
+// integrity token. A cold boot costs far more than the document load: the tab
+// reports `status === "complete"` as soon as the HTML shell lands, but the token
+// only appears once the SPA has hydrated, authenticated, and completed Kasada's
+// proof-of-work (see src/core/twitchIntegrity.ts). Those phases are billed to
+// very different causes — a slow network, a slow SPA boot, or an expensive
+// challenge in a deprioritized background tab — and the aggregate wait duration
+// cannot tell them apart, so each boundary is stamped as it is crossed.
+interface TwitchContextBootTiming {
+  tabId: number;
+  createdAt: number;
+  readyAt?: number;
+  firstGqlAt?: number;
+}
+let twitchContextBoot: TwitchContextBootTiming | undefined;
+
+// Called for every gql.twitch.tv request the background sees, including the
+// anonymous ones that carry no Client-Integrity header. Those are exactly what
+// distinguishes "the SPA has not booted yet" from "the SPA is running but is
+// still solving the proof-of-work", which is the split the aggregate timeout
+// hides.
+export function noteTwitchGqlRequest(tabId: number | undefined, now: number = Date.now()): void {
+  if (tabId == null || twitchContextBoot?.tabId !== tabId) return;
+  twitchContextBoot.firstGqlAt ??= now;
+}
+
+function describeContextBoot(boot: TwitchContextBootTiming, now: number): string {
+  const since = (at: number | undefined): string => (at == null ? "never" : `${at - boot.createdAt}ms`);
+  return `tab ready at ${since(boot.readyAt)}, first GQL at ${since(boot.firstGqlAt)}, ${now - boot.createdAt}ms since the tab was created`;
+}
+
 export function hasValidTwitchIntegrity(now: number = Date.now()): boolean {
   return twitchIntegrity != null && twitchIntegrity.expiresAt > now + INTEGRITY_EXPIRY_SKEW_MS;
 }
@@ -591,8 +622,16 @@ export async function ensureTwitchIntegrityWithBrowser(
     // here we only surface the failure case so the log isn't doubled up.
     const startedAt = Date.now();
     const captured = await waitForIntegrityCapture(timeoutMs, rejectedToken);
+    const settledAt = Date.now();
+    // Logged on both outcomes, not just the failure: a success that took 20s is
+    // the same latency problem as a timeout, and only the phase split says which
+    // part of the cold boot to attack.
+    const boot = twitchContextBoot?.tabId === pageContext.tabId ? twitchContextBoot : undefined;
+    const phases = boot ? ` (${describeContextBoot(boot, settledAt)})` : "";
     if (!captured) {
-      diagnostic(emit, "warn", `Timed out waiting for a Twitch integrity token after ${Date.now() - startedAt}ms from a ${source} page context (is twitch.tv logged in?)`, "twitch");
+      diagnostic(emit, "warn", `Timed out waiting for a Twitch integrity token after ${settledAt - startedAt}ms from a ${source} page context${phases} (is twitch.tv logged in?)`, "twitch");
+    } else {
+      diagnostic(emit, "debug", `Waited ${settledAt - startedAt}ms for a Twitch integrity token from a ${source} page context${phases}`, "twitch");
     }
     return captured;
   } catch (error) {
@@ -1069,15 +1108,18 @@ async function findOrCreatePageContextTab(
   }
 
   signal?.throwIfAborted();
+  const createdAt = Date.now();
   const tab = await browserApi.tabs.create({ url: originUrl, pinned: false, active: false }) as { id?: number };
   if (tab.id == null) {
     signal?.throwIfAborted();
     throw new Error(`Could not open page context for ${originUrl}`);
   }
+  if (contextPlatform === "twitch") twitchContextBoot = { tabId: tab.id, createdAt };
   try {
     signal?.throwIfAborted();
     await withAbortSignal(browserApi.tabs.update(tab.id, { muted: true, active: false }), signal);
     await waitForPageContextReady(browserApi, tab.id, origin, signal);
+    if (twitchContextBoot?.tabId === tab.id) twitchContextBoot.readyAt = Date.now();
     if (!await isUsablePageContext(browserApi, tab.id, origin, signal)) {
       throw new SafeFetchError({
         kind: "security_policy_blocked",
