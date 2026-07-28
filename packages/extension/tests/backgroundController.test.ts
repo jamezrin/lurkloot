@@ -379,6 +379,26 @@ describe("background controller", () => {
     }
   });
 
+  it("shutdown preempts a stalled credential availability check", async () => {
+    const checkCredentialAvailability = vi.fn(async () => new Promise<never>(() => undefined));
+    const env = harness(
+      farming(DEFAULT_SETTINGS),
+      {
+        authProbeTimeoutMs: 60_000,
+        checkCredentialAvailability,
+      },
+    );
+
+    const ticking = env.controller.tick();
+    await vi.waitFor(() => {
+      expect(checkCredentialAvailability).toHaveBeenCalled();
+    });
+
+    env.controller.shutdown();
+
+    await expect(ticking).resolves.toEqual({});
+  });
+
   it("does not start a Kick page fallback after the auth deadline aborts background fetch", async () => {
     vi.useFakeTimers();
     try {
@@ -1991,8 +2011,14 @@ describe("background controller", () => {
     await env.controller.handleMessage({ type: "setAutomation", platform: "kick", enabled: false });
 
     expect(isFarmingActive(env.settings)).toBe(false);
-    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 10 }));
-    expect(env.kick.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 20 }));
+    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 10 }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(env.kick.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 20 }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     // Read from settled state rather than the returned snapshot: the snapshot is
     // now taken before the tick that applies the stop.
     expect(env.state.sessions.twitch.status).toBe("paused");
@@ -2027,6 +2053,57 @@ describe("background controller", () => {
       expect.objectContaining({ twitch: expect.objectContaining({ tabId: 66 }) }),
       expect.objectContaining({ platforms: ["twitch", "kick"], emit: expect.any(Function) }),
     );
+  });
+
+  it("preempts an in-flight scheduler tick before resetting host storage", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    let tickSignal: AbortSignal | undefined;
+    vi.mocked(env.twitch.discoverCampaigns).mockImplementation(
+      async ({ signal } = {}) => new Promise((_resolve, reject) => {
+        tickSignal = signal;
+        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+      }),
+    );
+
+    const ticking = env.controller.tick();
+    await vi.waitFor(() => expect(tickSignal).toBeDefined());
+    env.reportEvents.mockClear();
+
+    const resetHostStorage = vi.fn();
+    await env.controller.prepareForHostReset(resetHostStorage);
+    await ticking;
+
+    expect(tickSignal?.aborted).toBe(true);
+    expect(resetHostStorage).toHaveBeenCalledOnce();
+    const resetEvents = env.reportEvents.mock.calls.flatMap(([events]) => events);
+    expect(resetEvents).not.toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "interruption",
+    }));
+    expect(resetEvents).not.toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      level: "error",
+    }));
+  });
+
+  it("aborts in-flight scheduler work when the controller shuts down", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    let tickSignal: AbortSignal | undefined;
+    vi.mocked(env.twitch.discoverCampaigns).mockImplementation(
+      async ({ signal } = {}) => new Promise((_resolve, reject) => {
+        tickSignal = signal;
+        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+      }),
+    );
+
+    const ticking = env.controller.tick();
+    await vi.waitFor(() => expect(tickSignal).toBeDefined());
+
+    env.controller.shutdown();
+    env.controller.shutdown();
+    await ticking;
+
+    expect(tickSignal?.aborted).toBe(true);
   });
 
   it("allows host-reset cleanup to be retried", async () => {

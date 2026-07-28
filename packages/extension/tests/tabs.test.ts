@@ -520,6 +520,25 @@ describe("tab manager", () => {
     expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
   });
 
+  it("closes a newly created managed tab when creation finishes after cancellation", async () => {
+    const browser = browserMock();
+    const abort = new AbortController();
+    vi.mocked(browser.tabs.create).mockImplementation(async () => {
+      abort.abort(new Error("reset"));
+      return { id: 9 };
+    });
+
+    await expect(openPinnedMutedTabWithBrowser(
+      browser,
+      channel,
+      undefined,
+      { signal: abort.signal },
+    )).rejects.toThrow("reset");
+
+    expect(browser.tabs.remove).toHaveBeenCalledWith(9);
+    expect(browser.tabs.update).not.toHaveBeenCalledWith(9, expect.anything());
+  });
+
   it("does not foreground-prime new tabs when page video control is disabled", async () => {
     const browser = browserMock();
 
@@ -1445,6 +1464,26 @@ describe("twitch integrity refresh", () => {
         expect(results).toEqual([true, true, true]);
         // One page context booted for the whole burst, not one per caller.
         expect(browser.tabs.create).toHaveBeenCalledTimes(1);
+      });
+
+      it("aborts an integrity wait and removes the page context it opened", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 43 });
+        const abort = new AbortController();
+
+        const pending = ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          undefined,
+          { signal: abort.signal },
+        );
+        await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+
+        abort.abort(new DOMException("Host reset", "AbortError"));
+
+        await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+        expect(browser.tabs.remove).toHaveBeenCalledWith(43);
       });
 
       it("starts a new forced refresh once the previous one has settled", async () => {

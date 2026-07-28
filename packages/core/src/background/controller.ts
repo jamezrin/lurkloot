@@ -556,12 +556,26 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     });
   }
 
-  async function probeAuthHealth(platform: Platform, adapter: PlatformAdapter): Promise<PlatformAuthHealth> {
+  async function probeAuthHealth(
+    platform: Platform,
+    adapter: PlatformAdapter,
+    signal?: AbortSignal,
+  ): Promise<PlatformAuthHealth> {
     // A probe must always resolve to a terminal status. If reading the session
     // cookies (or the adapter probe) throws, mapping it to "unavailable" here
     // keeps the failure from propagating into the tick, where a rollback would
     // strand the popup on "Checking your signed-in session…" indefinitely.
     const abort = new AbortController();
+    let rejectCancelled: (reason?: unknown) => void = () => {};
+    const cancelled = new Promise<PlatformAuthHealth>((_resolve, reject) => {
+      rejectCancelled = reject;
+    });
+    const abortFromTick = () => {
+      abort.abort(signal?.reason);
+      rejectCancelled(signal?.reason);
+    };
+    signal?.throwIfAborted();
+    signal?.addEventListener("abort", abortFromTick, { once: true });
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const terminalProbe = (async (): Promise<PlatformAuthHealth> => {
       try {
@@ -584,6 +598,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         }
         return await adapter.checkAuthHealth(abort.signal);
       } catch {
+        signal?.throwIfAborted();
         return {
           status: "unavailable",
           checkedAt: new Date().toISOString(),
@@ -604,8 +619,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       }, deps.authProbeTimeoutMs ?? DEFAULT_AUTH_PROBE_TIMEOUT_MS);
     });
     try {
-      return await Promise.race([terminalProbe, timedOut]);
+      return await Promise.race([terminalProbe, timedOut, cancelled]);
     } finally {
+      signal?.removeEventListener("abort", abortFromTick);
       if (timeout !== undefined) clearTimeout(timeout);
     }
   }
@@ -666,7 +682,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     platforms: Platform[],
     loadedSettings?: S,
     reportCompatibility = false,
+    signal?: AbortSignal,
   ): Promise<void> {
+    signal?.throwIfAborted();
     const generations = await beginAuthRefresh(platforms);
     const settings = loadedSettings ?? await deps.loadSettings();
     const enabled = platforms.filter((platform) => settings.platform[platform].enabled);
@@ -684,12 +702,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           );
         }
         health = adapter
-          ? await probeAuthHealth(platform, adapter)
+          ? await probeAuthHealth(platform, adapter, signal)
           : unavailableAfterAdapterSetup();
         return { health, events, setupFailure };
       });
       const generation = generations[platform];
       if (generation === undefined) return;
+      signal?.throwIfAborted();
       let accepted: boolean;
       try {
         accepted = await persistAuthHealth(platform, result.health, result.events, generation);
@@ -729,27 +748,39 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   let tickSequence = 0;
   // Chain of detached ticks, drained by settleBackgroundWork().
   let backgroundWork: Promise<unknown> = Promise.resolve();
+  const activeTicks = new Set<AbortController>();
 
   async function tick(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<ClaimedRewards> {
+    const abort = new AbortController();
+    activeTicks.add(abort);
     const tickId = ++tickSequence;
     const tickStartedAt = Date.now();
     const scope = platforms ? platforms.join("+") : "all";
     diagnosticEvent("debug", `Tick #${tickId} started (trigger=${trigger}, platforms=${scope})`);
     try {
-      return await runTick(tickId, tickStartedAt, platforms);
+      return await runTick(tickId, tickStartedAt, platforms, abort.signal);
+    } catch (error) {
+      if (abort.signal.aborted) return {};
+      throw error;
     } finally {
+      activeTicks.delete(abort);
       diagnosticEvent("debug", `Tick #${tickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${scope})`);
     }
   }
 
-  async function runTick(tickId: number, tickStartedAt: number, platforms?: Platform[]): Promise<ClaimedRewards> {
+  async function runTick(
+    tickId: number,
+    tickStartedAt: number,
+    platforms: Platform[] | undefined,
+    signal: AbortSignal,
+  ): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
     const settings = await deps.loadSettings();
     const setupFailedPlatforms = new Set<Platform>();
     if (isFarmingActive(settings)) {
       const authStartedAt = Date.now();
       try {
-        await refreshAuthHealth(platforms ?? PLATFORMS, settings);
+        await refreshAuthHealth(platforms ?? PLATFORMS, settings, false, signal);
         diagnosticEvent("debug", `Tick #${tickId} refreshed auth health in ${Date.now() - authStartedAt}ms`);
       } catch (error) {
         const failures = flattenedRefreshFailures(error);
@@ -780,6 +811,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       !setupFailedPlatforms.has(platform));
     if (schedulerPlatforms.length === 0) return claimedRewards;
     await withStateLock(() => withEventCollector(async (emit, events) => {
+      signal.throwIfAborted();
       const settings = await deps.loadSettings();
       const state = await deps.loadState();
       const nextWaitingClaimRewardIds: Record<Platform, Set<string>> = {
@@ -806,12 +838,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           stopPageContextTabs: deps.stopPageContextTabs,
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
           emit: claimObservingEmit,
+          signal,
         });
+        signal.throwIfAborted();
         const lifecycleEvents = farmingLifecycleEvents(state, result.state);
         for (const event of lifecycleEvents) emit(event);
         await emitNotifications(settings, state, result.state, result.events);
+        signal.throwIfAborted();
         await applyAdFocusForState(result.state, emit);
+        signal.throwIfAborted();
         await reconcileTablessWatchers(result.state, settings, adapters, emit, schedulerPlatforms);
+        signal.throwIfAborted();
         nextState = result.state;
         if (settings.criticalFailurePromptEnabled) {
           // Page-context tabs are created deep inside tabs.ts, which has no access
@@ -835,6 +872,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         // The tick was rolled back, so any partial claim set is not actionable.
         for (const key of Object.keys(claimedRewards) as Platform[]) delete claimedRewards[key];
         clearOperationalEvents(events);
+        if (signal.aborted) return;
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
         emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
         emit({ category: "diagnostic", level: "error", message: detail });
@@ -1131,7 +1169,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  function abortActiveTicks(reason: string): void {
+    for (const controller of activeTicks) {
+      controller.abort(new Error(reason));
+    }
+  }
+
+  function shutdown(): void {
+    abortActiveTicks("Controller shutdown");
+    abortClaimHandoffs();
+  }
+
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
+    abortActiveTicks("Host reset");
     abortClaimHandoffs();
     await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
@@ -1748,6 +1798,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     runWatchHeartbeat,
     runClaimHandoff,
     abortClaimHandoffs,
+    shutdown,
     prepareForHostReset,
     settleBackgroundWork,
   };
