@@ -458,6 +458,11 @@ export interface PageFetchOptions {
   };
   emit?: EventEmitter;
   openReason?: PageContextOpenReason;
+  // Integrity preparation must not create a user-facing activity entry, but the
+  // controller still needs to account for every extension-owned context it
+  // opens in the managed-tab churn breaker.
+  emitPageContextActivity?: boolean;
+  onManagedPageContextOpen?: () => void | Promise<void>;
   // Demands a context that is about to boot the SPA from scratch, because the
   // caller is waiting for the page to issue something (see ensureTwitchIntegrity-
   // WithBrowser). An already-loaded user tab is idle and would only time out, and
@@ -580,6 +585,8 @@ export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?:
 export interface TwitchIntegrityRequest {
   forceRefresh?: boolean;
   signal?: AbortSignal;
+  reason?: "readiness" | "proactive_refresh" | "rejection_recovery";
+  onManagedPageContextOpen?: () => void | Promise<void>;
   // The token the rejected request actually sent, captured before it was issued.
   // Without it a forced refresh cannot tell "this caller was rejected on a token
   // someone has already replaced" from "this caller was rejected on the token we
@@ -696,6 +703,8 @@ export async function ensureTwitchIntegrityWithBrowser(
 ): Promise<boolean> {
   request?.signal?.throwIfAborted();
   const forceRefresh = request?.forceRefresh === true;
+  const reason = request?.reason
+    ?? (forceRefresh ? "rejection_recovery" : "readiness");
   if (!forceRefresh) {
     if (hasValidTwitchIntegrity()) return true;
     return startTwitchIntegrityAcquisition(
@@ -705,6 +714,8 @@ export async function ensureTwitchIntegrityWithBrowser(
       emit,
       undefined,
       false,
+      reason,
+      request?.onManagedPageContextOpen,
       request?.signal,
     );
   }
@@ -725,6 +736,8 @@ export async function ensureTwitchIntegrityWithBrowser(
     emit,
     rejectedToken,
     true,
+    reason,
+    request?.onManagedPageContextOpen,
     request?.signal,
   );
 }
@@ -736,6 +749,8 @@ function startTwitchIntegrityAcquisition(
   emit: EventEmitter,
   rejectedToken: string | undefined,
   forceRefresh: boolean,
+  reason: NonNullable<TwitchIntegrityRequest["reason"]>,
+  onManagedPageContextOpen?: () => void | Promise<void>,
   ownerSignal?: AbortSignal,
 ): Promise<boolean> {
   if (inFlightIntegrityAcquisition) {
@@ -752,6 +767,8 @@ function startTwitchIntegrityAcquisition(
         emit,
         rejectedToken,
         true,
+        reason,
+        onManagedPageContextOpen,
         ownerSignal,
       );
     });
@@ -768,6 +785,8 @@ function startTwitchIntegrityAcquisition(
     emit,
     rejectedToken,
     forceRefresh,
+    reason,
+    onManagedPageContextOpen,
     abort.signal,
   ).finally(() => {
     ownerSignal?.removeEventListener("abort", abortFromOwner);
@@ -794,12 +813,16 @@ async function mintTwitchIntegrity(
   // a plain mint, which may inherit an idle tab that issues no request and can
   // only ever time out.
   forceRefresh: boolean,
+  reason: NonNullable<TwitchIntegrityRequest["reason"]>,
+  onManagedPageContextOpen?: () => void | Promise<void>,
   signal?: AbortSignal,
 ): Promise<boolean> {
   diagnostic(
     emit,
     "info",
-    forceRefresh
+    reason === "proactive_refresh"
+      ? "Proactively refreshing Twitch integrity through a twitch.tv page context"
+      : forceRefresh
       ? "Twitch rejected the current integrity token; using a twitch.tv page context to mint a replacement"
       : "No valid Twitch integrity token; using a twitch.tv page context to capture one",
     "twitch",
@@ -811,7 +834,19 @@ async function mintTwitchIntegrity(
       retainPageContext: { platform: "twitch" },
       emit,
       requireFreshPageContext: forceRefresh,
+      emitPageContextActivity: reason === "rejection_recovery",
+      onManagedPageContextOpen,
     }, signal);
+    if (reason !== "rejection_recovery" && pageContext.source === "created") {
+      diagnostic(
+        emit,
+        "debug",
+        reason === "proactive_refresh"
+          ? "Opened a managed twitch.tv page context for proactive integrity refresh"
+          : "Opened a managed twitch.tv page context for Twitch integrity readiness",
+        "twitch",
+      );
+    }
     // Which context we got decides whether waiting can work at all: only a
     // freshly created tab is guaranteed to boot the SPA and issue authenticated
     // GQL for the listener to read a token from. An inherited or already-idle tab
@@ -1347,13 +1382,20 @@ async function findOrCreatePageContextTab(
       ownedByExtension: true,
     };
     retainedPageContextTabs.set(retain.platform, retainedContext);
-    options?.emit?.({
-      category: "activity",
-      code: "page_context_opened",
-      level: "info",
-      platform: retain.platform,
-      data: { host: new URL(origin).host, reason: openReason },
-    });
+    try {
+      await options?.onManagedPageContextOpen?.();
+    } catch {
+      diagnostic(options?.emit ?? ignoreEvent, "warn", `Could not account for a managed page context opened on ${new URL(origin).host}`, retain.platform);
+    }
+    if (options?.emitPageContextActivity !== false) {
+      options?.emit?.({
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: retain.platform,
+        data: { host: new URL(origin).host, reason: openReason },
+      });
+    }
     return {
       tabId: tab.id,
       createdByExtension: true,

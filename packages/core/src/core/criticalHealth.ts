@@ -55,7 +55,10 @@ export interface CriticalHealthTransition {
 // A managed tab this extension opened. Only page contexts carry a PageContextOpenReason,
 // so the union keeps watch-tab opens from having to invent one.
 export type ManagedTabOpen =
-  | { source: "page_context"; reason: PageContextOpenReason }
+  | {
+      source: "page_context";
+      reason: PageContextOpenReason | "integrity_readiness" | "proactive_integrity_refresh";
+    }
   | { source: "watch_tab" };
 
 function breadcrumb(open: ManagedTabOpen): Omit<FailureRecord, "at" | "platform"> {

@@ -533,7 +533,10 @@ describe("adapter-created twitch watcher diagnostics", () => {
     expect(result).toMatchObject({ ok: true });
     expect(currentUserCalls).toBe(2);
     expect(ensureIntegrity).toHaveBeenCalledOnce();
-    expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+    expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
+      forceRefresh: true,
+      reason: "rejection_recovery",
+    }));
     // The heartbeat itself is never replayed by integrity recovery.
     expect(sendEventsCalls).toBe(1);
   });

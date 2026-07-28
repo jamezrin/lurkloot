@@ -2658,7 +2658,11 @@ describe("TwitchAdapter integrity recovery", () => {
     await new TwitchAdapter(fetcher, ensureIntegrity, undefined, { currentIntegrity }).checkAuthHealth();
 
     expect(sent[0]).toBe("token-1");
-    expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true, rejectedToken: sent[0] });
+    expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
+      forceRefresh: true,
+      reason: "rejection_recovery",
+      rejectedToken: sent[0],
+    }));
   });
 
   it("sends the integrity trio together so the replayed token stays bound to its identity", async () => {
@@ -2703,7 +2707,10 @@ describe("TwitchAdapter integrity recovery", () => {
 
         expect(campaigns.map((campaign) => campaign.id)).toEqual(["campaign"]);
         expect(ensureIntegrity).toHaveBeenCalledOnce();
-        expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+        expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
+          forceRefresh: true,
+          reason: "rejection_recovery",
+        }));
         expect(attempts.get(target)).toBe(2);
       },
     );
@@ -2749,7 +2756,10 @@ describe("TwitchAdapter integrity recovery", () => {
       // (the second asks for reward campaigns). Each gets one refresh attempt
       // and, because the refresh failed, no retry at all.
       expect(ensureIntegrity).toHaveBeenCalledTimes(2);
-      expect(ensureIntegrity.mock.calls).toEqual([[{ forceRefresh: true }], [{ forceRefresh: true }]]);
+      expect(ensureIntegrity.mock.calls).toEqual([
+        [expect.objectContaining({ forceRefresh: true, reason: "rejection_recovery" })],
+        [expect.objectContaining({ forceRefresh: true, reason: "rejection_recovery" })],
+      ]);
       expect(dashboardAttempts).toBe(2);
       expect(events).toContainEqual(expect.objectContaining({
         level: "warn",
@@ -2815,7 +2825,10 @@ describe("TwitchAdapter integrity recovery", () => {
         .listCandidateChannels({ id: "campaign", slug: "game-slug" } as DropCampaign);
 
       expect(candidates.map((candidate) => candidate.username)).toEqual(["creator"]);
-      expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+      expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
+        forceRefresh: true,
+        reason: "rejection_recovery",
+      }));
       expect(attempts.get("DirectoryPage_Game")).toBe(2);
     });
 
@@ -2838,7 +2851,10 @@ describe("TwitchAdapter integrity recovery", () => {
       );
 
       expect(check.campaignMatches).toBe(true);
-      expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+      expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
+        forceRefresh: true,
+        reason: "rejection_recovery",
+      }));
       expect(attempts.get("DropsHighlightService_AvailableDrops")).toBe(2);
     });
 
@@ -2868,7 +2884,10 @@ describe("TwitchAdapter integrity recovery", () => {
         } as never);
 
         expect(progressed[0]?.rewards[0]?.watchedMinutes).toBe(42);
-        expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+        expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
+          forceRefresh: true,
+          reason: "rejection_recovery",
+        }));
         expect(attempts.get(target)).toBe(2);
       },
     );
@@ -2882,7 +2901,10 @@ describe("TwitchAdapter integrity recovery", () => {
       const health = await new TwitchAdapter(fetcher, ensureIntegrity).checkAuthHealth();
 
       expect(health.status).toBe("healthy");
-      expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+      expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
+        forceRefresh: true,
+        reason: "rejection_recovery",
+      }));
       expect(attempts.get("CurrentUser")).toBe(2);
     });
   });
@@ -2934,7 +2956,12 @@ describe("TwitchAdapter integrity recovery", () => {
       // Proactive fast path first, then an explicit forced refresh.
       expect(ensureIntegrity.mock.calls).toEqual([
         [{ signal: undefined }],
-        [{ forceRefresh: true, rejectedToken: undefined, signal: undefined }],
+        [{
+          forceRefresh: true,
+          reason: "rejection_recovery",
+          rejectedToken: undefined,
+          signal: undefined,
+        }],
       ]);
     });
 
@@ -2956,7 +2983,10 @@ describe("TwitchAdapter integrity recovery", () => {
       })).resolves.toBe(true);
 
       expect(attempts.get("ChannelPointsContext")).toBe(2);
-      expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true });
+      expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
+        forceRefresh: true,
+        reason: "rejection_recovery",
+      }));
     });
 
     it("ensures integrity before the channel-points mutation and retries it exactly once", async () => {
@@ -2979,7 +3009,12 @@ describe("TwitchAdapter integrity recovery", () => {
       expect(attempts.get("ClaimCommunityPoints")).toBe(2);
       expect(ensureIntegrity.mock.calls).toEqual([
         [{ signal: undefined }],
-        [{ forceRefresh: true, rejectedToken: undefined, signal: undefined }],
+        [{
+          forceRefresh: true,
+          reason: "rejection_recovery",
+          rejectedToken: undefined,
+          signal: undefined,
+        }],
       ]);
     });
 

@@ -15,7 +15,7 @@ import {
   stopManagedPageContextTabs,
   stopWatchTab,
 } from "../src/core/tabs";
-import { ALARM_NAME, TWITCH_INTEGRITY_ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
+import { createBackgroundAlarmListener, createBackgroundController } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
@@ -255,15 +255,7 @@ export default defineBackground(() => {
     await controller.handleStartup();
   });
 
-  browser.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === ALARM_NAME) {
-      void controller.tickAndHandOff(undefined, "alarm");
-    } else if (alarm.name === WATCH_ALARM_NAME) {
-      void controller.runWatchHeartbeat();
-    } else if (alarm.name === TWITCH_INTEGRITY_ALARM_NAME) {
-      void controller.runTwitchIntegrityRefresh();
-    }
-  });
+  browser.alarms.onAlarm.addListener(createBackgroundAlarmListener(controller));
 
   browser.tabs.onRemoved.addListener((tabId) => {
     void controller.handleTabRemoved(tabId);

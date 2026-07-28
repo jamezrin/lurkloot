@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import * as controllerModule from "@lurkloot/core/controller";
+import { describe, expect, it, vi } from "vitest";
 
 describe("background integrity alarm wiring", () => {
   const source = readFileSync(
@@ -18,9 +19,36 @@ describe("background integrity alarm wiring", () => {
     expect(source).toContain("cancelTwitchIntegrityAcquisition,");
   });
 
-  it("dispatches only the integrity alarm to the controller refresh", () => {
-    expect(alarmListener).toContain("} else if (alarm.name === TWITCH_INTEGRITY_ALARM_NAME) {");
-    expect(alarmListener).toContain("void controller.runTwitchIntegrityRefresh();");
-    expect(alarmListener).not.toMatch(/else\s*\{/);
+  it("registers the behavioral named-alarm dispatcher", () => {
+    expect(alarmListener).toContain(
+      "browser.alarms.onAlarm.addListener(createBackgroundAlarmListener(controller));",
+    );
+  });
+
+  it("behaviorally dispatches named alarms and ignores unrelated alarms", () => {
+    const createBackgroundAlarmListener = (
+      controllerModule as typeof controllerModule & {
+        createBackgroundAlarmListener?: (controller: {
+          tickAndHandOff(): Promise<void>;
+          runWatchHeartbeat(): Promise<void>;
+          runTwitchIntegrityRefresh(): Promise<void>;
+        }) => (alarm: { name: string }) => void;
+      }
+    ).createBackgroundAlarmListener;
+    expect(createBackgroundAlarmListener).toBeTypeOf("function");
+    if (!createBackgroundAlarmListener) return;
+    const controller = {
+      tickAndHandOff: vi.fn(async () => undefined),
+      runWatchHeartbeat: vi.fn(async () => undefined),
+      runTwitchIntegrityRefresh: vi.fn(async () => undefined),
+    };
+    const listener = createBackgroundAlarmListener(controller);
+
+    listener({ name: "lurkloot.twitch-integrity" });
+    listener({ name: "unrelated.alarm" });
+
+    expect(controller.runTwitchIntegrityRefresh).toHaveBeenCalledOnce();
+    expect(controller.tickAndHandOff).not.toHaveBeenCalled();
+    expect(controller.runWatchHeartbeat).not.toHaveBeenCalled();
   });
 });

@@ -32,6 +32,24 @@ export const WATCH_ALARM_NAME = "lurkloot.watch";
 export const TWITCH_INTEGRITY_ALARM_NAME = "lurkloot.twitch-integrity";
 export const TWITCH_INTEGRITY_REFRESH_LEAD_MS = 120_000;
 export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;
+
+interface BackgroundAlarmController {
+  tickAndHandOff(platforms?: Platform[], trigger?: TickTrigger): Promise<void>;
+  runWatchHeartbeat(): Promise<void>;
+  runTwitchIntegrityRefresh(): Promise<void>;
+}
+
+export function createBackgroundAlarmListener(controller: BackgroundAlarmController) {
+  return (alarm: { name: string }): void => {
+    if (alarm.name === ALARM_NAME) {
+      void controller.tickAndHandOff(undefined, "alarm");
+    } else if (alarm.name === WATCH_ALARM_NAME) {
+      void controller.runWatchHeartbeat();
+    } else if (alarm.name === TWITCH_INTEGRITY_ALARM_NAME) {
+      void controller.runTwitchIntegrityRefresh();
+    }
+  };
+}
 // Reward ids claimed during one tick, per platform. The post-claim handoff needs
 // the ids (not just the platforms) so it can tell a genuine successor from the
 // reward that was just claimed.
@@ -352,10 +370,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   let settingsMutation: Promise<unknown> = Promise.resolve();
   let integrityRefreshAbort: AbortController | undefined;
   let integrityLifecycleGeneration = 0;
-
-  // The last token handed to setTwitchIntegrity; used to skip re-persisting on
-  // every page GQL call (the page sends integrity on most requests).
-  let lastIntegrityToken: string | undefined;
+  let integrityLifecycleOpen = true;
+  let controllerShutdown = false;
+  let installedTwitchIntegrity: TwitchIntegrity | undefined;
+  let persistedIntegrityToken: string | undefined;
+  // A missing rejectedToken means there was no usable bundle when the refresh
+  // became due. Keeping the wrapper object distinguishes that from "not due."
+  let twitchIntegrityRefreshDue: { rejectedToken?: string } | undefined;
 
   // Prime the in-memory integrity token from storage whenever the background
   // script (re)evaluates, so a claim right after a service-worker wake can use
@@ -375,6 +396,39 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return integrity.expiresAt
       - TWITCH_INTEGRITY_REFRESH_LEAD_MS
       - integrityRefreshJitter(integrity.integrity);
+  }
+
+  function installTwitchIntegrity(integrity: TwitchIntegrity, isNew = false, emit?: EventEmitter): void {
+    installedTwitchIntegrity = integrity;
+    setTwitchIntegrity(integrity, { isNew }, emit);
+  }
+
+  function currentInstalledTwitchIntegrity(): TwitchIntegrity | undefined {
+    return isValidTwitchIntegrity(installedTwitchIntegrity)
+      ? installedTwitchIntegrity
+      : undefined;
+  }
+
+  function reconcileStoredTwitchIntegrity(stored: TwitchIntegrity | undefined): TwitchIntegrity | undefined {
+    const current = currentInstalledTwitchIntegrity();
+    if (!isValidTwitchIntegrity(stored)) return current;
+    const storedSupersedesCurrent = !current
+      || (
+        stored.integrity !== current.integrity
+        && persistedIntegrityToken === current.integrity
+      );
+    persistedIntegrityToken = stored.integrity;
+    if (storedSupersedesCurrent) {
+      installTwitchIntegrity(stored);
+      return stored;
+    }
+    return current;
+  }
+
+  function markTwitchIntegrityRefreshDue(integrity?: TwitchIntegrity): void {
+    twitchIntegrityRefreshDue = {
+      ...(integrity ? { rejectedToken: integrity.integrity } : {}),
+    };
   }
 
   async function clearTwitchIntegrityAlarm(): Promise<void> {
@@ -405,10 +459,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   ): Promise<void> {
     const when = twitchIntegrityRefreshTarget(integrity);
     if (when <= Date.now()) {
+      markTwitchIntegrityRefreshDue(integrity);
       await clearTwitchIntegrityAlarm();
       return;
     }
     await deps.createAlarm(TWITCH_INTEGRITY_ALARM_NAME, { when });
+    twitchIntegrityRefreshDue = undefined;
     emit?.({
       category: "diagnostic",
       platform: "twitch",
@@ -442,11 +498,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     await withStateLock(() => withEventCollector(async (emit, events) => {
       try {
         const integrity = await deps.loadTwitchIntegrity?.();
-        if (integrityLifecycleGeneration !== lifecycleGeneration) return;
+        if (
+          integrityLifecycleGeneration !== lifecycleGeneration
+          || !integrityLifecycleOpen
+        ) return;
         if (isValidTwitchIntegrity(integrity)) {
-          lastIntegrityToken = integrity.integrity;
-          setTwitchIntegrity(integrity);
-          await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
+          const current = reconcileStoredTwitchIntegrity(integrity);
+          await scheduleTwitchIntegrityRefreshBestEffort(
+            current!,
+            emit,
+          );
         } else if (integrity) {
           emit({
             category: "diagnostic",
@@ -456,7 +517,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           });
         }
       } catch (error) {
-        if (integrityLifecycleGeneration !== lifecycleGeneration) return;
+        if (
+          integrityLifecycleGeneration !== lifecycleGeneration
+          || !integrityLifecycleOpen
+        ) return;
         // A missing/corrupt stored token is non-fatal: fresh page traffic will
         // re-capture one, and claims simply stay best-effort until then.
         emit({
@@ -471,77 +535,100 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function runTwitchIntegrityRefresh(): Promise<void> {
-    if (integrityRefreshAbort) return;
+    if (!integrityLifecycleOpen || integrityRefreshAbort) return;
     const abort = new AbortController();
     integrityRefreshAbort = abort;
     const lifecycleGeneration = integrityLifecycleGeneration;
     const ownsRefresh = (): boolean =>
       integrityRefreshAbort === abort
       && !abort.signal.aborted
-      && integrityLifecycleGeneration === lifecycleGeneration;
-    const refreshStillEnabled = async (): Promise<boolean> => {
-      if (!ownsRefresh()) return false;
-      const currentSettings = await deps.loadSettings();
-      return ownsRefresh() && currentSettings.platform.twitch.enabled;
-    };
+      && integrityLifecycleGeneration === lifecycleGeneration
+      && integrityLifecycleOpen;
 
     try {
       await initialTwitchIntegrityLoad;
       if (!ownsRefresh()) return;
       await withEventCollector(async (emit, events) => {
+        let integrity: TwitchIntegrity | undefined;
+        let shouldAcquire = false;
         try {
-          const settings = await deps.loadSettings();
-          if (!ownsRefresh()) return;
-          let integrity: TwitchIntegrity | undefined;
-          try {
-            integrity = await deps.loadTwitchIntegrity?.();
-          } catch {
-            emit({
-              category: "diagnostic",
-              platform: "twitch",
-              level: "debug",
-              message: "Could not reload stored Twitch integrity before proactive refresh",
-            });
-          }
-          if (!ownsRefresh()) return;
-
-          if (!settings.platform.twitch.enabled) {
-            cancelTwitchIntegrityWork("Twitch disabled");
-            await clearTwitchIntegrityAlarmBestEffort(emit);
-            return;
-          }
-
-          if (isValidTwitchIntegrity(integrity)) {
-            lastIntegrityToken = integrity.integrity;
-            setTwitchIntegrity(integrity);
-            if (twitchIntegrityRefreshTarget(integrity) > Date.now()) {
-              if (!await refreshStillEnabled()) return;
-              await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
+          await withSettingsLock(async () => {
+            if (!ownsRefresh()) return;
+            const settings = await deps.loadSettings();
+            if (!ownsRefresh()) return;
+            if (!settings.platform.twitch.enabled) {
+              closeTwitchIntegrityLifecycle("Twitch disabled");
+              await clearTwitchIntegrityAlarmBestEffort(emit);
               return;
             }
-          }
 
-          if (!deps.ensureTwitchIntegrity || !await refreshStillEnabled()) return;
+            await withStateLock(async () => {
+              if (!ownsRefresh()) return;
+              let stored: TwitchIntegrity | undefined;
+              try {
+                stored = await deps.loadTwitchIntegrity?.();
+              } catch {
+                emit({
+                  category: "diagnostic",
+                  platform: "twitch",
+                  level: "debug",
+                  message: "Could not reload stored Twitch integrity before proactive refresh",
+                });
+              }
+              if (!ownsRefresh()) return;
 
+              integrity = reconcileStoredTwitchIntegrity(stored);
+              if (integrity && twitchIntegrityRefreshTarget(integrity) > Date.now()) {
+                await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
+                return;
+              }
+              markTwitchIntegrityRefreshDue(integrity);
+              shouldAcquire = true;
+            });
+          });
+
+          if (!shouldAcquire || !deps.ensureTwitchIntegrity || !ownsRefresh()) return;
+          const remainingMs = integrity
+            ? Math.max(0, integrity.expiresAt - Date.now())
+            : 0;
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "debug",
+            message: integrity
+              ? `Starting proactive Twitch integrity refresh with ${remainingMs}ms remaining`
+              : "Starting proactive Twitch integrity refresh with no valid token available",
+          });
           const ready = await deps.ensureTwitchIntegrity(emit, {
             forceRefresh: true,
+            reason: "proactive_refresh",
+            ...(integrity ? { rejectedToken: integrity.integrity } : {}),
+            onManagedPageContextOpen: () =>
+              recordTwitchIntegrityManagedTabOpen("proactive_integrity_refresh"),
             signal: abort.signal,
           });
           if (!ready && !abort.signal.aborted) {
             emit({
               category: "diagnostic",
               platform: "twitch",
-              level: "warn",
-              message: "Could not refresh Twitch integrity; the next normal scheduler alarm will retry",
+              level: "debug",
+              message: "Proactive Twitch integrity refresh was deferred; the next normal scheduler alarm will retry",
             });
           }
         } catch {
-          if (!abort.signal.aborted) {
+          if (abort.signal.aborted) {
             emit({
               category: "diagnostic",
               platform: "twitch",
-              level: "warn",
-              message: "Could not refresh Twitch integrity; the next normal scheduler alarm will retry",
+              level: "debug",
+              message: "Proactive Twitch integrity refresh was cancelled because Twitch stopped",
+            });
+          } else {
+            emit({
+              category: "diagnostic",
+              platform: "twitch",
+              level: "debug",
+              message: "Proactive Twitch integrity refresh was deferred; the next normal scheduler alarm will retry",
             });
           }
         } finally {
@@ -568,15 +655,53 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const integrity = integrityFromHeaders(headers);
     if (!integrity) return;
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      const isNew = integrity.integrity !== lastIntegrityToken;
-      setTwitchIntegrity(integrity, { isNew }, emit);
+      const isNew = integrity.integrity !== installedTwitchIntegrity?.integrity;
+      installTwitchIntegrity(integrity, isNew, emit);
+      if (integrity.integrity !== persistedIntegrityToken && deps.saveTwitchIntegrity) {
+        try {
+          await deps.saveTwitchIntegrity(integrity);
+          persistedIntegrityToken = integrity.integrity;
+        } catch {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "warn",
+            message: "Could not persist the captured Twitch integrity token",
+          });
+        }
+      }
       if (isNew) {
-        lastIntegrityToken = integrity.integrity;
-        await deps.saveTwitchIntegrity?.(integrity);
         await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
       }
       await reportBestEffort(events);
     }));
+  }
+
+  async function recordTwitchIntegrityManagedTabOpen(
+    reason: "integrity_readiness" | "proactive_integrity_refresh",
+  ): Promise<void> {
+    try {
+      await withStateLock(() => withEventCollector(async (emit, events) => {
+        if (!integrityLifecycleOpen) return;
+        const settings = await deps.loadSettings();
+        if (!integrityLifecycleOpen || !settings.criticalFailurePromptEnabled) return;
+        const state = await deps.loadState();
+        const transition = recordManagedTabOpen(state, "twitch", Date.now(), {
+          source: "page_context",
+          reason,
+        });
+        if (transition.event) emit(transition.event);
+        syncManagedTabBreakers(transition.state);
+        await persistAndReport(transition.state, events);
+      }));
+    } catch {
+      await reportBestEffort([{
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "Could not account for a managed Twitch integrity page context",
+      }]);
+    }
   }
 
   async function persistAndReport(state: SchedulerState, events: readonly EngineEvent[] = []): Promise<void> {
@@ -740,16 +865,41 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return run;
   }
 
-  async function updateStoredSettings(patch: SettingsPatch): Promise<S> {
+  async function updateStoredSettings(
+    patch: SettingsPatch,
+    afterPersist?: (settings: S) => void,
+  ): Promise<S> {
     return withSettingsLock(async () => {
       if (!deps.applySettingsPatch) {
         throw new Error("applySettingsPatch dependency is required to mutate settings");
       }
       const settings = deps.applySettingsPatch(await deps.loadSettings(), patch);
       await deps.saveSettings(settings);
+      afterPersist?.(settings);
       await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
       return settings;
     });
+  }
+
+  async function restoreTwitchIntegritySchedule(): Promise<void> {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      if (!integrityLifecycleOpen) return;
+      let stored: TwitchIntegrity | undefined;
+      try {
+        stored = await deps.loadTwitchIntegrity?.();
+      } catch {
+        emit({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "debug",
+          message: "Could not reload stored Twitch integrity after Twitch was enabled",
+        });
+      }
+      if (!integrityLifecycleOpen) return;
+      const integrity = reconcileStoredTwitchIntegrity(stored);
+      if (integrity) await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
+      await reportBestEffort(events);
+    }));
   }
 
   async function probeAuthHealth(
@@ -945,8 +1095,22 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const ensureTwitchIntegrity = deps.ensureTwitchIntegrity;
     if (!settings.platform.twitch.enabled || !ensureTwitchIntegrity) return true;
     return withEventCollector(async (emit, events) => {
+      const lifecycleGeneration = integrityLifecycleGeneration;
+      const due = twitchIntegrityRefreshDue;
       try {
-        const ready = await ensureTwitchIntegrity(emit, { signal });
+        const ready = await ensureTwitchIntegrity(emit, {
+          signal,
+          reason: due ? "proactive_refresh" : "readiness",
+          onManagedPageContextOpen: () => recordTwitchIntegrityManagedTabOpen(
+            due ? "proactive_integrity_refresh" : "integrity_readiness",
+          ),
+          ...(due
+            ? {
+                forceRefresh: true,
+                ...(due.rejectedToken ? { rejectedToken: due.rejectedToken } : {}),
+              }
+            : {}),
+        });
         if (!ready) {
           emit({
             category: "diagnostic",
@@ -956,6 +1120,29 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           });
         }
         return ready;
+      } catch {
+        signal.throwIfAborted();
+        const currentSettings = await deps.loadSettings();
+        if (
+          lifecycleGeneration !== integrityLifecycleGeneration
+          || !integrityLifecycleOpen
+          || !currentSettings.platform.twitch.enabled
+        ) {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "debug",
+            message: "Twitch integrity acquisition was cancelled because Twitch stopped; continuing other platform work",
+          });
+          return false;
+        }
+        emit({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "warn",
+          message: "No valid Twitch integrity token; delaying authenticated Twitch work until the next normal scheduler alarm",
+        });
+        return false;
       } finally {
         await reportBestEffort(events);
       }
@@ -1403,23 +1590,33 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
-  function cancelTwitchIntegrityWork(reason: string): void {
+  function closeTwitchIntegrityLifecycle(reason: string): void {
     const error = new Error(reason);
-    integrityLifecycleGeneration += 1;
+    if (integrityLifecycleOpen) {
+      integrityLifecycleOpen = false;
+      integrityLifecycleGeneration += 1;
+    }
     integrityRefreshAbort?.abort(error);
     deps.cancelTwitchIntegrityAcquisition?.(error);
   }
 
+  function reopenTwitchIntegrityLifecycle(): void {
+    if (controllerShutdown || integrityLifecycleOpen) return;
+    integrityLifecycleOpen = true;
+    integrityLifecycleGeneration += 1;
+  }
+
   function shutdown(): void {
+    controllerShutdown = true;
     abortActiveTicks("Controller shutdown");
-    cancelTwitchIntegrityWork("Controller shutdown");
+    closeTwitchIntegrityLifecycle("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     abortClaimHandoffs();
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
     abortActiveTicks("Host reset");
-    cancelTwitchIntegrityWork("Host reset");
+    closeTwitchIntegrityLifecycle("Host reset");
     await clearTwitchIntegrityAlarmBestEffort();
     abortClaimHandoffs();
     await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
@@ -1442,7 +1639,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       }
       tablessWatchers.clear();
       registerManagedPageContextTabs({});
-      lastIntegrityToken = undefined;
+      installedTwitchIntegrity = undefined;
+      persistedIntegrityToken = undefined;
+      twitchIntegrityRefreshDue = undefined;
       setTwitchIntegrity(undefined);
       await resetHostStorage?.();
       await reportBestEffort(events);
@@ -1875,17 +2074,33 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (message.type === "setPlatformEnabled" || message.type === "setAutomation") {
       // Stopping must cancel any loop still refreshing in the background.
       if (!message.enabled) abortClaimHandoffs(message.platform);
-      if (message.platform === "twitch" && !message.enabled) {
-        cancelTwitchIntegrityWork("Twitch disabled");
-        await clearTwitchIntegrityAlarmBestEffort();
-      }
-      await updateStoredSettings({
-        platform: {
-          [message.platform]: {
-            enabled: message.enabled,
+      const stoppingTwitch = message.platform === "twitch" && !message.enabled;
+      let twitchTransitionPersisted = false;
+      if (stoppingTwitch) closeTwitchIntegrityLifecycle("Twitch disabled");
+      try {
+        await updateStoredSettings({
+          platform: {
+            [message.platform]: {
+              enabled: message.enabled,
+            },
           },
-        },
-      });
+        }, message.platform === "twitch"
+          ? () => {
+              twitchTransitionPersisted = true;
+              if (message.enabled) reopenTwitchIntegrityLifecycle();
+              else closeTwitchIntegrityLifecycle("Twitch disabled");
+            }
+          : undefined);
+      } catch (error) {
+        if (stoppingTwitch && !twitchTransitionPersisted) {
+          reopenTwitchIntegrityLifecycle();
+        }
+        throw error;
+      }
+      if (message.platform === "twitch") {
+        if (message.enabled) await restoreTwitchIntegritySchedule();
+        else await clearTwitchIntegrityAlarmBestEffort();
+      }
       if (message.enabled) await markPlatformsStarting([message.platform]);
       // Always scoped to the toggled platform. Nothing about this change can
       // affect the other one any more, so it is never dragged through this

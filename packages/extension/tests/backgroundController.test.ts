@@ -17,14 +17,18 @@ import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import {
+  cancelTwitchIntegrityAcquisition,
   currentValidTwitchIntegrity,
+  ensureTwitchIntegrityWithBrowser,
   forgetManagedPageContextTabs,
   KickWafBlockedError,
   managedTabBreakerOpen,
   recordManagedPageContextFallback,
   registerManagedPageContextTabs,
+  resetTwitchIntegrityRefreshBounds,
   setTwitchIntegrity,
   syncManagedTabBreakers,
+  type BrowserTabApi,
   type TwitchIntegrityRequest,
 } from "@lurkloot/core/tabs";
 import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
@@ -176,6 +180,7 @@ function harness(
     authProbeTimeoutMs?: number;
     loadTwitchIntegrity?: () => Promise<TwitchIntegrity | undefined>;
     saveTwitchIntegrity?: (value: TwitchIntegrity) => Promise<void>;
+    saveSettings?: (value: ExtensionSettings) => Promise<void>;
     createAlarm?: (
       name: string,
       options: { periodInMinutes: number } | { when: number },
@@ -202,6 +207,7 @@ function harness(
   const deps = {
     loadSettings: vi.fn(async () => currentSettings),
     saveSettings: vi.fn(async (next: ExtensionSettings) => {
+      await overrides.saveSettings?.(next);
       currentSettings = next;
     }),
     loadState: vi.fn(async () => currentState),
@@ -413,6 +419,64 @@ describe("background controller", () => {
       )).toBe(false);
     });
 
+    it("forces the next normal tick to replace a valid token whose refresh target is already due", async () => {
+      const integrity = integrityBundle({
+        integrity: "due-on-next-normal-tick",
+        expiresAt: Date.now() + 60_000,
+      });
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+        ensureTwitchIntegrity: async () => true,
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.ensureTwitchIntegrity.mockClear();
+
+      await env.controller.tick(["twitch"], "alarm");
+
+      expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          forceRefresh: true,
+          rejectedToken: integrity.integrity,
+          signal: expect.any(AbortSignal),
+        }),
+      );
+    });
+
+    it("retries a failed integrity write when the same token is captured again", async () => {
+      const integrity = integrityBundle({
+        integrity: "retry-persistence-without-exposing-me",
+      });
+      const saveTwitchIntegrity = vi.fn()
+        .mockRejectedValueOnce(new Error("storage unavailable"))
+        .mockResolvedValueOnce(undefined);
+      const env = harness(undefined, { saveTwitchIntegrity });
+      await env.controller.settleBackgroundWork();
+      env.deps.createAlarm.mockClear();
+
+      await expect(env.controller.captureTwitchIntegrity(integrityHeaders(integrity))).resolves.toBeUndefined();
+
+      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        expect.objectContaining({ when: expect.any(Number) }),
+      );
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "warn",
+          message: "Could not persist the captured Twitch integrity token",
+        }),
+      );
+
+      await expect(env.controller.captureTwitchIntegrity(integrityHeaders(integrity))).resolves.toBeUndefined();
+      expect(saveTwitchIntegrity).toHaveBeenCalledTimes(2);
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events).every(
+        (event) => event.category !== "diagnostic" || !event.message.includes(integrity.integrity),
+      )).toBe(true);
+    });
+
     it("retains a captured token when alarm creation fails", async () => {
       const integrity = integrityBundle({
         integrity: "retained-after-alarm-failure",
@@ -569,6 +633,54 @@ describe("background controller", () => {
       expect(env.state.sessions.kick.status).toBe("watching");
     });
 
+    it("accounts an initial readiness context without labelling it as a proactive refresh", async () => {
+      const env = harness(undefined, {
+        ensureTwitchIntegrity: async (_emit, request) => {
+          await request?.onManagedPageContextOpen?.();
+          return false;
+        },
+      });
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(env.state.criticalHealth?.twitch?.records).toContainEqual(
+        expect.objectContaining({
+          kind: "context_open",
+          code: "integrity_readiness",
+        }),
+      );
+      expect(env.state.criticalHealth?.twitch?.records).not.toContainEqual(
+        expect.objectContaining({
+          kind: "context_open",
+          code: "proactive_integrity_refresh",
+        }),
+      );
+    });
+
+    it("continues Kick when disabling Twitch cancels the acquisition awaited by an all-platform tick", async () => {
+      const acquisition = deferred<boolean>();
+      const env = harness(undefined, {
+        ensureTwitchIntegrity: async () => acquisition.promise,
+        cancelTwitchIntegrityAcquisition: (reason) => acquisition.reject(reason),
+      });
+      const ticking = env.controller.tick(undefined, "alarm");
+      await vi.waitFor(() => expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce());
+
+      await env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+
+      await expect(ticking).resolves.toEqual({});
+      expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
+      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+      expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+      expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
+      expect(env.state.sessions.kick.status).toBe("watching");
+      await env.rawController.settleBackgroundWork();
+    });
+
     it("exits silently when shutdown aborts integrity acquisition", async () => {
       let acquisitionSignal: AbortSignal | undefined;
       const env = harness(undefined, {
@@ -623,6 +735,37 @@ describe("background controller", () => {
       acquisition.resolve(false);
       await env.rawController.settleBackgroundWork();
     });
+
+    it("recreates the refresh schedule from a valid stored token when Twitch is re-enabled", async () => {
+      const integrity = integrityBundle({
+        integrity: "reschedule-after-enable",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+      await env.controller.settleBackgroundWork();
+
+      await env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      await env.rawController.settleBackgroundWork();
+      env.deps.createAlarm.mockClear();
+
+      await env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: true,
+      });
+
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        expect.objectContaining({ when: expect.any(Number) }),
+      );
+      await env.rawController.settleBackgroundWork();
+    });
   });
 
   describe("Twitch integrity refresh alarm", () => {
@@ -647,7 +790,7 @@ describe("background controller", () => {
       await env.controller.runTwitchIntegrityRefresh();
       await env.controller.runTwitchIntegrityRefresh();
 
-      expect(env.deps.loadSettings).toHaveBeenCalledTimes(4);
+      expect(env.deps.loadSettings).toHaveBeenCalledTimes(2);
       expect(loadTwitchIntegrity).toHaveBeenCalledTimes(2);
     });
 
@@ -668,7 +811,7 @@ describe("background controller", () => {
 
       await env.controller.runTwitchIntegrityRefresh();
 
-      expect(loadTwitchIntegrity).toHaveBeenCalledOnce();
+      expect(loadTwitchIntegrity).not.toHaveBeenCalled();
       expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_INTEGRITY_ALARM_NAME);
       expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
       expect(env.deps.createAlarm).not.toHaveBeenCalled();
@@ -759,40 +902,69 @@ describe("background controller", () => {
         expect.objectContaining({
           category: "diagnostic",
           platform: "twitch",
-          level: "warn",
+          level: "debug",
           message: expect.stringContaining("next normal scheduler alarm"),
         }),
       );
     });
 
-    it("shares one underlying acquisition between concurrent alarm and tick calls", async () => {
-      const acquisition = deferred<boolean>();
-      let underlyingAcquisitions = 0;
-      let inFlight: Promise<boolean> | undefined;
-      const ensureTwitchIntegrity = vi.fn(async () => {
-        if (!inFlight) {
-          underlyingAcquisitions += 1;
-          inFlight = acquisition.promise.finally(() => {
-            inFlight = undefined;
-          });
-        }
-        return inFlight;
-      });
+    it("uses the real tabs single-flight while keeping proactive managed opens diagnostic-only and churn-accounted", async () => {
+      const browser = {
+        tabs: {
+          get: vi.fn(),
+          update: vi.fn(async () => undefined),
+          remove: vi.fn(async () => undefined),
+          query: vi.fn(async () => []),
+          create: vi.fn(async () => ({ id: 93 })),
+        },
+      } satisfies BrowserTabApi;
+      registerManagedPageContextTabs({});
+      resetTwitchIntegrityRefreshBounds();
+      setTwitchIntegrity(undefined);
       const env = harness(undefined, {
         loadTwitchIntegrity: async () => undefined,
-        ensureTwitchIntegrity,
+        ensureTwitchIntegrity: (emit, request) => ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          emit,
+          request,
+        ),
+        cancelTwitchIntegrityAcquisition,
       });
       await env.controller.settleBackgroundWork();
 
       const refreshing = env.controller.runTwitchIntegrityRefresh();
-      await vi.waitFor(() => expect(underlyingAcquisitions).toBe(1));
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
       const ticking = env.controller.tick(["twitch"], "manual_tick");
-      await vi.waitFor(() => expect(ensureTwitchIntegrity).toHaveBeenCalledTimes(2));
-
-      expect(underlyingAcquisitions).toBe(1);
-      acquisition.resolve(true);
+      await vi.waitFor(() => expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledTimes(2));
+      setTwitchIntegrity(integrityBundle({
+        integrity: "real-composition-replacement",
+      }), { isNew: true });
       await Promise.all([refreshing, ticking]);
-      expect(underlyingAcquisitions).toBe(1);
+
+      const reported = env.reportEvents.mock.calls.flatMap(([events]) => events);
+      const emittedActivity = reported.some((event) =>
+        event.category === "activity" && event.code === "page_context_opened");
+      const proactiveDiagnostic = reported.some((event) =>
+        event.category === "diagnostic"
+        && event.platform === "twitch"
+        && event.message.includes("proactive"));
+      const managedTabOpens = env.state.criticalHealth?.twitch?.managedTabOpens.length;
+      const recordedProactiveOpen = env.state.criticalHealth?.twitch?.records.some((record) =>
+        record.kind === "context_open" && record.code === "proactive_integrity_refresh");
+      resetTwitchIntegrityRefreshBounds();
+      setTwitchIntegrity(undefined);
+
+      expect(browser.tabs.create).toHaveBeenCalledOnce();
+      expect(emittedActivity).toBe(false);
+      expect(proactiveDiagnostic).toBe(true);
+      expect(reported).not.toContainEqual(expect.objectContaining({
+        category: "activity",
+        code: "page_context_opened",
+      }));
+      expect(managedTabOpens).toBeGreaterThanOrEqual(1);
+      expect(recordedProactiveOpen).toBe(true);
     });
 
     it("revalidates the stored token when a late alarm runs", async () => {
@@ -815,6 +987,111 @@ describe("background controller", () => {
       expect(loadTwitchIntegrity).toHaveBeenCalledTimes(2);
       expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
       expect(env.deps.createAlarm).toHaveBeenCalledOnce();
+    });
+
+    it("does not let alarm preflight overwrite a fresh capture waiting for persistence", async () => {
+      const oldIntegrity = integrityBundle({
+        integrity: "stored-before-capture",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const replacement = integrityBundle({
+        integrity: "captured-before-storage-finishes",
+        expiresAt: Date.now() + 40 * 60_000,
+      });
+      const capturedReplacement = {
+        ...replacement,
+        expiresAt: Date.now() + 30 * 60_000,
+      };
+      let stored = oldIntegrity;
+      const saveGate = deferred<void>();
+      const loadTwitchIntegrity = vi.fn(async () => stored);
+      const env = harness(undefined, {
+        loadTwitchIntegrity,
+        saveTwitchIntegrity: async (value) => {
+          await saveGate.promise;
+          stored = value;
+        },
+      });
+      await env.controller.settleBackgroundWork();
+      loadTwitchIntegrity.mockClear();
+      env.deps.createAlarm.mockClear();
+
+      const capturing = env.controller.captureTwitchIntegrity(integrityHeaders(replacement));
+      await vi.waitFor(() => expect(env.deps.saveTwitchIntegrity).toHaveBeenCalledOnce());
+      const refreshing = env.controller.runTwitchIntegrityRefresh();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      const preflightWaitedForCapture = loadTwitchIntegrity.mock.calls.length === 0;
+      const memoryStayedFreshWhileSaving = currentValidTwitchIntegrity()?.integrity === replacement.integrity;
+
+      saveGate.resolve();
+      await Promise.all([capturing, refreshing]);
+
+      expect(preflightWaitedForCapture).toBe(true);
+      expect(memoryStayedFreshWhileSaving).toBe(true);
+      expect(stored).toEqual(capturedReplacement);
+      expect(currentValidTwitchIntegrity()).toEqual(capturedReplacement);
+      const integrityAlarmCalls = env.deps.createAlarm.mock.calls.filter(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      );
+      expect(integrityAlarmCalls.length).toBeGreaterThan(0);
+      expect(new Set(integrityAlarmCalls.map(([, options]) => JSON.stringify(options))).size).toBe(1);
+    });
+
+    it("forces the next normal tick after a proactive refresh is deferred", async () => {
+      const integrity = integrityBundle({
+        integrity: "deferred-proactive-token",
+        expiresAt: Date.now() + 90_000,
+      });
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+        ensureTwitchIntegrity: async () => false,
+      });
+      await env.controller.settleBackgroundWork();
+
+      await env.controller.runTwitchIntegrityRefresh();
+      env.deps.ensureTwitchIntegrity.mockClear();
+      await env.controller.tick(["twitch"], "alarm");
+
+      expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          forceRefresh: true,
+          rejectedToken: integrity.integrity,
+        }),
+      );
+    });
+
+    it("reports proactive start timing before a debug-level deferral", async () => {
+      const integrity = integrityBundle({
+        integrity: "timed-proactive-token",
+        expiresAt: Date.now() + 90_000,
+      });
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+        ensureTwitchIntegrity: async () => false,
+      });
+      await env.controller.settleBackgroundWork();
+      env.reportEvents.mockClear();
+
+      await env.controller.runTwitchIntegrityRefresh();
+
+      const diagnostics = env.reportEvents.mock.calls
+        .flatMap(([events]) => events)
+        .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
+      const started = diagnostics.findIndex((event) =>
+        event.level === "debug"
+        && event.message.includes("Starting proactive Twitch integrity refresh")
+        && event.message.includes("90000ms remaining"));
+      const deferred = diagnostics.findIndex((event) =>
+        event.level === "debug"
+        && event.message.includes("next normal scheduler alarm"));
+      expect(started).toBeGreaterThanOrEqual(0);
+      expect(deferred).toBeGreaterThan(started);
+      expect(diagnostics).not.toContainEqual(expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining("Could not refresh Twitch integrity"),
+      }));
     });
 
     it.each(["disable", "reset", "shutdown"] as const)(
@@ -902,14 +1179,15 @@ describe("background controller", () => {
           await vi.waitFor(() => expect(loadTwitchIntegrity).toHaveBeenCalledOnce());
         }
 
+        let cleanupFinished: Promise<unknown> | undefined;
         if (cleanup === "disable") {
-          await env.rawController.handleMessage({
+          cleanupFinished = env.rawController.handleMessage({
             type: "setPlatformEnabled",
             platform: "twitch",
             enabled: false,
           });
         } else if (cleanup === "reset") {
-          await env.controller.prepareForHostReset();
+          cleanupFinished = env.controller.prepareForHostReset();
         } else {
           env.controller.shutdown();
         }
@@ -919,7 +1197,7 @@ describe("background controller", () => {
         } else {
           integrityRead.resolve(stored);
         }
-        await refreshing;
+        await Promise.all([refreshing, cleanupFinished]);
         if (cleanup === "disable") {
           await env.rawController.settleBackgroundWork();
         }
@@ -932,16 +1210,16 @@ describe("background controller", () => {
     );
 
     it("cancels acquisition and clears the alarm when Twitch is disabled", async () => {
-      const acquisition = deferred<boolean>();
       let acquisitionSignal: AbortSignal | undefined;
       const env = harness(undefined, {
         loadTwitchIntegrity: async () => undefined,
-        ensureTwitchIntegrity: async (_emit, request) => {
+        ensureTwitchIntegrity: async (_emit, request) => new Promise<boolean>((_resolve, reject) => {
           acquisitionSignal = request?.signal;
-          return acquisition.promise;
-        },
+          request?.signal?.addEventListener("abort", () => reject(request.signal?.reason), { once: true });
+        }),
       });
       await env.controller.settleBackgroundWork();
+      env.reportEvents.mockClear();
       const refreshing = env.controller.runTwitchIntegrityRefresh();
       await vi.waitFor(() => expect(acquisitionSignal).toBeDefined());
 
@@ -954,9 +1232,81 @@ describe("background controller", () => {
       expect(acquisitionSignal?.aborted).toBe(true);
       expect(env.deps.cancelTwitchIntegrityAcquisition).toHaveBeenCalled();
       expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_INTEGRITY_ALARM_NAME);
-      acquisition.resolve(false);
       await refreshing;
       await env.rawController.settleBackgroundWork();
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "debug",
+          message: expect.stringContaining("cancelled because Twitch stopped"),
+        }),
+      );
+    });
+
+    it("does not admit an alarm queued while the Twitch disable write is pending", async () => {
+      const settingsSave = deferred<void>();
+      const env = harness(undefined, {
+        saveSettings: async () => settingsSave.promise,
+        loadTwitchIntegrity: async () => undefined,
+        ensureTwitchIntegrity: async () => true,
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.ensureTwitchIntegrity.mockClear();
+
+      const disabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalledOnce());
+      const queuedAlarm = env.controller.runTwitchIntegrityRefresh();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      const admittedBeforeDisablePersisted = env.deps.ensureTwitchIntegrity.mock.calls.length > 0;
+
+      settingsSave.resolve();
+      await Promise.all([disabling, queuedAlarm]);
+      await env.rawController.settleBackgroundWork();
+      expect(admittedBeforeDisablePersisted).toBe(false);
+      expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
+    });
+
+    it("does not admit a fresh queued alarm after reset cleanup starts", async () => {
+      const alarmClear = deferred<boolean>();
+      const env = harness(undefined, {
+        clearAlarm: async () => alarmClear.promise,
+        loadTwitchIntegrity: async () => undefined,
+        ensureTwitchIntegrity: async () => true,
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.ensureTwitchIntegrity.mockClear();
+
+      const resetting = env.controller.prepareForHostReset();
+      await vi.waitFor(() => expect(env.deps.clearAlarm).toHaveBeenCalledOnce());
+      const queuedAlarm = env.controller.runTwitchIntegrityRefresh();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      const admittedAfterResetStarted = env.deps.ensureTwitchIntegrity.mock.calls.length > 0;
+
+      alarmClear.resolve(true);
+      await Promise.all([resetting, queuedAlarm]);
+      expect(admittedAfterResetStarted).toBe(false);
+      expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
+    });
+
+    it("does not admit a fresh queued alarm after shutdown", async () => {
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => undefined,
+        ensureTwitchIntegrity: async () => true,
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.ensureTwitchIntegrity.mockClear();
+
+      env.controller.shutdown();
+      await env.controller.runTwitchIntegrityRefresh();
+
+      expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
     });
 
     it("does not abort in-flight Kick work when Twitch is disabled", async () => {

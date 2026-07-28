@@ -27,6 +27,7 @@ import {
   setTwitchIntegrity,
   stopManagedPageContextTabsWithBrowser,
   stopWatchTabWithBrowser,
+  type TwitchIntegrityRequest,
 } from "@lurkloot/core/tabs";
 import { isSafeFetchError } from "@lurkloot/core/fetchError";
 
@@ -1309,6 +1310,87 @@ describe("twitch integrity refresh", () => {
 
       await expect(forced).resolves.toBe(true);
       expect(browser.tabs.remove).not.toHaveBeenCalledWith(3);
+    });
+
+    it("keeps proactive managed-context creation diagnostic-only and reports it for churn accounting", async () => {
+      const browser = browserMock();
+      browser.tabs.create.mockResolvedValue({ id: 57 });
+      const events: EngineEvent[] = [];
+      const managedOpen = vi.fn(async () => undefined);
+      const pending = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+        (event) => events.push(event),
+        {
+          forceRefresh: true,
+          reason: "proactive_refresh",
+          onManagedPageContextOpen: managedOpen,
+        } as TwitchIntegrityRequest,
+      );
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+      setTwitchIntegrity({
+        integrity: "proactive-replacement",
+        clientSessionId: "page-session",
+        deviceId: "page-device",
+        expiresAt: Date.now() + 60_000,
+      }, { isNew: true });
+
+      await expect(pending).resolves.toBe(true);
+
+      expect(managedOpen).toHaveBeenCalledOnce();
+      expect(events).not.toContainEqual(expect.objectContaining({
+        category: "activity",
+        code: "page_context_opened",
+      }));
+      expect(events).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "debug",
+        message: expect.stringContaining("proactive"),
+      }));
+      expect(events).not.toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        message: expect.stringContaining("rejected"),
+      }));
+    });
+
+    it("keeps initial readiness context creation diagnostic-only", async () => {
+      const browser = browserMock();
+      browser.tabs.create.mockResolvedValue({ id: 58 });
+      const events: EngineEvent[] = [];
+      const managedOpen = vi.fn(async () => undefined);
+      const pending = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+        (event) => events.push(event),
+        {
+          reason: "readiness",
+          onManagedPageContextOpen: managedOpen,
+        },
+      );
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+      setTwitchIntegrity({
+        integrity: "readiness-token",
+        clientSessionId: "page-session",
+        deviceId: "page-device",
+        expiresAt: Date.now() + 60_000,
+      }, { isNew: true });
+
+      await expect(pending).resolves.toBe(true);
+
+      expect(managedOpen).toHaveBeenCalledOnce();
+      expect(events).not.toContainEqual(expect.objectContaining({
+        category: "activity",
+        code: "page_context_opened",
+      }));
+      expect(events).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "debug",
+        message: expect.stringContaining("readiness"),
+      }));
     });
 
     it("cancels the shared acquisition, removes its new context, and rejects every caller", async () => {
