@@ -3,6 +3,7 @@ import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSetting
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import {
   applyAdFocus,
+  currentTwitchIntegrityToken,
   ensureTwitchIntegrity,
   fetchJsonInPage,
   fetchKickInBackground,
@@ -99,6 +100,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
       {
         compatibility: resolution.compatibility.twitch,
         discoveryState: twitchDiscoveryState,
+        currentIntegrityToken: currentTwitchIntegrityToken,
         heartbeatIdentity: "web",
         heartbeatFetchText: twitchHeartbeatFetchText,
         heartbeatPost: twitchHeartbeatPost,

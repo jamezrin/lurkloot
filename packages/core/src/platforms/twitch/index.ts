@@ -42,6 +42,12 @@ export interface TwitchAdapterOptions {
   heartbeatFetchText?: TwitchHeartbeatFetchText;
   heartbeatPost?: TwitchHeartbeatPost;
   discoveryState?: TwitchDiscoveryState;
+  // Reads the integrity token that outgoing requests are currently carrying, so
+  // a rejection can report which one was refused. Without it every rejection
+  // mints a fresh token, and a discovery pass whose operations were all refused
+  // on the same token pays that cost once per operation. Absent in runtimes that
+  // never carry integrity at all (non-web client ids).
+  currentIntegrityToken?: () => string | undefined;
 }
 
 const TWITCH_QUERIES = {
@@ -902,6 +908,7 @@ export class TwitchAdapter implements PlatformAdapter {
     // exists first so a tabless / no-tab session can still claim. This is a no-op
     // fast path when a token is already captured.
     await this.ensureIntegrity();
+    const rejectedToken = this.options.currentIntegrityToken?.();
 
     try {
       return await this.runClaim(reward);
@@ -914,7 +921,7 @@ export class TwitchAdapter implements PlatformAdapter {
       // Twitch rejected the token it was sent, so the local expiry says nothing:
       // only a forced refresh replaces it. Retry exactly once; a second failure
       // propagates.
-      const refreshed = await this.ensureIntegrity({ forceRefresh: true });
+      const refreshed = await this.ensureIntegrity({ forceRefresh: true, rejectedToken });
       if (refreshed) return await this.runClaim(reward);
       throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
     }
@@ -948,12 +955,13 @@ export class TwitchAdapter implements PlatformAdapter {
     // recover explicitly rather than through a generic transport retry — the
     // same claim id must never be replayed more than once.
     await this.ensureIntegrity();
+    const rejectedToken = this.options.currentIntegrityToken?.();
     try {
       return await this.runChannelPointsClaim(claimId, channelId);
     } catch (error) {
       if (!isIntegrityRejection(error)) throw error;
       diagnostic(this.emit, "warn", `Channel-points claim for ${channel.username} was rejected for integrity; refreshing the token and retrying once`, "twitch");
-      if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
+      if (!await this.ensureIntegrity({ forceRefresh: true, rejectedToken })) throw error;
       return await this.runChannelPointsClaim(claimId, channelId);
     }
   }
@@ -1062,12 +1070,16 @@ export class TwitchAdapter implements PlatformAdapter {
     emit: EventEmitter = this.emit,
     signal?: AbortSignal,
   ): Promise<TwitchGqlResponse<T>> {
+    // Read before the request, not in the catch: by the time this one is refused
+    // a concurrent operation may already have replaced the token, and refreshing
+    // against that newer token would mint one this caller has never tried.
+    const rejectedToken = this.options.currentIntegrityToken?.();
     try {
       return await this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
     } catch (error) {
       if (!isIntegrityRejection(error, credentials)) throw error;
       diagnostic(emit, "debug", `GQL ${operationName} was rejected for integrity; refreshing the token and retrying once`, "twitch");
-      if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
+      if (!await this.ensureIntegrity({ forceRefresh: true, rejectedToken })) throw error;
       return this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
     }
   }
@@ -1121,7 +1133,7 @@ class TwitchWatcher implements TablessWatchController {
 
   constructor(
     private readonly gql: TwitchGqlTransport,
-    options: TwitchAdapterOptions,
+    private readonly options: TwitchAdapterOptions,
     // Only the authenticated CurrentUser fallback below uses this. The anonymous
     // stream lookup and the heartbeat telemetry are deliberately excluded.
     private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean> = async () => false,
@@ -1200,6 +1212,7 @@ class TwitchWatcher implements TablessWatchController {
   private async resolveUserId(): Promise<string | undefined> {
     if (this.viewerUserId) return this.viewerUserId;
     const currentUser = () => this.gql<{ currentUser?: { id?: string } }>("CurrentUser", "", {}, CURRENT_USER_QUERY, undefined, this.diagnostics.emit);
+    const rejectedToken = this.options.currentIntegrityToken?.();
     try {
       let response;
       try {
@@ -1209,7 +1222,7 @@ class TwitchWatcher implements TablessWatchController {
         // adapter's safe authenticated reads.
         if (!isIntegrityRejection(error)) throw error;
         this.log("debug", "Twitch viewer id lookup was rejected for integrity; refreshing the token and retrying once");
-        if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
+        if (!await this.ensureIntegrity({ forceRefresh: true, rejectedToken })) throw error;
         response = await currentUser();
       }
       this.viewerUserId = response.data?.currentUser?.id;

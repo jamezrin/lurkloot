@@ -482,7 +482,18 @@ const INTEGRITY_EXPIRY_SKEW_MS = 30_000;
 export const TWITCH_PAGE_CONTEXT_URL = "https://www.twitch.tv/drops/inventory";
 
 // How long to wait for the live page to mint and send a token after we open it.
-const INTEGRITY_REFRESH_TIMEOUT_MS = 12_000;
+//
+// This budgets for a cold twitch.tv boot, which is dominated by Kasada's
+// proof-of-work rather than by the page load: an observed boot reached
+// `status === "complete"` in 1.4s and only produced a token at 22s. The previous
+// 12s could not cover that, so the wait timed out, the operation degraded to
+// stale data, and the token landed anyway once nobody was waiting for it.
+//
+// Raising it is only affordable because a forced refresh is now bounded by
+// rejectedToken (see below): a tick pays this once, not once per rejected
+// operation. Provisional — it covers a single observed sample with margin, and
+// the boot-phase diagnostics exist to replace it with a measured distribution.
+export const INTEGRITY_REFRESH_TIMEOUT_MS = 30_000;
 
 // Resolvers waiting for the next captured token (see waitForIntegrityCapture).
 let integrityWaiters: Array<() => void> = [];
@@ -540,6 +551,39 @@ export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?:
 // token must also differ from the one that was rejected.
 export interface TwitchIntegrityRequest {
   forceRefresh?: boolean;
+  // The token the rejected request actually sent, captured before it was issued.
+  // Without it a forced refresh cannot tell "this caller was rejected on a token
+  // someone has already replaced" from "this caller was rejected on the token we
+  // currently hold" — only the second needs a new one minted. Omitted means
+  // unknown, which always mints.
+  rejectedToken?: string;
+}
+
+// Read before issuing an authenticated request so the caller can report which
+// token was rejected if it fails. See TwitchIntegrityRequest.rejectedToken.
+export function currentTwitchIntegrityToken(): string | undefined {
+  return twitchIntegrity?.integrity;
+}
+
+// A forced refresh boots a cold twitch.tv context and waits for Kasada's
+// proof-of-work, which is the single most expensive thing this module does
+// (~22s observed). It is wired into ~10 operations, several of which run
+// sequentially inside one discovery pass, so a broadly-rejecting session used to
+// stack that cost several times in one tick.
+//
+// Concurrent callers share the in-flight refresh rather than racing into
+// acquirePageContextTab, where the origin-keyed dedupe hands the later ones an
+// inherited context that requireFreshPageContext cannot make fresh — so they
+// would wait out the full timeout on a tab that was never going to mint for
+// them. Sequential callers are bounded by rejectedToken instead: once the first
+// refresh lands, the rest were rejected on a token that no longer exists.
+let inFlightForcedRefresh: Promise<boolean> | undefined;
+
+// Test seam: this module's integrity state is process-global by design (the
+// webRequest listener feeds it from outside any call), so suites that exercise
+// the bounds need a way back to a known state.
+export function resetTwitchIntegrityRefreshBounds(): void {
+  inFlightForcedRefresh = undefined;
 }
 
 function hasReplacementTwitchIntegrity(rejectedToken?: string): boolean {
@@ -593,9 +637,43 @@ export async function ensureTwitchIntegrityWithBrowser(
   request?: TwitchIntegrityRequest,
 ): Promise<boolean> {
   const forceRefresh = request?.forceRefresh === true;
-  const rejectedToken = forceRefresh ? twitchIntegrity?.integrity : undefined;
-  if (!forceRefresh && hasValidTwitchIntegrity()) return true;
+  if (!forceRefresh) {
+    if (hasValidTwitchIntegrity()) return true;
+    return mintTwitchIntegrity(browserApi, originUrl, timeoutMs, emit, undefined);
+  }
 
+  // Another operation's refresh already replaced the token this caller was
+  // rejected on. It has not tried the current one yet, so minting again cannot
+  // help it — and would cost another cold boot.
+  if (request?.rejectedToken != null && hasReplacementTwitchIntegrity(request.rejectedToken)) {
+    diagnostic(emit, "debug", "Reusing the Twitch integrity token another operation just minted instead of booting another page context", "twitch");
+    return true;
+  }
+
+  if (inFlightForcedRefresh) {
+    diagnostic(emit, "debug", "Joining the Twitch integrity refresh already in flight", "twitch");
+    return inFlightForcedRefresh;
+  }
+
+  const rejectedToken = request?.rejectedToken ?? twitchIntegrity?.integrity;
+  const refresh = mintTwitchIntegrity(browserApi, originUrl, timeoutMs, emit, rejectedToken)
+    .finally(() => {
+      inFlightForcedRefresh = undefined;
+    });
+  inFlightForcedRefresh = refresh;
+  return refresh;
+}
+
+// The page-context boot itself, with no bounding logic: callers reach it through
+// ensureTwitchIntegrityWithBrowser, which decides whether a boot is warranted.
+async function mintTwitchIntegrity(
+  browserApi: BrowserTabApi,
+  originUrl: string,
+  timeoutMs: number,
+  emit: EventEmitter,
+  rejectedToken: string | undefined,
+): Promise<boolean> {
+  const forceRefresh = rejectedToken != null;
   diagnostic(
     emit,
     "info",

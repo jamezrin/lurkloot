@@ -19,6 +19,7 @@ import {
   recordManagedPageContextBackgroundSuccessWithBrowser,
   recordManagedPageContextFallback,
   registerManagedPageContextTabs,
+  resetTwitchIntegrityRefreshBounds,
   resetPlaybackPriming,
   setTwitchIntegrity,
   stopManagedPageContextTabsWithBrowser,
@@ -1073,6 +1074,7 @@ describe("twitch integrity refresh", () => {
   beforeEach(() => {
     registerManagedPageContextTabs({});
     setTwitchIntegrity(undefined);
+    resetTwitchIntegrityRefreshBounds();
   });
 
   const fresh = () => ({
@@ -1475,6 +1477,55 @@ describe("twitch integrity refresh", () => {
 
         setTwitchIntegrity({ ...replacement(), integrity: "third-token" }, { isNew: true });
         await expect(second).resolves.toBe(true);
+      });
+
+      // The expensive case #292 describes: a discovery pass issues ~10 authenticated
+      // operations, Twitch refuses them all on the same token, and each rejection
+      // used to boot its own cold page context and wait out Kasada again.
+      it("mints once for a burst of operations all rejected on the same token", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 41 });
+        setTwitchIntegrity(rejected());
+        const staleToken = rejected().integrity;
+
+        // The first operation's refresh lands a replacement.
+        setTimeout(() => setTwitchIntegrity(replacement(), { isNew: true }), 20);
+        await expect(ensureTwitchIntegrityWithBrowser(
+          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined,
+          { forceRefresh: true, rejectedToken: staleToken },
+        )).resolves.toBe(true);
+        const contextsAfterFirst = browser.tabs.create.mock.calls.length;
+
+        // The rest were refused on the same stale token before that landed. They
+        // have never tried the replacement, so nothing needs minting for them.
+        for (let index = 0; index < 5; index += 1) {
+          await expect(ensureTwitchIntegrityWithBrowser(
+            browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined,
+            { forceRefresh: true, rejectedToken: staleToken },
+          )).resolves.toBe(true);
+        }
+
+        expect(browser.tabs.create.mock.calls.length).toBe(contextsAfterFirst);
+      });
+
+      // The bound must key on which token was refused, not on elapsed time: a
+      // replacement that Twitch itself rejects still has to be re-minted at once.
+      it("still mints when the replacement is the token that was rejected", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 42 });
+        setTwitchIntegrity(replacement());
+        const contextsBefore = browser.tabs.create.mock.calls.length;
+
+        const pending = ensureTwitchIntegrityWithBrowser(
+          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined,
+          { forceRefresh: true, rejectedToken: replacement().integrity },
+        );
+        await vi.waitFor(() => {
+          expect(browser.tabs.create.mock.calls.length).toBeGreaterThan(contextsBefore);
+        });
+
+        setTwitchIntegrity({ ...replacement(), integrity: "fourth-token" }, { isNew: true });
+        await expect(pending).resolves.toBe(true);
       });
 
       it("leaves the non-forced fast path intact", async () => {
