@@ -2619,6 +2619,55 @@ describe("TwitchAdapter integrity recovery", () => {
     return { fetcher, attempts };
   }
 
+  // The refresh bound is only sound if the token it compares against is the one
+  // the failed request actually sent. The transport therefore attaches integrity
+  // itself and stamps the failure with what it used: re-reading a global in the
+  // catch would race a concurrent capture, report a token the request never
+  // carried, and — because that token differs from the current one — convince the
+  // forced refresh the rejection had already been handled.
+  it("reports the integrity token the rejected request actually carried", async () => {
+    // A fresh token on every read, so a value snapshotted anywhere other than at
+    // send time cannot coincidentally match what went out.
+    let minted = 0;
+    const currentIntegrity = () => {
+      minted += 1;
+      return { integrity: `token-${minted}`, deviceId: "device", clientSessionId: "session", expiresAt: Date.now() + 60_000 };
+    };
+    const sent: Array<string | null> = [];
+    const ensureIntegrity = integrityCallback();
+    let attempts = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      sent.push(new Headers(init?.headers as HeadersInit).get("client-integrity"));
+      attempts += 1;
+      return attempts === 1 ? INTEGRITY_REJECTION : { data: { currentUser: { id: "u" } } };
+    });
+
+    await new TwitchAdapter(fetcher, ensureIntegrity, undefined, { currentIntegrity }).checkAuthHealth();
+
+    expect(sent[0]).toBe("token-1");
+    expect(ensureIntegrity).toHaveBeenCalledWith({ forceRefresh: true, rejectedToken: sent[0] });
+  });
+
+  it("sends the integrity trio together so the replayed token stays bound to its identity", async () => {
+    const currentIntegrity = () => ({
+      integrity: "bound-token",
+      deviceId: "bound-device",
+      clientSessionId: "bound-session",
+      expiresAt: Date.now() + 60_000,
+    });
+    let seen: Headers | undefined;
+    const fetcher = jsonFetcher((_url, init) => {
+      seen = new Headers(init?.headers as HeadersInit);
+      return { data: { currentUser: { id: "u" } } };
+    });
+
+    await new TwitchAdapter(fetcher, undefined, undefined, { currentIntegrity }).checkAuthHealth();
+
+    expect(seen?.get("client-integrity")).toBe("bound-token");
+    expect(seen?.get("x-device-id")).toBe("bound-device");
+    expect(seen?.get("client-session-id")).toBe("bound-session");
+  });
+
   describe("safe authenticated reads", () => {
     const dropID = (init?: RequestInit) =>
       String((requestBody(init).variables as Record<string, unknown>).dropID);

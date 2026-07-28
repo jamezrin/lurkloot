@@ -3,7 +3,7 @@ import type { AdFocusMode, ChannelCandidate, Platform, WatchSession } from "@lur
 import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
 import {
   applyAdFocusWithBrowser,
-  currentTwitchIntegrityToken,
+  currentValidTwitchIntegrity,
   ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
   fetchKickInBackgroundWith,
@@ -44,7 +44,7 @@ export function ensureTwitchIntegrity(emit?: EventEmitter, request?: TwitchInteg
   return ensureTwitchIntegrityWithBrowser(browser as BrowserTabApi, TWITCH_PAGE_CONTEXT_URL, undefined, emit, request);
 }
 
-export { currentTwitchIntegrityToken };
+export { currentValidTwitchIntegrity };
 
 export function fetchTwitchInBackground<T>(url: string, init?: RequestInit): Promise<T> {
   return fetchTwitchInBackgroundWith<T>(browser as CookieApi, url, init);

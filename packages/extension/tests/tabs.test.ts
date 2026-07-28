@@ -1528,6 +1528,24 @@ describe("twitch integrity refresh", () => {
         await expect(pending).resolves.toBe(true);
       });
 
+      // A forced refresh can legitimately have no token to compare against —
+      // nothing captured yet, or a host that cannot report what it sent. It must
+      // still demand a freshly created context: inheriting a user's idle tab
+      // yields one that issues no request, so the wait can only time out.
+      it("still requires a fresh context when no rejected token is known", async () => {
+        const browser = browserMock();
+        browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+        browser.tabs.create.mockResolvedValue({ id: 43 });
+
+        const pending = ensureTwitchIntegrityWithBrowser(
+          browser, "https://www.twitch.tv/drops/inventory", 50, undefined, { forceRefresh: true },
+        );
+        await pending;
+
+        // Tab 3 was reusable, but a forced refresh must not reuse it.
+        expect(browser.tabs.create).toHaveBeenCalled();
+      });
+
       it("leaves the non-forced fast path intact", async () => {
         const browser = browserMock();
         setTwitchIntegrity(fresh());

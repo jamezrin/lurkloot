@@ -559,10 +559,16 @@ export interface TwitchIntegrityRequest {
   rejectedToken?: string;
 }
 
-// Read before issuing an authenticated request so the caller can report which
-// token was rejected if it fails. See TwitchIntegrityRequest.rejectedToken.
-export function currentTwitchIntegrityToken(): string | undefined {
-  return twitchIntegrity?.integrity;
+// The integrity bundle outgoing requests should carry, or undefined when there
+// is none to replay. Returned whole because the token is bound to the device id
+// and session id it was minted with — replaying the trio apart from each other
+// is rejected.
+//
+// Callers that assemble their own headers use this so the token they sent is
+// known exactly, rather than re-read later from a global that a concurrent
+// capture may have replaced in between. See TwitchIntegrityRequest.rejectedToken.
+export function currentValidTwitchIntegrity(): TwitchIntegrity | undefined {
+  return hasValidTwitchIntegrity() ? twitchIntegrity : undefined;
 }
 
 // A forced refresh boots a cold twitch.tv context and waits for Kasada's
@@ -639,7 +645,7 @@ export async function ensureTwitchIntegrityWithBrowser(
   const forceRefresh = request?.forceRefresh === true;
   if (!forceRefresh) {
     if (hasValidTwitchIntegrity()) return true;
-    return mintTwitchIntegrity(browserApi, originUrl, timeoutMs, emit, undefined);
+    return mintTwitchIntegrity(browserApi, originUrl, timeoutMs, emit, undefined, false);
   }
 
   // Another operation's refresh already replaced the token this caller was
@@ -656,7 +662,7 @@ export async function ensureTwitchIntegrityWithBrowser(
   }
 
   const rejectedToken = request?.rejectedToken ?? twitchIntegrity?.integrity;
-  const refresh = mintTwitchIntegrity(browserApi, originUrl, timeoutMs, emit, rejectedToken)
+  const refresh = mintTwitchIntegrity(browserApi, originUrl, timeoutMs, emit, rejectedToken, true)
     .finally(() => {
       inFlightForcedRefresh = undefined;
     });
@@ -672,8 +678,14 @@ async function mintTwitchIntegrity(
   timeoutMs: number,
   emit: EventEmitter,
   rejectedToken: string | undefined,
+  // Carried explicitly rather than derived from `rejectedToken != null`: a forced
+  // refresh can legitimately have no token to compare against (nothing captured
+  // yet, or a host that cannot report what it sent), and it must still demand a
+  // freshly created context. Inferring it would silently downgrade those cases to
+  // a plain mint, which may inherit an idle tab that issues no request and can
+  // only ever time out.
+  forceRefresh: boolean,
 ): Promise<boolean> {
-  const forceRefresh = rejectedToken != null;
   diagnostic(
     emit,
     "info",
