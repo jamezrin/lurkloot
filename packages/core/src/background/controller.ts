@@ -6,7 +6,16 @@ import { isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
-import { currentManagedPageContextTabs, INTEGRITY_REFRESH_TIMEOUT_MS, noteTwitchGqlRequest, registerManagedPageContextTabs, setTwitchIntegrity, syncManagedTabBreakers } from "../core/tabs";
+import {
+  currentManagedPageContextTabs,
+  INTEGRITY_REFRESH_TIMEOUT_MS,
+  isValidTwitchIntegrity,
+  noteTwitchGqlRequest,
+  registerManagedPageContextTabs,
+  setTwitchIntegrity,
+  syncManagedTabBreakers,
+  type TwitchIntegrityRequest,
+} from "../core/tabs";
 import { dismissCriticalFailure, recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
@@ -20,6 +29,9 @@ export const ALARM_NAME = "lurkloot.tick";
 // of the (heavier, configurable) discovery tick. chrome.alarms clamps to a
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
 export const WATCH_ALARM_NAME = "lurkloot.watch";
+export const TWITCH_INTEGRITY_ALARM_NAME = "lurkloot.twitch-integrity";
+export const TWITCH_INTEGRITY_REFRESH_LEAD_MS = 120_000;
+export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;
 // Reward ids claimed during one tick, per platform. The post-claim handoff needs
 // the ids (not just the platforms) so it can tell a genuine successor from the
 // reward that was just claimed.
@@ -142,7 +154,16 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   saveState(state: SchedulerState): Promise<void>;
   authProbeTimeoutMs?: number;
   reportEvents?: EventReporter;
-  createAlarm(name: string, options: { periodInMinutes: number }): Promise<void>;
+  createAlarm(
+    name: string,
+    options: { periodInMinutes: number } | { when: number },
+  ): Promise<void>;
+  clearAlarm?(name: string): Promise<boolean>;
+  ensureTwitchIntegrity?(
+    emit: EventEmitter,
+    request?: TwitchIntegrityRequest,
+  ): Promise<boolean>;
+  cancelTwitchIntegrityAcquisition?(reason?: unknown): void;
   createAdapters(emit: EventEmitter, settings: S): {
     adapters: Record<Platform, PlatformAdapter>;
     compatibility: ResolvedCompatibility;
@@ -337,27 +358,94 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Prime the in-memory integrity token from storage whenever the background
   // script (re)evaluates, so a claim right after a service-worker wake can use
   // the last captured token before any fresh page traffic is observed.
-  void loadStoredTwitchIntegrity();
+  const initialTwitchIntegrityLoad = loadStoredTwitchIntegrity();
+
+  function integrityRefreshJitter(token: string): number {
+    let hash = 2166136261;
+    for (let index = 0; index < token.length; index += 1) {
+      hash ^= token.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) % (TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS + 1);
+  }
+
+  async function clearTwitchIntegrityAlarm(): Promise<void> {
+    await deps.clearAlarm?.(TWITCH_INTEGRITY_ALARM_NAME);
+  }
+
+  async function scheduleTwitchIntegrityRefresh(
+    integrity: TwitchIntegrity,
+    emit?: EventEmitter,
+  ): Promise<void> {
+    const when = integrity.expiresAt
+      - TWITCH_INTEGRITY_REFRESH_LEAD_MS
+      - integrityRefreshJitter(integrity.integrity);
+    if (when <= Date.now()) {
+      await clearTwitchIntegrityAlarm();
+      return;
+    }
+    await deps.createAlarm(TWITCH_INTEGRITY_ALARM_NAME, { when });
+    emit?.({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "debug",
+      message: `Scheduled proactive Twitch integrity refresh for ${new Date(when).toISOString()}`,
+    });
+  }
+
+  async function scheduleTwitchIntegrityRefreshBestEffort(
+    integrity: TwitchIntegrity,
+    emit?: EventEmitter,
+  ): Promise<void> {
+    try {
+      await scheduleTwitchIntegrityRefresh(integrity, emit);
+    } catch (error) {
+      const event: DiagnosticEvent = {
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: `Could not schedule Twitch integrity refresh (${error instanceof Error ? error.message : String(error)})`,
+      };
+      if (emit) {
+        emit(event);
+      } else {
+        await reportBestEffort([event]);
+      }
+    }
+  }
 
   async function loadStoredTwitchIntegrity(): Promise<void> {
-    await withStateLock(async () => {
+    await withStateLock(() => withEventCollector(async (emit, events) => {
       try {
         const integrity = await deps.loadTwitchIntegrity?.();
-        if (integrity && integrity.expiresAt > Date.now()) {
+        if (isValidTwitchIntegrity(integrity)) {
           lastIntegrityToken = integrity.integrity;
           setTwitchIntegrity(integrity);
+          await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
+        } else if (integrity) {
+          emit({
+            category: "diagnostic",
+            level: "debug",
+            platform: "twitch",
+            message: "Stored Twitch integrity token is expired or too close to expiry; ignoring it",
+          });
         }
       } catch (error) {
         // A missing/corrupt stored token is non-fatal: fresh page traffic will
         // re-capture one, and claims simply stay best-effort until then.
-        await reportBestEffort([{
+        emit({
           category: "diagnostic",
           level: "debug",
           platform: "twitch",
           message: `No stored Twitch integrity token to prime (${error instanceof Error ? error.message : String(error)})`,
-        }]);
+        });
       }
-    });
+      await reportBestEffort(events);
+    }));
+  }
+
+  async function runTwitchIntegrityRefresh(): Promise<void> {
+    await loadStoredTwitchIntegrity();
   }
 
   // Fed by the background's webRequest listener with the outgoing headers of
@@ -378,6 +466,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       if (isNew) {
         lastIntegrityToken = integrity.integrity;
         await deps.saveTwitchIntegrity?.(integrity);
+        await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
       }
       await reportBestEffort(events);
     }));
@@ -1300,6 +1389,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // triggered has actually landed. Settling drains the chain until it stops
   // growing, so a tick that queues a post-claim handoff is covered too.
   async function settleBackgroundWork(): Promise<void> {
+    await initialTwitchIntegrityLoad;
     let pending = backgroundWork;
     for (;;) {
       await pending;
@@ -1791,6 +1881,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     handleMessage,
     resumeAfterManualClose,
     captureTwitchIntegrity,
+    runTwitchIntegrityRefresh,
     checkAuthHealth,
     invalidateAuthHealth,
     tick,

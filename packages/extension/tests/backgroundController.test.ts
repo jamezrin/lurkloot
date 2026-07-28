@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ALARM_NAME, createBackgroundController, type CredentialAvailability } from "@lurkloot/core/controller";
+import {
+  ALARM_NAME,
+  createBackgroundController,
+  TWITCH_INTEGRITY_ALARM_NAME,
+  type CredentialAvailability,
+} from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformAuthHealth, SchedulerState } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
@@ -11,8 +16,19 @@ import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/k
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
-import { forgetManagedPageContextTabs, KickWafBlockedError, managedTabBreakerOpen, recordManagedPageContextFallback, registerManagedPageContextTabs, syncManagedTabBreakers } from "@lurkloot/core/tabs";
+import {
+  currentValidTwitchIntegrity,
+  forgetManagedPageContextTabs,
+  KickWafBlockedError,
+  managedTabBreakerOpen,
+  recordManagedPageContextFallback,
+  registerManagedPageContextTabs,
+  setTwitchIntegrity,
+  syncManagedTabBreakers,
+  type TwitchIntegrityRequest,
+} from "@lurkloot/core/tabs";
 import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
+import type { IntegrityHeader, TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: "reward",
@@ -48,6 +64,24 @@ function deferred<T>() {
     reject = nextReject;
   });
   return { promise, resolve, reject };
+}
+
+function integrityBundle(overrides: Partial<TwitchIntegrity> = {}): TwitchIntegrity {
+  return {
+    integrity: "test-integrity-token",
+    clientSessionId: "test-session",
+    deviceId: "test-device",
+    expiresAt: Date.now() + 30 * 60_000,
+    ...overrides,
+  };
+}
+
+function integrityHeaders(integrity: TwitchIntegrity): IntegrityHeader[] {
+  return [
+    { name: "Client-Integrity", value: integrity.integrity },
+    { name: "Client-Session-Id", value: integrity.clientSessionId },
+    { name: "X-Device-Id", value: integrity.deviceId },
+  ];
 }
 
 // `running: true` used to be what made a fixture farm; with the master switch
@@ -140,6 +174,18 @@ function harness(
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
     checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
     authProbeTimeoutMs?: number;
+    loadTwitchIntegrity?: () => Promise<TwitchIntegrity | undefined>;
+    saveTwitchIntegrity?: (value: TwitchIntegrity) => Promise<void>;
+    createAlarm?: (
+      name: string,
+      options: { periodInMinutes: number } | { when: number },
+    ) => Promise<void>;
+    clearAlarm?: (name: string) => Promise<boolean>;
+    ensureTwitchIntegrity?: (
+      emit: EventEmitter,
+      request?: TwitchIntegrityRequest,
+    ) => Promise<boolean>;
+    cancelTwitchIntegrityAcquisition?: (reason?: unknown) => void;
   } = {},
 ) {
   let currentSettings = settings;
@@ -162,7 +208,13 @@ function harness(
     saveState: vi.fn(overrides.saveState ?? (async (next: SchedulerState) => {
       currentState = next;
     })),
-    createAlarm: vi.fn(async () => undefined),
+    createAlarm: vi.fn(overrides.createAlarm ?? (async (
+      _name: string,
+      _options: { periodInMinutes: number } | { when: number },
+    ) => undefined)),
+    clearAlarm: vi.fn(overrides.clearAlarm ?? (async () => true)),
+    ensureTwitchIntegrity: vi.fn(overrides.ensureTwitchIntegrity ?? (async () => true)),
+    cancelTwitchIntegrityAcquisition: vi.fn(overrides.cancelTwitchIntegrityAcquisition ?? (() => undefined)),
     createNotification: vi.fn(async () => undefined),
     closeManagedTabs: vi.fn(async () => undefined),
     applyAdFocus: vi.fn<(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => Promise<void>>(async () => undefined),
@@ -186,6 +238,12 @@ function harness(
     ...(overrides.authProbeTimeoutMs === undefined
       ? {}
       : { authProbeTimeoutMs: overrides.authProbeTimeoutMs }),
+    ...(overrides.loadTwitchIntegrity
+      ? { loadTwitchIntegrity: vi.fn(overrides.loadTwitchIntegrity) }
+      : {}),
+    ...(overrides.saveTwitchIntegrity
+      ? { saveTwitchIntegrity: vi.fn(overrides.saveTwitchIntegrity) }
+      : {}),
   };
 
   const controller = createBackgroundController(deps);
@@ -219,6 +277,190 @@ function harness(
 }
 
 describe("background controller", () => {
+  describe("Twitch integrity expiry scheduling", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-07-28T12:00:00.000Z"));
+      setTwitchIntegrity(undefined);
+    });
+
+    afterEach(() => {
+      setTwitchIntegrity(undefined);
+      vi.useRealTimers();
+    });
+
+    it("schedules integrity refresh from token expiry with stable bounded jitter", async () => {
+      const integrity = integrityBundle({
+        integrity: "stable-test-token",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+
+      await env.controller.settleBackgroundWork();
+
+      const calls = env.deps.createAlarm.mock.calls.filter(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      );
+      expect(calls).toHaveLength(1);
+      const when = (calls[0][1] as { when: number }).when;
+      expect(when).toBeLessThanOrEqual(integrity.expiresAt - 120_000);
+      expect(when).toBeGreaterThanOrEqual(integrity.expiresAt - 150_000);
+    });
+
+    it("ignores an expired stored token and reports why", async () => {
+      const integrity = integrityBundle({
+        integrity: "expired-test-token",
+        expiresAt: Date.now() - 1,
+      });
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+
+      await env.controller.settleBackgroundWork();
+
+      expect(env.deps.createAlarm.mock.calls.some(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )).toBe(false);
+      const events = env.reportEvents.mock.calls.flatMap(([batch]) => batch);
+      expect(events).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "debug",
+        message: expect.stringContaining("expired"),
+      }));
+    });
+
+    it("persists a captured replacement and replaces its one-shot schedule", async () => {
+      const stored = integrityBundle({
+        integrity: "stored-test-token",
+        expiresAt: Date.now() + 25 * 60_000,
+      });
+      const replacement = integrityBundle({
+        integrity: "replacement-test-token",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const saveTwitchIntegrity = vi.fn(async () => undefined);
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => stored,
+        saveTwitchIntegrity,
+      });
+      await env.controller.settleBackgroundWork();
+
+      await env.controller.captureTwitchIntegrity(integrityHeaders(replacement));
+
+      expect(saveTwitchIntegrity).toHaveBeenCalledWith(replacement);
+      const calls = env.deps.createAlarm.mock.calls.filter(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      );
+      expect(calls).toHaveLength(2);
+      expect(calls[1][1]).not.toEqual(calls[0][1]);
+    });
+
+    it("uses the same refresh jitter for the same token", async () => {
+      const integrity = integrityBundle({
+        integrity: "same-token-stable-jitter",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const first = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+      await first.controller.settleBackgroundWork();
+      const second = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+      await second.controller.settleBackgroundWork();
+
+      const firstWhen = (first.deps.createAlarm.mock.calls.find(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )?.[1] as { when: number }).when;
+      const secondWhen = (second.deps.createAlarm.mock.calls.find(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )?.[1] as { when: number }).when;
+      expect(secondWhen).toBe(firstWhen);
+    });
+
+    it("rechecks stored integrity scheduling when the refresh handler runs", async () => {
+      const integrity = integrityBundle({
+        integrity: "refresh-handler-test-token",
+      });
+      const loadTwitchIntegrity = vi.fn(async () => integrity);
+      const env = harness(undefined, { loadTwitchIntegrity });
+      await env.controller.settleBackgroundWork();
+
+      await env.controller.runTwitchIntegrityRefresh();
+
+      expect(loadTwitchIntegrity).toHaveBeenCalledTimes(2);
+      expect(env.deps.createAlarm.mock.calls.filter(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )).toHaveLength(2);
+    });
+
+    it("clears a prior alarm instead of creating an immediate refresh", async () => {
+      const integrity = integrityBundle({
+        expiresAt: Date.now() + 60_000,
+      });
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+
+      await env.controller.settleBackgroundWork();
+
+      expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_INTEGRITY_ALARM_NAME);
+      expect(env.deps.createAlarm.mock.calls.some(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )).toBe(false);
+    });
+
+    it("retains a captured token when alarm creation fails", async () => {
+      const integrity = integrityBundle({
+        integrity: "retained-after-alarm-failure",
+      });
+      const saveTwitchIntegrity = vi.fn(async () => undefined);
+      const env = harness(undefined, {
+        saveTwitchIntegrity,
+        createAlarm: async (name) => {
+          if (name === TWITCH_INTEGRITY_ALARM_NAME) throw new Error("alarm unavailable");
+        },
+      });
+      await env.controller.settleBackgroundWork();
+
+      await expect(env.controller.captureTwitchIntegrity(integrityHeaders(integrity))).resolves.toBeUndefined();
+
+      expect(saveTwitchIntegrity).toHaveBeenCalledWith(integrity);
+      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(env.reportEvents.mock.calls.flatMap(([batch]) => batch)).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "warn",
+          message: expect.stringContaining("alarm unavailable"),
+        }),
+      );
+    });
+
+    it("never includes integrity token material in diagnostics", async () => {
+      const integrity = integrityBundle({
+        integrity: "highly-sensitive-integrity-token",
+      });
+      const env = harness(undefined, {
+        createAlarm: async (name) => {
+          if (name === TWITCH_INTEGRITY_ALARM_NAME) throw new Error("alarm unavailable");
+        },
+      });
+      await env.controller.settleBackgroundWork();
+
+      await env.controller.captureTwitchIntegrity(integrityHeaders(integrity));
+
+      const diagnostics = env.reportEvents.mock.calls
+        .flatMap(([batch]) => batch)
+        .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
+      expect(diagnostics.length).toBeGreaterThan(0);
+      expect(diagnostics.every((event) => !event.message.includes(integrity.integrity))).toBe(true);
+    });
+  });
+
   it("retains Twitch discovery when each controller tick constructs a fresh adapter", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
