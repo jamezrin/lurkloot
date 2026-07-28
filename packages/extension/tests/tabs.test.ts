@@ -12,12 +12,14 @@ import {
   fetchTwitchInBackgroundWith,
   hasValidTwitchIntegrity,
   KickWafBlockedError,
+  noteTwitchGqlRequest,
   openPinnedMutedTabWithBrowser,
   PLAYBACK_PRIME_BACKOFF_MS,
   PLAYBACK_PRIME_MAX_ATTEMPTS,
   recordManagedPageContextBackgroundSuccessWithBrowser,
   recordManagedPageContextFallback,
   registerManagedPageContextTabs,
+  resetTwitchIntegrityRefreshBounds,
   resetPlaybackPriming,
   setTwitchIntegrity,
   stopManagedPageContextTabsWithBrowser,
@@ -1072,6 +1074,7 @@ describe("twitch integrity refresh", () => {
   beforeEach(() => {
     registerManagedPageContextTabs({});
     setTwitchIntegrity(undefined);
+    resetTwitchIntegrityRefreshBounds();
   });
 
   const fresh = () => ({
@@ -1236,6 +1239,82 @@ describe("twitch integrity refresh", () => {
       }));
     });
 
+    // A cold twitch.tv context reports `status === "complete"` as soon as the
+    // HTML shell lands, but the token only appears once the SPA has hydrated and
+    // solved Kasada's proof-of-work. The aggregate wait duration cannot say which
+    // of those phases ran long, so each boundary is reported separately.
+    describe("page context boot instrumentation", () => {
+      it("reports the phase split when the wait times out on a created context", async () => {
+        const browser = browserMock();
+        browser.tabs.query.mockResolvedValue([]);
+        browser.tabs.create.mockResolvedValue({ id: 21 });
+        const events: EngineEvent[] = [];
+
+        await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+
+        expect(events).toContainEqual(expect.objectContaining({
+          level: "warn",
+          message: expect.stringMatching(/tab ready at \d+ms, first GQL at never, \d+ms since the tab was created/),
+        }));
+      });
+
+      // An anonymous GQL request carries no Client-Integrity header, so the
+      // capture path drops it — but it is the only evidence that the SPA booted
+      // at all, which is what separates a slow boot from a slow challenge.
+      it("stamps the first GQL request the context issues, header or not", async () => {
+        const browser = browserMock();
+        browser.tabs.query.mockResolvedValue([]);
+        browser.tabs.create.mockResolvedValue({ id: 21 });
+        const events: EngineEvent[] = [];
+
+        const pending = ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+        await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalled());
+        noteTwitchGqlRequest(21);
+        await pending;
+
+        expect(events).toContainEqual(expect.objectContaining({
+          level: "warn",
+          message: expect.stringMatching(/first GQL at \d+ms/),
+        }));
+      });
+
+      it("ignores GQL requests from tabs other than the booting context", async () => {
+        const browser = browserMock();
+        browser.tabs.query.mockResolvedValue([]);
+        browser.tabs.create.mockResolvedValue({ id: 21 });
+        const events: EngineEvent[] = [];
+
+        const pending = ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+        await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalled());
+        noteTwitchGqlRequest(999);
+        await pending;
+
+        expect(events).toContainEqual(expect.objectContaining({
+          level: "warn",
+          message: expect.stringContaining("first GQL at never"),
+        }));
+      });
+
+      // A 20s success is the same latency problem as a 12s timeout; only logging
+      // the failure would hide every cold boot that happened to finish in time.
+      it("reports the wait duration on the success path too", async () => {
+        const browser = browserMock();
+        browser.tabs.query.mockResolvedValue([]);
+        browser.tabs.create.mockResolvedValue({ id: 21 });
+        const events: EngineEvent[] = [];
+
+        const pending = ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 5_000, (event) => events.push(event));
+        await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalled());
+        setTwitchIntegrity(fresh(), { isNew: true });
+
+        await expect(pending).resolves.toBe(true);
+        expect(events).toContainEqual(expect.objectContaining({
+          level: "debug",
+          message: expect.stringMatching(/Waited \d+ms for a Twitch integrity token from a created page context \(tab ready at/),
+        }));
+      });
+    });
+
     // Twitch can reject a token the extension still considers unexpired. Forced
     // refresh exists for exactly that case, so the local expiry must not be
     // allowed to short-circuit it.
@@ -1398,6 +1477,73 @@ describe("twitch integrity refresh", () => {
 
         setTwitchIntegrity({ ...replacement(), integrity: "third-token" }, { isNew: true });
         await expect(second).resolves.toBe(true);
+      });
+
+      // The expensive case #292 describes: a discovery pass issues ~10 authenticated
+      // operations, Twitch refuses them all on the same token, and each rejection
+      // used to boot its own cold page context and wait out Kasada again.
+      it("mints once for a burst of operations all rejected on the same token", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 41 });
+        setTwitchIntegrity(rejected());
+        const staleToken = rejected().integrity;
+
+        // The first operation's refresh lands a replacement.
+        setTimeout(() => setTwitchIntegrity(replacement(), { isNew: true }), 20);
+        await expect(ensureTwitchIntegrityWithBrowser(
+          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined,
+          { forceRefresh: true, rejectedToken: staleToken },
+        )).resolves.toBe(true);
+        const contextsAfterFirst = browser.tabs.create.mock.calls.length;
+
+        // The rest were refused on the same stale token before that landed. They
+        // have never tried the replacement, so nothing needs minting for them.
+        for (let index = 0; index < 5; index += 1) {
+          await expect(ensureTwitchIntegrityWithBrowser(
+            browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined,
+            { forceRefresh: true, rejectedToken: staleToken },
+          )).resolves.toBe(true);
+        }
+
+        expect(browser.tabs.create.mock.calls.length).toBe(contextsAfterFirst);
+      });
+
+      // The bound must key on which token was refused, not on elapsed time: a
+      // replacement that Twitch itself rejects still has to be re-minted at once.
+      it("still mints when the replacement is the token that was rejected", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 42 });
+        setTwitchIntegrity(replacement());
+        const contextsBefore = browser.tabs.create.mock.calls.length;
+
+        const pending = ensureTwitchIntegrityWithBrowser(
+          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined,
+          { forceRefresh: true, rejectedToken: replacement().integrity },
+        );
+        await vi.waitFor(() => {
+          expect(browser.tabs.create.mock.calls.length).toBeGreaterThan(contextsBefore);
+        });
+
+        setTwitchIntegrity({ ...replacement(), integrity: "fourth-token" }, { isNew: true });
+        await expect(pending).resolves.toBe(true);
+      });
+
+      // A forced refresh can legitimately have no token to compare against —
+      // nothing captured yet, or a host that cannot report what it sent. It must
+      // still demand a freshly created context: inheriting a user's idle tab
+      // yields one that issues no request, so the wait can only time out.
+      it("still requires a fresh context when no rejected token is known", async () => {
+        const browser = browserMock();
+        browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+        browser.tabs.create.mockResolvedValue({ id: 43 });
+
+        const pending = ensureTwitchIntegrityWithBrowser(
+          browser, "https://www.twitch.tv/drops/inventory", 50, undefined, { forceRefresh: true },
+        );
+        await pending;
+
+        // Tab 3 was reusable, but a forced refresh must not reuse it.
+        expect(browser.tabs.create).toHaveBeenCalled();
       });
 
       it("leaves the non-forced fast path intact", async () => {

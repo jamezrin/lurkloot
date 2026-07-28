@@ -3,6 +3,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
 import type { TwitchIntegrityRequest } from "../../core/tabs";
+import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
@@ -42,6 +43,13 @@ export interface TwitchAdapterOptions {
   heartbeatFetchText?: TwitchHeartbeatFetchText;
   heartbeatPost?: TwitchHeartbeatPost;
   discoveryState?: TwitchDiscoveryState;
+  // Supplies the integrity bundle each request should carry. The transport
+  // attaches it itself rather than letting the fetcher pick one up from a global,
+  // so the token a rejection reports is provably the token that was sent: the
+  // fetcher selects its own only after awaiting cookie reads, during which a
+  // concurrent capture can swap it. Absent in runtimes that never carry integrity
+  // at all (non-web client ids).
+  currentIntegrity?: () => TwitchIntegrity | undefined;
 }
 
 const TWITCH_QUERIES = {
@@ -187,10 +195,22 @@ function isIntegrityRejection(error: unknown, credentials?: RequestCredentials):
 type TwitchGqlFailureKind = "network" | "credentials" | "platform";
 
 class TwitchGqlFailure extends Error {
+  // The integrity token this request actually carried, when it carried one.
+  // A forced refresh compares against it so it can tell "the token I sent is
+  // still the current one, mint a replacement" from "someone already replaced
+  // it, just retry".
+  sentIntegrityToken?: string;
+
   constructor(readonly kind: TwitchGqlFailureKind, message: string) {
     super(message);
     this.name = "TwitchGqlFailure";
   }
+}
+
+// The token a failed request carried, when the failure knows. Undefined means
+// unknown, which makes a forced refresh mint unconditionally.
+function sentIntegrityToken(error: unknown): string | undefined {
+  return error instanceof TwitchGqlFailure ? error.sentIntegrityToken : undefined;
 }
 
 function isCredentialRejection(message: string | undefined): boolean {
@@ -402,6 +422,13 @@ export function createTwitchGqlTransport(
     emit: EventEmitter = ignoreEvent,
     signal?: AbortSignal,
   ): Promise<TwitchGqlResponse<T>> => {
+    // Read once per attempt and reused for both the headers and the failure
+    // stamp, so the two can never disagree.
+    let sentIntegrity: TwitchIntegrity | undefined;
+    const stamp = (failure: TwitchGqlFailure): TwitchGqlFailure => {
+      failure.sentIntegrityToken = sentIntegrity?.integrity;
+      return failure;
+    };
     const buildRequest = (queryText?: string) => ({
       method: "POST",
       headers: {
@@ -410,6 +437,15 @@ export function createTwitchGqlTransport(
         "Content-Type": "text/plain; charset=UTF-8",
         "Client-ID": clientId,
         ...(userAgent ? { "User-Agent": userAgent } : {}),
+        // The trio is bound together at mint time and must be replayed together.
+        // Set here rather than left to the fetcher so the sent token is known.
+        ...(sentIntegrity
+          ? {
+              "Client-Integrity": sentIntegrity.integrity,
+              ...(sentIntegrity.deviceId ? { "X-Device-Id": sentIntegrity.deviceId } : {}),
+              ...(sentIntegrity.clientSessionId ? { "Client-Session-Id": sentIntegrity.clientSessionId } : {}),
+            }
+          : {}),
       },
       ...(credentials ? { credentials } : {}),
       ...(signal ? { signal } : {}),
@@ -429,6 +465,8 @@ export function createTwitchGqlTransport(
       ),
     } satisfies RequestInit);
     const fetchOnce = async (queryText?: string): Promise<TwitchGqlResponse<T> | null> => {
+      // Anonymous queries deliberately carry no identity at all.
+      sentIntegrity = credentials === "omit" ? undefined : options.currentIntegrity?.();
       const request = buildRequest(queryText);
       let raw: unknown;
       try {
@@ -436,19 +474,19 @@ export function createTwitchGqlTransport(
       } catch (error) {
         if (authHealthFromError(error)) throw error;
         const message = error instanceof Error ? error.message : `${operationName} request failed`;
-        throw new TwitchGqlFailure("network", message);
+        throw stamp(new TwitchGqlFailure("network", message));
       }
       const pageError = twitchPageFetchError(raw);
       if (pageError?.kind === "credentials") {
         throw new SafeFetchError({ kind: "authentication_rejected", status: 401, reason: "Authenticated session rejected" });
       }
-      if (pageError) throw new TwitchGqlFailure(pageError.kind, `${operationName}: ${pageError.message}`);
+      if (pageError) throw stamp(new TwitchGqlFailure(pageError.kind, `${operationName}: ${pageError.message}`));
       return normalizeTwitchGqlResponse<T>(raw);
     };
     let activeQuery = query;
     let response = await fetchOnce(activeQuery);
     if (!isTwitchGqlResponse<T>(response)) {
-      throw new TwitchGqlFailure("platform", `${operationName} ${query ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
+      throw stamp(new TwitchGqlFailure("platform", `${operationName} ${query ? "inline query" : "persisted query"} returned an empty Twitch GQL response`));
     }
     const fallbackQuery = !query ? TWITCH_INLINE_QUERIES[operationName] : undefined;
     if (fallbackQuery && hasPersistedQueryNotFound(response)) {
@@ -456,14 +494,14 @@ export function createTwitchGqlTransport(
       activeQuery = fallbackQuery;
       response = await fetchOnce(activeQuery);
       if (!isTwitchGqlResponse<T>(response)) {
-        throw new TwitchGqlFailure("platform", `${operationName} inline query fallback returned an empty Twitch GQL response`);
+        throw stamp(new TwitchGqlFailure("platform", `${operationName} inline query fallback returned an empty Twitch GQL response`));
       }
     }
     if (response.errors?.some((error) => isTransientGqlError(error.message))) {
       diagnostic(emit, "debug", `GQL ${operationName} returned a transient error; retrying once`, "twitch");
       response = await fetchOnce(activeQuery);
       if (!isTwitchGqlResponse<T>(response)) {
-        throw new TwitchGqlFailure("platform", `${operationName} ${activeQuery ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
+        throw stamp(new TwitchGqlFailure("platform", `${operationName} ${activeQuery ? "inline query" : "persisted query"} returned an empty Twitch GQL response`));
       }
     }
     if (response.error || (response.message && response.data === undefined)) {
@@ -471,14 +509,14 @@ export function createTwitchGqlTransport(
       if (isCredentialRejection(message)) {
         throw new SafeFetchError({ kind: "authentication_rejected", status: 401, reason: "Authenticated session rejected" });
       }
-      throw new TwitchGqlFailure("platform", message);
+      throw stamp(new TwitchGqlFailure("platform", message));
     }
     if (response.errors?.length) {
       const message = response.errors.map((error) => error.message).filter(Boolean).join("; ") || `${operationName} failed`;
       if (isCredentialRejection(message)) {
         throw new SafeFetchError({ kind: "authentication_rejected", status: 401, reason: "Authenticated session rejected" });
       }
-      throw new TwitchGqlFailure("platform", message);
+      throw stamp(new TwitchGqlFailure("platform", message));
     }
     return response;
   };
@@ -914,7 +952,7 @@ export class TwitchAdapter implements PlatformAdapter {
       // Twitch rejected the token it was sent, so the local expiry says nothing:
       // only a forced refresh replaces it. Retry exactly once; a second failure
       // propagates.
-      const refreshed = await this.ensureIntegrity({ forceRefresh: true });
+      const refreshed = await this.ensureIntegrity({ forceRefresh: true, rejectedToken: sentIntegrityToken(error) });
       if (refreshed) return await this.runClaim(reward);
       throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
     }
@@ -953,7 +991,7 @@ export class TwitchAdapter implements PlatformAdapter {
     } catch (error) {
       if (!isIntegrityRejection(error)) throw error;
       diagnostic(this.emit, "warn", `Channel-points claim for ${channel.username} was rejected for integrity; refreshing the token and retrying once`, "twitch");
-      if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
+      if (!await this.ensureIntegrity({ forceRefresh: true, rejectedToken: sentIntegrityToken(error) })) throw error;
       return await this.runChannelPointsClaim(claimId, channelId);
     }
   }
@@ -1067,7 +1105,10 @@ export class TwitchAdapter implements PlatformAdapter {
     } catch (error) {
       if (!isIntegrityRejection(error, credentials)) throw error;
       diagnostic(emit, "debug", `GQL ${operationName} was rejected for integrity; refreshing the token and retrying once`, "twitch");
-      if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
+      // Taken from the failure, which carries the token the request actually
+      // sent. Re-reading it here would race a concurrent capture and could
+      // report a token this request never used.
+      if (!await this.ensureIntegrity({ forceRefresh: true, rejectedToken: sentIntegrityToken(error) })) throw error;
       return this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
     }
   }
@@ -1121,7 +1162,7 @@ class TwitchWatcher implements TablessWatchController {
 
   constructor(
     private readonly gql: TwitchGqlTransport,
-    options: TwitchAdapterOptions,
+    private readonly options: TwitchAdapterOptions,
     // Only the authenticated CurrentUser fallback below uses this. The anonymous
     // stream lookup and the heartbeat telemetry are deliberately excluded.
     private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean> = async () => false,
@@ -1209,7 +1250,7 @@ class TwitchWatcher implements TablessWatchController {
         // adapter's safe authenticated reads.
         if (!isIntegrityRejection(error)) throw error;
         this.log("debug", "Twitch viewer id lookup was rejected for integrity; refreshing the token and retrying once");
-        if (!await this.ensureIntegrity({ forceRefresh: true })) throw error;
+        if (!await this.ensureIntegrity({ forceRefresh: true, rejectedToken: sentIntegrityToken(error) })) throw error;
         response = await currentUser();
       }
       this.viewerUserId = response.data?.currentUser?.id;

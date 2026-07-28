@@ -3,6 +3,7 @@ import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSetting
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import {
   applyAdFocus,
+  currentValidTwitchIntegrity,
   ensureTwitchIntegrity,
   fetchJsonInPage,
   fetchKickInBackground,
@@ -99,6 +100,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
       {
         compatibility: resolution.compatibility.twitch,
         discoveryState: twitchDiscoveryState,
+        currentIntegrity: currentValidTwitchIntegrity,
         heartbeatIdentity: "web",
         heartbeatFetchText: twitchHeartbeatFetchText,
         heartbeatPost: twitchHeartbeatPost,
@@ -268,7 +270,7 @@ export default defineBackground(() => {
   // Chrome build hides it, add "extraHeaders" to this spec.
   browser.webRequest.onBeforeSendHeaders.addListener(
     (details) => {
-      void controller.captureTwitchIntegrity(details.requestHeaders);
+      void controller.captureTwitchIntegrity(details.requestHeaders, details.tabId);
       return undefined;
     },
     { urls: ["https://gql.twitch.tv/*"] },

@@ -6,7 +6,7 @@ import { isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
-import { currentManagedPageContextTabs, registerManagedPageContextTabs, setTwitchIntegrity, syncManagedTabBreakers } from "../core/tabs";
+import { currentManagedPageContextTabs, INTEGRITY_REFRESH_TIMEOUT_MS, noteTwitchGqlRequest, registerManagedPageContextTabs, setTwitchIntegrity, syncManagedTabBreakers } from "../core/tabs";
 import { dismissCriticalFailure, recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
@@ -57,7 +57,13 @@ function isNothingLeftToFarm(reasonCode: WatchReasonCode | undefined): boolean {
 // still transmits.
 const RECENT_HEARTBEAT_MS = 30_000;
 const PLATFORMS: Platform[] = ["twitch", "kick"];
-const DEFAULT_AUTH_PROBE_TIMEOUT_MS = 10_000;
+// Must stay strictly greater than INTEGRITY_REFRESH_TIMEOUT_MS. A Twitch probe
+// runs through gqlWithIntegrityRetry, so a rejection makes it wait on a page
+// context minting a token; when this deadline was the shorter of the two (10s
+// against a 12s wait) the probe could never observe that wait succeed. It
+// aborted first, every time, and — because the wait takes no AbortSignal (#293)
+// — left the wait and its tab running unowned behind it.
+const DEFAULT_AUTH_PROBE_TIMEOUT_MS = INTEGRITY_REFRESH_TIMEOUT_MS + 5_000;
 class AuthProbeSetupError extends Error {
   constructor(
     readonly platform: Platform,
@@ -358,7 +364,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // gql.twitch.tv requests. Only genuine page-minted requests carry a
   // Client-Integrity header, so integrityFromHeaders returns undefined (and we
   // ignore) our own background fetch and anonymous queries.
-  async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined): Promise<void> {
+  // `tabId` is optional so hosts that cannot attribute a request to a tab still
+  // capture tokens; it only feeds page-context boot instrumentation.
+  async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined, tabId?: number): Promise<void> {
+    // Noted before the integrity filter: an anonymous GQL request carries no
+    // Client-Integrity header but still proves the SPA has booted.
+    noteTwitchGqlRequest(tabId);
     const integrity = integrityFromHeaders(headers);
     if (!integrity) return;
     await withStateLock(() => withEventCollector(async (emit, events) => {
