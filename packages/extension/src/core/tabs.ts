@@ -44,7 +44,7 @@ export function ensureTwitchIntegrity(emit?: EventEmitter, request?: TwitchInteg
   return ensureTwitchIntegrityWithBrowser(browser as BrowserTabApi, TWITCH_PAGE_CONTEXT_URL, undefined, emit, request);
 }
 
-export { currentValidTwitchIntegrity };
+export { cancelTwitchIntegrityAcquisition, currentValidTwitchIntegrity } from "@lurkloot/core/tabs";
 
 export function fetchTwitchInBackground<T>(url: string, init?: RequestInit): Promise<T> {
   return fetchTwitchInBackgroundWith<T>(browser as CookieApi, url, init);

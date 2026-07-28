@@ -3,6 +3,7 @@ import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSetting
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import {
   applyAdFocus,
+  cancelTwitchIntegrityAcquisition,
   currentValidTwitchIntegrity,
   ensureTwitchIntegrity,
   fetchJsonInPage,
@@ -14,7 +15,7 @@ import {
   stopManagedPageContextTabs,
   stopWatchTab,
 } from "../src/core/tabs";
-import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
+import { ALARM_NAME, TWITCH_INTEGRITY_ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
@@ -134,6 +135,9 @@ const controller = createBackgroundController<ExtensionSettings>({
   reportEvents,
   checkCredentialAvailability,
   createAlarm: (name, options) => browser.alarms.create(name, options),
+  clearAlarm: (name) => browser.alarms.clear(name),
+  ensureTwitchIntegrity: (emit, request) => ensureTwitchIntegrity(emit, request),
+  cancelTwitchIntegrityAcquisition,
   closeManagedTabs: async (tabs) => {
     await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
       try {
@@ -256,6 +260,8 @@ export default defineBackground(() => {
       void controller.tickAndHandOff(undefined, "alarm");
     } else if (alarm.name === WATCH_ALARM_NAME) {
       void controller.runWatchHeartbeat();
+    } else if (alarm.name === TWITCH_INTEGRITY_ALARM_NAME) {
+      void controller.runTwitchIntegrityRefresh();
     }
   });
 
