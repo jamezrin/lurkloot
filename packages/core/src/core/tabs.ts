@@ -514,6 +514,11 @@ export const INTEGRITY_REFRESH_TIMEOUT_MS = 30_000;
 // Resolvers waiting for the next captured token (see waitForIntegrityCapture).
 let integrityWaiters: Array<() => void> = [];
 
+// Test seam for proving terminal paths release their process-global callbacks.
+export function currentTwitchIntegrityWaiterCount(): number {
+  return integrityWaiters.length;
+}
+
 // Phase timings for the twitch.tv page context currently being booted to mint an
 // integrity token. A cold boot costs far more than the document load: the tab
 // reports `status === "complete"` as soon as the HTML shell lands, but the token
@@ -616,6 +621,7 @@ export function cancelTwitchIntegrityAcquisition(reason?: unknown): void {
 export function resetTwitchIntegrityRefreshBounds(): void {
   inFlightIntegrityAcquisition?.abort.abort();
   inFlightIntegrityAcquisition = undefined;
+  integrityWaiters = [];
 }
 
 function hasReplacementTwitchIntegrity(rejectedToken?: string): boolean {
@@ -637,11 +643,18 @@ function waitForIntegrityCapture(
   if (hasReplacementTwitchIntegrity(rejectedToken)) return Promise.resolve(true);
   return new Promise((resolve, reject) => {
     let settled = false;
+    const removeWaiter = () => {
+      integrityWaiters = integrityWaiters.filter((waiter) => waiter !== onCapture);
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      removeWaiter();
+    };
     const finish = () => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
+      cleanup();
       resolve(hasReplacementTwitchIntegrity(rejectedToken));
     };
     const onCapture = () => {
@@ -657,7 +670,7 @@ function waitForIntegrityCapture(
     const onAbort = () => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      cleanup();
       reject(signal?.reason);
     };
     const timer = setTimeout(finish, timeoutMs);
@@ -727,7 +740,21 @@ function startTwitchIntegrityAcquisition(
 ): Promise<boolean> {
   if (inFlightIntegrityAcquisition) {
     diagnostic(emit, "debug", "Joining the Twitch integrity acquisition already in flight", "twitch");
-    return withAbortSignal(inFlightIntegrityAcquisition.promise, ownerSignal);
+    const joined = withAbortSignal(inFlightIntegrityAcquisition.promise, ownerSignal);
+    if (!forceRefresh) return joined;
+    return joined.then((captured) => {
+      ownerSignal?.throwIfAborted();
+      if (captured && hasReplacementTwitchIntegrity(rejectedToken)) return true;
+      return startTwitchIntegrityAcquisition(
+        browserApi,
+        originUrl,
+        timeoutMs,
+        emit,
+        rejectedToken,
+        true,
+        ownerSignal,
+      );
+    });
   }
 
   const abort = new AbortController();
