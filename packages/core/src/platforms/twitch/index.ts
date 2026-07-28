@@ -5,7 +5,7 @@ import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
 import type { TwitchIntegrityRequest } from "../../core/tabs";
 import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
-import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
@@ -600,15 +600,18 @@ export class TwitchAdapter implements PlatformAdapter {
     );
   }
 
-  async discoverCampaigns(signal?: AbortSignal): Promise<DropCampaign[]> {
-    let inventory = await this.fetchInventory(undefined, signal);
+  async discoverCampaigns({ signal }: AdapterOperationOptions = {}): Promise<DropCampaign[]> {
+    let inventory = await this.fetchInventory({ signal });
     let dashboardResult = await this.fetchDashboard(TWITCH_QUERIES.dashboard.variables, signal);
     let inventoryCampaigns = this.inventoryCapability.parse(inventory);
     let dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
 
     if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
       try {
-        inventory = await this.fetchInventory({ fetchRewardCampaigns: true }, signal);
+        inventory = await this.fetchInventory({
+          variables: { fetchRewardCampaigns: true },
+          signal,
+        });
         const fallbackDashboardResult = await this.fetchDashboard({ fetchRewardCampaigns: true }, signal);
         inventoryCampaigns = this.inventoryCapability.parse(inventory);
         if (fallbackDashboardResult.ok || !dashboardResult.ok) {
@@ -743,14 +746,21 @@ export class TwitchAdapter implements PlatformAdapter {
     return [...mergedDetails, ...inventoryOnly];
   }
 
-  async readProgress(campaigns: DropCampaign[], session?: WatchSession, signal?: AbortSignal): Promise<DropCampaign[]> {
-    const inventory = await this.fetchInventory(undefined, signal);
+  async readProgress(
+    campaigns: DropCampaign[],
+    session?: WatchSession,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<DropCampaign[]> {
+    const inventory = await this.fetchInventory({ signal });
     const inventoryProgress = this.inventoryCapability.reconcileProgress(campaigns, inventory);
     if (!session?.channel || session.status !== "watching") return inventoryProgress;
     return this.mergeCurrentSessionProgress(inventoryProgress, session.channel, signal);
   }
 
-  async listCandidateChannels(campaign: DropCampaign, signal?: AbortSignal): Promise<ChannelCandidate[]> {
+  async listCandidateChannels(
+    campaign: DropCampaign,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<ChannelCandidate[]> {
     const aclCandidates = twitchCandidatesFromCampaign(campaign);
     if (aclCandidates.length > 0) return aclCandidates;
     if (!campaign.slug && !campaign.categoryId) return [];
@@ -795,7 +805,10 @@ export class TwitchAdapter implements PlatformAdapter {
       .filter((candidate): candidate is ChannelCandidate => Boolean(candidate));
   }
 
-  async checkChannel(channel: ChannelCandidate, campaign?: DropCampaign, signal?: AbortSignal): Promise<ChannelCheck> {
+  async checkChannel(
+    channel: ChannelCandidate,
+    { campaign, signal }: AdapterOperationOptions & { campaign?: DropCampaign } = {},
+  ): Promise<ChannelCheck> {
     try {
       const response = await this.gql<TwitchStreamInfoData>(
         "StreamInfo",
@@ -907,10 +920,13 @@ export class TwitchAdapter implements PlatformAdapter {
       .filter((category) => category.id && category.name);
   }
 
-  private async fetchInventory(
-    variables: Record<string, unknown> = { ...this.inventoryCapability.variables },
-    signal?: AbortSignal,
-  ): Promise<unknown> {
+  private async fetchInventory({
+    variables = { ...this.inventoryCapability.variables },
+    signal,
+  }: {
+    variables?: Record<string, unknown>;
+    signal?: AbortSignal;
+  } = {}): Promise<unknown> {
     try {
       return await this.gqlWithIntegrityRetry<unknown>("Inventory", this.inventoryCapability.hash, variables, undefined, undefined, this.emit, signal);
     } catch (error) {
@@ -952,7 +968,11 @@ export class TwitchAdapter implements PlatformAdapter {
     return Boolean(reward.claimId);
   }
 
-  async claimReward(campaign: DropCampaign, reward: DropReward, signal?: AbortSignal): Promise<boolean> {
+  async claimReward(
+    campaign: DropCampaign,
+    reward: DropReward,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<boolean> {
     if (!reward.claimId) return false;
 
     diagnostic(this.emit, "debug", `Claiming ${reward.name} from ${campaign.name} (instance ${reward.claimId})`, "twitch");
@@ -1001,7 +1021,10 @@ export class TwitchAdapter implements PlatformAdapter {
     throw new Error(`Twitch refused claim for ${reward.name}: status=${status ?? "unknown"}`);
   }
 
-  async claimChannelPoints(channel: ChannelCandidate, signal?: AbortSignal): Promise<boolean> {
+  async claimChannelPoints(
+    channel: ChannelCandidate,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<boolean> {
     const context = await this.gqlWithIntegrityRetry<TwitchChannelPointsData>(
       "ChannelPointsContext",
       TWITCH_QUERIES.channelPointsHash,

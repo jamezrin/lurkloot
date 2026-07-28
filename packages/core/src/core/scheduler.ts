@@ -217,7 +217,7 @@ export async function chooseCampaignDecision(
 
     const excludedChannels = settings.platform[platform].excludedChannels ?? [];
     signal?.throwIfAborted();
-    const candidates = (await adapter.listCandidateChannels(campaign, signal))
+    const candidates = (await adapter.listCandidateChannels(campaign, { signal }))
       .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
       .sort((left, right) => {
         if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
@@ -346,7 +346,7 @@ async function firstValidCandidate(
 ): Promise<ChannelCandidate | undefined> {
   for (const candidate of candidates) {
     signal?.throwIfAborted();
-    const check = await adapter.checkChannel(candidate, campaign, signal);
+    const check = await adapter.checkChannel(candidate, { campaign, signal });
     if (check.live && check.categoryMatches && check.campaignMatches !== false) {
       return channelFromCheck(candidate, check);
     }
@@ -474,7 +474,7 @@ export async function runSchedulerTick(
     adapter: PlatformAdapter,
   ): Promise<void> {
     try {
-      await adapter.stopWatchTab?.(previous, undefined, options.signal);
+      await adapter.stopWatchTab?.(previous, { signal: options.signal });
     } catch (error) {
       emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Could not stop watch tab");
     }
@@ -564,7 +564,7 @@ export async function runSchedulerTick(
       // recovering on this (or any later) tick. Checked before every other gate
       // so nothing re-opens a tab behind the user's back.
       if (nextState.manualClosePause?.[platform]) {
-        await adapter.stopWatchTab?.(previous, undefined, options.signal);
+        await adapter.stopWatchTab?.(previous, { signal: options.signal });
         nextState.sessions[platform] = {
           ...previous,
           status: "paused",
@@ -591,7 +591,7 @@ export async function runSchedulerTick(
         continue;
       }
       if (settings.pauseOnManualWatch && hasRecentManualWatch(nextState, platform)) {
-        await adapter.stopWatchTab?.(previous, undefined, options.signal);
+        await adapter.stopWatchTab?.(previous, { signal: options.signal });
         nextState.sessions[platform] = {
           ...previous,
           status: "paused",
@@ -623,7 +623,7 @@ export async function runSchedulerTick(
         // enabled; this one being off while the other still farms stays a
         // platform-scoped stop. Both reason codes remain meaningful.
         const automationOff = !isFarmingActive(settings);
-        await adapter.stopWatchTab?.(previous, undefined, options.signal);
+        await adapter.stopWatchTab?.(previous, { signal: options.signal });
         nextState.sessions[platform] = {
           ...previous,
           status: "paused",
@@ -671,7 +671,7 @@ export async function runSchedulerTick(
           [platform]: { lastCheckedAt: new Date().toISOString() },
         };
         try {
-          for (const challenge of await adapter.claimChallenges(options.signal)) {
+          for (const challenge of await adapter.claimChallenges({ signal: options.signal })) {
             emit({
               category: "activity",
               code: "challenge_claimed",
@@ -709,9 +709,9 @@ export async function runSchedulerTick(
       let campaigns: DropCampaign[];
       let discoveryFailed = false;
       try {
-        const discovered = await adapter.discoverCampaigns(options.signal);
+        const discovered = await adapter.discoverCampaigns({ signal: options.signal });
         options.signal?.throwIfAborted();
-        campaigns = await adapter.readProgress(discovered, previous, options.signal);
+        campaigns = await adapter.readProgress(discovered, previous, { signal: options.signal });
       } catch (error) {
         options.signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
@@ -886,7 +886,7 @@ export async function runSchedulerTick(
         emitDiagnostic(emit, platform, decisionLevel, decision.reason);
       }
       if (decision.action === "idle") {
-        await adapter.stopWatchTab?.(previous, undefined, options.signal);
+        await adapter.stopWatchTab?.(previous, { signal: options.signal });
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
       }
       const session = sessionForDecision(decision, previous, shouldKeep);
@@ -898,7 +898,7 @@ export async function runSchedulerTick(
         // The `finally` on this loop still applies the tick's observation, which
         // is what prunes the churn window and eventually releases the breaker.
         if (settings.criticalFailurePromptEnabled && isManagedTabBreakerOpen(nextState, platform)) {
-          await adapter.stopWatchTab?.(previous, undefined, options.signal);
+          await adapter.stopWatchTab?.(previous, { signal: options.signal });
           nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
           nextState.sessions[platform] = {
             ...session,
@@ -921,7 +921,7 @@ export async function runSchedulerTick(
         if (useTabless) {
           // Tabless: no video tab. Close any tab we previously opened for this
           // platform; the controller starts/keeps the heartbeat watcher.
-          await adapter.stopWatchTab?.(previous, undefined, options.signal);
+          await adapter.stopWatchTab?.(previous, { signal: options.signal });
           nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
           session.watchMode = "tabless";
           session.tablessFallback = false;
@@ -946,8 +946,7 @@ export async function runSchedulerTick(
           const prepared = await adapter.prepareWatchTab(
             decision.channel,
             previous,
-            watchTabOptions,
-            options.signal,
+            { ...watchTabOptions, signal: options.signal },
           );
           // Only a genuinely NEW extension-managed tab counts as churn evidence.
           // Reusing the tab we already track happens on every ordinary tick, and
@@ -988,7 +987,7 @@ export async function runSchedulerTick(
         }
         if (autoClaimChannelPointsFor(settings, platform) && adapter.claimChannelPoints) {
           try {
-            const claimed = await adapter.claimChannelPoints(decision.channel, options.signal);
+            const claimed = await adapter.claimChannelPoints(decision.channel, { signal: options.signal });
             if (claimed) {
               emitDiagnostic(emit, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`);
             }
@@ -1120,7 +1119,7 @@ async function claimReadyRewards(
           continue;
         }
         try {
-          const claimed = await adapter.claimReward(campaign, reward, signal);
+          const claimed = await adapter.claimReward(campaign, reward, { signal });
           rewards.push(claimed ? { ...reward, status: "claimed", watchedMinutes: reward.requiredMinutes } : reward);
           if (claimed) {
             events.push({
@@ -1233,7 +1232,7 @@ async function shouldKeepWatching(
   // switch the channel based on liveness/category, so skip playback retries.
   const isTabless = previous.watchMode === "tabless";
   if (!settings.idleWatchlistFallbackOnly && !previous.campaignId && nextDecision.action === "watch") {
-    const fallbackCheck = await adapter.checkChannel(previous.channel, undefined, signal);
+    const fallbackCheck = await adapter.checkChannel(previous.channel, { signal });
     const fallbackOfflineChecks = fallbackCheck.live ? 0 : previous.offlineChecks + 1;
     if (fallbackCheck.live && fallbackCheck.categoryMatches) {
       const fallbackPlaybackChecks = nextPlaybackChecks(previous, isTabless);
@@ -1268,7 +1267,7 @@ async function shouldKeepWatching(
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Idle Watchlist channel available", reasonCode: "higher_priority_idle_watchlist" };
   }
 
-  const check = await adapter.checkChannel(previous.channel, undefined, signal);
+  const check = await adapter.checkChannel(previous.channel, { signal });
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
   if (offlineChecks >= settings.offlineRetryLimit) {
     return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached", reasonCode: "channel_offline" };

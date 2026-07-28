@@ -3,7 +3,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import { KickWafBlockedError } from "../../core/tabs";
 import { authHealthFromError } from "../../core/fetchError";
-import { diagnostic, ignoreEvent, unavailableWatchTabPort, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
 import type { ResolvedCompatibility } from "../../compatibility/types";
@@ -271,12 +271,16 @@ export class KickAdapter implements PlatformAdapter {
     );
   }
 
-  async discoverCampaigns(signal?: AbortSignal): Promise<DropCampaign[]> {
+  async discoverCampaigns({ signal }: AdapterOperationOptions = {}): Promise<DropCampaign[]> {
     const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/campaigns", { signal }, this.emit);
     return parseKickCampaigns(data as Parameters<typeof parseKickCampaigns>[0]);
   }
 
-  async readProgress(campaigns: DropCampaign[], _session?: WatchSession, signal?: AbortSignal): Promise<DropCampaign[]> {
+  async readProgress(
+    campaigns: DropCampaign[],
+    _session?: WatchSession,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<DropCampaign[]> {
     try {
       // Kick's WAF rejects authed drops endpoints that omit X-Client-Token with
       // "Request blocked by security policy." — the reference sends it on
@@ -310,7 +314,10 @@ export class KickAdapter implements PlatformAdapter {
     return parseKickCategories(data);
   }
 
-  async listCandidateChannels(campaign: DropCampaign, signal?: AbortSignal): Promise<ChannelCandidate[]> {
+  async listCandidateChannels(
+    campaign: DropCampaign,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<ChannelCandidate[]> {
     const aclCandidates = kickCandidatesFromCampaign(campaign);
     if (aclCandidates.length > 0) return aclCandidates;
 
@@ -339,7 +346,10 @@ export class KickAdapter implements PlatformAdapter {
     }).filter((candidate) => Boolean(candidate.username));
   }
 
-  async checkChannel(channel: ChannelCandidate, campaign?: DropCampaign, signal?: AbortSignal): Promise<ChannelCheck> {
+  async checkChannel(
+    channel: ChannelCandidate,
+    { campaign, signal }: AdapterOperationOptions & { campaign?: DropCampaign } = {},
+  ): Promise<ChannelCheck> {
     try {
       const data = await this.fetcher.fetchJson<KickChannelResponse>(
         `https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`,
@@ -372,7 +382,11 @@ export class KickAdapter implements PlatformAdapter {
     }
   }
 
-  async claimReward(campaign: DropCampaign, reward: DropReward, signal?: AbortSignal): Promise<boolean> {
+  async claimReward(
+    campaign: DropCampaign,
+    reward: DropReward,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<boolean> {
     if (!reward.claimId && reward.status !== "claimable") return false;
     if (this.claimCapability.isSuppressed?.(campaign, reward)) return false;
     // JSON.stringify drops `undefined`, so when no claim id was carried by
@@ -429,7 +443,7 @@ export class KickAdapter implements PlatformAdapter {
     }
   }
 
-  async claimChallenges(signal?: AbortSignal): Promise<ClaimedChallenge[]> {
+  async claimChallenges({ signal }: AdapterOperationOptions = {}): Promise<ClaimedChallenge[]> {
     const response = await this.fetcher.fetchJson<KickChallengesResponse>(
       "https://web.kick.com/api/v1/gamification/challenges",
       { signal },

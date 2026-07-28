@@ -386,7 +386,10 @@ describe("KickAdapter", () => {
     const campaign = { id: "campaign", categoryId: "99" } as DropCampaign;
     const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
 
-    await expect(adapter.checkChannel({ platform: "kick", username: "creator", url: "https://kick.com/creator" }, campaign))
+    await expect(adapter.checkChannel(
+      { platform: "kick", username: "creator", url: "https://kick.com/creator" },
+      { campaign },
+    ))
       .resolves.toMatchObject({
         live: true,
         categoryMatches: true,
@@ -641,7 +644,7 @@ describe("KickAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "kick", username: "creator", url: "https://kick.com/creator" },
-      { categoryId: "99" } as DropCampaign,
+      { campaign: { categoryId: "99" } as DropCampaign },
     )).resolves.toMatchObject({
       live: true,
       categoryMatches: true,
@@ -664,7 +667,7 @@ describe("KickAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "kick", username: "creator", url: "https://kick.com/creator" },
-      { categoryId: "99" } as DropCampaign,
+      { campaign: { categoryId: "99" } as DropCampaign },
     )).resolves.toMatchObject({
       live: false,
       categoryMatches: false,
@@ -2074,7 +2077,7 @@ describe("TwitchAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-      { categoryId: "game" } as DropCampaign,
+      { campaign: { categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({
       live: true,
       categoryMatches: true,
@@ -2098,7 +2101,7 @@ describe("TwitchAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator", isAclMatch: true },
-      { id: "campaign", categoryId: "game" } as DropCampaign,
+      { campaign: { id: "campaign", categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({
       live: true,
       categoryMatches: true,
@@ -2122,7 +2125,7 @@ describe("TwitchAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-      { id: "campaign", categoryId: "game" } as DropCampaign,
+      { campaign: { id: "campaign", categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({
       live: true,
       categoryMatches: true,
@@ -2144,7 +2147,7 @@ describe("TwitchAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-      { id: "campaign", categoryId: "game" } as DropCampaign,
+      { campaign: { id: "campaign", categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({
       live: true,
       categoryMatches: true,
@@ -2167,7 +2170,7 @@ describe("TwitchAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-      { id: "campaign", categoryId: "game" } as DropCampaign,
+      { campaign: { id: "campaign", categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({
       live: true,
       categoryMatches: true,
@@ -2195,7 +2198,7 @@ describe("TwitchAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-      { id: "campaign", categoryId: "game" } as DropCampaign,
+      { campaign: { id: "campaign", categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({ campaignMatches: true });
     expect(availabilityAttempts).toBe(2);
   });
@@ -2219,14 +2222,20 @@ describe("TwitchAdapter", () => {
       const adapter = new TwitchAdapter(fetcher);
       const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
 
-      await expect(adapter.checkChannel(candidate, { id: "available", categoryId: "game" } as DropCampaign))
+      await expect(adapter.checkChannel(candidate, {
+        campaign: { id: "available", categoryId: "game" } as DropCampaign,
+      }))
         .resolves.toMatchObject({ campaignMatches: true });
-      await expect(adapter.checkChannel(candidate, { id: "missing", categoryId: "game" } as DropCampaign))
+      await expect(adapter.checkChannel(candidate, {
+        campaign: { id: "missing", categoryId: "game" } as DropCampaign,
+      }))
         .resolves.toMatchObject({ campaignMatches: false });
       expect(availabilityCalls).toBe(1);
 
       vi.advanceTimersByTime(60_001);
-      await adapter.checkChannel(candidate, { id: "available", categoryId: "game" } as DropCampaign);
+      await adapter.checkChannel(candidate, {
+        campaign: { id: "available", categoryId: "game" } as DropCampaign,
+      });
       expect(availabilityCalls).toBe(2);
     } finally {
       vi.useRealTimers();
@@ -2303,7 +2312,7 @@ describe("TwitchAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-      { categoryId: "game" } as DropCampaign,
+      { campaign: { categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({
       live: true,
       categoryMatches: true,
@@ -2326,7 +2335,7 @@ describe("TwitchAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-      { categoryId: "game" } as DropCampaign,
+      { campaign: { categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({
       live: false,
       categoryMatches: false,
@@ -2348,7 +2357,7 @@ describe("TwitchAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-      { categoryId: "game" } as DropCampaign,
+      { campaign: { categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({
       live: false,
       reason: "Twitch GQL check failed; used channel page fallback",
@@ -2821,7 +2830,7 @@ describe("TwitchAdapter integrity recovery", () => {
 
       const check = await new TwitchAdapter(fetcher, ensureIntegrity).checkChannel(
         { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-        { id: "campaign", categoryId: "game" } as DropCampaign,
+        { campaign: { id: "campaign", categoryId: "game" } as DropCampaign },
       );
 
       expect(check.campaignMatches).toBe(true);

@@ -1993,13 +1993,11 @@ describe("background controller", () => {
     expect(isFarmingActive(env.settings)).toBe(false);
     expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 10 }),
-      undefined,
-      expect.any(AbortSignal),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(env.kick.stopWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 20 }),
-      undefined,
-      expect.any(AbortSignal),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     // Read from settled state rather than the returned snapshot: the snapshot is
     // now taken before the tick that applies the stop.
@@ -2041,7 +2039,7 @@ describe("background controller", () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     let tickSignal: AbortSignal | undefined;
     vi.mocked(env.twitch.discoverCampaigns).mockImplementation(
-      async (signal?: AbortSignal) => new Promise((_resolve, reject) => {
+      async ({ signal } = {}) => new Promise((_resolve, reject) => {
         tickSignal = signal;
         signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
       }),
@@ -2072,7 +2070,7 @@ describe("background controller", () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     let tickSignal: AbortSignal | undefined;
     vi.mocked(env.twitch.discoverCampaigns).mockImplementation(
-      async (signal?: AbortSignal) => new Promise((_resolve, reject) => {
+      async ({ signal } = {}) => new Promise((_resolve, reject) => {
         tickSignal = signal;
         signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
       }),
