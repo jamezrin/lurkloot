@@ -2919,7 +2919,10 @@ describe("TwitchAdapter integrity recovery", () => {
 
       expect(attempts.get("DropsPage_ClaimDropRewards")).toBe(2);
       // Proactive fast path first, then an explicit forced refresh.
-      expect(ensureIntegrity.mock.calls).toEqual([[], [{ forceRefresh: true }]]);
+      expect(ensureIntegrity.mock.calls).toEqual([
+        [{ signal: undefined }],
+        [{ forceRefresh: true, rejectedToken: undefined, signal: undefined }],
+      ]);
     });
 
     it("recovers the channel-points context through the safe-read path", async () => {
@@ -2961,7 +2964,10 @@ describe("TwitchAdapter integrity recovery", () => {
       })).resolves.toBe(true);
 
       expect(attempts.get("ClaimCommunityPoints")).toBe(2);
-      expect(ensureIntegrity.mock.calls).toEqual([[], [{ forceRefresh: true }]]);
+      expect(ensureIntegrity.mock.calls).toEqual([
+        [{ signal: undefined }],
+        [{ forceRefresh: true, rejectedToken: undefined, signal: undefined }],
+      ]);
     });
 
     it("propagates a second channel-points rejection without a third attempt", async () => {

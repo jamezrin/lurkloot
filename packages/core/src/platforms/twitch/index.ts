@@ -960,8 +960,7 @@ export class TwitchAdapter implements PlatformAdapter {
     // live twitch.tv page (see src/core/twitchIntegrity.ts). Proactively ensure one
     // exists first so a tabless / no-tab session can still claim. This is a no-op
     // fast path when a token is already captured.
-    if (signal) await this.ensureIntegrity({ signal });
-    else await this.ensureIntegrity();
+    await this.ensureIntegrity({ signal });
 
     try {
       return await this.runClaim(reward, signal);
@@ -977,8 +976,8 @@ export class TwitchAdapter implements PlatformAdapter {
       const rejectedToken = sentIntegrityToken(error);
       const refreshed = await this.ensureIntegrity({
         forceRefresh: true,
-        ...(rejectedToken ? { rejectedToken } : {}),
-        ...(signal ? { signal } : {}),
+        rejectedToken,
+        signal,
       });
       if (refreshed) return await this.runClaim(reward, signal);
       throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
@@ -1020,8 +1019,7 @@ export class TwitchAdapter implements PlatformAdapter {
     // exists first (a no-op fast path when a token is already captured), then
     // recover explicitly rather than through a generic transport retry — the
     // same claim id must never be replayed more than once.
-    if (signal) await this.ensureIntegrity({ signal });
-    else await this.ensureIntegrity();
+    await this.ensureIntegrity({ signal });
     try {
       return await this.runChannelPointsClaim(claimId, channelId, signal);
     } catch (error) {
@@ -1030,8 +1028,8 @@ export class TwitchAdapter implements PlatformAdapter {
       const rejectedToken = sentIntegrityToken(error);
       if (!await this.ensureIntegrity({
         forceRefresh: true,
-        ...(rejectedToken ? { rejectedToken } : {}),
-        ...(signal ? { signal } : {}),
+        rejectedToken,
+        signal,
       })) throw error;
       return await this.runChannelPointsClaim(claimId, channelId, signal);
     }
@@ -1166,8 +1164,8 @@ export class TwitchAdapter implements PlatformAdapter {
       const rejectedToken = sentIntegrityToken(error);
       if (!await this.ensureIntegrity({
         forceRefresh: true,
-        ...(rejectedToken ? { rejectedToken } : {}),
-        ...(signal ? { signal } : {}),
+        rejectedToken,
+        signal,
       })) throw error;
       return this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
     }
