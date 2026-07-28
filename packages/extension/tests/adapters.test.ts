@@ -631,11 +631,13 @@ describe("KickAdapter", () => {
   });
 
   it("falls back to Kick channel page data when the channel API fails", async () => {
-    const fetcher = jsonFetcher((url) => {
+    const abort = new AbortController();
+    const fetcher = jsonFetcher((url, init) => {
       if (url === "https://kick.com/api/v2/channels/creator") {
         throw new Error("Kick API unavailable");
       }
       if (url === "https://kick.com/creator") {
+        expect(init?.signal).toBe(abort.signal);
         return { html: '{"livestream":{"is_live":true,"category":{"id":99,"name":"Game"}}}' };
       }
       throw new Error(`Unexpected URL ${url}`);
@@ -644,7 +646,7 @@ describe("KickAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "kick", username: "creator", url: "https://kick.com/creator" },
-      { campaign: { categoryId: "99" } as DropCampaign },
+      { campaign: { categoryId: "99" } as DropCampaign, signal: abort.signal },
     )).resolves.toMatchObject({
       live: true,
       categoryMatches: true,
@@ -2299,11 +2301,13 @@ describe("TwitchAdapter", () => {
   });
 
   it("falls back to Twitch channel page data when stream info GQL fails", async () => {
+    const abort = new AbortController();
     const fetcher = jsonFetcher((url, init) => {
       if (url === "https://gql.twitch.tv/gql" && operation(init) === "StreamInfo") {
         return { errors: [{ message: "PersistedQueryNotFound" }] };
       }
       if (url === "https://www.twitch.tv/creator") {
+        expect(init?.signal).toBe(abort.signal);
         return { html: '{"isLiveBroadcast":true,"game":{"id":"game","name":"Game"}}' };
       }
       throw new Error(`Unexpected URL ${url}`);
@@ -2312,7 +2316,7 @@ describe("TwitchAdapter", () => {
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-      { campaign: { categoryId: "game" } as DropCampaign },
+      { campaign: { categoryId: "game" } as DropCampaign, signal: abort.signal },
     )).resolves.toMatchObject({
       live: true,
       categoryMatches: true,

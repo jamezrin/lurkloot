@@ -112,6 +112,7 @@ export async function openPinnedMutedTabWithBrowser(
   emit: EventEmitter = ignoreEvent,
 ): Promise<PreparedWatchTab> {
   const tabOptions = { ...DEFAULT_WATCH_TAB_OPTIONS, ...options };
+  tabOptions.signal?.throwIfAborted();
   const registered = tabOptions.managedTab ?? managedTabFromSession(session, channel.url);
 
   if (registered) {
@@ -129,6 +130,7 @@ export async function openPinnedMutedTabWithBrowser(
           await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
         }
         diagnostic(emit, "debug", `Reusing managed watch tab ${tab.id} for ${channel.username}`, channel.platform);
+        tabOptions.signal?.throwIfAborted();
         return {
           tabId: tab.id,
           managedByExtension: true,
@@ -154,6 +156,7 @@ export async function openPinnedMutedTabWithBrowser(
           await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
         }
         diagnostic(emit, "debug", `Reusing your tab ${tab.id} for ${channel.username}`, channel.platform);
+        tabOptions.signal?.throwIfAborted();
         return { tabId: tab.id, managedByExtension: false };
       }
     } catch {
@@ -183,6 +186,16 @@ export async function openPinnedMutedTabWithBrowser(
   if (tab.id == null) {
     diagnostic(emit, "error", `Could not create ${channel.platform} watch tab for ${channel.username}`, channel.platform);
     throw new Error(`Could not create ${channel.platform} watch tab`);
+  }
+  if (tabOptions.signal?.aborted) {
+    if (browserApi.tabs.remove) {
+      try {
+        await browserApi.tabs.remove(tab.id);
+      } catch {
+        // The new managed tab may already have been closed independently.
+      }
+    }
+    tabOptions.signal.throwIfAborted();
   }
   await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
   if (tabOptions.keepVideosUnmuted) {
@@ -321,11 +334,13 @@ function managedTab(channel: ChannelCandidate, tabId: number): ManagedWatchTab {
 
 export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session: WatchSession, options?: Partial<WatchTabOptions>, emit: EventEmitter = ignoreEvent): Promise<void> {
   const tabOptions = { ...DEFAULT_WATCH_TAB_OPTIONS, ...options };
+  tabOptions.signal?.throwIfAborted();
   if (!session.tabId) return;
   try {
     if (session.tabManagedByExtension && tabOptions.closeManagedTabs && browserApi.tabs.remove) {
       await browserApi.tabs.remove(session.tabId);
       diagnostic(emit, "debug", `Closed managed watch tab ${session.tabId}`, session.platform);
+      tabOptions.signal?.throwIfAborted();
       return;
     }
     await browserApi.tabs.update(session.tabId, {
@@ -338,6 +353,7 @@ export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session
     // The user may have closed the tab already.
     diagnostic(emit, "debug", `Watch tab ${session.tabId} was already closed`, session.platform);
   }
+  tabOptions.signal?.throwIfAborted();
 }
 
 // While an ad is rolling, the managed watch tab must be the active tab in a

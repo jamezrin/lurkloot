@@ -379,6 +379,26 @@ describe("background controller", () => {
     }
   });
 
+  it("shutdown preempts a stalled credential availability check", async () => {
+    const checkCredentialAvailability = vi.fn(async () => new Promise<never>(() => undefined));
+    const env = harness(
+      farming(DEFAULT_SETTINGS),
+      {
+        authProbeTimeoutMs: 60_000,
+        checkCredentialAvailability,
+      },
+    );
+
+    const ticking = env.controller.tick();
+    await vi.waitFor(() => {
+      expect(checkCredentialAvailability).toHaveBeenCalled();
+    });
+
+    env.controller.shutdown();
+
+    await expect(ticking).resolves.toEqual({});
+  });
+
   it("does not start a Kick page fallback after the auth deadline aborts background fetch", async () => {
     vi.useFakeTimers();
     try {

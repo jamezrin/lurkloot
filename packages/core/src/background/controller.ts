@@ -566,7 +566,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // keeps the failure from propagating into the tick, where a rollback would
     // strand the popup on "Checking your signed-in session…" indefinitely.
     const abort = new AbortController();
-    const abortFromTick = () => abort.abort(signal?.reason);
+    let rejectCancelled: (reason?: unknown) => void = () => {};
+    const cancelled = new Promise<PlatformAuthHealth>((_resolve, reject) => {
+      rejectCancelled = reject;
+    });
+    const abortFromTick = () => {
+      abort.abort(signal?.reason);
+      rejectCancelled(signal?.reason);
+    };
     signal?.throwIfAborted();
     signal?.addEventListener("abort", abortFromTick, { once: true });
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -612,7 +619,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       }, deps.authProbeTimeoutMs ?? DEFAULT_AUTH_PROBE_TIMEOUT_MS);
     });
     try {
-      return await Promise.race([terminalProbe, timedOut]);
+      return await Promise.race([terminalProbe, timedOut, cancelled]);
     } finally {
       signal?.removeEventListener("abort", abortFromTick);
       if (timeout !== undefined) clearTimeout(timeout);

@@ -520,6 +520,25 @@ describe("tab manager", () => {
     expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
   });
 
+  it("closes a newly created managed tab when creation finishes after cancellation", async () => {
+    const browser = browserMock();
+    const abort = new AbortController();
+    vi.mocked(browser.tabs.create).mockImplementation(async () => {
+      abort.abort(new Error("reset"));
+      return { id: 9 };
+    });
+
+    await expect(openPinnedMutedTabWithBrowser(
+      browser,
+      channel,
+      undefined,
+      { signal: abort.signal },
+    )).rejects.toThrow("reset");
+
+    expect(browser.tabs.remove).toHaveBeenCalledWith(9);
+    expect(browser.tabs.update).not.toHaveBeenCalledWith(9, expect.anything());
+  });
+
   it("does not foreground-prime new tabs when page video control is disabled", async () => {
     const browser = browserMock();
 

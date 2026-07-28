@@ -417,6 +417,32 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
+  it("passes cancellation to Idle Watchlist channel checks", async () => {
+    const abort = new AbortController();
+    const checkChannel = vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate }));
+
+    await chooseCampaignDecision(
+      "twitch",
+      [],
+      settings({
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, idleWatchlistChannels: ["fallback"] },
+        },
+      }),
+      {
+        listCandidateChannels: vi.fn(async () => []),
+        checkChannel,
+      },
+      abort.signal,
+    );
+
+    expect(checkChannel).toHaveBeenCalledWith(
+      expect.objectContaining({ username: "fallback" }),
+      { campaign: undefined, signal: abort.signal },
+    );
+  });
+
   it("prefers ACL candidates over general category streams", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",

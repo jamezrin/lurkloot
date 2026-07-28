@@ -850,7 +850,7 @@ export class TwitchAdapter implements PlatformAdapter {
       };
     } catch (error) {
       signal?.throwIfAborted();
-      return this.checkChannelFromPage(channel, campaign, error);
+      return this.checkChannelFromPage(channel, campaign, error, signal);
     }
   }
 
@@ -1198,11 +1198,12 @@ export class TwitchAdapter implements PlatformAdapter {
     channel: ChannelCandidate,
     campaign: DropCampaign | undefined,
     originalError: unknown,
+    signal?: AbortSignal,
   ): Promise<ChannelCheck> {
     const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
     diagnostic(this.emit, "debug", `Channel GQL check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "twitch");
     try {
-      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, undefined, this.emit);
+      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, { signal }, this.emit);
       const html = page.html ?? "";
       const live = parseLiveState(html);
       if (!live) {
@@ -1220,6 +1221,7 @@ export class TwitchAdapter implements PlatformAdapter {
         },
       };
     } catch {
+      signal?.throwIfAborted();
       return {
         live: false,
         categoryMatches: false,

@@ -378,7 +378,7 @@ export class KickAdapter implements PlatformAdapter {
     } catch (error) {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      return this.checkChannelFromPage(channel, campaign, error);
+      return this.checkChannelFromPage(channel, campaign, error, signal);
     }
   }
 
@@ -507,11 +507,12 @@ export class KickAdapter implements PlatformAdapter {
     channel: ChannelCandidate,
     campaign: DropCampaign | undefined,
     originalError: unknown,
+    signal?: AbortSignal,
   ): Promise<ChannelCheck> {
     const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
     diagnostic(this.emit, "debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "kick");
     try {
-      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, undefined, this.emit);
+      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, { signal }, this.emit);
       const html = page.html ?? "";
       const live = parseBooleanField(html, ["is_live", "isLive", "live"]) ?? html.includes("livestream");
       const actualCategoryId = parseCategoryId(html);
@@ -526,6 +527,7 @@ export class KickAdapter implements PlatformAdapter {
         },
       };
     } catch {
+      signal?.throwIfAborted();
       return {
         live: false,
         categoryMatches: false,

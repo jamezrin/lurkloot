@@ -251,7 +251,7 @@ export async function chooseCampaignDecision(
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean)
     .map((username) => fallbackChannel(platform, username));
-  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter);
+  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter, signal);
 
   if (fallback) {
     return {
@@ -992,6 +992,7 @@ export async function runSchedulerTick(
               emitDiagnostic(emit, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`);
             }
           } catch (error) {
+            options.signal?.throwIfAborted();
             if (authHealthFromError(error)) throw error;
             emitDiagnostic(
               emit,
