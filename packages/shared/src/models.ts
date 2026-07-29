@@ -130,7 +130,7 @@ export interface WatchSession {
   playbackChecks?: number;
   errorChecks?: number;
   retryAfter?: string;
-  status: "idle" | "watching" | "paused" | "error";
+  status: "idle" | "starting" | "watching" | "paused" | "error";
   message?: string;
   reasonCode?: WatchReasonCode;
   playback?: PlaybackTelemetry;

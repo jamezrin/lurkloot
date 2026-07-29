@@ -19,12 +19,17 @@ function health(
   };
 }
 
-function session(message?: string): WatchSession {
+function session(
+  status: WatchSession["status"] = "idle",
+  message?: string,
+  reasonCode?: WatchSession["reasonCode"],
+): WatchSession {
   return {
     platform: "twitch",
-    status: "idle",
+    status,
     offlineChecks: 0,
     message,
+    reasonCode,
   };
 }
 
@@ -155,13 +160,13 @@ describe("automation authentication presentation", () => {
     expect(result).not.toHaveProperty("message");
   });
 
-  it("keeps an enabled platform in one canonical starting presentation after the request settles", () => {
+  it("uses the typed starting session status after the request settles", () => {
     expect(automationPresentation({
       platform: "twitch",
       enabled: true,
       pending: false,
       authHealth: health("healthy"),
-      session: session("Starting automation"),
+      session: session("starting", "Any display-only detail"),
     })).toMatchObject({
       state: "starting",
       badgeKey: "automationStarting",
@@ -170,21 +175,40 @@ describe("automation authentication presentation", () => {
     });
   });
 
-  it.each(["Automation disabled", "Platform disabled", "Starting automation"])(
-    "does not expose stale %s detail under a running badge",
-    (message) => {
+  it.each([
+    ["automation_disabled", "Automation disabled"],
+    ["platform_disabled", "Platform disabled"],
+  ] as const)(
+    "keeps a stale %s session paused when automation is re-enabled",
+    (reasonCode, message) => {
       const result = automationPresentation({
         platform: "twitch",
         enabled: true,
         pending: false,
         authHealth: health("healthy"),
-        session: session(message),
+        session: session("idle", message, reasonCode),
       });
 
-      expect(result.state).toBe(message === "Starting automation" ? "starting" : "running");
+      expect(result.state).toBe("paused");
       expect(result.statusMessage).toBeUndefined();
     },
   );
+
+  it("does not derive lifecycle from a starting display message", () => {
+    const result = automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: session("idle", "Starting automation", "no_eligible_channel"),
+    });
+
+    expect(result).toMatchObject({
+      state: "running",
+      badgeKey: "automationRunning",
+      statusMessage: "Starting automation",
+    });
+  });
 
   it("preserves compatible settled scheduler detail for a running platform", () => {
     expect(automationPresentation({
@@ -192,7 +216,7 @@ describe("automation authentication presentation", () => {
       enabled: true,
       pending: false,
       authHealth: health("healthy"),
-      session: session("Waiting for an eligible stream"),
+      session: session("idle", "Waiting for an eligible stream", "no_eligible_channel"),
     })).toMatchObject({
       state: "running",
       statusMessage: "Waiting for an eligible stream",

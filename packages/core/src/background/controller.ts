@@ -1901,10 +1901,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   // The persisted session still describes the platform as it was *before* the
-  // toggle ("Automation disabled"), and nothing rewrites it until the tick
-  // finishes. Detaching the tick alone would not fix that: the popup polls the
-  // stored state, so a slow tick leaves it rendering a status that contradicts
-  // the switch the user just flipped. Stamp the transition up front instead.
+  // toggle, and nothing rewrites it until the tick finishes. Detaching the tick
+  // alone would not fix that: the popup polls stored state, so a slow tick can
+  // leave it rendering a lifecycle that contradicts the switch the user just
+  // flipped. Persist the typed transition up front instead.
   async function markPlatformsStarting(
     platforms: readonly Platform[],
     transitionIsCurrent: () => boolean = () => true,
@@ -1921,7 +1921,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (session.status === "watching") continue;
         sessions[platform] = {
           ...session,
-          status: "idle",
+          status: "starting",
           message: "Starting automation",
           reasonCode: "no_existing_session",
         };

@@ -133,7 +133,7 @@ describe("popup authentication health", () => {
   it("renders one canonical starting state after the enable request settles", async () => {
     const { container } = await mountWithSnapshots(
       [{ status: "healthy", checkedAt: "2026-07-29T19:00:00.000Z" }],
-      { status: "idle", message: "Starting automation" },
+      { status: "starting", message: "Starting automation" },
     );
 
     const hero = container.querySelector('[data-automation-state="starting"]');
@@ -142,15 +142,15 @@ describe("popup authentication health", () => {
     expect(hero?.textContent).toContain("Starting automation...");
   });
 
-  it("does not render stale disabled detail for an enabled running platform", async () => {
+  it("keeps a stale disabled session paused after automation is re-enabled", async () => {
     const { container } = await mountWithSnapshots(
       [{ status: "healthy", checkedAt: "2026-07-29T19:00:00.000Z" }],
-      { status: "idle", message: "Automation disabled" },
+      { status: "idle", message: "Automation disabled", reasonCode: "automation_disabled" },
     );
 
-    const hero = container.querySelector('[data-automation-state="running"]');
+    const hero = container.querySelector('[data-automation-state="paused"]');
     expect(hero).not.toBeNull();
-    expect(hero?.textContent).toContain("Running");
+    expect(hero?.textContent).toContain("Paused");
     expect(hero?.textContent).not.toContain("Automation disabled");
   });
 });

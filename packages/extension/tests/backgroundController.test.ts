@@ -867,7 +867,7 @@ describe("background controller", () => {
       await vi.waitFor(() => expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce());
       expect(acquisitionSettled).toBe(false);
       expect(snapshot.settings.platform.twitch.enabled).toBe(true);
-      expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+      expect(snapshot.state.sessions.twitch.status).toBe("starting");
 
       acquisition.resolve(false);
       await env.rawController.settleBackgroundWork();
@@ -987,7 +987,7 @@ describe("background controller", () => {
       let persistedState = structuredClone(env.state);
       env.deps.loadState.mockImplementation(async () => persistedState);
       env.deps.saveState.mockImplementation(async (next: SchedulerState) => {
-        if (next.sessions.twitch.message === "Starting automation") {
+        if (next.sessions.twitch.status === "starting") {
           await startingSave.promise;
         } else if (next.sessions.twitch.reasonCode === "automation_disabled") {
           await disabledSave.promise;
@@ -1003,7 +1003,7 @@ describe("background controller", () => {
       await vi.waitFor(() => expect(env.deps.saveState).toHaveBeenCalledWith(
         expect.objectContaining({
           sessions: expect.objectContaining({
-            twitch: expect.objectContaining({ message: "Starting automation" }),
+            twitch: expect.objectContaining({ status: "starting" }),
           }),
         }),
       ));
@@ -1029,7 +1029,7 @@ describe("background controller", () => {
       await Promise.all([enabling, disabling]);
       await env.rawController.settleBackgroundWork();
 
-      expect(stateBeforeDisableTickLands.sessions.twitch.message).not.toBe("Starting automation");
+      expect(stateBeforeDisableTickLands.sessions.twitch.status).not.toBe("starting");
     });
 
     it.each(["reset", "shutdown"] as const)(
@@ -1070,7 +1070,7 @@ describe("background controller", () => {
 
         expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
         expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-        expect(env.state.sessions.twitch.message).not.toBe("Starting automation");
+        expect(env.state.sessions.twitch.status).not.toBe("starting");
         expect(env.deps.createAlarm.mock.calls.some(
           ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
         )).toBe(false);
@@ -1095,7 +1095,7 @@ describe("background controller", () => {
 
       expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
       expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-      expect(env.state.sessions.twitch.message).not.toBe("Starting automation");
+      expect(env.state.sessions.twitch.status).not.toBe("starting");
     });
 
     it("preserves a newer enable schedule when an older disable clear finishes last", async () => {
@@ -3557,7 +3557,7 @@ describe("background controller", () => {
     expect(isFarmingActive(snapshot.settings)).toBe(true);
     // And the session already reflects the toggle rather than the pre-toggle
     // "Automation disabled" the popup used to render for the whole tick.
-    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+    expect(snapshot.state.sessions.twitch.status).toBe("starting");
 
     startDiscovery();
     await env.rawController.settleBackgroundWork();
@@ -3667,8 +3667,7 @@ describe("background controller", () => {
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
     // The snapshot returns ahead of the tick, reporting the prompt "starting"
     // transition; the watching status lands once the tick settles.
-    expect(snapshot.state.sessions.twitch.status).toBe("idle");
-    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+    expect(snapshot.state.sessions.twitch.status).toBe("starting");
     expect(env.state.sessions.twitch.status).toBe("watching");
   });
 
@@ -3876,7 +3875,7 @@ describe("background controller", () => {
     expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(1);
     expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
     // Returned ahead of the tick, so the enabled platform reads as starting.
-    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+    expect(snapshot.state.sessions.twitch.status).toBe("starting");
     expect(env.state.sessions.twitch.status).toBe("watching");
     // Untouched: the toggle ticks only the platform it changed.
     expect(env.state.sessions.kick.status).toBe("idle");

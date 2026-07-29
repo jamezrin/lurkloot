@@ -53,13 +53,10 @@ export function automationPresentation({
       ? presentation("starting", "automationStarting", "startingAutomation")
       : presentation("stopping", "automationStopping", "pausingAutomation");
   }
-  if (enabled && session?.message === "Starting automation") {
-    return presentation("starting", "automationStarting", "startingAutomation");
-  }
   if (!enabled) return presentation("paused", "pausedStatus", "watchingPausedHint");
   // Ranked above auth health: the user caused this stop, so telling them why
   // and how to undo it matters more than any background probe result.
-  if (manualClosePaused) {
+  if (manualClosePaused || session?.reasonCode === "manual_tab_close") {
     return {
       ...presentation("paused_tab_closed", "automationPausedTabClosed", "watchTabClosedPauseDetail", "warning"),
       action: { kind: "resume", labelKey: "resumeFarming" },
@@ -67,15 +64,26 @@ export function automationPresentation({
   }
 
   switch (authHealth.status) {
-    case "healthy":
+    case "healthy": {
+      if (session?.status === "starting") {
+        return presentation("starting", "automationStarting", "startingAutomation");
+      }
+      if (
+        session?.status === "paused"
+        || session?.reasonCode === "automation_disabled"
+        || session?.reasonCode === "platform_disabled"
+      ) {
+        return presentation("paused", "pausedStatus", "watchingPausedHint");
+      }
       return {
         state: "running",
         badgeKey: "automationRunning",
         detailKey: undefined,
         tone: "accent",
         operational: true,
-        statusMessage: safeRunningStatusMessage(session?.message),
+        statusMessage: session?.message,
       };
+    }
     case "checking":
       return presentation("checking", "automationChecking", "authCheckingDetail");
     case "missing_credentials":
@@ -93,16 +101,6 @@ export function automationPresentation({
       return presentation("unavailable", "automationUnavailable", detailKey, "warning");
     }
   }
-}
-
-const INCOMPATIBLE_RUNNING_MESSAGES = new Set([
-  "Starting automation",
-  "Automation disabled",
-  "Platform disabled",
-]);
-
-function safeRunningStatusMessage(message?: string): string | undefined {
-  return message && !INCOMPATIBLE_RUNNING_MESSAGES.has(message) ? message : undefined;
 }
 
 function presentation(
