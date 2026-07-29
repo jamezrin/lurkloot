@@ -60,6 +60,7 @@ interface PageContextEntry {
 
 const pageContextTabs = new Map<string, PageContextEntry>();
 const retainedPageContextTabs = new Map<Platform, ManagedPageContextTab>();
+const ALL_PLATFORMS: readonly Platform[] = ["twitch", "kick"];
 // Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
 // call sites are several layers deep and have no access to scheduler state, so
 // the scheduler (and the controller, whenever it records an open) pushes the
@@ -69,8 +70,9 @@ const openManagedTabBreakers = new Set<Platform>();
 
 export function syncManagedTabBreakers(
   state: { criticalHealth?: Partial<Record<Platform, { breakerOpen?: boolean }>> },
+  platforms: readonly Platform[] = ALL_PLATFORMS,
 ): void {
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of platforms) {
     if (state.criticalHealth?.[platform]?.breakerOpen) openManagedTabBreakers.add(platform);
     else openManagedTabBreakers.delete(platform);
   }
@@ -1504,10 +1506,14 @@ async function waitForPageContextReady(
   }
 }
 
-export function registerManagedPageContextTabs(contexts: SchedulerManagedPageContexts): void {
-  retainedPageContextTabs.clear();
-  for (const context of Object.values(contexts)) {
-    if (context) retainedPageContextTabs.set(context.platform, context);
+export function registerManagedPageContextTabs(
+  contexts: SchedulerManagedPageContexts,
+  platforms: readonly Platform[] = ALL_PLATFORMS,
+): void {
+  for (const platform of platforms) {
+    retainedPageContextTabs.delete(platform);
+    const context = contexts[platform];
+    if (context) retainedPageContextTabs.set(platform, context);
   }
 }
 

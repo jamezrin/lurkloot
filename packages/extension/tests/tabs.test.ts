@@ -95,6 +95,28 @@ describe("tab manager", () => {
     resetPlaybackPriming();
   });
 
+  it("updates retained page contexts only for the requested platform", () => {
+    const twitch = {
+      platform: "twitch" as const,
+      tabId: 10,
+      originUrl: "https://www.twitch.tv",
+      origin: "https://www.twitch.tv",
+      ownedByExtension: true as const,
+    };
+    const kick = {
+      platform: "kick" as const,
+      tabId: 20,
+      originUrl: "https://kick.com",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+    };
+    registerManagedPageContextTabs({ twitch, kick });
+
+    registerManagedPageContextTabs({}, ["twitch"]);
+
+    expect(currentManagedPageContextTabs()).toEqual({ kick });
+  });
+
   it("reports tab lifecycle events to the supplied emitter", async () => {
     const events: EngineEvent[] = [];
     const emit = (event: EngineEvent) => events.push(event);

@@ -746,7 +746,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           reason,
         });
         if (transition.event) emit(transition.event);
-        syncManagedTabBreakers(transition.state);
+        syncManagedTabBreakers(transition.state, ["twitch"]);
         await persistAndReport(transition.state, events);
       }));
     } catch {
@@ -1343,7 +1343,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           }
           // Keep the registry that gates page-context creation in step with the
           // state we are about to persist, so the very next fetch is suppressed.
-          syncManagedTabBreakers(nextState);
+          syncManagedTabBreakers(nextState, schedulerPlatforms);
         }
       } catch (error) {
         // The tick was rolled back, so any partial claim set is not actionable.
@@ -2280,7 +2280,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (transition.event) emit(transition.event);
         // Closing the breaker here is what lets farming resume immediately
         // instead of waiting for the next tick to sync the registry.
-        syncManagedTabBreakers(transition.state);
+        syncManagedTabBreakers(transition.state, [message.platform]);
         await persistAndReport(transition.state, events);
       }));
       await tickAndHandOff(undefined, "critical_failure_dismissed");

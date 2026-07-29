@@ -451,7 +451,8 @@ export async function runSchedulerTick(
 ): Promise<SchedulerTickResult> {
   options.signal?.throwIfAborted();
   const stopPageContextTabs = options.stopPageContextTabs ?? forgetManagedPageContextTabs;
-  registerManagedPageContextTabs(state.managedPageContextTabs ?? {});
+  const platforms = options.platforms ?? PLATFORMS;
+  registerManagedPageContextTabs(state.managedPageContextTabs ?? {}, platforms);
   let nextState: SchedulerState = {
     ...state,
     campaigns: { ...state.campaigns },
@@ -524,9 +525,11 @@ export async function runSchedulerTick(
   // Otherwise a breaker latched before the switch was flipped would keep blocking
   // page-context creation forever: observations no longer run to release it, and
   // the popup no longer renders the panel that would dismiss it.
-  syncManagedTabBreakers(settings.criticalFailurePromptEnabled ? nextState : {});
+  syncManagedTabBreakers(
+    settings.criticalFailurePromptEnabled ? nextState : {},
+    platforms,
+  );
 
-  const platforms = options.platforms ?? PLATFORMS;
   for (const platform of platforms) {
     options.signal?.throwIfAborted();
     const previous = nextState.sessions[platform];
@@ -545,7 +548,7 @@ export async function runSchedulerTick(
       if (!settings.criticalFailurePromptEnabled) return;
       const transition = observeCriticalHealth(nextState, platform, observation);
       nextState = transition.state;
-      syncManagedTabBreakers(nextState);
+      syncManagedTabBreakers(nextState, [platform]);
       // This runs inside a `finally`, so a throwing listener here would replace
       // the in-flight error and abort the remaining platforms. Health reporting
       // is never worth that.
