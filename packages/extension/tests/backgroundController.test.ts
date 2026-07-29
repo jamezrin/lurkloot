@@ -285,6 +285,12 @@ function harness(
   };
 }
 
+function allDiagnostics(env: ReturnType<typeof harness>): DiagnosticEvent[] {
+  return env.reportEvents.mock.calls
+    .flatMap(([events]) => events)
+    .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
+}
+
 describe("background controller", () => {
   describe("Twitch integrity expiry scheduling", () => {
     beforeEach(() => {
@@ -3802,6 +3808,57 @@ describe("background controller", () => {
       platformTickId: 1,
       message: expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=manual_tick, platforms=twitch\)$/),
     }));
+  });
+
+  it("reports material waits for same-platform scheduler work", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-07-29T12:00:00.000Z"));
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    const firstDiscoveryStarted = deferred<void>();
+    let discoveryCalls = 0;
+    env.twitch.refreshCampaigns = vi.fn(async () => {
+      discoveryCalls += 1;
+      if (discoveryCalls === 1) {
+        firstDiscoveryStarted.resolve();
+        await twitchDiscovery.promise;
+      }
+      return [];
+    });
+    const firstTick = env.rawController.tick(["twitch"], "manual_tick");
+    let secondTick: ReturnType<typeof env.rawController.tick> | undefined;
+
+    try {
+      await firstDiscoveryStarted.promise;
+      secondTick = env.rawController.tick(["twitch"], "manual_tick");
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      await vi.advanceTimersByTimeAsync(75);
+      twitchDiscovery.resolve([]);
+      await Promise.all([firstTick, secondTick]);
+
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        globalTickId: 2,
+        platformTickId: 2,
+        message: "Tick #2 waited 75ms for Twitch platform work",
+        data: { waitMs: 75 },
+      }));
+    } finally {
+      twitchDiscovery.resolve([]);
+      await Promise.allSettled(secondTick ? [firstTick, secondTick] : [firstTick]);
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not report platform-lock waits for an uncontended tick", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    await env.controller.tick(["twitch"], "manual_tick");
+
+    expect(allDiagnostics(env).some((event) =>
+      event.message.includes("waited") && event.message.includes("platform work"),
+    )).toBe(false);
   });
 
   it("assigns global and platform-local identifiers to interleaved platform ticks", async () => {

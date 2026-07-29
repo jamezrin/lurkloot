@@ -846,6 +846,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     message: string,
     platform?: Platform,
     tickContext?: TickDiagnosticContext,
+    data?: DiagnosticEvent["data"],
   ): void {
     void reportBestEffort([{
       category: "diagnostic",
@@ -853,6 +854,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       message,
       platform,
       ...tickContext,
+      ...(data === undefined ? {} : { data }),
     }]);
   }
 
@@ -1209,7 +1211,20 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     tickContext?: TickDiagnosticContext,
   ): Promise<void> {
     signal?.throwIfAborted();
+    const lockStartedAt = Date.now();
     const generations = await beginAuthRefresh(platforms);
+    const lockWaitMs = Date.now() - lockStartedAt;
+    if (tickContext && lockWaitMs >= 50) {
+      for (const platform of platforms) {
+        diagnosticEvent(
+          "debug",
+          `Tick #${tickContext.platformTickId} waited ${lockWaitMs}ms for ${platformLabel(platform)} platform work`,
+          platform,
+          tickContext,
+          { waitMs: lockWaitMs },
+        );
+      }
+    }
     const settings = loadedSettings ?? await deps.loadSettings();
     const enabled = platforms.filter((platform) => settings.platform[platform].enabled);
     const results = await Promise.allSettled(enabled.map(async (platform) => {
