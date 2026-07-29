@@ -368,6 +368,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     kick: new Set<string>(),
   };
   let settingsMutation: Promise<unknown> = Promise.resolve();
+  let twitchSettingsTransitionGeneration = 0;
   let integrityRefreshAbort: AbortController | undefined;
   let integrityLifecycleGeneration = 0;
   let integrityLifecycleOpen = true;
@@ -881,9 +882,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     });
   }
 
-  async function restoreTwitchIntegritySchedule(): Promise<void> {
+  async function restoreTwitchIntegritySchedule(
+    transitionIsCurrent: () => boolean,
+  ): Promise<void> {
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      if (!integrityLifecycleOpen) return;
+      if (!integrityLifecycleOpen || !transitionIsCurrent()) return;
       let stored: TwitchIntegrity | undefined;
       try {
         stored = await deps.loadTwitchIntegrity?.();
@@ -895,9 +898,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           message: "Could not reload stored Twitch integrity after Twitch was enabled",
         });
       }
-      if (!integrityLifecycleOpen) return;
+      if (!integrityLifecycleOpen || !transitionIsCurrent()) return;
       const integrity = reconcileStoredTwitchIntegrity(stored);
-      if (integrity) await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
+      if (integrity && transitionIsCurrent()) {
+        await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
+      }
       await reportBestEffort(events);
     }));
   }
@@ -1752,9 +1757,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // finishes. Detaching the tick alone would not fix that: the popup polls the
   // stored state, so a slow tick leaves it rendering a status that contradicts
   // the switch the user just flipped. Stamp the transition up front instead.
-  async function markPlatformsStarting(platforms: readonly Platform[]): Promise<void> {
+  async function markPlatformsStarting(
+    platforms: readonly Platform[],
+    transitionIsCurrent: () => boolean = () => true,
+  ): Promise<void> {
     await withStateLock(async () => {
       const state = await deps.loadState();
+      if (!transitionIsCurrent()) return;
       let changed = false;
       const sessions = { ...state.sessions };
       for (const platform of platforms) {
@@ -1771,6 +1780,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         changed = true;
       }
       if (!changed) return;
+      if (!transitionIsCurrent()) return;
       await persistAndReport({ ...state, sessions });
     });
   }
@@ -2074,6 +2084,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     if (message.type === "setPlatformEnabled" || message.type === "setAutomation") {
       // Stopping must cancel any loop still refreshing in the background.
       if (!message.enabled) abortClaimHandoffs(message.platform);
+      const twitchTransitionGeneration = message.platform === "twitch"
+        ? ++twitchSettingsTransitionGeneration
+        : undefined;
+      const twitchTransitionIsCurrent = (): boolean =>
+        twitchTransitionGeneration === twitchSettingsTransitionGeneration;
       const stoppingTwitch = message.platform === "twitch" && !message.enabled;
       let twitchTransitionPersisted = false;
       if (stoppingTwitch) closeTwitchIntegrityLifecycle("Twitch disabled");
@@ -2087,21 +2102,42 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         }, message.platform === "twitch"
           ? () => {
               twitchTransitionPersisted = true;
-              if (message.enabled) reopenTwitchIntegrityLifecycle();
-              else closeTwitchIntegrityLifecycle("Twitch disabled");
+              if (message.enabled) {
+                if (twitchTransitionIsCurrent()) reopenTwitchIntegrityLifecycle();
+              } else {
+                closeTwitchIntegrityLifecycle("Twitch disabled");
+              }
             }
           : undefined);
       } catch (error) {
-        if (stoppingTwitch && !twitchTransitionPersisted) {
+        if (
+          stoppingTwitch
+          && !twitchTransitionPersisted
+          && twitchTransitionIsCurrent()
+        ) {
           reopenTwitchIntegrityLifecycle();
         }
         throw error;
       }
       if (message.platform === "twitch") {
-        if (message.enabled) await restoreTwitchIntegritySchedule();
+        if (message.enabled) {
+          if (!twitchTransitionIsCurrent()) return snapshot();
+          await restoreTwitchIntegritySchedule(twitchTransitionIsCurrent);
+          if (!twitchTransitionIsCurrent()) return snapshot();
+        }
         else await clearTwitchIntegrityAlarmBestEffort();
       }
-      if (message.enabled) await markPlatformsStarting([message.platform]);
+      if (message.enabled) {
+        await markPlatformsStarting(
+          [message.platform],
+          message.platform === "twitch"
+            ? twitchTransitionIsCurrent
+            : undefined,
+        );
+        if (message.platform === "twitch" && !twitchTransitionIsCurrent()) {
+          return snapshot();
+        }
+      }
       // Always scoped to the toggled platform. Nothing about this change can
       // affect the other one any more, so it is never dragged through this
       // platform's discovery.

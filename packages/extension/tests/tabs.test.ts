@@ -1508,19 +1508,63 @@ describe("twitch integrity refresh", () => {
       await expect(owner).resolves.toBe(true);
     });
 
-    it("resolves false and warns when no token is captured before the timeout", async () => {
-      const browser = browserMock();
-      browser.tabs.query.mockResolvedValue([{ id: 3 }]);
-      const events: EngineEvent[] = [];
+    it.each([
+      { reason: "proactive_refresh", forceRefresh: true, level: "debug" },
+      { reason: "readiness", forceRefresh: false, level: "warn" },
+    ] as const)(
+      "resolves false and logs a $reason timeout at $level level",
+      async ({ reason, forceRefresh, level }) => {
+        const browser = browserMock();
+        browser.tabs.query.mockResolvedValue([{ id: 3 }]);
+        browser.tabs.create.mockResolvedValue({ id: 59 });
+        const events: EngineEvent[] = [];
 
-      const ok = await ensureTwitchIntegrityWithBrowser(browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          50,
+          (event) => events.push(event),
+          { reason, forceRefresh },
+        );
 
-      expect(ok).toBe(false);
-      expect(events).toContainEqual(expect.objectContaining({
-        level: "warn",
-        message: expect.stringContaining("Timed out waiting for a Twitch integrity token"),
-      }));
-    });
+        const timeouts = events.filter((event) =>
+          event.category === "diagnostic"
+          && event.message.includes("Timed out waiting for a Twitch integrity token"));
+        expect(ok).toBe(false);
+        expect(timeouts).toEqual([
+          expect.objectContaining({ level }),
+        ]);
+      },
+    );
+
+    it.each([
+      { reason: "proactive_refresh", forceRefresh: true, level: "debug" },
+      { reason: "readiness", forceRefresh: false, level: "warn" },
+    ] as const)(
+      "returns false and logs a $reason page-open failure at $level level",
+      async ({ reason, forceRefresh, level }) => {
+        const browser = browserMock();
+        browser.tabs.query.mockResolvedValue([]);
+        browser.tabs.create.mockRejectedValue(new Error("tab open denied"));
+        const events: EngineEvent[] = [];
+
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          50,
+          (event) => events.push(event),
+          { reason, forceRefresh },
+        );
+
+        const openFailures = events.filter((event) =>
+          event.category === "diagnostic"
+          && event.message.includes("Could not open a twitch.tv tab"));
+        expect(ok).toBe(false);
+        expect(openFailures).toEqual([
+          expect.objectContaining({ level }),
+        ]);
+      },
+    );
 
     // Which page context answered decides whether the wait could ever succeed:
     // only a freshly created tab is guaranteed to boot the SPA and issue the

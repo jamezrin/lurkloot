@@ -736,6 +736,61 @@ describe("background controller", () => {
       await env.rawController.settleBackgroundWork();
     });
 
+    it("does not let a stale Twitch enable reopen integrity or start farming after disable supersedes it", async () => {
+      const enableSave = deferred<void>();
+      const disableSave = deferred<void>();
+      let saveCount = 0;
+      let exposeStoredIntegrity = false;
+      const stored = integrityBundle({
+        integrity: "stale-enable-schedule",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const env = harness(notFarming(DEFAULT_SETTINGS), {
+        saveSettings: async () => {
+          saveCount += 1;
+          await (saveCount === 1 ? enableSave.promise : disableSave.promise);
+        },
+        loadTwitchIntegrity: async () => exposeStoredIntegrity ? stored : undefined,
+        ensureTwitchIntegrity: async () => true,
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.createAlarm.mockClear();
+      env.deps.ensureTwitchIntegrity.mockClear();
+      vi.mocked(env.twitch.discoverCampaigns).mockClear();
+      env.deps.cancelTwitchIntegrityAcquisition.mockClear();
+      exposeStoredIntegrity = true;
+
+      const enabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: true,
+      });
+      await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalledOnce());
+
+      const disabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      expect(env.deps.cancelTwitchIntegrityAcquisition).toHaveBeenCalledOnce();
+
+      enableSave.resolve();
+      await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalledTimes(2));
+      await enabling;
+      await env.rawController.settleBackgroundWork();
+
+      disableSave.resolve();
+      await disabling;
+      await env.rawController.settleBackgroundWork();
+
+      expect(env.settings.platform.twitch.enabled).toBe(false);
+      expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
+      expect(env.deps.createAlarm.mock.calls.some(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )).toBe(false);
+      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    });
+
     it("recreates the refresh schedule from a valid stored token when Twitch is re-enabled", async () => {
       const integrity = integrityBundle({
         integrity: "reschedule-after-enable",

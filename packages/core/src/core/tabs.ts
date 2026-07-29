@@ -864,7 +864,7 @@ async function mintTwitchIntegrity(
     const boot = twitchContextBoot?.tabId === pageContext.tabId ? twitchContextBoot : undefined;
     const phases = boot ? ` (${describeContextBoot(boot, settledAt)})` : "";
     if (!captured) {
-      diagnostic(emit, "warn", `Timed out waiting for a Twitch integrity token after ${settledAt - startedAt}ms from a ${source} page context${phases} (is twitch.tv logged in?)`, "twitch");
+      diagnostic(emit, reason === "proactive_refresh" ? "debug" : "warn", `Timed out waiting for a Twitch integrity token after ${settledAt - startedAt}ms from a ${source} page context${phases} (is twitch.tv logged in?)`, "twitch");
     } else {
       diagnostic(emit, "debug", `Waited ${settledAt - startedAt}ms for a Twitch integrity token from a ${source} page context${phases}`, "twitch");
     }
@@ -872,7 +872,7 @@ async function mintTwitchIntegrity(
   } catch (error) {
     signal?.throwIfAborted();
     const message = error instanceof Error ? error.message : String(error);
-    diagnostic(emit, "warn", `Could not open a twitch.tv tab to capture an integrity token: ${message}`, "twitch");
+    diagnostic(emit, reason === "proactive_refresh" ? "debug" : "warn", `Could not open a twitch.tv tab to capture an integrity token: ${message}`, "twitch");
     return false;
   } finally {
     if (pageContext) {
