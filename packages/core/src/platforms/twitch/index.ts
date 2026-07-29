@@ -995,10 +995,26 @@ export class TwitchAdapter implements PlatformAdapter {
       const target = streamCandidates[index];
       if (target) checks[target.index] = check;
     });
+    const availabilityResult = campaign
+      ? await this.batchCampaignAvailability(
+          checks.flatMap((check) =>
+            check?.live && check.categoryMatches && check.candidate.channelId
+              ? [{
+                  channelId: check.candidate.channelId,
+                  channelLogin: check.candidate.username,
+                }]
+              : []),
+          campaign.id,
+          signal,
+        )
+      : {
+          matches: new Map<string, boolean | undefined>(),
+          batchRequests: 0,
+          singleFallbacks: 0,
+          cacheHits: 0,
+        };
 
     let checked = 0;
-    let availabilityChecks = 0;
-    let availabilityCacheHits = 0;
     let winnerFallbacks = 0;
     for (const check of checks) {
       if (!check) continue;
@@ -1013,22 +1029,13 @@ export class TwitchAdapter implements PlatformAdapter {
         selectedCandidate = confirmed.candidate;
         campaignMatches = confirmed.campaignMatches;
       } else if (campaign && check.candidate.channelId) {
-        const metrics = { checks: 0, cacheHits: 0 };
-        campaignMatches = await this.checkCampaignAvailability(
-          check.candidate.channelId,
-          campaign.id,
-          check.candidate.username,
-          signal,
-          metrics,
-        );
-        availabilityChecks += metrics.checks;
-        availabilityCacheHits += metrics.cacheHits;
+        campaignMatches = availabilityResult.matches.get(check.candidate.channelId);
       }
       if (campaignMatches === false) continue;
       diagnostic(
         this.emit,
         "debug",
-        `Twitch channel selection finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityChecks} AvailableDrops lookups, ${availabilityCacheHits} availability cache hits, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
+        `Twitch channel selection finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
         "twitch",
       );
       return {
@@ -1042,10 +1049,183 @@ export class TwitchAdapter implements PlatformAdapter {
     diagnostic(
       this.emit,
       "debug",
-      `Twitch channel selection finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityChecks} AvailableDrops lookups, ${availabilityCacheHits} availability cache hits, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
+      `Twitch channel selection finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
       "twitch",
     );
     return { checked: candidates.length };
+  }
+
+  private async batchCampaignAvailability(
+    candidates: readonly { channelId: string; channelLogin: string }[],
+    campaignId: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    matches: Map<string, boolean | undefined>;
+    batchRequests: number;
+    singleFallbacks: number;
+    cacheHits: number;
+  }> {
+    const matches = new Map<string, boolean | undefined>();
+    const uncached: Array<{ channelId: string; channelLogin: string }> = [];
+    let cacheHits = 0;
+    for (const candidate of candidates) {
+      if (matches.has(candidate.channelId)) continue;
+      const cached = this.availableCampaignsByChannel.get(candidate.channelId);
+      if (cached && cached.expiresAt > Date.now()) {
+        cacheHits += 1;
+        matches.set(candidate.channelId, cached.campaignIds.has(campaignId));
+        continue;
+      }
+      if (cached) this.availableCampaignsByChannel.delete(candidate.channelId);
+      uncached.push(candidate);
+    }
+    if (uncached.length === 1) {
+      const candidate = uncached[0];
+      const metrics = { checks: 0, cacheHits: 0 };
+      matches.set(
+        candidate.channelId,
+        await this.checkCampaignAvailability(
+          candidate.channelId,
+          campaignId,
+          candidate.channelLogin,
+          signal,
+          metrics,
+        ),
+      );
+      return {
+        matches,
+        batchRequests: 0,
+        singleFallbacks: metrics.checks,
+        cacheHits: cacheHits + metrics.cacheHits,
+      };
+    }
+    const chunks = Array.from(
+      { length: Math.ceil(uncached.length / GQL_BATCH_OPERATION_LIMIT) },
+      (_, index) => uncached.slice(
+        index * GQL_BATCH_OPERATION_LIMIT,
+        (index + 1) * GQL_BATCH_OPERATION_LIMIT,
+      ),
+    );
+    const results = new Array<{
+      matches: Map<string, boolean | undefined>;
+      singleFallbacks: number;
+    }>(chunks.length);
+    let nextChunk = 0;
+    await Promise.all(Array.from(
+      { length: Math.min(GQL_BATCH_CONCURRENCY, chunks.length) },
+      async () => {
+        for (;;) {
+          const chunkIndex = nextChunk;
+          nextChunk += 1;
+          const chunk = chunks[chunkIndex];
+          if (!chunk) return;
+          signal?.throwIfAborted();
+          results[chunkIndex] = await this.batchCampaignAvailabilityChunk(
+            chunk,
+            campaignId,
+            signal,
+          );
+        }
+      },
+    ));
+    for (const result of results) {
+      for (const [channelId, match] of result.matches) matches.set(channelId, match);
+    }
+    return {
+      matches,
+      batchRequests: chunks.length,
+      singleFallbacks: results.reduce((total, result) => total + result.singleFallbacks, 0),
+      cacheHits,
+    };
+  }
+
+  private async batchCampaignAvailabilityChunk(
+    candidates: readonly { channelId: string; channelLogin: string }[],
+    campaignId: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    matches: Map<string, boolean | undefined>;
+    singleFallbacks: number;
+  }> {
+    const matches = new Map<string, boolean | undefined>();
+    const fallback = async (
+      candidate: { channelId: string; channelLogin: string },
+    ): Promise<void> => {
+      matches.set(
+        candidate.channelId,
+        await this.checkCampaignAvailability(
+          candidate.channelId,
+          campaignId,
+          candidate.channelLogin,
+          signal,
+        ),
+      );
+    };
+    const integrity = this.options.currentIntegrity?.();
+    let raw: unknown;
+    try {
+      raw = await this.fetcher.fetchJson<unknown>(
+        "https://gql.twitch.tv/gql",
+        {
+          method: "POST",
+          headers: {
+            "Accept": "*/*",
+            "Accept-Language": "en-US",
+            "Content-Type": "text/plain; charset=UTF-8",
+            "Client-ID": this.options.clientId ?? TWITCH_CLIENT_ID,
+            ...(this.options.userAgent ? { "User-Agent": this.options.userAgent } : {}),
+            ...(integrity
+              ? {
+                  "Client-Integrity": integrity.integrity,
+                  ...(integrity.deviceId ? { "X-Device-Id": integrity.deviceId } : {}),
+                  ...(integrity.clientSessionId ? { "Client-Session-Id": integrity.clientSessionId } : {}),
+                }
+              : {}),
+          },
+          ...(signal ? { signal } : {}),
+          body: JSON.stringify(candidates.map((candidate) => ({
+            operationName: "DropsHighlightService_AvailableDrops",
+            variables: { channelID: candidate.channelId },
+            extensions: {
+              persistedQuery: {
+                version: 1,
+                sha256Hash: TWITCH_QUERIES.availableDropsHash,
+              },
+            },
+          }))),
+        },
+        this.emit,
+      );
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (authHealthFromError(error)) throw error;
+      for (const candidate of candidates) await fallback(candidate);
+      return { matches, singleFallbacks: candidates.length };
+    }
+    if (twitchPageFetchError(raw)) {
+      for (const candidate of candidates) await fallback(candidate);
+      return { matches, singleFallbacks: candidates.length };
+    }
+    const responses = Array.isArray(raw) ? raw : candidates.length === 1 ? [raw] : [];
+    let singleFallbacks = 0;
+    for (const [index, candidate] of candidates.entries()) {
+      const response = normalizeTwitchGqlResponse<TwitchAvailableDropsData>(responses[index]);
+      const campaigns = response?.data?.channel?.viewerDropCampaigns;
+      if (!Array.isArray(campaigns) || response?.errors?.length || response?.error) {
+        singleFallbacks += 1;
+        await fallback(candidate);
+        continue;
+      }
+      const campaignIds = new Set(
+        campaigns.map((campaign) => campaign.id).filter((id): id is string => Boolean(id)),
+      );
+      this.availableCampaignsByChannel.set(candidate.channelId, {
+        campaignIds,
+        expiresAt: Date.now() + CHANNEL_CAMPAIGN_CACHE_TTL_MS,
+      });
+      matches.set(candidate.channelId, campaignIds.has(campaignId));
+    }
+    return { matches, singleFallbacks };
   }
 
   private async batchStreamInfoChecks(
