@@ -95,6 +95,28 @@ describe("tab manager", () => {
     resetPlaybackPriming();
   });
 
+  it("updates retained page contexts only for the requested platform", () => {
+    const twitch = {
+      platform: "twitch" as const,
+      tabId: 10,
+      originUrl: "https://www.twitch.tv",
+      origin: "https://www.twitch.tv",
+      ownedByExtension: true as const,
+    };
+    const kick = {
+      platform: "kick" as const,
+      tabId: 20,
+      originUrl: "https://kick.com",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+    };
+    registerManagedPageContextTabs({ twitch, kick });
+
+    registerManagedPageContextTabs({}, ["twitch"]);
+
+    expect(currentManagedPageContextTabs()).toEqual({ kick });
+  });
+
   it("reports tab lifecycle events to the supplied emitter", async () => {
     const events: EngineEvent[] = [];
     const emit = (event: EngineEvent) => events.push(event);
@@ -1201,7 +1223,7 @@ describe("twitch integrity refresh", () => {
       expect(browser.tabs.remove).not.toHaveBeenCalled();
     });
 
-    it("creates a tab when none exists and retains it for reuse", async () => {
+    it("closes a tab created only to capture Twitch integrity", async () => {
       const browser = browserMock();
       browser.tabs.create.mockResolvedValue({ id: 14 });
 
@@ -1214,9 +1236,8 @@ describe("twitch integrity refresh", () => {
         pinned: false,
         active: false,
       });
-      // Retained for the next claim instead of being torn down each time.
-      expect(browser.tabs.remove).not.toHaveBeenCalled();
-      expect(currentManagedPageContextTabs()).toMatchObject({ twitch: { tabId: 14 } });
+      expect(browser.tabs.remove).toHaveBeenCalledWith(14);
+      expect(currentManagedPageContextTabs()).not.toHaveProperty("twitch");
     });
 
     it("opens page context immediately on the first missing-token check", async () => {
@@ -1978,6 +1999,25 @@ describe("fetchTwitchInBackgroundWith", () => {
     expect(headers.get("client-session-id")).toMatch(/^[0-9a-f]{16}$/);
     expect(captured?.init.credentials).toBe("include");
     expect(result).toMatchObject({ data: { currentUser: { id: "u" } } });
+    vi.unstubAllGlobals();
+  });
+
+  it("preserves multi-operation Twitch GQL batch responses", async () => {
+    const response = [
+      { data: { dropCampaign: { id: "first" } } },
+      { data: { dropCampaign: { id: "second" } } },
+    ];
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })));
+
+    await expect(fetchTwitchInBackgroundWith(
+      cookieApi,
+      "https://gql.twitch.tv/gql",
+      { method: "POST", body: "[]" },
+    )).resolves.toEqual(response);
+
     vi.unstubAllGlobals();
   });
 

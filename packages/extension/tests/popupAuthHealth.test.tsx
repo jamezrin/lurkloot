@@ -19,7 +19,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function mountWithSnapshots(authStatuses: Array<RuntimeSnapshot["state"]["authHealth"]["twitch"]>) {
+async function mountWithSnapshots(
+  authStatuses: Array<RuntimeSnapshot["state"]["authHealth"]["twitch"]>,
+  twitchSession?: Partial<RuntimeSnapshot["state"]["sessions"]["twitch"]>,
+) {
   vi.useFakeTimers();
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
@@ -54,6 +57,7 @@ async function mountWithSnapshots(authStatuses: Array<RuntimeSnapshot["state"]["
           ...base.state.sessions.twitch,
           message: "secret-cookie=must-not-render",
           status: "watching" as const,
+          ...twitchSession,
         },
       },
     },
@@ -124,5 +128,29 @@ describe("popup authentication health", () => {
     expect(container.querySelector('[data-automation-state="running"]')).not.toBeNull();
     expect(container.textContent).toContain("Running · Twitch");
     expect(sent).not.toContainEqual(expect.objectContaining({ type: "setAutomation" }));
+  });
+
+  it("renders one canonical starting state after the enable request settles", async () => {
+    const { container } = await mountWithSnapshots(
+      [{ status: "healthy", checkedAt: "2026-07-29T19:00:00.000Z" }],
+      { status: "starting", message: "Starting automation" },
+    );
+
+    const hero = container.querySelector('[data-automation-state="starting"]');
+    expect(hero).not.toBeNull();
+    expect(hero?.textContent).toContain("Starting");
+    expect(hero?.textContent).toContain("Starting automation...");
+  });
+
+  it("keeps a stale disabled session paused after automation is re-enabled", async () => {
+    const { container } = await mountWithSnapshots(
+      [{ status: "healthy", checkedAt: "2026-07-29T19:00:00.000Z" }],
+      { status: "idle", message: "Automation disabled", reasonCode: "automation_disabled" },
+    );
+
+    const hero = container.querySelector('[data-automation-state="paused"]');
+    expect(hero).not.toBeNull();
+    expect(hero?.textContent).toContain("Paused");
+    expect(hero?.textContent).not.toContain("Automation disabled");
   });
 });

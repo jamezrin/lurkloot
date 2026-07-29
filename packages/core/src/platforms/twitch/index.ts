@@ -5,7 +5,7 @@ import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
 import type { TwitchIntegrityRequest } from "../../core/tabs";
 import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
-import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type CandidateChannelSelection, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
@@ -24,6 +24,8 @@ const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
 const DISCOVERY_DETAIL_PRUNE_LIMIT = 32;
+const GQL_BATCH_OPERATION_LIMIT = 20;
+const GQL_BATCH_CONCURRENCY = 2;
 // How long a discovery result stays usable when Twitch stops answering. Long
 // enough to ride out an outage of many ticks, short enough that a campaign
 // Twitch quietly stopped serving does not linger for a whole session.
@@ -137,7 +139,7 @@ const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
           node {
             title
             viewersCount
-            broadcaster { login displayName profileImageURL }
+            broadcaster { id login displayName profileImageURL }
           }
         }
       }
@@ -255,6 +257,7 @@ interface TwitchDirectoryData {
           title?: string;
           viewersCount?: number;
           broadcaster?: {
+            id?: string;
             login?: string;
             displayName?: string;
             profileImageURL?: string;
@@ -600,19 +603,26 @@ export class TwitchAdapter implements PlatformAdapter {
     );
   }
 
-  async discoverCampaigns({ signal }: AdapterOperationOptions = {}): Promise<DropCampaign[]> {
-    let inventory = await this.fetchInventory({ signal });
-    let dashboardResult = await this.fetchDashboard(TWITCH_QUERIES.dashboard.variables, signal);
+  private async discoverCampaignSnapshot(
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<DropCampaign[]> {
+    let [inventory, dashboardResult] = await Promise.all([
+      this.fetchInventory({ signal }),
+      this.fetchDashboard(TWITCH_QUERIES.dashboard.variables, signal),
+    ]);
     let inventoryCampaigns = this.inventoryCapability.parse(inventory);
     let dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
 
     if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
       try {
-        inventory = await this.fetchInventory({
-          variables: { fetchRewardCampaigns: true },
-          signal,
-        });
-        const fallbackDashboardResult = await this.fetchDashboard({ fetchRewardCampaigns: true }, signal);
+        const [fallbackInventory, fallbackDashboardResult] = await Promise.all([
+          this.fetchInventory({
+            variables: { fetchRewardCampaigns: true },
+            signal,
+          }),
+          this.fetchDashboard({ fetchRewardCampaigns: true }, signal),
+        ]);
+        inventory = fallbackInventory;
         inventoryCampaigns = this.inventoryCapability.parse(inventory);
         if (fallbackDashboardResult.ok || !dashboardResult.ok) {
           dashboardResult = fallbackDashboardResult;
@@ -672,13 +682,14 @@ export class TwitchAdapter implements PlatformAdapter {
       );
     }
 
-    const details = await Promise.allSettled(
-      discoverableCampaignIds.map((dropID) =>
-        this.gqlWithIntegrityRetry<TwitchCampaignDetailsData>("DropCampaignDetails", TWITCH_QUERIES.campaignDetailsHash, {
-          channelLogin: userLogin,
-          dropID,
-        }, undefined, undefined, this.emit, signal),
-      ),
+    const detailsStartedAt = Date.now();
+    const detailFetch = await this.fetchCampaignDetails(discoverableCampaignIds, userLogin, signal);
+    const details = detailFetch.results;
+    diagnostic(
+      this.emit,
+      "debug",
+      `Twitch campaign details finished in ${Date.now() - detailsStartedAt}ms (${discoverableCampaignIds.length} operations: ${detailFetch.batchRequests} batch requests, ${detailFetch.singleFallbacks} single fallbacks)`,
+      "twitch",
     );
     signal?.throwIfAborted();
     for (const result of details) {
@@ -746,15 +757,161 @@ export class TwitchAdapter implements PlatformAdapter {
     return [...mergedDetails, ...inventoryOnly];
   }
 
-  async readProgress(
-    campaigns: DropCampaign[],
+  async refreshCampaigns(
     session?: WatchSession,
-    { signal }: AdapterOperationOptions = {},
+    options: AdapterOperationOptions = {},
   ): Promise<DropCampaign[]> {
-    const inventory = await this.fetchInventory({ signal });
-    const inventoryProgress = this.inventoryCapability.reconcileProgress(campaigns, inventory);
-    if (!session?.channel || session.status !== "watching") return inventoryProgress;
-    return this.mergeCurrentSessionProgress(inventoryProgress, session.channel, signal);
+    const campaigns = await this.discoverCampaignSnapshot(options);
+    if (!session?.channel || session.status !== "watching") return campaigns;
+    return this.mergeCurrentSessionProgress(campaigns, session.channel, options.signal);
+  }
+
+  private async fetchCampaignDetails(
+    dropIds: readonly string[],
+    channelLogin: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    results: PromiseSettledResult<TwitchGqlResponse<TwitchCampaignDetailsData>>[];
+    batchRequests: number;
+    singleFallbacks: number;
+  }> {
+    const chunks = Array.from(
+      { length: Math.ceil(dropIds.length / GQL_BATCH_OPERATION_LIMIT) },
+      (_, index) => dropIds.slice(
+        index * GQL_BATCH_OPERATION_LIMIT,
+        (index + 1) * GQL_BATCH_OPERATION_LIMIT,
+      ),
+    );
+    const results = new Array<{
+      results: PromiseSettledResult<TwitchGqlResponse<TwitchCampaignDetailsData>>[];
+      singleFallbacks: number;
+    }>(chunks.length);
+    let nextChunk = 0;
+    const workers = Array.from(
+      { length: Math.min(GQL_BATCH_CONCURRENCY, chunks.length) },
+      async () => {
+        for (;;) {
+          const chunkIndex = nextChunk;
+          nextChunk += 1;
+          const chunk = chunks[chunkIndex];
+          if (!chunk) return;
+          signal?.throwIfAborted();
+          results[chunkIndex] = await this.fetchCampaignDetailsChunk(chunk, channelLogin, signal);
+        }
+      },
+    );
+    await Promise.all(workers);
+    return {
+      results: results.flatMap((result) => result.results),
+      batchRequests: chunks.length,
+      singleFallbacks: results.reduce((total, result) => total + result.singleFallbacks, 0),
+    };
+  }
+
+  private async fetchCampaignDetailsChunk(
+    dropIds: readonly string[],
+    channelLogin: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    results: PromiseSettledResult<TwitchGqlResponse<TwitchCampaignDetailsData>>[];
+    singleFallbacks: number;
+  }> {
+    const fallback = async () => {
+      const results: PromiseSettledResult<TwitchGqlResponse<TwitchCampaignDetailsData>>[] = [];
+      for (const dropID of dropIds) {
+        try {
+          const value = await this.gqlWithIntegrityRetry<TwitchCampaignDetailsData>(
+            "DropCampaignDetails",
+            TWITCH_QUERIES.campaignDetailsHash,
+            { channelLogin, dropID },
+            undefined,
+            undefined,
+            this.emit,
+            signal,
+          );
+          results.push({ status: "fulfilled", value });
+        } catch (reason) {
+          results.push({ status: "rejected", reason });
+        }
+      }
+      return { results, singleFallbacks: dropIds.length };
+    };
+    const integrity = this.options.currentIntegrity?.();
+    let raw: unknown;
+    try {
+      raw = await this.fetcher.fetchJson<unknown>(
+        "https://gql.twitch.tv/gql",
+        {
+          method: "POST",
+          headers: {
+            "Accept": "*/*",
+            "Accept-Language": "en-US",
+            "Content-Type": "text/plain; charset=UTF-8",
+            "Client-ID": this.options.clientId ?? TWITCH_CLIENT_ID,
+            ...(this.options.userAgent ? { "User-Agent": this.options.userAgent } : {}),
+            ...(integrity
+              ? {
+                  "Client-Integrity": integrity.integrity,
+                  ...(integrity.deviceId ? { "X-Device-Id": integrity.deviceId } : {}),
+                  ...(integrity.clientSessionId ? { "Client-Session-Id": integrity.clientSessionId } : {}),
+                }
+              : {}),
+          },
+          ...(signal ? { signal } : {}),
+          body: JSON.stringify(dropIds.map((dropID) => ({
+            operationName: "DropCampaignDetails",
+            variables: { channelLogin, dropID },
+            extensions: {
+              persistedQuery: {
+                version: 1,
+                sha256Hash: TWITCH_QUERIES.campaignDetailsHash,
+              },
+            },
+          }))),
+        },
+        this.emit,
+      );
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (authHealthFromError(error)) throw error;
+      return fallback();
+    }
+    if (twitchPageFetchError(raw)) return fallback();
+    const responses = Array.isArray(raw) ? raw : dropIds.length === 1 ? [raw] : [];
+    if (responses.length !== dropIds.length) return fallback();
+
+    let singleFallbacks = 0;
+    const results: PromiseSettledResult<TwitchGqlResponse<TwitchCampaignDetailsData>>[] = [];
+    for (let index = 0; index < responses.length; index += 1) {
+      const value = responses[index];
+      const response = normalizeTwitchGqlResponse<TwitchCampaignDetailsData>(value);
+      if (
+        response
+        && Object.prototype.hasOwnProperty.call(response, "data")
+        && !response.error
+        && !(response.message && response.data === undefined)
+        && !response.errors?.length
+      ) {
+        results.push({ status: "fulfilled", value: response });
+        continue;
+      }
+      singleFallbacks += 1;
+      try {
+        const fallbackResponse = await this.gqlWithIntegrityRetry<TwitchCampaignDetailsData>(
+          "DropCampaignDetails",
+          TWITCH_QUERIES.campaignDetailsHash,
+          { channelLogin, dropID: dropIds[index] },
+          undefined,
+          undefined,
+          this.emit,
+          signal,
+        );
+        results.push({ status: "fulfilled", value: fallbackResponse });
+      } catch (reason) {
+        results.push({ status: "rejected", reason });
+      }
+    }
+    return { results, singleFallbacks };
   }
 
   async listCandidateChannels(
@@ -800,9 +957,379 @@ export class TwitchAdapter implements PlatformAdapter {
           viewerCount: edge.node?.viewersCount,
           title: edge.node?.title,
           live: true,
+          channelId: broadcaster.id,
         };
       })
       .filter((candidate): candidate is ChannelCandidate => Boolean(candidate));
+  }
+
+  async selectCandidateChannel(
+    candidates: ChannelCandidate[],
+    campaign?: DropCampaign,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<CandidateChannelSelection> {
+    if (candidates.length === 0) return { checked: 0 };
+    const startedAt = Date.now();
+    const selectionLabel = campaign
+      ? `for "${campaign.name}" (campaign ${campaign.id})`
+      : "idle";
+    const selectionDescription = campaign
+      ? `channel selection ${selectionLabel}`
+      : `${selectionLabel} channel selection`;
+    const checks = new Array<ChannelCheck | undefined>(candidates.length);
+    const streamCandidates: Array<{ candidate: ChannelCandidate; index: number }> = [];
+    let trustedDirectoryCandidates = 0;
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      if (candidate.live === true && candidate.isAclMatch === false) {
+        trustedDirectoryCandidates += 1;
+        checks[index] = {
+          live: true,
+          categoryMatches: !campaign?.categoryId || candidate.categoryId === campaign.categoryId,
+          candidate,
+        };
+      } else {
+        streamCandidates.push({ candidate, index });
+      }
+    }
+    const streamCheckResult = await this.batchStreamInfoChecks(
+      streamCandidates.map(({ candidate }) => candidate),
+      campaign,
+      signal,
+    );
+    streamCheckResult.checks.forEach((check, index) => {
+      const target = streamCandidates[index];
+      if (target) checks[target.index] = check;
+    });
+    const availabilityResult = campaign
+      ? await this.batchCampaignAvailability(
+          checks.flatMap((check) =>
+            check?.live && check.categoryMatches && check.candidate.channelId
+              ? [{
+                  channelId: check.candidate.channelId,
+                  channelLogin: check.candidate.username,
+                }]
+              : []),
+          campaign.id,
+          signal,
+        )
+      : {
+          matches: new Map<string, boolean | undefined>(),
+          batchRequests: 0,
+          singleFallbacks: 0,
+          cacheHits: 0,
+        };
+
+    let checked = 0;
+    let winnerFallbacks = 0;
+    const reportSelectionFinished = () => {
+      diagnostic(
+        this.emit,
+        "debug",
+        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
+        "twitch",
+      );
+    };
+    for (const check of checks) {
+      if (!check) continue;
+      checked += 1;
+      if (!check.live || !check.categoryMatches) continue;
+      let campaignMatches: boolean | undefined;
+      let selectedCandidate = check.candidate;
+      if (campaign && !check.candidate.channelId) {
+        winnerFallbacks += 1;
+        const confirmed = await this.checkChannel(check.candidate, { campaign, signal });
+        if (!confirmed.live || !confirmed.categoryMatches || confirmed.campaignMatches === false) continue;
+        selectedCandidate = confirmed.candidate;
+        campaignMatches = confirmed.campaignMatches;
+      } else if (campaign && check.candidate.channelId) {
+        campaignMatches = availabilityResult.matches.get(check.candidate.channelId);
+      }
+      if (campaignMatches === false) continue;
+      reportSelectionFinished();
+      return {
+        checked: candidates.length,
+        channel: {
+          ...selectedCandidate,
+          live: true,
+        },
+      };
+    }
+    reportSelectionFinished();
+    return { checked: candidates.length };
+  }
+
+  private async batchCampaignAvailability(
+    candidates: readonly { channelId: string; channelLogin: string }[],
+    campaignId: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    matches: Map<string, boolean | undefined>;
+    batchRequests: number;
+    singleFallbacks: number;
+    cacheHits: number;
+  }> {
+    const matches = new Map<string, boolean | undefined>();
+    const uncached: Array<{ channelId: string; channelLogin: string }> = [];
+    let cacheHits = 0;
+    for (const candidate of candidates) {
+      if (matches.has(candidate.channelId)) continue;
+      const cached = this.availableCampaignsByChannel.get(candidate.channelId);
+      if (cached && cached.expiresAt > Date.now()) {
+        cacheHits += 1;
+        matches.set(candidate.channelId, cached.campaignIds.has(campaignId));
+        continue;
+      }
+      if (cached) this.availableCampaignsByChannel.delete(candidate.channelId);
+      uncached.push(candidate);
+    }
+    if (uncached.length === 1) {
+      const candidate = uncached[0];
+      const metrics = { checks: 0, cacheHits: 0 };
+      matches.set(
+        candidate.channelId,
+        await this.checkCampaignAvailability(
+          candidate.channelId,
+          campaignId,
+          candidate.channelLogin,
+          signal,
+          metrics,
+        ),
+      );
+      return {
+        matches,
+        batchRequests: 0,
+        singleFallbacks: metrics.checks,
+        cacheHits: cacheHits + metrics.cacheHits,
+      };
+    }
+    const chunks = Array.from(
+      { length: Math.ceil(uncached.length / GQL_BATCH_OPERATION_LIMIT) },
+      (_, index) => uncached.slice(
+        index * GQL_BATCH_OPERATION_LIMIT,
+        (index + 1) * GQL_BATCH_OPERATION_LIMIT,
+      ),
+    );
+    const results = new Array<{
+      matches: Map<string, boolean | undefined>;
+      singleFallbacks: number;
+    }>(chunks.length);
+    let nextChunk = 0;
+    await Promise.all(Array.from(
+      { length: Math.min(GQL_BATCH_CONCURRENCY, chunks.length) },
+      async () => {
+        for (;;) {
+          const chunkIndex = nextChunk;
+          nextChunk += 1;
+          const chunk = chunks[chunkIndex];
+          if (!chunk) return;
+          signal?.throwIfAborted();
+          results[chunkIndex] = await this.batchCampaignAvailabilityChunk(
+            chunk,
+            campaignId,
+            signal,
+          );
+        }
+      },
+    ));
+    for (const result of results) {
+      for (const [channelId, match] of result.matches) matches.set(channelId, match);
+    }
+    return {
+      matches,
+      batchRequests: chunks.length,
+      singleFallbacks: results.reduce((total, result) => total + result.singleFallbacks, 0),
+      cacheHits,
+    };
+  }
+
+  private async batchCampaignAvailabilityChunk(
+    candidates: readonly { channelId: string; channelLogin: string }[],
+    campaignId: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    matches: Map<string, boolean | undefined>;
+    singleFallbacks: number;
+  }> {
+    const matches = new Map<string, boolean | undefined>();
+    const fallback = async (
+      candidate: { channelId: string; channelLogin: string },
+    ): Promise<void> => {
+      matches.set(
+        candidate.channelId,
+        await this.checkCampaignAvailability(
+          candidate.channelId,
+          campaignId,
+          candidate.channelLogin,
+          signal,
+        ),
+      );
+    };
+    const integrity = this.options.currentIntegrity?.();
+    let raw: unknown;
+    try {
+      raw = await this.fetcher.fetchJson<unknown>(
+        "https://gql.twitch.tv/gql",
+        {
+          method: "POST",
+          headers: {
+            "Accept": "*/*",
+            "Accept-Language": "en-US",
+            "Content-Type": "text/plain; charset=UTF-8",
+            "Client-ID": this.options.clientId ?? TWITCH_CLIENT_ID,
+            ...(this.options.userAgent ? { "User-Agent": this.options.userAgent } : {}),
+            ...(integrity
+              ? {
+                  "Client-Integrity": integrity.integrity,
+                  ...(integrity.deviceId ? { "X-Device-Id": integrity.deviceId } : {}),
+                  ...(integrity.clientSessionId ? { "Client-Session-Id": integrity.clientSessionId } : {}),
+                }
+              : {}),
+          },
+          ...(signal ? { signal } : {}),
+          body: JSON.stringify(candidates.map((candidate) => ({
+            operationName: "DropsHighlightService_AvailableDrops",
+            variables: { channelID: candidate.channelId },
+            extensions: {
+              persistedQuery: {
+                version: 1,
+                sha256Hash: TWITCH_QUERIES.availableDropsHash,
+              },
+            },
+          }))),
+        },
+        this.emit,
+      );
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (authHealthFromError(error)) throw error;
+      for (const candidate of candidates) await fallback(candidate);
+      return { matches, singleFallbacks: candidates.length };
+    }
+    if (twitchPageFetchError(raw)) {
+      for (const candidate of candidates) await fallback(candidate);
+      return { matches, singleFallbacks: candidates.length };
+    }
+    const responses = Array.isArray(raw) ? raw : candidates.length === 1 ? [raw] : [];
+    let singleFallbacks = 0;
+    for (const [index, candidate] of candidates.entries()) {
+      const response = normalizeTwitchGqlResponse<TwitchAvailableDropsData>(responses[index]);
+      const campaigns = response?.data?.channel?.viewerDropCampaigns;
+      if (!Array.isArray(campaigns) || response?.errors?.length || response?.error) {
+        singleFallbacks += 1;
+        await fallback(candidate);
+        continue;
+      }
+      const campaignIds = new Set(
+        campaigns.map((campaign) => campaign.id).filter((id): id is string => Boolean(id)),
+      );
+      this.availableCampaignsByChannel.set(candidate.channelId, {
+        campaignIds,
+        expiresAt: Date.now() + CHANNEL_CAMPAIGN_CACHE_TTL_MS,
+      });
+      matches.set(candidate.channelId, campaignIds.has(campaignId));
+    }
+    return { matches, singleFallbacks };
+  }
+
+  private async batchStreamInfoChecks(
+    candidates: readonly ChannelCandidate[],
+    campaign: DropCampaign | undefined,
+    signal?: AbortSignal,
+  ): Promise<{ checks: ChannelCheck[]; singleFallbacks: number }> {
+    if (candidates.length === 0) return { checks: [], singleFallbacks: 0 };
+    const chunks = Array.from(
+      { length: Math.ceil(candidates.length / GQL_BATCH_OPERATION_LIMIT) },
+      (_, index) => candidates.slice(
+        index * GQL_BATCH_OPERATION_LIMIT,
+        (index + 1) * GQL_BATCH_OPERATION_LIMIT,
+      ),
+    );
+    const results = new Array<{ checks: ChannelCheck[]; singleFallbacks: number }>(chunks.length);
+    let nextChunk = 0;
+    await Promise.all(Array.from(
+      { length: Math.min(GQL_BATCH_CONCURRENCY, chunks.length) },
+      async () => {
+        for (;;) {
+          const chunkIndex = nextChunk;
+          nextChunk += 1;
+          const chunk = chunks[chunkIndex];
+          if (!chunk) return;
+          signal?.throwIfAborted();
+          results[chunkIndex] = await this.batchStreamInfoChunk(chunk, campaign, signal);
+        }
+      },
+    ));
+    return {
+      checks: results.flatMap((result) => result.checks),
+      singleFallbacks: results.reduce((total, result) => total + result.singleFallbacks, 0),
+    };
+  }
+
+  private async batchStreamInfoChunk(
+    candidates: readonly ChannelCandidate[],
+    campaign: DropCampaign | undefined,
+    signal?: AbortSignal,
+  ): Promise<{ checks: ChannelCheck[]; singleFallbacks: number }> {
+    let raw: unknown;
+    try {
+      raw = await this.fetcher.fetchJson<unknown>(
+        "https://gql.twitch.tv/gql",
+        {
+          method: "POST",
+          credentials: "omit",
+          headers: {
+            "Accept": "*/*",
+            "Accept-Language": "en-US",
+            "Content-Type": "text/plain; charset=UTF-8",
+            "Client-ID": this.options.clientId ?? TWITCH_CLIENT_ID,
+            ...(this.options.userAgent ? { "User-Agent": this.options.userAgent } : {}),
+          },
+          ...(signal ? { signal } : {}),
+          body: JSON.stringify(candidates.map((candidate) => ({
+            operationName: "StreamInfo",
+            variables: { channel: candidate.username },
+            query: STREAM_INFO_QUERY,
+          }))),
+        },
+        this.emit,
+      );
+    } catch (error) {
+      signal?.throwIfAborted();
+      const checks: ChannelCheck[] = [];
+      for (const candidate of candidates) {
+        checks.push(await this.checkChannel(candidate, { signal }));
+      }
+      return { checks, singleFallbacks: candidates.length };
+    }
+    const responses = Array.isArray(raw) ? raw : candidates.length === 1 ? [raw] : [];
+    const checks: ChannelCheck[] = [];
+    let singleFallbacks = 0;
+    for (const [index, candidate] of candidates.entries()) {
+      const response = normalizeTwitchGqlResponse<TwitchStreamInfoData>(responses[index]);
+      if (!response?.data?.user || response.errors?.length || response.error) {
+        singleFallbacks += 1;
+        checks.push(await this.checkChannel(candidate, { signal }));
+        continue;
+      }
+      const stream = response.data.user.stream;
+      const categoryId = stream?.game?.id;
+      checks.push({
+        live: Boolean(stream),
+        categoryMatches: !campaign?.categoryId || categoryId === campaign.categoryId,
+        candidate: {
+          ...candidate,
+          displayName: response.data.user.displayName ?? candidate.displayName,
+          categoryId: categoryId ?? candidate.categoryId,
+          categoryName: stream?.game?.name ?? candidate.categoryName,
+          viewerCount: stream?.viewersCount ?? candidate.viewerCount,
+          channelId: response.data.user.id ?? candidate.channelId,
+          broadcastId: stream?.id ?? candidate.broadcastId,
+          live: Boolean(stream),
+        },
+      });
+    }
+    return { checks, singleFallbacks };
   }
 
   async checkChannel(
@@ -859,14 +1386,17 @@ export class TwitchAdapter implements PlatformAdapter {
     campaignId: string,
     channelLogin: string,
     signal?: AbortSignal,
+    metrics?: { checks: number; cacheHits: number },
   ): Promise<boolean | undefined> {
     const cached = this.availableCampaignsByChannel.get(channelId);
     if (cached && cached.expiresAt > Date.now()) {
+      if (metrics) metrics.cacheHits += 1;
       return cached.campaignIds.has(campaignId);
     }
     if (cached) this.availableCampaignsByChannel.delete(channelId);
 
     try {
+      if (metrics) metrics.checks += 1;
       const response = await this.gqlWithIntegrityRetry<TwitchAvailableDropsData>(
         "DropsHighlightService_AvailableDrops",
         TWITCH_QUERIES.availableDropsHash,

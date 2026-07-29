@@ -540,6 +540,20 @@ describe("managed tab circuit breaker registry", () => {
     expect(managedTabBreakerOpen("twitch")).toBe(false);
   });
 
+  it("updates breaker mirrors only for the requested platform", () => {
+    syncManagedTabBreakers({
+      criticalHealth: {
+        twitch: { ...DEFAULT_CRITICAL_HEALTH, breakerOpen: true },
+        kick: { ...DEFAULT_CRITICAL_HEALTH, breakerOpen: true },
+      },
+    });
+
+    syncManagedTabBreakers({}, ["twitch"]);
+
+    expect(managedTabBreakerOpen("twitch")).toBe(false);
+    expect(managedTabBreakerOpen("kick")).toBe(true);
+  });
+
   it("closes again once the failure is dismissed", () => {
     let state = baseState();
     for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {

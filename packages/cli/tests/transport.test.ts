@@ -126,8 +126,8 @@ describe("createTransport", () => {
     }));
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
-    const first = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.discoverCampaigns();
-    const second = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.discoverCampaigns();
+    const first = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.refreshCampaigns();
+    const second = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.refreshCampaigns();
 
     expect(first.map((campaign) => campaign.id)).toEqual(["retained"]);
     expect(second.map((campaign) => campaign.id)).toEqual(["retained"]);
@@ -152,11 +152,11 @@ describe("createTransport", () => {
     const firstHandle = await createTransport("http", {}, "/tmp/auth", ENABLED);
     const secondHandle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
-    expect((await firstHandle.adapters.twitch.discoverCampaigns()).map((campaign) => campaign.id))
+    expect((await firstHandle.adapters.twitch.refreshCampaigns()).map((campaign) => campaign.id))
       .toEqual(["retained"]);
     seedFirstHandle = false;
 
-    await expect(secondHandle.adapters.twitch.discoverCampaigns()).resolves.toEqual([]);
+    await expect(secondHandle.adapters.twitch.refreshCampaigns()).resolves.toEqual([]);
     await firstHandle.dispose();
     await secondHandle.dispose();
   });

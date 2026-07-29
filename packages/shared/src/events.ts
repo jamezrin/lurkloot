@@ -61,6 +61,9 @@ export type DiagnosticEvent = {
   level: LogLevel;
   platform?: Platform;
   message: string;
+  controllerRunId?: string;
+  globalTickId?: number;
+  platformTickId?: number;
   code?: string;
   // Set on the English restatement of an activity event. Hosts that already
   // render activity in English (the CLI) use it to avoid logging the same thing

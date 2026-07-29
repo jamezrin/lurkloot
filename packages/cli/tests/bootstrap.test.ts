@@ -99,6 +99,14 @@ describe.each(transports)("%s transport bootstrap", (_name, createTransport) => 
     const transport = await createTransport();
 
     expect(transport.adapters.twitch.platform).toBe("twitch");
+    const createAdapter = transport.createAdapter;
+    transport.createAdapter = (platform, emit, settings) => {
+      const created = createAdapter(platform, emit, settings);
+      if (platform === "twitch") {
+        created.adapter.refreshCampaigns = async () => [];
+      }
+      return created;
+    };
     await runLoop({
       settings: {
         ...DEFAULT_CLI_SETTINGS,

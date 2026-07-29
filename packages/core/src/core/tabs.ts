@@ -60,6 +60,7 @@ interface PageContextEntry {
 
 const pageContextTabs = new Map<string, PageContextEntry>();
 const retainedPageContextTabs = new Map<Platform, ManagedPageContextTab>();
+const ALL_PLATFORMS: readonly Platform[] = ["twitch", "kick"];
 // Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
 // call sites are several layers deep and have no access to scheduler state, so
 // the scheduler (and the controller, whenever it records an open) pushes the
@@ -69,8 +70,9 @@ const openManagedTabBreakers = new Set<Platform>();
 
 export function syncManagedTabBreakers(
   state: { criticalHealth?: Partial<Record<Platform, { breakerOpen?: boolean }>> },
+  platforms: readonly Platform[] = ALL_PLATFORMS,
 ): void {
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of platforms) {
     if (state.criticalHealth?.[platform]?.breakerOpen) openManagedTabBreakers.add(platform);
     else openManagedTabBreakers.delete(platform);
   }
@@ -455,6 +457,7 @@ export interface PageFetchOptions {
   retainPageContext?: {
     platform: Platform;
     managedContext?: ManagedPageContextTab;
+    retainCreatedPageContext?: boolean;
   };
   emit?: EventEmitter;
   openReason?: PageContextOpenReason;
@@ -831,7 +834,10 @@ async function mintTwitchIntegrity(
   let pageContext: PageContextTab | undefined;
   try {
     pageContext = await acquirePageContextTab(browserApi, originUrl, origin, {
-      retainPageContext: { platform: "twitch" },
+      retainPageContext: {
+        platform: "twitch",
+        retainCreatedPageContext: false,
+      },
       emit,
       requireFreshPageContext: forceRefresh,
       emitPageContextActivity: reason === "rejection_recovery",
@@ -907,8 +913,9 @@ function twitchGqlErrorEnvelope(
 }
 
 function isUsableTwitchGql(value: unknown): boolean {
-  const entry = Array.isArray(value) ? (value.length === 1 ? value[0] : undefined) : value;
-  return entry != null && typeof entry === "object" && !Array.isArray(entry);
+  const entries = Array.isArray(value) ? value : [value];
+  return entries.length > 0
+    && entries.every((entry) => entry != null && typeof entry === "object" && !Array.isArray(entry));
 }
 
 export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string, init?: RequestInit): Promise<T> {
@@ -1373,7 +1380,14 @@ async function findOrCreatePageContextTab(
     }
     throw error;
   }
-  if (retain) {
+  try {
+    await options?.onManagedPageContextOpen?.();
+  } catch {
+    if (contextPlatform) {
+      diagnostic(options?.emit ?? ignoreEvent, "warn", `Could not account for a managed page context opened on ${new URL(origin).host}`, contextPlatform);
+    }
+  }
+  if (retain && retain.retainCreatedPageContext !== false) {
     const retainedContext: ManagedPageContextTab = {
       platform: retain.platform,
       tabId: tab.id,
@@ -1382,11 +1396,6 @@ async function findOrCreatePageContextTab(
       ownedByExtension: true,
     };
     retainedPageContextTabs.set(retain.platform, retainedContext);
-    try {
-      await options?.onManagedPageContextOpen?.();
-    } catch {
-      diagnostic(options?.emit ?? ignoreEvent, "warn", `Could not account for a managed page context opened on ${new URL(origin).host}`, retain.platform);
-    }
     if (options?.emitPageContextActivity !== false) {
       options?.emit?.({
         category: "activity",
@@ -1504,10 +1513,14 @@ async function waitForPageContextReady(
   }
 }
 
-export function registerManagedPageContextTabs(contexts: SchedulerManagedPageContexts): void {
-  retainedPageContextTabs.clear();
-  for (const context of Object.values(contexts)) {
-    if (context) retainedPageContextTabs.set(context.platform, context);
+export function registerManagedPageContextTabs(
+  contexts: SchedulerManagedPageContexts,
+  platforms: readonly Platform[] = ALL_PLATFORMS,
+): void {
+  for (const platform of platforms) {
+    retainedPageContextTabs.delete(platform);
+    const context = contexts[platform];
+    if (context) retainedPageContextTabs.set(platform, context);
   }
 }
 

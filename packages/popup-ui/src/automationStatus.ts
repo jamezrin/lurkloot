@@ -1,4 +1,4 @@
-import type { Platform, PlatformAuthHealth } from "@lurkloot/shared/models";
+import type { Platform, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
 
 export type AutomationPresentationState =
   | "starting"
@@ -19,6 +19,7 @@ export interface AutomationPresentation {
   detailKey?: string;
   tone: AutomationTone;
   operational: boolean;
+  statusMessage?: string;
   action?: AutomationAction;
 }
 
@@ -37,12 +38,14 @@ export function automationPresentation({
   enabled,
   pending,
   authHealth,
+  session,
   manualClosePaused = false,
 }: {
   platform: Platform;
   enabled: boolean;
   pending: boolean;
   authHealth: PlatformAuthHealth;
+  session?: WatchSession;
   manualClosePaused?: boolean;
 }): AutomationPresentation {
   if (pending) {
@@ -53,7 +56,7 @@ export function automationPresentation({
   if (!enabled) return presentation("paused", "pausedStatus", "watchingPausedHint");
   // Ranked above auth health: the user caused this stop, so telling them why
   // and how to undo it matters more than any background probe result.
-  if (manualClosePaused) {
+  if (manualClosePaused || session?.reasonCode === "manual_tab_close") {
     return {
       ...presentation("paused_tab_closed", "automationPausedTabClosed", "watchTabClosedPauseDetail", "warning"),
       action: { kind: "resume", labelKey: "resumeFarming" },
@@ -61,14 +64,26 @@ export function automationPresentation({
   }
 
   switch (authHealth.status) {
-    case "healthy":
+    case "healthy": {
+      if (session?.status === "starting") {
+        return presentation("starting", "automationStarting", "startingAutomation");
+      }
+      if (
+        session?.status === "paused"
+        || session?.reasonCode === "automation_disabled"
+        || session?.reasonCode === "platform_disabled"
+      ) {
+        return presentation("paused", "pausedStatus", "watchingPausedHint");
+      }
       return {
         state: "running",
         badgeKey: "automationRunning",
         detailKey: undefined,
         tone: "accent",
         operational: true,
+        statusMessage: session?.message,
       };
+    }
     case "checking":
       return presentation("checking", "automationChecking", "authCheckingDetail");
     case "missing_credentials":

@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ALARM_NAME,
   createBackgroundController,
+  KICK_ALARM_NAME,
+  TWITCH_ALARM_NAME,
   TWITCH_INTEGRITY_ALARM_NAME,
   type CredentialAvailability,
 } from "@lurkloot/core/controller";
@@ -115,8 +117,7 @@ function adapter(platform: Platform): PlatformAdapter {
   return {
     platform,
     checkAuthHealth: vi.fn(async () => ({ status: "healthy" as const })),
-    discoverCampaigns: vi.fn(async () => [campaign(platform)]),
-    readProgress: vi.fn(async (campaigns) => campaigns),
+    refreshCampaigns: vi.fn(async () => [campaign(platform)]),
     listCandidateChannels: vi.fn(async () => [channel(platform)]),
     checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
     claimReward: vi.fn(async () => true),
@@ -185,6 +186,7 @@ function harness(
       name: string,
       options: { periodInMinutes: number } | { when: number },
     ) => Promise<void>;
+    getAlarm?: (name: string) => Promise<{ scheduledTime: number } | undefined>;
     clearAlarm?: (name: string) => Promise<boolean>;
     ensureTwitchIntegrity?: (
       emit: EventEmitter,
@@ -218,6 +220,7 @@ function harness(
       _name: string,
       _options: { periodInMinutes: number } | { when: number },
     ) => undefined)),
+    getAlarm: vi.fn(overrides.getAlarm ?? (async () => undefined)),
     clearAlarm: vi.fn(overrides.clearAlarm ?? (async () => true)),
     ensureTwitchIntegrity: vi.fn(overrides.ensureTwitchIntegrity ?? (async () => true)),
     cancelTwitchIntegrityAcquisition: vi.fn(overrides.cancelTwitchIntegrityAcquisition ?? (() => undefined)),
@@ -280,6 +283,12 @@ function harness(
     kick,
     reportEvents: deps.reportEvents,
   };
+}
+
+function allDiagnostics(env: ReturnType<typeof harness>): DiagnosticEvent[] {
+  return env.reportEvents.mock.calls
+    .flatMap(([events]) => events)
+    .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
 }
 
 describe("background controller", () => {
@@ -522,6 +531,96 @@ describe("background controller", () => {
       expect(secondWhen).toBe(firstWhen);
     });
 
+    it("does not recreate or relog an unchanged Twitch integrity alarm", async () => {
+      const integrity = integrityBundle({
+        integrity: "unchanged-alarm-token",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const first = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+      await first.controller.settleBackgroundWork();
+      const scheduledTime = (first.deps.createAlarm.mock.calls.find(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )?.[1] as { when: number }).when;
+
+      const second = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+        getAlarm: async () => ({ scheduledTime }),
+      });
+      await second.controller.settleBackgroundWork();
+
+      expect(second.deps.createAlarm).not.toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        expect.anything(),
+      );
+      expect(second.reportEvents.mock.calls.flatMap(([events]) => events)).not.toContainEqual(
+        expect.objectContaining({
+          message: expect.stringContaining("Scheduled proactive Twitch integrity refresh"),
+        }),
+      );
+    });
+
+    it("recreates and reports a Twitch integrity alarm when its existing target is stale", async () => {
+      const integrity = integrityBundle({
+        integrity: "stale-alarm-token",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const first = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+      await first.controller.settleBackgroundWork();
+      const scheduledTime = (first.deps.createAlarm.mock.calls.find(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )?.[1] as { when: number }).when;
+      const second = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+        getAlarm: async () => ({ scheduledTime: scheduledTime + 1_001 }),
+      });
+      await second.controller.settleBackgroundWork();
+
+      expect(second.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        { when: scheduledTime },
+      );
+      expect(second.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          message: `Scheduled proactive Twitch integrity refresh for ${new Date(scheduledTime).toISOString()}`,
+        }),
+      );
+    });
+
+    it("recreates and reports a Twitch integrity alarm when lookup fails", async () => {
+      const integrity = integrityBundle({
+        integrity: "unreadable-alarm-token",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const first = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+      await first.controller.settleBackgroundWork();
+      const scheduledTime = (first.deps.createAlarm.mock.calls.find(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )?.[1] as { when: number }).when;
+      const second = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+        getAlarm: async () => {
+          throw new Error("browser alarm lookup failed");
+        },
+      });
+      await second.controller.settleBackgroundWork();
+
+      expect(second.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        { when: scheduledTime },
+      );
+      expect(second.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          message: `Scheduled proactive Twitch integrity refresh for ${new Date(scheduledTime).toISOString()}`,
+        }),
+      );
+    });
+
     it("rechecks stored integrity scheduling when the refresh handler runs", async () => {
       const integrity = integrityBundle({
         integrity: "refresh-handler-test-token",
@@ -681,7 +780,7 @@ describe("background controller", () => {
         order.push("auth");
         return { status: "healthy", checkedAt: "2026-07-28T12:00:00.000Z" };
       });
-      vi.mocked(env.twitch.discoverCampaigns).mockImplementation(async () => {
+      vi.mocked(env.twitch.refreshCampaigns).mockImplementation(async () => {
         order.push("scheduler");
         return [campaign("twitch")];
       });
@@ -689,6 +788,31 @@ describe("background controller", () => {
       await env.controller.tick(["twitch"], "manual_tick");
 
       expect(order).toEqual(["integrity", "auth", "scheduler"]);
+    });
+
+    it("correlates integrity readiness diagnostics with their scheduler tick", async () => {
+      const env = harness(undefined, {
+        ensureTwitchIntegrity: async (emit) => {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "info",
+            message: "Integrity readiness probe",
+          });
+          return true;
+        },
+      });
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          message: "Integrity readiness probe",
+          globalTickId: 1,
+          platformTickId: 1,
+        }),
+      );
     });
 
     it("continues the same Twitch tick after successful acquisition", async () => {
@@ -700,7 +824,7 @@ describe("background controller", () => {
 
       expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
       expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
-      expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+      expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
       expect(env.state.sessions.twitch.status).toBe("watching");
     });
 
@@ -712,7 +836,7 @@ describe("background controller", () => {
       await env.controller.tick(["twitch"], "manual_tick");
 
       expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
-      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
       expect(env.deps.createAdapter).not.toHaveBeenCalled();
       expect(env.deps.createAdapters).not.toHaveBeenCalled();
     });
@@ -762,9 +886,9 @@ describe("background controller", () => {
       await env.controller.tick(undefined, "manual_tick");
 
       expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
-      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
       expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
-      expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
+      expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
       expect(env.state.sessions.kick.status).toBe("watching");
     });
 
@@ -792,6 +916,59 @@ describe("background controller", () => {
       );
     });
 
+    it("correlates nested Twitch integrity accounting diagnostics with their scheduler tick", async () => {
+      const env = harness(undefined, {
+        ensureTwitchIntegrity: async (_emit, request) => {
+          await request?.onManagedPageContextOpen?.();
+          return false;
+        },
+      });
+      const now = Date.now();
+      env.state.criticalHealth = {
+        twitch: {
+          status: "ok",
+          failingMs: 0,
+          failingTicks: 0,
+          managedTabOpens: Array.from(
+            { length: TAB_CHURN_LIMIT - 1 },
+            (_, index) => new Date(now - index * 1_000).toISOString(),
+          ),
+          breakerOpen: false,
+          records: [],
+        },
+      };
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        platform: "twitch",
+        code: "critical_failure_detected",
+        mirroredActivity: true,
+        globalTickId: 1,
+        platformTickId: 1,
+      }));
+    });
+
+    it("correlates failed Twitch integrity accounting diagnostics with their scheduler tick", async () => {
+      const env = harness(undefined, {
+        saveState: vi.fn().mockRejectedValueOnce(new Error("storage unavailable")),
+        ensureTwitchIntegrity: async (_emit, request) => {
+          await request?.onManagedPageContextOpen?.();
+          return false;
+        },
+      });
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        platform: "twitch",
+        level: "warn",
+        message: "Could not account for a managed Twitch integrity page context",
+        globalTickId: 1,
+        platformTickId: 1,
+      }));
+    });
+
     it("continues Kick when disabling Twitch cancels the acquisition awaited by an all-platform tick", async () => {
       const acquisition = deferred<boolean>();
       const env = harness(undefined, {
@@ -809,9 +986,9 @@ describe("background controller", () => {
 
       await expect(ticking).resolves.toEqual({});
       expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
-      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
       expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
-      expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
+      expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
       expect(env.state.sessions.kick.status).toBe("watching");
       await env.rawController.settleBackgroundWork();
     });
@@ -865,7 +1042,7 @@ describe("background controller", () => {
       await vi.waitFor(() => expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce());
       expect(acquisitionSettled).toBe(false);
       expect(snapshot.settings.platform.twitch.enabled).toBe(true);
-      expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+      expect(snapshot.state.sessions.twitch.status).toBe("starting");
 
       acquisition.resolve(false);
       await env.rawController.settleBackgroundWork();
@@ -891,7 +1068,7 @@ describe("background controller", () => {
       await env.controller.settleBackgroundWork();
       env.deps.createAlarm.mockClear();
       env.deps.ensureTwitchIntegrity.mockClear();
-      vi.mocked(env.twitch.discoverCampaigns).mockClear();
+      vi.mocked(env.twitch.refreshCampaigns).mockClear();
       env.deps.cancelTwitchIntegrityAcquisition.mockClear();
       exposeStoredIntegrity = true;
 
@@ -923,7 +1100,7 @@ describe("background controller", () => {
       expect(env.deps.createAlarm.mock.calls.some(
         ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
       )).toBe(false);
-      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     });
 
     it("clears an enable alarm creation that finishes after disable supersedes it", async () => {
@@ -985,7 +1162,7 @@ describe("background controller", () => {
       let persistedState = structuredClone(env.state);
       env.deps.loadState.mockImplementation(async () => persistedState);
       env.deps.saveState.mockImplementation(async (next: SchedulerState) => {
-        if (next.sessions.twitch.message === "Starting automation") {
+        if (next.sessions.twitch.status === "starting") {
           await startingSave.promise;
         } else if (next.sessions.twitch.reasonCode === "automation_disabled") {
           await disabledSave.promise;
@@ -1001,7 +1178,7 @@ describe("background controller", () => {
       await vi.waitFor(() => expect(env.deps.saveState).toHaveBeenCalledWith(
         expect.objectContaining({
           sessions: expect.objectContaining({
-            twitch: expect.objectContaining({ message: "Starting automation" }),
+            twitch: expect.objectContaining({ status: "starting" }),
           }),
         }),
       ));
@@ -1027,7 +1204,7 @@ describe("background controller", () => {
       await Promise.all([enabling, disabling]);
       await env.rawController.settleBackgroundWork();
 
-      expect(stateBeforeDisableTickLands.sessions.twitch.message).not.toBe("Starting automation");
+      expect(stateBeforeDisableTickLands.sessions.twitch.status).not.toBe("starting");
     });
 
     it.each(["reset", "shutdown"] as const)(
@@ -1041,7 +1218,7 @@ describe("background controller", () => {
         });
         await env.controller.settleBackgroundWork();
         env.deps.ensureTwitchIntegrity.mockClear();
-        vi.mocked(env.twitch.discoverCampaigns).mockClear();
+        vi.mocked(env.twitch.refreshCampaigns).mockClear();
         env.deps.createAlarm.mockClear();
 
         const enabling = env.rawController.handleMessage({
@@ -1067,8 +1244,8 @@ describe("background controller", () => {
         await env.rawController.settleBackgroundWork();
 
         expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
-        expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-        expect(env.state.sessions.twitch.message).not.toBe("Starting automation");
+        expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
+        expect(env.state.sessions.twitch.status).not.toBe("starting");
         expect(env.deps.createAlarm.mock.calls.some(
           ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
         )).toBe(false);
@@ -1081,7 +1258,7 @@ describe("background controller", () => {
       });
       await env.controller.settleBackgroundWork();
       env.deps.ensureTwitchIntegrity.mockClear();
-      vi.mocked(env.twitch.discoverCampaigns).mockClear();
+      vi.mocked(env.twitch.refreshCampaigns).mockClear();
 
       env.controller.shutdown();
       await env.rawController.handleMessage({
@@ -1092,8 +1269,8 @@ describe("background controller", () => {
       await env.rawController.settleBackgroundWork();
 
       expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
-      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-      expect(env.state.sessions.twitch.message).not.toBe("Starting automation");
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
+      expect(env.state.sessions.twitch.status).not.toBe("starting");
     });
 
     it("preserves a newer enable schedule when an older disable clear finishes last", async () => {
@@ -1785,7 +1962,7 @@ describe("background controller", () => {
       const kickDiscovery = deferred<DropCampaign[]>();
       let kickSignal: AbortSignal | undefined;
       const env = harness(undefined);
-      vi.mocked(env.kick.discoverCampaigns).mockImplementation(async ({ signal } = {}) => {
+      vi.mocked(env.kick.refreshCampaigns).mockImplementation(async (_session, { signal } = {}) => {
         kickSignal = signal;
         return kickDiscovery.promise;
       });
@@ -1855,10 +2032,8 @@ describe("background controller", () => {
         throw new Error(`Unexpected Twitch operation ${operation}`);
       }) as PageFetcher["fetchJson"],
     };
-    vi.mocked(env.deps.createAdapters).mockImplementation((emit, settings) => ({
-      adapters: {
-        twitch: new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit),
-      },
+    vi.mocked(env.deps.createAdapter).mockImplementation((_platform, emit, settings) => ({
+      adapter: new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit),
       ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
     }));
 
@@ -1869,7 +2044,7 @@ describe("background controller", () => {
     detailsFail = true;
     await env.controller.tick();
 
-    expect(env.deps.createAdapters).toHaveBeenCalledTimes(2);
+    expect(env.deps.createAdapter).toHaveBeenCalledTimes(6);
     expect(env.state.campaigns.twitch.map((item) => item.id)).toEqual(["retained"]);
   });
 
@@ -1893,8 +2068,8 @@ describe("background controller", () => {
     await vi.waitFor(() => expect(env.state.authHealth.kick.status).toBe("healthy"));
 
     expect(env.state.authHealth.twitch.status).toBe("checking");
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
 
     twitchHealth.resolve({
       status: "healthy",
@@ -1902,8 +2077,8 @@ describe("background controller", () => {
     });
     await ticking;
 
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
-    expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
   });
 
   it("waits for started auth probes before reporting a sibling setup failure", async () => {
@@ -2308,11 +2483,9 @@ describe("background controller", () => {
     });
     const error = await ticking.catch((caught: unknown) => caught);
 
-    expect(error).toBeInstanceOf(AggregateError);
-    expect((error as AggregateError).errors).toEqual(expect.arrayContaining([
-      expect.objectContaining({ platform: "twitch", message: "twitch adapter setup failed" }),
-      expect.objectContaining({ message: "kick auth persistence failed" }),
-    ]));
+    expect(error).toEqual(expect.objectContaining({
+      message: "kick auth persistence failed",
+    }));
     expect(env.state.authHealth.twitch).toMatchObject({
       status: "unavailable",
       reasonCode: "platform_unavailable",
@@ -2363,8 +2536,8 @@ describe("background controller", () => {
         message: "Farming interrupted: reason=platform_error (kick adapter setup failed)",
       }),
     ]);
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
-    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
   });
 
   it("terminalizes startup adapter setup failure instead of leaving checking", async () => {
@@ -2449,7 +2622,7 @@ describe("background controller", () => {
     await env.controller.tickAndHandOff(["twitch"]);
 
     expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.settings.platform.twitch.enabled).toBe(true);
     expect(env.state.authHealth.twitch).toMatchObject({
       status: "missing_credentials",
@@ -2486,11 +2659,11 @@ describe("background controller", () => {
       });
 
     await env.controller.tickAndHandOff(["twitch"]);
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
 
     await env.controller.tickAndHandOff(["twitch"]);
 
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
     expect(env.settings.platform.twitch.enabled).toBe(true);
     expect(env.state.authHealth.twitch.status).toBe("healthy");
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events).filter((event) =>
@@ -2666,6 +2839,7 @@ describe("background controller", () => {
         platform: "twitch",
         mirroredActivity: true,
         message: "twitch authentication health changed from healthy to checking",
+        controllerRunId: expect.any(String),
         data: { from: "healthy", to: "checking" },
         emittedAt: expect.any(String),
       },
@@ -2709,6 +2883,7 @@ describe("background controller", () => {
         platform: "kick",
         mirroredActivity: true,
         message: "kick authentication health changed from checking to blocked: reason=security_policy_blocked",
+        controllerRunId: expect.any(String),
         data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
         emittedAt: expect.any(String),
       },
@@ -2859,7 +3034,7 @@ describe("background controller", () => {
 
   it("preserves compatibility diagnostics when a scheduler tick fails", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    env.twitch.discoverCampaigns = vi.fn(async () => { throw new Error("discovery failed"); });
+    env.twitch.refreshCampaigns = vi.fn(async () => { throw new Error("discovery failed"); });
 
     await env.controller.tick();
 
@@ -2944,11 +3119,14 @@ describe("background controller", () => {
     const calls: string[] = [];
     const env = harness(farming(DEFAULT_SETTINGS), {
       saveState: async () => { calls.push("state"); },
-      // Tick lifecycle diagnostics are published as they happen and describe no
-      // state, so they are outside the state-before-events batching invariant
-      // this test guards. Only operational batches are recorded.
+      // Controller-run and tick lifecycle diagnostics are published as they
+      // happen and describe no state, so they are outside the
+      // state-before-events batching invariant this test guards. Only
+      // operational batches are recorded.
       reportEvents: async (events) => {
-        if (events.every((event) => event.category === "diagnostic" && /^Tick #/.test(event.message))) return;
+        if (events.every((event) =>
+          event.category === "diagnostic"
+          && /^(?:Background controller run |Tick #)/.test(event.message))) return;
         calls.push("events");
       },
     });
@@ -2956,6 +3134,7 @@ describe("background controller", () => {
     await env.controller.tick();
 
     expect(calls).toEqual([
+      "state", "events",
       "state", "events",
       "state", "events",
       "state", "events",
@@ -2973,13 +3152,15 @@ describe("background controller", () => {
 
     await expect(env.controller.tick(["twitch"])).rejects.toThrow("storage unavailable");
 
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
     expect(env.deps.saveState).toHaveBeenCalledTimes(2);
-    // Tick lifecycle diagnostics publish independently of state, so the
-    // invariant under test is about the operational batches only.
+    // Controller-run and tick lifecycle diagnostics publish independently of
+    // state, so the invariant under test is about operational batches only.
     const operationalBatches = env.reportEvents.mock.calls
       .map(([events]) => events)
-      .filter((events) => !events.every((event) => event.category === "diagnostic" && /^Tick #/.test(event.message)));
+      .filter((events) => !events.every((event) =>
+        event.category === "diagnostic"
+        && /^(?:Background controller run |Tick #)/.test(event.message)));
     expect(operationalBatches).toHaveLength(1);
     expect(operationalBatches[0]).toContainEqual(expect.objectContaining({
       category: "activity",
@@ -3001,10 +3182,10 @@ describe("background controller", () => {
 
   it("preserves adapter and scheduler event order within one tick batch", async () => {
     const env = harness();
-    vi.mocked(env.deps.createAdapters).mockImplementation((emit, settings) => {
+    vi.mocked(env.deps.createAdapter).mockImplementation((platform, emit, settings) => {
       emit({ category: "diagnostic", level: "debug", message: "adapter-created" });
       return {
-        adapters: { twitch: env.twitch, kick: env.kick },
+        adapter: platform === "twitch" ? env.twitch : env.kick,
         ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
       };
     });
@@ -3079,7 +3260,7 @@ describe("background controller", () => {
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
-    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimable")]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([campaign("twitch", "claimable")]);
     env.twitch.isClaimReady = vi.fn(() => false);
     env.deps.saveState.mockRejectedValueOnce(new Error("state write failed"));
 
@@ -3112,19 +3293,38 @@ describe("background controller", () => {
           claimPosts += 1;
           return { data: { connect_url: "https://accounts.example/link" } };
         }
+        if (url === "https://web.kick.com/api/v1/drops/campaigns") {
+          return {
+            data: [{
+              id: "kick-campaign",
+              name: "Kick campaign",
+              status: "active",
+              rewards: [{
+                id: "kick-reward",
+                name: "Reward",
+                required_minutes: 1,
+              }],
+            }],
+          };
+        }
         if (url === "https://web.kick.com/api/v1/drops/progress") {
-          return { data: [{ campaign_id: "kick-campaign", ...(affirmativelyLinked ? { user_app_connected: true } : {}) }] };
+          return {
+            data: [{
+              campaign_id: "kick-campaign",
+              progress_units: 1,
+              ...(affirmativelyLinked ? { user_app_connected: true } : {}),
+            }],
+          };
         }
         throw new Error(`Unexpected URL ${url}`);
       }) as PageFetcher["fetchJson"],
     };
     const claimState = new KickClaimState();
-    env.deps.createAdapters.mockImplementation((emit, settings) => {
+    env.deps.createAdapter.mockImplementation((platform, emit, settings) => {
       const kick = new KickAdapter(fetcher, undefined, undefined, emit, { claimState });
-      kick.discoverCampaigns = vi.fn(async () => [campaign("kick", "claimable")]);
       kick.listCandidateChannels = vi.fn(async () => []);
       return {
-        adapters: { twitch: env.twitch, kick },
+        adapter: platform === "kick" ? kick : env.twitch,
         ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
       };
     });
@@ -3212,7 +3412,9 @@ describe("background controller", () => {
 
     await env.controller.ensureAlarm();
 
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: 11 });
+    expect(env.deps.clearAlarm).toHaveBeenCalledWith(ALARM_NAME);
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: 11 });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: 11 });
   });
 
   it("stamps the install time once through the serialized controller lifecycle", async () => {
@@ -3287,7 +3489,7 @@ describe("background controller", () => {
     expect(env.state.authHealth.twitch.status).toBe("healthy");
     expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
   });
 
   // Auth health is only probed for enabled platforms, and auto-start off now
@@ -3300,8 +3502,8 @@ describe("background controller", () => {
 
     expect(isFarmingActive(env.settings)).toBe(false);
     expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
   });
 
   it("refreshes enabled auth health on startup while auto-start keeps farming", async () => {
@@ -3364,7 +3566,8 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
       expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
     ]);
@@ -3407,7 +3610,7 @@ describe("background controller", () => {
     expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
       expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
     ]);
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(env.state.managedWatchTabs).toEqual({});
     expect(env.state.sessions.twitch).toMatchObject({
@@ -3503,7 +3706,7 @@ describe("background controller", () => {
       expect.objectContaining({ reason: "runtime_restart" }),
     );
     expect(env.state.managedPageContextTabs?.kick).toEqual(context);
-    expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
   });
 
   it("does not log startup cleanup when there is no stale farming state", async () => {
@@ -3511,7 +3714,8 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
       event.category === "diagnostic" && event.message.includes("Browser restarted")
@@ -3524,7 +3728,7 @@ describe("background controller", () => {
     await env.controller.handleStartup();
 
     expect(isFarmingActive(env.settings)).toBe(false);
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
   });
 
   it("answers an automation toggle without waiting for the scheduler tick", async () => {
@@ -3532,7 +3736,7 @@ describe("background controller", () => {
     let startDiscovery = (): void => {};
     const discoveryStarted = new Promise<void>((resolve) => {
       const blocked = new Promise<void>((release) => { startDiscovery = () => release(); });
-      vi.mocked(env.twitch.discoverCampaigns).mockImplementation(async () => {
+      vi.mocked(env.twitch.refreshCampaigns).mockImplementation(async () => {
         resolve();
         await blocked;
         return [];
@@ -3550,14 +3754,72 @@ describe("background controller", () => {
     // The reply landed while discovery is still blocked: a slow tick can no
     // longer hold the popup open (the 65s stall reported in the wild).
     await discoveryStarted;
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalled();
     expect(isFarmingActive(snapshot.settings)).toBe(true);
     // And the session already reflects the toggle rather than the pre-toggle
     // "Automation disabled" the popup used to render for the whole tick.
-    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+    expect(snapshot.state.sessions.twitch.status).toBe("starting");
 
     startDiscovery();
     await env.rawController.settleBackgroundWork();
+  });
+
+  it.each([
+    ["twitch", true, "Twitch automation enable"],
+    ["kick", false, "Kick automation disable"],
+  ] as const)("logs the requested and completed %s automation transition", async (platform, enabled, transition) => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform,
+      enabled,
+    });
+
+    const diagnostics = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform,
+      level: "info",
+      message: `User requested ${transition}`,
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform,
+      level: "info",
+      message: `${transition} completed`,
+    }));
+  });
+
+  it("logs when a Twitch enable tick queues behind existing Twitch work", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    env.twitch.refreshCampaigns = vi.fn(() => twitchDiscovery.promise);
+
+    const alarmTick = env.rawController.tick(["twitch"], "alarm");
+    await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+    const enabling = env.rawController.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
+
+    try {
+      await vi.waitFor(() => {
+        expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+          expect.objectContaining({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "info",
+            message: "Twitch automation enable queued behind an active tick",
+          }),
+        );
+      });
+    } finally {
+      twitchDiscovery.resolve([]);
+      await Promise.all([alarmTick, enabling]);
+      await env.rawController.settleBackgroundWork();
+    }
   });
 
   it("brackets every tick with a lifecycle diagnostic naming its trigger and duration", async () => {
@@ -3565,12 +3827,183 @@ describe("background controller", () => {
 
     await env.controller.tick(["twitch"], "manual_tick");
 
-    const messages = env.reportEvents.mock.calls
+    const diagnostics = env.reportEvents.mock.calls
       .flatMap(([events]) => events)
-      .filter((event) => event.category === "diagnostic")
-      .map((event) => event.message);
-    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ started \(trigger=manual_tick, platforms=twitch\)$/));
-    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=manual_tick, platforms=twitch\)$/));
+      .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      globalTickId: 1,
+      platformTickId: 1,
+      message: expect.stringMatching(/^Tick #\d+ started \(trigger=manual_tick, platforms=twitch\)$/),
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      globalTickId: 1,
+      platformTickId: 1,
+      code: "auth_health_changed",
+      mirroredActivity: true,
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      globalTickId: 1,
+      platformTickId: 1,
+      message: expect.stringMatching(/^Tick #\d+ refreshed auth health in \d+ms$/),
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      globalTickId: 1,
+      platformTickId: 1,
+      message: expect.stringMatching(/^Campaign refresh finished in \d+ms/),
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      globalTickId: 1,
+      platformTickId: 1,
+      message: expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=manual_tick, platforms=twitch\)$/),
+    }));
+  });
+
+  it("reports material waits for same-platform scheduler work", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-07-29T12:00:00.000Z"));
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    const firstDiscoveryStarted = deferred<void>();
+    let discoveryCalls = 0;
+    env.twitch.refreshCampaigns = vi.fn(async () => {
+      discoveryCalls += 1;
+      if (discoveryCalls === 1) {
+        firstDiscoveryStarted.resolve();
+        await twitchDiscovery.promise;
+      }
+      return [];
+    });
+    const firstTick = env.rawController.tick(["twitch"], "manual_tick");
+    let secondTick: ReturnType<typeof env.rawController.tick> | undefined;
+
+    try {
+      await firstDiscoveryStarted.promise;
+      secondTick = env.rawController.tick(["twitch"], "manual_tick");
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      await vi.advanceTimersByTimeAsync(75);
+      twitchDiscovery.resolve([]);
+      await Promise.all([firstTick, secondTick]);
+
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        globalTickId: 2,
+        platformTickId: 2,
+        message: "Tick #2 waited 75ms for Twitch platform work",
+        data: { waitMs: 75 },
+      }));
+    } finally {
+      twitchDiscovery.resolve([]);
+      await Promise.allSettled(secondTick ? [firstTick, secondTick] : [firstTick]);
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not report platform-lock waits for an uncontended tick", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    await env.controller.tick(["twitch"], "manual_tick");
+
+    expect(allDiagnostics(env).some((event) =>
+      event.message.includes("waited") && event.message.includes("platform work"),
+    )).toBe(false);
+  });
+
+  it("assigns global and platform-local identifiers to interleaved platform ticks", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    await env.controller.tick(["twitch"], "manual_tick");
+    await env.controller.tick(["kick"], "manual_tick");
+    await env.controller.tick(["twitch"], "manual_tick");
+
+    const starts = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event): event is DiagnosticEvent =>
+        event.category === "diagnostic" && event.message.includes("started (trigger=manual_tick"));
+
+    expect(starts.map((event) => ({
+      platform: event.platform,
+      globalTickId: event.globalTickId,
+      platformTickId: event.platformTickId,
+      message: event.message,
+    }))).toEqual([
+      {
+        platform: "twitch",
+        globalTickId: 1,
+        platformTickId: 1,
+        message: "Tick #1 started (trigger=manual_tick, platforms=twitch)",
+      },
+      {
+        platform: "kick",
+        globalTickId: 2,
+        platformTickId: 1,
+        message: "Tick #1 started (trigger=manual_tick, platforms=kick)",
+      },
+      {
+        platform: "twitch",
+        globalTickId: 3,
+        platformTickId: 2,
+        message: "Tick #2 started (trigger=manual_tick, platforms=twitch)",
+      },
+    ]);
+  });
+
+  it("announces one controller run and correlates all of its diagnostics", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
+    await env.controller.settleBackgroundWork();
+
+    const diagnostics = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
+    const boundaries = diagnostics.filter((event) =>
+      event.message.startsWith("Background controller run "));
+    const runId = boundaries[0]?.controllerRunId;
+
+    expect(boundaries).toHaveLength(1);
+    expect(diagnostics.findIndex((event) =>
+      event.message.startsWith("Background controller run "))).toBe(0);
+    expect(runId).toEqual(expect.any(String));
+    expect(diagnostics.every((event) => event.controllerRunId === runId)).toBe(true);
+    const requested = diagnostics.find((event) =>
+      event.message === "User requested Twitch automation enable");
+    expect(requested).toBeDefined();
+    expect(requested).not.toHaveProperty("globalTickId");
+    expect(requested).not.toHaveProperty("platformTickId");
+  });
+
+  it("gives independent controller runs different IDs despite identical first tick labels", async () => {
+    const first = harness(farming(DEFAULT_SETTINGS));
+    const second = harness(farming(DEFAULT_SETTINGS));
+
+    await first.controller.tick(["twitch"], "manual_tick");
+    await second.controller.tick(["twitch"], "manual_tick");
+
+    const tickStart = (env: ReturnType<typeof harness>) => env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .find((event): event is DiagnosticEvent =>
+        event.category === "diagnostic"
+        && event.message === "Tick #1 started (trigger=manual_tick, platforms=twitch)");
+    const firstTick = tickStart(first);
+    const secondTick = tickStart(second);
+
+    expect(firstTick).toBeDefined();
+    expect(secondTick).toBeDefined();
+    expect(firstTick?.message).toBe("Tick #1 started (trigger=manual_tick, platforms=twitch)");
+    expect(secondTick?.message).toBe("Tick #1 started (trigger=manual_tick, platforms=twitch)");
+    expect(firstTick?.controllerRunId).toEqual(expect.any(String));
+    expect(secondTick?.controllerRunId).toEqual(expect.any(String));
+    expect(firstTick?.controllerRunId).not.toBe(secondTick?.controllerRunId);
   });
 
   it("reports a tick lifecycle even when the tick throws", async () => {
@@ -3592,12 +4025,12 @@ describe("background controller", () => {
     const snapshot = asSnapshot(await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true }));
 
     expect(env.settings.platform.twitch.enabled).toBe(true);
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
     // The snapshot returns ahead of the tick, reporting the prompt "starting"
     // transition; the watching status lands once the tick settles.
-    expect(snapshot.state.sessions.twitch.status).toBe("idle");
-    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+    expect(snapshot.state.sessions.twitch.status).toBe("starting");
     expect(env.state.sessions.twitch.status).toBe("watching");
   });
 
@@ -3665,8 +4098,8 @@ describe("background controller", () => {
   it("preempts an in-flight scheduler tick before resetting host storage", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     let tickSignal: AbortSignal | undefined;
-    vi.mocked(env.twitch.discoverCampaigns).mockImplementation(
-      async ({ signal } = {}) => new Promise((_resolve, reject) => {
+    vi.mocked(env.twitch.refreshCampaigns).mockImplementation(
+      async (_session, { signal } = {}) => new Promise((_resolve, reject) => {
         tickSignal = signal;
         signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
       }),
@@ -3696,8 +4129,8 @@ describe("background controller", () => {
   it("aborts in-flight scheduler work when the controller shuts down", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     let tickSignal: AbortSignal | undefined;
-    vi.mocked(env.twitch.discoverCampaigns).mockImplementation(
-      async ({ signal } = {}) => new Promise((_resolve, reject) => {
+    vi.mocked(env.twitch.refreshCampaigns).mockImplementation(
+      async (_session, { signal } = {}) => new Promise((_resolve, reject) => {
         tickSignal = signal;
         signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
       }),
@@ -3752,16 +4185,16 @@ describe("background controller", () => {
       await env.deps.saveState(DEFAULT_STATE);
     });
     await vi.waitFor(() => expect(resetStarted).toHaveBeenCalledOnce());
-    vi.mocked(env.twitch.discoverCampaigns).mockClear();
+    vi.mocked(env.twitch.refreshCampaigns).mockClear();
 
     const ticking = env.controller.tick();
     await Promise.resolve();
 
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     releaseReset();
     await Promise.all([resetting, ticking]);
     expect(env.settings).toEqual(DEFAULT_SETTINGS);
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
   });
 
   it("toggles one platform and immediately applies the scheduler when running", async () => {
@@ -3802,10 +4235,10 @@ describe("background controller", () => {
     expect(isFarmingActive(env.settings)).toBe(true);
     expect(env.settings.platform.twitch.enabled).toBe(true);
     expect(env.settings.platform.kick.enabled).toBe(false);
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(1);
-    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
     // Returned ahead of the tick, so the enabled platform reads as starting.
-    expect(snapshot.state.sessions.twitch.message).toBe("Starting automation");
+    expect(snapshot.state.sessions.twitch.status).toBe("starting");
     expect(env.state.sessions.twitch.status).toBe("watching");
     // Untouched: the toggle ticks only the platform it changed.
     expect(env.state.sessions.kick.status).toBe("idle");
@@ -3828,8 +4261,9 @@ describe("background controller", () => {
     expect(env.deps.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ tablessFallbackFailureLimit: 10 }),
     );
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
   });
 
   it("recreates the scheduler alarm when saving a custom tick interval", async () => {
@@ -3841,8 +4275,10 @@ describe("background controller", () => {
     });
 
     expect(env.settings.pollIntervalMinutes).toBe(17);
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: 17 });
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.deps.clearAlarm).toHaveBeenCalledWith(ALARM_NAME);
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: 17 });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: 17 });
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
   });
 
   it("merges overlapping settings patches without clobbering previous saves", async () => {
@@ -3897,7 +4333,7 @@ describe("background controller", () => {
     const firstGate = new Promise<void>((resolve) => {
       releaseFirst = resolve;
     });
-    vi.mocked(env.twitch.discoverCampaigns).mockImplementation(async () => {
+    vi.mocked(env.twitch.refreshCampaigns).mockImplementation(async () => {
       discoveryCalls += 1;
       activeDiscoveries += 1;
       maxActiveDiscoveries = Math.max(maxActiveDiscoveries, activeDiscoveries);
@@ -3928,7 +4364,7 @@ describe("background controller", () => {
 
     expect(env.settings.notifyRewardEarned).toBe(false);
     expect(env.settings.notifyNoDropsLeft).toBe(false);
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(2);
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
     expect(maxActiveDiscoveries).toBe(1);
   });
 
@@ -3948,7 +4384,7 @@ describe("background controller", () => {
       tickAfterSave: true,
     }));
 
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalled();
     expect(snapshot.settings.platform.twitch.idleWatchlistChannels).toEqual(["fallback"]);
   });
 
@@ -3969,9 +4405,9 @@ describe("background controller", () => {
       tickAfterSavePlatforms: ["kick"],
     }));
 
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
-    expect(env.kick.discoverCampaigns).toHaveBeenCalled();
+    expect(env.kick.refreshCampaigns).toHaveBeenCalled();
     expect(snapshot.settings.platform.kick.idleWatchlistChannels).toEqual(["fallback"]);
   });
 
@@ -3991,7 +4427,7 @@ describe("background controller", () => {
       tickAfterSave: true,
     }));
 
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(isFarmingActive(snapshot.settings)).toBe(false);
     expect(snapshot.settings.platform.twitch.idleWatchlistChannels).toEqual(["fallback"]);
   });
@@ -4013,7 +4449,7 @@ describe("background controller", () => {
     }));
 
     expect(env.twitch.stopWatchTab).not.toHaveBeenCalled();
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(snapshot.state.sessions.twitch.status).toBe("watching");
   });
 
@@ -4022,8 +4458,8 @@ describe("background controller", () => {
 
     const snapshot = asSnapshot(await env.controller.handleMessage({ type: "tickNow" }));
 
-    expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(1);
-    expect(env.kick.discoverCampaigns).toHaveBeenCalledTimes(1);
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(1);
     expect(snapshot.state.sessions.twitch.status).toBe("watching");
     expect(snapshot.state.sessions.kick.status).toBe("watching");
     expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
@@ -4407,6 +4843,35 @@ describe("background controller", () => {
     expect(env.deps.applyAdFocus).toHaveBeenCalledWith("kick", 20, false, expect.any(Function));
   });
 
+  it("applies ad focus only for each concurrent tick's own platform", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    vi.mocked(env.twitch.refreshCampaigns).mockReturnValue(twitchDiscovery.promise);
+    env.deps.applyAdFocus.mockClear();
+
+    const ticking = env.controller.tick(undefined, "manual_tick");
+
+    try {
+      await vi.waitFor(() => {
+        expect(env.deps.applyAdFocus).toHaveBeenCalledWith(
+          "kick",
+          20,
+          false,
+          expect.any(Function),
+        );
+      });
+      expect(env.deps.applyAdFocus.mock.calls.map(([platform]) => platform)).toEqual(["kick"]);
+    } finally {
+      twitchDiscovery.resolve([campaign("twitch")]);
+      await ticking;
+    }
+
+    expect(env.deps.applyAdFocus.mock.calls.map(([platform]) => platform)).toEqual([
+      "kick",
+      "twitch",
+    ]);
+  });
+
   it("keeps successful scheduler state when re-applying ad focus fails", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     env.deps.applyAdFocus.mockRejectedValue(new Error("focus refresh failed"));
@@ -4489,7 +4954,7 @@ describe("background controller", () => {
     await env.controller.handleTabRemoved(10);
 
     // The removal itself never runs the scheduler (#193).
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(env.state.manualClosePause?.twitch).toMatchObject({ platform: "twitch" });
     expect(env.state.sessions.twitch).toMatchObject({
@@ -4630,7 +5095,7 @@ describe("background controller", () => {
 
     await env.controller.handleTabRemoved(999);
 
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
   });
 
@@ -4654,7 +5119,7 @@ describe("background controller", () => {
 
     await env.controller.handleTabRemoved(10);
 
-    expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
   });
 
@@ -4696,7 +5161,7 @@ describe("background controller", () => {
       ...campaign("twitch", "claimed"),
       rewards: [reward("claimed"), subscriptionReward],
     };
-    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([twitchCampaign]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([twitchCampaign]);
 
     await env.controller.tick();
     const snapshot = asSnapshot(await env.controller.handleMessage({
@@ -4741,7 +5206,7 @@ describe("background controller", () => {
       ...campaign("twitch"),
       rewards: [subscriptionReward, { ...reward("locked"), id: "watch-reward", requirement: "watch" as const }],
     };
-    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([twitchCampaign]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([twitchCampaign]);
 
     await env.controller.tick();
     const snapshot = asSnapshot(await env.controller.handleMessage({
@@ -4785,7 +5250,7 @@ describe("background controller", () => {
         },
       ],
     };
-    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([twitchCampaign]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([twitchCampaign]);
 
     await env.controller.tick();
     const snapshot = asSnapshot(await env.controller.handleMessage({
@@ -4846,7 +5311,7 @@ describe("background controller", () => {
   it("emits reward notifications best-effort when rewards become earned", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, notifyRewardEarned: true }));
     env.state.campaigns.twitch = [campaign("twitch", "in_progress")];
-    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimable")]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([campaign("twitch", "claimable")]);
 
     await env.controller.tick();
 
@@ -4882,7 +5347,7 @@ describe("background controller", () => {
   it("does not emit disabled reward notifications", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, notifyRewardEarned: false }));
     env.state.campaigns.twitch = [campaign("twitch", "in_progress")];
-    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimable")]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([campaign("twitch", "claimable")]);
 
     await env.controller.tick();
 
@@ -4898,7 +5363,7 @@ describe("background controller", () => {
     });
     // A fully claimed campaign is present but has nothing earnable, so the
     // scheduler goes idle into the "no drops left" condition.
-    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimed")]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([campaign("twitch", "claimed")]);
 
     await env.controller.tick();
 
@@ -4913,7 +5378,7 @@ describe("background controller", () => {
       platform: { ...DEFAULT_SETTINGS.platform,
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true }, kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false } },
     });
-    vi.mocked(env.twitch.discoverCampaigns).mockResolvedValue([campaign("twitch", "claimed")]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([campaign("twitch", "claimed")]);
 
     await env.controller.tick();
     await env.controller.tick();
@@ -4927,7 +5392,7 @@ describe("background controller", () => {
 
   it("reports a controller-fatal interruption even when diagnostics are filtered by the host", async () => {
     const env = harness();
-    vi.mocked(env.deps.createAdapters).mockImplementation(() => {
+    vi.mocked(env.deps.createAdapter).mockImplementation(() => {
       throw new Error("adapter factory failed");
     });
 
@@ -4935,13 +5400,20 @@ describe("background controller", () => {
 
     expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
       expect.objectContaining({ category: "activity", code: "interruption", level: "error" }),
-      expect.objectContaining({ category: "diagnostic", level: "error", message: "adapter factory failed" }),
+      expect.objectContaining({
+        category: "diagnostic",
+        level: "error",
+        message: expect.stringContaining("adapter factory failed"),
+      }),
     ]));
   });
 
-  function fakeTablessWatcher(tick: () => Promise<{ ok: boolean; live?: boolean; message?: string }>) {
+  function fakeTablessWatcher(
+    tick: () => Promise<{ ok: boolean; live?: boolean; message?: string }>,
+    platform: Platform = "twitch",
+  ) {
     const watcher = {
-      platform: "twitch" as const,
+      platform,
       channelUrl: undefined as string | undefined,
       start: vi.fn(async (ch: { url: string }) => {
         watcher.channelUrl = ch.url;
@@ -5048,6 +5520,34 @@ describe("background controller", () => {
     expect(watcher.tick).toHaveBeenCalled();
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
     expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
+  });
+
+  it("lets Kick heartbeat and persist while Twitch heartbeat is still pending", async () => {
+    const twitchHeartbeat = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+    const twitchWatcher = fakeTablessWatcher(() => twitchHeartbeat.promise, "twitch");
+    const kickWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }), "kick");
+    const env = harness(farming({ ...DEFAULT_SETTINGS, tablessMode: true }));
+    env.twitch.supportsTabless = true;
+    env.kick.supportsTabless = true;
+    env.twitch.createTablessWatcher = () => twitchWatcher as unknown as TablessWatchController;
+    env.kick.createTablessWatcher = () => kickWatcher as unknown as TablessWatchController;
+    await env.controller.tick(["twitch"]);
+    await env.controller.tick(["kick"]);
+
+    const heartbeat = env.controller.runWatchHeartbeat();
+
+    try {
+      await vi.waitFor(() => expect(twitchWatcher.tick).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(kickWatcher.tick).toHaveBeenCalledOnce());
+      expect(env.state.sessions.kick.lastHeartbeatOk).toBe(true);
+      expect(env.state.sessions.twitch.lastHeartbeatAt).toBeUndefined();
+    } finally {
+      twitchHeartbeat.resolve({ ok: true, live: true });
+      await heartbeat;
+    }
+
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    expect(env.state.sessions.kick.lastHeartbeatOk).toBe(true);
   });
 
   it("persists page-context lifecycle metadata changed during a heartbeat", async () => {
@@ -5226,16 +5726,122 @@ describe("background controller", () => {
       env.controller.tick(),
     ]);
 
-    // Serialized: every load is immediately followed by that operation's save
-    // before the next operation's load (never load, load, save, save).
-    expect(trace.length).toBeGreaterThanOrEqual(4);
-    for (let i = 0; i + 1 < trace.length; i += 2) {
-      expect(trace[i]).toBe("load");
-      expect(trace[i + 1]).toBe("save");
-    }
+    expect(trace.filter((entry) => entry === "load").length)
+      .toBeGreaterThanOrEqual(trace.filter((entry) => entry === "save").length);
     // Both writers' changes survive in the final persisted state.
     expect(env.state.sessions.twitch.playback).toBeDefined();
     expect(env.state.lastTickAt).toBeDefined();
+  });
+
+  it("lets Kick complete while Twitch discovery is still pending", async () => {
+    const env = harness();
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    env.twitch.refreshCampaigns = vi.fn(() => twitchDiscovery.promise);
+
+    const ticking = env.controller.tick(undefined, "manual_tick");
+
+    try {
+      await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(env.state.sessions.kick.lastCheckedAt).toBeDefined());
+      expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
+    } finally {
+      twitchDiscovery.resolve([]);
+      await ticking;
+    }
+  });
+
+  it("lets a Kick auth refresh start while Twitch scheduler work is pending", async () => {
+    const env = harness();
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    env.twitch.refreshCampaigns = vi.fn(() => twitchDiscovery.promise);
+
+    const ticking = env.controller.tick(["twitch"], "manual_tick");
+    await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+    const checkingKick = env.controller.checkAuthHealth("kick");
+    let kickRefreshCompleted = false;
+    void checkingKick.then(() => {
+      kickRefreshCompleted = true;
+    });
+    try {
+      await vi.waitFor(() => expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(kickRefreshCompleted).toBe(true));
+    } finally {
+      twitchDiscovery.resolve([]);
+      await Promise.all([ticking, checkingKick]);
+    }
+  });
+
+  it("lets Kick scheduler work complete while Twitch playback focus is pending", async () => {
+    const focus = deferred<void>();
+    const env = harness();
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: true,
+      channel: channel("twitch"),
+    };
+    env.deps.applyAdFocus.mockImplementation(async (platform) => {
+      if (platform === "twitch") await focus.promise;
+    });
+    const telemetry = env.rawController.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    }, { tab: { id: 10 } });
+    await vi.waitFor(() => expect(env.deps.applyAdFocus).toHaveBeenCalledWith(
+      "twitch",
+      10,
+      false,
+      expect.any(Function),
+    ));
+
+    const kickTick = env.rawController.tick(["kick"], "manual_tick");
+    try {
+      await vi.waitFor(() => expect(env.state.sessions.kick.lastCheckedAt).toBeDefined());
+      expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
+    } finally {
+      focus.resolve();
+      await Promise.all([telemetry, kickTick]);
+    }
+
+    expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
+    expect(env.state.sessions.kick.lastCheckedAt).toBeDefined();
+  });
+
+  it("lets Kick scheduler work complete while a Twitch manual claim is pending", async () => {
+    const claim = deferred<boolean>();
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: false }));
+    env.state.campaigns.twitch = [campaign("twitch", "claimable")];
+    vi.mocked(env.twitch.claimReward).mockReturnValue(claim.promise);
+
+    const claiming = env.rawController.handleMessage({
+      type: "claimReward",
+      platform: "twitch",
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+    });
+    await vi.waitFor(() => expect(env.twitch.claimReward).toHaveBeenCalledOnce());
+
+    const kickTick = env.rawController.tick(["kick"], "manual_tick");
+    try {
+      await vi.waitFor(() => expect(env.state.sessions.kick.lastCheckedAt).toBeDefined());
+      expect(env.state.campaigns.twitch[0].rewards[0].status).toBe("claimable");
+    } finally {
+      claim.resolve(true);
+      await Promise.all([claiming, kickTick]);
+    }
+
+    expect(env.state.sessions.kick.lastCheckedAt).toBeDefined();
+    expect(env.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
   });
 
   it("serializes handleTabRemoved against a concurrent tick so neither write is lost", async () => {
@@ -5274,12 +5880,8 @@ describe("background controller", () => {
       env.controller.tick(),
     ]);
 
-    // Serialized: every load is immediately followed by that operation's save.
-    expect(trace.length).toBeGreaterThanOrEqual(4);
-    for (let i = 0; i + 1 < trace.length; i += 2) {
-      expect(trace[i]).toBe("load");
-      expect(trace[i + 1]).toBe("save");
-    }
+    expect(trace.filter((entry) => entry === "load").length)
+      .toBeGreaterThanOrEqual(trace.filter((entry) => entry === "save").length);
     // Both writers' changes survive: the manual-watch entry is removed AND the
     // concurrent tick committed its progress.
     expect(env.state.manualWatch?.kick).toBeUndefined();
@@ -5288,11 +5890,69 @@ describe("background controller", () => {
 
   it("reports the reward ids claimed during a tick, per platform", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: true }));
-    env.twitch.discoverCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
+    env.twitch.refreshCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
 
     const claimed = await env.controller.tick();
 
     expect(claimed).toEqual({ twitch: ["reward"] });
+  });
+
+  it("starts post-claim handoffs independently for both platforms", async () => {
+    const waitingSignals: AbortSignal[] = [];
+    const env = harness(
+      farming({
+        ...DEFAULT_SETTINGS,
+        autoClaim: true,
+        postClaimHandoff: true,
+      }),
+      {
+        wait: async (_ms, signal) => new Promise<void>((resolve) => {
+          waitingSignals.push(signal);
+          signal.addEventListener("abort", () => resolve(), { once: true });
+        }),
+      },
+    );
+    env.twitch.supportsPostClaimHandoff = true;
+    env.kick.supportsPostClaimHandoff = true;
+    env.twitch.refreshCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
+    env.kick.refreshCampaigns = vi.fn(async () => [campaign("kick", "claimable")]);
+
+    const running = env.controller.tickAndHandOff();
+    try {
+      await vi.waitFor(() => expect(waitingSignals).toHaveLength(2));
+    } finally {
+      env.controller.shutdown();
+      await running;
+    }
+  });
+
+  it("reports a platform-scoped diagnostic when a post-claim handoff fails", async () => {
+    const env = harness(farming({
+      ...DEFAULT_SETTINGS,
+      autoClaim: true,
+      postClaimHandoff: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    }));
+    env.twitch.supportsPostClaimHandoff = true;
+    env.twitch.refreshCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
+    env.deps.createAdapters.mockImplementation(() => {
+      throw new Error("handoff adapter failed");
+    });
+
+    await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+      expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "Post-claim handoff failed: handoff adapter failed",
+      }),
+    );
   });
 
   describe("post-claim handoff", () => {
@@ -5347,7 +6007,7 @@ describe("background controller", () => {
     it("starts earning the next reward before the next heartbeat alarm", async () => {
       const env = handoffEnv();
       let reveal = false;
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(reveal)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(reveal)]);
 
       const handoff = env.controller.runClaimHandoff("twitch");
       reveal = true;
@@ -5359,7 +6019,7 @@ describe("background controller", () => {
 
     it("stops at the deadline when no next reward appears", async () => {
       const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.runClaimHandoff("twitch");
       for (let index = 0; index < 10; index += 1) await env.timer.flush();
@@ -5372,7 +6032,7 @@ describe("background controller", () => {
 
     it("exits early when the platform has no eligible reward left", async () => {
       const env = handoffEnv();
-      env.twitch.discoverCampaigns = vi.fn(async () => []);
+      env.twitch.refreshCampaigns = vi.fn(async () => []);
 
       const handoff = env.controller.runClaimHandoff("twitch");
       await env.timer.flush();
@@ -5383,7 +6043,7 @@ describe("background controller", () => {
 
     it("aborts in flight when farming stops", async () => {
       const env = handoffEnv();
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.runClaimHandoff("twitch");
       // Let the loop actually park before aborting, so this exercises an
@@ -5394,7 +6054,7 @@ describe("background controller", () => {
       await handoff;
 
       expect(env.timer.parked).toBe(0);
-      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     });
 
     it("does not run for a platform without the capability", async () => {
@@ -5437,7 +6097,7 @@ describe("background controller", () => {
       env.twitch.supportsTabless = true;
       env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
       let reveal = false;
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(reveal)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(reveal)]);
 
       const handoff = env.controller.runClaimHandoff("twitch");
       reveal = true;
@@ -5455,7 +6115,7 @@ describe("background controller", () => {
       env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
       // Both rewards visible from the start, so the triggering tick already
       // selects the successor and the handoff takes its fast path.
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(true)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(true)]);
 
       // Establish the tabless session and land a heartbeat seconds ago.
       await env.controller.tick();
@@ -5469,7 +6129,7 @@ describe("background controller", () => {
 
     it("starts a handoff after an automatic claim", async () => {
       const env = handoffEnv();
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.tickAndHandOff();
       for (let index = 0; index < 12; index += 1) await env.timer.flush();
@@ -5482,7 +6142,7 @@ describe("background controller", () => {
       const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
       // Every refresh yields another claimable reward, which would restart the
       // deadline forever if a nested handoff were allowed.
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
       for (let index = 0; index < 10; index += 1) await env.timer.flush();
@@ -5493,7 +6153,7 @@ describe("background controller", () => {
 
     it("keeps an active handoff running during an ordinary settings save", async () => {
       const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
       await drainMicrotasks();
@@ -5507,12 +6167,12 @@ describe("background controller", () => {
       expect(env.timer.parked).toBe(1);
       for (let index = 0; index < 4; index += 1) await env.timer.flush();
       await handoff;
-      expect(env.twitch.discoverCampaigns).toHaveBeenCalled();
+      expect(env.twitch.refreshCampaigns).toHaveBeenCalled();
     });
 
     it("aborts running handoffs when farming is switched off", async () => {
       const env = handoffEnv();
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
       await drainMicrotasks();
@@ -5525,7 +6185,7 @@ describe("background controller", () => {
 
     it("does not start a second handoff while the first is still starting", async () => {
       const env = handoffEnv();
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       // Both calls are made before either has finished its async setup.
       const first = env.controller.runClaimHandoff("twitch", ["reward-1"]);
@@ -5540,7 +6200,7 @@ describe("background controller", () => {
 
     it("honors an abort issued while the handoff is still starting", async () => {
       const env = handoffEnv();
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
       // Synchronously, before any setup await has resolved.
@@ -5548,7 +6208,7 @@ describe("background controller", () => {
       await env.timer.flush();
       await handoff;
 
-      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     });
 
     it("never refreshes after the maximum duration has elapsed", async () => {
@@ -5558,13 +6218,13 @@ describe("background controller", () => {
       // The session keeps watching the reward that was just claimed, so the loop
       // never succeeds and never sees "nothing left" — only the deadline can end
       // it. Without that, the early exit would mask any overshoot.
-      env.twitch.discoverCampaigns = vi.fn(async () => [campaign("twitch")]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [campaign("twitch")]);
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward"]);
       for (let index = 0; index < 5; index += 1) await env.timer.flush();
       await handoff;
 
-      expect(env.twitch.discoverCampaigns).toHaveBeenCalledTimes(1);
+      expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
     });
 
     it("sends no heartbeat when the abort lands while state is being read", async () => {
@@ -5572,7 +6232,7 @@ describe("background controller", () => {
       const env = handoffEnv({ tablessMode: true });
       env.twitch.supportsTabless = true;
       env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(true)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(true)]);
 
       await env.controller.tick();
       watcher.tick.mockClear();
@@ -5595,7 +6255,7 @@ describe("background controller", () => {
       const env = handoffEnv({ tablessMode: false });
       env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
       let reveal = false;
-      env.twitch.discoverCampaigns = vi.fn(async () => [chainedCampaign(reveal)]);
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(reveal)]);
 
       const handoff = env.controller.runClaimHandoff("twitch");
       reveal = true;
@@ -5619,8 +6279,8 @@ describe("background controller critical health", () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     // Adapters are constructed with the tick's emitter before discovery runs, so
     // the last recorded call carries the live emitter for this tick.
-    const emitFromTick = (): EventEmitter => env.deps.createAdapters.mock.calls.at(-1)![0];
-    env.kick.discoverCampaigns = vi.fn(async () => {
+    const emitFromTick = (): EventEmitter => env.deps.createAdapter.mock.calls.at(-1)![1];
+    env.kick.refreshCampaigns = vi.fn(async () => {
       emitFromTick()({
         category: "activity",
         code: "page_context_opened",
@@ -5644,8 +6304,8 @@ describe("background controller critical health", () => {
 
   it("opens the breaker and syncs the registry after repeated page context opens", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    const emitFromTick = (): EventEmitter => env.deps.createAdapters.mock.calls.at(-1)![0];
-    env.kick.discoverCampaigns = vi.fn(async () => {
+    const emitFromTick = (): EventEmitter => env.deps.createAdapter.mock.calls.at(-1)![1];
+    env.kick.refreshCampaigns = vi.fn(async () => {
       emitFromTick()({
         category: "activity",
         code: "page_context_opened",

@@ -38,6 +38,11 @@ export interface AdapterOperationOptions {
   signal?: AbortSignal;
 }
 
+export interface CandidateChannelSelection {
+  channel?: ChannelCandidate;
+  checked: number;
+}
+
 // A gamification challenge that was just claimed. Account-level, so unlike
 // channel points it is not tied to a channel or a watch session.
 export interface ClaimedChallenge {
@@ -50,9 +55,13 @@ export interface PlatformAdapter {
   platform: Platform;
   readonly compatibility?: ResolvedCompatibility[Platform];
   checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth>;
-  discoverCampaigns(options?: AdapterOperationOptions): Promise<DropCampaign[]>;
-  readProgress(campaigns: DropCampaign[], session?: WatchSession, options?: AdapterOperationOptions): Promise<DropCampaign[]>;
+  refreshCampaigns(session?: WatchSession, options?: AdapterOperationOptions): Promise<DropCampaign[]>;
   listCandidateChannels(campaign: DropCampaign, options?: AdapterOperationOptions): Promise<ChannelCandidate[]>;
+  selectCandidateChannel?(
+    candidates: ChannelCandidate[],
+    campaign?: DropCampaign,
+    options?: AdapterOperationOptions,
+  ): Promise<CandidateChannelSelection>;
   checkChannel(channel: ChannelCandidate, options?: AdapterOperationOptions & { campaign?: DropCampaign }): Promise<ChannelCheck>;
   claimReward(campaign: DropCampaign, reward: DropReward, options?: AdapterOperationOptions): Promise<boolean>;
   // Whether a "claimable" reward can actually be claimed right now. Twitch only

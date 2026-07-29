@@ -19,8 +19,7 @@ function fakeAdapter(platform: Platform, health: PlatformAuthHealth): PlatformAd
   return {
     platform,
     checkAuthHealth: async () => health,
-    discoverCampaigns: async () => [],
-    readProgress: async (campaigns: DropCampaign[]) => campaigns,
+    refreshCampaigns: async () => [],
     listCandidateChannels: async () => [],
     checkChannel: async (candidate: ChannelCandidate): Promise<ChannelCheck> => ({ live: false, categoryMatches: false, candidate }),
     claimReward: async () => false,

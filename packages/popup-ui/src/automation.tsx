@@ -39,7 +39,7 @@ export function PlatformSwitcher({ active, presentation, onChange }: { active: P
   );
 }
 
-export function AutomationHero({ platform, platformLabel, enabled, pending, presentation, onChange, farmingTitle, farmingChannel, onFarmingTitleClick, statusMessage, onResume }: { platform: Platform; platformLabel: string; enabled: boolean; pending: boolean; presentation: AutomationPresentation; onChange(value: boolean): Promise<void>; farmingTitle?: string; farmingChannel?: FarmingChannelView; onFarmingTitleClick?(): void; statusMessage?: string; onResume?(): void }) {
+export function AutomationHero({ platform, platformLabel, enabled, pending, presentation, onChange, farmingTitle, farmingChannel, onFarmingTitleClick, onResume }: { platform: Platform; platformLabel: string; enabled: boolean; pending: boolean; presentation: AutomationPresentation; onChange(value: boolean): Promise<void>; farmingTitle?: string; farmingChannel?: FarmingChannelView; onFarmingTitleClick?(): void; onResume?(): void }) {
   const t = useT();
   const runtime = usePopupRuntime();
 
@@ -70,7 +70,7 @@ export function AutomationHero({ platform, platformLabel, enabled, pending, pres
                     {farmingChannel.viewers != null && <span className="shrink-0 text-zinc-400 dark:text-zinc-500">· {formatViewers(farmingChannel.viewers)}</span>}
                   </p>
                 ) : (
-                  <p className="line-clamp-2 leading-snug" title={statusMessage}>{statusMessage ?? t("waitingEligibleStream")}</p>
+                  <p className="line-clamp-2 leading-snug" title={presentation.statusMessage}>{presentation.statusMessage ?? t("waitingEligibleStream")}</p>
                 )}
                 {farmingTitle && (
                   <p className="flex items-center gap-1 truncate">

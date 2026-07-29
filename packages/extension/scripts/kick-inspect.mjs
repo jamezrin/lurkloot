@@ -331,7 +331,7 @@ async function main() {
     // 1. Drop campaigns — shape is the launch-day unknown; capture whatever exists now.
     await captureViaPage(page, "drops-campaigns", "https://web.kick.com/api/v1/drops/campaigns");
     // 2. Drop progress — needs X-Client-Token or Kick's WAF returns "Request
-    //    blocked by security policy." (matches the extension's readProgress).
+    //    blocked by security policy." (matches the extension's campaign refresh).
     await captureViaPage(page, "drops-progress", "https://web.kick.com/api/v1/drops/progress", {
       headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
     });

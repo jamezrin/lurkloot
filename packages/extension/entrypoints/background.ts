@@ -135,6 +135,10 @@ const controller = createBackgroundController<ExtensionSettings>({
   reportEvents,
   checkCredentialAvailability,
   createAlarm: (name, options) => browser.alarms.create(name, options),
+  getAlarm: async (name) => {
+    const alarm = await browser.alarms.get(name);
+    return alarm ? { scheduledTime: alarm.scheduledTime } : undefined;
+  },
   clearAlarm: (name) => browser.alarms.clear(name),
   ensureTwitchIntegrity: (emit, request) => ensureTwitchIntegrity(emit, request),
   cancelTwitchIntegrityAcquisition,

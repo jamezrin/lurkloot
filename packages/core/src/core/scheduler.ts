@@ -203,30 +203,62 @@ export async function chooseCampaignDecision(
   platform: Platform,
   campaigns: DropCampaign[],
   settings: EngineSettings,
-  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "checkChannel">,
+  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel">,
   signal?: AbortSignal,
+  reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
 ): Promise<WatchDecision> {
   const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
   const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
   const waitingForSubscription = onlyWaitingSubscriptionCampaigns(campaigns, settings);
   const subscriptionOnly = onlySubscriptionCampaigns(campaigns, settings);
+  let campaignsChecked = 0;
+  let candidatesChecked = 0;
+  const generalCandidatesByCategory = new Map<string, ChannelCandidate[]>();
+  const finish = (decision: WatchDecision): WatchDecision => {
+    reportMetrics?.({ campaignsChecked, candidatesChecked });
+    return decision;
+  };
 
   for (const campaign of sorted) {
     const reward = activeReward(campaign, settings);
     if (!reward) continue;
+    campaignsChecked += 1;
 
     const excludedChannels = settings.platform[platform].excludedChannels ?? [];
     signal?.throwIfAborted();
-    const candidates = (await adapter.listCandidateChannels(campaign, { signal }))
-      .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
+    const reusableDirectoryKey = campaign.allowedChannels?.length
+      ? undefined
+      : campaign.categoryId ?? campaign.slug;
+    let listedCandidates = reusableDirectoryKey
+      ? generalCandidatesByCategory.get(reusableDirectoryKey)
+      : undefined;
+    if (!listedCandidates) {
+      listedCandidates = await adapter.listCandidateChannels(campaign, { signal });
+      if (reusableDirectoryKey && listedCandidates.length > 0) {
+        generalCandidatesByCategory.set(reusableDirectoryKey, listedCandidates);
+      }
+    }
+    const candidates = [...new Map(
+      listedCandidates
+        .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
+        .map((candidate) => ({
+          ...candidate,
+          campaignId: campaign.id,
+          categoryId: campaign.categoryId ?? candidate.categoryId,
+          categoryName: campaign.gameName ?? candidate.categoryName,
+        }))
+        .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
+    ).values()]
       .sort((left, right) => {
         if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
         return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
       });
 
-    const channel = await firstValidCandidate(candidates, campaign, adapter, signal);
+    const channel = await firstValidCandidate(candidates, campaign, adapter, signal, () => {
+      candidatesChecked += 1;
+    });
     if (channel) {
-      return {
+      return finish({
         platform,
         action: "watch",
         campaign,
@@ -234,41 +266,43 @@ export async function chooseCampaignDecision(
         channel,
         reason: "Eligible campaign selected",
         reasonCode: "eligible_campaign",
-      };
+      });
     }
   }
 
   if (subscriptionOnly) {
-    return {
+    return finish({
       platform,
       action: "idle",
       reason: noCampaignReason,
       reasonCode: "campaign_ineligible",
-    };
+    });
   }
 
   const fallbackCandidates = settings.platform[platform].idleWatchlistChannels
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean)
     .map((username) => fallbackChannel(platform, username));
-  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter, signal);
+  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter, signal, () => {
+    candidatesChecked += 1;
+  });
 
   if (fallback) {
-    return {
+    return finish({
       platform,
       action: "fallback",
       channel: fallback,
       reason: `${noCampaignReason}; Idle Watchlist channel selected`,
       reasonCode: "idle_watchlist_selected",
-    };
+    });
   }
 
-  return {
+  return finish({
     platform,
     action: "idle",
     reason: `${noCampaignReason} and no Idle Watchlist channels`,
     reasonCode: waitingForSubscription ? "campaign_ineligible" : "no_eligible_channel",
-  };
+  });
 }
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
@@ -341,11 +375,18 @@ function onlySubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSe
 async function firstValidCandidate(
   candidates: ChannelCandidate[],
   campaign: DropCampaign | undefined,
-  adapter: Pick<PlatformAdapter, "checkChannel">,
+  adapter: Pick<PlatformAdapter, "selectCandidateChannel" | "checkChannel">,
   signal?: AbortSignal,
+  onCheck?: () => void,
 ): Promise<ChannelCandidate | undefined> {
+  if (adapter.selectCandidateChannel) {
+    const selection = await adapter.selectCandidateChannel(candidates, campaign, { signal });
+    for (let index = 0; index < selection.checked; index += 1) onCheck?.();
+    return selection.channel;
+  }
   for (const candidate of candidates) {
     signal?.throwIfAborted();
+    onCheck?.();
     const check = await adapter.checkChannel(candidate, { campaign, signal });
     if (check.live && check.categoryMatches && check.campaignMatches !== false) {
       return channelFromCheck(candidate, check);
@@ -451,7 +492,8 @@ export async function runSchedulerTick(
 ): Promise<SchedulerTickResult> {
   options.signal?.throwIfAborted();
   const stopPageContextTabs = options.stopPageContextTabs ?? forgetManagedPageContextTabs;
-  registerManagedPageContextTabs(state.managedPageContextTabs ?? {});
+  const platforms = options.platforms ?? PLATFORMS;
+  registerManagedPageContextTabs(state.managedPageContextTabs ?? {}, platforms);
   let nextState: SchedulerState = {
     ...state,
     campaigns: { ...state.campaigns },
@@ -524,9 +566,11 @@ export async function runSchedulerTick(
   // Otherwise a breaker latched before the switch was flipped would keep blocking
   // page-context creation forever: observations no longer run to release it, and
   // the popup no longer renders the panel that would dismiss it.
-  syncManagedTabBreakers(settings.criticalFailurePromptEnabled ? nextState : {});
+  syncManagedTabBreakers(
+    settings.criticalFailurePromptEnabled ? nextState : {},
+    platforms,
+  );
 
-  const platforms = options.platforms ?? PLATFORMS;
   for (const platform of platforms) {
     options.signal?.throwIfAborted();
     const previous = nextState.sessions[platform];
@@ -545,7 +589,7 @@ export async function runSchedulerTick(
       if (!settings.criticalFailurePromptEnabled) return;
       const transition = observeCriticalHealth(nextState, platform, observation);
       nextState = transition.state;
-      syncManagedTabBreakers(nextState);
+      syncManagedTabBreakers(nextState, [platform]);
       // This runs inside a `finally`, so a throwing listener here would replace
       // the in-flight error and abort the remaining platforms. Health reporting
       // is never worth that.
@@ -709,9 +753,15 @@ export async function runSchedulerTick(
       let campaigns: DropCampaign[];
       let discoveryFailed = false;
       try {
-        const discovered = await adapter.discoverCampaigns({ signal: options.signal });
-        options.signal?.throwIfAborted();
-        campaigns = await adapter.readProgress(discovered, previous, { signal: options.signal });
+        const refreshStartedAt = Date.now();
+        campaigns = await adapter.refreshCampaigns(previous, { signal: options.signal });
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign refresh finished in ${Date.now() - refreshStartedAt}ms (${countLabel(campaigns.length, "campaign")})`,
+        );
+        campaigns = preserveClaimedRewards(campaigns, state.campaigns[platform]);
       } catch (error) {
         options.signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
@@ -831,8 +881,46 @@ export async function runSchedulerTick(
         }
       }
 
-      let decision = await chooseCampaignDecision(platform, campaigns, settings, adapter, options.signal);
-      const shouldKeep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
+      const selectionStartedAt = Date.now();
+      const currentWatch = await evaluatePreferredCurrentWatch(
+        previous,
+        campaigns,
+        settings,
+        adapter,
+        options.signal,
+      );
+      let decision: WatchDecision;
+      let shouldKeep: Awaited<ReturnType<typeof shouldKeepWatching>>;
+      if (currentWatch?.keep.keep) {
+        decision = currentWatch.decision;
+        shouldKeep = currentWatch.keep;
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign selection fast path retained current watch in ${Date.now() - selectionStartedAt}ms (1 candidate checked)`,
+        );
+      } else {
+        let selectionMetrics = { campaignsChecked: 0, candidatesChecked: 0 };
+        decision = await chooseCampaignDecision(
+          platform,
+          campaigns,
+          settings,
+          adapter,
+          options.signal,
+          (metrics) => {
+            selectionMetrics = metrics;
+          },
+        );
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign selection finished in ${Date.now() - selectionStartedAt}ms (${countLabel(selectionMetrics.campaignsChecked, "campaign")} checked, ${countLabel(selectionMetrics.candidatesChecked, "candidate")} checked)`,
+        );
+        shouldKeep = currentWatch?.keep
+          ?? await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
+      }
       // The single site where a stop reason is decided for an existing watch, so
       // the precondition-break arm is set here rather than at every consumer.
       if (!shouldKeep.keep && previous.status === "watching" && ACCRUAL_PRECONDITION_BREAK_REASONS.has(shouldKeep.reasonCode)) {
@@ -1158,6 +1246,35 @@ async function claimReadyRewards(
   return { campaigns: updated, events };
 }
 
+function preserveClaimedRewards(
+  campaigns: DropCampaign[],
+  previousCampaigns: readonly DropCampaign[],
+): DropCampaign[] {
+  const previouslyClaimed = new Map<string, DropReward>();
+  for (const campaign of previousCampaigns) {
+    for (const reward of campaign.rewards) {
+      if (reward.status === "claimed" && reward.claimId) {
+        previouslyClaimed.set(reward.claimId, reward);
+      }
+    }
+  }
+
+  return campaigns.map((campaign) => {
+    let changed = false;
+    const rewards = campaign.rewards.map<DropReward>((reward) => {
+      const previous = reward.claimId ? previouslyClaimed.get(reward.claimId) : undefined;
+      if (!previous || previous.id !== reward.id) return reward;
+      changed = true;
+      return {
+        ...reward,
+        status: "claimed",
+        watchedMinutes: Math.max(reward.watchedMinutes, reward.requiredMinutes),
+      };
+    });
+    return changed ? reconcileCampaignAfterClaims(campaign, rewards) : campaign;
+  });
+}
+
 function isRewardRelevantNow(reward: DropReward): boolean {
   return canClaimReward(reward) || isRewardAvailableToEarn(reward);
 }
@@ -1192,6 +1309,40 @@ function canClaimReward(reward: DropReward): boolean {
   return Number.isNaN(claimUntil) || Date.now() < claimUntil;
 }
 
+async function evaluatePreferredCurrentWatch(
+  previous: WatchSession,
+  campaigns: readonly DropCampaign[],
+  settings: EngineSettings,
+  adapter: Pick<PlatformAdapter, "checkChannel">,
+  signal?: AbortSignal,
+): Promise<{
+  decision: WatchDecision;
+  keep: Awaited<ReturnType<typeof shouldKeepWatching>>;
+} | undefined> {
+  if (previous.status !== "watching" || !previous.channel || !previous.campaignId || !previous.rewardId) {
+    return undefined;
+  }
+  const preferredCampaign = sortCampaigns(
+    campaigns.filter((campaign) => isEligible(campaign, settings)),
+    settings,
+  ).find((campaign) => activeReward(campaign, settings));
+  const preferredReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
+  if (preferredCampaign?.id !== previous.campaignId || preferredReward?.id !== previous.rewardId) {
+    return undefined;
+  }
+  const decision: WatchDecision = {
+    platform: previous.platform,
+    action: "watch",
+    campaign: preferredCampaign,
+    reward: preferredReward,
+    channel: previous.channel,
+    reason: "Current campaign remains highest priority",
+    reasonCode: "keeping_current_watch",
+  };
+  const keep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);
+  return { decision, keep };
+}
+
 async function shouldKeepWatching(
   previous: WatchSession,
   nextDecision: WatchDecision,
@@ -1203,9 +1354,8 @@ async function shouldKeepWatching(
   if (!previous.channel || previous.status !== "watching") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session", reasonCode: "no_existing_session" };
   }
-  const previousReward = campaigns
-    .find((campaign) => campaign.id === previous.campaignId)
-    ?.rewards.find((reward) => reward.id === previous.rewardId);
+  const previousCampaign = campaigns.find((campaign) => campaign.id === previous.campaignId);
+  const previousReward = previousCampaign?.rewards.find((reward) => reward.id === previous.rewardId);
   if (previousReward?.status === "claimable" || previousReward?.status === "claimed") {
     return {
       keep: false,
@@ -1268,7 +1418,7 @@ async function shouldKeepWatching(
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Idle Watchlist channel available", reasonCode: "higher_priority_idle_watchlist" };
   }
 
-  const check = await adapter.checkChannel(previous.channel, { signal });
+  const check = await adapter.checkChannel(previous.channel, { campaign: previousCampaign, signal });
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
   if (offlineChecks >= settings.offlineRetryLimit) {
     return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached", reasonCode: "channel_offline" };
@@ -1276,6 +1426,9 @@ async function shouldKeepWatching(
 
   if (!check.categoryMatches) {
     return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel category no longer matches", reasonCode: "channel_mismatch" };
+  }
+  if (check.campaignMatches === false) {
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel no longer offers the current campaign", reasonCode: "campaign_ineligible" };
   }
 
   const playbackChecks = nextPlaybackChecks(previous, isTabless);
@@ -1394,4 +1547,8 @@ function emitDiagnostic(
   message: string,
 ): void {
   emit({ category: "diagnostic", platform, level, message });
+}
+
+function countLabel(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }

@@ -14,6 +14,12 @@ describe("background integrity alarm wiring", () => {
 
   it("injects the one-shot alarm and integrity lifecycle dependencies", () => {
     expect(source).toContain("createAlarm: (name, options) => browser.alarms.create(name, options),");
+    expect(source).toContain([
+      "  getAlarm: async (name) => {",
+      "    const alarm = await browser.alarms.get(name);",
+      "    return alarm ? { scheduledTime: alarm.scheduledTime } : undefined;",
+      "  },",
+    ].join("\n"));
     expect(source).toContain("clearAlarm: (name) => browser.alarms.clear(name),");
     expect(source).toContain("ensureTwitchIntegrity: (emit, request) => ensureTwitchIntegrity(emit, request),");
     expect(source).toContain("cancelTwitchIntegrityAcquisition,");
@@ -44,11 +50,16 @@ describe("background integrity alarm wiring", () => {
     };
     const listener = createBackgroundAlarmListener(controller);
 
+    listener({ name: "lurkloot.tick.twitch" });
+    listener({ name: "lurkloot.tick.kick" });
+    listener({ name: "lurkloot.tick" });
     listener({ name: "lurkloot.twitch-integrity" });
     listener({ name: "unrelated.alarm" });
 
     expect(controller.runTwitchIntegrityRefresh).toHaveBeenCalledOnce();
-    expect(controller.tickAndHandOff).not.toHaveBeenCalled();
+    expect(controller.tickAndHandOff).toHaveBeenNthCalledWith(1, ["twitch"], "alarm");
+    expect(controller.tickAndHandOff).toHaveBeenNthCalledWith(2, ["kick"], "alarm");
+    expect(controller.tickAndHandOff).toHaveBeenCalledTimes(2);
     expect(controller.runWatchHeartbeat).not.toHaveBeenCalled();
   });
 });

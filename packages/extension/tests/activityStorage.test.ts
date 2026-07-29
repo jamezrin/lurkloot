@@ -70,6 +70,25 @@ describe("activity repository", () => {
     expect(new Set(stored.map((event) => event.at)).size).toBe(3);
   }, 30_000);
 
+  it("round-trips diagnostic controller and tick correlation fields", async () => {
+    await repository.append([{
+      category: "diagnostic",
+      level: "debug",
+      message: "correlated diagnostic",
+      controllerRunId: "controller-run-id",
+      globalTickId: 42,
+      platformTickId: 7,
+    }]);
+
+    const [stored] = (await repository.load({ category: "diagnostic" })).events;
+
+    expect(stored).toMatchObject({
+      controllerRunId: "controller-run-id",
+      globalTickId: 42,
+      platformTickId: 7,
+    });
+  });
+
   it("keeps activity when diagnostics exceed their independent cap", async () => {
     await repository.append([activityEvent("a")]);
     await repository.append(Array.from({ length: 2_001 }, (_, index) => diagnosticEvent(index)));

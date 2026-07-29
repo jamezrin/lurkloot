@@ -23,8 +23,11 @@ import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 import { applyPlatformAuthHealth } from "../core/authHealth";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
+import { mergePlatformState } from "./platformState";
 
 export const ALARM_NAME = "lurkloot.tick";
+export const TWITCH_ALARM_NAME = "lurkloot.tick.twitch";
+export const KICK_ALARM_NAME = "lurkloot.tick.kick";
 // A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
 // of the (heavier, configurable) discovery tick. chrome.alarms clamps to a
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
@@ -41,8 +44,10 @@ interface BackgroundAlarmController {
 
 export function createBackgroundAlarmListener(controller: BackgroundAlarmController) {
   return (alarm: { name: string }): void => {
-    if (alarm.name === ALARM_NAME) {
-      void controller.tickAndHandOff(undefined, "alarm");
+    if (alarm.name === TWITCH_ALARM_NAME) {
+      void controller.tickAndHandOff(["twitch"], "alarm");
+    } else if (alarm.name === KICK_ALARM_NAME) {
+      void controller.tickAndHandOff(["kick"], "alarm");
     } else if (alarm.name === WATCH_ALARM_NAME) {
       void controller.runWatchHeartbeat();
     } else if (alarm.name === TWITCH_INTEGRITY_ALARM_NAME) {
@@ -70,6 +75,10 @@ export type TickTrigger =
   | "tabless_fallback"
   | "claim_handoff"
   | "unknown";
+type TickDiagnosticContext = Required<Pick<
+  DiagnosticEvent,
+  "globalTickId" | "platformTickId"
+>>;
 export type CredentialAvailability =
   | { status: "available" }
   | { status: "missing" }
@@ -87,6 +96,15 @@ function isNothingLeftToFarm(reasonCode: WatchReasonCode | undefined): boolean {
 // still transmits.
 const RECENT_HEARTBEAT_MS = 30_000;
 const PLATFORMS: Platform[] = ["twitch", "kick"];
+
+function correlateTickDiagnostics(
+  events: readonly EngineEvent[],
+  tickContext: TickDiagnosticContext,
+): EngineEvent[] {
+  return events.map((event) =>
+    event.category === "diagnostic" ? { ...event, ...tickContext } : event);
+}
+
 // Must stay strictly greater than INTEGRITY_REFRESH_TIMEOUT_MS. A Twitch probe
 // runs through gqlWithIntegrityRetry, so a rejection makes it wait on a page
 // context minting a token; when this deadline was the shorter of the two (10s
@@ -147,20 +165,6 @@ function emitHostCallbackError(
   });
 }
 
-// One in-flight state mutation at a time. Each handler's load→modify→persist
-// runs inside this lock so a save built on a stale snapshot can't clobber
-// another handler's concurrent write (telemetry arrives every ~5s while ticks
-// and heartbeats fire on alarms). NOT reentrant: a locked section must never
-// call another locked section (see runWatchHeartbeat, which calls tick() only
-// after its locked closure returns).
-let stateMutation: Promise<unknown> = Promise.resolve();
-function withStateLock<T>(operation: () => Promise<T>): Promise<T> {
-  const run = stateMutation.then(operation, operation);
-  // Keep the chain alive regardless of outcome without leaking rejections.
-  stateMutation = run.then(() => undefined, () => undefined);
-  return run;
-}
-
 // Generic over the host's settings type `S`, which must satisfy the engine
 // contract (EngineSettings). The extension parametrizes it with its fuller
 // ExtensionSettings (load/save round-trip the host-only fields); the CLI uses the
@@ -176,6 +180,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
     name: string,
     options: { periodInMinutes: number } | { when: number },
   ): Promise<void>;
+  getAlarm?(name: string): Promise<{ scheduledTime: number } | undefined>;
   clearAlarm?(name: string): Promise<boolean>;
   ensureTwitchIntegrity?(
     emit: EventEmitter,
@@ -219,6 +224,42 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
 }
 
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
+  const controllerRunId = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const controllerRunLabel = controllerRunId.slice(0, 8);
+  let controllerRunAnnouncement: Promise<void> | undefined;
+  const platformMutations: Record<Platform, Promise<unknown>> = {
+    twitch: Promise.resolve(),
+    kick: Promise.resolve(),
+  };
+  let stateCommit: Promise<unknown> = Promise.resolve();
+
+  function withPlatformLock<T>(platform: Platform, operation: () => Promise<T>): Promise<T> {
+    const run = platformMutations[platform].then(operation, operation);
+    platformMutations[platform] = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
+  function withStateLock<T>(
+    operation: () => Promise<T>,
+    platforms: readonly Platform[] = PLATFORMS,
+  ): Promise<T> {
+    const targets = PLATFORMS.filter((platform) => platforms.includes(platform));
+    const acquire = (index: number): Promise<T> => {
+      const platform = targets[index];
+      if (!platform) return operation();
+      return withPlatformLock(platform, () => acquire(index + 1));
+    };
+    return acquire(0);
+  }
+
+  function withStateCommit<T>(operation: () => Promise<T>): Promise<T> {
+    const run = stateCommit.then(operation, operation);
+    stateCommit = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
   const reportedCompatibility = new Map<Platform, string>();
   const reportedCompatibilityWarnings = new Set<string>();
   const authRefreshGeneration: Record<Platform, number> = {
@@ -477,9 +518,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await clearTwitchIntegrityAlarm();
       return;
     }
-    await withTwitchIntegrityAlarmLock(async () => {
+    const scheduled = await withTwitchIntegrityAlarmLock(async () => {
+      let existing: { scheduledTime: number } | undefined;
+      try {
+        existing = await deps.getAlarm?.(TWITCH_INTEGRITY_ALARM_NAME);
+      } catch {
+        existing = undefined;
+      }
+      if (existing && Math.abs(existing.scheduledTime - when) <= 1_000) {
+        twitchIntegrityRefreshDue = undefined;
+        return false;
+      }
       await deps.createAlarm(TWITCH_INTEGRITY_ALARM_NAME, { when });
+      return true;
     });
+    if (!scheduled) return;
     twitchIntegrityRefreshDue = undefined;
     emit?.({
       category: "diagnostic",
@@ -734,6 +787,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function recordTwitchIntegrityManagedTabOpen(
     reason: "integrity_readiness" | "proactive_integrity_refresh",
+    tickContext?: TickDiagnosticContext,
   ): Promise<void> {
     try {
       await withStateLock(() => withEventCollector(async (emit, events) => {
@@ -746,8 +800,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           reason,
         });
         if (transition.event) emit(transition.event);
-        syncManagedTabBreakers(transition.state);
-        await persistAndReport(transition.state, events);
+        syncManagedTabBreakers(transition.state, ["twitch"]);
+        await persistAndReport(
+          transition.state,
+          tickContext ? correlateTickDiagnostics(events, tickContext) : events,
+        );
       }));
     } catch {
       await reportBestEffort([{
@@ -755,6 +812,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         platform: "twitch",
         level: "warn",
         message: "Could not account for a managed Twitch integrity page context",
+        ...tickContext,
       }]);
     }
   }
@@ -764,7 +822,30 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     await reportBestEffort(events);
   }
 
+  async function persistPlatformAndReport(
+    platform: Platform,
+    state: SchedulerState,
+    events: readonly EngineEvent[] = [],
+  ): Promise<void> {
+    await persistPlatformState(platform, state);
+    await reportBestEffort(events);
+  }
+
+  async function persistPlatformState(
+    platform: Platform,
+    state: SchedulerState,
+  ): Promise<void> {
+    await withStateCommit(async () => {
+      const latest = await deps.loadState();
+      await saveOperationalStateDirect(mergePlatformState(latest, state, platform));
+    });
+  }
+
   async function saveOperationalState(state: SchedulerState): Promise<void> {
+    await withStateCommit(() => saveOperationalStateDirect(state));
+  }
+
+  async function saveOperationalStateDirect(state: SchedulerState): Promise<void> {
     const { events: _legacyEvents, ...operationalState } = state as SchedulerState & { events?: unknown };
     await deps.saveState(operationalState);
   }
@@ -772,14 +853,48 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Reports a single diagnostic immediately rather than collecting it into a
   // tick's event batch. Tick lifecycle lines must land as they happen: batching
   // them would defeat the point of timing a tick that is still running.
-  function diagnosticEvent(level: "debug" | "info" | "warn", message: string, platform?: Platform): void {
-    void reportBestEffort([{ category: "diagnostic", level, message, platform }]);
+  function diagnosticEvent(
+    level: "debug" | "info" | "warn",
+    message: string,
+    platform?: Platform,
+    tickContext?: TickDiagnosticContext,
+    data?: DiagnosticEvent["data"],
+  ): void {
+    void reportBestEffort([{
+      category: "diagnostic",
+      level,
+      message,
+      platform,
+      ...tickContext,
+      ...(data === undefined ? {} : { data }),
+    }]);
   }
 
   async function reportBestEffort(events: readonly EngineEvent[]): Promise<void> {
     if (events.length === 0 || !deps.reportEvents) return;
+    const correlateControllerRun = (events: readonly EngineEvent[]): EngineEvent[] =>
+      events.map((event) =>
+        event.category === "diagnostic"
+          ? { ...event, controllerRunId }
+          : event);
+    const correlatedEvents = correlateControllerRun(events);
+    if (correlatedEvents.some((event) => event.category === "diagnostic")) {
+      controllerRunAnnouncement ??= (async () => {
+        try {
+          await deps.reportEvents?.([{
+            category: "diagnostic",
+            level: "debug",
+            message: `Background controller run ${controllerRunLabel} started`,
+            controllerRunId,
+          }]);
+        } catch {
+          // Host event persistence/output is best-effort.
+        }
+      })();
+      await controllerRunAnnouncement;
+    }
     try {
-      await deps.reportEvents(events);
+      await deps.reportEvents(correlatedEvents);
     } catch {
       // Host event persistence/output is best-effort.
     }
@@ -814,13 +929,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function ensureAlarm(): Promise<void> {
     const settings = await deps.loadSettings();
-    await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+    await ensureSchedulerAlarms(settings.pollIntervalMinutes);
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
     if (settings.autoStartDropFarming && isFarmingActive(settings)) {
       await tick(undefined, "install");
     } else {
       await refreshAuthHealth(PLATFORMS, settings);
     }
+  }
+
+  async function ensureSchedulerAlarms(periodInMinutes: number): Promise<void> {
+    await deps.clearAlarm?.(ALARM_NAME);
+    await Promise.all([
+      deps.createAlarm(TWITCH_ALARM_NAME, { periodInMinutes }),
+      deps.createAlarm(KICK_ALARM_NAME, { periodInMinutes }),
+    ]);
   }
 
   async function ensureInstalledAt(installedAt = new Date().toISOString()): Promise<void> {
@@ -858,7 +981,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // no loop running against them.
     abortClaimHandoffs();
     const settings = await deps.loadSettings();
-    await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+    await ensureSchedulerAlarms(settings.pollIntervalMinutes);
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
     // A restart kills any in-memory watchers; start clean and let tick() rebuild.
     tablessWatchers.clear();
@@ -934,7 +1057,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const settings = deps.applySettingsPatch(current, patch);
       await deps.saveSettings(settings);
       afterPersist?.(settings);
-      await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+      await ensureSchedulerAlarms(settings.pollIntervalMinutes);
       return settings;
     });
   }
@@ -1039,16 +1162,22 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     health: PlatformAuthHealth,
     probeEvents: readonly EngineEvent[] = [],
     generation: number,
+    tickContext?: TickDiagnosticContext,
   ): Promise<boolean> {
     return withStateLock(() => withEventCollector(async (emit, events) => {
       if (authRefreshGeneration[platform] !== generation) return false;
       events.push(...probeEvents);
-      const state = await deps.loadState();
-      const transition = applyPlatformAuthHealth(state, platform, health);
-      if (transition.event) emit(transition.event);
-      await persistAndReport(transition.state, events);
+      await withStateCommit(async () => {
+        const state = await deps.loadState();
+        const transition = applyPlatformAuthHealth(state, platform, health);
+        if (transition.event) emit(transition.event);
+        await saveOperationalStateDirect(transition.state);
+      });
+      await reportBestEffort(tickContext
+        ? correlateTickDiagnostics(events, tickContext)
+        : events);
       return true;
-    }));
+    }), [platform]);
   }
 
   async function beginAuthRefresh(platforms: readonly Platform[]): Promise<Partial<Record<Platform, number>>> {
@@ -1059,7 +1188,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         generations[platform] = authRefreshGeneration[platform];
       }
       return generations;
-    });
+    }, platforms);
   }
 
   function unavailableAfterAdapterSetup(): PlatformAuthHealth {
@@ -1091,9 +1220,23 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     loadedSettings?: S,
     reportCompatibility = false,
     signal?: AbortSignal,
+    tickContext?: TickDiagnosticContext,
   ): Promise<void> {
     signal?.throwIfAborted();
+    const lockStartedAt = Date.now();
     const generations = await beginAuthRefresh(platforms);
+    const lockWaitMs = Date.now() - lockStartedAt;
+    if (tickContext && lockWaitMs >= 50) {
+      for (const platform of platforms) {
+        diagnosticEvent(
+          "debug",
+          `Tick #${tickContext.platformTickId} waited ${lockWaitMs}ms for ${platformLabel(platform)} platform work`,
+          platform,
+          tickContext,
+          { waitMs: lockWaitMs },
+        );
+      }
+    }
     const settings = loadedSettings ?? await deps.loadSettings();
     const enabled = platforms.filter((platform) => settings.platform[platform].enabled);
     const results = await Promise.allSettled(enabled.map(async (platform) => {
@@ -1119,7 +1262,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       signal?.throwIfAborted();
       let accepted: boolean;
       try {
-        accepted = await persistAuthHealth(platform, result.health, result.events, generation);
+        accepted = await persistAuthHealth(
+          platform,
+          result.health,
+          result.events,
+          generation,
+          tickContext,
+        );
       } catch (error) {
         if (result.setupFailure) {
           throw new AggregateError(
@@ -1134,7 +1283,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     throwRefreshFailures(results);
   }
 
-  async function reportAuthSetupFailures(failures: readonly AuthProbeSetupError[]): Promise<void> {
+  async function reportAuthSetupFailures(
+    failures: readonly AuthProbeSetupError[],
+    tickContext?: TickDiagnosticContext,
+  ): Promise<void> {
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const state = await deps.loadState();
       for (const failure of failures) {
@@ -1146,13 +1298,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           data: { reason: "platform_error", detail: failure.message },
         });
       }
-      await persistAndReport(state, events);
+      await persistAndReport(
+        state,
+        tickContext ? correlateTickDiagnostics(events, tickContext) : events,
+      );
     }));
   }
 
   async function prepareTwitchIntegrity(
     settings: S,
     signal: AbortSignal,
+    tickContext: TickDiagnosticContext,
   ): Promise<boolean> {
     const ensureTwitchIntegrity = deps.ensureTwitchIntegrity;
     if (!settings.platform.twitch.enabled || !ensureTwitchIntegrity) return true;
@@ -1165,6 +1321,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           reason: due ? "proactive_refresh" : "readiness",
           onManagedPageContextOpen: () => recordTwitchIntegrityManagedTabOpen(
             due ? "proactive_integrity_refresh" : "integrity_readiness",
+            tickContext,
           ),
           ...(due
             ? {
@@ -1206,7 +1363,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         });
         return false;
       } finally {
-        await reportBestEffort(events);
+        await reportBestEffort(correlateTickDiagnostics(events, tickContext));
       }
     });
   }
@@ -1214,32 +1371,75 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Every tick is bracketed by a start/finish diagnostic carrying its trigger and
   // elapsed time. A tick that succeeds otherwise emits nothing about itself, which
   // makes a slow one indistinguishable from an idle gap in an exported log.
-  let tickSequence = 0;
+  let globalTickSequence = 0;
+  const platformTickSequence: Record<Platform, number> = {
+    twitch: 0,
+    kick: 0,
+  };
   // Chain of detached ticks, drained by settleBackgroundWork().
   let backgroundWork: Promise<unknown> = Promise.resolve();
   const activeTicks = new Set<AbortController>();
+  const activePlatformTicks: Record<Platform, number> = {
+    twitch: 0,
+    kick: 0,
+  };
 
   async function tick(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<ClaimedRewards> {
+    const requestedPlatforms = platforms ?? PLATFORMS;
+    const settled = await Promise.allSettled(requestedPlatforms.map((platform) =>
+      tickPlatform(platform, trigger)));
+    const failures = settled.flatMap((result) =>
+      result.status === "rejected" ? [result.reason] : []);
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) {
+      throw new AggregateError(failures, "Platform scheduler ticks failed");
+    }
+    return settled.reduce<ClaimedRewards>((claimed, result) => {
+      if (result.status !== "fulfilled") return claimed;
+      const [platform, rewards] = result.value;
+      if (rewards.length > 0) claimed[platform] = rewards;
+      return claimed;
+    }, {});
+  }
+
+  async function tickPlatform(
+    platform: Platform,
+    trigger: TickTrigger,
+  ): Promise<readonly [Platform, string[]]> {
     const abort = new AbortController();
     activeTicks.add(abort);
-    const tickId = ++tickSequence;
+    activePlatformTicks[platform] += 1;
+    const tickContext: TickDiagnosticContext = {
+      globalTickId: ++globalTickSequence,
+      platformTickId: ++platformTickSequence[platform],
+    };
     const tickStartedAt = Date.now();
-    const scope = platforms ? platforms.join("+") : "all";
-    diagnosticEvent("debug", `Tick #${tickId} started (trigger=${trigger}, platforms=${scope})`);
+    diagnosticEvent(
+      "debug",
+      `Tick #${tickContext.platformTickId} started (trigger=${trigger}, platforms=${platform})`,
+      platform,
+      tickContext,
+    );
     try {
-      return await runTick(tickId, tickStartedAt, platforms, abort.signal);
+      const claimed = await runTick(tickContext, [platform], abort.signal);
+      return [platform, claimed[platform] ?? []];
     } catch (error) {
-      if (abort.signal.aborted) return {};
+      if (abort.signal.aborted) return [platform, []];
       throw error;
     } finally {
       activeTicks.delete(abort);
-      diagnosticEvent("debug", `Tick #${tickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${scope})`);
+      activePlatformTicks[platform] -= 1;
+      diagnosticEvent(
+        "debug",
+        `Tick #${tickContext.platformTickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`,
+        platform,
+        tickContext,
+      );
     }
   }
 
   async function runTick(
-    tickId: number,
-    tickStartedAt: number,
+    tickContext: TickDiagnosticContext,
     platforms: Platform[] | undefined,
     signal: AbortSignal,
   ): Promise<ClaimedRewards> {
@@ -1249,15 +1449,28 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const excludedPlatforms = new Set<Platform>();
     if (isFarmingActive(settings)) {
       if (requestedPlatforms.includes("twitch")) {
-        const twitchReady = await prepareTwitchIntegrity(settings, signal);
+        const twitchReady = await prepareTwitchIntegrity(settings, signal, tickContext);
         if (!twitchReady) excludedPlatforms.add("twitch");
       }
       const authPlatforms = requestedPlatforms.filter((platform) => !excludedPlatforms.has(platform));
       if (authPlatforms.length > 0) {
         const authStartedAt = Date.now();
         try {
-          await refreshAuthHealth(authPlatforms, settings, false, signal);
-          diagnosticEvent("debug", `Tick #${tickId} refreshed auth health in ${Date.now() - authStartedAt}ms`);
+          await refreshAuthHealth(
+            authPlatforms,
+            settings,
+            false,
+            signal,
+            tickContext,
+          );
+          for (const platform of authPlatforms) {
+            diagnosticEvent(
+              "debug",
+              `Tick #${tickContext.platformTickId} refreshed auth health in ${Date.now() - authStartedAt}ms`,
+              platform,
+              tickContext,
+            );
+          }
         } catch (error) {
           const failures = flattenedRefreshFailures(error);
           const setupFailures = failures.filter((failure): failure is AuthProbeSetupError =>
@@ -1266,7 +1479,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           for (const failure of setupFailures) excludedPlatforms.add(failure.platform);
           let reportingFailure: unknown;
           try {
-            await reportAuthSetupFailures(setupFailures);
+            await reportAuthSetupFailures(setupFailures, tickContext);
           } catch (failure) {
             reportingFailure = failure;
           }
@@ -1287,6 +1500,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const schedulerPlatforms = requestedPlatforms.filter((platform) =>
       !excludedPlatforms.has(platform));
     if (schedulerPlatforms.length === 0) return claimedRewards;
+    const platform = schedulerPlatforms[0];
     await withStateLock(() => withEventCollector(async (emit, events) => {
       signal.throwIfAborted();
       const settings = await deps.loadSettings();
@@ -1297,9 +1511,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       };
       let nextState: SchedulerState;
       try {
-        const adapters = excludedPlatforms.size > 0
-          ? createSelectedAdapters(settings, emit, schedulerPlatforms)
-          : createAdapters(settings, emit);
+        const adapters = createSelectedAdapters(settings, emit, schedulerPlatforms);
         // Observed here rather than returned by the scheduler: the controller
         // already sees every emitted event, and the post-claim handoff only
         // needs to know which platforms claimed.
@@ -1322,7 +1534,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         for (const event of lifecycleEvents) emit(event);
         await emitNotifications(settings, state, result.state, result.events);
         signal.throwIfAborted();
-        await applyAdFocusForState(result.state, emit);
+        await applyAdFocusForState(result.state, emit, schedulerPlatforms);
         signal.throwIfAborted();
         await reconcileTablessWatchers(result.state, settings, adapters, emit, schedulerPlatforms);
         signal.throwIfAborted();
@@ -1343,7 +1555,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           }
           // Keep the registry that gates page-context creation in step with the
           // state we are about to persist, so the very next fetch is suppressed.
-          syncManagedTabBreakers(nextState);
+          syncManagedTabBreakers(nextState, schedulerPlatforms);
         }
       } catch (error) {
         // The tick was rolled back, so any partial claim set is not actionable.
@@ -1351,19 +1563,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         clearOperationalEvents(events);
         if (signal.aborted) return;
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
-        emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
-        emit({ category: "diagnostic", level: "error", message: detail });
-        await persistAndReport(state, events);
+        emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
+        emit({ category: "diagnostic", level: "error", platform, message: detail });
+        await persistPlatformAndReport(platform, state, correlateTickDiagnostics(events, tickContext));
         return;
       }
-      await persistAndReport(nextState, events);
-      for (const platform of PLATFORMS) {
-        waitingClaimRewardIds[platform].clear();
-        for (const rewardId of nextWaitingClaimRewardIds[platform]) {
-          waitingClaimRewardIds[platform].add(rewardId);
-        }
+      await persistPlatformAndReport(platform, nextState, correlateTickDiagnostics(events, tickContext));
+      waitingClaimRewardIds[platform].clear();
+      for (const rewardId of nextWaitingClaimRewardIds[platform]) {
+        waitingClaimRewardIds[platform].add(rewardId);
       }
-    }));
+    }), schedulerPlatforms);
     return claimedRewards;
   }
 
@@ -1538,83 +1748,87 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function runWatchHeartbeat(): Promise<void> {
     const settings = await deps.loadSettings();
     if (!isFarmingActive(settings)) return;
-    const fallbackPlatforms = await withStateLock<Platform[]>(() => withEventCollector(async (emit, events) => {
+
+    const heartbeatResults = await Promise.allSettled(PLATFORMS.map((platform) =>
+      runPlatformWatchHeartbeat(platform, settings)));
+    const fallbackPlatforms = heartbeatResults.flatMap((result) =>
+      result.status === "fulfilled" && result.value ? [result.value] : []);
+    const fallbackResults = await Promise.allSettled(fallbackPlatforms.map((platform) =>
+      tick([platform], "tabless_fallback")));
+    const failures = [...heartbeatResults, ...fallbackResults].flatMap((result) =>
+      result.status === "rejected" ? [result.reason] : []);
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) {
+      throw new AggregateError(failures, "Platform watch heartbeats failed");
+    }
+  }
+
+  async function runPlatformWatchHeartbeat(
+    platform: Platform,
+    settings: S,
+  ): Promise<Platform | undefined> {
+    return withStateLock(() => withEventCollector(async (emit, events) => {
       let nextState = await deps.loadState();
-      registerManagedPageContextTabs(nextState.managedPageContextTabs ?? {});
+      registerManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, [platform]);
       // After a service-worker restart the in-memory watcher map is empty, so
-      // rebuild it from persisted tabless sessions before the size check below.
+      // rebuild this platform's watcher from its persisted tabless session.
       // Otherwise the 1-minute watch alarm would do nothing until the next
       // (possibly distant) discovery tick re-armed the watchers, stalling Twitch
-      // tabless farming. Done inside the state lock so it cannot race tick()'s
-      // own reconcile over the shared watcher map (the discovery and watch alarms
-      // both fire on a ~1-minute cadence). reconcileTablessWatchers only calls
+      // tabless farming. Done inside the platform lock so it cannot race tick()'s
+      // own reconcile for the same watcher (the discovery and watch alarms both
+      // fire on a ~1-minute cadence). reconcileTablessWatchers only calls
       // watcher.start() on a fresh start/channel switch and never re-acquires the
       // lock, so holding it here is safe (no reentrancy).
-      await reconcileTablessWatchers(nextState, settings, createAdapters(settings, emit), emit);
-      if (tablessWatchers.size === 0) {
+      await reconcileTablessWatchers(
+        nextState,
+        settings,
+        createSelectedAdapters(settings, emit, [platform]),
+        emit,
+        [platform],
+      );
+      const watcher = tablessWatchers.get(platform);
+      if (!watcher) {
         await reportBestEffort(events);
-        return [];
+        return undefined;
       }
 
-      let changed = false;
-      const fallbacks: Platform[] = [];
-
-      for (const [platform, watcher] of [...tablessWatchers]) {
-        const session = nextState.sessions[platform];
-        if (
-          nextState.authHealth[platform].status !== "healthy"
-          || session.status !== "watching"
-          || session.watchMode !== "tabless"
-        ) {
-          try {
-            await watcher.stop();
-          } catch (error) {
-            emitHostCallbackError(emit, platform, error, "Could not stop the tabless watcher");
-          } finally {
-            drainWatcherEvents(watcher, emit);
-            tablessWatchers.delete(platform);
-          }
-          continue;
-        }
-
-        let ok = false;
-        let message: string | undefined;
+      const session = nextState.sessions[platform];
+      let ok = false;
+      let message: string | undefined;
+      drainWatcherEvents(watcher, emit);
+      try {
+        const result = await watcher.tick(tablessWatchContext());
+        ok = result.ok;
+        message = result.message;
+      } catch (error) {
+        message = error instanceof Error ? error.message : "Tabless heartbeat failed";
+      } finally {
         drainWatcherEvents(watcher, emit);
-        try {
-          const result = await watcher.tick(tablessWatchContext());
-          ok = result.ok;
-          message = result.message;
-        } catch (error) {
-          message = error instanceof Error ? error.message : "Tabless heartbeat failed";
-        } finally {
-          drainWatcherEvents(watcher, emit);
-        }
+      }
 
-        const previousChecks = session.heartbeatChecks ?? 0;
-        const heartbeatChecks = ok ? 0 : previousChecks + 1;
-        nextState = {
-          ...nextState,
-          sessions: {
-            ...nextState.sessions,
-            [platform]: {
-              ...session,
-              lastHeartbeatAt: new Date().toISOString(),
-              lastHeartbeatOk: ok,
-              heartbeatChecks,
-            },
+      const previousChecks = session.heartbeatChecks ?? 0;
+      const heartbeatChecks = ok ? 0 : previousChecks + 1;
+      nextState = {
+        ...nextState,
+        sessions: {
+          ...nextState.sessions,
+          [platform]: {
+            ...session,
+            lastHeartbeatAt: new Date().toISOString(),
+            lastHeartbeatOk: ok,
+            heartbeatChecks,
           },
-        };
-        changed = true;
+        },
+      };
 
-        if (ok && previousChecks > 0) {
-          emit({ category: "diagnostic", platform, level: "info", message: "Tabless watch heartbeat recovered" });
-        } else if (!ok && previousChecks === 0) {
-          emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
-        }
-        if (!ok && heartbeatChecks >= settings.tablessFallbackFailureLimit && !fallbacks.includes(platform)) {
-          fallbacks.push(platform);
-          emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
-        }
+      if (ok && previousChecks > 0) {
+        emit({ category: "diagnostic", platform, level: "info", message: "Tabless watch heartbeat recovered" });
+      } else if (!ok && previousChecks === 0) {
+        emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
+      }
+      const fallback = !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
+      if (fallback) {
+        emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
       }
 
       nextState = {
@@ -1622,16 +1836,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         managedPageContextTabs: currentManagedPageContextTabs(),
       };
 
-      if (changed) await persistAndReport(nextState, events);
-      else await reportBestEffort(events);
-      return fallbacks;
-    }));
-
-    // chooseTablessWatch now sees heartbeatChecks past the tabless fallback limit and opens a tab.
-    // Run outside the lock: tick() acquires the lock itself.
-    for (const platform of fallbackPlatforms) {
-      await tick([platform], "tabless_fallback");
-    }
+      await persistPlatformAndReport(platform, nextState, events);
+      return fallback ? platform : undefined;
+    }), [platform]);
   }
 
   // Aborts every in-flight handoff. Called when farming stops, when a settings
@@ -1796,11 +2003,18 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Runs a tick without holding the caller open for it. A user action gets its
   // snapshot back immediately; the popup re-polls getSnapshot on its own cadence
   // and picks the result up when the tick lands.
-  function tickInBackground(platforms: Platform[] | undefined, trigger: TickTrigger): void {
+  function tickInBackground(
+    platforms: Platform[] | undefined,
+    trigger: TickTrigger,
+    onCompleted?: () => void,
+  ): void {
     if (controllerShutdown) return;
-    const run = tickAndHandOff(platforms, trigger).catch((error) => {
-      diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`);
-    });
+    const run = tickAndHandOff(platforms, trigger)
+      .then(() => onCompleted?.())
+      .catch((error) => {
+        const platform = platforms?.length === 1 ? platforms[0] : undefined;
+        diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`, platform);
+      });
     backgroundWork = backgroundWork.then(() => run, () => run);
   }
 
@@ -1819,10 +2033,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   // The persisted session still describes the platform as it was *before* the
-  // toggle ("Automation disabled"), and nothing rewrites it until the tick
-  // finishes. Detaching the tick alone would not fix that: the popup polls the
-  // stored state, so a slow tick leaves it rendering a status that contradicts
-  // the switch the user just flipped. Stamp the transition up front instead.
+  // toggle, and nothing rewrites it until the tick finishes. Detaching the tick
+  // alone would not fix that: the popup polls stored state, so a slow tick can
+  // leave it rendering a lifecycle that contradicts the switch the user just
+  // flipped. Persist the typed transition up front instead.
   async function markPlatformsStarting(
     platforms: readonly Platform[],
     transitionIsCurrent: () => boolean = () => true,
@@ -1839,7 +2053,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (session.status === "watching") continue;
         sessions[platform] = {
           ...session,
-          status: "idle",
+          status: "starting",
           message: "Starting automation",
           reasonCode: "no_existing_session",
         };
@@ -1859,8 +2073,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // the handoff's own inner ticks cannot recurse into another handoff.
   async function tickAndHandOff(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<void> {
     const claimed = await tick(platforms, trigger);
-    for (const platform of Object.keys(claimed) as Platform[]) {
-      await runClaimHandoff(platform, claimed[platform] ?? []);
+    const handoffPlatforms = Object.keys(claimed) as Platform[];
+    const results = await Promise.allSettled(handoffPlatforms.map((platform) =>
+      runClaimHandoff(platform, claimed[platform] ?? [])));
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+      if (result.status !== "rejected") continue;
+      diagnosticEvent(
+        "warn",
+        `Post-claim handoff failed: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+        handoffPlatforms[index],
+      );
     }
   }
 
@@ -1933,7 +2156,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       if (!isManagedWatchTab) {
         if (senderTabId != null) {
-          await persistAndReport(recordManualWatchTelemetry(state, settings, message, senderTabId), events);
+          await persistPlatformAndReport(
+            message.platform,
+            recordManualWatchTelemetry(state, settings, message, senderTabId),
+            events,
+          );
         }
         return;
       }
@@ -1966,7 +2193,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         : [];
       for (const event of playbackDiagnostics) emit(event);
 
-      await saveOperationalState(nextState);
+      await persistPlatformState(message.platform, nextState);
       try {
         if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
           await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), emit);
@@ -1976,7 +2203,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       } finally {
         await reportBestEffort(events);
       }
-    }));
+    }), [message.platform]);
   }
 
   function recordManualWatchTelemetry(
@@ -2005,9 +2232,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return { ...state, manualWatch };
   }
 
-  async function applyAdFocusForState(state: SchedulerState, emit: EventEmitter): Promise<void> {
+  async function applyAdFocusForState(
+    state: SchedulerState,
+    emit: EventEmitter,
+    platforms: readonly Platform[] = PLATFORMS,
+  ): Promise<void> {
     if (!deps.applyAdFocus) return;
-    for (const platform of ["twitch", "kick"] as Platform[]) {
+    for (const platform of platforms) {
       const session = state.sessions[platform];
       const watching = session.status === "watching" && session.tabId != null;
       try {
@@ -2035,9 +2266,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function claimRewardNow(
     message: Extract<CoreRuntimeMessage, { type: "claimReward" }>,
   ): Promise<RuntimeSnapshot<S>> {
-    // Hold the state lock across the whole load→persist so a concurrent tick or
-    // telemetry write can't clobber the claimed-reward update. snapshot() runs
-    // after the lock so it reflects the committed state.
+    // Hold the owning platform lock across the whole load→persist so a concurrent
+    // same-platform tick or telemetry write can't clobber the claimed-reward
+    // update. The short commit merges this slice with any sibling-platform write.
     let claimedManually = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
@@ -2052,7 +2283,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           level: "warn",
           message: "Reward claim skipped because the campaign or reward is no longer available",
         });
-        await persistAndReport(state, events);
+        await persistPlatformAndReport(message.platform, state, events);
         return;
       }
 
@@ -2063,7 +2294,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           level: "warn",
           message: `${reward.name} is not ready to claim`,
         });
-        await persistAndReport(state, events);
+        await persistPlatformAndReport(message.platform, state, events);
         return;
       }
 
@@ -2120,11 +2351,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           level: "error",
           message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,
         });
-        await persistAndReport(state, events);
+        await persistPlatformAndReport(message.platform, state, events);
         return;
       }
-      await persistAndReport(stateWithCampaigns, events);
-    }));
+      await persistPlatformAndReport(message.platform, stateWithCampaigns, events);
+    }), [message.platform]);
     // Outside the lock: runClaimHandoff ticks, which takes the lock itself.
     if (claimedManually) await runClaimHandoff(message.platform, [message.rewardId]);
     return snapshot();
@@ -2151,6 +2382,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // is no master switch to flip alongside the platform flag. Both are kept:
     // they are separate wire messages with existing callers.
     if (message.type === "setPlatformEnabled" || message.type === "setAutomation") {
+      const platformLabel = message.platform === "twitch" ? "Twitch" : "Kick";
+      const action = message.enabled ? "enable" : "disable";
+      diagnosticEvent("info", `User requested ${platformLabel} automation ${action}`, message.platform);
+      if (activePlatformTicks[message.platform] > 0) {
+        diagnosticEvent(
+          "info",
+          `${platformLabel} automation ${action} queued behind an active tick`,
+          message.platform,
+        );
+      }
       // Stopping must cancel any loop still refreshing in the background.
       if (!message.enabled) abortClaimHandoffs(message.platform);
       const twitchTransitionGeneration = message.platform === "twitch"
@@ -2221,7 +2462,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       // Always scoped to the toggled platform. Nothing about this change can
       // affect the other one any more, so it is never dragged through this
       // platform's discovery.
-      tickInBackground([message.platform], message.type === "setAutomation" ? "automation_toggle" : "platform_toggle");
+      tickInBackground(
+        [message.platform],
+        message.type === "setAutomation" ? "automation_toggle" : "platform_toggle",
+        () => diagnosticEvent("info", `${platformLabel} automation ${action} completed`, message.platform),
+      );
       return snapshot();
     }
 
@@ -2280,7 +2525,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (transition.event) emit(transition.event);
         // Closing the breaker here is what lets farming resume immediately
         // instead of waiting for the next tick to sync the registry.
-        syncManagedTabBreakers(transition.state);
+        syncManagedTabBreakers(transition.state, [message.platform]);
         await persistAndReport(transition.state, events);
       }));
       await tickAndHandOff(undefined, "critical_failure_dismissed");
