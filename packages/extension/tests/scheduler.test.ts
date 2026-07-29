@@ -1172,6 +1172,197 @@ describe("scheduler tick", () => {
     }));
   });
 
+  it("retains the highest-priority current watch before listing replacement candidates", async () => {
+    const current = channel("current");
+    const twitch = adapter(
+      "twitch",
+      [campaign("drops")],
+      Array.from({ length: 25 }, (_, index) => channel(`candidate-${index}`)),
+    );
+    vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+      live: true,
+      categoryMatches: true,
+      campaignMatches: true,
+      candidate,
+    }));
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.listCandidateChannels).not.toHaveBeenCalled();
+    expect(twitch.checkChannel).toHaveBeenCalledOnce();
+    expect(twitch.checkChannel).toHaveBeenCalledWith(current, {
+      campaign: expect.objectContaining({ id: "drops" }),
+      signal: undefined,
+    });
+    expect(result.state.sessions.twitch.reasonCode).toBe("keeping_current_watch");
+    expect(result.events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      message: expect.stringMatching(/^Campaign selection fast path retained current watch in \d+ms \(1 candidate checked\)$/),
+    }));
+  });
+
+  it("bypasses current-watch retention when a higher-priority campaign is available", async () => {
+    const current = channel("current");
+    const replacement = channel("replacement");
+    const twitch = adapter(
+      "twitch",
+      [campaign("current"), campaign("urgent")],
+      [replacement],
+    );
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "current",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({
+        campaignPriorities: { urgent: 10 },
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.listCandidateChannels).toHaveBeenCalledOnce();
+    expect(result.state.sessions.twitch.campaignId).toBe("urgent");
+    expect(result.state.sessions.twitch.channel?.username).toBe("replacement");
+    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_reward");
+  });
+
+  it("falls back to full selection when the current channel no longer offers the campaign", async () => {
+    const current = channel("current");
+    const replacement = channel("replacement");
+    const twitch = adapter("twitch", [campaign("drops")], [replacement]);
+    vi.mocked(twitch.checkChannel)
+      .mockResolvedValueOnce({
+        live: true,
+        categoryMatches: true,
+        campaignMatches: false,
+        candidate: current,
+      })
+      .mockResolvedValue({
+        live: true,
+        categoryMatches: true,
+        campaignMatches: true,
+        candidate: replacement,
+      });
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.listCandidateChannels).toHaveBeenCalledOnce();
+    expect(result.state.sessions.twitch.channel?.username).toBe("replacement");
+  });
+
+  it("bypasses current-watch retention when the current reward completes", async () => {
+    const current = channel("current");
+    const replacement = channel("replacement");
+    const completed = { ...reward("claimed"), id: "finished" };
+    const next = { ...reward("locked"), id: "next" };
+    const twitch = adapter(
+      "twitch",
+      [campaign("drops", { rewards: [completed, next] })],
+      [replacement],
+    );
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "drops",
+            rewardId: "finished",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.listCandidateChannels).toHaveBeenCalledOnce();
+    expect(result.state.sessions.twitch.rewardId).toBe("next");
+    expect(result.state.sessions.twitch.channel?.username).toBe("replacement");
+    expect(result.state.sessions.twitch.reasonCode).toBe("watch_requirement_completed");
+  });
+
   it("switches on category mismatch", async () => {
     const old = channel("old");
     const next = channel("new");

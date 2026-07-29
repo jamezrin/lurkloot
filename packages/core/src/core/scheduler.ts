@@ -864,24 +864,45 @@ export async function runSchedulerTick(
       }
 
       const selectionStartedAt = Date.now();
-      let selectionMetrics = { campaignsChecked: 0, candidatesChecked: 0 };
-      let decision = await chooseCampaignDecision(
-        platform,
+      const currentWatch = await evaluatePreferredCurrentWatch(
+        previous,
         campaigns,
         settings,
         adapter,
         options.signal,
-        (metrics) => {
-          selectionMetrics = metrics;
-        },
       );
-      emitDiagnostic(
-        emit,
-        platform,
-        "debug",
-        `Campaign selection finished in ${Date.now() - selectionStartedAt}ms (${countLabel(selectionMetrics.campaignsChecked, "campaign")} checked, ${countLabel(selectionMetrics.candidatesChecked, "candidate")} checked)`,
-      );
-      const shouldKeep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
+      let decision: WatchDecision;
+      let shouldKeep: Awaited<ReturnType<typeof shouldKeepWatching>>;
+      if (currentWatch?.keep.keep) {
+        decision = currentWatch.decision;
+        shouldKeep = currentWatch.keep;
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign selection fast path retained current watch in ${Date.now() - selectionStartedAt}ms (1 candidate checked)`,
+        );
+      } else {
+        let selectionMetrics = { campaignsChecked: 0, candidatesChecked: 0 };
+        decision = await chooseCampaignDecision(
+          platform,
+          campaigns,
+          settings,
+          adapter,
+          options.signal,
+          (metrics) => {
+            selectionMetrics = metrics;
+          },
+        );
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign selection finished in ${Date.now() - selectionStartedAt}ms (${countLabel(selectionMetrics.campaignsChecked, "campaign")} checked, ${countLabel(selectionMetrics.candidatesChecked, "candidate")} checked)`,
+        );
+        shouldKeep = currentWatch?.keep
+          ?? await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
+      }
       // The single site where a stop reason is decided for an existing watch, so
       // the precondition-break arm is set here rather than at every consumer.
       if (!shouldKeep.keep && previous.status === "watching" && ACCRUAL_PRECONDITION_BREAK_REASONS.has(shouldKeep.reasonCode)) {
@@ -1270,6 +1291,40 @@ function canClaimReward(reward: DropReward): boolean {
   return Number.isNaN(claimUntil) || Date.now() < claimUntil;
 }
 
+async function evaluatePreferredCurrentWatch(
+  previous: WatchSession,
+  campaigns: readonly DropCampaign[],
+  settings: EngineSettings,
+  adapter: Pick<PlatformAdapter, "checkChannel">,
+  signal?: AbortSignal,
+): Promise<{
+  decision: WatchDecision;
+  keep: Awaited<ReturnType<typeof shouldKeepWatching>>;
+} | undefined> {
+  if (previous.status !== "watching" || !previous.channel || !previous.campaignId || !previous.rewardId) {
+    return undefined;
+  }
+  const preferredCampaign = sortCampaigns(
+    campaigns.filter((campaign) => isEligible(campaign, settings)),
+    settings,
+  ).find((campaign) => activeReward(campaign, settings));
+  const preferredReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
+  if (preferredCampaign?.id !== previous.campaignId || preferredReward?.id !== previous.rewardId) {
+    return undefined;
+  }
+  const decision: WatchDecision = {
+    platform: previous.platform,
+    action: "watch",
+    campaign: preferredCampaign,
+    reward: preferredReward,
+    channel: previous.channel,
+    reason: "Current campaign remains highest priority",
+    reasonCode: "keeping_current_watch",
+  };
+  const keep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);
+  return { decision, keep };
+}
+
 async function shouldKeepWatching(
   previous: WatchSession,
   nextDecision: WatchDecision,
@@ -1281,9 +1336,8 @@ async function shouldKeepWatching(
   if (!previous.channel || previous.status !== "watching") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session", reasonCode: "no_existing_session" };
   }
-  const previousReward = campaigns
-    .find((campaign) => campaign.id === previous.campaignId)
-    ?.rewards.find((reward) => reward.id === previous.rewardId);
+  const previousCampaign = campaigns.find((campaign) => campaign.id === previous.campaignId);
+  const previousReward = previousCampaign?.rewards.find((reward) => reward.id === previous.rewardId);
   if (previousReward?.status === "claimable" || previousReward?.status === "claimed") {
     return {
       keep: false,
@@ -1346,7 +1400,7 @@ async function shouldKeepWatching(
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Idle Watchlist channel available", reasonCode: "higher_priority_idle_watchlist" };
   }
 
-  const check = await adapter.checkChannel(previous.channel, { signal });
+  const check = await adapter.checkChannel(previous.channel, { campaign: previousCampaign, signal });
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
   if (offlineChecks >= settings.offlineRetryLimit) {
     return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached", reasonCode: "channel_offline" };
@@ -1354,6 +1408,9 @@ async function shouldKeepWatching(
 
   if (!check.categoryMatches) {
     return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel category no longer matches", reasonCode: "channel_mismatch" };
+  }
+  if (check.campaignMatches === false) {
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel no longer offers the current campaign", reasonCode: "campaign_ineligible" };
   }
 
   const playbackChecks = nextPlaybackChecks(previous, isTabless);
