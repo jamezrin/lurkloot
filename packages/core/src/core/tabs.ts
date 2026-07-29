@@ -457,6 +457,7 @@ export interface PageFetchOptions {
   retainPageContext?: {
     platform: Platform;
     managedContext?: ManagedPageContextTab;
+    retainCreatedPageContext?: boolean;
   };
   emit?: EventEmitter;
   openReason?: PageContextOpenReason;
@@ -833,7 +834,10 @@ async function mintTwitchIntegrity(
   let pageContext: PageContextTab | undefined;
   try {
     pageContext = await acquirePageContextTab(browserApi, originUrl, origin, {
-      retainPageContext: { platform: "twitch" },
+      retainPageContext: {
+        platform: "twitch",
+        retainCreatedPageContext: false,
+      },
       emit,
       requireFreshPageContext: forceRefresh,
       emitPageContextActivity: reason === "rejection_recovery",
@@ -1376,7 +1380,14 @@ async function findOrCreatePageContextTab(
     }
     throw error;
   }
-  if (retain) {
+  try {
+    await options?.onManagedPageContextOpen?.();
+  } catch {
+    if (contextPlatform) {
+      diagnostic(options?.emit ?? ignoreEvent, "warn", `Could not account for a managed page context opened on ${new URL(origin).host}`, contextPlatform);
+    }
+  }
+  if (retain && retain.retainCreatedPageContext !== false) {
     const retainedContext: ManagedPageContextTab = {
       platform: retain.platform,
       tabId: tab.id,
@@ -1385,11 +1396,6 @@ async function findOrCreatePageContextTab(
       ownedByExtension: true,
     };
     retainedPageContextTabs.set(retain.platform, retainedContext);
-    try {
-      await options?.onManagedPageContextOpen?.();
-    } catch {
-      diagnostic(options?.emit ?? ignoreEvent, "warn", `Could not account for a managed page context opened on ${new URL(origin).host}`, retain.platform);
-    }
     if (options?.emitPageContextActivity !== false) {
       options?.emit?.({
         category: "activity",

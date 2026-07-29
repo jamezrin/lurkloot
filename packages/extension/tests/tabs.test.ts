@@ -1223,7 +1223,7 @@ describe("twitch integrity refresh", () => {
       expect(browser.tabs.remove).not.toHaveBeenCalled();
     });
 
-    it("creates a tab when none exists and retains it for reuse", async () => {
+    it("closes a tab created only to capture Twitch integrity", async () => {
       const browser = browserMock();
       browser.tabs.create.mockResolvedValue({ id: 14 });
 
@@ -1236,9 +1236,8 @@ describe("twitch integrity refresh", () => {
         pinned: false,
         active: false,
       });
-      // Retained for the next claim instead of being torn down each time.
-      expect(browser.tabs.remove).not.toHaveBeenCalled();
-      expect(currentManagedPageContextTabs()).toMatchObject({ twitch: { tabId: 14 } });
+      expect(browser.tabs.remove).toHaveBeenCalledWith(14);
+      expect(currentManagedPageContextTabs()).not.toHaveProperty("twitch");
     });
 
     it("opens page context immediately on the first missing-token check", async () => {
