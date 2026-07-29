@@ -14,6 +14,12 @@ describe("background integrity alarm wiring", () => {
 
   it("injects the one-shot alarm and integrity lifecycle dependencies", () => {
     expect(source).toContain("createAlarm: (name, options) => browser.alarms.create(name, options),");
+    expect(source).toContain([
+      "  getAlarm: async (name) => {",
+      "    const alarm = await browser.alarms.get(name);",
+      "    return alarm ? { scheduledTime: alarm.scheduledTime } : undefined;",
+      "  },",
+    ].join("\n"));
     expect(source).toContain("clearAlarm: (name) => browser.alarms.clear(name),");
     expect(source).toContain("ensureTwitchIntegrity: (emit, request) => ensureTwitchIntegrity(emit, request),");
     expect(source).toContain("cancelTwitchIntegrityAcquisition,");

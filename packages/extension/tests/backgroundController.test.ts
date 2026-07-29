@@ -186,6 +186,7 @@ function harness(
       name: string,
       options: { periodInMinutes: number } | { when: number },
     ) => Promise<void>;
+    getAlarm?: (name: string) => Promise<{ scheduledTime: number } | undefined>;
     clearAlarm?: (name: string) => Promise<boolean>;
     ensureTwitchIntegrity?: (
       emit: EventEmitter,
@@ -219,6 +220,7 @@ function harness(
       _name: string,
       _options: { periodInMinutes: number } | { when: number },
     ) => undefined)),
+    getAlarm: vi.fn(overrides.getAlarm ?? (async () => undefined)),
     clearAlarm: vi.fn(overrides.clearAlarm ?? (async () => true)),
     ensureTwitchIntegrity: vi.fn(overrides.ensureTwitchIntegrity ?? (async () => true)),
     cancelTwitchIntegrityAcquisition: vi.fn(overrides.cancelTwitchIntegrityAcquisition ?? (() => undefined)),
@@ -521,6 +523,96 @@ describe("background controller", () => {
         ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
       )?.[1] as { when: number }).when;
       expect(secondWhen).toBe(firstWhen);
+    });
+
+    it("does not recreate or relog an unchanged Twitch integrity alarm", async () => {
+      const integrity = integrityBundle({
+        integrity: "unchanged-alarm-token",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const first = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+      await first.controller.settleBackgroundWork();
+      const scheduledTime = (first.deps.createAlarm.mock.calls.find(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )?.[1] as { when: number }).when;
+
+      const second = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+        getAlarm: async () => ({ scheduledTime }),
+      });
+      await second.controller.settleBackgroundWork();
+
+      expect(second.deps.createAlarm).not.toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        expect.anything(),
+      );
+      expect(second.reportEvents.mock.calls.flatMap(([events]) => events)).not.toContainEqual(
+        expect.objectContaining({
+          message: expect.stringContaining("Scheduled proactive Twitch integrity refresh"),
+        }),
+      );
+    });
+
+    it("recreates and reports a Twitch integrity alarm when its existing target is stale", async () => {
+      const integrity = integrityBundle({
+        integrity: "stale-alarm-token",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const first = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+      await first.controller.settleBackgroundWork();
+      const scheduledTime = (first.deps.createAlarm.mock.calls.find(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )?.[1] as { when: number }).when;
+      const second = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+        getAlarm: async () => ({ scheduledTime: scheduledTime + 1_001 }),
+      });
+      await second.controller.settleBackgroundWork();
+
+      expect(second.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        { when: scheduledTime },
+      );
+      expect(second.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          message: `Scheduled proactive Twitch integrity refresh for ${new Date(scheduledTime).toISOString()}`,
+        }),
+      );
+    });
+
+    it("recreates and reports a Twitch integrity alarm when lookup fails", async () => {
+      const integrity = integrityBundle({
+        integrity: "unreadable-alarm-token",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const first = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+      await first.controller.settleBackgroundWork();
+      const scheduledTime = (first.deps.createAlarm.mock.calls.find(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )?.[1] as { when: number }).when;
+      const second = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+        getAlarm: async () => {
+          throw new Error("browser alarm lookup failed");
+        },
+      });
+      await second.controller.settleBackgroundWork();
+
+      expect(second.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        { when: scheduledTime },
+      );
+      expect(second.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          message: `Scheduled proactive Twitch integrity refresh for ${new Date(scheduledTime).toISOString()}`,
+        }),
+      );
     });
 
     it("rechecks stored integrity scheduling when the refresh handler runs", async () => {

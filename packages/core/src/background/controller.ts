@@ -180,6 +180,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
     name: string,
     options: { periodInMinutes: number } | { when: number },
   ): Promise<void>;
+  getAlarm?(name: string): Promise<{ scheduledTime: number } | undefined>;
   clearAlarm?(name: string): Promise<boolean>;
   ensureTwitchIntegrity?(
     emit: EventEmitter,
@@ -517,9 +518,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await clearTwitchIntegrityAlarm();
       return;
     }
-    await withTwitchIntegrityAlarmLock(async () => {
+    const scheduled = await withTwitchIntegrityAlarmLock(async () => {
+      let existing: { scheduledTime: number } | undefined;
+      try {
+        existing = await deps.getAlarm?.(TWITCH_INTEGRITY_ALARM_NAME);
+      } catch {
+        existing = undefined;
+      }
+      if (existing && Math.abs(existing.scheduledTime - when) <= 1_000) {
+        twitchIntegrityRefreshDue = undefined;
+        return false;
+      }
       await deps.createAlarm(TWITCH_INTEGRITY_ALARM_NAME, { when });
+      return true;
     });
+    if (!scheduled) return;
     twitchIntegrityRefreshDue = undefined;
     emit?.({
       category: "diagnostic",
