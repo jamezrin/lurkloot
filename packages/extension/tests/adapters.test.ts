@@ -79,6 +79,88 @@ function twitchCampaignDetails(dropID: string): unknown {
 }
 
 describe("KickAdapter", () => {
+  it("starts Kick campaign and progress requests concurrently", async () => {
+    let campaignStarted = false;
+    let progressStarted = false;
+    const adapter = new KickAdapter(jsonFetcher(async (url) => {
+      if (url.endsWith("/drops/campaigns")) {
+        campaignStarted = true;
+        await vi.waitFor(() => expect(progressStarted).toBe(true));
+        return {
+          data: [{
+            id: 1,
+            name: "Kick Campaign",
+            status: "active",
+            category: { id: 99, name: "Game" },
+            rewards: [{ id: 10, name: "Reward", required_minutes: 60 }],
+          }],
+        };
+      }
+      if (url.endsWith("/drops/progress")) {
+        progressStarted = true;
+        await vi.waitFor(() => expect(campaignStarted).toBe(true));
+        return {
+          data: [{
+            id: 1,
+            status: "in progress",
+            rewards: [{ id: 10, progress: 0.5, required_units: 60 }],
+          }],
+        };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    }));
+
+    const campaigns = await adapter.refreshCampaigns();
+
+    expect(campaigns[0]?.rewards[0]?.watchedMinutes).toBe(30);
+  });
+
+  it("keeps Kick campaigns when concurrent progress refresh fails", async () => {
+    const events: EngineEvent[] = [];
+    const adapter = new KickAdapter(jsonFetcher((url) => {
+      if (url.endsWith("/drops/campaigns")) {
+        return {
+          data: [{
+            id: 1,
+            name: "Kick Campaign",
+            status: "active",
+            rewards: [{ id: 10, name: "Reward", required_minutes: 60 }],
+          }],
+        };
+      }
+      throw new Error("progress unavailable");
+    }), undefined, undefined, (event) => events.push(event));
+
+    const campaigns = await adapter.refreshCampaigns();
+
+    expect(campaigns).toHaveLength(1);
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      level: "warn",
+      message: expect.stringContaining("using last-known progress"),
+    }));
+  });
+
+  it("propagates Kick progress authentication failures during refresh", async () => {
+    const failure = new SafeFetchError({ kind: "authentication_rejected", status: 401 });
+    const adapter = new KickAdapter(jsonFetcher((url) => {
+      if (url.endsWith("/drops/campaigns")) return { data: [] };
+      throw failure;
+    }));
+
+    await expect(adapter.refreshCampaigns()).rejects.toBe(failure);
+  });
+
+  it("propagates Kick campaign discovery failures during refresh", async () => {
+    const failure = new Error("campaigns unavailable");
+    const adapter = new KickAdapter(jsonFetcher((url) => {
+      if (url.endsWith("/drops/progress")) return { data: [] };
+      throw failure;
+    }));
+
+    await expect(adapter.refreshCampaigns()).rejects.toBe(failure);
+  });
+
   it("passes the auth probe signal to the Kick identity request", async () => {
     const abort = new AbortController();
     const emit = vi.fn();

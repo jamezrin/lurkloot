@@ -272,8 +272,33 @@ export class KickAdapter implements PlatformAdapter {
   }
 
   async discoverCampaigns({ signal }: AdapterOperationOptions = {}): Promise<DropCampaign[]> {
-    const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/campaigns", { signal }, this.emit);
-    return parseKickCampaigns(data as Parameters<typeof parseKickCampaigns>[0]);
+    return parseKickCampaigns(
+      await this.fetchCampaignData(signal) as Parameters<typeof parseKickCampaigns>[0],
+    );
+  }
+
+  async refreshCampaigns(
+    _session?: WatchSession,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<DropCampaign[]> {
+    const progressPromise = this.fetchProgressData(signal).then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      (reason: unknown) => ({ status: "rejected" as const, reason }),
+    );
+    const [campaignData, progressResult] = await Promise.all([
+      this.fetchCampaignData(signal),
+      progressPromise,
+    ]);
+    const campaigns = parseKickCampaigns(
+      campaignData as Parameters<typeof parseKickCampaigns>[0],
+    );
+    if (progressResult.status === "fulfilled") {
+      return this.mergeProgress(campaigns, progressResult.value);
+    }
+    signal?.throwIfAborted();
+    if (authHealthFromError(progressResult.reason)) throw progressResult.reason;
+    this.reportProgressFallback(progressResult.reason);
+    return campaigns;
   }
 
   async readProgress(
@@ -282,23 +307,52 @@ export class KickAdapter implements PlatformAdapter {
     { signal }: AdapterOperationOptions = {},
   ): Promise<DropCampaign[]> {
     try {
-      // Kick's WAF rejects authed drops endpoints that omit X-Client-Token with
-      // "Request blocked by security policy." — the reference sends it on
-      // /drops/progress and /drops/claim (references/kickautodrops/core/kick.py:
-      // 131, 67). pageFetchJson adds the Bearer from session_token on top.
-      const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/progress", {
-        headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
-        signal,
-      }, this.emit);
-      const progress = mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
-      return this.claimCapability.reconcileProgress?.(progress, affirmativelyLinkedCampaignIds(data)) ?? progress;
+      return this.mergeProgress(campaigns, await this.fetchProgressData(signal));
     } catch (error) {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      const message = error instanceof Error ? error.message : String(error);
-      diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
+      this.reportProgressFallback(error);
       return campaigns;
     }
+  }
+
+  private fetchCampaignData(signal?: AbortSignal): Promise<unknown> {
+    return this.fetcher.fetchJson<unknown>(
+      "https://web.kick.com/api/v1/drops/campaigns",
+      { signal },
+      this.emit,
+    );
+  }
+
+  private fetchProgressData(signal?: AbortSignal): Promise<unknown> {
+    // Kick's WAF rejects authed drops endpoints that omit X-Client-Token with
+    // "Request blocked by security policy." — the reference sends it on
+    // /drops/progress and /drops/claim (references/kickautodrops/core/kick.py:
+    // 131, 67). pageFetchJson adds the Bearer from session_token on top.
+    return this.fetcher.fetchJson<unknown>(
+      "https://web.kick.com/api/v1/drops/progress",
+      {
+        headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
+        signal,
+      },
+      this.emit,
+    );
+  }
+
+  private mergeProgress(campaigns: DropCampaign[], data: unknown): DropCampaign[] {
+    const progress = mergeKickProgress(
+      campaigns,
+      data as Parameters<typeof mergeKickProgress>[1],
+    );
+    return this.claimCapability.reconcileProgress?.(
+      progress,
+      affirmativelyLinkedCampaignIds(data),
+    ) ?? progress;
+  }
+
+  private reportProgressFallback(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
   }
 
   async searchCategories(query: string): Promise<CategorySelection[]> {
