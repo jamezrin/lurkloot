@@ -1229,6 +1229,75 @@ describe("Twitch parsers", () => {
     });
   });
 
+  it("keeps a completed reused reward claimable after it leaves v2 progress", () => {
+    const details = parseTwitchCampaigns([{
+      id: "midseason",
+      timeBasedDrops: [{
+        id: "current-lootbox",
+        requiredMinutesWatched: 420,
+        benefitEdges: [{ benefit: { id: "reused-lootbox", name: "RoT S3 Lootbox" } }],
+        self: {
+          currentMinutesWatched: 420,
+          isClaimed: false,
+          dropInstanceID: "user#midseason#current-lootbox",
+        },
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            earnedDropRewards: { edges: [] },
+            gameEventDrops: [{
+              id: "reused-lootbox",
+              lastAwardedAt: "2026-07-01T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      watchedMinutes: 420,
+      status: "claimable",
+      claimId: "user#midseason#current-lootbox",
+    });
+  });
+
+  it("uses owned-benefit completion when a watched reward has no claim instance", () => {
+    const details = parseTwitchCampaigns([{
+      id: "completed-campaign",
+      timeBasedDrops: [{
+        id: "completed-reward",
+        requiredMinutesWatched: 120,
+        benefitEdges: [{ benefit: { id: "owned-benefit", name: "Owned Reward" } }],
+        self: {
+          currentMinutesWatched: 120,
+          isClaimed: false,
+        },
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            earnedDropRewards: { edges: [] },
+            gameEventDrops: [{ id: "owned-benefit" }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      status: "claimed",
+      claimId: undefined,
+    });
+  });
+
   it("marks a tracked campaign completed when its benefit is owned but it dropped out of in-progress", () => {
     const details = parseTwitchCampaigns([{
       id: "campaign",
