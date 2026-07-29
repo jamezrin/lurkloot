@@ -922,6 +922,79 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
 });
 
 describe("TwitchAdapter", () => {
+  it("refreshes Twitch campaigns with one inventory request", async () => {
+    let inventoryCalls = 0;
+    const adapter = new TwitchAdapter(jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as
+        | Record<string, unknown>
+        | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) {
+        return body.map((entry) =>
+          twitchCampaignDetails(String((entry.variables as { dropID?: string }).dropID)));
+      }
+      if (body.operationName === "Inventory") {
+        inventoryCalls += 1;
+        return twitchInventory(["campaign"]);
+      }
+      return twitchDashboard(["campaign"]);
+    }));
+
+    await adapter.refreshCampaigns();
+
+    expect(inventoryCalls).toBe(1);
+  });
+
+  it("merges active Twitch session progress without repeating inventory", async () => {
+    let inventoryCalls = 0;
+    let currentDropCalls = 0;
+    const adapter = new TwitchAdapter(jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as
+        | Record<string, unknown>
+        | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) {
+        return body.map((entry) =>
+          twitchCampaignDetails(String((entry.variables as { dropID?: string }).dropID)));
+      }
+      if (body.operationName === "Inventory") {
+        inventoryCalls += 1;
+        return twitchInventory(["campaign"]);
+      }
+      if (body.operationName === "ViewerDropsDashboard") return twitchDashboard(["campaign"]);
+      if (body.operationName === "VideoPlayerStreamInfoOverlayChannel") {
+        return { data: { user: { id: "channel-id" } } };
+      }
+      if (body.operationName === "DropCurrentSessionContext") {
+        currentDropCalls += 1;
+        return {
+          data: {
+            currentUser: {
+              dropCurrentSession: {
+                dropID: "campaign-drop",
+                currentMinutesWatched: 42,
+              },
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected operation ${String(body.operationName)}`);
+    }));
+
+    const campaigns = await adapter.refreshCampaigns({
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      channel: {
+        platform: "twitch",
+        username: "creator",
+        url: "https://www.twitch.tv/creator",
+      },
+    } as never);
+
+    expect(inventoryCalls).toBe(1);
+    expect(currentDropCalls).toBe(1);
+    expect(campaigns[0]?.rewards[0]?.watchedMinutes).toBe(42);
+  });
+
   it("passes the auth probe signal to the Twitch CurrentUser request", async () => {
     const abort = new AbortController();
     const emit = vi.fn();

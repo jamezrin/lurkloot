@@ -603,7 +603,9 @@ export class TwitchAdapter implements PlatformAdapter {
     );
   }
 
-  async discoverCampaigns({ signal }: AdapterOperationOptions = {}): Promise<DropCampaign[]> {
+  private async discoverCampaignSnapshot(
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<DropCampaign[]> {
     let [inventory, dashboardResult] = await Promise.all([
       this.fetchInventory({ signal }),
       this.fetchDashboard(TWITCH_QUERIES.dashboard.variables, signal),
@@ -753,6 +755,19 @@ export class TwitchAdapter implements PlatformAdapter {
       dashboardResponded,
     );
     return [...mergedDetails, ...inventoryOnly];
+  }
+
+  async discoverCampaigns(options: AdapterOperationOptions = {}): Promise<DropCampaign[]> {
+    return this.discoverCampaignSnapshot(options);
+  }
+
+  async refreshCampaigns(
+    session?: WatchSession,
+    options: AdapterOperationOptions = {},
+  ): Promise<DropCampaign[]> {
+    const campaigns = await this.discoverCampaignSnapshot(options);
+    if (!session?.channel || session.status !== "watching") return campaigns;
+    return this.mergeCurrentSessionProgress(campaigns, session.channel, options.signal);
   }
 
   async readProgress(
