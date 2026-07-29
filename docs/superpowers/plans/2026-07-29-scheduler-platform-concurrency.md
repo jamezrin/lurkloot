@@ -29,7 +29,7 @@
 
 **Interfaces:**
 - Produces: `mergePlatformState(destination: SchedulerState, source: SchedulerState, platform: Platform): SchedulerState`
-- Produces: `withPlatformRecordEntry<T>(destination, source, platform)` as a private helper that preserves or deletes optional entries correctly.
+- Produces: `mergeOptionalEntry<T>(destination, source, platform)` as a private helper that preserves or deletes optional entries correctly.
 
 - [ ] **Step 1: Write failing merge tests**
 
@@ -43,7 +43,7 @@ expect(merged.sessions.kick).toEqual(destination.sessions.kick);
 expect(merged.campaigns.twitch).toEqual(source.campaigns.twitch);
 expect(merged.campaigns.kick).toEqual(destination.campaigns.kick);
 expect(merged.installedAt).toBe(destination.installedAt);
-expect(merged.lastTickAt).toBe(source.lastTickAt);
+expect(merged.lastTickAt).toBe("2026-07-29T12:00:00.000Z");
 ```
 
 Add a second test where `source.managedWatchTabs.twitch`,
@@ -52,6 +52,9 @@ Add a second test where `source.managedWatchTabs.twitch`,
 `source.criticalHealth.twitch`, and
 `source.deadlineInfeasibleRewardIds.twitch` are absent. Assert that the merged
 records remove Twitch while preserving Kick.
+Set the destination timestamp to `2026-07-29T12:00:00.000Z` and the source
+timestamp to `2026-07-29T11:00:00.000Z` so the assertion proves a late commit
+cannot move `lastTickAt` backwards.
 
 - [ ] **Step 2: Run the tests and verify the missing module failure**
 
