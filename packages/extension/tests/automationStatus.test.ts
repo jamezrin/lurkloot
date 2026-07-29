@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PlatformAuthHealth } from "@lurkloot/shared/models";
+import type { PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
 import {
   AUTH_SIGN_IN_URLS,
   automationPresentation,
@@ -16,6 +16,15 @@ function health(
       key: status === "blocked" ? "authSecurityPolicyBlocked" : "authPlatformUnavailable",
       values: { reference: "must-not-render" },
     },
+  };
+}
+
+function session(message?: string): WatchSession {
+  return {
+    platform: "twitch",
+    status: "idle",
+    offlineChecks: 0,
+    message,
   };
 }
 
@@ -144,5 +153,49 @@ describe("automation authentication presentation", () => {
     });
     expect(JSON.stringify(result)).not.toContain("must-not-render");
     expect(result).not.toHaveProperty("message");
+  });
+
+  it("keeps an enabled platform in one canonical starting presentation after the request settles", () => {
+    expect(automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: session("Starting automation"),
+    })).toMatchObject({
+      state: "starting",
+      badgeKey: "automationStarting",
+      detailKey: "startingAutomation",
+      operational: false,
+    });
+  });
+
+  it.each(["Automation disabled", "Platform disabled", "Starting automation"])(
+    "does not expose stale %s detail under a running badge",
+    (message) => {
+      const result = automationPresentation({
+        platform: "twitch",
+        enabled: true,
+        pending: false,
+        authHealth: health("healthy"),
+        session: session(message),
+      });
+
+      expect(result.state).toBe(message === "Starting automation" ? "starting" : "running");
+      expect(result.statusMessage).toBeUndefined();
+    },
+  );
+
+  it("preserves compatible settled scheduler detail for a running platform", () => {
+    expect(automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: session("Waiting for an eligible stream"),
+    })).toMatchObject({
+      state: "running",
+      statusMessage: "Waiting for an eligible stream",
+    });
   });
 });

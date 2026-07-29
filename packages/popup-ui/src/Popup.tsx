@@ -530,6 +530,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       enabled: automation[id],
       pending: pendingAutomation[id] != null,
       authHealth: snapshot.state.authHealth[id],
+      session: snapshot.state.sessions[id],
       manualClosePaused: Boolean(snapshot.state.manualClosePause?.[id]),
     })]),
   ) as Record<Platform, AutomationPresentation>;
@@ -660,7 +661,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     />
                   ) : null}
                 </AnimatePresence>
-                <AutomationHero platform={platform} platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} presentation={presentation} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} statusMessage={session.message} onChange={setAutomation} onResume={resumeAfterManualClose} />
+                <AutomationHero platform={platform} platformLabel={PLATFORMS[platform].label} enabled={enabled} pending={automationPending} presentation={presentation} farmingTitle={activeCampaign?.title} farmingChannel={farmingChannel} onFarmingTitleClick={onFarmingTitleClick} onChange={setAutomation} onResume={resumeAfterManualClose} />
                 {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} /> : null}
                 <SubTabs
                   tabs={[

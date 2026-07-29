@@ -1,4 +1,4 @@
-import type { Platform, PlatformAuthHealth } from "@lurkloot/shared/models";
+import type { Platform, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
 
 export type AutomationPresentationState =
   | "starting"
@@ -19,6 +19,7 @@ export interface AutomationPresentation {
   detailKey?: string;
   tone: AutomationTone;
   operational: boolean;
+  statusMessage?: string;
   action?: AutomationAction;
 }
 
@@ -37,18 +38,23 @@ export function automationPresentation({
   enabled,
   pending,
   authHealth,
+  session,
   manualClosePaused = false,
 }: {
   platform: Platform;
   enabled: boolean;
   pending: boolean;
   authHealth: PlatformAuthHealth;
+  session?: WatchSession;
   manualClosePaused?: boolean;
 }): AutomationPresentation {
   if (pending) {
     return enabled
       ? presentation("starting", "automationStarting", "startingAutomation")
       : presentation("stopping", "automationStopping", "pausingAutomation");
+  }
+  if (enabled && session?.message === "Starting automation") {
+    return presentation("starting", "automationStarting", "startingAutomation");
   }
   if (!enabled) return presentation("paused", "pausedStatus", "watchingPausedHint");
   // Ranked above auth health: the user caused this stop, so telling them why
@@ -68,6 +74,7 @@ export function automationPresentation({
         detailKey: undefined,
         tone: "accent",
         operational: true,
+        statusMessage: safeRunningStatusMessage(session?.message),
       };
     case "checking":
       return presentation("checking", "automationChecking", "authCheckingDetail");
@@ -86,6 +93,16 @@ export function automationPresentation({
       return presentation("unavailable", "automationUnavailable", detailKey, "warning");
     }
   }
+}
+
+const INCOMPATIBLE_RUNNING_MESSAGES = new Set([
+  "Starting automation",
+  "Automation disabled",
+  "Platform disabled",
+]);
+
+function safeRunningStatusMessage(message?: string): string | undefined {
+  return message && !INCOMPATIBLE_RUNNING_MESSAGES.has(message) ? message : undefined;
 }
 
 function presentation(
