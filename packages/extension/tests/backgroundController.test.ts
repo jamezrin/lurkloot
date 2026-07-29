@@ -916,6 +916,59 @@ describe("background controller", () => {
       );
     });
 
+    it("correlates nested Twitch integrity accounting diagnostics with their scheduler tick", async () => {
+      const env = harness(undefined, {
+        ensureTwitchIntegrity: async (_emit, request) => {
+          await request?.onManagedPageContextOpen?.();
+          return false;
+        },
+      });
+      const now = Date.now();
+      env.state.criticalHealth = {
+        twitch: {
+          status: "ok",
+          failingMs: 0,
+          failingTicks: 0,
+          managedTabOpens: Array.from(
+            { length: TAB_CHURN_LIMIT - 1 },
+            (_, index) => new Date(now - index * 1_000).toISOString(),
+          ),
+          breakerOpen: false,
+          records: [],
+        },
+      };
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        platform: "twitch",
+        code: "critical_failure_detected",
+        mirroredActivity: true,
+        globalTickId: 1,
+        platformTickId: 1,
+      }));
+    });
+
+    it("correlates failed Twitch integrity accounting diagnostics with their scheduler tick", async () => {
+      const env = harness(undefined, {
+        saveState: vi.fn().mockRejectedValueOnce(new Error("storage unavailable")),
+        ensureTwitchIntegrity: async (_emit, request) => {
+          await request?.onManagedPageContextOpen?.();
+          return false;
+        },
+      });
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        platform: "twitch",
+        level: "warn",
+        message: "Could not account for a managed Twitch integrity page context",
+        globalTickId: 1,
+        platformTickId: 1,
+      }));
+    });
+
     it("continues Kick when disabling Twitch cancels the acquisition awaited by an all-platform tick", async () => {
       const acquisition = deferred<boolean>();
       const env = harness(undefined, {
@@ -4790,6 +4843,35 @@ describe("background controller", () => {
     expect(env.deps.applyAdFocus).toHaveBeenCalledWith("kick", 20, false, expect.any(Function));
   });
 
+  it("applies ad focus only for each concurrent tick's own platform", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    vi.mocked(env.twitch.refreshCampaigns).mockReturnValue(twitchDiscovery.promise);
+    env.deps.applyAdFocus.mockClear();
+
+    const ticking = env.controller.tick(undefined, "manual_tick");
+
+    try {
+      await vi.waitFor(() => {
+        expect(env.deps.applyAdFocus).toHaveBeenCalledWith(
+          "kick",
+          20,
+          false,
+          expect.any(Function),
+        );
+      });
+      expect(env.deps.applyAdFocus.mock.calls.map(([platform]) => platform)).toEqual(["kick"]);
+    } finally {
+      twitchDiscovery.resolve([campaign("twitch")]);
+      await ticking;
+    }
+
+    expect(env.deps.applyAdFocus.mock.calls.map(([platform]) => platform)).toEqual([
+      "kick",
+      "twitch",
+    ]);
+  });
+
   it("keeps successful scheduler state when re-applying ad focus fails", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     env.deps.applyAdFocus.mockRejectedValue(new Error("focus refresh failed"));
@@ -5326,9 +5408,12 @@ describe("background controller", () => {
     ]));
   });
 
-  function fakeTablessWatcher(tick: () => Promise<{ ok: boolean; live?: boolean; message?: string }>) {
+  function fakeTablessWatcher(
+    tick: () => Promise<{ ok: boolean; live?: boolean; message?: string }>,
+    platform: Platform = "twitch",
+  ) {
     const watcher = {
-      platform: "twitch" as const,
+      platform,
       channelUrl: undefined as string | undefined,
       start: vi.fn(async (ch: { url: string }) => {
         watcher.channelUrl = ch.url;
@@ -5435,6 +5520,34 @@ describe("background controller", () => {
     expect(watcher.tick).toHaveBeenCalled();
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
     expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
+  });
+
+  it("lets Kick heartbeat and persist while Twitch heartbeat is still pending", async () => {
+    const twitchHeartbeat = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+    const twitchWatcher = fakeTablessWatcher(() => twitchHeartbeat.promise, "twitch");
+    const kickWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }), "kick");
+    const env = harness(farming({ ...DEFAULT_SETTINGS, tablessMode: true }));
+    env.twitch.supportsTabless = true;
+    env.kick.supportsTabless = true;
+    env.twitch.createTablessWatcher = () => twitchWatcher as unknown as TablessWatchController;
+    env.kick.createTablessWatcher = () => kickWatcher as unknown as TablessWatchController;
+    await env.controller.tick(["twitch"]);
+    await env.controller.tick(["kick"]);
+
+    const heartbeat = env.controller.runWatchHeartbeat();
+
+    try {
+      await vi.waitFor(() => expect(twitchWatcher.tick).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(kickWatcher.tick).toHaveBeenCalledOnce());
+      expect(env.state.sessions.kick.lastHeartbeatOk).toBe(true);
+      expect(env.state.sessions.twitch.lastHeartbeatAt).toBeUndefined();
+    } finally {
+      twitchHeartbeat.resolve({ ok: true, live: true });
+      await heartbeat;
+    }
+
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    expect(env.state.sessions.kick.lastHeartbeatOk).toBe(true);
   });
 
   it("persists page-context lifecycle metadata changed during a heartbeat", async () => {
@@ -5656,6 +5769,79 @@ describe("background controller", () => {
       twitchDiscovery.resolve([]);
       await Promise.all([ticking, checkingKick]);
     }
+  });
+
+  it("lets Kick scheduler work complete while Twitch playback focus is pending", async () => {
+    const focus = deferred<void>();
+    const env = harness();
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 10,
+      tabManagedByExtension: true,
+      channel: channel("twitch"),
+    };
+    env.deps.applyAdFocus.mockImplementation(async (platform) => {
+      if (platform === "twitch") await focus.promise;
+    });
+    const telemetry = env.rawController.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    }, { tab: { id: 10 } });
+    await vi.waitFor(() => expect(env.deps.applyAdFocus).toHaveBeenCalledWith(
+      "twitch",
+      10,
+      false,
+      expect.any(Function),
+    ));
+
+    const kickTick = env.rawController.tick(["kick"], "manual_tick");
+    try {
+      await vi.waitFor(() => expect(env.state.sessions.kick.lastCheckedAt).toBeDefined());
+      expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
+    } finally {
+      focus.resolve();
+      await Promise.all([telemetry, kickTick]);
+    }
+
+    expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
+    expect(env.state.sessions.kick.lastCheckedAt).toBeDefined();
+  });
+
+  it("lets Kick scheduler work complete while a Twitch manual claim is pending", async () => {
+    const claim = deferred<boolean>();
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: false }));
+    env.state.campaigns.twitch = [campaign("twitch", "claimable")];
+    vi.mocked(env.twitch.claimReward).mockReturnValue(claim.promise);
+
+    const claiming = env.rawController.handleMessage({
+      type: "claimReward",
+      platform: "twitch",
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+    });
+    await vi.waitFor(() => expect(env.twitch.claimReward).toHaveBeenCalledOnce());
+
+    const kickTick = env.rawController.tick(["kick"], "manual_tick");
+    try {
+      await vi.waitFor(() => expect(env.state.sessions.kick.lastCheckedAt).toBeDefined());
+      expect(env.state.campaigns.twitch[0].rewards[0].status).toBe("claimable");
+    } finally {
+      claim.resolve(true);
+      await Promise.all([claiming, kickTick]);
+    }
+
+    expect(env.state.sessions.kick.lastCheckedAt).toBeDefined();
+    expect(env.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
   });
 
   it("serializes handleTabRemoved against a concurrent tick so neither write is lost", async () => {
