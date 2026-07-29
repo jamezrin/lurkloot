@@ -75,6 +75,10 @@ export type TickTrigger =
   | "tabless_fallback"
   | "claim_handoff"
   | "unknown";
+type TickDiagnosticContext = Required<Pick<
+  DiagnosticEvent,
+  "globalTickId" | "platformTickId"
+>>;
 export type CredentialAvailability =
   | { status: "available" }
   | { status: "missing" }
@@ -92,6 +96,15 @@ function isNothingLeftToFarm(reasonCode: WatchReasonCode | undefined): boolean {
 // still transmits.
 const RECENT_HEARTBEAT_MS = 30_000;
 const PLATFORMS: Platform[] = ["twitch", "kick"];
+
+function correlateTickDiagnostics(
+  events: readonly EngineEvent[],
+  tickContext: TickDiagnosticContext,
+): EngineEvent[] {
+  return events.map((event) =>
+    event.category === "diagnostic" ? { ...event, ...tickContext } : event);
+}
+
 // Must stay strictly greater than INTEGRITY_REFRESH_TIMEOUT_MS. A Twitch probe
 // runs through gqlWithIntegrityRetry, so a rejection makes it wait on a page
 // context minting a token; when this deadline was the shorter of the two (10s
@@ -810,8 +823,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Reports a single diagnostic immediately rather than collecting it into a
   // tick's event batch. Tick lifecycle lines must land as they happen: batching
   // them would defeat the point of timing a tick that is still running.
-  function diagnosticEvent(level: "debug" | "info" | "warn", message: string, platform?: Platform): void {
-    void reportBestEffort([{ category: "diagnostic", level, message, platform }]);
+  function diagnosticEvent(
+    level: "debug" | "info" | "warn",
+    message: string,
+    platform?: Platform,
+    tickContext?: TickDiagnosticContext,
+  ): void {
+    void reportBestEffort([{
+      category: "diagnostic",
+      level,
+      message,
+      platform,
+      ...tickContext,
+    }]);
   }
 
   async function reportBestEffort(events: readonly EngineEvent[]): Promise<void> {
@@ -1085,6 +1109,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     health: PlatformAuthHealth,
     probeEvents: readonly EngineEvent[] = [],
     generation: number,
+    tickContext?: TickDiagnosticContext,
   ): Promise<boolean> {
     return withStateLock(() => withEventCollector(async (emit, events) => {
       if (authRefreshGeneration[platform] !== generation) return false;
@@ -1095,7 +1120,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (transition.event) emit(transition.event);
         await saveOperationalStateDirect(transition.state);
       });
-      await reportBestEffort(events);
+      await reportBestEffort(tickContext
+        ? correlateTickDiagnostics(events, tickContext)
+        : events);
       return true;
     }), [platform]);
   }
@@ -1140,6 +1167,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     loadedSettings?: S,
     reportCompatibility = false,
     signal?: AbortSignal,
+    tickContext?: TickDiagnosticContext,
   ): Promise<void> {
     signal?.throwIfAborted();
     const generations = await beginAuthRefresh(platforms);
@@ -1168,7 +1196,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       signal?.throwIfAborted();
       let accepted: boolean;
       try {
-        accepted = await persistAuthHealth(platform, result.health, result.events, generation);
+        accepted = await persistAuthHealth(
+          platform,
+          result.health,
+          result.events,
+          generation,
+          tickContext,
+        );
       } catch (error) {
         if (result.setupFailure) {
           throw new AggregateError(
@@ -1183,7 +1217,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     throwRefreshFailures(results);
   }
 
-  async function reportAuthSetupFailures(failures: readonly AuthProbeSetupError[]): Promise<void> {
+  async function reportAuthSetupFailures(
+    failures: readonly AuthProbeSetupError[],
+    tickContext?: TickDiagnosticContext,
+  ): Promise<void> {
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const state = await deps.loadState();
       for (const failure of failures) {
@@ -1195,13 +1232,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           data: { reason: "platform_error", detail: failure.message },
         });
       }
-      await persistAndReport(state, events);
+      await persistAndReport(
+        state,
+        tickContext ? correlateTickDiagnostics(events, tickContext) : events,
+      );
     }));
   }
 
   async function prepareTwitchIntegrity(
     settings: S,
     signal: AbortSignal,
+    tickContext: TickDiagnosticContext,
   ): Promise<boolean> {
     const ensureTwitchIntegrity = deps.ensureTwitchIntegrity;
     if (!settings.platform.twitch.enabled || !ensureTwitchIntegrity) return true;
@@ -1255,7 +1296,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         });
         return false;
       } finally {
-        await reportBestEffort(events);
+        await reportBestEffort(correlateTickDiagnostics(events, tickContext));
       }
     });
   }
@@ -1263,7 +1304,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Every tick is bracketed by a start/finish diagnostic carrying its trigger and
   // elapsed time. A tick that succeeds otherwise emits nothing about itself, which
   // makes a slow one indistinguishable from an idle gap in an exported log.
-  let tickSequence = 0;
+  let globalTickSequence = 0;
+  const platformTickSequence: Record<Platform, number> = {
+    twitch: 0,
+    kick: 0,
+  };
   // Chain of detached ticks, drained by settleBackgroundWork().
   let backgroundWork: Promise<unknown> = Promise.resolve();
   const activeTicks = new Set<AbortController>();
@@ -1297,11 +1342,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const abort = new AbortController();
     activeTicks.add(abort);
     activePlatformTicks[platform] += 1;
-    const tickId = ++tickSequence;
+    const tickContext: TickDiagnosticContext = {
+      globalTickId: ++globalTickSequence,
+      platformTickId: ++platformTickSequence[platform],
+    };
     const tickStartedAt = Date.now();
-    diagnosticEvent("debug", `Tick #${tickId} started (trigger=${trigger}, platforms=${platform})`, platform);
+    diagnosticEvent(
+      "debug",
+      `Tick #${tickContext.platformTickId} started (trigger=${trigger}, platforms=${platform})`,
+      platform,
+      tickContext,
+    );
     try {
-      const claimed = await runTick(tickId, tickStartedAt, [platform], abort.signal);
+      const claimed = await runTick(tickContext, [platform], abort.signal);
       return [platform, claimed[platform] ?? []];
     } catch (error) {
       if (abort.signal.aborted) return [platform, []];
@@ -1309,13 +1362,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } finally {
       activeTicks.delete(abort);
       activePlatformTicks[platform] -= 1;
-      diagnosticEvent("debug", `Tick #${tickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`, platform);
+      diagnosticEvent(
+        "debug",
+        `Tick #${tickContext.platformTickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`,
+        platform,
+        tickContext,
+      );
     }
   }
 
   async function runTick(
-    tickId: number,
-    tickStartedAt: number,
+    tickContext: TickDiagnosticContext,
     platforms: Platform[] | undefined,
     signal: AbortSignal,
   ): Promise<ClaimedRewards> {
@@ -1325,16 +1382,27 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const excludedPlatforms = new Set<Platform>();
     if (isFarmingActive(settings)) {
       if (requestedPlatforms.includes("twitch")) {
-        const twitchReady = await prepareTwitchIntegrity(settings, signal);
+        const twitchReady = await prepareTwitchIntegrity(settings, signal, tickContext);
         if (!twitchReady) excludedPlatforms.add("twitch");
       }
       const authPlatforms = requestedPlatforms.filter((platform) => !excludedPlatforms.has(platform));
       if (authPlatforms.length > 0) {
         const authStartedAt = Date.now();
         try {
-          await refreshAuthHealth(authPlatforms, settings, false, signal);
+          await refreshAuthHealth(
+            authPlatforms,
+            settings,
+            false,
+            signal,
+            tickContext,
+          );
           for (const platform of authPlatforms) {
-            diagnosticEvent("debug", `Tick #${tickId} refreshed auth health in ${Date.now() - authStartedAt}ms`, platform);
+            diagnosticEvent(
+              "debug",
+              `Tick #${tickContext.platformTickId} refreshed auth health in ${Date.now() - authStartedAt}ms`,
+              platform,
+              tickContext,
+            );
           }
         } catch (error) {
           const failures = flattenedRefreshFailures(error);
@@ -1344,7 +1412,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           for (const failure of setupFailures) excludedPlatforms.add(failure.platform);
           let reportingFailure: unknown;
           try {
-            await reportAuthSetupFailures(setupFailures);
+            await reportAuthSetupFailures(setupFailures, tickContext);
           } catch (failure) {
             reportingFailure = failure;
           }
@@ -1430,10 +1498,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
         emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
         emit({ category: "diagnostic", level: "error", platform, message: detail });
-        await persistPlatformAndReport(platform, state, events);
+        await persistPlatformAndReport(platform, state, correlateTickDiagnostics(events, tickContext));
         return;
       }
-      await persistPlatformAndReport(platform, nextState, events);
+      await persistPlatformAndReport(platform, nextState, correlateTickDiagnostics(events, tickContext));
       waitingClaimRewardIds[platform].clear();
       for (const rewardId of nextWaitingClaimRewardIds[platform]) {
         waitingClaimRewardIds[platform].add(rewardId);

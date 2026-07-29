@@ -692,6 +692,31 @@ describe("background controller", () => {
       expect(order).toEqual(["integrity", "auth", "scheduler"]);
     });
 
+    it("correlates integrity readiness diagnostics with their scheduler tick", async () => {
+      const env = harness(undefined, {
+        ensureTwitchIntegrity: async (emit) => {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "info",
+            message: "Integrity readiness probe",
+          });
+          return true;
+        },
+      });
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          message: "Integrity readiness probe",
+          globalTickId: 1,
+          platformTickId: 1,
+        }),
+      );
+    });
+
     it("continues the same Twitch tick after successful acquisition", async () => {
       const env = harness(undefined, {
         ensureTwitchIntegrity: async () => true,
@@ -3649,16 +3674,94 @@ describe("background controller", () => {
       .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
     expect(diagnostics).toContainEqual(expect.objectContaining({
       platform: "twitch",
+      globalTickId: 1,
+      platformTickId: 1,
       message: expect.stringMatching(/^Tick #\d+ started \(trigger=manual_tick, platforms=twitch\)$/),
     }));
     expect(diagnostics).toContainEqual(expect.objectContaining({
       platform: "twitch",
+      globalTickId: 1,
+      platformTickId: 1,
+      code: "auth_health_changed",
+      mirroredActivity: true,
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      globalTickId: 1,
+      platformTickId: 1,
       message: expect.stringMatching(/^Tick #\d+ refreshed auth health in \d+ms$/),
     }));
     expect(diagnostics).toContainEqual(expect.objectContaining({
       platform: "twitch",
+      globalTickId: 1,
+      platformTickId: 1,
+      message: expect.stringMatching(/^Campaign refresh finished in \d+ms/),
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      globalTickId: 1,
+      platformTickId: 1,
       message: expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=manual_tick, platforms=twitch\)$/),
     }));
+  });
+
+  it("assigns global and platform-local identifiers to interleaved platform ticks", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    await env.controller.tick(["twitch"], "manual_tick");
+    await env.controller.tick(["kick"], "manual_tick");
+    await env.controller.tick(["twitch"], "manual_tick");
+
+    const starts = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event): event is DiagnosticEvent =>
+        event.category === "diagnostic" && event.message.includes("started (trigger=manual_tick"));
+
+    expect(starts.map((event) => ({
+      platform: event.platform,
+      globalTickId: event.globalTickId,
+      platformTickId: event.platformTickId,
+      message: event.message,
+    }))).toEqual([
+      {
+        platform: "twitch",
+        globalTickId: 1,
+        platformTickId: 1,
+        message: "Tick #1 started (trigger=manual_tick, platforms=twitch)",
+      },
+      {
+        platform: "kick",
+        globalTickId: 2,
+        platformTickId: 1,
+        message: "Tick #1 started (trigger=manual_tick, platforms=kick)",
+      },
+      {
+        platform: "twitch",
+        globalTickId: 3,
+        platformTickId: 2,
+        message: "Tick #2 started (trigger=manual_tick, platforms=twitch)",
+      },
+    ]);
+  });
+
+  it("leaves diagnostics emitted outside scheduler ticks uncorrelated", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
+
+    const requested = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .find((event): event is DiagnosticEvent =>
+        event.category === "diagnostic"
+        && event.message === "User requested Twitch automation enable");
+
+    expect(requested).toBeDefined();
+    expect(requested).not.toHaveProperty("globalTickId");
+    expect(requested).not.toHaveProperty("platformTickId");
   });
 
   it("reports a tick lifecycle even when the tick throws", async () => {
