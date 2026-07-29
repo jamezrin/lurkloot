@@ -458,6 +458,11 @@ export interface PageFetchOptions {
   };
   emit?: EventEmitter;
   openReason?: PageContextOpenReason;
+  // Integrity preparation must not create a user-facing activity entry, but the
+  // controller still needs to account for every extension-owned context it
+  // opens in the managed-tab churn breaker.
+  emitPageContextActivity?: boolean;
+  onManagedPageContextOpen?: () => void | Promise<void>;
   // Demands a context that is about to boot the SPA from scratch, because the
   // caller is waiting for the page to issue something (see ensureTwitchIntegrity-
   // WithBrowser). An already-loaded user tab is idle and would only time out, and
@@ -490,7 +495,7 @@ let twitchIntegrity: TwitchIntegrity | undefined;
 // Treat a token expiring within this window as already stale, so a claim never
 // ships with one that expires mid-flight (the captured token is replayed and
 // the round-trip plus Twitch-side clock skew can otherwise straddle expiry).
-const INTEGRITY_EXPIRY_SKEW_MS = 30_000;
+export const INTEGRITY_EXPIRY_SKEW_MS = 30_000;
 
 // Page context to open when no token has been captured: a logged-in twitch.tv
 // SPA route that immediately issues authenticated GQL carrying Client-Integrity,
@@ -513,6 +518,11 @@ export const INTEGRITY_REFRESH_TIMEOUT_MS = 30_000;
 
 // Resolvers waiting for the next captured token (see waitForIntegrityCapture).
 let integrityWaiters: Array<() => void> = [];
+
+// Test seam for proving terminal paths release their process-global callbacks.
+export function currentTwitchIntegrityWaiterCount(): number {
+  return integrityWaiters.length;
+}
 
 // Phase timings for the twitch.tv page context currently being booted to mint an
 // integrity token. A cold boot costs far more than the document load: the tab
@@ -545,8 +555,15 @@ function describeContextBoot(boot: TwitchContextBootTiming, now: number): string
   return `tab ready at ${since(boot.readyAt)}, first GQL at ${since(boot.firstGqlAt)}, ${now - boot.createdAt}ms since the tab was created`;
 }
 
+export function isValidTwitchIntegrity(
+  value: TwitchIntegrity | undefined,
+  now: number = Date.now(),
+): value is TwitchIntegrity {
+  return value != null && value.expiresAt > now + INTEGRITY_EXPIRY_SKEW_MS;
+}
+
 export function hasValidTwitchIntegrity(now: number = Date.now()): boolean {
-  return twitchIntegrity != null && twitchIntegrity.expiresAt > now + INTEGRITY_EXPIRY_SKEW_MS;
+  return isValidTwitchIntegrity(twitchIntegrity, now);
 }
 
 export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?: { isNew?: boolean }, emit: EventEmitter = ignoreEvent): void {
@@ -568,6 +585,8 @@ export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?:
 export interface TwitchIntegrityRequest {
   forceRefresh?: boolean;
   signal?: AbortSignal;
+  reason?: "readiness" | "proactive_refresh" | "rejection_recovery";
+  onManagedPageContextOpen?: () => void | Promise<void>;
   // The token the rejected request actually sent, captured before it was issued.
   // Without it a forced refresh cannot tell "this caller was rejected on a token
   // someone has already replaced" from "this caller was rejected on the token we
@@ -588,25 +607,28 @@ export function currentValidTwitchIntegrity(): TwitchIntegrity | undefined {
   return hasValidTwitchIntegrity() ? twitchIntegrity : undefined;
 }
 
-// A forced refresh boots a cold twitch.tv context and waits for Kasada's
-// proof-of-work, which is the single most expensive thing this module does
-// (~22s observed). It is wired into ~10 operations, several of which run
-// sequentially inside one discovery pass, so a broadly-rejecting session used to
-// stack that cost several times in one tick.
-//
-// Concurrent callers share the in-flight refresh rather than racing into
-// acquirePageContextTab, where the origin-keyed dedupe hands the later ones an
-// inherited context that requireFreshPageContext cannot make fresh — so they
-// would wait out the full timeout on a tab that was never going to mint for
-// them. Sequential callers are bounded by rejectedToken instead: once the first
-// refresh lands, the rest were rejected on a token that no longer exists.
-let inFlightForcedRefresh: Promise<boolean> | undefined;
+// Minting boots a twitch.tv context and may wait ~22s for Kasada's proof-of-work,
+// so every caller shares one owned acquisition. The owned abort cancels the
+// underlying page context; only the creator's signal owns that lifecycle, while
+// later joiners race their own signal without disturbing everyone else.
+interface TwitchIntegrityAcquisition {
+  promise: Promise<boolean>;
+  abort: AbortController;
+}
+
+let inFlightIntegrityAcquisition: TwitchIntegrityAcquisition | undefined;
+
+export function cancelTwitchIntegrityAcquisition(reason?: unknown): void {
+  inFlightIntegrityAcquisition?.abort.abort(reason);
+}
 
 // Test seam: this module's integrity state is process-global by design (the
 // webRequest listener feeds it from outside any call), so suites that exercise
 // the bounds need a way back to a known state.
 export function resetTwitchIntegrityRefreshBounds(): void {
-  inFlightForcedRefresh = undefined;
+  inFlightIntegrityAcquisition?.abort.abort();
+  inFlightIntegrityAcquisition = undefined;
+  integrityWaiters = [];
 }
 
 function hasReplacementTwitchIntegrity(rejectedToken?: string): boolean {
@@ -628,11 +650,18 @@ function waitForIntegrityCapture(
   if (hasReplacementTwitchIntegrity(rejectedToken)) return Promise.resolve(true);
   return new Promise((resolve, reject) => {
     let settled = false;
+    const removeWaiter = () => {
+      integrityWaiters = integrityWaiters.filter((waiter) => waiter !== onCapture);
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      removeWaiter();
+    };
     const finish = () => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
+      cleanup();
       resolve(hasReplacementTwitchIntegrity(rejectedToken));
     };
     const onCapture = () => {
@@ -648,7 +677,7 @@ function waitForIntegrityCapture(
     const onAbort = () => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      cleanup();
       reject(signal?.reason);
     };
     const timer = setTimeout(finish, timeoutMs);
@@ -674,9 +703,21 @@ export async function ensureTwitchIntegrityWithBrowser(
 ): Promise<boolean> {
   request?.signal?.throwIfAborted();
   const forceRefresh = request?.forceRefresh === true;
+  const reason = request?.reason
+    ?? (forceRefresh ? "rejection_recovery" : "readiness");
   if (!forceRefresh) {
     if (hasValidTwitchIntegrity()) return true;
-    return mintTwitchIntegrity(browserApi, originUrl, timeoutMs, emit, undefined, false, request?.signal);
+    return startTwitchIntegrityAcquisition(
+      browserApi,
+      originUrl,
+      timeoutMs,
+      emit,
+      undefined,
+      false,
+      reason,
+      request?.onManagedPageContextOpen,
+      request?.signal,
+    );
   }
 
   // Another operation's refresh already replaced the token this caller was
@@ -687,18 +728,74 @@ export async function ensureTwitchIntegrityWithBrowser(
     return true;
   }
 
-  if (inFlightForcedRefresh) {
-    diagnostic(emit, "debug", "Joining the Twitch integrity refresh already in flight", "twitch");
-    return withAbortSignal(inFlightForcedRefresh, request?.signal);
+  const rejectedToken = request?.rejectedToken ?? twitchIntegrity?.integrity;
+  return startTwitchIntegrityAcquisition(
+    browserApi,
+    originUrl,
+    timeoutMs,
+    emit,
+    rejectedToken,
+    true,
+    reason,
+    request?.onManagedPageContextOpen,
+    request?.signal,
+  );
+}
+
+function startTwitchIntegrityAcquisition(
+  browserApi: BrowserTabApi,
+  originUrl: string,
+  timeoutMs: number,
+  emit: EventEmitter,
+  rejectedToken: string | undefined,
+  forceRefresh: boolean,
+  reason: NonNullable<TwitchIntegrityRequest["reason"]>,
+  onManagedPageContextOpen?: () => void | Promise<void>,
+  ownerSignal?: AbortSignal,
+): Promise<boolean> {
+  if (inFlightIntegrityAcquisition) {
+    diagnostic(emit, "debug", "Joining the Twitch integrity acquisition already in flight", "twitch");
+    const joined = withAbortSignal(inFlightIntegrityAcquisition.promise, ownerSignal);
+    if (!forceRefresh) return joined;
+    return joined.then((captured) => {
+      ownerSignal?.throwIfAborted();
+      if (captured && hasReplacementTwitchIntegrity(rejectedToken)) return true;
+      return startTwitchIntegrityAcquisition(
+        browserApi,
+        originUrl,
+        timeoutMs,
+        emit,
+        rejectedToken,
+        true,
+        reason,
+        onManagedPageContextOpen,
+        ownerSignal,
+      );
+    });
   }
 
-  const rejectedToken = request?.rejectedToken ?? twitchIntegrity?.integrity;
-  const refresh = mintTwitchIntegrity(browserApi, originUrl, timeoutMs, emit, rejectedToken, true, request?.signal)
-    .finally(() => {
-      inFlightForcedRefresh = undefined;
-    });
-  inFlightForcedRefresh = refresh;
-  return refresh;
+  const abort = new AbortController();
+  const abortFromOwner = () => abort.abort(ownerSignal?.reason);
+  ownerSignal?.addEventListener("abort", abortFromOwner, { once: true });
+
+  const promise = mintTwitchIntegrity(
+    browserApi,
+    originUrl,
+    timeoutMs,
+    emit,
+    rejectedToken,
+    forceRefresh,
+    reason,
+    onManagedPageContextOpen,
+    abort.signal,
+  ).finally(() => {
+    ownerSignal?.removeEventListener("abort", abortFromOwner);
+    if (inFlightIntegrityAcquisition?.promise === promise) {
+      inFlightIntegrityAcquisition = undefined;
+    }
+  });
+  inFlightIntegrityAcquisition = { promise, abort };
+  return promise;
 }
 
 // The page-context boot itself, with no bounding logic: callers reach it through
@@ -716,12 +813,16 @@ async function mintTwitchIntegrity(
   // a plain mint, which may inherit an idle tab that issues no request and can
   // only ever time out.
   forceRefresh: boolean,
+  reason: NonNullable<TwitchIntegrityRequest["reason"]>,
+  onManagedPageContextOpen?: () => void | Promise<void>,
   signal?: AbortSignal,
 ): Promise<boolean> {
   diagnostic(
     emit,
     "info",
-    forceRefresh
+    reason === "proactive_refresh"
+      ? "Proactively refreshing Twitch integrity through a twitch.tv page context"
+      : forceRefresh
       ? "Twitch rejected the current integrity token; using a twitch.tv page context to mint a replacement"
       : "No valid Twitch integrity token; using a twitch.tv page context to capture one",
     "twitch",
@@ -733,7 +834,19 @@ async function mintTwitchIntegrity(
       retainPageContext: { platform: "twitch" },
       emit,
       requireFreshPageContext: forceRefresh,
+      emitPageContextActivity: reason === "rejection_recovery",
+      onManagedPageContextOpen,
     }, signal);
+    if (reason !== "rejection_recovery" && pageContext.source === "created") {
+      diagnostic(
+        emit,
+        "debug",
+        reason === "proactive_refresh"
+          ? "Opened a managed twitch.tv page context for proactive integrity refresh"
+          : "Opened a managed twitch.tv page context for Twitch integrity readiness",
+        "twitch",
+      );
+    }
     // Which context we got decides whether waiting can work at all: only a
     // freshly created tab is guaranteed to boot the SPA and issue authenticated
     // GQL for the listener to read a token from. An inherited or already-idle tab
@@ -751,7 +864,7 @@ async function mintTwitchIntegrity(
     const boot = twitchContextBoot?.tabId === pageContext.tabId ? twitchContextBoot : undefined;
     const phases = boot ? ` (${describeContextBoot(boot, settledAt)})` : "";
     if (!captured) {
-      diagnostic(emit, "warn", `Timed out waiting for a Twitch integrity token after ${settledAt - startedAt}ms from a ${source} page context${phases} (is twitch.tv logged in?)`, "twitch");
+      diagnostic(emit, reason === "proactive_refresh" ? "debug" : "warn", `Timed out waiting for a Twitch integrity token after ${settledAt - startedAt}ms from a ${source} page context${phases} (is twitch.tv logged in?)`, "twitch");
     } else {
       diagnostic(emit, "debug", `Waited ${settledAt - startedAt}ms for a Twitch integrity token from a ${source} page context${phases}`, "twitch");
     }
@@ -759,7 +872,7 @@ async function mintTwitchIntegrity(
   } catch (error) {
     signal?.throwIfAborted();
     const message = error instanceof Error ? error.message : String(error);
-    diagnostic(emit, "warn", `Could not open a twitch.tv tab to capture an integrity token: ${message}`, "twitch");
+    diagnostic(emit, reason === "proactive_refresh" ? "debug" : "warn", `Could not open a twitch.tv tab to capture an integrity token: ${message}`, "twitch");
     return false;
   } finally {
     if (pageContext) {
@@ -1269,13 +1382,20 @@ async function findOrCreatePageContextTab(
       ownedByExtension: true,
     };
     retainedPageContextTabs.set(retain.platform, retainedContext);
-    options?.emit?.({
-      category: "activity",
-      code: "page_context_opened",
-      level: "info",
-      platform: retain.platform,
-      data: { host: new URL(origin).host, reason: openReason },
-    });
+    try {
+      await options?.onManagedPageContextOpen?.();
+    } catch {
+      diagnostic(options?.emit ?? ignoreEvent, "warn", `Could not account for a managed page context opened on ${new URL(origin).host}`, retain.platform);
+    }
+    if (options?.emitPageContextActivity !== false) {
+      options?.emit?.({
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: retain.platform,
+        data: { host: new URL(origin).host, reason: openReason },
+      });
+    }
     return {
       tabId: tab.id,
       createdByExtension: true,

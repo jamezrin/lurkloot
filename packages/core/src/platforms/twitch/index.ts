@@ -996,6 +996,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const rejectedToken = sentIntegrityToken(error);
       const refreshed = await this.ensureIntegrity({
         forceRefresh: true,
+        reason: "rejection_recovery",
         rejectedToken,
         signal,
       });
@@ -1051,6 +1052,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const rejectedToken = sentIntegrityToken(error);
       if (!await this.ensureIntegrity({
         forceRefresh: true,
+        reason: "rejection_recovery",
         rejectedToken,
         signal,
       })) throw error;
@@ -1187,6 +1189,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const rejectedToken = sentIntegrityToken(error);
       if (!await this.ensureIntegrity({
         forceRefresh: true,
+        reason: "rejection_recovery",
         rejectedToken,
         signal,
       })) throw error;
@@ -1333,7 +1336,11 @@ class TwitchWatcher implements TablessWatchController {
         // adapter's safe authenticated reads.
         if (!isIntegrityRejection(error)) throw error;
         this.log("debug", "Twitch viewer id lookup was rejected for integrity; refreshing the token and retrying once");
-        if (!await this.ensureIntegrity({ forceRefresh: true, rejectedToken: sentIntegrityToken(error) })) throw error;
+        if (!await this.ensureIntegrity({
+          forceRefresh: true,
+          reason: "rejection_recovery",
+          rejectedToken: sentIntegrityToken(error),
+        })) throw error;
         response = await currentUser();
       }
       this.viewerUserId = response.data?.currentUser?.id;
