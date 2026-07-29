@@ -5314,6 +5314,35 @@ describe("background controller", () => {
     expect(claimed).toEqual({ twitch: ["reward"] });
   });
 
+  it("starts post-claim handoffs independently for both platforms", async () => {
+    const waitingSignals: AbortSignal[] = [];
+    const env = harness(
+      farming({
+        ...DEFAULT_SETTINGS,
+        autoClaim: true,
+        postClaimHandoff: true,
+      }),
+      {
+        wait: async (_ms, signal) => new Promise<void>((resolve) => {
+          waitingSignals.push(signal);
+          signal.addEventListener("abort", () => resolve(), { once: true });
+        }),
+      },
+    );
+    env.twitch.supportsPostClaimHandoff = true;
+    env.kick.supportsPostClaimHandoff = true;
+    env.twitch.discoverCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
+    env.kick.discoverCampaigns = vi.fn(async () => [campaign("kick", "claimable")]);
+
+    const running = env.controller.tickAndHandOff();
+    try {
+      await vi.waitFor(() => expect(waitingSignals).toHaveLength(2));
+    } finally {
+      env.controller.shutdown();
+      await running;
+    }
+  });
+
   describe("post-claim handoff", () => {
     // Date only: the handoff's deadline is wall-clock based, but its delays are
     // injected, so setTimeout must stay real for drainMicrotasks.

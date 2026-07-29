@@ -1923,9 +1923,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // the handoff's own inner ticks cannot recurse into another handoff.
   async function tickAndHandOff(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<void> {
     const claimed = await tick(platforms, trigger);
-    for (const platform of Object.keys(claimed) as Platform[]) {
-      await runClaimHandoff(platform, claimed[platform] ?? []);
-    }
+    await Promise.allSettled((Object.keys(claimed) as Platform[]).map((platform) =>
+      runClaimHandoff(platform, claimed[platform] ?? [])));
   }
 
   // Transmits one heartbeat for a freshly-selected tabless target instead of
