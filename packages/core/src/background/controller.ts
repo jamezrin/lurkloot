@@ -26,6 +26,8 @@ import { withActivityDiagnostics } from "../core/activityDiagnostics";
 import { mergePlatformState } from "./platformState";
 
 export const ALARM_NAME = "lurkloot.tick";
+export const TWITCH_ALARM_NAME = "lurkloot.tick.twitch";
+export const KICK_ALARM_NAME = "lurkloot.tick.kick";
 // A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
 // of the (heavier, configurable) discovery tick. chrome.alarms clamps to a
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
@@ -42,8 +44,10 @@ interface BackgroundAlarmController {
 
 export function createBackgroundAlarmListener(controller: BackgroundAlarmController) {
   return (alarm: { name: string }): void => {
-    if (alarm.name === ALARM_NAME) {
-      void controller.tickAndHandOff(undefined, "alarm");
+    if (alarm.name === TWITCH_ALARM_NAME) {
+      void controller.tickAndHandOff(["twitch"], "alarm");
+    } else if (alarm.name === KICK_ALARM_NAME) {
+      void controller.tickAndHandOff(["kick"], "alarm");
     } else if (alarm.name === WATCH_ALARM_NAME) {
       void controller.runWatchHeartbeat();
     } else if (alarm.name === TWITCH_INTEGRITY_ALARM_NAME) {
@@ -848,13 +852,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function ensureAlarm(): Promise<void> {
     const settings = await deps.loadSettings();
-    await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+    await ensureSchedulerAlarms(settings.pollIntervalMinutes);
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
     if (settings.autoStartDropFarming && isFarmingActive(settings)) {
       await tick(undefined, "install");
     } else {
       await refreshAuthHealth(PLATFORMS, settings);
     }
+  }
+
+  async function ensureSchedulerAlarms(periodInMinutes: number): Promise<void> {
+    await deps.clearAlarm?.(ALARM_NAME);
+    await Promise.all([
+      deps.createAlarm(TWITCH_ALARM_NAME, { periodInMinutes }),
+      deps.createAlarm(KICK_ALARM_NAME, { periodInMinutes }),
+    ]);
   }
 
   async function ensureInstalledAt(installedAt = new Date().toISOString()): Promise<void> {
@@ -892,7 +904,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // no loop running against them.
     abortClaimHandoffs();
     const settings = await deps.loadSettings();
-    await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+    await ensureSchedulerAlarms(settings.pollIntervalMinutes);
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
     // A restart kills any in-memory watchers; start clean and let tick() rebuild.
     tablessWatchers.clear();
@@ -968,7 +980,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const settings = deps.applySettingsPatch(current, patch);
       await deps.saveSettings(settings);
       afterPersist?.(settings);
-      await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
+      await ensureSchedulerAlarms(settings.pollIntervalMinutes);
       return settings;
     });
   }

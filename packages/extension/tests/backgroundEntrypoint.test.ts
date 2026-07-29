@@ -44,11 +44,16 @@ describe("background integrity alarm wiring", () => {
     };
     const listener = createBackgroundAlarmListener(controller);
 
+    listener({ name: "lurkloot.tick.twitch" });
+    listener({ name: "lurkloot.tick.kick" });
+    listener({ name: "lurkloot.tick" });
     listener({ name: "lurkloot.twitch-integrity" });
     listener({ name: "unrelated.alarm" });
 
     expect(controller.runTwitchIntegrityRefresh).toHaveBeenCalledOnce();
-    expect(controller.tickAndHandOff).not.toHaveBeenCalled();
+    expect(controller.tickAndHandOff).toHaveBeenNthCalledWith(1, ["twitch"], "alarm");
+    expect(controller.tickAndHandOff).toHaveBeenNthCalledWith(2, ["kick"], "alarm");
+    expect(controller.tickAndHandOff).toHaveBeenCalledTimes(2);
     expect(controller.runWatchHeartbeat).not.toHaveBeenCalled();
   });
 });

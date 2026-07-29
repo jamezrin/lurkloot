@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ALARM_NAME,
   createBackgroundController,
+  KICK_ALARM_NAME,
+  TWITCH_ALARM_NAME,
   TWITCH_INTEGRITY_ALARM_NAME,
   type CredentialAvailability,
 } from "@lurkloot/core/controller";
@@ -3209,7 +3211,9 @@ describe("background controller", () => {
 
     await env.controller.ensureAlarm();
 
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: 11 });
+    expect(env.deps.clearAlarm).toHaveBeenCalledWith(ALARM_NAME);
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: 11 });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: 11 });
   });
 
   it("stamps the install time once through the serialized controller lifecycle", async () => {
@@ -3361,7 +3365,8 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
       expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
     ]);
@@ -3508,7 +3513,8 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
       event.category === "diagnostic" && event.message.includes("Browser restarted")
@@ -3589,7 +3595,8 @@ describe("background controller", () => {
     const snapshot = asSnapshot(await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true }));
 
     expect(env.settings.platform.twitch.enabled).toBe(true);
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
     // The snapshot returns ahead of the tick, reporting the prompt "starting"
     // transition; the watching status lands once the tick settles.
@@ -3825,7 +3832,8 @@ describe("background controller", () => {
     expect(env.deps.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ tablessFallbackFailureLimit: 10 }),
     );
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
   });
 
@@ -3838,7 +3846,9 @@ describe("background controller", () => {
     });
 
     expect(env.settings.pollIntervalMinutes).toBe(17);
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: 17 });
+    expect(env.deps.clearAlarm).toHaveBeenCalledWith(ALARM_NAME);
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: 17 });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: 17 });
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
   });
 
