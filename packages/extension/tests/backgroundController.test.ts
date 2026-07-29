@@ -364,6 +364,53 @@ describe("background controller", () => {
       expect(calls[1][1]).not.toEqual(calls[0][1]);
     });
 
+    it("installs and persists a fresh capture without scheduling after Twitch is disabled", async () => {
+      const integrity = integrityBundle({
+        integrity: "captured-while-disabled",
+      });
+      const saveTwitchIntegrity = vi.fn(async () => undefined);
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => undefined,
+        saveTwitchIntegrity,
+      });
+      await env.controller.settleBackgroundWork();
+
+      await env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.createAlarm.mockClear();
+
+      await env.controller.captureTwitchIntegrity(integrityHeaders(integrity));
+
+      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(saveTwitchIntegrity).toHaveBeenCalledWith(integrity);
+      expect(env.deps.createAlarm).not.toHaveBeenCalled();
+    });
+
+    it("installs valid stored integrity without scheduling when Twitch starts disabled", async () => {
+      const integrity = integrityBundle({
+        integrity: "stored-while-disabled",
+      });
+      const env = harness({
+        ...farming(DEFAULT_SETTINGS),
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
+        },
+      }, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+
+      await env.controller.settleBackgroundWork();
+
+      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(env.deps.createAlarm).not.toHaveBeenCalled();
+    });
+
     it("uses the same refresh jitter for the same token", async () => {
       const integrity = integrityBundle({
         integrity: "same-token-stable-jitter",
