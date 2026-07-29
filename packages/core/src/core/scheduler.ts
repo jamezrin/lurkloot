@@ -203,7 +203,7 @@ export async function chooseCampaignDecision(
   platform: Platform,
   campaigns: DropCampaign[],
   settings: EngineSettings,
-  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "checkChannel">,
+  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel">,
   signal?: AbortSignal,
   reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
 ): Promise<WatchDecision> {
@@ -213,6 +213,7 @@ export async function chooseCampaignDecision(
   const subscriptionOnly = onlySubscriptionCampaigns(campaigns, settings);
   let campaignsChecked = 0;
   let candidatesChecked = 0;
+  const generalCandidatesByCategory = new Map<string, ChannelCandidate[]>();
   const finish = (decision: WatchDecision): WatchDecision => {
     reportMetrics?.({ campaignsChecked, candidatesChecked });
     return decision;
@@ -225,8 +226,29 @@ export async function chooseCampaignDecision(
 
     const excludedChannels = settings.platform[platform].excludedChannels ?? [];
     signal?.throwIfAborted();
-    const candidates = (await adapter.listCandidateChannels(campaign, { signal }))
-      .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
+    const reusableDirectoryKey = campaign.allowedChannels?.length
+      ? undefined
+      : campaign.categoryId ?? campaign.slug;
+    let listedCandidates = reusableDirectoryKey
+      ? generalCandidatesByCategory.get(reusableDirectoryKey)
+      : undefined;
+    if (!listedCandidates) {
+      listedCandidates = await adapter.listCandidateChannels(campaign, { signal });
+      if (reusableDirectoryKey && listedCandidates.length > 0) {
+        generalCandidatesByCategory.set(reusableDirectoryKey, listedCandidates);
+      }
+    }
+    const candidates = [...new Map(
+      listedCandidates
+        .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
+        .map((candidate) => ({
+          ...candidate,
+          campaignId: campaign.id,
+          categoryId: campaign.categoryId ?? candidate.categoryId,
+          categoryName: campaign.gameName ?? candidate.categoryName,
+        }))
+        .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
+    ).values()]
       .sort((left, right) => {
         if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
         return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
@@ -353,10 +375,15 @@ function onlySubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSe
 async function firstValidCandidate(
   candidates: ChannelCandidate[],
   campaign: DropCampaign | undefined,
-  adapter: Pick<PlatformAdapter, "checkChannel">,
+  adapter: Pick<PlatformAdapter, "selectCandidateChannel" | "checkChannel">,
   signal?: AbortSignal,
   onCheck?: () => void,
 ): Promise<ChannelCandidate | undefined> {
+  if (adapter.selectCandidateChannel) {
+    const selection = await adapter.selectCandidateChannel(candidates, campaign, { signal });
+    for (let index = 0; index < selection.checked; index += 1) onCheck?.();
+    return selection.channel;
+  }
   for (const candidate of candidates) {
     signal?.throwIfAborted();
     onCheck?.();

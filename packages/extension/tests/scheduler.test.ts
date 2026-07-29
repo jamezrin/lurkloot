@@ -574,6 +574,58 @@ describe("scheduler campaign selection", () => {
     expect(kickDecision.channel?.username).toBe("blocked");
   });
 
+  it("deduplicates candidate usernames before platform checks", async () => {
+    const duplicate = channel("creator");
+    const checkChannel = vi.fn(async (candidate: ChannelCandidate) => ({
+      live: true,
+      categoryMatches: true,
+      candidate,
+    }));
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("drops")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          duplicate,
+          { ...duplicate, displayName: "CREATOR" },
+        ]),
+        checkChannel,
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(checkChannel).toHaveBeenCalledOnce();
+  });
+
+  it("reuses general directory candidates only within one selection pass", async () => {
+    const listCandidateChannels = vi.fn(async () => [channel("creator")]);
+    const checkChannel = vi.fn(async (
+      candidate: ChannelCandidate,
+      options?: { campaign?: DropCampaign },
+    ) => ({
+      live: true,
+      categoryMatches: true,
+      campaignMatches: options?.campaign?.id === "second",
+      candidate,
+    }));
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [
+        campaign("first", { categoryId: "game", slug: "game" }),
+        campaign("second", { categoryId: "game", slug: "game" }),
+      ],
+      settings(),
+      { listCandidateChannels, checkChannel },
+    );
+
+    expect(decision.campaign?.id).toBe("second");
+    expect(listCandidateChannels).toHaveBeenCalledOnce();
+    expect(checkChannel).toHaveBeenCalledTimes(2);
+  });
+
   it("tries another campaign when all candidates for one campaign are excluded", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",

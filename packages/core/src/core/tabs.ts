@@ -909,8 +909,9 @@ function twitchGqlErrorEnvelope(
 }
 
 function isUsableTwitchGql(value: unknown): boolean {
-  const entry = Array.isArray(value) ? (value.length === 1 ? value[0] : undefined) : value;
-  return entry != null && typeof entry === "object" && !Array.isArray(entry);
+  const entries = Array.isArray(value) ? value : [value];
+  return entries.length > 0
+    && entries.every((entry) => entry != null && typeof entry === "object" && !Array.isArray(entry));
 }
 
 export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string, init?: RequestInit): Promise<T> {

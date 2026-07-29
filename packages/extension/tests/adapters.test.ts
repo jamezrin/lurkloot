@@ -1163,6 +1163,75 @@ describe("TwitchAdapter", () => {
     expect(campaigns[0].rewards[0]).toMatchObject({ watchedMinutes: 20, status: "in_progress", claimId: "claim" });
   });
 
+  it("batches Twitch campaign detail operations in bounded groups", async () => {
+    const campaignIds = Array.from({ length: 41 }, (_, index) => `campaign-${index}`);
+    const detailBatchSizes: number[] = [];
+    let activeDetailBatches = 0;
+    let peakDetailBatches = 0;
+    const emit = vi.fn();
+    const fetcher = jsonFetcher(async (_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) {
+        detailBatchSizes.push(body.length);
+        activeDetailBatches += 1;
+        peakDetailBatches = Math.max(peakDetailBatches, activeDetailBatches);
+        await Promise.resolve();
+        activeDetailBatches -= 1;
+        return body.map((entry) => twitchCampaignDetails(String(
+          (entry.variables as { dropID?: string }).dropID,
+        )));
+      }
+      if (body.operationName === "Inventory") return twitchInventory([]);
+      if (body.operationName === "ViewerDropsDashboard") return twitchDashboard(campaignIds);
+      throw new Error(`Unexpected operation ${String(body.operationName)}`);
+    });
+
+    const campaigns = await new TwitchAdapter(
+      fetcher,
+      undefined,
+      undefined,
+      undefined,
+      emit,
+    ).discoverCampaigns();
+
+    expect(campaigns).toHaveLength(41);
+    expect(detailBatchSizes).toEqual([20, 20, 1]);
+    expect(peakDetailBatches).toBeLessThanOrEqual(2);
+    expect(emit).toHaveBeenCalledWith(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      message: expect.stringMatching(/^Twitch campaign details finished in \d+ms \(41 operations: 3 batch requests, 0 single fallbacks\)$/),
+    }));
+  });
+
+  it("starts Twitch inventory and dashboard discovery requests concurrently", async () => {
+    let releaseInventory!: () => void;
+    const inventoryGate = new Promise<void>((resolve) => {
+      releaseInventory = resolve;
+    });
+    let dashboardStarted = false;
+    const fetcher = jsonFetcher(async (_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        await inventoryGate;
+        return twitchInventory([]);
+      }
+      if (op === "ViewerDropsDashboard") {
+        dashboardStarted = true;
+        return twitchDashboard([]);
+      }
+      throw new Error(`Unexpected operation ${op}`);
+    });
+    const discovery = new TwitchAdapter(fetcher).discoverCampaigns();
+
+    try {
+      await vi.waitFor(() => expect(dashboardStarted).toBe(true));
+    } finally {
+      releaseInventory();
+    }
+    await expect(discovery).resolves.toEqual([]);
+  });
+
   it("keeps Twitch inventory campaigns when the dashboard query returns an empty response", async () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
@@ -2298,6 +2367,170 @@ describe("TwitchAdapter", () => {
       campaignId: "campaign",
       categoryId: "33214",
     });
+  });
+
+  it("trusts drops-enabled directory liveness and confirms only the selected candidate", async () => {
+    const operations: string[] = [];
+    const fetcher = jsonFetcher((_url, init) => {
+      operations.push(operation(init));
+      return { data: { channel: { viewerDropCampaigns: [{ id: "campaign" }] } } };
+    });
+    const adapter = new TwitchAdapter(fetcher);
+    const candidate = {
+      platform: "twitch" as const,
+      username: "directory-winner",
+      url: "https://www.twitch.tv/directory-winner",
+      channelId: "winner-id",
+      categoryId: "game",
+      live: true,
+      isAclMatch: false,
+    };
+
+    const selection = await adapter.selectCandidateChannel?.(
+      [candidate],
+      { id: "campaign", categoryId: "game" } as DropCampaign,
+    );
+
+    expect(selection?.channel?.username).toBe("directory-winner");
+    expect(operations).toEqual(["DropsHighlightService_AvailableDrops"]);
+  });
+
+  it("batches ACL StreamInfo checks and confirms AvailableDrops only for the winner", async () => {
+    const candidates = Array.from({ length: 25 }, (_, index) => ({
+      platform: "twitch" as const,
+      username: `acl-${index}`,
+      url: `https://www.twitch.tv/acl-${index}`,
+      isAclMatch: true,
+    }));
+    const streamBatchSizes: number[] = [];
+    let availabilityCalls = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) {
+        expect(init?.credentials).toBe("omit");
+        streamBatchSizes.push(body.length);
+        return body.map((entry) => {
+          const username = String((entry.variables as { channel?: string }).channel);
+          return {
+            data: {
+              user: {
+                id: `${username}-id`,
+                displayName: username,
+                stream: { id: `${username}-broadcast`, game: { id: "game", name: "Game" } },
+              },
+            },
+          };
+        });
+      }
+      if (body.operationName === "DropsHighlightService_AvailableDrops") {
+        availabilityCalls += 1;
+        return { data: { channel: { viewerDropCampaigns: [{ id: "campaign" }] } } };
+      }
+      throw new Error(`Unexpected operation ${String(body.operationName)}`);
+    });
+    const adapter = new TwitchAdapter(fetcher);
+
+    const selection = await adapter.selectCandidateChannel?.(
+      candidates,
+      { id: "campaign", categoryId: "game" } as DropCampaign,
+    );
+
+    expect(selection?.channel?.username).toBe("acl-0");
+    expect(streamBatchSizes).toEqual([20, 5]);
+    expect(availabilityCalls).toBe(1);
+  });
+
+  it("bounds single StreamInfo fallbacks when Twitch rejects channel batches", async () => {
+    const candidates = Array.from({ length: 25 }, (_, index) => ({
+      platform: "twitch" as const,
+      username: `fallback-${index}`,
+      url: `https://www.twitch.tv/fallback-${index}`,
+      isAclMatch: true,
+    }));
+    let activeSingles = 0;
+    let maxActiveSingles = 0;
+    let singleCalls = 0;
+    const diagnostics: string[] = [];
+    const fetcher = jsonFetcher(async (_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) throw new Error("batch unavailable");
+      if (body.operationName === "StreamInfo") {
+        singleCalls += 1;
+        activeSingles += 1;
+        maxActiveSingles = Math.max(maxActiveSingles, activeSingles);
+        await Promise.resolve();
+        activeSingles -= 1;
+        const username = String((body.variables as { channel?: string }).channel);
+        return {
+          data: {
+            user: {
+              id: `${username}-id`,
+              stream: { id: `${username}-broadcast`, game: { id: "other-game" } },
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected operation ${String(body.operationName)}`);
+    });
+    const adapter = new TwitchAdapter(fetcher, undefined, undefined, {}, (event) => {
+      if (event.category === "diagnostic") diagnostics.push(event.message);
+    });
+
+    await adapter.selectCandidateChannel?.(
+      candidates,
+      { id: "campaign", categoryId: "game" } as DropCampaign,
+    );
+
+    expect(singleCalls).toBe(25);
+    expect(maxActiveSingles).toBeLessThanOrEqual(2);
+    expect(diagnostics.some((message) =>
+      message.includes("25 StreamInfo single fallbacks"))).toBe(true);
+  });
+
+  it("checks the next batched candidate after Twitch rejects campaign availability", async () => {
+    const candidates = ["first", "second"].map((username) => ({
+      platform: "twitch" as const,
+      username,
+      url: `https://www.twitch.tv/${username}`,
+      isAclMatch: true,
+    }));
+    const availabilityChannels: string[] = [];
+    const fetcher = jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) {
+        return body.map((entry) => {
+          const username = String((entry.variables as { channel?: string }).channel);
+          return {
+            data: {
+              user: {
+                id: `${username}-id`,
+                stream: { id: `${username}-broadcast`, game: { id: "game" } },
+              },
+            },
+          };
+        });
+      }
+      if (body.operationName === "DropsHighlightService_AvailableDrops") {
+        const channelId = String((body.variables as { channelID?: string }).channelID);
+        availabilityChannels.push(channelId);
+        return {
+          data: {
+            channel: {
+              viewerDropCampaigns: channelId === "second-id" ? [{ id: "campaign" }] : [],
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected operation ${String(body.operationName)}`);
+    });
+
+    const selection = await new TwitchAdapter(fetcher).selectCandidateChannel?.(
+      candidates,
+      { id: "campaign", categoryId: "game" } as DropCampaign,
+    );
+
+    expect(selection?.channel?.username).toBe("second");
+    expect(availabilityChannels).toEqual(["first-id", "second-id"]);
   });
 
   it("falls back to Twitch channel page data when stream info GQL fails", async () => {

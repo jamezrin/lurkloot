@@ -2003,6 +2003,25 @@ describe("fetchTwitchInBackgroundWith", () => {
     vi.unstubAllGlobals();
   });
 
+  it("preserves multi-operation Twitch GQL batch responses", async () => {
+    const response = [
+      { data: { dropCampaign: { id: "first" } } },
+      { data: { dropCampaign: { id: "second" } } },
+    ];
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })));
+
+    await expect(fetchTwitchInBackgroundWith(
+      cookieApi,
+      "https://gql.twitch.tv/gql",
+      { method: "POST", body: "[]" },
+    )).resolves.toEqual(response);
+
+    vi.unstubAllGlobals();
+  });
+
   it("replays a captured integrity token with its matching device and session id", async () => {
     let captured: RequestInit | undefined;
     vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
