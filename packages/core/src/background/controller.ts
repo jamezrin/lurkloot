@@ -23,6 +23,7 @@ import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 import { applyPlatformAuthHealth } from "../core/authHealth";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
+import { mergePlatformState } from "./platformState";
 
 export const ALARM_NAME = "lurkloot.tick";
 // A separate, fixed 1-minute alarm drives tabless watch heartbeats independently
@@ -147,20 +148,6 @@ function emitHostCallbackError(
   });
 }
 
-// One in-flight state mutation at a time. Each handler's load→modify→persist
-// runs inside this lock so a save built on a stale snapshot can't clobber
-// another handler's concurrent write (telemetry arrives every ~5s while ticks
-// and heartbeats fire on alarms). NOT reentrant: a locked section must never
-// call another locked section (see runWatchHeartbeat, which calls tick() only
-// after its locked closure returns).
-let stateMutation: Promise<unknown> = Promise.resolve();
-function withStateLock<T>(operation: () => Promise<T>): Promise<T> {
-  const run = stateMutation.then(operation, operation);
-  // Keep the chain alive regardless of outcome without leaking rejections.
-  stateMutation = run.then(() => undefined, () => undefined);
-  return run;
-}
-
 // Generic over the host's settings type `S`, which must satisfy the engine
 // contract (EngineSettings). The extension parametrizes it with its fuller
 // ExtensionSettings (load/save round-trip the host-only fields); the CLI uses the
@@ -219,6 +206,37 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
 }
 
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
+  const platformMutations: Record<Platform, Promise<unknown>> = {
+    twitch: Promise.resolve(),
+    kick: Promise.resolve(),
+  };
+  let stateCommit: Promise<unknown> = Promise.resolve();
+
+  function withPlatformLock<T>(platform: Platform, operation: () => Promise<T>): Promise<T> {
+    const run = platformMutations[platform].then(operation, operation);
+    platformMutations[platform] = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
+  function withStateLock<T>(
+    operation: () => Promise<T>,
+    platforms: readonly Platform[] = PLATFORMS,
+  ): Promise<T> {
+    const targets = PLATFORMS.filter((platform) => platforms.includes(platform));
+    const acquire = (index: number): Promise<T> => {
+      const platform = targets[index];
+      if (!platform) return operation();
+      return withPlatformLock(platform, () => acquire(index + 1));
+    };
+    return acquire(0);
+  }
+
+  function withStateCommit<T>(operation: () => Promise<T>): Promise<T> {
+    const run = stateCommit.then(operation, operation);
+    stateCommit = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
   const reportedCompatibility = new Map<Platform, string>();
   const reportedCompatibilityWarnings = new Set<string>();
   const authRefreshGeneration: Record<Platform, number> = {
@@ -764,7 +782,23 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     await reportBestEffort(events);
   }
 
+  async function persistPlatformAndReport(
+    platform: Platform,
+    state: SchedulerState,
+    events: readonly EngineEvent[] = [],
+  ): Promise<void> {
+    await withStateCommit(async () => {
+      const latest = await deps.loadState();
+      await saveOperationalStateDirect(mergePlatformState(latest, state, platform));
+    });
+    await reportBestEffort(events);
+  }
+
   async function saveOperationalState(state: SchedulerState): Promise<void> {
+    await withStateCommit(() => saveOperationalStateDirect(state));
+  }
+
+  async function saveOperationalStateDirect(state: SchedulerState): Promise<void> {
     const { events: _legacyEvents, ...operationalState } = state as SchedulerState & { events?: unknown };
     await deps.saveState(operationalState);
   }
@@ -1220,20 +1254,41 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   const activeTicks = new Set<AbortController>();
 
   async function tick(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<ClaimedRewards> {
+    const requestedPlatforms = platforms ?? PLATFORMS;
+    const settled = await Promise.allSettled(requestedPlatforms.map((platform) =>
+      tickPlatform(platform, trigger)));
+    const failures = settled.flatMap((result) =>
+      result.status === "rejected" ? [result.reason] : []);
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) {
+      throw new AggregateError(failures, "Platform scheduler ticks failed");
+    }
+    return settled.reduce<ClaimedRewards>((claimed, result) => {
+      if (result.status !== "fulfilled") return claimed;
+      const [platform, rewards] = result.value;
+      if (rewards.length > 0) claimed[platform] = rewards;
+      return claimed;
+    }, {});
+  }
+
+  async function tickPlatform(
+    platform: Platform,
+    trigger: TickTrigger,
+  ): Promise<readonly [Platform, string[]]> {
     const abort = new AbortController();
     activeTicks.add(abort);
     const tickId = ++tickSequence;
     const tickStartedAt = Date.now();
-    const scope = platforms ? platforms.join("+") : "all";
-    diagnosticEvent("debug", `Tick #${tickId} started (trigger=${trigger}, platforms=${scope})`);
+    diagnosticEvent("debug", `Tick #${tickId} started (trigger=${trigger}, platforms=${platform})`);
     try {
-      return await runTick(tickId, tickStartedAt, platforms, abort.signal);
+      const claimed = await runTick(tickId, tickStartedAt, [platform], abort.signal);
+      return [platform, claimed[platform] ?? []];
     } catch (error) {
-      if (abort.signal.aborted) return {};
+      if (abort.signal.aborted) return [platform, []];
       throw error;
     } finally {
       activeTicks.delete(abort);
-      diagnosticEvent("debug", `Tick #${tickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${scope})`);
+      diagnosticEvent("debug", `Tick #${tickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`);
     }
   }
 
@@ -1287,6 +1342,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const schedulerPlatforms = requestedPlatforms.filter((platform) =>
       !excludedPlatforms.has(platform));
     if (schedulerPlatforms.length === 0) return claimedRewards;
+    const platform = schedulerPlatforms[0];
     await withStateLock(() => withEventCollector(async (emit, events) => {
       signal.throwIfAborted();
       const settings = await deps.loadSettings();
@@ -1297,9 +1353,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       };
       let nextState: SchedulerState;
       try {
-        const adapters = excludedPlatforms.size > 0
-          ? createSelectedAdapters(settings, emit, schedulerPlatforms)
-          : createAdapters(settings, emit);
+        const adapters = createSelectedAdapters(settings, emit, schedulerPlatforms);
         // Observed here rather than returned by the scheduler: the controller
         // already sees every emitted event, and the post-claim handoff only
         // needs to know which platforms claimed.
@@ -1351,19 +1405,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         clearOperationalEvents(events);
         if (signal.aborted) return;
         const detail = error instanceof Error ? error.message : "Scheduler tick failed";
-        emit({ category: "activity", code: "interruption", level: "error", data: { reason: "platform_error", detail } });
-        emit({ category: "diagnostic", level: "error", message: detail });
-        await persistAndReport(state, events);
+        emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
+        emit({ category: "diagnostic", level: "error", platform, message: detail });
+        await persistPlatformAndReport(platform, state, events);
         return;
       }
-      await persistAndReport(nextState, events);
-      for (const platform of PLATFORMS) {
-        waitingClaimRewardIds[platform].clear();
-        for (const rewardId of nextWaitingClaimRewardIds[platform]) {
-          waitingClaimRewardIds[platform].add(rewardId);
-        }
+      await persistPlatformAndReport(platform, nextState, events);
+      waitingClaimRewardIds[platform].clear();
+      for (const rewardId of nextWaitingClaimRewardIds[platform]) {
+        waitingClaimRewardIds[platform].add(rewardId);
       }
-    }));
+    }), schedulerPlatforms);
     return claimedRewards;
   }
 

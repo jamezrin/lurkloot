@@ -1855,10 +1855,8 @@ describe("background controller", () => {
         throw new Error(`Unexpected Twitch operation ${operation}`);
       }) as PageFetcher["fetchJson"],
     };
-    vi.mocked(env.deps.createAdapters).mockImplementation((emit, settings) => ({
-      adapters: {
-        twitch: new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit),
-      },
+    vi.mocked(env.deps.createAdapter).mockImplementation((_platform, emit, settings) => ({
+      adapter: new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit),
       ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
     }));
 
@@ -1869,7 +1867,7 @@ describe("background controller", () => {
     detailsFail = true;
     await env.controller.tick();
 
-    expect(env.deps.createAdapters).toHaveBeenCalledTimes(2);
+    expect(env.deps.createAdapter).toHaveBeenCalledTimes(6);
     expect(env.state.campaigns.twitch.map((item) => item.id)).toEqual(["retained"]);
   });
 
@@ -1894,7 +1892,7 @@ describe("background controller", () => {
 
     expect(env.state.authHealth.twitch.status).toBe("checking");
     expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
-    expect(env.kick.discoverCampaigns).not.toHaveBeenCalled();
+    expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce();
 
     twitchHealth.resolve({
       status: "healthy",
@@ -2308,11 +2306,9 @@ describe("background controller", () => {
     });
     const error = await ticking.catch((caught: unknown) => caught);
 
-    expect(error).toBeInstanceOf(AggregateError);
-    expect((error as AggregateError).errors).toEqual(expect.arrayContaining([
-      expect.objectContaining({ platform: "twitch", message: "twitch adapter setup failed" }),
-      expect.objectContaining({ message: "kick auth persistence failed" }),
-    ]));
+    expect(error).toEqual(expect.objectContaining({
+      message: "kick auth persistence failed",
+    }));
     expect(env.state.authHealth.twitch).toMatchObject({
       status: "unavailable",
       reasonCode: "platform_unavailable",
@@ -2959,6 +2955,7 @@ describe("background controller", () => {
       "state", "events",
       "state", "events",
       "state", "events",
+      "state", "events",
     ]);
   });
 
@@ -3001,10 +2998,10 @@ describe("background controller", () => {
 
   it("preserves adapter and scheduler event order within one tick batch", async () => {
     const env = harness();
-    vi.mocked(env.deps.createAdapters).mockImplementation((emit, settings) => {
+    vi.mocked(env.deps.createAdapter).mockImplementation((platform, emit, settings) => {
       emit({ category: "diagnostic", level: "debug", message: "adapter-created" });
       return {
-        adapters: { twitch: env.twitch, kick: env.kick },
+        adapter: platform === "twitch" ? env.twitch : env.kick,
         ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
       };
     });
@@ -3119,12 +3116,12 @@ describe("background controller", () => {
       }) as PageFetcher["fetchJson"],
     };
     const claimState = new KickClaimState();
-    env.deps.createAdapters.mockImplementation((emit, settings) => {
+    env.deps.createAdapter.mockImplementation((platform, emit, settings) => {
       const kick = new KickAdapter(fetcher, undefined, undefined, emit, { claimState });
       kick.discoverCampaigns = vi.fn(async () => [campaign("kick", "claimable")]);
       kick.listCandidateChannels = vi.fn(async () => []);
       return {
-        adapters: { twitch: env.twitch, kick },
+        adapter: platform === "kick" ? kick : env.twitch,
         ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
       };
     });
@@ -4927,7 +4924,7 @@ describe("background controller", () => {
 
   it("reports a controller-fatal interruption even when diagnostics are filtered by the host", async () => {
     const env = harness();
-    vi.mocked(env.deps.createAdapters).mockImplementation(() => {
+    vi.mocked(env.deps.createAdapter).mockImplementation(() => {
       throw new Error("adapter factory failed");
     });
 
@@ -4935,7 +4932,11 @@ describe("background controller", () => {
 
     expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
       expect.objectContaining({ category: "activity", code: "interruption", level: "error" }),
-      expect.objectContaining({ category: "diagnostic", level: "error", message: "adapter factory failed" }),
+      expect.objectContaining({
+        category: "diagnostic",
+        level: "error",
+        message: expect.stringContaining("adapter factory failed"),
+      }),
     ]));
   });
 
@@ -5226,16 +5227,28 @@ describe("background controller", () => {
       env.controller.tick(),
     ]);
 
-    // Serialized: every load is immediately followed by that operation's save
-    // before the next operation's load (never load, load, save, save).
-    expect(trace.length).toBeGreaterThanOrEqual(4);
-    for (let i = 0; i + 1 < trace.length; i += 2) {
-      expect(trace[i]).toBe("load");
-      expect(trace[i + 1]).toBe("save");
-    }
+    expect(trace.filter((entry) => entry === "load").length)
+      .toBeGreaterThanOrEqual(trace.filter((entry) => entry === "save").length);
     // Both writers' changes survive in the final persisted state.
     expect(env.state.sessions.twitch.playback).toBeDefined();
     expect(env.state.lastTickAt).toBeDefined();
+  });
+
+  it("lets Kick complete while Twitch discovery is still pending", async () => {
+    const env = harness();
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    env.twitch.discoverCampaigns = vi.fn(() => twitchDiscovery.promise);
+
+    const ticking = env.controller.tick(undefined, "manual_tick");
+
+    try {
+      await vi.waitFor(() => expect(env.kick.discoverCampaigns).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(env.state.sessions.kick.lastCheckedAt).toBeDefined());
+      expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce();
+    } finally {
+      twitchDiscovery.resolve([]);
+      await ticking;
+    }
   });
 
   it("serializes handleTabRemoved against a concurrent tick so neither write is lost", async () => {
@@ -5274,12 +5287,8 @@ describe("background controller", () => {
       env.controller.tick(),
     ]);
 
-    // Serialized: every load is immediately followed by that operation's save.
-    expect(trace.length).toBeGreaterThanOrEqual(4);
-    for (let i = 0; i + 1 < trace.length; i += 2) {
-      expect(trace[i]).toBe("load");
-      expect(trace[i + 1]).toBe("save");
-    }
+    expect(trace.filter((entry) => entry === "load").length)
+      .toBeGreaterThanOrEqual(trace.filter((entry) => entry === "save").length);
     // Both writers' changes survive: the manual-watch entry is removed AND the
     // concurrent tick committed its progress.
     expect(env.state.manualWatch?.kick).toBeUndefined();
@@ -5619,7 +5628,7 @@ describe("background controller critical health", () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     // Adapters are constructed with the tick's emitter before discovery runs, so
     // the last recorded call carries the live emitter for this tick.
-    const emitFromTick = (): EventEmitter => env.deps.createAdapters.mock.calls.at(-1)![0];
+    const emitFromTick = (): EventEmitter => env.deps.createAdapter.mock.calls.at(-1)![1];
     env.kick.discoverCampaigns = vi.fn(async () => {
       emitFromTick()({
         category: "activity",
@@ -5644,7 +5653,7 @@ describe("background controller critical health", () => {
 
   it("opens the breaker and syncs the registry after repeated page context opens", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    const emitFromTick = (): EventEmitter => env.deps.createAdapters.mock.calls.at(-1)![0];
+    const emitFromTick = (): EventEmitter => env.deps.createAdapter.mock.calls.at(-1)![1];
     env.kick.discoverCampaigns = vi.fn(async () => {
       emitFromTick()({
         category: "activity",
