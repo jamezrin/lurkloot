@@ -83,7 +83,7 @@ describe("impersonate transport", () => {
     });
     const handle = await createImpersonateTransport({ kick: { sessionToken: "sess-token" } }, ENABLED, { initClient: async () => client });
 
-    const campaigns = await handle.adapters.kick.discoverCampaigns();
+    const campaigns = await handle.adapters.kick.refreshCampaigns();
     expect(campaigns).toEqual([]);
     expect(captured?.method).toBe("get");
     expect(captured?.options.ja3).toBe(CHROME_JA3);
@@ -98,7 +98,7 @@ describe("impersonate transport", () => {
   it("surfaces a Cloudflare 403 as KickWafBlockedError", async () => {
     const client = fakeClient(() => Promise.resolve({ status: 403, data: "blocked" }));
     const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
-    await expect(handle.adapters.kick.discoverCampaigns()).rejects.toBeInstanceOf(KickWafBlockedError);
+    await expect(handle.adapters.kick.refreshCampaigns()).rejects.toBeInstanceOf(KickWafBlockedError);
     await handle.dispose();
   });
 
@@ -169,8 +169,8 @@ describe("impersonate transport", () => {
     const client = fakeClient(() => Promise.resolve({ status: 200, data: {} }));
     const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
 
-    const first = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.discoverCampaigns();
-    const second = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.discoverCampaigns();
+    const first = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.refreshCampaigns();
+    const second = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.refreshCampaigns();
 
     expect(first.map((campaign) => campaign.id)).toEqual(["retained"]);
     expect(second.map((campaign) => campaign.id)).toEqual(["retained"]);
@@ -196,11 +196,11 @@ describe("impersonate transport", () => {
     const firstHandle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
     const secondHandle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
 
-    expect((await firstHandle.adapters.twitch.discoverCampaigns()).map((campaign) => campaign.id))
+    expect((await firstHandle.adapters.twitch.refreshCampaigns()).map((campaign) => campaign.id))
       .toEqual(["retained"]);
     seedFirstHandle = false;
 
-    await expect(secondHandle.adapters.twitch.discoverCampaigns()).resolves.toEqual([]);
+    await expect(secondHandle.adapters.twitch.refreshCampaigns()).resolves.toEqual([]);
     await firstHandle.dispose();
     await secondHandle.dispose();
   });

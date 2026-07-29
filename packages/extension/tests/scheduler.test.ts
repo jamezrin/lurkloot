@@ -54,8 +54,7 @@ function adapter(platform: Platform, campaigns: DropCampaign[], candidates: Chan
   return {
     platform,
     checkAuthHealth: vi.fn(async () => ({ status: "checking" as const })),
-    discoverCampaigns: vi.fn(async () => campaigns),
-    readProgress: vi.fn(async (value) => value),
+    refreshCampaigns: vi.fn(async () => campaigns),
     listCandidateChannels: vi.fn(async () => candidates),
     checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
     claimReward: vi.fn(async () => true),
@@ -877,8 +876,7 @@ describe("scheduler tick", () => {
     );
 
     expect(kick.stopWatchTab).toHaveBeenCalledWith(previous, { signal: undefined });
-    expect(kick.discoverCampaigns).not.toHaveBeenCalled();
-    expect(kick.readProgress).not.toHaveBeenCalled();
+    expect(kick.refreshCampaigns).not.toHaveBeenCalled();
     expect(kick.claimReward).not.toHaveBeenCalled();
     expect(kick.claimChallenges).not.toHaveBeenCalled();
     expect(kick.listCandidateChannels).not.toHaveBeenCalled();
@@ -1113,8 +1111,7 @@ describe("scheduler tick", () => {
       expect.objectContaining({ tabId: 7 }),
       { signal: undefined },
     );
-    expect(twitch.readProgress).toHaveBeenCalledWith(
-      expect.any(Array),
+    expect(twitch.refreshCampaigns).toHaveBeenCalledWith(
       expect.objectContaining({ channel: first }),
       { signal: undefined },
     );
@@ -1149,7 +1146,7 @@ describe("scheduler tick", () => {
       tabId: undefined,
     });
     expect(twitch.stopWatchTab).toHaveBeenCalled();
-    expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(result.state.sessions.kick.status).toBe("watching");
     expect(kick.prepareWatchTab).toHaveBeenCalled();
   });
@@ -1212,16 +1209,17 @@ describe("scheduler tick", () => {
 
     expect(diagnostics).toContainEqual(expect.objectContaining({
       platform: "twitch",
-      message: expect.stringMatching(/^Campaign discovery finished in \d+ms \(1 campaign\)$/),
-    }));
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      message: expect.stringMatching(/^Campaign progress refresh finished in \d+ms \(1 campaign\)$/),
+      message: expect.stringMatching(/^Campaign refresh finished in \d+ms \(1 campaign\)$/),
     }));
     expect(diagnostics).toContainEqual(expect.objectContaining({
       platform: "twitch",
       message: expect.stringMatching(/^Campaign selection finished in \d+ms \(1 campaign checked, 2 candidates checked\)$/),
     }));
+    expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
+    expect(twitch.refreshCampaigns).toHaveBeenCalledWith(
+      baseState.sessions.twitch,
+      expect.objectContaining({ signal: undefined }),
+    );
   });
 
   it("retains the highest-priority current watch before listing replacement candidates", async () => {
@@ -2543,7 +2541,7 @@ describe("scheduler tick", () => {
       { platforms: ["kick"] },
     );
 
-    expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.status).toBe("watching");
     expect(result.state.campaigns.twitch).toEqual([campaign("existing")]);
@@ -2668,7 +2666,7 @@ describe("scheduler tick", () => {
 
   it("isolates adapter failures per platform", async () => {
     const twitch = adapter("twitch", [], []);
-    vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new Error("Twitch unavailable"));
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch unavailable"));
     const kickCandidate = { ...channel("kicklive"), platform: "kick" as const, url: "https://kick.com/kicklive" };
     const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [kickCandidate]);
 
@@ -2694,7 +2692,7 @@ describe("scheduler tick", () => {
 
   it("uses Idle Watchlist fallback when drop discovery fails and idle watchlist channels exist", async () => {
     const twitch = adapter("twitch", [], []);
-    vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
     vi.mocked(twitch.checkChannel).mockResolvedValue({
       live: true,
       categoryMatches: true,
@@ -2714,7 +2712,6 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.readProgress).not.toHaveBeenCalled();
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "fallback", live: true }),
       expect.any(Object),
@@ -2732,7 +2729,7 @@ describe("scheduler tick", () => {
   it("keeps previously discovered campaigns when discovery fails and the Idle Watchlist takes over", async () => {
     const known = campaign("known-drops");
     const twitch = adapter("twitch", [], []);
-    vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
     vi.mocked(twitch.checkChannel).mockResolvedValue({
       live: true,
       categoryMatches: true,
@@ -2764,7 +2761,7 @@ describe("scheduler tick", () => {
   it("keeps previously discovered campaigns when discovery fails without idle watchlist channels", async () => {
     const known = campaign("known-drops");
     const twitch = adapter("twitch", [], []);
-    vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
 
     const result = await runSchedulerTick(
       {
@@ -2807,7 +2804,7 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.retryAfter).toBe(retryAfter);
     expect(result.events.some((event) => event.category === "diagnostic" && event.message.includes("Waiting until"))).toBe(true);
   });
@@ -2834,7 +2831,7 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(twitch.refreshCampaigns).toHaveBeenCalled();
     expect(result.state.sessions.twitch.status).toBe("watching");
     expect(result.state.sessions.twitch.errorChecks).toBe(0);
     expect(result.state.sessions.twitch.retryAfter).toBeUndefined();
@@ -3022,7 +3019,7 @@ describe("scheduler tick", () => {
 
   it("keeps transient platform failures on ordinary backoff", async () => {
     const kick = adapter("kick", [], []);
-    vi.mocked(kick.discoverCampaigns).mockRejectedValueOnce(
+    vi.mocked(kick.refreshCampaigns).mockRejectedValueOnce(
       new SafeFetchError({ kind: "http_error", status: 503 }),
     );
 
@@ -3044,7 +3041,7 @@ describe("scheduler tick", () => {
 
   it("does not turn an authentication failure into an Idle Watchlist session", async () => {
     const kick = adapter("kick", [], []);
-    vi.mocked(kick.discoverCampaigns).mockRejectedValueOnce(
+    vi.mocked(kick.refreshCampaigns).mockRejectedValueOnce(
       new SafeFetchError({ kind: "authentication_rejected", status: 401 }),
     );
 
@@ -3277,7 +3274,7 @@ describe("scheduler critical health observations", () => {
 
   function failingAdapter(): PlatformAdapter {
     const twitch = adapter("twitch", [], [channel("fallback")]);
-    vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new SafeFetchError({ kind: "http_error", status: 503 }));
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new SafeFetchError({ kind: "http_error", status: 503 }));
     return twitch;
   }
 
@@ -3380,7 +3377,7 @@ describe("scheduler critical health observations", () => {
 
     // The backoff branch exits the platform iteration early; the detector must
     // still see this tick, otherwise the churn window never drains.
-    expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
     expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
     expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
@@ -3421,7 +3418,7 @@ describe("scheduler critical health observations", () => {
       { platforms: ["twitch"] },
     );
 
-    expect(twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(twitch.refreshCampaigns).toHaveBeenCalled();
     expect(result.state.sessions.twitch.reasonCode).toBe("platform_error");
     // The accrual observation set before the throw must not survive as a healthy tick.
     expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(6);

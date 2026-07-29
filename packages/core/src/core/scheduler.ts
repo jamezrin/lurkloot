@@ -753,22 +753,13 @@ export async function runSchedulerTick(
       let campaigns: DropCampaign[];
       let discoveryFailed = false;
       try {
-        const discoveryStartedAt = Date.now();
-        const discovered = await adapter.discoverCampaigns({ signal: options.signal });
+        const refreshStartedAt = Date.now();
+        campaigns = await adapter.refreshCampaigns(previous, { signal: options.signal });
         emitDiagnostic(
           emit,
           platform,
           "debug",
-          `Campaign discovery finished in ${Date.now() - discoveryStartedAt}ms (${countLabel(discovered.length, "campaign")})`,
-        );
-        options.signal?.throwIfAborted();
-        const progressStartedAt = Date.now();
-        campaigns = await adapter.readProgress(discovered, previous, { signal: options.signal });
-        emitDiagnostic(
-          emit,
-          platform,
-          "debug",
-          `Campaign progress refresh finished in ${Date.now() - progressStartedAt}ms (${countLabel(campaigns.length, "campaign")})`,
+          `Campaign refresh finished in ${Date.now() - refreshStartedAt}ms (${countLabel(campaigns.length, "campaign")})`,
         );
         campaigns = preserveClaimedRewards(campaigns, state.campaigns[platform]);
       } catch (error) {

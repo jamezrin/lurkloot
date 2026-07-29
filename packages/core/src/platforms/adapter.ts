@@ -55,8 +55,7 @@ export interface PlatformAdapter {
   platform: Platform;
   readonly compatibility?: ResolvedCompatibility[Platform];
   checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth>;
-  discoverCampaigns(options?: AdapterOperationOptions): Promise<DropCampaign[]>;
-  readProgress(campaigns: DropCampaign[], session?: WatchSession, options?: AdapterOperationOptions): Promise<DropCampaign[]>;
+  refreshCampaigns(session?: WatchSession, options?: AdapterOperationOptions): Promise<DropCampaign[]>;
   listCandidateChannels(campaign: DropCampaign, options?: AdapterOperationOptions): Promise<ChannelCandidate[]>;
   selectCandidateChannel?(
     candidates: ChannelCandidate[],

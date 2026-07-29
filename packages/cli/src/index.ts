@@ -203,9 +203,9 @@ const authCommand: CommandModule = {
   handler: () => { /* a subcommand always runs; see demandCommand above */ },
 };
 
-async function discoverPlatform(platform: Platform, adapter: { discoverCampaigns(): Promise<DropCampaign[]> }, logger: ReturnType<typeof createLogger>): Promise<void> {
+async function discoverPlatform(platform: Platform, adapter: { refreshCampaigns(): Promise<DropCampaign[]> }, logger: ReturnType<typeof createLogger>): Promise<void> {
   try {
-    const campaigns = await adapter.discoverCampaigns();
+    const campaigns = await adapter.refreshCampaigns();
     logger.info(`discovered ${campaigns.length} campaign(s)`, platform);
     for (const campaign of campaigns.slice(0, 20)) {
       for (const line of formatDiscoveredCampaign(campaign)) logger.info(line, platform);

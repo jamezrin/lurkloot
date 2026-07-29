@@ -103,7 +103,7 @@ describe.each(transports)("%s transport bootstrap", (_name, createTransport) => 
     transport.createAdapter = (platform, emit, settings) => {
       const created = createAdapter(platform, emit, settings);
       if (platform === "twitch") {
-        created.adapter.discoverCampaigns = async () => [];
+        created.adapter.refreshCampaigns = async () => [];
       }
       return created;
     };

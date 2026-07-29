@@ -271,12 +271,6 @@ export class KickAdapter implements PlatformAdapter {
     );
   }
 
-  async discoverCampaigns({ signal }: AdapterOperationOptions = {}): Promise<DropCampaign[]> {
-    return parseKickCampaigns(
-      await this.fetchCampaignData(signal) as Parameters<typeof parseKickCampaigns>[0],
-    );
-  }
-
   async refreshCampaigns(
     _session?: WatchSession,
     { signal }: AdapterOperationOptions = {},
@@ -299,21 +293,6 @@ export class KickAdapter implements PlatformAdapter {
     if (authHealthFromError(progressResult.reason)) throw progressResult.reason;
     this.reportProgressFallback(progressResult.reason);
     return campaigns;
-  }
-
-  async readProgress(
-    campaigns: DropCampaign[],
-    _session?: WatchSession,
-    { signal }: AdapterOperationOptions = {},
-  ): Promise<DropCampaign[]> {
-    try {
-      return this.mergeProgress(campaigns, await this.fetchProgressData(signal));
-    } catch (error) {
-      signal?.throwIfAborted();
-      if (authHealthFromError(error)) throw error;
-      this.reportProgressFallback(error);
-      return campaigns;
-    }
   }
 
   private fetchCampaignData(signal?: AbortSignal): Promise<unknown> {

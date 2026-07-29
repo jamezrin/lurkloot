@@ -21,7 +21,7 @@ export const COOLDOWN_MS = FAILING_WINDOW_MS;
 export interface CriticalHealthObservation {
   at: number;
   // The tick ended in error. The scheduler sets this for platform backoff, for a
-  // discovery/readProgress failure, and for any error thrown later in the farming
+  // campaign refresh failure, and for any error thrown later in the farming
   // work (which is also what leaves the session in status "error"). A tick that
   // reached no conclusion at all — platform disabled, authentication unhealthy —
   // is NOT failing: it reports a neutral observation instead, so the pruning
