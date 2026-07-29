@@ -2117,6 +2117,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const twitchTransitionIsCurrent = (): boolean =>
         !controllerShutdown
         && twitchTransitionGeneration === twitchSettingsTransitionGeneration;
+      const twitchLifecycleOpenBeforeTransition = message.platform === "twitch"
+        ? integrityLifecycleOpen
+        : undefined;
+      let twitchSettingsLoaded = false;
       const stoppingTwitch = message.platform === "twitch" && !message.enabled;
       if (stoppingTwitch) closeTwitchIntegrityLifecycle("Twitch disabled");
       try {
@@ -2136,12 +2140,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           : undefined,
         message.platform === "twitch"
           ? (settings) => {
+              twitchSettingsLoaded = true;
               lastPersistedTwitchEnabled = settings.platform.twitch.enabled;
             }
           : undefined);
       } catch (error) {
         if (message.platform === "twitch" && twitchTransitionIsCurrent()) {
-          reconcileTwitchIntegrityLifecycle(lastPersistedTwitchEnabled);
+          reconcileTwitchIntegrityLifecycle(
+            twitchSettingsLoaded
+              ? lastPersistedTwitchEnabled
+              : twitchLifecycleOpenBeforeTransition,
+          );
         }
         throw error;
       }

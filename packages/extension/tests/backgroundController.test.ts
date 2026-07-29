@@ -1050,6 +1050,29 @@ describe("background controller", () => {
       expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
     });
 
+    it("restores lifecycle admission when a current disable fails on its first settings load", async () => {
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => undefined,
+        ensureTwitchIntegrity: async () => true,
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.ensureTwitchIntegrity.mockClear();
+      env.deps.loadSettings.mockRejectedValueOnce(
+        new Error("settings storage unavailable"),
+      );
+
+      await expect(env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      })).rejects.toThrow("settings storage unavailable");
+      expect(env.settings.platform.twitch.enabled).toBe(true);
+
+      await env.controller.runTwitchIntegrityRefresh();
+
+      expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
+    });
+
     it("recreates the refresh schedule from a valid stored token when Twitch is re-enabled", async () => {
       const integrity = integrityBundle({
         integrity: "reschedule-after-enable",
