@@ -207,11 +207,16 @@ function parseTwitchCampaignSource(source: TwitchCampaignSource): DropCampaign[]
     // Twitch includes subscription, purchase, and other action-gated rewards in
     // timeBasedDrops. Retain them internally so an obtained reward can still be
     // claimed, but mark them as non-watch rewards so they never drive farming.
-    const sharedBenefitIds = hasPerTierProgress
-      ? benefitIdsSharedAcrossRewards(
-        (campaign.timeBasedDrops ?? []).map((drop) =>
-          (drop.benefitEdges ?? []).map((edge) => edge.benefit?.id)),
-      )
+    const rewardBenefitIds = (campaign.timeBasedDrops ?? []).map((drop) =>
+      (drop.benefitEdges ?? []).map((edge) => edge.benefit?.id));
+    // v2 has campaign-scoped earned rewards, so its current per-tier state can
+    // reject a gameEventDrops match left behind by an earlier campaign that
+    // awarded the same benefit. Legacy v1 lacks that evidence and retains the
+    // ownership fallback, except where one benefit is ambiguous across tiers.
+    const benefitIdsExcludedFromOwnership = hasPerTierProgress
+      ? earnedCounts !== undefined
+        ? new Set(rewardBenefitIds.flat().filter((id): id is string => Boolean(id)))
+        : benefitIdsSharedAcrossRewards(rewardBenefitIds)
       : new Set<string>();
     const claimedByEarned = rewardIdsClaimedByEarnedCounts(
       (campaign.timeBasedDrops ?? []).map((drop) => ({
@@ -223,7 +228,7 @@ function parseTwitchCampaignSource(source: TwitchCampaignSource): DropCampaign[]
     );
     const earnedBenefitIds = new Set(earnedCounts?.get(campaign.id)?.keys() ?? []);
     const parsedRewards = (campaign.timeBasedDrops ?? [])
-      .map((drop) => parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops, sharedBenefitIds, claimedByEarned, earnedBenefitIds));
+      .map((drop) => parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops, benefitIdsExcludedFromOwnership, claimedByEarned, earnedBenefitIds));
     const rewards = parsedRewards.map((reward) => ({
       ...reward,
       preconditionsMet: (reward.preconditionRewardIds ?? []).every((id) =>
@@ -279,7 +284,7 @@ function parseTwitchReward(
   userId?: string,
   campaignEndsAt?: string,
   gameEventDrops: readonly TwitchGameEventDrop[] = [],
-  sharedBenefitIds: ReadonlySet<string> = new Set(),
+  benefitIdsExcludedFromOwnership: ReadonlySet<string> = new Set(),
   claimedByEarnedRewardIds: ReadonlySet<string> = new Set(),
   earnedBenefitIds: ReadonlySet<string> = new Set(),
 ): DropReward {
@@ -309,11 +314,14 @@ function parseTwitchReward(
   // A benefit the earned-reward counts mention is fully accounted for by them, so
   // the owned-benefit fallback must not add claims on top — otherwise a count of 3
   // over 4 tiers would still mark the fourth claimed. Benefits absent from the
-  // counts keep the fallback: Twitch only surfaces recently earned rewards, so an
-  // old campaign may have no edges at all.
+  // counts keep the fallback only when campaign-scoped progress cannot answer:
+  // an old campaign may have no recent edges at all, while legacy v1 has no
+  // earned-reward field. The caller excludes every benefit for an in-progress
+  // v2 campaign so an identically reused benefit from an older campaign cannot
+  // override the current self edge.
   const benefitIdsForOwnership = benefits
     .map((benefit) => benefit.id)
-    .filter((id) => id != null && !sharedBenefitIds.has(id) && !earnedBenefitIds.has(id));
+    .filter((id) => id != null && !benefitIdsExcludedFromOwnership.has(id) && !earnedBenefitIds.has(id));
   const ownsBenefit = isWatchBased && ownsRewardBenefit(benefitIdsForOwnership, gameEventDrops);
   // An earned-reward count is per claim and campaign-scoped, so it outranks both
   // the self edge (absent once a campaign leaves the progress payload) and the
@@ -413,11 +421,13 @@ export function mergeTwitchCampaignProgress(
       }
       // A claimed watch campaign falls out of dropCampaignsInProgress, so the
       // merge above can't update it. gameEventDrops is always returned, so
-      // cross-check watch ownership without applying its campaign-agnostic
-      // benefit ids to subscription rewards, or to a benefit shared by several
+      // cross-check watch ownership only when the campaign-scoped v2 evidence
+      // cannot answer: after a campaign leaves progress, or under legacy v1.
+      // Never apply it to subscription rewards or a benefit shared by several
       // tiers of this campaign (see parseTwitchReward).
       if (
-        merged.status !== "claimed"
+        (!progress || earnedCounts === undefined)
+        && merged.status !== "claimed"
         && isWatchReward(merged)
         && ownsRewardBenefit(
           (merged.benefitIds ?? []).filter((id) => !sharedBenefitIds.has(id) && !earnedBenefitIds.has(id)),

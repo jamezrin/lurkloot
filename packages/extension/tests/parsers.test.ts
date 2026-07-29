@@ -829,6 +829,36 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].eligibility).toBe("completed");
   });
 
+  it("keeps v2 progress authoritative when an earlier campaign awarded the same benefit", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            earnedDropRewards: { edges: [] },
+            gameEventDrops: [{
+              id: "reused-lootbox",
+              lastAwardedAt: "2026-07-01T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [{
+              id: "midseason",
+              timeBasedDrops: [{
+                id: "current-lootbox",
+                requiredMinutesWatched: 420,
+                benefitEdges: [{ benefit: { id: "reused-lootbox", name: "RoT S3 Lootbox" } }],
+                self: { currentMinutesWatched: 210, isClaimed: false },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      watchedMinutes: 210,
+      status: "in_progress",
+    });
+  });
+
   // Hunt: Showdown grants one "Supply Crate" benefit across several watch tiers, so
   // owning the benefit says nothing about which tiers are still unclaimed. Only the
   // per-tier self edge can answer that.
@@ -1159,6 +1189,44 @@ describe("Twitch parsers", () => {
     expect(merged[0].connectionUrls?.[0]).toContain("/directory/category/game-slug");
     expect(merged[0].rewards[0].watchedMinutes).toBe(45);
     expect(merged[0].rewards[0].status).toBe("in_progress");
+  });
+
+  it("keeps merged v2 progress authoritative when an earlier campaign awarded the same benefit", () => {
+    const details = parseTwitchCampaigns([{
+      id: "midseason",
+      timeBasedDrops: [{
+        id: "current-lootbox",
+        requiredMinutesWatched: 420,
+        benefitEdges: [{ benefit: { id: "reused-lootbox", name: "RoT S3 Lootbox" } }],
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            earnedDropRewards: { edges: [] },
+            gameEventDrops: [{
+              id: "reused-lootbox",
+              lastAwardedAt: "2026-07-01T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [{
+              id: "midseason",
+              timeBasedDrops: [{
+                id: "current-lootbox",
+                requiredMinutesWatched: 420,
+                self: { currentMinutesWatched: 210, isClaimed: false },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      watchedMinutes: 210,
+      status: "in_progress",
+    });
   });
 
   it("marks a tracked campaign completed when its benefit is owned but it dropped out of in-progress", () => {
