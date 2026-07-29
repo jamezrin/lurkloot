@@ -390,6 +390,94 @@ describe("background controller", () => {
       expect(env.deps.createAlarm).not.toHaveBeenCalled();
     });
 
+    it("restores capture scheduling when a concurrent disable save fails", async () => {
+      const integrity = integrityBundle({
+        integrity: "captured-during-failed-disable",
+      });
+      const captureSave = deferred<void>();
+      const capturePersisted = deferred<void>();
+      const disableSave = deferred<void>();
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => undefined,
+        saveTwitchIntegrity: async () => {
+          await captureSave.promise;
+          capturePersisted.resolve();
+        },
+        saveSettings: async () => {
+          await disableSave.promise;
+          throw new Error("settings storage unavailable");
+        },
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.createAlarm.mockClear();
+
+      const capturing = env.controller.captureTwitchIntegrity(integrityHeaders(integrity));
+      await vi.waitFor(() => expect(env.deps.saveTwitchIntegrity).toHaveBeenCalledOnce());
+      const disabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalledOnce());
+
+      captureSave.resolve();
+      await capturePersisted.promise;
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      disableSave.resolve();
+
+      await expect(disabling).rejects.toThrow("settings storage unavailable");
+      await capturing;
+
+      expect(env.settings.platform.twitch.enabled).toBe(true);
+      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        expect.objectContaining({ when: expect.any(Number) }),
+      );
+    });
+
+    it("keeps a successful disable authoritative over a capture waiting for persistence", async () => {
+      const integrity = integrityBundle({
+        integrity: "captured-during-successful-disable",
+      });
+      const captureSave = deferred<void>();
+      const capturePersisted = deferred<void>();
+      const disableSave = deferred<void>();
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => undefined,
+        saveTwitchIntegrity: async () => {
+          await captureSave.promise;
+          capturePersisted.resolve();
+        },
+        saveSettings: async () => disableSave.promise,
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.createAlarm.mockClear();
+      env.deps.clearAlarm.mockClear();
+
+      const capturing = env.controller.captureTwitchIntegrity(integrityHeaders(integrity));
+      await vi.waitFor(() => expect(env.deps.saveTwitchIntegrity).toHaveBeenCalledOnce());
+      const disabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalledOnce());
+
+      captureSave.resolve();
+      await capturePersisted.promise;
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      disableSave.resolve();
+      await Promise.all([capturing, disabling]);
+
+      expect(env.settings.platform.twitch.enabled).toBe(false);
+      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(env.deps.createAlarm.mock.calls.some(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      )).toBe(false);
+      expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_INTEGRITY_ALARM_NAME);
+    });
+
     it("installs valid stored integrity without scheduling when Twitch starts disabled", async () => {
       const integrity = integrityBundle({
         integrity: "stored-while-disabled",

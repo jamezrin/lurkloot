@@ -2188,11 +2188,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           : undefined);
       } catch (error) {
         if (message.platform === "twitch" && twitchTransitionIsCurrent()) {
-          reconcileTwitchIntegrityLifecycle(
-            twitchSettingsLoaded
-              ? lastPersistedTwitchEnabled
-              : twitchLifecycleOpenBeforeTransition,
-          );
+          const rollbackEnabled = twitchSettingsLoaded
+            ? lastPersistedTwitchEnabled
+            : twitchLifecycleOpenBeforeTransition;
+          reconcileTwitchIntegrityLifecycle(rollbackEnabled);
+          if (stoppingTwitch && rollbackEnabled === true) {
+            await restoreTwitchIntegritySchedule(twitchTransitionIsCurrent);
+          }
         }
         throw error;
       }
