@@ -3769,12 +3769,15 @@ describe("background controller", () => {
     const runId = boundaries[0]?.controllerRunId;
 
     expect(boundaries).toHaveLength(1);
+    expect(diagnostics.findIndex((event) =>
+      event.message.startsWith("Background controller run "))).toBe(0);
     expect(runId).toEqual(expect.any(String));
     expect(diagnostics.every((event) => event.controllerRunId === runId)).toBe(true);
     const requested = diagnostics.find((event) =>
       event.message === "User requested Twitch automation enable");
     expect(requested).toBeDefined();
     expect(requested).not.toHaveProperty("globalTickId");
+    expect(requested).not.toHaveProperty("platformTickId");
   });
 
   it("gives independent controller runs different IDs despite identical first tick labels", async () => {
