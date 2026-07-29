@@ -3563,6 +3563,64 @@ describe("background controller", () => {
     await env.rawController.settleBackgroundWork();
   });
 
+  it.each([
+    ["twitch", true, "Twitch automation enable"],
+    ["kick", false, "Kick automation disable"],
+  ] as const)("logs the requested and completed %s automation transition", async (platform, enabled, transition) => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform,
+      enabled,
+    });
+
+    const diagnostics = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform,
+      level: "info",
+      message: `User requested ${transition}`,
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform,
+      level: "info",
+      message: `${transition} completed`,
+    }));
+  });
+
+  it("logs when a Twitch enable tick queues behind existing Twitch work", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    env.twitch.discoverCampaigns = vi.fn(() => twitchDiscovery.promise);
+
+    const alarmTick = env.rawController.tick(["twitch"], "alarm");
+    await vi.waitFor(() => expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce());
+    const enabling = env.rawController.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
+
+    try {
+      await vi.waitFor(() => {
+        expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+          expect.objectContaining({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "info",
+            message: "Twitch automation enable queued behind an active tick",
+          }),
+        );
+      });
+    } finally {
+      twitchDiscovery.resolve([]);
+      await Promise.all([alarmTick, enabling]);
+      await env.rawController.settleBackgroundWork();
+    }
+  });
+
   it("brackets every tick with a lifecycle diagnostic naming its trigger and duration", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
 

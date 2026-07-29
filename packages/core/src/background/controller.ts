@@ -1267,6 +1267,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Chain of detached ticks, drained by settleBackgroundWork().
   let backgroundWork: Promise<unknown> = Promise.resolve();
   const activeTicks = new Set<AbortController>();
+  const activePlatformTicks: Record<Platform, number> = {
+    twitch: 0,
+    kick: 0,
+  };
 
   async function tick(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<ClaimedRewards> {
     const requestedPlatforms = platforms ?? PLATFORMS;
@@ -1292,6 +1296,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   ): Promise<readonly [Platform, string[]]> {
     const abort = new AbortController();
     activeTicks.add(abort);
+    activePlatformTicks[platform] += 1;
     const tickId = ++tickSequence;
     const tickStartedAt = Date.now();
     diagnosticEvent("debug", `Tick #${tickId} started (trigger=${trigger}, platforms=${platform})`);
@@ -1303,6 +1308,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       throw error;
     } finally {
       activeTicks.delete(abort);
+      activePlatformTicks[platform] -= 1;
       diagnosticEvent("debug", `Tick #${tickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`);
     }
   }
@@ -1863,11 +1869,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Runs a tick without holding the caller open for it. A user action gets its
   // snapshot back immediately; the popup re-polls getSnapshot on its own cadence
   // and picks the result up when the tick lands.
-  function tickInBackground(platforms: Platform[] | undefined, trigger: TickTrigger): void {
+  function tickInBackground(
+    platforms: Platform[] | undefined,
+    trigger: TickTrigger,
+    onCompleted?: () => void,
+  ): void {
     if (controllerShutdown) return;
-    const run = tickAndHandOff(platforms, trigger).catch((error) => {
-      diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`);
-    });
+    const run = tickAndHandOff(platforms, trigger)
+      .then(() => onCompleted?.())
+      .catch((error) => {
+        diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`);
+      });
     backgroundWork = backgroundWork.then(() => run, () => run);
   }
 
@@ -2227,6 +2239,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // is no master switch to flip alongside the platform flag. Both are kept:
     // they are separate wire messages with existing callers.
     if (message.type === "setPlatformEnabled" || message.type === "setAutomation") {
+      const platformLabel = message.platform === "twitch" ? "Twitch" : "Kick";
+      const action = message.enabled ? "enable" : "disable";
+      diagnosticEvent("info", `User requested ${platformLabel} automation ${action}`, message.platform);
+      if (activePlatformTicks[message.platform] > 0) {
+        diagnosticEvent(
+          "info",
+          `${platformLabel} automation ${action} queued behind an active tick`,
+          message.platform,
+        );
+      }
       // Stopping must cancel any loop still refreshing in the background.
       if (!message.enabled) abortClaimHandoffs(message.platform);
       const twitchTransitionGeneration = message.platform === "twitch"
@@ -2297,7 +2319,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       // Always scoped to the toggled platform. Nothing about this change can
       // affect the other one any more, so it is never dragged through this
       // platform's discovery.
-      tickInBackground([message.platform], message.type === "setAutomation" ? "automation_toggle" : "platform_toggle");
+      tickInBackground(
+        [message.platform],
+        message.type === "setAutomation" ? "automation_toggle" : "platform_toggle",
+        () => diagnosticEvent("info", `${platformLabel} automation ${action} completed`, message.platform),
+      );
       return snapshot();
     }
 
