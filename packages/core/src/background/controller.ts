@@ -368,7 +368,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     kick: new Set<string>(),
   };
   let settingsMutation: Promise<unknown> = Promise.resolve();
+  let twitchIntegrityAlarmMutation: Promise<unknown> = Promise.resolve();
   let twitchSettingsTransitionGeneration = 0;
+  let lastPersistedTwitchEnabled: boolean | undefined;
   let integrityRefreshAbort: AbortController | undefined;
   let integrityLifecycleGeneration = 0;
   let integrityLifecycleOpen = true;
@@ -432,8 +434,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     };
   }
 
+  function withTwitchIntegrityAlarmLock<T>(operation: () => Promise<T>): Promise<T> {
+    const run = twitchIntegrityAlarmMutation.then(operation, operation);
+    twitchIntegrityAlarmMutation = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
   async function clearTwitchIntegrityAlarm(): Promise<void> {
-    await deps.clearAlarm?.(TWITCH_INTEGRITY_ALARM_NAME);
+    await withTwitchIntegrityAlarmLock(async () => {
+      await deps.clearAlarm?.(TWITCH_INTEGRITY_ALARM_NAME);
+    });
   }
 
   async function clearTwitchIntegrityAlarmBestEffort(emit?: EventEmitter): Promise<void> {
@@ -464,7 +474,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await clearTwitchIntegrityAlarm();
       return;
     }
-    await deps.createAlarm(TWITCH_INTEGRITY_ALARM_NAME, { when });
+    await withTwitchIntegrityAlarmLock(async () => {
+      await deps.createAlarm(TWITCH_INTEGRITY_ALARM_NAME, { when });
+    });
     twitchIntegrityRefreshDue = undefined;
     emit?.({
       category: "diagnostic",
@@ -869,12 +881,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function updateStoredSettings(
     patch: SettingsPatch,
     afterPersist?: (settings: S) => void,
+    afterLoad?: (settings: S) => void,
   ): Promise<S> {
     return withSettingsLock(async () => {
       if (!deps.applySettingsPatch) {
         throw new Error("applySettingsPatch dependency is required to mutate settings");
       }
-      const settings = deps.applySettingsPatch(await deps.loadSettings(), patch);
+      const current = await deps.loadSettings();
+      afterLoad?.(current);
+      const settings = deps.applySettingsPatch(current, patch);
       await deps.saveSettings(settings);
       afterPersist?.(settings);
       await deps.createAlarm(ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes });
@@ -1611,8 +1626,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     integrityLifecycleGeneration += 1;
   }
 
+  function reconcileTwitchIntegrityLifecycle(enabled: boolean | undefined): void {
+    if (enabled === true) reopenTwitchIntegrityLifecycle();
+    else if (enabled === false) closeTwitchIntegrityLifecycle("Twitch disabled");
+  }
+
   function shutdown(): void {
     controllerShutdown = true;
+    twitchSettingsTransitionGeneration += 1;
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
@@ -1620,6 +1641,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
+    twitchSettingsTransitionGeneration += 1;
     abortActiveTicks("Host reset");
     closeTwitchIntegrityLifecycle("Host reset");
     await clearTwitchIntegrityAlarmBestEffort();
@@ -1649,6 +1671,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       twitchIntegrityRefreshDue = undefined;
       setTwitchIntegrity(undefined);
       await resetHostStorage?.();
+      lastPersistedTwitchEnabled = undefined;
       await reportBestEffort(events);
     })));
   }
@@ -1732,6 +1755,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // snapshot back immediately; the popup re-polls getSnapshot on its own cadence
   // and picks the result up when the tick lands.
   function tickInBackground(platforms: Platform[] | undefined, trigger: TickTrigger): void {
+    if (controllerShutdown) return;
     const run = tickAndHandOff(platforms, trigger).catch((error) => {
       diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`);
     });
@@ -1781,7 +1805,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       }
       if (!changed) return;
       if (!transitionIsCurrent()) return;
-      await persistAndReport({ ...state, sessions });
+      await saveOperationalState({ ...state, sessions });
+      if (!transitionIsCurrent()) {
+        await saveOperationalState(state);
+      }
     });
   }
 
@@ -2088,9 +2115,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         ? ++twitchSettingsTransitionGeneration
         : undefined;
       const twitchTransitionIsCurrent = (): boolean =>
-        twitchTransitionGeneration === twitchSettingsTransitionGeneration;
+        !controllerShutdown
+        && twitchTransitionGeneration === twitchSettingsTransitionGeneration;
       const stoppingTwitch = message.platform === "twitch" && !message.enabled;
-      let twitchTransitionPersisted = false;
       if (stoppingTwitch) closeTwitchIntegrityLifecycle("Twitch disabled");
       try {
         await updateStoredSettings({
@@ -2100,32 +2127,32 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             },
           },
         }, message.platform === "twitch"
-          ? () => {
-              twitchTransitionPersisted = true;
-              if (message.enabled) {
-                if (twitchTransitionIsCurrent()) reopenTwitchIntegrityLifecycle();
-              } else {
-                closeTwitchIntegrityLifecycle("Twitch disabled");
+          ? (settings) => {
+              lastPersistedTwitchEnabled = settings.platform.twitch.enabled;
+              if (twitchTransitionIsCurrent()) {
+                reconcileTwitchIntegrityLifecycle(settings.platform.twitch.enabled);
               }
+            }
+          : undefined,
+        message.platform === "twitch"
+          ? (settings) => {
+              lastPersistedTwitchEnabled = settings.platform.twitch.enabled;
             }
           : undefined);
       } catch (error) {
-        if (
-          stoppingTwitch
-          && !twitchTransitionPersisted
-          && twitchTransitionIsCurrent()
-        ) {
-          reopenTwitchIntegrityLifecycle();
+        if (message.platform === "twitch" && twitchTransitionIsCurrent()) {
+          reconcileTwitchIntegrityLifecycle(lastPersistedTwitchEnabled);
         }
         throw error;
       }
       if (message.platform === "twitch") {
+        if (!twitchTransitionIsCurrent()) return snapshot();
         if (message.enabled) {
-          if (!twitchTransitionIsCurrent()) return snapshot();
           await restoreTwitchIntegritySchedule(twitchTransitionIsCurrent);
-          if (!twitchTransitionIsCurrent()) return snapshot();
+        } else {
+          await clearTwitchIntegrityAlarmBestEffort();
         }
-        else await clearTwitchIntegrityAlarmBestEffort();
+        if (!twitchTransitionIsCurrent()) return snapshot();
       }
       if (message.enabled) {
         await markPlatformsStarting(

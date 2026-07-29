@@ -791,6 +791,265 @@ describe("background controller", () => {
       expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
     });
 
+    it("clears an enable alarm creation that finishes after disable supersedes it", async () => {
+      const alarmCreate = deferred<void>();
+      let alarmScheduled = false;
+      let exposeStoredIntegrity = false;
+      const stored = integrityBundle({
+        integrity: "alarm-create-completion-race",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const env = harness(notFarming(DEFAULT_SETTINGS), {
+        loadTwitchIntegrity: async () => exposeStoredIntegrity ? stored : undefined,
+        createAlarm: async (name) => {
+          if (name !== TWITCH_INTEGRITY_ALARM_NAME) return;
+          await alarmCreate.promise;
+          alarmScheduled = true;
+        },
+        clearAlarm: async (name) => {
+          if (name === TWITCH_INTEGRITY_ALARM_NAME) alarmScheduled = false;
+          return true;
+        },
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.createAlarm.mockClear();
+      env.deps.clearAlarm.mockClear();
+      env.deps.saveSettings.mockClear();
+      exposeStoredIntegrity = true;
+
+      const enabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: true,
+      });
+      await vi.waitFor(() => expect(env.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        expect.objectContaining({ when: expect.any(Number) }),
+      ));
+
+      const disabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      await vi.waitFor(() => expect(env.settings.platform.twitch.enabled).toBe(false));
+
+      alarmCreate.resolve();
+      await Promise.all([enabling, disabling]);
+      await env.rawController.settleBackgroundWork();
+
+      expect(alarmScheduled).toBe(false);
+    });
+
+    it("compensates a starting-state save that finishes after disable supersedes it", async () => {
+      const startingSave = deferred<void>();
+      const disabledSave = deferred<void>();
+      const env = harness(notFarming(DEFAULT_SETTINGS), {
+        ensureTwitchIntegrity: async () => true,
+      });
+      let persistedState = structuredClone(env.state);
+      env.deps.loadState.mockImplementation(async () => persistedState);
+      env.deps.saveState.mockImplementation(async (next: SchedulerState) => {
+        if (next.sessions.twitch.message === "Starting automation") {
+          await startingSave.promise;
+        } else if (next.sessions.twitch.reasonCode === "automation_disabled") {
+          await disabledSave.promise;
+        }
+        persistedState = next;
+      });
+
+      const enabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: true,
+      });
+      await vi.waitFor(() => expect(env.deps.saveState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessions: expect.objectContaining({
+            twitch: expect.objectContaining({ message: "Starting automation" }),
+          }),
+        }),
+      ));
+
+      const disabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      await vi.waitFor(() => expect(env.settings.platform.twitch.enabled).toBe(false));
+
+      startingSave.resolve();
+      await vi.waitFor(() => expect(env.deps.saveState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessions: expect.objectContaining({
+            twitch: expect.objectContaining({ reasonCode: "automation_disabled" }),
+          }),
+        }),
+      ));
+      const stateBeforeDisableTickLands = structuredClone(persistedState);
+
+      disabledSave.resolve();
+      await Promise.all([enabling, disabling]);
+      await env.rawController.settleBackgroundWork();
+
+      expect(stateBeforeDisableTickLands.sessions.twitch.message).not.toBe("Starting automation");
+    });
+
+    it.each(["reset", "shutdown"] as const)(
+      "does not resume a pending Twitch enable after %s supersedes it",
+      async (cleanup) => {
+        const enableSave = deferred<void>();
+        const env = harness(notFarming(DEFAULT_SETTINGS), {
+          saveSettings: async () => enableSave.promise,
+          loadTwitchIntegrity: async () => undefined,
+          ensureTwitchIntegrity: async () => true,
+        });
+        await env.controller.settleBackgroundWork();
+        env.deps.ensureTwitchIntegrity.mockClear();
+        vi.mocked(env.twitch.discoverCampaigns).mockClear();
+        env.deps.createAlarm.mockClear();
+
+        const enabling = env.rawController.handleMessage({
+          type: "setPlatformEnabled",
+          platform: "twitch",
+          enabled: true,
+        });
+        await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalledOnce());
+
+        let cleanupFinished: Promise<void>;
+        if (cleanup === "reset") {
+          cleanupFinished = env.controller.prepareForHostReset();
+          await vi.waitFor(() => expect(env.deps.clearAlarm).toHaveBeenCalledWith(
+            TWITCH_INTEGRITY_ALARM_NAME,
+          ));
+        } else {
+          env.controller.shutdown();
+          cleanupFinished = Promise.resolve();
+        }
+
+        enableSave.resolve();
+        await Promise.all([enabling, cleanupFinished]);
+        await env.rawController.settleBackgroundWork();
+
+        expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
+        expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+        expect(env.state.sessions.twitch.message).not.toBe("Starting automation");
+        expect(env.deps.createAlarm.mock.calls.some(
+          ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+        )).toBe(false);
+      },
+    );
+
+    it("does not admit a new platform-toggle tick after shutdown", async () => {
+      const env = harness(notFarming(DEFAULT_SETTINGS), {
+        ensureTwitchIntegrity: async () => true,
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.ensureTwitchIntegrity.mockClear();
+      vi.mocked(env.twitch.discoverCampaigns).mockClear();
+
+      env.controller.shutdown();
+      await env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: true,
+      });
+      await env.rawController.settleBackgroundWork();
+
+      expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
+      expect(env.twitch.discoverCampaigns).not.toHaveBeenCalled();
+      expect(env.state.sessions.twitch.message).not.toBe("Starting automation");
+    });
+
+    it("preserves a newer enable schedule when an older disable clear finishes last", async () => {
+      const alarmClear = deferred<void>();
+      let holdAlarmClear = false;
+      let alarmScheduled = false;
+      const stored = integrityBundle({
+        integrity: "disable-clear-completion-race",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => stored,
+        createAlarm: async (name) => {
+          if (name === TWITCH_INTEGRITY_ALARM_NAME) alarmScheduled = true;
+        },
+        clearAlarm: async (name) => {
+          if (name === TWITCH_INTEGRITY_ALARM_NAME) {
+            if (holdAlarmClear) await alarmClear.promise;
+            alarmScheduled = false;
+          }
+          return true;
+        },
+      });
+      await env.controller.settleBackgroundWork();
+      expect(alarmScheduled).toBe(true);
+      env.deps.saveSettings.mockClear();
+      env.deps.createAlarm.mockClear();
+      env.deps.clearAlarm.mockClear();
+      holdAlarmClear = true;
+
+      const disabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      await vi.waitFor(() => expect(env.deps.clearAlarm).toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+      ));
+
+      const enabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: true,
+      });
+      await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalledTimes(2));
+
+      alarmClear.resolve();
+      await Promise.all([disabling, enabling]);
+      await env.rawController.settleBackgroundWork();
+
+      expect(env.settings.platform.twitch.enabled).toBe(true);
+      expect(alarmScheduled).toBe(true);
+    });
+
+    it("reconciles lifecycle to persisted enabled state when overlapping disable and enable saves both fail", async () => {
+      const disableSave = deferred<void>();
+      let saveCount = 0;
+      const env = harness(undefined, {
+        saveSettings: async () => {
+          saveCount += 1;
+          if (saveCount === 1) await disableSave.promise;
+          throw new Error("settings storage unavailable");
+        },
+        loadTwitchIntegrity: async () => undefined,
+        ensureTwitchIntegrity: async () => true,
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.ensureTwitchIntegrity.mockClear();
+
+      const disabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalledOnce());
+      const enabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: true,
+      });
+
+      disableSave.resolve();
+      await expect(disabling).rejects.toThrow("settings storage unavailable");
+      await expect(enabling).rejects.toThrow("settings storage unavailable");
+      expect(env.settings.platform.twitch.enabled).toBe(true);
+
+      await env.controller.runTwitchIntegrityRefresh();
+
+      expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
+    });
+
     it("recreates the refresh schedule from a valid stored token when Twitch is re-enabled", async () => {
       const integrity = integrityBundle({
         integrity: "reschedule-after-enable",
