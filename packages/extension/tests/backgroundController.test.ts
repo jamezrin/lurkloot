@@ -2688,6 +2688,7 @@ describe("background controller", () => {
         platform: "twitch",
         mirroredActivity: true,
         message: "twitch authentication health changed from healthy to checking",
+        controllerRunId: expect.any(String),
         data: { from: "healthy", to: "checking" },
         emittedAt: expect.any(String),
       },
@@ -2731,6 +2732,7 @@ describe("background controller", () => {
         platform: "kick",
         mirroredActivity: true,
         message: "kick authentication health changed from checking to blocked: reason=security_policy_blocked",
+        controllerRunId: expect.any(String),
         data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
         emittedAt: expect.any(String),
       },
@@ -2966,11 +2968,14 @@ describe("background controller", () => {
     const calls: string[] = [];
     const env = harness(farming(DEFAULT_SETTINGS), {
       saveState: async () => { calls.push("state"); },
-      // Tick lifecycle diagnostics are published as they happen and describe no
-      // state, so they are outside the state-before-events batching invariant
-      // this test guards. Only operational batches are recorded.
+      // Controller-run and tick lifecycle diagnostics are published as they
+      // happen and describe no state, so they are outside the
+      // state-before-events batching invariant this test guards. Only
+      // operational batches are recorded.
       reportEvents: async (events) => {
-        if (events.every((event) => event.category === "diagnostic" && /^Tick #/.test(event.message))) return;
+        if (events.every((event) =>
+          event.category === "diagnostic"
+          && /^(?:Background controller run |Tick #)/.test(event.message))) return;
         calls.push("events");
       },
     });
@@ -2998,11 +3003,13 @@ describe("background controller", () => {
 
     expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
     expect(env.deps.saveState).toHaveBeenCalledTimes(2);
-    // Tick lifecycle diagnostics publish independently of state, so the
-    // invariant under test is about the operational batches only.
+    // Controller-run and tick lifecycle diagnostics publish independently of
+    // state, so the invariant under test is about operational batches only.
     const operationalBatches = env.reportEvents.mock.calls
       .map(([events]) => events)
-      .filter((events) => !events.every((event) => event.category === "diagnostic" && /^Tick #/.test(event.message)));
+      .filter((events) => !events.every((event) =>
+        event.category === "diagnostic"
+        && /^(?:Background controller run |Tick #)/.test(event.message)));
     expect(operationalBatches).toHaveLength(1);
     expect(operationalBatches[0]).toContainEqual(expect.objectContaining({
       category: "activity",
@@ -3744,7 +3751,7 @@ describe("background controller", () => {
     ]);
   });
 
-  it("leaves diagnostics emitted outside scheduler ticks uncorrelated", async () => {
+  it("announces one controller run and correlates all of its diagnostics", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
 
     await env.controller.handleMessage({
@@ -3752,16 +3759,46 @@ describe("background controller", () => {
       platform: "twitch",
       enabled: true,
     });
+    await env.controller.settleBackgroundWork();
 
-    const requested = env.reportEvents.mock.calls
+    const diagnostics = env.reportEvents.mock.calls
+      .flatMap(([events]) => events)
+      .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
+    const boundaries = diagnostics.filter((event) =>
+      event.message.startsWith("Background controller run "));
+    const runId = boundaries[0]?.controllerRunId;
+
+    expect(boundaries).toHaveLength(1);
+    expect(runId).toEqual(expect.any(String));
+    expect(diagnostics.every((event) => event.controllerRunId === runId)).toBe(true);
+    const requested = diagnostics.find((event) =>
+      event.message === "User requested Twitch automation enable");
+    expect(requested).toBeDefined();
+    expect(requested).not.toHaveProperty("globalTickId");
+  });
+
+  it("gives independent controller runs different IDs despite identical first tick labels", async () => {
+    const first = harness(farming(DEFAULT_SETTINGS));
+    const second = harness(farming(DEFAULT_SETTINGS));
+
+    await first.controller.tick(["twitch"], "manual_tick");
+    await second.controller.tick(["twitch"], "manual_tick");
+
+    const tickStart = (env: ReturnType<typeof harness>) => env.reportEvents.mock.calls
       .flatMap(([events]) => events)
       .find((event): event is DiagnosticEvent =>
         event.category === "diagnostic"
-        && event.message === "User requested Twitch automation enable");
+        && event.message === "Tick #1 started (trigger=manual_tick, platforms=twitch)");
+    const firstTick = tickStart(first);
+    const secondTick = tickStart(second);
 
-    expect(requested).toBeDefined();
-    expect(requested).not.toHaveProperty("globalTickId");
-    expect(requested).not.toHaveProperty("platformTickId");
+    expect(firstTick).toBeDefined();
+    expect(secondTick).toBeDefined();
+    expect(firstTick?.message).toBe("Tick #1 started (trigger=manual_tick, platforms=twitch)");
+    expect(secondTick?.message).toBe("Tick #1 started (trigger=manual_tick, platforms=twitch)");
+    expect(firstTick?.controllerRunId).toEqual(expect.any(String));
+    expect(secondTick?.controllerRunId).toEqual(expect.any(String));
+    expect(firstTick?.controllerRunId).not.toBe(secondTick?.controllerRunId);
   });
 
   it("reports a tick lifecycle even when the tick throws", async () => {

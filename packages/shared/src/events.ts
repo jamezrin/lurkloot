@@ -61,6 +61,7 @@ export type DiagnosticEvent = {
   level: LogLevel;
   platform?: Platform;
   message: string;
+  controllerRunId?: string;
   globalTickId?: number;
   platformTickId?: number;
   code?: string;

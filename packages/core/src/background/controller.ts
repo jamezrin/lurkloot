@@ -223,6 +223,11 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
 }
 
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
+  const controllerRunId = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const controllerRunLabel = controllerRunId.slice(0, 8);
+  let controllerRunAnnouncement: Promise<void> | undefined;
   const platformMutations: Record<Platform, Promise<unknown>> = {
     twitch: Promise.resolve(),
     kick: Promise.resolve(),
@@ -840,8 +845,29 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function reportBestEffort(events: readonly EngineEvent[]): Promise<void> {
     if (events.length === 0 || !deps.reportEvents) return;
+    const correlateControllerRun = (events: readonly EngineEvent[]): EngineEvent[] =>
+      events.map((event) =>
+        event.category === "diagnostic"
+          ? { ...event, controllerRunId }
+          : event);
+    const correlatedEvents = correlateControllerRun(events);
+    if (correlatedEvents.some((event) => event.category === "diagnostic")) {
+      controllerRunAnnouncement ??= (async () => {
+        try {
+          await deps.reportEvents?.([{
+            category: "diagnostic",
+            level: "debug",
+            message: `Background controller run ${controllerRunLabel} started`,
+            controllerRunId,
+          }]);
+        } catch {
+          // Host event persistence/output is best-effort.
+        }
+      })();
+      await controllerRunAnnouncement;
+    }
     try {
-      await deps.reportEvents(events);
+      await deps.reportEvents(correlatedEvents);
     } catch {
       // Host event persistence/output is best-effort.
     }
