@@ -5269,8 +5269,13 @@ describe("background controller", () => {
     const ticking = env.controller.tick(["twitch"], "manual_tick");
     await vi.waitFor(() => expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce());
     const checkingKick = env.controller.checkAuthHealth("kick");
+    let kickRefreshCompleted = false;
+    void checkingKick.then(() => {
+      kickRefreshCompleted = true;
+    });
     try {
       await vi.waitFor(() => expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(kickRefreshCompleted).toBe(true));
     } finally {
       twitchDiscovery.resolve([]);
       await Promise.all([ticking, checkingKick]);

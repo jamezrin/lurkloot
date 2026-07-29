@@ -1089,12 +1089,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return withStateLock(() => withEventCollector(async (emit, events) => {
       if (authRefreshGeneration[platform] !== generation) return false;
       events.push(...probeEvents);
-      const state = await deps.loadState();
-      const transition = applyPlatformAuthHealth(state, platform, health);
-      if (transition.event) emit(transition.event);
-      await persistAndReport(transition.state, events);
+      await withStateCommit(async () => {
+        const state = await deps.loadState();
+        const transition = applyPlatformAuthHealth(state, platform, health);
+        if (transition.event) emit(transition.event);
+        await saveOperationalStateDirect(transition.state);
+      });
+      await reportBestEffort(events);
       return true;
-    }));
+    }), [platform]);
   }
 
   async function beginAuthRefresh(platforms: readonly Platform[]): Promise<Partial<Record<Platform, number>>> {

@@ -2060,6 +2060,39 @@ describe("scheduler tick", () => {
     expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
   });
 
+  it("does not reclaim the same reward while fresh inventory remains stale", async () => {
+    const ready = campaign("drops", {
+      rewards: [{ ...reward("claimable"), claimId: "user#drops#reward-claimable" }],
+    });
+    const twitch = {
+      ...adapter("twitch", [ready], [channel("allowed")]),
+      isClaimReady: vi.fn(() => true),
+    };
+    const enabledSettings = settings({
+      platform: {
+        twitch: { enabled: true, idleWatchlistChannels: [] },
+        kick: { enabled: false, idleWatchlistChannels: [] },
+      },
+    });
+    const adapters = { twitch, kick: adapter("kick", [], []) };
+    const initialState: SchedulerState = {
+      authHealth: HEALTHY_AUTH,
+      sessions: {
+        twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+    };
+
+    const first = await runSchedulerTick(initialState, enabledSettings, adapters);
+    const second = await runSchedulerTick(first.state, enabledSettings, adapters);
+
+    expect(twitch.claimReward).toHaveBeenCalledTimes(1);
+    expect(second.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
+    expect(second.events.some((event) =>
+      event.category === "activity" && event.code === "reward_claimed")).toBe(false);
+  });
+
   it("does not claim rewards after their claim window has expired", async () => {
     const ready = campaign("drops", { rewards: [{ ...reward("claimable"), claimUntil: "2020-01-01T00:00:00.000Z" }] });
     const twitch = adapter("twitch", [ready], [channel("allowed")]);

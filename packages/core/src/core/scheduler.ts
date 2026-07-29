@@ -715,6 +715,7 @@ export async function runSchedulerTick(
         const discovered = await adapter.discoverCampaigns({ signal: options.signal });
         options.signal?.throwIfAborted();
         campaigns = await adapter.readProgress(discovered, previous, { signal: options.signal });
+        campaigns = preserveClaimedRewards(campaigns, state.campaigns[platform]);
       } catch (error) {
         options.signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
@@ -1159,6 +1160,35 @@ async function claimReadyRewards(
   for (const rewardId of stillWaitingRewardIds) previouslyWaitingRewardIds.add(rewardId);
 
   return { campaigns: updated, events };
+}
+
+function preserveClaimedRewards(
+  campaigns: DropCampaign[],
+  previousCampaigns: readonly DropCampaign[],
+): DropCampaign[] {
+  const previouslyClaimed = new Map<string, DropReward>();
+  for (const campaign of previousCampaigns) {
+    for (const reward of campaign.rewards) {
+      if (reward.status === "claimed" && reward.claimId) {
+        previouslyClaimed.set(reward.claimId, reward);
+      }
+    }
+  }
+
+  return campaigns.map((campaign) => {
+    let changed = false;
+    const rewards = campaign.rewards.map<DropReward>((reward) => {
+      const previous = reward.claimId ? previouslyClaimed.get(reward.claimId) : undefined;
+      if (!previous || previous.id !== reward.id) return reward;
+      changed = true;
+      return {
+        ...reward,
+        status: "claimed",
+        watchedMinutes: Math.max(reward.watchedMinutes, reward.requiredMinutes),
+      };
+    });
+    return changed ? reconcileCampaignAfterClaims(campaign, rewards) : campaign;
+  });
 }
 
 function isRewardRelevantNow(reward: DropReward): boolean {
