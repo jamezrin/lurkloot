@@ -176,6 +176,28 @@ describe("KickAdapter", () => {
     await expect(adapter.refreshCampaigns()).rejects.toBe(failure);
   });
 
+  it("propagates Kick refresh cancellation without reporting a progress fallback", async () => {
+    const abort = new AbortController();
+    const events: EngineEvent[] = [];
+    const adapter = new KickAdapter(jsonFetcher((url, init) => {
+      if (url.endsWith("/drops/campaigns")) return { data: [] };
+      return new Promise((_, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+      });
+    }), undefined, undefined, (event) => events.push(event));
+
+    const refresh = adapter.refreshCampaigns(undefined, { signal: abort.signal });
+    const reason = new Error("cancelled");
+    abort.abort(reason);
+
+    await expect(refresh).rejects.toBe(reason);
+    expect(events).not.toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      level: "warn",
+      message: expect.stringContaining("using last-known progress"),
+    }));
+  });
+
   it("passes the auth probe signal to the Kick identity request", async () => {
     const abort = new AbortController();
     const emit = vi.fn();

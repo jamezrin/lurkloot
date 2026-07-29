@@ -1211,6 +1211,12 @@ describe("scheduler tick", () => {
       platform: "twitch",
       message: expect.stringMatching(/^Campaign refresh finished in \d+ms \(1 campaign\)$/),
     }));
+    expect(diagnostics).not.toContainEqual(expect.objectContaining({
+      message: expect.stringContaining("Campaign discovery finished"),
+    }));
+    expect(diagnostics).not.toContainEqual(expect.objectContaining({
+      message: expect.stringContaining("Campaign progress refresh finished"),
+    }));
     expect(diagnostics).toContainEqual(expect.objectContaining({
       platform: "twitch",
       message: expect.stringMatching(/^Campaign selection finished in \d+ms \(1 campaign checked, 2 candidates checked\)$/),
