@@ -3626,12 +3626,21 @@ describe("background controller", () => {
 
     await env.controller.tick(["twitch"], "manual_tick");
 
-    const messages = env.reportEvents.mock.calls
+    const diagnostics = env.reportEvents.mock.calls
       .flatMap(([events]) => events)
-      .filter((event) => event.category === "diagnostic")
-      .map((event) => event.message);
-    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ started \(trigger=manual_tick, platforms=twitch\)$/));
-    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=manual_tick, platforms=twitch\)$/));
+      .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringMatching(/^Tick #\d+ started \(trigger=manual_tick, platforms=twitch\)$/),
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringMatching(/^Tick #\d+ refreshed auth health in \d+ms$/),
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=manual_tick, platforms=twitch\)$/),
+    }));
   });
 
   it("reports a tick lifecycle even when the tick throws", async () => {

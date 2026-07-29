@@ -1135,6 +1135,43 @@ describe("scheduler tick", () => {
     expect(quiet.events.some((event) => event.category === "diagnostic" && event.message.startsWith("Tick start"))).toBe(false);
   });
 
+  it("reports platform-scoped timings and candidate counts for scheduler phases", async () => {
+    const first = channel("offline");
+    const second = channel("creator");
+    const twitch = adapter("twitch", [campaign("drops")], [first, second]);
+    vi.mocked(twitch.checkChannel)
+      .mockResolvedValueOnce({ live: false, categoryMatches: true, candidate: first })
+      .mockResolvedValueOnce({ live: true, categoryMatches: true, candidate: second });
+
+    const result = await runSchedulerTick(
+      baseState,
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+    const diagnostics = result.events.filter(
+      (event): event is Extract<typeof event, { category: "diagnostic" }> =>
+        event.category === "diagnostic",
+    );
+
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringMatching(/^Campaign discovery finished in \d+ms \(1 campaign\)$/),
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringMatching(/^Campaign progress refresh finished in \d+ms \(1 campaign\)$/),
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringMatching(/^Campaign selection finished in \d+ms \(1 campaign checked, 2 candidates checked\)$/),
+    }));
+  });
+
   it("switches on category mismatch", async () => {
     const old = channel("old");
     const next = channel("new");

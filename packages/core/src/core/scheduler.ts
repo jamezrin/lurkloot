@@ -205,15 +205,23 @@ export async function chooseCampaignDecision(
   settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "listCandidateChannels" | "checkChannel">,
   signal?: AbortSignal,
+  reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
 ): Promise<WatchDecision> {
   const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
   const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
   const waitingForSubscription = onlyWaitingSubscriptionCampaigns(campaigns, settings);
   const subscriptionOnly = onlySubscriptionCampaigns(campaigns, settings);
+  let campaignsChecked = 0;
+  let candidatesChecked = 0;
+  const finish = (decision: WatchDecision): WatchDecision => {
+    reportMetrics?.({ campaignsChecked, candidatesChecked });
+    return decision;
+  };
 
   for (const campaign of sorted) {
     const reward = activeReward(campaign, settings);
     if (!reward) continue;
+    campaignsChecked += 1;
 
     const excludedChannels = settings.platform[platform].excludedChannels ?? [];
     signal?.throwIfAborted();
@@ -224,9 +232,11 @@ export async function chooseCampaignDecision(
         return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
       });
 
-    const channel = await firstValidCandidate(candidates, campaign, adapter, signal);
+    const channel = await firstValidCandidate(candidates, campaign, adapter, signal, () => {
+      candidatesChecked += 1;
+    });
     if (channel) {
-      return {
+      return finish({
         platform,
         action: "watch",
         campaign,
@@ -234,41 +244,43 @@ export async function chooseCampaignDecision(
         channel,
         reason: "Eligible campaign selected",
         reasonCode: "eligible_campaign",
-      };
+      });
     }
   }
 
   if (subscriptionOnly) {
-    return {
+    return finish({
       platform,
       action: "idle",
       reason: noCampaignReason,
       reasonCode: "campaign_ineligible",
-    };
+    });
   }
 
   const fallbackCandidates = settings.platform[platform].idleWatchlistChannels
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean)
     .map((username) => fallbackChannel(platform, username));
-  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter, signal);
+  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter, signal, () => {
+    candidatesChecked += 1;
+  });
 
   if (fallback) {
-    return {
+    return finish({
       platform,
       action: "fallback",
       channel: fallback,
       reason: `${noCampaignReason}; Idle Watchlist channel selected`,
       reasonCode: "idle_watchlist_selected",
-    };
+    });
   }
 
-  return {
+  return finish({
     platform,
     action: "idle",
     reason: `${noCampaignReason} and no Idle Watchlist channels`,
     reasonCode: waitingForSubscription ? "campaign_ineligible" : "no_eligible_channel",
-  };
+  });
 }
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
@@ -343,9 +355,11 @@ async function firstValidCandidate(
   campaign: DropCampaign | undefined,
   adapter: Pick<PlatformAdapter, "checkChannel">,
   signal?: AbortSignal,
+  onCheck?: () => void,
 ): Promise<ChannelCandidate | undefined> {
   for (const candidate of candidates) {
     signal?.throwIfAborted();
+    onCheck?.();
     const check = await adapter.checkChannel(candidate, { campaign, signal });
     if (check.live && check.categoryMatches && check.campaignMatches !== false) {
       return channelFromCheck(candidate, check);
@@ -712,9 +726,23 @@ export async function runSchedulerTick(
       let campaigns: DropCampaign[];
       let discoveryFailed = false;
       try {
+        const discoveryStartedAt = Date.now();
         const discovered = await adapter.discoverCampaigns({ signal: options.signal });
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign discovery finished in ${Date.now() - discoveryStartedAt}ms (${countLabel(discovered.length, "campaign")})`,
+        );
         options.signal?.throwIfAborted();
+        const progressStartedAt = Date.now();
         campaigns = await adapter.readProgress(discovered, previous, { signal: options.signal });
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign progress refresh finished in ${Date.now() - progressStartedAt}ms (${countLabel(campaigns.length, "campaign")})`,
+        );
         campaigns = preserveClaimedRewards(campaigns, state.campaigns[platform]);
       } catch (error) {
         options.signal?.throwIfAborted();
@@ -835,7 +863,24 @@ export async function runSchedulerTick(
         }
       }
 
-      let decision = await chooseCampaignDecision(platform, campaigns, settings, adapter, options.signal);
+      const selectionStartedAt = Date.now();
+      let selectionMetrics = { campaignsChecked: 0, candidatesChecked: 0 };
+      let decision = await chooseCampaignDecision(
+        platform,
+        campaigns,
+        settings,
+        adapter,
+        options.signal,
+        (metrics) => {
+          selectionMetrics = metrics;
+        },
+      );
+      emitDiagnostic(
+        emit,
+        platform,
+        "debug",
+        `Campaign selection finished in ${Date.now() - selectionStartedAt}ms (${countLabel(selectionMetrics.campaignsChecked, "campaign")} checked, ${countLabel(selectionMetrics.candidatesChecked, "candidate")} checked)`,
+      );
       const shouldKeep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
       // The single site where a stop reason is decided for an existing watch, so
       // the precondition-break arm is set here rather than at every consumer.
@@ -1427,4 +1472,8 @@ function emitDiagnostic(
   message: string,
 ): void {
   emit({ category: "diagnostic", platform, level, message });
+}
+
+function countLabel(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }

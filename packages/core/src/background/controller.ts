@@ -1299,7 +1299,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     activePlatformTicks[platform] += 1;
     const tickId = ++tickSequence;
     const tickStartedAt = Date.now();
-    diagnosticEvent("debug", `Tick #${tickId} started (trigger=${trigger}, platforms=${platform})`);
+    diagnosticEvent("debug", `Tick #${tickId} started (trigger=${trigger}, platforms=${platform})`, platform);
     try {
       const claimed = await runTick(tickId, tickStartedAt, [platform], abort.signal);
       return [platform, claimed[platform] ?? []];
@@ -1309,7 +1309,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } finally {
       activeTicks.delete(abort);
       activePlatformTicks[platform] -= 1;
-      diagnosticEvent("debug", `Tick #${tickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`);
+      diagnosticEvent("debug", `Tick #${tickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`, platform);
     }
   }
 
@@ -1333,7 +1333,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         const authStartedAt = Date.now();
         try {
           await refreshAuthHealth(authPlatforms, settings, false, signal);
-          diagnosticEvent("debug", `Tick #${tickId} refreshed auth health in ${Date.now() - authStartedAt}ms`);
+          for (const platform of authPlatforms) {
+            diagnosticEvent("debug", `Tick #${tickId} refreshed auth health in ${Date.now() - authStartedAt}ms`, platform);
+          }
         } catch (error) {
           const failures = flattenedRefreshFailures(error);
           const setupFailures = failures.filter((failure): failure is AuthProbeSetupError =>
@@ -1878,7 +1880,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const run = tickAndHandOff(platforms, trigger)
       .then(() => onCompleted?.())
       .catch((error) => {
-        diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`);
+        const platform = platforms?.length === 1 ? platforms[0] : undefined;
+        diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`, platform);
       });
     backgroundWork = backgroundWork.then(() => run, () => run);
   }
