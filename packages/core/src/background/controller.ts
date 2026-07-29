@@ -1105,7 +1105,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         generations[platform] = authRefreshGeneration[platform];
       }
       return generations;
-    });
+    }, platforms);
   }
 
   function unavailableAfterAdapterSetup(): PlatformAuthHealth {
@@ -1923,8 +1923,18 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // the handoff's own inner ticks cannot recurse into another handoff.
   async function tickAndHandOff(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<void> {
     const claimed = await tick(platforms, trigger);
-    await Promise.allSettled((Object.keys(claimed) as Platform[]).map((platform) =>
+    const handoffPlatforms = Object.keys(claimed) as Platform[];
+    const results = await Promise.allSettled(handoffPlatforms.map((platform) =>
       runClaimHandoff(platform, claimed[platform] ?? [])));
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+      if (result.status !== "rejected") continue;
+      diagnosticEvent(
+        "warn",
+        `Post-claim handoff failed: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+        handoffPlatforms[index],
+      );
+    }
   }
 
   // Transmits one heartbeat for a freshly-selected tabless target instead of

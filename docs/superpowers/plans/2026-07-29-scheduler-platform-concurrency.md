@@ -226,7 +226,7 @@ git add packages/core/src/core/tabs.ts packages/core/src/core/scheduler.ts packa
 git commit -m "refactor(tabs): scope state mirrors by platform"
 ```
 
-### Task 3: Make the Scheduler Single-platform
+### Task 3: Enforce Single-platform Controller Calls
 
 **Files:**
 - Modify: `packages/core/src/core/scheduler.ts`
@@ -235,16 +235,16 @@ git commit -m "refactor(tabs): scope state mirrors by platform"
 - Modify: `packages/cli/src/runtime/run.ts`
 
 **Interfaces:**
-- Changes: `SchedulerTickOptions.platforms?: Platform[]` to `SchedulerTickOptions.platform: Platform`
+- Keeps: `SchedulerTickOptions.platforms?: Platform[]` for direct engine consumers and focused tests.
 - Keeps: `runSchedulerTick(state, settings, adapters, options): Promise<SchedulerTickResult>`
+- Enforces: controller calls always pass a one-element `platforms` array.
 
-- [ ] **Step 1: Update tests to require one platform**
+- [ ] **Step 1: Add tests for one-platform controller invocation**
 
-Change scheduler test calls to pass `platform: "twitch"` or
-`platform: "kick"`. Add a test with spies on both adapters:
+Add a test with spies on both adapters:
 
 ```ts
-await runSchedulerTick(state, settings, adapters, { platform: "kick" });
+await runSchedulerTick(state, settings, adapters, { platforms: ["kick"] });
 
 expect(kick.discoverCampaigns).toHaveBeenCalledOnce();
 expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
@@ -260,36 +260,16 @@ pnpm --filter @lurkloot/extension test -- scheduler.test.ts
 pnpm --filter @lurkloot/core typecheck
 ```
 
-Expected: FAIL until the scheduler option and call sites are changed.
+Expected: PASS for the compatibility surface; the controller concurrency test
+in Task 4 fails until controller calls are split.
 
-- [ ] **Step 3: Remove the platform loop**
+- [ ] **Step 3: Preserve the scheduler compatibility bridge**
 
-Replace:
-
-```ts
-const platforms = options.platforms ?? PLATFORMS;
-for (const platform of platforms) {
-  // platform body
-}
-```
-
-with one scoped body:
-
-```ts
-const { platform } = options;
-registerManagedPageContextTabs(state.managedPageContextTabs ?? {}, [platform]);
-syncManagedTabBreakers(
-  settings.criticalFailurePromptEnabled ? nextState : {},
-  [platform],
-);
-// Existing loop body executes once for platform.
-```
-
-Update breaker resynchronization inside `applyObservation` to pass
-`[platform]`. Remove the scheduler-local `PLATFORMS` constant if unused.
-Temporarily adapt controller calls by iterating the requested platform list
-sequentially; Task 4 replaces that compatibility bridge with concurrent
-controller operations.
+Keep the existing scheduler loop for direct callers. Scope retained contexts
+and breaker synchronization to `options.platforms ?? PLATFORMS`, and update
+breaker resynchronization inside `applyObservation` to pass `[platform]`.
+Task 4 makes every controller call pass a single platform and fans out
+multi-platform requests concurrently.
 
 - [ ] **Step 4: Run scheduler and type checks**
 

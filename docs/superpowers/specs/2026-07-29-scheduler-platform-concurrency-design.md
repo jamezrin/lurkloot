@@ -103,11 +103,12 @@ platform ticks after its settings write completes.
 
 ## Scheduler Execution
 
-`runSchedulerTick` becomes a single-platform operation. Its public input
-identifies one `platform`, and its result contains the updated full working
-snapshot plus decisions and events for that platform only. Keeping a full
-working snapshot minimizes churn inside scheduler logic; only the explicit
-platform slice is allowed through the persistence boundary.
+The controller invokes `runSchedulerTick` with exactly one platform per
+operation. The scheduler retains its existing `platforms?: Platform[]`
+compatibility surface for direct engine consumers and focused tests, but the
+controller is the concurrency boundary and never sends more than one platform.
+Keeping a full working snapshot minimizes churn inside scheduler logic; only
+the explicit platform slice is allowed through the persistence boundary.
 
 Controller methods accepting `Platform[] | undefined` normalize the target
 list and fan out one operation per platform. Multi-platform calls use settled

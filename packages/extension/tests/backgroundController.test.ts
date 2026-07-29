@@ -5261,6 +5261,22 @@ describe("background controller", () => {
     }
   });
 
+  it("lets a Kick auth refresh start while Twitch scheduler work is pending", async () => {
+    const env = harness();
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    env.twitch.discoverCampaigns = vi.fn(() => twitchDiscovery.promise);
+
+    const ticking = env.controller.tick(["twitch"], "manual_tick");
+    await vi.waitFor(() => expect(env.twitch.discoverCampaigns).toHaveBeenCalledOnce());
+    const checkingKick = env.controller.checkAuthHealth("kick");
+    try {
+      await vi.waitFor(() => expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce());
+    } finally {
+      twitchDiscovery.resolve([]);
+      await Promise.all([ticking, checkingKick]);
+    }
+  });
+
   it("serializes handleTabRemoved against a concurrent tick so neither write is lost", async () => {
     const env = harness();
     env.state.manualWatch = {
@@ -5341,6 +5357,35 @@ describe("background controller", () => {
       env.controller.shutdown();
       await running;
     }
+  });
+
+  it("reports a platform-scoped diagnostic when a post-claim handoff fails", async () => {
+    const env = harness(farming({
+      ...DEFAULT_SETTINGS,
+      autoClaim: true,
+      postClaimHandoff: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+      },
+    }));
+    env.twitch.supportsPostClaimHandoff = true;
+    env.twitch.discoverCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
+    env.deps.createAdapters.mockImplementation(() => {
+      throw new Error("handoff adapter failed");
+    });
+
+    await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+      expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "Post-claim handoff failed: handoff adapter failed",
+      }),
+    );
   });
 
   describe("post-claim handoff", () => {
