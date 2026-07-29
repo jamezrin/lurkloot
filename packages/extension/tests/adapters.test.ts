@@ -2604,7 +2604,7 @@ describe("TwitchAdapter", () => {
       isAclMatch: false,
     }));
     const availabilityBatchSizes: number[] = [];
-    const diagnostics: string[] = [];
+    const events: EngineEvent[] = [];
     const fetcher = jsonFetcher((_url, init) => {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
       expect(Array.isArray(body)).toBe(true);
@@ -2617,7 +2617,7 @@ describe("TwitchAdapter", () => {
         return {
           data: {
             channel: {
-              viewerDropCampaigns: channelId === "channel-23" ? [{ id: "campaign" }] : [],
+              viewerDropCampaigns: channelId === "channel-23" ? [{ id: "campaign-1" }] : [],
             },
           },
         };
@@ -2625,16 +2625,48 @@ describe("TwitchAdapter", () => {
     });
 
     const selection = await new TwitchAdapter(fetcher, undefined, undefined, {}, (event) => {
-      if (event.category === "diagnostic") diagnostics.push(event.message);
+      events.push(event);
     }).selectCandidateChannel?.(
       candidates,
-      { id: "campaign", categoryId: "game" } as DropCampaign,
+      { id: "campaign-1", name: "Campaign One", categoryId: "game" } as DropCampaign,
     );
 
     expect(selection?.channel?.username).toBe("directory-23");
     expect(availabilityBatchSizes).toEqual([20, 4]);
-    expect(diagnostics.some((message) =>
-      message.includes("2 AvailableDrops batch requests, 0 AvailableDrops single fallbacks"))).toBe(true);
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      message: expect.stringMatching(
+        /^Twitch channel selection for "Campaign One" \(campaign campaign-1\) finished in \d+ms/,
+      ),
+    }));
+    expect(events.some((event) =>
+      event.category === "diagnostic" &&
+      event.message.includes("2 AvailableDrops batch requests, 0 AvailableDrops single fallbacks"))).toBe(true);
+  });
+
+  it("labels idle channel selection diagnostics when no candidate wins", async () => {
+    const events: EngineEvent[] = [];
+    const fetcher = jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Array<Record<string, unknown>>;
+      expect(body).toHaveLength(1);
+      expect(body[0]?.operationName).toBe("StreamInfo");
+      return [{ data: { user: { stream: null } } }];
+    });
+
+    const selection = await new TwitchAdapter(fetcher, undefined, undefined, {}, (event) => {
+      events.push(event);
+    }).selectCandidateChannel?.([{
+      platform: "twitch",
+      username: "offline",
+      url: "https://www.twitch.tv/offline",
+      isAclMatch: true,
+    }]);
+
+    expect(selection).toEqual({ checked: 1 });
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      message: expect.stringMatching(/^Twitch idle channel selection finished in \d+ms/),
+    }));
   });
 
   it("bounds single AvailableDrops fallbacks when Twitch rejects availability batches", async () => {

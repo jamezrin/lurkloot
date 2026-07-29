@@ -970,6 +970,12 @@ export class TwitchAdapter implements PlatformAdapter {
   ): Promise<CandidateChannelSelection> {
     if (candidates.length === 0) return { checked: 0 };
     const startedAt = Date.now();
+    const selectionLabel = campaign
+      ? `for "${campaign.name}" (campaign ${campaign.id})`
+      : "idle";
+    const selectionDescription = campaign
+      ? `channel selection ${selectionLabel}`
+      : `${selectionLabel} channel selection`;
     const checks = new Array<ChannelCheck | undefined>(candidates.length);
     const streamCandidates: Array<{ candidate: ChannelCandidate; index: number }> = [];
     let trustedDirectoryCandidates = 0;
@@ -1016,6 +1022,14 @@ export class TwitchAdapter implements PlatformAdapter {
 
     let checked = 0;
     let winnerFallbacks = 0;
+    const reportSelectionFinished = () => {
+      diagnostic(
+        this.emit,
+        "debug",
+        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
+        "twitch",
+      );
+    };
     for (const check of checks) {
       if (!check) continue;
       checked += 1;
@@ -1032,12 +1046,7 @@ export class TwitchAdapter implements PlatformAdapter {
         campaignMatches = availabilityResult.matches.get(check.candidate.channelId);
       }
       if (campaignMatches === false) continue;
-      diagnostic(
-        this.emit,
-        "debug",
-        `Twitch channel selection finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
-        "twitch",
-      );
+      reportSelectionFinished();
       return {
         checked: candidates.length,
         channel: {
@@ -1046,12 +1055,7 @@ export class TwitchAdapter implements PlatformAdapter {
         },
       };
     }
-    diagnostic(
-      this.emit,
-      "debug",
-      `Twitch channel selection finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
-      "twitch",
-    );
+    reportSelectionFinished();
     return { checked: candidates.length };
   }
 
