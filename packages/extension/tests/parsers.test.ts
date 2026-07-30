@@ -1258,6 +1258,37 @@ describe("Twitch parsers", () => {
     expect(merged[0].eligibility).toBe("completed");
   });
 
+  it("keeps a genuinely in-progress reused-benefit reward in progress when it drops out of the progress payload", () => {
+    const details = parseTwitchCampaigns([{
+      id: "midseason",
+      timeBasedDrops: [{
+        id: "current-lootbox",
+        requiredMinutesWatched: 420,
+        benefitEdges: [{ benefit: { id: "reused-lootbox", name: "RoT S3 Lootbox" } }],
+        self: { currentMinutesWatched: 210, isClaimed: false },
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{
+              id: "reused-lootbox",
+              lastAwardedAt: "2026-07-01T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      status: "in_progress",
+      watchedMinutes: 210,
+    });
+  });
+
   it("does not treat an old owned benefit as the current campaign's subscription reward", () => {
     const [campaign] = parseTwitchInventory({
       data: {
