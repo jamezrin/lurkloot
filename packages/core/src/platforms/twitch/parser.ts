@@ -322,7 +322,10 @@ function parseTwitchReward(
   const benefitIdsForOwnership = benefits
     .map((benefit) => benefit.id)
     .filter((id) => id != null && !benefitIdsExcludedFromOwnership.has(id) && !earnedBenefitIds.has(id));
-  const ownsBenefit = isWatchBased && ownsRewardBenefit(benefitIdsForOwnership, gameEventDrops);
+  const ownsBenefit = isWatchBased && ownsRewardBenefit(benefitIdsForOwnership, gameEventDrops, {
+    startsAt: reward.startAt,
+    endsAt: reward.endAt,
+  });
   // An earned-reward count is per claim and campaign-scoped, so it outranks both
   // the self edge (absent once a campaign leaves the progress payload) and the
   // owned-benefit fallback (blind to how many tiers of a shared benefit paid out).
@@ -423,8 +426,17 @@ export function mergeTwitchCampaignProgress(
       // merge above can't update it. gameEventDrops is always returned, so
       // cross-check watch ownership only when the campaign-scoped v2 evidence
       // cannot answer: after a campaign leaves progress, or under legacy v1.
+      // Preserve an explicit claimable state from campaign details: it carries
+      // the current reward's real drop-instance id and outranks historical,
+      // campaign-agnostic ownership of a reused benefit.
       // Never apply it to subscription rewards or a benefit shared by several
-      // tiers of this campaign (see parseTwitchReward).
+      // tiers of this campaign (see parseTwitchReward). A reward with nonzero
+      // watched minutes below its requirement already carries a real, partial
+      // self edge (from campaign details or a prior progress merge) — that's
+      // unambiguous on its own, so a benefit owned from an older campaign must
+      // not fast-forward it to claimed. Zero minutes is left to the fallback
+      // below: it's indistinguishable from a reward Twitch no longer tracks at
+      // all, which is exactly the blind case the fallback exists for.
       if (
         (!progress || earnedCounts === undefined)
         && merged.status !== "claimed"
@@ -432,6 +444,7 @@ export function mergeTwitchCampaignProgress(
         && ownsRewardBenefit(
           (merged.benefitIds ?? []).filter((id) => !sharedBenefitIds.has(id) && !earnedBenefitIds.has(id)),
           gameEventDrops,
+          { startsAt: merged.availableFrom, endsAt: merged.availableUntil },
         )
       ) {
         return { ...merged, status: "claimed" as const, watchedMinutes: merged.requiredMinutes };
@@ -455,8 +468,15 @@ function addHours(value: string, hours: number): string | undefined {
 }
 
 // True when the user already owns any of these benefits (it appears in the
-// inventory's gameEventDrops). Used to treat a drop as claimed regardless of
-// when it was awarded or what the per-drop self edge reports.
+// inventory's gameEventDrops) and, when both the drop's own active window and
+// the benefit's award time are known, that award happened while this specific
+// drop was active. A benefit reused by a later campaign is awarded outside
+// the current drop's window, so checking the timestamp rejects the reuse at
+// the source instead of needing the caller to separately track which
+// benefits belong to an earlier period. Absent a window or timestamp to
+// compare, ownership alone still counts — that's the case this fallback
+// exists for in the first place: no per-drop state at all to cross-check
+// against.
 //
 // Twitch's canonical Inventory response returns each owned reward as a
 // UserDropReward whose benefit id is the `id` field directly (e.g.
@@ -466,9 +486,17 @@ function addHours(value: string, hours: number): string | undefined {
 function ownsRewardBenefit(
   benefitIds: readonly (string | undefined)[],
   gameEventDrops: readonly TwitchGameEventDrop[],
+  activeWindow?: { startsAt?: string; endsAt?: string },
 ): boolean {
+  const start = activeWindow?.startsAt ? Date.parse(activeWindow.startsAt) : undefined;
+  const end = activeWindow?.endsAt ? Date.parse(activeWindow.endsAt) : undefined;
   return benefitIds.some((id) =>
-    id != null && gameEventDrops.some((drop) => drop.id === id || drop.benefit?.id === id),
+    id != null && gameEventDrops.some((drop) => {
+      if (drop.id !== id && drop.benefit?.id !== id) return false;
+      if (start === undefined || end === undefined || !drop.lastAwardedAt) return true;
+      const awardedAt = Date.parse(drop.lastAwardedAt);
+      return !Number.isNaN(awardedAt) && awardedAt >= start && awardedAt < end;
+    }),
   );
 }
 

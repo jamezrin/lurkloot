@@ -766,14 +766,14 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].rewards[0].claimId).toBeUndefined();
   });
 
-  it("treats a Twitch reward as claimed when its benefit is already owned, regardless of award time", () => {
+  it("treats a Twitch reward as claimed when its benefit was awarded during the drop's own window", () => {
     const campaigns = parseTwitchInventory({
       data: {
         currentUser: {
           inventory: {
             gameEventDrops: [{
               benefit: { id: "shared-benefit" },
-              lastAwardedAt: "2026-05-15T12:00:00.000Z",
+              lastAwardedAt: "2026-06-15T12:00:00.000Z",
             }],
             dropCampaignsInProgress: [{
               id: "abc",
@@ -796,6 +796,38 @@ describe("Twitch parsers", () => {
 
     expect(campaigns[0].rewards[0].status).toBe("claimed");
     expect(campaigns[0].status).toBe("completed");
+  });
+
+  it("does not treat a benefit awarded outside the drop's own window as claiming it", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{
+              benefit: { id: "shared-benefit" },
+              lastAwardedAt: "2026-05-15T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [{
+              id: "abc",
+              name: "Twitch Drops",
+              startAt: "2026-07-01T00:00:00.000Z",
+              endAt: "2026-08-01T00:00:00.000Z",
+              timeBasedDrops: [{
+                id: "drop",
+                name: "Cape",
+                startAt: "2026-07-01T00:00:00.000Z",
+                endAt: "2026-08-01T00:00:00.000Z",
+                requiredMinutesWatched: 60,
+                benefitEdges: [{ benefit: { id: "shared-benefit", name: "Cape" } }],
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards[0].status).toBe("locked");
+    expect(campaigns[0].status).toBe("active");
   });
 
   it("treats a Twitch reward as claimed via owned benefit even when self reports isClaimed false", () => {
@@ -1229,6 +1261,78 @@ describe("Twitch parsers", () => {
     });
   });
 
+  it("keeps a completed reused reward claimable after it leaves v2 progress", () => {
+    const details = parseTwitchCampaigns([{
+      id: "midseason",
+      timeBasedDrops: [{
+        id: "current-lootbox",
+        startAt: "2026-07-15T00:00:00.000Z",
+        endAt: "2026-08-04T00:00:00.000Z",
+        requiredMinutesWatched: 420,
+        benefitEdges: [{ benefit: { id: "reused-lootbox", name: "RoT S3 Lootbox" } }],
+        self: {
+          currentMinutesWatched: 420,
+          isClaimed: false,
+          dropInstanceID: "user#midseason#current-lootbox",
+        },
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            earnedDropRewards: { edges: [] },
+            gameEventDrops: [{
+              // Awarded during the prior Overwatch season, before this drop's window opened.
+              id: "reused-lootbox",
+              lastAwardedAt: "2026-04-01T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      watchedMinutes: 420,
+      status: "claimable",
+      claimId: "user#midseason#current-lootbox",
+    });
+  });
+
+  it("uses owned-benefit completion when a watched reward has no claim instance", () => {
+    const details = parseTwitchCampaigns([{
+      id: "completed-campaign",
+      timeBasedDrops: [{
+        id: "completed-reward",
+        requiredMinutesWatched: 120,
+        benefitEdges: [{ benefit: { id: "owned-benefit", name: "Owned Reward" } }],
+        self: {
+          currentMinutesWatched: 120,
+          isClaimed: false,
+        },
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            earnedDropRewards: { edges: [] },
+            gameEventDrops: [{ id: "owned-benefit" }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      status: "claimed",
+      claimId: undefined,
+    });
+  });
+
   it("marks a tracked campaign completed when its benefit is owned but it dropped out of in-progress", () => {
     const details = parseTwitchCampaigns([{
       id: "campaign",
@@ -1256,6 +1360,40 @@ describe("Twitch parsers", () => {
     expect(merged[0].rewards[0].watchedMinutes).toBe(120);
     expect(merged[0].status).toBe("completed");
     expect(merged[0].eligibility).toBe("completed");
+  });
+
+  it("keeps a genuinely in-progress reused-benefit reward in progress when it drops out of the progress payload", () => {
+    const details = parseTwitchCampaigns([{
+      id: "midseason",
+      timeBasedDrops: [{
+        id: "current-lootbox",
+        startAt: "2026-07-15T00:00:00.000Z",
+        endAt: "2026-08-04T00:00:00.000Z",
+        requiredMinutesWatched: 420,
+        benefitEdges: [{ benefit: { id: "reused-lootbox", name: "RoT S3 Lootbox" } }],
+        self: { currentMinutesWatched: 210, isClaimed: false },
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{
+              // Awarded during the prior Overwatch season, before this drop's window opened.
+              id: "reused-lootbox",
+              lastAwardedAt: "2026-04-01T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      status: "in_progress",
+      watchedMinutes: 210,
+    });
   });
 
   it("does not treat an old owned benefit as the current campaign's subscription reward", () => {
