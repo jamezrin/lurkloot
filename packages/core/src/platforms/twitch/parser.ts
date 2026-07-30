@@ -426,17 +426,11 @@ export function mergeTwitchCampaignProgress(
       // merge above can't update it. gameEventDrops is always returned, so
       // cross-check watch ownership only when the campaign-scoped v2 evidence
       // cannot answer: after a campaign leaves progress, or under legacy v1.
-      // Preserve an explicit claimable state from campaign details: it carries
-      // the current reward's real drop-instance id and outranks historical,
-      // campaign-agnostic ownership of a reused benefit.
       // Never apply it to subscription rewards or a benefit shared by several
-      // tiers of this campaign (see parseTwitchReward). A reward with nonzero
-      // watched minutes below its requirement already carries a real, partial
-      // self edge (from campaign details or a prior progress merge) — that's
-      // unambiguous on its own, so a benefit owned from an older campaign must
-      // not fast-forward it to claimed. Zero minutes is left to the fallback
-      // below: it's indistinguishable from a reward Twitch no longer tracks at
-      // all, which is exactly the blind case the fallback exists for.
+      // tiers of this campaign (see parseTwitchReward). ownsRewardBenefit scopes
+      // the check to this drop's own award window, so a benefit reused by an
+      // older campaign can't override a reward that's still claimable or
+      // genuinely in progress.
       if (
         (!progress || earnedCounts === undefined)
         && merged.status !== "claimed"
