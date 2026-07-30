@@ -58,7 +58,8 @@
         "kind": "fixed",
         "text": "Fixed automation toggles in the popup not responding promptly, and platform sign-in status not resolving as quickly as it should."
       }
-    ]
+    ],
+    "date": "2026-07-30"
   },
   {
     "version": "1.9.0",
