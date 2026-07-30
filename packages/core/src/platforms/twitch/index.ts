@@ -2,9 +2,11 @@ import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, D
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
+import type { TwitchIntegrityRequest } from "../../core/tabs";
+import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
-import { diagnostic, ignoreEvent, unavailableWatchTabPort, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
+import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type CandidateChannelSelection, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
 import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
@@ -21,6 +23,13 @@ const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
+const DISCOVERY_DETAIL_PRUNE_LIMIT = 32;
+const GQL_BATCH_OPERATION_LIMIT = 20;
+const GQL_BATCH_CONCURRENCY = 2;
+// How long a discovery result stays usable when Twitch stops answering. Long
+// enough to ride out an outage of many ticks, short enough that a campaign
+// Twitch quietly stopped serving does not linger for a whole session.
+const DISCOVERY_RETENTION_TTL_MS = 30 * 60_000;
 
 export interface TwitchAdapterOptions {
   // GQL Client-ID. Defaults to the web client. A headless runtime passes a
@@ -35,6 +44,14 @@ export interface TwitchAdapterOptions {
   heartbeatIdentity?: TwitchIdentity;
   heartbeatFetchText?: TwitchHeartbeatFetchText;
   heartbeatPost?: TwitchHeartbeatPost;
+  discoveryState?: TwitchDiscoveryState;
+  // Supplies the integrity bundle each request should carry. The transport
+  // attaches it itself rather than letting the fetcher pick one up from a global,
+  // so the token a rejection reports is provably the token that was sent: the
+  // fetcher selects its own only after awaiting cookie reads, during which a
+  // concurrent capture can swap it. Absent in runtimes that never carry integrity
+  // at all (non-web client ids).
+  currentIntegrity?: () => TwitchIntegrity | undefined;
 }
 
 const TWITCH_QUERIES = {
@@ -122,7 +139,7 @@ const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
           node {
             title
             viewersCount
-            broadcaster { login displayName profileImageURL }
+            broadcaster { id login displayName profileImageURL }
           }
         }
       }
@@ -165,13 +182,37 @@ interface TwitchGqlResponse<T> {
   message?: string;
 }
 
+// The single definition of "Twitch rejected this for Client-Integrity, and a
+// fresh token could fix it" — shared by the adapter's safe reads, both claim
+// mutations, and the tabless watcher, so the rule cannot drift between them.
+// Authentication rejection is excluded first: an invalid session fails the same
+// request, but no integrity token can repair it. Anonymous requests are excluded
+// because they carry no token and must never open a page context.
+function isIntegrityRejection(error: unknown, credentials?: RequestCredentials): boolean {
+  if (credentials === "omit") return false;
+  if (authHealthFromError(error)) return false;
+  return error instanceof Error && /integrity/i.test(error.message);
+}
+
 type TwitchGqlFailureKind = "network" | "credentials" | "platform";
 
 class TwitchGqlFailure extends Error {
+  // The integrity token this request actually carried, when it carried one.
+  // A forced refresh compares against it so it can tell "the token I sent is
+  // still the current one, mint a replacement" from "someone already replaced
+  // it, just retry".
+  sentIntegrityToken?: string;
+
   constructor(readonly kind: TwitchGqlFailureKind, message: string) {
     super(message);
     this.name = "TwitchGqlFailure";
   }
+}
+
+// The token a failed request carried, when the failure knows. Undefined means
+// unknown, which makes a forced refresh mint unconditionally.
+function sentIntegrityToken(error: unknown): string | undefined {
+  return error instanceof TwitchGqlFailure ? error.sentIntegrityToken : undefined;
 }
 
 function isCredentialRejection(message: string | undefined): boolean {
@@ -216,6 +257,7 @@ interface TwitchDirectoryData {
           title?: string;
           viewersCount?: number;
           broadcaster?: {
+            id?: string;
             login?: string;
             displayName?: string;
             profileImageURL?: string;
@@ -273,6 +315,88 @@ interface CachedAvailableCampaigns {
   expiresAt: number;
 }
 
+interface CachedCampaignDetails {
+  campaign: unknown;
+  expiresAt: number;
+}
+
+interface CachedDashboardCampaigns {
+  campaignIds: string[];
+  expiresAt: number;
+}
+
+function reconcileInventoryCampaignStatuses(
+  campaigns: DropCampaign[],
+  activeDashboardIds: ReadonlySet<string>,
+  dashboardResponded: boolean,
+): DropCampaign[] {
+  return campaigns.map((campaign) =>
+    dashboardResponded
+    && !activeDashboardIds.has(campaign.id)
+    && !campaignHasClaimableReward(campaign)
+      ? withCampaignStatus(campaign, "expired")
+      : campaign,
+  );
+}
+
+export class TwitchDiscoveryState {
+  private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
+  private authenticatedUserId?: string;
+  private retainedDashboard?: CachedDashboardCampaigns;
+
+  setAuthenticatedUser(userId: string): void {
+    if (this.authenticatedUserId && this.authenticatedUserId !== userId) {
+      this.retainedDashboard = undefined;
+      this.campaignDetailsByDropId.clear();
+    }
+    this.authenticatedUserId = userId;
+  }
+
+  rememberDashboardCampaignIds(campaignIds: string[]): void {
+    this.retainedDashboard = {
+      campaignIds,
+      expiresAt: Date.now() + DISCOVERY_RETENTION_TTL_MS,
+    };
+  }
+
+  retainedDashboardCampaignIds(): string[] {
+    if (!this.retainedDashboard) return [];
+    if (this.retainedDashboard.expiresAt <= Date.now()) {
+      this.retainedDashboard = undefined;
+      return [];
+    }
+    return this.retainedDashboard.campaignIds;
+  }
+
+  rememberCampaignDetails(dropID: string, campaign: unknown): void {
+    const now = Date.now();
+    let inspected = 0;
+    for (const [cachedDropID, cached] of this.campaignDetailsByDropId) {
+      if (inspected >= DISCOVERY_DETAIL_PRUNE_LIMIT) break;
+      inspected += 1;
+      if (cached.expiresAt <= now) this.campaignDetailsByDropId.delete(cachedDropID);
+    }
+    this.campaignDetailsByDropId.set(dropID, {
+      campaign,
+      expiresAt: now + DISCOVERY_RETENTION_TTL_MS,
+    });
+  }
+
+  forgetCampaignDetails(dropID: string): void {
+    this.campaignDetailsByDropId.delete(dropID);
+  }
+
+  retainedCampaignDetails(dropID: string): unknown {
+    const cached = this.campaignDetailsByDropId.get(dropID);
+    if (!cached) return undefined;
+    if (cached.expiresAt <= Date.now()) {
+      this.campaignDetailsByDropId.delete(dropID);
+      return undefined;
+    }
+    return cached.campaign;
+  }
+}
+
 export type TwitchGqlTransport = <T>(
   operationName: string,
   sha256Hash: string,
@@ -280,6 +404,7 @@ export type TwitchGqlTransport = <T>(
   query?: string,
   credentials?: RequestCredentials,
   emit?: EventEmitter,
+  signal?: AbortSignal,
 ) => Promise<TwitchGqlResponse<T>>;
 
 // Reporter-neutral transport: it captures only the request transport and
@@ -298,7 +423,15 @@ export function createTwitchGqlTransport(
     query?: string,
     credentials?: RequestCredentials,
     emit: EventEmitter = ignoreEvent,
+    signal?: AbortSignal,
   ): Promise<TwitchGqlResponse<T>> => {
+    // Read once per attempt and reused for both the headers and the failure
+    // stamp, so the two can never disagree.
+    let sentIntegrity: TwitchIntegrity | undefined;
+    const stamp = (failure: TwitchGqlFailure): TwitchGqlFailure => {
+      failure.sentIntegrityToken = sentIntegrity?.integrity;
+      return failure;
+    };
     const buildRequest = (queryText?: string) => ({
       method: "POST",
       headers: {
@@ -307,8 +440,18 @@ export function createTwitchGqlTransport(
         "Content-Type": "text/plain; charset=UTF-8",
         "Client-ID": clientId,
         ...(userAgent ? { "User-Agent": userAgent } : {}),
+        // The trio is bound together at mint time and must be replayed together.
+        // Set here rather than left to the fetcher so the sent token is known.
+        ...(sentIntegrity
+          ? {
+              "Client-Integrity": sentIntegrity.integrity,
+              ...(sentIntegrity.deviceId ? { "X-Device-Id": sentIntegrity.deviceId } : {}),
+              ...(sentIntegrity.clientSessionId ? { "Client-Session-Id": sentIntegrity.clientSessionId } : {}),
+            }
+          : {}),
       },
       ...(credentials ? { credentials } : {}),
+      ...(signal ? { signal } : {}),
       body: JSON.stringify(
         queryText
           ? { operationName, variables, query: queryText }
@@ -325,26 +468,29 @@ export function createTwitchGqlTransport(
       ),
     } satisfies RequestInit);
     const fetchOnce = async (queryText?: string): Promise<TwitchGqlResponse<T> | null> => {
+      // Anonymous queries deliberately carry no identity at all.
+      sentIntegrity = credentials === "omit" ? undefined : options.currentIntegrity?.();
       const request = buildRequest(queryText);
       let raw: unknown;
       try {
         raw = await fetcher.fetchJson<unknown>("https://gql.twitch.tv/gql", request, emit);
       } catch (error) {
+        signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
         const message = error instanceof Error ? error.message : `${operationName} request failed`;
-        throw new TwitchGqlFailure("network", message);
+        throw stamp(new TwitchGqlFailure("network", message));
       }
       const pageError = twitchPageFetchError(raw);
       if (pageError?.kind === "credentials") {
         throw new SafeFetchError({ kind: "authentication_rejected", status: 401, reason: "Authenticated session rejected" });
       }
-      if (pageError) throw new TwitchGqlFailure(pageError.kind, `${operationName}: ${pageError.message}`);
+      if (pageError) throw stamp(new TwitchGqlFailure(pageError.kind, `${operationName}: ${pageError.message}`));
       return normalizeTwitchGqlResponse<T>(raw);
     };
     let activeQuery = query;
     let response = await fetchOnce(activeQuery);
     if (!isTwitchGqlResponse<T>(response)) {
-      throw new TwitchGqlFailure("platform", `${operationName} ${query ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
+      throw stamp(new TwitchGqlFailure("platform", `${operationName} ${query ? "inline query" : "persisted query"} returned an empty Twitch GQL response`));
     }
     const fallbackQuery = !query ? TWITCH_INLINE_QUERIES[operationName] : undefined;
     if (fallbackQuery && hasPersistedQueryNotFound(response)) {
@@ -352,14 +498,14 @@ export function createTwitchGqlTransport(
       activeQuery = fallbackQuery;
       response = await fetchOnce(activeQuery);
       if (!isTwitchGqlResponse<T>(response)) {
-        throw new TwitchGqlFailure("platform", `${operationName} inline query fallback returned an empty Twitch GQL response`);
+        throw stamp(new TwitchGqlFailure("platform", `${operationName} inline query fallback returned an empty Twitch GQL response`));
       }
     }
     if (response.errors?.some((error) => isTransientGqlError(error.message))) {
       diagnostic(emit, "debug", `GQL ${operationName} returned a transient error; retrying once`, "twitch");
       response = await fetchOnce(activeQuery);
       if (!isTwitchGqlResponse<T>(response)) {
-        throw new TwitchGqlFailure("platform", `${operationName} ${activeQuery ? "inline query" : "persisted query"} returned an empty Twitch GQL response`);
+        throw stamp(new TwitchGqlFailure("platform", `${operationName} ${activeQuery ? "inline query" : "persisted query"} returned an empty Twitch GQL response`));
       }
     }
     if (response.error || (response.message && response.data === undefined)) {
@@ -367,14 +513,14 @@ export function createTwitchGqlTransport(
       if (isCredentialRejection(message)) {
         throw new SafeFetchError({ kind: "authentication_rejected", status: 401, reason: "Authenticated session rejected" });
       }
-      throw new TwitchGqlFailure("platform", message);
+      throw stamp(new TwitchGqlFailure("platform", message));
     }
     if (response.errors?.length) {
       const message = response.errors.map((error) => error.message).filter(Boolean).join("; ") || `${operationName} failed`;
       if (isCredentialRejection(message)) {
         throw new SafeFetchError({ kind: "authentication_rejected", status: 401, reason: "Authenticated session rejected" });
       }
-      throw new TwitchGqlFailure("platform", message);
+      throw stamp(new TwitchGqlFailure("platform", message));
     }
     return response;
   };
@@ -384,16 +530,17 @@ export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
   readonly compatibility?: ResolvedCompatibility["twitch"];
 
-  async checkAuthHealth(): Promise<PlatformAuthHealth> {
+  async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
     try {
-      const response = await this.gqlTransport<{ currentUser?: { id?: string } | null }>(
+      const response = await this.gqlWithIntegrityRetry<{ currentUser?: { id?: string } | null }>(
         "CurrentUser",
         "",
         {},
         CURRENT_USER_QUERY,
         undefined,
         this.emit,
+        signal,
       );
       if (response.data?.currentUser) {
         return { status: "healthy", checkedAt, message: { key: "authHealthy" } };
@@ -426,6 +573,7 @@ export class TwitchAdapter implements PlatformAdapter {
   private readonly gqlTransport: TwitchGqlTransport;
   private readonly inventoryCapability: TwitchInventoryCapability;
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
+  private readonly discoveryState: TwitchDiscoveryState;
 
   constructor(
     // Twitch GQL is unreachable from the twitch.tv page context (CORS / anti-
@@ -437,7 +585,7 @@ export class TwitchAdapter implements PlatformAdapter {
     // this is only meaningful under that id (the extension, which captures the
     // page-minted token). A runtime using a non-web client id never needs it, so
     // it defaults to "no integrity available".
-    private readonly ensureIntegrity: () => Promise<boolean> = async () => false,
+    private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean> = async () => false,
     // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
     private readonly watchTabPort: WatchTabPort = unavailableWatchTabPort,
     // Identity the GQL requests present. Defaults to the WEB client (what the
@@ -448,32 +596,51 @@ export class TwitchAdapter implements PlatformAdapter {
     private readonly emit: EventEmitter = ignoreEvent,
   ) {
     this.compatibility = options.compatibility;
+    this.discoveryState = options.discoveryState ?? new TwitchDiscoveryState();
     this.gqlTransport = createTwitchGqlTransport(fetcher, options);
     this.inventoryCapability = createTwitchInventory(
       options.compatibility?.inventory ?? "twitch-inventory-v1",
     );
   }
 
-  async discoverCampaigns(): Promise<DropCampaign[]> {
-    let inventory = await this.fetchInventory();
-    let dashboard = await this.optionalGql<TwitchDashboardData>(
-      TWITCH_QUERIES.dashboard.operationName,
-      TWITCH_QUERIES.dashboard.sha256Hash,
-      TWITCH_QUERIES.dashboard.variables,
-    );
+  private async discoverCampaignSnapshot(
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<DropCampaign[]> {
+    let [inventory, dashboardResult] = await Promise.all([
+      this.fetchInventory({ signal }),
+      this.fetchDashboard(TWITCH_QUERIES.dashboard.variables, signal),
+    ]);
     let inventoryCampaigns = this.inventoryCapability.parse(inventory);
-    let dashboardCampaigns = twitchDashboardCampaigns(dashboard);
+    let dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
 
     if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
-      inventory = await this.fetchInventory({ fetchRewardCampaigns: true });
-      dashboard = await this.optionalGql<TwitchDashboardData>(
-        TWITCH_QUERIES.dashboard.operationName,
-        TWITCH_QUERIES.dashboard.sha256Hash,
-        { fetchRewardCampaigns: true },
-      );
-      inventoryCampaigns = this.inventoryCapability.parse(inventory);
-      dashboardCampaigns = twitchDashboardCampaigns(dashboard);
+      try {
+        const [fallbackInventory, fallbackDashboardResult] = await Promise.all([
+          this.fetchInventory({
+            variables: { fetchRewardCampaigns: true },
+            signal,
+          }),
+          this.fetchDashboard({ fetchRewardCampaigns: true }, signal),
+        ]);
+        inventory = fallbackInventory;
+        inventoryCampaigns = this.inventoryCapability.parse(inventory);
+        if (fallbackDashboardResult.ok || !dashboardResult.ok) {
+          dashboardResult = fallbackDashboardResult;
+          dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
+        }
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (authHealthFromError(error)) throw error;
+        const message = error instanceof Error ? error.message : String(error);
+        diagnostic(
+          this.emit,
+          "warn",
+          `Twitch reward-campaign inventory request failed; preserving the initial dashboard result: ${message}`,
+          "twitch",
+        );
+      }
     }
+    const dashboard = dashboardResult.response;
 
     if (!twitchHasCurrentUser(inventory) && !dashboard.data?.currentUser) {
       throw new SafeFetchError({
@@ -482,36 +649,97 @@ export class TwitchAdapter implements PlatformAdapter {
       });
     }
 
-    const userLogin = twitchCurrentUserId(inventory) ?? dashboard.data?.currentUser?.id ?? dashboard.data?.currentUser?.login ?? "";
-    const discoverableCampaignIds = dashboardCampaigns
+    const authenticatedUserId = twitchCurrentUserId(inventory) ?? dashboard.data?.currentUser?.id;
+    if (authenticatedUserId) this.discoveryState.setAuthenticatedUser(authenticatedUserId);
+    const userLogin = authenticatedUserId ?? dashboard.data?.currentUser?.login ?? "";
+    const freshCampaignIds = dashboardCampaigns
       .filter((campaign) =>
         campaign.id
         && (campaign.status === "ACTIVE" || campaign.status === "UPCOMING")
       )
       .map((campaign) => campaign.id as string);
 
+    // A failed dashboard parses to the same empty list as a dashboard with no
+    // active drops, and the Inventory payload only carries campaigns the user
+    // already started — so falling back to it hides every campaign they have
+    // not. Reuse the last dashboard we did get instead. `dashboardResponded`
+    // stays false so the expiry stamping below never fires off a stale list.
+    if (dashboardResult.ok && authenticatedUserId) {
+      this.discoveryState.rememberDashboardCampaignIds(freshCampaignIds);
+    }
+    const discoverableCampaignIds = dashboardResult.ok
+      ? freshCampaignIds
+      : authenticatedUserId
+        ? this.discoveryState.retainedDashboardCampaignIds()
+        : [];
+    const dashboardResponded = dashboardResult.ok && dashboardCampaigns.length > 0;
+
     if (discoverableCampaignIds.length === 0) {
-      return inventoryCampaigns;
+      return reconcileInventoryCampaignStatuses(
+        inventoryCampaigns,
+        new Set(discoverableCampaignIds),
+        dashboardResponded,
+      );
     }
 
-    const details = await Promise.allSettled(
-      discoverableCampaignIds.map((dropID) =>
-        this.gql<TwitchCampaignDetailsData>("DropCampaignDetails", TWITCH_QUERIES.campaignDetailsHash, {
-          channelLogin: userLogin,
-          dropID,
-        }),
-      ),
+    const detailsStartedAt = Date.now();
+    const detailFetch = await this.fetchCampaignDetails(discoverableCampaignIds, userLogin, signal);
+    const details = detailFetch.results;
+    diagnostic(
+      this.emit,
+      "debug",
+      `Twitch campaign details finished in ${Date.now() - detailsStartedAt}ms (${discoverableCampaignIds.length} operations: ${detailFetch.batchRequests} batch requests, ${detailFetch.singleFallbacks} single fallbacks)`,
+      "twitch",
     );
+    signal?.throwIfAborted();
     for (const result of details) {
       if (result.status === "rejected" && authHealthFromError(result.reason)) throw result.reason;
     }
-    const detailedCampaigns = details
-      .map((result) => result.status === "fulfilled" ? result.value.data?.dropCampaign ?? result.value.data?.user?.dropCampaign : undefined)
-      .filter((campaign): campaign is NonNullable<typeof campaign> => Boolean(campaign));
+    // A campaign the user has not started is only ever described by its detail
+    // request, so dropping a rejection loses the campaign entirely. Serve the
+    // last details we saw for it instead, and never lose the failure silently.
+    const detailedCampaigns: unknown[] = [];
+    details.forEach((result, index) => {
+      const dropID = discoverableCampaignIds[index];
+      if (result.status === "fulfilled") {
+        const data = result.value.data;
+        const campaign = data?.dropCampaign ?? data?.user?.dropCampaign;
+        if (!campaign) {
+          const campaignWasAuthoritativelyMissing = Boolean(
+            data
+            && (
+              Object.prototype.hasOwnProperty.call(data, "dropCampaign")
+              || (
+                data.user
+                && Object.prototype.hasOwnProperty.call(data.user, "dropCampaign")
+              )
+            ),
+          );
+          if (authenticatedUserId && campaignWasAuthoritativelyMissing) {
+            this.discoveryState.forgetCampaignDetails(dropID);
+          }
+          return;
+        }
+        if (authenticatedUserId) this.discoveryState.rememberCampaignDetails(dropID, campaign);
+        detailedCampaigns.push(campaign);
+        return;
+      }
+      const retained = authenticatedUserId
+        ? this.discoveryState.retainedCampaignDetails(dropID)
+        : undefined;
+      const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      diagnostic(
+        this.emit,
+        "warn",
+        `Twitch campaign details for ${dropID} failed; ${retained ? "reusing the last known details" : "leaving the campaign out of this refresh"}: ${message}`,
+        "twitch",
+      );
+      if (retained) detailedCampaigns.push(retained);
+    });
     if (detailedCampaigns.length === 0) {
       return inventoryCampaigns;
     }
-    const parsedDetails = parseTwitchInventory(detailedCampaigns as Parameters<typeof parseTwitchInventory>[0]);
+    const parsedDetails = parseTwitchCampaigns(detailedCampaigns as Parameters<typeof parseTwitchCampaigns>[0]);
     const mergedDetails = mergeTwitchCampaignProgress(parsedDetails, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
     const detailedIds = new Set(mergedDetails.map((campaign) => campaign.id));
     // The Inventory payload omits campaign/reward end dates, so an ended
@@ -521,32 +749,180 @@ export class TwitchAdapter implements PlatformAdapter {
     // inventory-only campaign as expired (unless it still has a claimable reward
     // we should keep surfacing so the user can claim it).
     const activeDashboardIds = new Set(discoverableCampaignIds);
-    const dashboardResponded = dashboardCampaigns.length > 0;
-    const inventoryOnly = inventoryCampaigns
-      .filter((campaign) => !detailedIds.has(campaign.id))
-      .map((campaign) =>
-        dashboardResponded
-        && !activeDashboardIds.has(campaign.id)
-        && !campaignHasClaimableReward(campaign)
-          ? withCampaignStatus(campaign, "expired")
-          : campaign,
-      );
+    const inventoryOnly = reconcileInventoryCampaignStatuses(
+      inventoryCampaigns.filter((campaign) => !detailedIds.has(campaign.id)),
+      activeDashboardIds,
+      dashboardResponded,
+    );
     return [...mergedDetails, ...inventoryOnly];
   }
 
-  async readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]> {
-    const inventory = await this.fetchInventory();
-    const inventoryProgress = this.inventoryCapability.reconcileProgress(campaigns, inventory);
-    if (!session?.channel || session.status !== "watching") return inventoryProgress;
-    return this.mergeCurrentSessionProgress(inventoryProgress, session.channel);
+  async refreshCampaigns(
+    session?: WatchSession,
+    options: AdapterOperationOptions = {},
+  ): Promise<DropCampaign[]> {
+    const campaigns = await this.discoverCampaignSnapshot(options);
+    if (!session?.channel || session.status !== "watching") return campaigns;
+    return this.mergeCurrentSessionProgress(campaigns, session.channel, options.signal);
   }
 
-  async listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]> {
+  private async fetchCampaignDetails(
+    dropIds: readonly string[],
+    channelLogin: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    results: PromiseSettledResult<TwitchGqlResponse<TwitchCampaignDetailsData>>[];
+    batchRequests: number;
+    singleFallbacks: number;
+  }> {
+    const chunks = Array.from(
+      { length: Math.ceil(dropIds.length / GQL_BATCH_OPERATION_LIMIT) },
+      (_, index) => dropIds.slice(
+        index * GQL_BATCH_OPERATION_LIMIT,
+        (index + 1) * GQL_BATCH_OPERATION_LIMIT,
+      ),
+    );
+    const results = new Array<{
+      results: PromiseSettledResult<TwitchGqlResponse<TwitchCampaignDetailsData>>[];
+      singleFallbacks: number;
+    }>(chunks.length);
+    let nextChunk = 0;
+    const workers = Array.from(
+      { length: Math.min(GQL_BATCH_CONCURRENCY, chunks.length) },
+      async () => {
+        for (;;) {
+          const chunkIndex = nextChunk;
+          nextChunk += 1;
+          const chunk = chunks[chunkIndex];
+          if (!chunk) return;
+          signal?.throwIfAborted();
+          results[chunkIndex] = await this.fetchCampaignDetailsChunk(chunk, channelLogin, signal);
+        }
+      },
+    );
+    await Promise.all(workers);
+    return {
+      results: results.flatMap((result) => result.results),
+      batchRequests: chunks.length,
+      singleFallbacks: results.reduce((total, result) => total + result.singleFallbacks, 0),
+    };
+  }
+
+  private async fetchCampaignDetailsChunk(
+    dropIds: readonly string[],
+    channelLogin: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    results: PromiseSettledResult<TwitchGqlResponse<TwitchCampaignDetailsData>>[];
+    singleFallbacks: number;
+  }> {
+    const fallback = async () => {
+      const results: PromiseSettledResult<TwitchGqlResponse<TwitchCampaignDetailsData>>[] = [];
+      for (const dropID of dropIds) {
+        try {
+          const value = await this.gqlWithIntegrityRetry<TwitchCampaignDetailsData>(
+            "DropCampaignDetails",
+            TWITCH_QUERIES.campaignDetailsHash,
+            { channelLogin, dropID },
+            undefined,
+            undefined,
+            this.emit,
+            signal,
+          );
+          results.push({ status: "fulfilled", value });
+        } catch (reason) {
+          results.push({ status: "rejected", reason });
+        }
+      }
+      return { results, singleFallbacks: dropIds.length };
+    };
+    const integrity = this.options.currentIntegrity?.();
+    let raw: unknown;
+    try {
+      raw = await this.fetcher.fetchJson<unknown>(
+        "https://gql.twitch.tv/gql",
+        {
+          method: "POST",
+          headers: {
+            "Accept": "*/*",
+            "Accept-Language": "en-US",
+            "Content-Type": "text/plain; charset=UTF-8",
+            "Client-ID": this.options.clientId ?? TWITCH_CLIENT_ID,
+            ...(this.options.userAgent ? { "User-Agent": this.options.userAgent } : {}),
+            ...(integrity
+              ? {
+                  "Client-Integrity": integrity.integrity,
+                  ...(integrity.deviceId ? { "X-Device-Id": integrity.deviceId } : {}),
+                  ...(integrity.clientSessionId ? { "Client-Session-Id": integrity.clientSessionId } : {}),
+                }
+              : {}),
+          },
+          ...(signal ? { signal } : {}),
+          body: JSON.stringify(dropIds.map((dropID) => ({
+            operationName: "DropCampaignDetails",
+            variables: { channelLogin, dropID },
+            extensions: {
+              persistedQuery: {
+                version: 1,
+                sha256Hash: TWITCH_QUERIES.campaignDetailsHash,
+              },
+            },
+          }))),
+        },
+        this.emit,
+      );
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (authHealthFromError(error)) throw error;
+      return fallback();
+    }
+    if (twitchPageFetchError(raw)) return fallback();
+    const responses = Array.isArray(raw) ? raw : dropIds.length === 1 ? [raw] : [];
+    if (responses.length !== dropIds.length) return fallback();
+
+    let singleFallbacks = 0;
+    const results: PromiseSettledResult<TwitchGqlResponse<TwitchCampaignDetailsData>>[] = [];
+    for (let index = 0; index < responses.length; index += 1) {
+      const value = responses[index];
+      const response = normalizeTwitchGqlResponse<TwitchCampaignDetailsData>(value);
+      if (
+        response
+        && Object.prototype.hasOwnProperty.call(response, "data")
+        && !response.error
+        && !(response.message && response.data === undefined)
+        && !response.errors?.length
+      ) {
+        results.push({ status: "fulfilled", value: response });
+        continue;
+      }
+      singleFallbacks += 1;
+      try {
+        const fallbackResponse = await this.gqlWithIntegrityRetry<TwitchCampaignDetailsData>(
+          "DropCampaignDetails",
+          TWITCH_QUERIES.campaignDetailsHash,
+          { channelLogin, dropID: dropIds[index] },
+          undefined,
+          undefined,
+          this.emit,
+          signal,
+        );
+        results.push({ status: "fulfilled", value: fallbackResponse });
+      } catch (reason) {
+        results.push({ status: "rejected", reason });
+      }
+    }
+    return { results, singleFallbacks };
+  }
+
+  async listCandidateChannels(
+    campaign: DropCampaign,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<ChannelCandidate[]> {
     const aclCandidates = twitchCandidatesFromCampaign(campaign);
     if (aclCandidates.length > 0) return aclCandidates;
     if (!campaign.slug && !campaign.categoryId) return [];
 
-    const response = await this.gql<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
+    const response = await this.gqlWithIntegrityRetry<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
       slug: campaign.slug ?? campaign.gameName,
       imageWidth: 50,
       includeCostreaming: false,
@@ -562,7 +938,7 @@ export class TwitchAdapter implements PlatformAdapter {
       },
       sortTypeIsRecency: false,
       limit: 25,
-    });
+    }, undefined, undefined, this.emit, signal);
 
     return (response.data?.game?.streams?.edges ?? [])
       .map((edge): ChannelCandidate | undefined => {
@@ -581,12 +957,385 @@ export class TwitchAdapter implements PlatformAdapter {
           viewerCount: edge.node?.viewersCount,
           title: edge.node?.title,
           live: true,
+          channelId: broadcaster.id,
         };
       })
       .filter((candidate): candidate is ChannelCandidate => Boolean(candidate));
   }
 
-  async checkChannel(channel: ChannelCandidate, campaign?: DropCampaign): Promise<ChannelCheck> {
+  async selectCandidateChannel(
+    candidates: ChannelCandidate[],
+    campaign?: DropCampaign,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<CandidateChannelSelection> {
+    if (candidates.length === 0) return { checked: 0 };
+    const startedAt = Date.now();
+    const selectionLabel = campaign
+      ? `for "${campaign.name}" (campaign ${campaign.id})`
+      : "idle";
+    const selectionDescription = campaign
+      ? `channel selection ${selectionLabel}`
+      : `${selectionLabel} channel selection`;
+    const checks = new Array<ChannelCheck | undefined>(candidates.length);
+    const streamCandidates: Array<{ candidate: ChannelCandidate; index: number }> = [];
+    let trustedDirectoryCandidates = 0;
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      if (candidate.live === true && candidate.isAclMatch === false) {
+        trustedDirectoryCandidates += 1;
+        checks[index] = {
+          live: true,
+          categoryMatches: !campaign?.categoryId || candidate.categoryId === campaign.categoryId,
+          candidate,
+        };
+      } else {
+        streamCandidates.push({ candidate, index });
+      }
+    }
+    const streamCheckResult = await this.batchStreamInfoChecks(
+      streamCandidates.map(({ candidate }) => candidate),
+      campaign,
+      signal,
+    );
+    streamCheckResult.checks.forEach((check, index) => {
+      const target = streamCandidates[index];
+      if (target) checks[target.index] = check;
+    });
+    const availabilityResult = campaign
+      ? await this.batchCampaignAvailability(
+          checks.flatMap((check) =>
+            check?.live && check.categoryMatches && check.candidate.channelId
+              ? [{
+                  channelId: check.candidate.channelId,
+                  channelLogin: check.candidate.username,
+                }]
+              : []),
+          campaign.id,
+          signal,
+        )
+      : {
+          matches: new Map<string, boolean | undefined>(),
+          batchRequests: 0,
+          singleFallbacks: 0,
+          cacheHits: 0,
+        };
+
+    let checked = 0;
+    let winnerFallbacks = 0;
+    const reportSelectionFinished = () => {
+      diagnostic(
+        this.emit,
+        "debug",
+        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
+        "twitch",
+      );
+    };
+    for (const check of checks) {
+      if (!check) continue;
+      checked += 1;
+      if (!check.live || !check.categoryMatches) continue;
+      let campaignMatches: boolean | undefined;
+      let selectedCandidate = check.candidate;
+      if (campaign && !check.candidate.channelId) {
+        winnerFallbacks += 1;
+        const confirmed = await this.checkChannel(check.candidate, { campaign, signal });
+        if (!confirmed.live || !confirmed.categoryMatches || confirmed.campaignMatches === false) continue;
+        selectedCandidate = confirmed.candidate;
+        campaignMatches = confirmed.campaignMatches;
+      } else if (campaign && check.candidate.channelId) {
+        campaignMatches = availabilityResult.matches.get(check.candidate.channelId);
+      }
+      if (campaignMatches === false) continue;
+      reportSelectionFinished();
+      return {
+        checked: candidates.length,
+        channel: {
+          ...selectedCandidate,
+          live: true,
+        },
+      };
+    }
+    reportSelectionFinished();
+    return { checked: candidates.length };
+  }
+
+  private async batchCampaignAvailability(
+    candidates: readonly { channelId: string; channelLogin: string }[],
+    campaignId: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    matches: Map<string, boolean | undefined>;
+    batchRequests: number;
+    singleFallbacks: number;
+    cacheHits: number;
+  }> {
+    const matches = new Map<string, boolean | undefined>();
+    const uncached: Array<{ channelId: string; channelLogin: string }> = [];
+    let cacheHits = 0;
+    for (const candidate of candidates) {
+      if (matches.has(candidate.channelId)) continue;
+      const cached = this.availableCampaignsByChannel.get(candidate.channelId);
+      if (cached && cached.expiresAt > Date.now()) {
+        cacheHits += 1;
+        matches.set(candidate.channelId, cached.campaignIds.has(campaignId));
+        continue;
+      }
+      if (cached) this.availableCampaignsByChannel.delete(candidate.channelId);
+      uncached.push(candidate);
+    }
+    if (uncached.length === 1) {
+      const candidate = uncached[0];
+      const metrics = { checks: 0, cacheHits: 0 };
+      matches.set(
+        candidate.channelId,
+        await this.checkCampaignAvailability(
+          candidate.channelId,
+          campaignId,
+          candidate.channelLogin,
+          signal,
+          metrics,
+        ),
+      );
+      return {
+        matches,
+        batchRequests: 0,
+        singleFallbacks: metrics.checks,
+        cacheHits: cacheHits + metrics.cacheHits,
+      };
+    }
+    const chunks = Array.from(
+      { length: Math.ceil(uncached.length / GQL_BATCH_OPERATION_LIMIT) },
+      (_, index) => uncached.slice(
+        index * GQL_BATCH_OPERATION_LIMIT,
+        (index + 1) * GQL_BATCH_OPERATION_LIMIT,
+      ),
+    );
+    const results = new Array<{
+      matches: Map<string, boolean | undefined>;
+      singleFallbacks: number;
+    }>(chunks.length);
+    let nextChunk = 0;
+    await Promise.all(Array.from(
+      { length: Math.min(GQL_BATCH_CONCURRENCY, chunks.length) },
+      async () => {
+        for (;;) {
+          const chunkIndex = nextChunk;
+          nextChunk += 1;
+          const chunk = chunks[chunkIndex];
+          if (!chunk) return;
+          signal?.throwIfAborted();
+          results[chunkIndex] = await this.batchCampaignAvailabilityChunk(
+            chunk,
+            campaignId,
+            signal,
+          );
+        }
+      },
+    ));
+    for (const result of results) {
+      for (const [channelId, match] of result.matches) matches.set(channelId, match);
+    }
+    return {
+      matches,
+      batchRequests: chunks.length,
+      singleFallbacks: results.reduce((total, result) => total + result.singleFallbacks, 0),
+      cacheHits,
+    };
+  }
+
+  private async batchCampaignAvailabilityChunk(
+    candidates: readonly { channelId: string; channelLogin: string }[],
+    campaignId: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    matches: Map<string, boolean | undefined>;
+    singleFallbacks: number;
+  }> {
+    const matches = new Map<string, boolean | undefined>();
+    const fallback = async (
+      candidate: { channelId: string; channelLogin: string },
+    ): Promise<void> => {
+      matches.set(
+        candidate.channelId,
+        await this.checkCampaignAvailability(
+          candidate.channelId,
+          campaignId,
+          candidate.channelLogin,
+          signal,
+        ),
+      );
+    };
+    const integrity = this.options.currentIntegrity?.();
+    let raw: unknown;
+    try {
+      raw = await this.fetcher.fetchJson<unknown>(
+        "https://gql.twitch.tv/gql",
+        {
+          method: "POST",
+          headers: {
+            "Accept": "*/*",
+            "Accept-Language": "en-US",
+            "Content-Type": "text/plain; charset=UTF-8",
+            "Client-ID": this.options.clientId ?? TWITCH_CLIENT_ID,
+            ...(this.options.userAgent ? { "User-Agent": this.options.userAgent } : {}),
+            ...(integrity
+              ? {
+                  "Client-Integrity": integrity.integrity,
+                  ...(integrity.deviceId ? { "X-Device-Id": integrity.deviceId } : {}),
+                  ...(integrity.clientSessionId ? { "Client-Session-Id": integrity.clientSessionId } : {}),
+                }
+              : {}),
+          },
+          ...(signal ? { signal } : {}),
+          body: JSON.stringify(candidates.map((candidate) => ({
+            operationName: "DropsHighlightService_AvailableDrops",
+            variables: { channelID: candidate.channelId },
+            extensions: {
+              persistedQuery: {
+                version: 1,
+                sha256Hash: TWITCH_QUERIES.availableDropsHash,
+              },
+            },
+          }))),
+        },
+        this.emit,
+      );
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (authHealthFromError(error)) throw error;
+      for (const candidate of candidates) await fallback(candidate);
+      return { matches, singleFallbacks: candidates.length };
+    }
+    if (twitchPageFetchError(raw)) {
+      for (const candidate of candidates) await fallback(candidate);
+      return { matches, singleFallbacks: candidates.length };
+    }
+    const responses = Array.isArray(raw) ? raw : candidates.length === 1 ? [raw] : [];
+    let singleFallbacks = 0;
+    for (const [index, candidate] of candidates.entries()) {
+      const response = normalizeTwitchGqlResponse<TwitchAvailableDropsData>(responses[index]);
+      const campaigns = response?.data?.channel?.viewerDropCampaigns;
+      if (!Array.isArray(campaigns) || response?.errors?.length || response?.error) {
+        singleFallbacks += 1;
+        await fallback(candidate);
+        continue;
+      }
+      const campaignIds = new Set(
+        campaigns.map((campaign) => campaign.id).filter((id): id is string => Boolean(id)),
+      );
+      this.availableCampaignsByChannel.set(candidate.channelId, {
+        campaignIds,
+        expiresAt: Date.now() + CHANNEL_CAMPAIGN_CACHE_TTL_MS,
+      });
+      matches.set(candidate.channelId, campaignIds.has(campaignId));
+    }
+    return { matches, singleFallbacks };
+  }
+
+  private async batchStreamInfoChecks(
+    candidates: readonly ChannelCandidate[],
+    campaign: DropCampaign | undefined,
+    signal?: AbortSignal,
+  ): Promise<{ checks: ChannelCheck[]; singleFallbacks: number }> {
+    if (candidates.length === 0) return { checks: [], singleFallbacks: 0 };
+    const chunks = Array.from(
+      { length: Math.ceil(candidates.length / GQL_BATCH_OPERATION_LIMIT) },
+      (_, index) => candidates.slice(
+        index * GQL_BATCH_OPERATION_LIMIT,
+        (index + 1) * GQL_BATCH_OPERATION_LIMIT,
+      ),
+    );
+    const results = new Array<{ checks: ChannelCheck[]; singleFallbacks: number }>(chunks.length);
+    let nextChunk = 0;
+    await Promise.all(Array.from(
+      { length: Math.min(GQL_BATCH_CONCURRENCY, chunks.length) },
+      async () => {
+        for (;;) {
+          const chunkIndex = nextChunk;
+          nextChunk += 1;
+          const chunk = chunks[chunkIndex];
+          if (!chunk) return;
+          signal?.throwIfAborted();
+          results[chunkIndex] = await this.batchStreamInfoChunk(chunk, campaign, signal);
+        }
+      },
+    ));
+    return {
+      checks: results.flatMap((result) => result.checks),
+      singleFallbacks: results.reduce((total, result) => total + result.singleFallbacks, 0),
+    };
+  }
+
+  private async batchStreamInfoChunk(
+    candidates: readonly ChannelCandidate[],
+    campaign: DropCampaign | undefined,
+    signal?: AbortSignal,
+  ): Promise<{ checks: ChannelCheck[]; singleFallbacks: number }> {
+    let raw: unknown;
+    try {
+      raw = await this.fetcher.fetchJson<unknown>(
+        "https://gql.twitch.tv/gql",
+        {
+          method: "POST",
+          credentials: "omit",
+          headers: {
+            "Accept": "*/*",
+            "Accept-Language": "en-US",
+            "Content-Type": "text/plain; charset=UTF-8",
+            "Client-ID": this.options.clientId ?? TWITCH_CLIENT_ID,
+            ...(this.options.userAgent ? { "User-Agent": this.options.userAgent } : {}),
+          },
+          ...(signal ? { signal } : {}),
+          body: JSON.stringify(candidates.map((candidate) => ({
+            operationName: "StreamInfo",
+            variables: { channel: candidate.username },
+            query: STREAM_INFO_QUERY,
+          }))),
+        },
+        this.emit,
+      );
+    } catch (error) {
+      signal?.throwIfAborted();
+      const checks: ChannelCheck[] = [];
+      for (const candidate of candidates) {
+        checks.push(await this.checkChannel(candidate, { signal }));
+      }
+      return { checks, singleFallbacks: candidates.length };
+    }
+    const responses = Array.isArray(raw) ? raw : candidates.length === 1 ? [raw] : [];
+    const checks: ChannelCheck[] = [];
+    let singleFallbacks = 0;
+    for (const [index, candidate] of candidates.entries()) {
+      const response = normalizeTwitchGqlResponse<TwitchStreamInfoData>(responses[index]);
+      if (!response?.data?.user || response.errors?.length || response.error) {
+        singleFallbacks += 1;
+        checks.push(await this.checkChannel(candidate, { signal }));
+        continue;
+      }
+      const stream = response.data.user.stream;
+      const categoryId = stream?.game?.id;
+      checks.push({
+        live: Boolean(stream),
+        categoryMatches: !campaign?.categoryId || categoryId === campaign.categoryId,
+        candidate: {
+          ...candidate,
+          displayName: response.data.user.displayName ?? candidate.displayName,
+          categoryId: categoryId ?? candidate.categoryId,
+          categoryName: stream?.game?.name ?? candidate.categoryName,
+          viewerCount: stream?.viewersCount ?? candidate.viewerCount,
+          channelId: response.data.user.id ?? candidate.channelId,
+          broadcastId: stream?.id ?? candidate.broadcastId,
+          live: Boolean(stream),
+        },
+      });
+    }
+    return { checks, singleFallbacks };
+  }
+
+  async checkChannel(
+    channel: ChannelCandidate,
+    { campaign, signal }: AdapterOperationOptions & { campaign?: DropCampaign } = {},
+  ): Promise<ChannelCheck> {
     try {
       const response = await this.gql<TwitchStreamInfoData>(
         "StreamInfo",
@@ -596,6 +1345,8 @@ export class TwitchAdapter implements PlatformAdapter {
         // Anonymous: this is public data, and logged-in GQL calls without an
         // integrity token are rejected (which would mask the channel as live).
         "omit",
+        this.emit,
+        signal,
       );
       const stream = response.data?.user?.stream;
       const channelId = response.data?.user?.id;
@@ -603,7 +1354,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
       const categoryMatches = !expectedCategoryId || actualCategoryId === expectedCategoryId;
       const campaignMatches = stream && categoryMatches && campaign && channelId
-        ? await this.checkCampaignAvailability(channelId, campaign.id, channel.username)
+        ? await this.checkCampaignAvailability(channelId, campaign.id, channel.username, signal)
         : undefined;
       return {
         live: Boolean(stream),
@@ -625,7 +1376,8 @@ export class TwitchAdapter implements PlatformAdapter {
         },
       };
     } catch (error) {
-      return this.checkChannelFromPage(channel, campaign, error);
+      signal?.throwIfAborted();
+      return this.checkChannelFromPage(channel, campaign, error, signal);
     }
   }
 
@@ -633,18 +1385,26 @@ export class TwitchAdapter implements PlatformAdapter {
     channelId: string,
     campaignId: string,
     channelLogin: string,
+    signal?: AbortSignal,
+    metrics?: { checks: number; cacheHits: number },
   ): Promise<boolean | undefined> {
     const cached = this.availableCampaignsByChannel.get(channelId);
     if (cached && cached.expiresAt > Date.now()) {
+      if (metrics) metrics.cacheHits += 1;
       return cached.campaignIds.has(campaignId);
     }
     if (cached) this.availableCampaignsByChannel.delete(channelId);
 
     try {
-      const response = await this.gql<TwitchAvailableDropsData>(
+      if (metrics) metrics.checks += 1;
+      const response = await this.gqlWithIntegrityRetry<TwitchAvailableDropsData>(
         "DropsHighlightService_AvailableDrops",
         TWITCH_QUERIES.availableDropsHash,
         { channelID: channelId },
+        undefined,
+        undefined,
+        this.emit,
+        signal,
       );
       const campaigns = response.data?.channel?.viewerDropCampaigns;
       if (!Array.isArray(campaigns)) {
@@ -661,6 +1421,7 @@ export class TwitchAdapter implements PlatformAdapter {
       });
       return campaignIds.has(campaignId);
     } catch (error) {
+      signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "debug", `Could not confirm available Twitch campaigns for ${channelLogin}; using live/category validation: ${message}`, "twitch");
@@ -689,26 +1450,45 @@ export class TwitchAdapter implements PlatformAdapter {
       .filter((category) => category.id && category.name);
   }
 
-  private async fetchInventory(variables: Record<string, unknown> = { ...this.inventoryCapability.variables }): Promise<unknown> {
+  private async fetchInventory({
+    variables = { ...this.inventoryCapability.variables },
+    signal,
+  }: {
+    variables?: Record<string, unknown>;
+    signal?: AbortSignal;
+  } = {}): Promise<unknown> {
     try {
-      return await this.gql<unknown>("Inventory", this.inventoryCapability.hash, variables);
+      return await this.gqlWithIntegrityRetry<unknown>("Inventory", this.inventoryCapability.hash, variables, undefined, undefined, this.emit, signal);
     } catch (error) {
       if (!(error instanceof Error) || !/PersistedQueryNotFound/i.test(error.message)) throw error;
       diagnostic(this.emit, "debug", `GQL Inventory persisted query not found for ${this.inventoryCapability.id}; retrying with its inline query`, "twitch");
-      return this.gql<unknown>("Inventory", this.inventoryCapability.hash, variables, this.inventoryCapability.inlineQuery);
+      return this.gqlWithIntegrityRetry<unknown>("Inventory", this.inventoryCapability.hash, variables, this.inventoryCapability.inlineQuery, undefined, this.emit, signal);
     }
   }
 
-  private async optionalGql<T>(
-    operationName: string,
-    sha256Hash: string,
+  // Non-auth failures are tolerated, but reported: discovery has to tell
+  // "Twitch says there are no campaigns" from "Twitch did not answer".
+  private async fetchDashboard(
     variables: Record<string, unknown>,
-  ): Promise<TwitchGqlResponse<T>> {
+    signal?: AbortSignal,
+  ): Promise<{ response: TwitchGqlResponse<TwitchDashboardData>; ok: boolean }> {
     try {
-      return await this.gql(operationName, sha256Hash, variables);
+      const response = await this.gqlWithIntegrityRetry<TwitchDashboardData>(
+        TWITCH_QUERIES.dashboard.operationName,
+        TWITCH_QUERIES.dashboard.sha256Hash,
+        variables,
+        undefined,
+        undefined,
+        this.emit,
+        signal,
+      );
+      return { response, ok: true };
     } catch (error) {
+      signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      return {};
+      const message = error instanceof Error ? error.message : String(error);
+      diagnostic(this.emit, "warn", `Twitch drops dashboard request failed; reusing the last campaign list it returned: ${message}`, "twitch");
+      return { response: {}, ok: false };
     }
   }
 
@@ -718,7 +1498,11 @@ export class TwitchAdapter implements PlatformAdapter {
     return Boolean(reward.claimId);
   }
 
-  async claimReward(campaign: DropCampaign, reward: DropReward): Promise<boolean> {
+  async claimReward(
+    campaign: DropCampaign,
+    reward: DropReward,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<boolean> {
     if (!reward.claimId) return false;
 
     diagnostic(this.emit, "debug", `Claiming ${reward.name} from ${campaign.name} (instance ${reward.claimId})`, "twitch");
@@ -726,29 +1510,40 @@ export class TwitchAdapter implements PlatformAdapter {
     // live twitch.tv page (see src/core/twitchIntegrity.ts). Proactively ensure one
     // exists first so a tabless / no-tab session can still claim. This is a no-op
     // fast path when a token is already captured.
-    await this.ensureIntegrity();
+    await this.ensureIntegrity({ signal });
 
     try {
-      return await this.runClaim(reward);
+      return await this.runClaim(reward, signal);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       // Only integrity rejections are worth a refresh + retry; everything else
       // (e.g. an unexpected status or a stale id) propagates unchanged.
-      if (!/integrity/i.test(message)) throw error;
+      if (!isIntegrityRejection(error)) throw error;
       diagnostic(this.emit, "warn", `Claim for ${reward.name} was rejected for integrity; refreshing the token and retrying once`, "twitch");
-      // The captured token may have just expired or been anonymous; force one
-      // refresh and retry exactly once. A second failure propagates.
-      const refreshed = await this.ensureIntegrity();
-      if (refreshed) return await this.runClaim(reward);
+      // Twitch rejected the token it was sent, so the local expiry says nothing:
+      // only a forced refresh replaces it. Retry exactly once; a second failure
+      // propagates.
+      const rejectedToken = sentIntegrityToken(error);
+      const refreshed = await this.ensureIntegrity({
+        forceRefresh: true,
+        reason: "rejection_recovery",
+        rejectedToken,
+        signal,
+      });
+      if (refreshed) return await this.runClaim(reward, signal);
       throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
     }
   }
 
-  private async runClaim(reward: DropReward): Promise<boolean> {
+  private async runClaim(reward: DropReward, signal?: AbortSignal): Promise<boolean> {
     const result = await this.gql<{ claimDropRewards?: { status?: string } }>(
       "DropsPage_ClaimDropRewards",
       TWITCH_QUERIES.claimHash,
       { input: { dropInstanceID: reward.claimId } },
+      undefined,
+      undefined,
+      this.emit,
+      signal,
     );
     const status = result.data?.claimDropRewards?.status;
     if (status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED") return true;
@@ -757,20 +1552,53 @@ export class TwitchAdapter implements PlatformAdapter {
     throw new Error(`Twitch refused claim for ${reward.name}: status=${status ?? "unknown"}`);
   }
 
-  async claimChannelPoints(channel: ChannelCandidate): Promise<boolean> {
-    const context = await this.gql<TwitchChannelPointsData>(
+  async claimChannelPoints(
+    channel: ChannelCandidate,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<boolean> {
+    const context = await this.gqlWithIntegrityRetry<TwitchChannelPointsData>(
       "ChannelPointsContext",
       TWITCH_QUERIES.channelPointsHash,
       { channelLogin: channel.username },
+      undefined,
+      undefined,
+      this.emit,
+      signal,
     );
     const channelId = context.data?.community?.channel?.id;
     const claimId = context.data?.community?.channel?.self?.communityPoints?.availableClaim?.id;
     if (!channelId || !claimId) return false;
 
+    // Like a drop claim, this mutation is gated on Client-Integrity. Ensure one
+    // exists first (a no-op fast path when a token is already captured), then
+    // recover explicitly rather than through a generic transport retry — the
+    // same claim id must never be replayed more than once.
+    await this.ensureIntegrity({ signal });
+    try {
+      return await this.runChannelPointsClaim(claimId, channelId, signal);
+    } catch (error) {
+      if (!isIntegrityRejection(error)) throw error;
+      diagnostic(this.emit, "warn", `Channel-points claim for ${channel.username} was rejected for integrity; refreshing the token and retrying once`, "twitch");
+      const rejectedToken = sentIntegrityToken(error);
+      if (!await this.ensureIntegrity({
+        forceRefresh: true,
+        reason: "rejection_recovery",
+        rejectedToken,
+        signal,
+      })) throw error;
+      return await this.runChannelPointsClaim(claimId, channelId, signal);
+    }
+  }
+
+  private async runChannelPointsClaim(claimId: string, channelId: string, signal?: AbortSignal): Promise<boolean> {
     const result = await this.gql<{ claimCommunityPoints?: { status?: string } }>(
       "ClaimCommunityPoints",
       TWITCH_QUERIES.claimCommunityPointsHash,
       { input: { claimID: claimId, channelID: channelId } },
+      undefined,
+      undefined,
+      this.emit,
+      signal,
     );
     return result.data?.claimCommunityPoints?.status !== "CLAIM_NOT_AVAILABLE";
   }
@@ -794,26 +1622,35 @@ export class TwitchAdapter implements PlatformAdapter {
   supportsPostClaimHandoff = true;
 
   createTablessWatcher(): TablessWatchController {
-    return new TwitchWatcher(this.gqlTransport, this.options);
+    return new TwitchWatcher(this.gqlTransport, this.options, this.ensureIntegrity);
   }
 
   private async mergeCurrentSessionProgress(
     campaigns: DropCampaign[],
     channel: ChannelCandidate,
+    signal?: AbortSignal,
   ): Promise<DropCampaign[]> {
     try {
-      const streamInfo = await this.gql<TwitchStreamInfoData>(
+      const streamInfo = await this.gqlWithIntegrityRetry<TwitchStreamInfoData>(
         "VideoPlayerStreamInfoOverlayChannel",
         TWITCH_QUERIES.streamInfoHash,
         { channel: channel.username },
+        undefined,
+        undefined,
+        this.emit,
+        signal,
       );
       const channelId = streamInfo.data?.user?.id;
       if (!channelId) return campaigns;
 
-      const current = await this.gql<TwitchCurrentDropData>(
+      const current = await this.gqlWithIntegrityRetry<TwitchCurrentDropData>(
         "DropCurrentSessionContext",
         TWITCH_QUERIES.currentDropHash,
         { channelID: channelId, channelLogin: "" },
+        undefined,
+        undefined,
+        this.emit,
+        signal,
       );
       const drop = current.data?.currentUser?.dropCurrentSession;
       if (!drop?.dropID || drop.currentMinutesWatched == null) return campaigns;
@@ -835,6 +1672,7 @@ export class TwitchAdapter implements PlatformAdapter {
           : { ...reward, isCurrentReward: false }),
       }));
     } catch (error) {
+      signal?.throwIfAborted();
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "warn", `Could not merge current session progress for ${channel.username}: ${message}`, "twitch");
       return campaigns;
@@ -848,19 +1686,57 @@ export class TwitchAdapter implements PlatformAdapter {
     query?: string,
     credentials?: RequestCredentials,
     emit: EventEmitter = this.emit,
+    signal?: AbortSignal,
   ): Promise<TwitchGqlResponse<T>> {
-    return this.gqlTransport(operationName, sha256Hash, variables, query, credentials, emit);
+    return this.gqlTransport(operationName, sha256Hash, variables, query, credentials, emit, signal);
+  }
+
+  // Twitch can reject an authenticated request for Client-Integrity while the
+  // session itself is fine and the captured token has not locally expired, so
+  // the only recovery is a genuinely fresh token. Bounded to one forced refresh
+  // and one identical replay; the caller's own fallback handles the rest.
+  //
+  // This deliberately lives above the transport rather than inside it: the same
+  // transport carries mutations (which must never be replayed implicitly) and
+  // anonymous requests (which must never open a page context).
+  private async gqlWithIntegrityRetry<T>(
+    operationName: string,
+    sha256Hash: string,
+    variables: Record<string, unknown>,
+    query?: string,
+    credentials?: RequestCredentials,
+    emit: EventEmitter = this.emit,
+    signal?: AbortSignal,
+  ): Promise<TwitchGqlResponse<T>> {
+    try {
+      return await this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
+    } catch (error) {
+      if (!isIntegrityRejection(error, credentials)) throw error;
+      diagnostic(emit, "debug", `GQL ${operationName} was rejected for integrity; refreshing the token and retrying once`, "twitch");
+      // Taken from the failure, which carries the token the request actually
+      // sent. Re-reading it here would race a concurrent capture and could
+      // report a token this request never used.
+      const rejectedToken = sentIntegrityToken(error);
+      if (!await this.ensureIntegrity({
+        forceRefresh: true,
+        reason: "rejection_recovery",
+        rejectedToken,
+        signal,
+      })) throw error;
+      return this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
+    }
   }
 
   private async checkChannelFromPage(
     channel: ChannelCandidate,
     campaign: DropCampaign | undefined,
     originalError: unknown,
+    signal?: AbortSignal,
   ): Promise<ChannelCheck> {
     const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
     diagnostic(this.emit, "debug", `Channel GQL check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "twitch");
     try {
-      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, undefined, this.emit);
+      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, { signal }, this.emit);
       const html = page.html ?? "";
       const live = parseLiveState(html);
       if (!live) {
@@ -878,6 +1754,7 @@ export class TwitchAdapter implements PlatformAdapter {
         },
       };
     } catch {
+      signal?.throwIfAborted();
       return {
         live: false,
         categoryMatches: false,
@@ -901,7 +1778,10 @@ class TwitchWatcher implements TablessWatchController {
 
   constructor(
     private readonly gql: TwitchGqlTransport,
-    options: TwitchAdapterOptions,
+    private readonly options: TwitchAdapterOptions,
+    // Only the authenticated CurrentUser fallback below uses this. The anonymous
+    // stream lookup and the heartbeat telemetry are deliberately excluded.
+    private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean> = async () => false,
   ) {
     this.heartbeatStrategy = options.heartbeatStrategy ?? createTwitchHeartbeat(
       options.compatibility?.heartbeat ?? "twitch-heartbeat-gql-v1",
@@ -976,8 +1856,23 @@ class TwitchWatcher implements TablessWatchController {
 
   private async resolveUserId(): Promise<string | undefined> {
     if (this.viewerUserId) return this.viewerUserId;
+    const currentUser = () => this.gql<{ currentUser?: { id?: string } }>("CurrentUser", "", {}, CURRENT_USER_QUERY, undefined, this.diagnostics.emit);
     try {
-      const response = await this.gql<{ currentUser?: { id?: string } }>("CurrentUser", "", {}, CURRENT_USER_QUERY, undefined, this.diagnostics.emit);
+      let response;
+      try {
+        response = await currentUser();
+      } catch (error) {
+        // Bounded to one forced refresh and one identical replay, like the
+        // adapter's safe authenticated reads.
+        if (!isIntegrityRejection(error)) throw error;
+        this.log("debug", "Twitch viewer id lookup was rejected for integrity; refreshing the token and retrying once");
+        if (!await this.ensureIntegrity({
+          forceRefresh: true,
+          reason: "rejection_recovery",
+          rejectedToken: sentIntegrityToken(error),
+        })) throw error;
+        response = await currentUser();
+      }
       this.viewerUserId = response.data?.currentUser?.id;
     } catch (error) {
       // Leave unresolved; tick() reports the missing-user case to the scheduler.

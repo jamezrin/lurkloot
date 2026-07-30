@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "Aggiorna pianificazione"
   },
+  "openInventory": {
+    "message": "Apri inventario"
+  },
   "openActivity": {
     "message": "Apri attività"
   },
@@ -140,26 +143,56 @@
   "watchingPausedHint": {
     "message": "Visione in pausa. Attiva l’interruttore per riprendere il farming dei drop."
   },
-  "hideTipsTitle": { "message": "Nascondi suggerimenti" },
-  "hideTipsDescription": { "message": "Nasconde i suggerimenti dalla finestra principale." },
-  "tipCampaignPriority": { "message": "I drop hanno priorità sulla lista. Trascina le campagne dalla maniglia per ordinarle." },
-  "tipMissingCampaigns": { "message": "Manca una campagna? Controlla l’inventario Drop della piattaforma e i filtri nelle impostazioni." },
-  "tipCategorySelection": { "message": "Vuoi solo alcuni giochi? Disattiva «Farma tutte le categorie» e scegli le categorie." },
-  "tipIdleWatchlist": { "message": "La lista farma i canali scelti quando non ci sono drop idonei." },
-  "tipTablessMode": { "message": "La modalità senza schede usa meno risorse e apre una scheda silenziata quando serve." },
-  "tipCli": { "message": "Preferisci non usare un’estensione? Lurkloot è disponibile anche come CLI Docker." },
-  "tipCliAction": { "message": "Leggi la guida CLI" },
-  "tipFeedback": { "message": "Hai trovato un bug o hai un’idea?" },
-  "tipFeedbackAction": { "message": "Apri una issue GitHub" },
-  "tipExcludedCampaigns": { "message": "Hai escluso una campagna per errore? Ripristinala dalle impostazioni Drop." },
+  "hideTipsTitle": {
+    "message": "Nascondi suggerimenti"
+  },
+  "hideTipsDescription": {
+    "message": "Nasconde i suggerimenti dalla finestra principale."
+  },
+  "tipCampaignPriority": {
+    "message": "I drop hanno priorità sulla lista. Trascina le campagne dalla maniglia per ordinarle."
+  },
+  "tipMissingCampaigns": {
+    "message": "Manca una campagna? Controlla l’inventario Drop della piattaforma e i filtri nelle impostazioni."
+  },
+  "tipCategorySelection": {
+    "message": "Vuoi solo alcuni giochi? Disattiva «Farma tutte le categorie» e scegli le categorie."
+  },
+  "tipIdleWatchlist": {
+    "message": "La lista farma i canali scelti quando non ci sono drop idonei."
+  },
+  "tipTablessMode": {
+    "message": "La modalità senza schede usa meno risorse e apre una scheda silenziata quando serve."
+  },
+  "tipCli": {
+    "message": "Preferisci non usare un’estensione? Lurkloot è disponibile anche come CLI Docker."
+  },
+  "tipCliAction": {
+    "message": "Leggi la guida CLI"
+  },
+  "tipFeedback": {
+    "message": "Hai trovato un bug o hai un’idea?"
+  },
+  "tipFeedbackAction": {
+    "message": "Apri una issue GitHub"
+  },
+  "tipExcludedCampaigns": {
+    "message": "Hai escluso una campagna per errore? Ripristinala dalle impostazioni Drop."
+  },
   "noCampaigns": {
     "message": "Nessuna campagna scoperta finora."
   },
   "noActivity": {
     "message": "Nessuna attività registrata. Premi aggiorna per eseguire un controllo."
   },
+  "noDiagnostics": {
+    "message": "Nessuna diagnostica registrata. Compare mentre l'estensione lavora."
+  },
   "platformActivity": {
     "message": "Attività $1"
+  },
+  "platformDiagnostics": {
+    "message": "Diagnostica $1"
   },
   "lastCheck": {
     "message": "ultimo controllo $1"
@@ -407,6 +440,18 @@
   "tablessDescription": {
     "message": "Farma tramite segnali leggeri invece di una scheda video. Twitch usa heartbeat di visione; Kick usa una connessione viewer. Torna automaticamente a una scheda se smette di funzionare."
   },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "Soglia di fallback della modalità senza schede"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "Apre una scheda video dopo questo numero di segnali di visione senza schede falliti consecutivamente."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "Attiva la modalità a basso consumo senza schede per modificare questa impostazione."
+  },
+  "failuresSuffix": {
+    "message": "errori"
+  },
   "autoCloseTabsTitle": {
     "message": "Chiudi automaticamente le schede di farming"
   },
@@ -479,13 +524,27 @@
   "secondsSuffix": {
     "message": "sec"
   },
-  "deadlineSafetyMarginTitle": { "message": "Margine di sicurezza della scadenza" },
-  "deadlineSafetyMarginDescription": { "message": "Minuti aggiuntivi richiesti prima di farmare una ricompensa." },
-  "deadlineSafetyMarginDisabledReason": { "message": "Attiva il filtro delle scadenze per modificare il margine." },
-  "skipUnfinishableRewardsTitle": { "message": "Salta le ricompense impossibili da completare" },
-  "skipUnfinishableRewardsDescription": { "message": "Non farmare ricompense se il tempo di visione restante supera la scadenza." },
-  "minutesSuffix": { "message": "min." },
-  "insufficientTimeRemaining": { "message": "Tempo rimanente insufficiente" },
+  "deadlineSafetyMarginTitle": {
+    "message": "Margine di sicurezza della scadenza"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "Minuti aggiuntivi richiesti prima di farmare una ricompensa."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "Attiva il filtro delle scadenze per modificare il margine."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "Salta le ricompense impossibili da completare"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "Non farmare ricompense se il tempo di visione restante supera la scadenza."
+  },
+  "minutesSuffix": {
+    "message": "min."
+  },
+  "insufficientTimeRemaining": {
+    "message": "Tempo rimanente insufficiente"
+  },
   "automationSectionTitle": {
     "message": "Automazione"
   },
@@ -561,11 +620,26 @@
   "activityLogLevelsDescription": {
     "message": "Scegli quali livelli registrare nel log attività. Gli errori vengono sempre mantenuti."
   },
-  "visibleCampaignsTitle": {
-    "message": "Campagne visibili"
+  "farmUnlinkedTitle": {
+    "message": "Farma campagne senza account collegato"
   },
-  "visibleCampaignsDescription": {
-    "message": "Scegli quali stati campagna mostrare nella lista Drop. Una campagna con ricompensa riscattabile resta sempre visibile."
+  "farmUnlinkedDescription": {
+    "message": "Se disattivato, le campagne che richiedono di collegare il tuo account vengono saltate. Kick accumula comunque tempo di visione prima del collegamento."
+  },
+  "farmSubscriptionTitle": {
+    "message": "Farma campagne che richiedono un abbonamento"
+  },
+  "farmSubscriptionDescription": {
+    "message": "Se disattivato, le campagne le cui ricompense richiedono un abbonamento al canale vengono saltate."
+  },
+  "dropsListFilterTitle": {
+    "message": "Vista della lista Drop"
+  },
+  "dropsListFilterDescription": {
+    "message": "Scegli quali campagne sono mostrate nella lista Drop. Una campagna con ricompensa riscattabile resta sempre visibile."
+  },
+  "dropsListFilterLockedHint": {
+    "message": "Sempre mostrate mentre stai farmando queste campagne."
   },
   "forgetExcludedTitle": {
     "message": "Dimentica campagne escluse"
@@ -666,10 +740,18 @@
   "siteAttributionShort": {
     "message": "Sito web"
   },
-  "updateNoticeTitle": { "message": "Lurkloot è stato aggiornato alla versione $1" },
-  "updateNoticeBody": { "message": "Scopri le novità e le modifiche." },
-  "updateNoticeAction": { "message": "Vedi modifiche" },
-  "updateNoticeDismiss": { "message": "Chiudi l’avviso di aggiornamento" },
+  "updateNoticeTitle": {
+    "message": "Lurkloot è stato aggiornato alla versione $1"
+  },
+  "updateNoticeBody": {
+    "message": "Scopri le novità e le modifiche."
+  },
+  "updateNoticeAction": {
+    "message": "Vedi modifiche"
+  },
+  "updateNoticeDismiss": {
+    "message": "Chiudi l’avviso di aggiornamento"
+  },
   "rateNudgeTitle": {
     "message": "Ti piace Lurkloot?"
   },
@@ -706,15 +788,33 @@
   "cliExportButton": {
     "message": "Esporta credenziali"
   },
-  "factoryResetTitle": { "message": "Reimposta Lurkloot" },
-  "factoryResetHint": { "message": "Cancella tutte le impostazioni, i progressi di farming e la cronologia attività di Lurkloot. Gli account Twitch e Kick rimarranno connessi." },
-  "factoryResetButton": { "message": "Reimposta Lurkloot" },
-  "factoryResetConfirm": { "message": "Interrompe il farming, chiude le schede aperte da Lurkloot e cancella definitivamente tutti i dati di Lurkloot. Twitch e Kick rimarranno connessi." },
-  "factoryResetCancel": { "message": "Annulla" },
-  "factoryResetConfirmButton": { "message": "Reimposta tutto" },
-  "factoryResetProgress": { "message": "Reimpostazione…" },
-  "factoryResetFailed": { "message": "Non è stato possibile reimpostare completamente Lurkloot. Riprova." },
-  "factoryResetRetry": { "message": "Riprova" },
+  "factoryResetTitle": {
+    "message": "Reimposta Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "Cancella tutte le impostazioni, i progressi di farming e la cronologia attività di Lurkloot. Gli account Twitch e Kick rimarranno connessi."
+  },
+  "factoryResetButton": {
+    "message": "Reimposta Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "Interrompe il farming, chiude le schede aperte da Lurkloot e cancella definitivamente tutti i dati di Lurkloot. Twitch e Kick rimarranno connessi."
+  },
+  "factoryResetCancel": {
+    "message": "Annulla"
+  },
+  "factoryResetConfirmButton": {
+    "message": "Reimposta tutto"
+  },
+  "factoryResetProgress": {
+    "message": "Reimpostazione…"
+  },
+  "factoryResetFailed": {
+    "message": "Non è stato possibile reimpostare completamente Lurkloot. Riprova."
+  },
+  "factoryResetRetry": {
+    "message": "Riprova"
+  },
   "diagnosticLoggingTitle": {
     "message": "Includi registri diagnostici"
   },
@@ -733,13 +833,57 @@
   "activityChallengeClaimed": {
     "message": "Riscattata una carta $1 dalla sfida $2"
   },
-  "activityAuthHealthChanged": { "message": "L’autenticazione di $1 è passata da $2 a $3." },
-  "activityPageContextOpened": { "message": "È stato aperto un contesto in background su $1 perché $2." },
-  "activityPageContextClosed": { "message": "Il contesto in background su $1 è stato chiuso perché $2." },
-  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick ha rifiutato la richiesta senza scheda" },
-  "activityPageContextReasonManagedContextUnusable": { "message": "il contesto precedente non era utilizzabile" },
-  "activityPageContextCloseReasonBackgroundRecovered": { "message": "le richieste senza scheda sono state ripristinate" },
-  "activityPageContextCloseReasonUserTabAvailable": { "message": "è diventata disponibile una scheda Kick esistente" },
+  "activityAuthHealthChanged": {
+    "message": "L’autenticazione di $1 è passata da $2 a $3."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 non funziona: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "Errore critico di $1 ignorato; nuovo tentativo in corso."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "nessun progresso nonostante errori ripetuti"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "una scheda continuava a riaprirsi"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot ha smesso di funzionare"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "Errori ripetuti e nessun progresso nei drop per molto tempo. Probabilmente qualcosa è cambiato su questa piattaforma e l'estensione non riesce più a ottenere drop."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "Una scheda continuava a riaprirsi. La riapertura è stata interrotta così puoi usare il browser normalmente e il farming è in pausa su questa piattaforma."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "Copia i log e apri una segnalazione"
+  },
+  "criticalFailureDismiss": {
+    "message": "Ignora e riprova"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "Copia automatica non riuscita. Seleziona e copia questo testo, poi apri una segnalazione."
+  },
+  "activityPageContextOpened": {
+    "message": "È stato aperto un contesto in background su $1 perché $2."
+  },
+  "activityPageContextClosed": {
+    "message": "Il contesto in background su $1 è stato chiuso perché $2."
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick ha rifiutato la richiesta senza scheda"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "il contesto precedente non era utilizzabile"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "le richieste senza scheda sono state ripristinate"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "è diventata disponibile una scheda Kick esistente"
+  },
   "activityInterruption": {
     "message": "Raccolta interrotta: $1."
   },
@@ -752,7 +896,9 @@
   "activityReasonPlatformDisabled": {
     "message": "la piattaforma è stata disattivata"
   },
-  "activityReasonAuthenticationUnhealthy": { "message": "l’autenticazione non è disponibile" },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "l’autenticazione non è disponibile"
+  },
   "activityReasonPlatformBackoff": {
     "message": "la piattaforma è temporaneamente in attesa"
   },
@@ -789,11 +935,11 @@
   "activityReasonTargetChanged": {
     "message": "l’obiettivo di raccolta è cambiato"
   },
+  "activityReasonCriticalFailure": {
+    "message": "è stato rilevato un errore critico"
+  },
   "activityReasonManualWatch": {
     "message": "è subentrata la visione manuale"
-  },
-  "hideDiagnosticLogs": {
-    "message": "Nascondi diagnostica"
   },
   "loadMoreActivity": {
     "message": "Carica altro"
@@ -807,8 +953,20 @@
   "clearActivityFailed": {
     "message": "Impossibile cancellare la cronologia. Riprova."
   },
-  "showDiagnosticLogs": {
-    "message": "Mostra diagnostica"
+  "copyActivityLog": {
+    "message": "Copia registro"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 eventi copiati"
+  },
+  "copyActivityLogFailed": {
+    "message": "Impossibile copiare il registro. Riprova."
+  },
+  "activityViewTab": {
+    "message": "Attività"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnostica"
   },
   "settingsGroupCompatibility": {
     "message": "Compatibilità"
@@ -903,6 +1061,9 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "Query inventario v1"
   },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Query inventario v2"
+  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick luglio 2026"
   },
@@ -912,17 +1073,55 @@
   "compatibilityOptionKickClaimV2": {
     "message": "Gestione link v2"
   },
-  "automationChecking": { "message": "Verifica" },
-  "automationNeedsSignIn": { "message": "Accesso necessario" },
-  "automationBlocked": { "message": "Bloccato" },
-  "automationUnavailable": { "message": "Non disponibile" },
-  "authCheckingDetail": { "message": "Verifica della sessione connessa…" },
-  "authSignInMissing": { "message": "Accedi per continuare a ottenere drop." },
-  "authSignInRejected": { "message": "La sessione non è più valida. Accedi di nuovo per continuare." },
-  "signInToTwitch": { "message": "Accedi a Twitch" },
-  "signInToKick": { "message": "Accedi a Kick" },
-  "authBrowserProfileBlocked": { "message": "Kick ha rifiutato questo profilo del browser. Il solo accesso potrebbe non risolvere il problema." },
-  "authCredentialCheckUnavailable": { "message": "Non è stato possibile verificare la sessione del browser. Lurkloot riproverà automaticamente." },
-  "authNetworkTemporarilyUnavailable": { "message": "La rete è temporaneamente non disponibile. Lurkloot riproverà automaticamente." },
-  "authPlatformTemporarilyUnavailable": { "message": "La piattaforma è temporaneamente non disponibile. Lurkloot riproverà automaticamente." }
+  "automationChecking": {
+    "message": "Verifica"
+  },
+  "automationNeedsSignIn": {
+    "message": "Accesso necessario"
+  },
+  "automationBlocked": {
+    "message": "Bloccato"
+  },
+  "automationUnavailable": {
+    "message": "Non disponibile"
+  },
+  "authCheckingDetail": {
+    "message": "Verifica della sessione connessa…"
+  },
+  "authSignInMissing": {
+    "message": "Accedi per continuare a ottenere drop."
+  },
+  "authSignInRejected": {
+    "message": "La sessione non è più valida. Accedi di nuovo per continuare."
+  },
+  "signInToTwitch": {
+    "message": "Accedi a Twitch"
+  },
+  "signInToKick": {
+    "message": "Accedi a Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick ha rifiutato questo profilo del browser. Il solo accesso potrebbe non risolvere il problema."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "Non è stato possibile verificare la sessione del browser. Lurkloot riproverà automaticamente."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "La rete è temporaneamente non disponibile. Lurkloot riproverà automaticamente."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "La piattaforma è temporaneamente non disponibile. Lurkloot riproverà automaticamente."
+  },
+  "automationPausedTabClosed": {
+    "message": "In pausa — scheda chiusa"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "Hai chiuso la scheda di farming, quindi Lurkloot ha smesso di farmare qui."
+  },
+  "resumeFarming": {
+    "message": "Riprendi il farming"
+  },
+  "activityReasonManualTabClose": {
+    "message": "scheda di farming chiusa"
+  }
 }

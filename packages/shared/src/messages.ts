@@ -5,13 +5,16 @@ import type { SettingsPatch } from "./settings";
 export type CoreRuntimeMessage =
   | { type: "getSnapshot" }
   | { type: "getPlaybackControl"; platform: Platform }
-  | { type: "setRunning"; running: boolean }
   | { type: "setPlatformEnabled"; platform: Platform; enabled: boolean }
   | { type: "setAutomation"; platform: Platform; enabled: boolean }
   | { type: "saveSettings"; settingsPatch: SettingsPatch; tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }
   | { type: "claimReward"; platform: Platform; campaignId: string; rewardId: string }
   | { type: "searchCategories"; platform: Platform; query: string }
   | { type: "tickNow" }
+  | { type: "resumeAfterManualClose"; platform: Platform }
+  // Handled by the engine controller, not the extension shell: dismissing resets
+  // the detector, closes the managed-tab breaker and lets farming resume.
+  | { type: "dismissCriticalFailure"; platform: Platform }
   | {
       type: "playbackTelemetry";
       platform: Platform;

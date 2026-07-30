@@ -6,7 +6,7 @@ import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import { PLATFORMS } from "./constants";
 import { Pill } from "./primitives";
 import {
-  CampaignFilterSettingRow,
+  DropsListFilterRow,
   ForgetExcludedCampaignsRow,
   NumberSettingRow,
   SelectSettingRow,
@@ -151,6 +151,21 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             descriptionKey: "autoClaimDescription",
             render: () => <SettingRow title={t("autoClaimTitle")} description={t("autoClaimDescription")} checked={settings.autoClaim} onChange={setFlag("autoClaim")} />,
           },
+          // Farming-eligibility toggles: they change what gets farmed, so they
+          // sit with the other behaviour rows and re-tick on save. Distinct from
+          // the display-only chip row below, which changes nothing the engine does.
+          {
+            id: "general.drops.farmUnlinked",
+            titleKey: "farmUnlinkedTitle",
+            descriptionKey: "farmUnlinkedDescription",
+            render: () => <SettingRow title={t("farmUnlinkedTitle")} description={t("farmUnlinkedDescription")} checked={settings.farmingEligibility.farmUnlinkedCampaigns} onChange={(value) => void onSettingsChange({ farmingEligibility: { farmUnlinkedCampaigns: value } }, { tickAfterSave: true })} />,
+          },
+          {
+            id: "general.drops.farmSubscription",
+            titleKey: "farmSubscriptionTitle",
+            descriptionKey: "farmSubscriptionDescription",
+            render: () => <SettingRow title={t("farmSubscriptionTitle")} description={t("farmSubscriptionDescription")} checked={settings.farmingEligibility.farmSubscriptionCampaigns} onChange={(value) => void onSettingsChange({ farmingEligibility: { farmSubscriptionCampaigns: value } }, { tickAfterSave: true })} />,
+          },
           {
             id: "general.drops.priorityMode",
             titleKey: "campaignPriorityTitle",
@@ -176,10 +191,13 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             render: () => <SettingRow title={t("idleWatchlistFallbackOnlyTitle")} description={t("idleWatchlistFallbackOnlyDescription")} checked={settings.idleWatchlistFallbackOnly} onChange={(value) => void onSettingsChange({ idleWatchlistFallbackOnly: value }, { tickAfterSave: true })} />,
           },
           {
-            id: "general.drops.campaignVisibility",
-            titleKey: "visibleCampaignsTitle",
-            descriptionKey: "visibleCampaignsDescription",
-            render: () => <CampaignFilterSettingRow value={settings.campaignVisibility} onChange={(campaignVisibility) => void onSettingsChange({ campaignVisibility }, { tickAfterSave: true })} />,
+            id: "general.drops.dropsListFilter",
+            titleKey: "dropsListFilterTitle",
+            descriptionKey: "dropsListFilterDescription",
+            // Display-only: saving does not re-tick, matching other pure-view
+            // settings (e.g. the language/appearance rows), because it changes
+            // nothing the engine does.
+            render: () => <DropsListFilterRow value={settings.dropsListFilter} farmingEligibility={settings.farmingEligibility} onChange={(dropsListFilter) => void onSettingsChange({ dropsListFilter })} />,
           },
           {
             id: "general.drops.forgetExcluded",
@@ -252,6 +270,27 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             titleKey: "schedulerIntervalTitle",
             descriptionKey: "schedulerIntervalDescription",
             render: () => <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={Math.round(settings.pollIntervalMinutes * 60)} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => void onSettingsChange({ pollIntervalMinutes: value / 60 })} />,
+          },
+          {
+            id: "general.advanced.tablessFallbackFailureLimit",
+            titleKey: "tablessFallbackFailureLimitTitle",
+            descriptionKey: "tablessFallbackFailureLimitDescription",
+            render: () => (
+              <NumberSettingRow
+                title={t("tablessFallbackFailureLimitTitle")}
+                description={t("tablessFallbackFailureLimitDescription")}
+                value={settings.tablessFallbackFailureLimit}
+                min={1}
+                max={10}
+                suffix={t("failuresSuffix")}
+                disabled={!settings.tablessMode}
+                disabledReason={t("tablessFallbackFailureLimitDisabledReason")}
+                onChange={(value) => void onSettingsChange(
+                  { tablessFallbackFailureLimit: value },
+                  { tickAfterSave: true },
+                )}
+              />
+            ),
           },
           {
             id: "general.advanced.postClaimHandoff",

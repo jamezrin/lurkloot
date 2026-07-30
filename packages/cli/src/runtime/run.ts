@@ -43,6 +43,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     reportEvents: (events) => reportCliEvents(events, logger),
     // The CLI drives its own interval below, so alarm scheduling is a no-op.
     createAlarm: async () => {},
+    createAdapter: (platform, emit, currentSettings) => transport.createAdapter(platform, emit, currentSettings),
     createAdapters: (emit, currentSettings) => transport.createAdapters(emit, currentSettings),
     createNotification: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
     ...(options.checkCredentialAvailability ? { checkCredentialAvailability: options.checkCredentialAvailability } : {}),
@@ -86,7 +87,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
       // Before disposing the transport: a post-claim handoff started by the last
       // tick would otherwise keep refreshing against disposed resources, and its
       // pending delay would hold the process open until the handoff's deadline.
-      controller.abortClaimHandoffs();
+      controller.shutdown();
       await transport.dispose();
       resolveLoop();
     };

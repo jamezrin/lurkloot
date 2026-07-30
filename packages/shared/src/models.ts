@@ -1,3 +1,5 @@
+import type { CriticalHealthState } from "./criticalHealth";
+
 export type Platform = "twitch" | "kick";
 
 export type PlatformAuthStatus = "checking" | "healthy" | "missing_credentials" | "invalid_credentials" | "blocked" | "unavailable";
@@ -118,12 +120,17 @@ export interface WatchSession {
   campaignId?: string;
   rewardId?: string;
   startedAt?: string;
+  // When the current watch tab was opened (or re-opened / re-navigated). Playback
+  // telemetry only becomes meaningful once the page has had time to attach a
+  // player, so the scheduler grants a grace period from this instant before it
+  // starts counting unhealthy playback checks.
+  watchTabOpenedAt?: string;
   lastCheckedAt?: string;
   offlineChecks: number;
   playbackChecks?: number;
   errorChecks?: number;
   retryAfter?: string;
-  status: "idle" | "watching" | "paused" | "error";
+  status: "idle" | "starting" | "watching" | "paused" | "error";
   message?: string;
   reasonCode?: WatchReasonCode;
   playback?: PlaybackTelemetry;
@@ -136,7 +143,7 @@ export interface WatchSession {
   tablessFallback?: boolean;
   // Health of the tabless heartbeat. lastHeartbeatOk is whether the last watch
   // signal was accepted; heartbeatChecks counts consecutive unhealthy checks so
-  // the scheduler can fall back to a real tab after offlineRetryLimit.
+  // the scheduler can fall back to a real tab after tablessFallbackFailureLimit.
   lastHeartbeatAt?: string;
   lastHeartbeatOk?: boolean;
   heartbeatChecks?: number;
@@ -148,6 +155,7 @@ export type WatchReasonCode =
   | "no_eligible_channel"
   | "no_existing_session"
   | "manual_watch"
+  | "manual_tab_close"
   | "automation_disabled"
   | "platform_disabled"
   | "authentication_unhealthy"
@@ -164,7 +172,8 @@ export type WatchReasonCode =
   | "keeping_idle_watchlist"
   | "watch_requirement_completed"
   | "runtime_restart"
-  | "target_changed";
+  | "target_changed"
+  | "critical_failure";
 
 export interface ManagedWatchTab {
   platform: Platform;
@@ -184,6 +193,16 @@ export interface ManagedPageContextTab {
   backgroundSuccesses?: number;
 }
 
+// Recorded when the user closes an extension-owned watch tab. Closing the
+// window LurkLoot opened is the most direct "stop" gesture available, so the
+// scheduler treats it as an explicit per-platform pause until the user resumes
+// from the popup. It never touches the user's enabled/running settings.
+export interface ManualClosePauseState {
+  platform: Platform;
+  closedAt: string;
+  channelUrl?: string;
+}
+
 export interface ManualWatchState {
   platform: Platform;
   tabId: number;
@@ -195,7 +214,13 @@ export type PriorityMode = "ending_soonest" | "lowest_availability" | "priority_
 
 // Visibility categories for the Drops list. A campaign in one of these states is
 // only shown when its toggle is on; campaigns in none of them are always shown.
-export type CampaignFilterKey = "notLinked" | "subscription" | "upcoming" | "expired" | "excluded" | "finished";
+// Filter keys that gate farming: the engine's isEligible consults exactly these.
+export type FarmingFilterKey = "notLinked" | "subscription";
+// Filter keys that only decide what the Drops list shows. `excluded` is here
+// deliberately: exclusion is already enforced for farming by excludedCampaignIds,
+// so a farming key named `excluded` would have to mean "farm what I excluded".
+export type DisplayFilterKey = "upcoming" | "expired" | "excluded" | "finished";
+export type CampaignFilterKey = FarmingFilterKey | DisplayFilterKey;
 
 export interface PlaybackTelemetry {
   platform: Platform;
@@ -278,7 +303,13 @@ export interface CompatibilitySettings {
 // host (extension or CLI). Host-only knobs (browser tab policy, popup UI) live on
 // ExtensionSettings below, never here.
 export interface EngineSettings {
-  running: boolean;
+  // There is deliberately no global `running` flag. Farming is active for a
+  // platform when that platform is enabled, and nothing else — see
+  // isFarmingActive(). A separate master switch used to drift out of step with
+  // the per-platform flags (the popup rendered `running && enabled`, so a
+  // cleared master hid still-enabled platforms and re-enabling one resurrected
+  // the others), and autoStartDropFarming now expresses "do not resume on
+  // restart" by clearing the per-platform flags instead.
   autoClaim: boolean;
   // Low-resource mode: farm by sending watch signals instead of opening a
   // video tab. Twitch uses API heartbeats; Kick uses a viewer WebSocket. Falls
@@ -294,7 +325,19 @@ export interface EngineSettings {
   compatibility: CompatibilitySettings;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
+  // Which campaigns are eligible to farm. Both default true; turning one off
+  // skips that class in the scheduler's isEligible. Distinct from the popup's
+  // dropsListFilter (display-only) so "don't farm" never implies "don't show".
+  farmingEligibility: {
+    // off: skip campaigns with no linked account (real on Kick, which accrues
+    // watch progress before linking).
+    farmUnlinkedCampaigns: boolean;
+    // off: skip campaigns that require a subscription.
+    farmSubscriptionCampaigns: boolean;
+  };
   offlineRetryLimit: number;
+  // Consecutive failed tabless heartbeats before falling back to a watch tab.
+  tablessFallbackFailureLimit: number;
   pollIntervalMinutes: number;
   // Bounded post-claim handoff. After a reward is claimed, re-run discovery for
   // that platform on this cadence until the next eligible reward appears, then
@@ -305,21 +348,36 @@ export interface EngineSettings {
   postClaimHandoffMaxSeconds: number;
   skipUnfinishableRewards: boolean;
   deadlineSafetyMarginMinutes: number;
+  // Kill switch for the critical-failure detector and its popup prompt. On by
+  // default; thresholds themselves are fixed constants in core.
+  criticalFailurePromptEnabled: boolean;
 }
 
 // The browser extension's full settings schema: the engine contract plus the
 // host-only knobs the engine never reads. Tab policy (mute / ad focus / auto-close
 // / keep-unmuted) is supplied to the engine through the injected WatchTabPort and
-// applyAdFocus, not read from settings by the engine; popup UI state (i18n, Drops
-// filter, rate nudge) is pure host state.
+// applyAdFocus, not read from settings by the engine; popup UI state (i18n, rate
+// nudge) is pure host state.
 export interface ExtensionSettings extends EngineSettings {
   muteFarmingTabs: boolean;
   keepFarmingVideosUnmuted: boolean;
   autoCloseFinishedDrops: boolean;
+  // Which campaigns appear in the Drops list. Pure display prefs: the engine
+  // never reads it, so it lives on ExtensionSettings, not the contract. The
+  // farming axis (farmingEligibility) is entirely separate. showNotLinked/
+  // showSubscription only ever hide a class that is NOT being farmed —
+  // not-linked/subscription campaigns stay visible while farmed regardless of
+  // these two flags (the visibility invariant, enforced in isCampaignVisible).
+  dropsListFilter: {
+    showUpcoming: boolean;     // default true
+    showExpired: boolean;      // default false
+    showFinished: boolean;     // default true
+    showExcluded: boolean;     // default false
+    showNotLinked: boolean;    // default true
+    showSubscription: boolean; // default true
+  };
   adFocusMode: AdFocusMode;
   languageOverride: LanguageOverride;
-  // Which campaign states are shown in the Drops list. See CampaignFilterKey.
-  campaignVisibility: Record<CampaignFilterKey, boolean>;
   rateNudgeStatus: RateNudgeStatus;
   showTips: boolean;
   // Extension-only persistence policy. Normal farming activity is always
@@ -330,9 +388,15 @@ export interface ExtensionSettings extends EngineSettings {
 export interface SchedulerState {
   sessions: Record<Platform, WatchSession>;
   authHealth: Record<Platform, PlatformAuthHealth>;
+  // Per-platform critical-failure detection. Persisted so the flag survives an
+  // MV3 service-worker restart; its counters are reset on restore.
+  criticalHealth?: Partial<Record<Platform, CriticalHealthState>>;
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
+  // Platforms paused because the user manually closed their managed watch tab.
+  // Cleared only by an explicit resume from the popup/CLI host.
+  manualClosePause?: Partial<Record<Platform, ManualClosePauseState>>;
   // Last time each platform's account-level gamification endpoints were polled.
   // Persisted because adapters are rebuilt every tick, so an in-memory throttle
   // would never survive to the next one.

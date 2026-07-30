@@ -11,9 +11,9 @@ describe("engine settings", () => {
     "autoCloseFinishedDrops",
     "adFocusMode",
     "languageOverride",
-    "campaignVisibility",
     "rateNudgeStatus",
     "diagnosticLogging",
+    "dropsListFilter",
   ] as const;
 
   it("normalizes the engine contract without the host-only fields", () => {
@@ -42,7 +42,8 @@ describe("settings", () => {
       platform: { ...DEFAULT_SETTINGS.platform, twitch: { ...DEFAULT_SETTINGS.platform.twitch, watchQueueChannels: ["legacy"] } },
     } as never);
     expect(merged.idleWatchlistFallbackOnly).toBe(DEFAULT_SETTINGS.idleWatchlistFallbackOnly);
-    expect(merged.diagnosticLogging).toBe(false);
+    // verboseLogging is not read here; the default applies.
+    expect(merged.diagnosticLogging).toBe(true);
     expect(merged.platform.twitch.autoClaimChannelPoints).toBe(true);
     expect(merged.platform.twitch.idleWatchlistChannels).toEqual([]);
     expect(merged).not.toHaveProperty("watchQueueFallbackOnly");
@@ -102,7 +103,7 @@ describe("settings", () => {
       languageOverride: "browser",
       idleWatchlistFallbackOnly: true,
       pollIntervalMinutes: 1,
-      diagnosticLogging: false,
+      diagnosticLogging: true,
       platform: {
         twitch: { excludedChannels: [], farmAllCategories: true, categories: [] },
         kick: { excludedChannels: [], farmAllCategories: true, categories: [] },
@@ -116,10 +117,24 @@ describe("settings", () => {
     expect(mergeSettings({ showTips: "no" } as never).showTips).toBe(true);
   });
 
-  it("defaults subscription campaigns to visible while preserving persisted choices", () => {
-    expect(DEFAULT_SETTINGS.campaignVisibility.subscription).toBe(true);
-    expect(mergeSettings({ campaignVisibility: { subscription: false } } as never).campaignVisibility.subscription).toBe(false);
-    expect(mergeSettings({ campaignVisibility: { expired: true } } as never).campaignVisibility.subscription).toBe(true);
+  it("defaults the drops list view flags while preserving persisted choices", () => {
+    expect(DEFAULT_SETTINGS.dropsListFilter).toEqual({
+      showUpcoming: true,
+      showExpired: false,
+      showFinished: true,
+      showExcluded: false,
+      showNotLinked: true,
+      showSubscription: true,
+    });
+    // A partial persisted record fills the rest from defaults.
+    expect(mergeSettings({ dropsListFilter: { showExpired: true } } as never).dropsListFilter).toEqual({
+      showUpcoming: true,
+      showExpired: true,
+      showFinished: true,
+      showExcluded: false,
+      showNotLinked: true,
+      showSubscription: true,
+    });
   });
 
   it("clamps persisted numeric settings to browser-safe ranges", () => {
@@ -129,6 +144,20 @@ describe("settings", () => {
     expect(mergeSettings({ pollIntervalMinutes: Number.NaN, offlineRetryLimit: Number.NaN }).pollIntervalMinutes)
       .toBe(DEFAULT_SETTINGS.pollIntervalMinutes);
     expect(mergeSettings({ offlineRetryLimit: Number.NaN }).offlineRetryLimit).toBe(DEFAULT_SETTINGS.offlineRetryLimit);
+
+    expect(DEFAULT_ENGINE_SETTINGS.tablessFallbackFailureLimit).toBe(5);
+    expect(mergeEngineSettings({}).tablessFallbackFailureLimit).toBe(5);
+    expect(mergeEngineSettings({ tablessFallbackFailureLimit: 0 }).tablessFallbackFailureLimit).toBe(1);
+    expect(mergeEngineSettings({ tablessFallbackFailureLimit: 11 }).tablessFallbackFailureLimit).toBe(10);
+    expect(mergeEngineSettings({ tablessFallbackFailureLimit: 4.6 }).tablessFallbackFailureLimit).toBe(5);
+    expect(mergeEngineSettings({ tablessFallbackFailureLimit: Number.NaN }).tablessFallbackFailureLimit).toBe(5);
+    expect(mergeEngineSettings({
+      offlineRetryLimit: 9,
+      tablessFallbackFailureLimit: 2,
+    })).toMatchObject({
+      offlineRetryLimit: 9,
+      tablessFallbackFailureLimit: 2,
+    });
   });
 
   it("clamps post-claim handoff settings and defaults them when absent", () => {
@@ -161,7 +190,7 @@ describe("settings", () => {
   });
 
   it("keeps diagnostic logging independent from the removed engine log-level setting", () => {
-    expect(mergeSettings(undefined).diagnosticLogging).toBe(false);
+    expect(mergeSettings(undefined).diagnosticLogging).toBe(true);
     expect(mergeSettings({ diagnosticLogging: true }).diagnosticLogging).toBe(true);
     expect(mergeSettings({ diagnosticLogging: false, enabledLogLevels: ["debug"] } as never).diagnosticLogging).toBe(false);
     expect("enabledLogLevels" in mergeSettings({ enabledLogLevels: ["debug"] } as never)).toBe(false);
@@ -189,7 +218,6 @@ describe("settings", () => {
       excludedCampaignIds: [" Abc ", "abc", "Abc"],
     } as unknown as Parameters<typeof mergeSettings>[0]);
 
-    expect(settings.running).toBe(DEFAULT_SETTINGS.running);
     expect(settings.keepFarmingVideosUnmuted).toBe(false);
     expect(settings.pauseOnManualWatch).toBe(DEFAULT_SETTINGS.pauseOnManualWatch);
     expect(settings.priorityMode).toBe(DEFAULT_SETTINGS.priorityMode);
@@ -288,5 +316,24 @@ describe("per-platform claim settings", () => {
       platform: { ...DEFAULT_SETTINGS.platform, kick: { ...DEFAULT_SETTINGS.platform.kick, autoClaimChallenges: false } },
     });
     expect(merged.platform.kick.autoClaimChallenges).toBe(false);
+  });
+});
+
+describe("farmingEligibility in the engine contract", () => {
+  it("defaults both eligibility flags on", () => {
+    expect(DEFAULT_ENGINE_SETTINGS.farmingEligibility).toEqual({
+      farmUnlinkedCampaigns: true,
+      farmSubscriptionCampaigns: true,
+    });
+  });
+
+  it("normalizes a partial eligibility record through the engine merge", () => {
+    const merged = mergeEngineSettings({ farmingEligibility: { farmUnlinkedCampaigns: false } } as never);
+    expect(merged.farmingEligibility.farmUnlinkedCampaigns).toBe(false);
+    expect(merged.farmingEligibility.farmSubscriptionCampaigns).toBe(true);
+  });
+
+  it("keeps dropsListFilter off the engine contract", () => {
+    expect("dropsListFilter" in mergeEngineSettings({})).toBe(false);
   });
 });

@@ -3,6 +3,8 @@ import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSetting
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import {
   applyAdFocus,
+  cancelTwitchIntegrityAcquisition,
+  currentValidTwitchIntegrity,
   ensureTwitchIntegrity,
   fetchJsonInPage,
   fetchKickInBackground,
@@ -13,15 +15,16 @@ import {
   stopManagedPageContextTabs,
   stopWatchTab,
 } from "../src/core/tabs";
-import { ALARM_NAME, WATCH_ALARM_NAME, createBackgroundController } from "@lurkloot/core/controller";
+import { createBackgroundAlarmListener, createBackgroundController } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
-import type { ExtensionSettings, SupportedLocale } from "@lurkloot/shared/models";
+import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/shared/models";
+import type { EventEmitter } from "@lurkloot/shared/events";
 import type { WatchTabPort } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
-import { TwitchAdapter } from "@lurkloot/core/twitch";
+import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
 import { appendActivityEvents, clearActivityEvents, loadActivityEvents } from "../src/core/activityStorage";
@@ -32,7 +35,7 @@ import {
 } from "../src/core/activityMessages";
 import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
 import { createCredentialAvailabilityProvider } from "../src/core/credentialAvailability";
-import { createCredentialObserver } from "../src/core/credentialObserver";
+import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -45,6 +48,7 @@ const reportEvents = createActivityEventReporter({
   append: appendActivityEvents,
 });
 const kickClaimState = new KickClaimState();
+const twitchDiscoveryState = new TwitchDiscoveryState();
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const checkCredentialAvailability = createCredentialAvailabilityProvider({
   get: (details) => browser.cookies.get(details),
@@ -70,6 +74,59 @@ async function translate(key: string, substitutions?: string | string[]): Promis
   return translateFromCatalogs(key, substitutions, active, fallback ?? {});
 }
 
+function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings: ExtensionSettings) {
+  const resolution = resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" });
+  // The watch-tab port is operation-scoped so every browser diagnostic joins
+  // the same controller event batch as the adapter and scheduler events.
+  const watchTabPort: WatchTabPort = {
+    openPinnedMutedTab: async (channel, session, options) => {
+      const settings = await loadSettings();
+      return openPinnedMutedTab(channel, session, {
+        muted: settings.muteFarmingTabs,
+        keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
+        closeManagedTabs: settings.autoCloseFinishedDrops,
+        ...options,
+      }, emit);
+    },
+    stopWatchTab: async (session, options) => {
+      const settings = await loadSettings();
+      return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options }, emit);
+    },
+  };
+  const adapter = platform === "twitch"
+    ? new TwitchAdapter(
+      { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
+      (request) => ensureTwitchIntegrity(emit, request),
+      watchTabPort,
+      {
+        compatibility: resolution.compatibility.twitch,
+        discoveryState: twitchDiscoveryState,
+        currentIntegrity: currentValidTwitchIntegrity,
+        heartbeatIdentity: "web",
+        heartbeatFetchText: twitchHeartbeatFetchText,
+        heartbeatPost: twitchHeartbeatPost,
+      },
+      emit,
+    )
+    : new KickAdapter(
+      createKickFetcher({
+        background: (url, init) => fetchKickInBackground<unknown>(url, init),
+        pageFetch: (url, init) => fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
+          retainPageContext: { platform: "kick" },
+          emit,
+          openReason: "background_rejected",
+        }),
+        onBackgroundSuccess: (host, operationEmit) => recordManagedPageContextBackgroundSuccess(host, operationEmit),
+        onPageFallback: (host, operationEmit) => recordManagedPageContextFallback(host, operationEmit),
+      }),
+      watchTabPort,
+      undefined,
+      emit,
+      { compatibility: resolution.compatibility.kick, claimState: kickClaimState },
+    );
+  return { adapter, ...resolution };
+}
+
 const controller = createBackgroundController<ExtensionSettings>({
   loadSettings,
   saveSettings,
@@ -78,6 +135,13 @@ const controller = createBackgroundController<ExtensionSettings>({
   reportEvents,
   checkCredentialAvailability,
   createAlarm: (name, options) => browser.alarms.create(name, options),
+  getAlarm: async (name) => {
+    const alarm = await browser.alarms.get(name);
+    return alarm ? { scheduledTime: alarm.scheduledTime } : undefined;
+  },
+  clearAlarm: (name) => browser.alarms.clear(name),
+  ensureTwitchIntegrity: (emit, request) => ensureTwitchIntegrity(emit, request),
+  cancelTwitchIntegrityAcquisition,
   closeManagedTabs: async (tabs) => {
     await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
       try {
@@ -106,57 +170,17 @@ const controller = createBackgroundController<ExtensionSettings>({
   loadTwitchIntegrity,
   saveTwitchIntegrity,
   stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
+  createAdapter: createExtensionAdapter,
   createAdapters: (emit, settings) => {
-    const resolution = resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" });
-    // The watch-tab port is operation-scoped so every browser diagnostic joins
-    // the same controller event batch as the adapter and scheduler events.
-    const watchTabPort: WatchTabPort = {
-      openPinnedMutedTab: async (channel, session, options) => {
-        const settings = await loadSettings();
-        return openPinnedMutedTab(channel, session, {
-          muted: settings.muteFarmingTabs,
-          keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
-          closeManagedTabs: settings.autoCloseFinishedDrops,
-          ...options,
-        }, emit);
-      },
-      stopWatchTab: async (session, options) => {
-        const settings = await loadSettings();
-        return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options }, emit);
-      },
-    };
+    const twitch = createExtensionAdapter("twitch", emit, settings);
+    const kick = createExtensionAdapter("kick", emit, settings);
     return {
       adapters: {
-        twitch: new TwitchAdapter(
-          { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
-          () => ensureTwitchIntegrity(emit),
-          watchTabPort,
-          {
-            compatibility: resolution.compatibility.twitch,
-            heartbeatIdentity: "web",
-            heartbeatFetchText: twitchHeartbeatFetchText,
-            heartbeatPost: twitchHeartbeatPost,
-          },
-          emit,
-        ),
-        kick: new KickAdapter(
-          createKickFetcher({
-            background: (url, init) => fetchKickInBackground<unknown>(url, init),
-            pageFetch: (url, init) => fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
-              retainPageContext: { platform: "kick" },
-              emit,
-              openReason: "background_rejected",
-            }),
-            onBackgroundSuccess: (host, operationEmit) => recordManagedPageContextBackgroundSuccess(host, operationEmit),
-            onPageFallback: (host, operationEmit) => recordManagedPageContextFallback(host, operationEmit),
-          }),
-          watchTabPort,
-          undefined,
-          emit,
-          { compatibility: resolution.compatibility.kick, claimState: kickClaimState },
-        ),
+        twitch: twitch.adapter,
+        kick: kick.adapter,
       },
-      ...resolution,
+      compatibility: twitch.compatibility,
+      warnings: twitch.warnings,
     };
   },
 });
@@ -207,24 +231,20 @@ const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
 });
 
 export default defineBackground(() => {
-  createCredentialObserver({
-    onChanged: {
+  createCredentialHealthObserver(
+    {
       addListener: (listener) => browser.cookies.onChanged.addListener(listener),
       removeListener: (listener) => browser.cookies.onChanged.removeListener(listener),
     },
-    invalidate: (platform) => controller.invalidateAuthHealth(platform),
-    recheck: (platform) => controller.tickAndHandOff([platform]),
-  });
+    controller,
+  );
 
   browser.runtime.onInstalled.addListener(async (details) => {
     await controller.ensureAlarm();
     // Stamp the install date once so the popup can time the rate/review nudge.
     // Set-if-missing (rather than gating on reason === "install") also backfills
     // a sane date for users upgrading from a pre-nudge version.
-    const state = await loadState();
-    if (!state.installedAt) {
-      await saveState({ ...state, installedAt: new Date().toISOString() });
-    }
+    await controller.ensureInstalledAt();
 
     // On a meaningful update (major/minor — not a patch bugfix, not a fresh
     // install), queue a popup notice so returning users can choose to see
@@ -239,13 +259,7 @@ export default defineBackground(() => {
     await controller.handleStartup();
   });
 
-  browser.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === ALARM_NAME) {
-      void controller.tickAndHandOff();
-    } else if (alarm.name === WATCH_ALARM_NAME) {
-      void controller.runWatchHeartbeat();
-    }
-  });
+  browser.alarms.onAlarm.addListener(createBackgroundAlarmListener(controller));
 
   browser.tabs.onRemoved.addListener((tabId) => {
     void controller.handleTabRemoved(tabId);
@@ -258,7 +272,7 @@ export default defineBackground(() => {
   // Chrome build hides it, add "extraHeaders" to this spec.
   browser.webRequest.onBeforeSendHeaders.addListener(
     (details) => {
-      void controller.captureTwitchIntegrity(details.requestHeaders);
+      void controller.captureTwitchIntegrity(details.requestHeaders, details.tabId);
       return undefined;
     },
     { urls: ["https://gql.twitch.tv/*"] },

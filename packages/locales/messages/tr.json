@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "Yenile"
   },
+  "openInventory": {
+    "message": "Envanteri aç"
+  },
   "openActivity": {
     "message": "Geçmişi aç"
   },
@@ -182,8 +185,14 @@
   "noActivity": {
     "message": "Henüz işlem kaydı yok."
   },
+  "noDiagnostics": {
+    "message": "Henüz teknik kayıt yok. Uzantı çalıştıkça görünür."
+  },
   "platformActivity": {
     "message": "$1 geçmişi"
+  },
+  "platformDiagnostics": {
+    "message": "$1 teknik detayları"
   },
   "lastCheck": {
     "message": "Son kontrol: $1"
@@ -431,6 +440,18 @@
   "tablessDescription": {
     "message": "Sekme açmadan sessizce arka planda toplar. (İşlem takılırsa otomatik sekme açar.)"
   },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "Sekmesiz moddan geri dönüş eşiği"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "Art arda bu sayıda sekmesiz izleme sinyali başarısız olduğunda bir video sekmesi açar."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "Bu ayarı değiştirmek için düşük kaynak kullanan sekmesiz modu etkinleştirin."
+  },
+  "failuresSuffix": {
+    "message": "hata"
+  },
   "autoCloseTabsTitle": {
     "message": "Gereksiz sekmeleri kapat"
   },
@@ -599,11 +620,26 @@
   "activityLogLevelsDescription": {
     "message": "Hangi işlemlerin geçmişe kaydedileceğini seçin."
   },
-  "visibleCampaignsTitle": {
-    "message": "Gösterilecek kampanyalar"
+  "farmUnlinkedTitle": {
+    "message": "Bağlı hesabı olmayan kampanyaları farmla"
   },
-  "visibleCampaignsDescription": {
-    "message": "Drop listesinde hangi durumdaki kampanyaların görüneceğini seçin."
+  "farmUnlinkedDescription": {
+    "message": "Kapalıyken, hesabını bağlamanı gerektiren kampanyalar atlanır. Kick, bağlamadan önce yine de izleme süresi biriktirir."
+  },
+  "farmSubscriptionTitle": {
+    "message": "Abonelik gerektiren kampanyaları farmla"
+  },
+  "farmSubscriptionDescription": {
+    "message": "Kapalıyken, ödülleri kanal aboneliği gerektiren kampanyalar atlanır."
+  },
+  "dropsListFilterTitle": {
+    "message": "Drop listesi görünümü"
+  },
+  "dropsListFilterDescription": {
+    "message": "Drop listesinde hangi kampanyaların gösterileceğini seçin. Alınabilir ödülü olan bir kampanya her zaman görünür kalır."
+  },
+  "dropsListFilterLockedHint": {
+    "message": "Bu kampanyaları farmladığın sürece her zaman gösterilir."
   },
   "forgetExcludedTitle": {
     "message": "Gizlenen kampanyaları sıfırla"
@@ -800,6 +836,36 @@
   "activityAuthHealthChanged": {
     "message": "$1 oturum durumu değişti: $2 → $3."
   },
+  "activityCriticalFailureDetected": {
+    "message": "$1 çalışmıyor: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "$1 için kritik hata yoksayıldı; yeniden deneniyor."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "tekrarlanan hatalara rağmen ilerleme yok"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "bir sekme sürekli yeniden açılıyordu"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot çalışmayı durdurdu"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "Uzun süredir tekrarlanan hatalar ve drop ilerlemesi yok. Bu platformda bir şey değişmiş olabilir ve eklenti artık drop kazanamıyor."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "Bir sekme sürekli yeniden açılıyordu. Tarayıcınızı normal kullanabilmeniz için yeniden açma durduruldu ve bu platformda farm duraklatıldı."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "Günlükleri kopyala ve konu aç"
+  },
+  "criticalFailureDismiss": {
+    "message": "Kapat ve yeniden dene"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "Otomatik kopyalanamadı. Bu metni seçip kopyalayın, ardından bir konu açın."
+  },
   "activityPageContextOpened": {
     "message": "$1 üzerinde arka plan işlemi başlatıldı. Neden: $2."
   },
@@ -869,11 +935,11 @@
   "activityReasonTargetChanged": {
     "message": "Hedef değiştirildi"
   },
+  "activityReasonCriticalFailure": {
+    "message": "kritik bir hata algılandı"
+  },
   "activityReasonManualWatch": {
     "message": "Kanalı izlediğiniz için durduruldu"
-  },
-  "hideDiagnosticLogs": {
-    "message": "Teknik detayları gizle"
   },
   "loadMoreActivity": {
     "message": "Daha fazla göster"
@@ -887,8 +953,20 @@
   "clearActivityFailed": {
     "message": "Geçmiş temizlenemedi. Tekrar deneyin."
   },
-  "showDiagnosticLogs": {
-    "message": "Teknik detayları göster"
+  "copyActivityLog": {
+    "message": "Günlüğü kopyala"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 olay kopyalandı"
+  },
+  "copyActivityLogFailed": {
+    "message": "Günlük kopyalanamadı. Tekrar deneyin."
+  },
+  "activityViewTab": {
+    "message": "Geçmiş"
+  },
+  "diagnosticsViewTab": {
+    "message": "Teknik detaylar"
   },
   "settingsGroupCompatibility": {
     "message": "Uyumluluk"
@@ -983,6 +1061,9 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "Envanter sorgusu v1"
   },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Envanter sorgusu v2"
+  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick Temmuz 2026"
   },
@@ -1030,5 +1111,17 @@
   },
   "authPlatformTemporarilyUnavailable": {
     "message": "Platforma ulaşılamıyor. Otomatik tekrar denenecek."
+  },
+  "automationPausedTabClosed": {
+    "message": "Duraklatıldı — sekme kapatıldı"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "Farm sekmesini kapattınız, bu yüzden Lurkloot burada farmı durdurdu."
+  },
+  "resumeFarming": {
+    "message": "Farmı sürdür"
+  },
+  "activityReasonManualTabClose": {
+    "message": "farm sekmesi kapatıldı"
   }
 }

@@ -126,6 +126,10 @@ export interface PopupAdapter {
   // Optional: download/persist an exported credential blob for the headless CLI.
   // Only the live extension implements it (the demo omits it, hiding the action).
   exportCredentials?(blob: CliCredentialBlob): void;
+  // Optional: write text to the system clipboard, resolving to whether it
+  // worked. Hosts that omit it (the site demo) make the critical-failure panel
+  // fall back to a selectable textarea instead of pretending the copy succeeded.
+  writeClipboard?(text: string): Promise<boolean>;
   resetExtension?(): Promise<RuntimeSnapshot>;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   resolveCompatibility?(settings: CompatibilitySettings): PopupCompatibilityResolution;

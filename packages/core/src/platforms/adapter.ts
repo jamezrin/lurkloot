@@ -31,6 +31,16 @@ export interface WatchTabOptions {
   closeManagedTabs: boolean;
   keepVideosUnmuted: boolean;
   managedTab?: ManagedWatchTab;
+  signal?: AbortSignal;
+}
+
+export interface AdapterOperationOptions {
+  signal?: AbortSignal;
+}
+
+export interface CandidateChannelSelection {
+  channel?: ChannelCandidate;
+  checked: number;
 }
 
 // A gamification challenge that was just claimed. Account-level, so unlike
@@ -44,21 +54,25 @@ export interface ClaimedChallenge {
 export interface PlatformAdapter {
   platform: Platform;
   readonly compatibility?: ResolvedCompatibility[Platform];
-  checkAuthHealth(): Promise<PlatformAuthHealth>;
-  discoverCampaigns(): Promise<DropCampaign[]>;
-  readProgress(campaigns: DropCampaign[], session?: WatchSession): Promise<DropCampaign[]>;
-  listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]>;
-  checkChannel(channel: ChannelCandidate, campaign?: DropCampaign): Promise<ChannelCheck>;
-  claimReward(campaign: DropCampaign, reward: DropReward): Promise<boolean>;
+  checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth>;
+  refreshCampaigns(session?: WatchSession, options?: AdapterOperationOptions): Promise<DropCampaign[]>;
+  listCandidateChannels(campaign: DropCampaign, options?: AdapterOperationOptions): Promise<ChannelCandidate[]>;
+  selectCandidateChannel?(
+    candidates: ChannelCandidate[],
+    campaign?: DropCampaign,
+    options?: AdapterOperationOptions,
+  ): Promise<CandidateChannelSelection>;
+  checkChannel(channel: ChannelCandidate, options?: AdapterOperationOptions & { campaign?: DropCampaign }): Promise<ChannelCheck>;
+  claimReward(campaign: DropCampaign, reward: DropReward, options?: AdapterOperationOptions): Promise<boolean>;
   // Whether a "claimable" reward can actually be claimed right now. Twitch only
   // exposes the real drop-instance id once it releases the claim, so auto-claim
   // must defer until then instead of POSTing a value Twitch will reject.
   isClaimReady?(reward: DropReward): boolean;
-  claimChannelPoints?(channel: ChannelCandidate): Promise<boolean>;
+  claimChannelPoints?(channel: ChannelCandidate, options?: AdapterOperationOptions): Promise<boolean>;
   // Claims any completed, unclaimed gamification challenges for the logged-in
   // account and reports what was won. Account-level, so it takes no channel and
   // runs regardless of whether a watch session is active.
-  claimChallenges?(): Promise<ClaimedChallenge[]>;
+  claimChallenges?(options?: AdapterOperationOptions): Promise<ClaimedChallenge[]>;
   // Live search of the platform's categories/games, powering the "Farm only these
   // categories" picker in Settings. Returns id + name (+ box art) matches.
   searchCategories?(query: string): Promise<CategorySelection[]>;

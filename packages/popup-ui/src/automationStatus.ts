@@ -1,9 +1,10 @@
-import type { Platform, PlatformAuthHealth } from "@lurkloot/shared/models";
+import type { Platform, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
 
 export type AutomationPresentationState =
   | "starting"
   | "stopping"
   | "paused"
+  | "paused_tab_closed"
   | "running"
   | "checking"
   | "needs_sign_in"
@@ -18,11 +19,14 @@ export interface AutomationPresentation {
   detailKey?: string;
   tone: AutomationTone;
   operational: boolean;
-  action?: {
-    labelKey: "signInToTwitch" | "signInToKick";
-    url: string;
-  };
+  statusMessage?: string;
+  action?: AutomationAction;
 }
+
+export type AutomationAction =
+  | { kind: "link"; labelKey: "signInToTwitch" | "signInToKick"; url: string }
+  // Undoes a pause the user caused by closing the managed watch tab.
+  | { kind: "resume"; labelKey: "resumeFarming" };
 
 export const AUTH_SIGN_IN_URLS: Record<Platform, string> = {
   twitch: "https://www.twitch.tv/login",
@@ -34,11 +38,15 @@ export function automationPresentation({
   enabled,
   pending,
   authHealth,
+  session,
+  manualClosePaused = false,
 }: {
   platform: Platform;
   enabled: boolean;
   pending: boolean;
   authHealth: PlatformAuthHealth;
+  session?: WatchSession;
+  manualClosePaused?: boolean;
 }): AutomationPresentation {
   if (pending) {
     return enabled
@@ -46,16 +54,36 @@ export function automationPresentation({
       : presentation("stopping", "automationStopping", "pausingAutomation");
   }
   if (!enabled) return presentation("paused", "pausedStatus", "watchingPausedHint");
+  // Ranked above auth health: the user caused this stop, so telling them why
+  // and how to undo it matters more than any background probe result.
+  if (manualClosePaused || session?.reasonCode === "manual_tab_close") {
+    return {
+      ...presentation("paused_tab_closed", "automationPausedTabClosed", "watchTabClosedPauseDetail", "warning"),
+      action: { kind: "resume", labelKey: "resumeFarming" },
+    };
+  }
 
   switch (authHealth.status) {
-    case "healthy":
+    case "healthy": {
+      if (session?.status === "starting") {
+        return presentation("starting", "automationStarting", "startingAutomation");
+      }
+      if (
+        session?.status === "paused"
+        || session?.reasonCode === "automation_disabled"
+        || session?.reasonCode === "platform_disabled"
+      ) {
+        return presentation("paused", "pausedStatus", "watchingPausedHint");
+      }
       return {
         state: "running",
         badgeKey: "automationRunning",
         detailKey: undefined,
         tone: "accent",
         operational: true,
+        statusMessage: session?.message,
       };
+    }
     case "checking":
       return presentation("checking", "automationChecking", "authCheckingDetail");
     case "missing_credentials":
@@ -91,6 +119,7 @@ function signInPresentation(
   return {
     ...presentation("needs_sign_in", "automationNeedsSignIn", detailKey, "warning"),
     action: {
+      kind: "link",
       labelKey: platform === "twitch" ? "signInToTwitch" : "signInToKick",
       url: AUTH_SIGN_IN_URLS[platform],
     },

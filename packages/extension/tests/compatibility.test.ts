@@ -17,7 +17,9 @@ function settings(overrides: {
 describe("compatibility registry", () => {
   it("publishes frozen lifecycle metadata for bundled profiles and capabilities", () => {
     expect(COMPATIBILITY_REGISTRY.twitch.profiles["twitch-2026-07"].lifecycle).toBe("recommended");
-    expect(Object.keys(COMPATIBILITY_REGISTRY.twitch.inventory)).toEqual(["twitch-inventory-v1"]);
+    expect(Object.keys(COMPATIBILITY_REGISTRY.twitch.inventory)).toEqual(["twitch-inventory-v1", "twitch-inventory-v2"]);
+    expect(COMPATIBILITY_REGISTRY.twitch.inventory["twitch-inventory-v1"].lifecycle).toBe("legacy");
+    expect(COMPATIBILITY_REGISTRY.twitch.inventory["twitch-inventory-v2"].lifecycle).toBe("recommended");
     expect(COMPATIBILITY_REGISTRY.kick.claim["kick-claim-v1"].lifecycle).toBe("legacy");
     expect(Object.isFrozen(COMPATIBILITY_REGISTRY)).toBe(true);
     expect(Object.isFrozen(COMPATIBILITY_REGISTRY.twitch.heartbeat)).toBe(true);
@@ -36,7 +38,9 @@ describe("extension compatibility construction", () => {
   it("injects the resolved web selection into both adapter option boundaries", () => {
     const backgroundSource = readFileSync(new URL("../entrypoints/background.ts", import.meta.url), "utf8");
 
+    expect(backgroundSource).toContain("const twitchDiscoveryState = new TwitchDiscoveryState();");
     expect(backgroundSource).toContain("compatibility: resolution.compatibility.twitch,");
+    expect(backgroundSource).toContain("discoveryState: twitchDiscoveryState,");
     expect(backgroundSource).toContain("heartbeatIdentity: \"web\",");
     expect(backgroundSource).toContain("{ compatibility: resolution.compatibility.kick, claimState: kickClaimState }");
   });
@@ -49,7 +53,7 @@ describe("resolveCompatibility", () => {
         twitch: {
           profile: "twitch-2026-07",
           heartbeat: "twitch-heartbeat-spade-v1",
-          inventory: "twitch-inventory-v1",
+          inventory: "twitch-inventory-v2",
         },
         kick: { profile: "kick-2026-07", claim: "kick-claim-v2" },
       },
@@ -88,12 +92,12 @@ describe("resolveCompatibility", () => {
       twitch: {
         profile: "twitch-2026-07",
         heartbeat: "twitch-heartbeat-gql-v1",
-        inventory: "twitch-inventory-v1",
+        inventory: "twitch-inventory-v2",
       },
       kick: { profile: "kick-2026-07", claim: "kick-claim-v1" },
     });
     expect(result.warnings).toEqual([
-      expect.objectContaining({ code: "unknown_selection", field: "inventoryQueryVersion", requested: "unverified-inventory-version", resolved: "twitch-inventory-v1" }),
+      expect.objectContaining({ code: "unknown_selection", field: "inventoryQueryVersion", requested: "unverified-inventory-version", resolved: "twitch-inventory-v2" }),
     ]);
   });
 
@@ -107,7 +111,7 @@ describe("resolveCompatibility", () => {
       twitch: {
         profile: "twitch-2026-07",
         heartbeat: "twitch-heartbeat-spade-v1",
-        inventory: "twitch-inventory-v1",
+        inventory: "twitch-inventory-v2",
       },
       kick: { profile: "kick-2026-07", claim: "kick-claim-v2" },
     });

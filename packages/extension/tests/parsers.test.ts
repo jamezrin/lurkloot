@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { mergeKickProgress, parseKickCampaigns } from "@lurkloot/core/kick/parser";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchInventory, withCampaignStatus } from "@lurkloot/core/twitch/parser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, parseTwitchInventory, withCampaignStatus } from "@lurkloot/core/twitch/parser";
 import { createTwitchInventory } from "@lurkloot/core/twitch";
 
 describe("Kick parsers", () => {
@@ -30,6 +30,18 @@ describe("Kick parsers", () => {
     expect(merged[0].rewards[0].status).toBe("claimable");
     expect(merged[0].rewards[0].claimId).toBe("claim-99");
     expect(merged[0].rewards[0].isWatchBased).toBe(true);
+  });
+
+  it("keeps a fully claimed Kick campaign so the finished filter can decide", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: "completed",
+        status: "active",
+        rewards: [{ id: "reward", required_units: 30, claimed: true }],
+      }],
+    });
+
+    expect(campaigns.map((campaign) => [campaign.id, campaign.status])).toEqual([["completed", "completed"]]);
   });
 
   it("resolves relative reward image paths to absolute ext.kick.com URLs", () => {
@@ -197,7 +209,7 @@ describe("Kick parsers", () => {
     expect(merged[1].status).toBe("upcoming");
   });
 
-  it("filters ended Kick campaigns from discovery", () => {
+  it("classifies ended Kick campaigns without dropping them from discovery", () => {
     const campaigns = parseKickCampaigns({
       data: {
         campaigns: [{
@@ -222,7 +234,12 @@ describe("Kick parsers", () => {
       },
     });
 
-    expect(campaigns.map((campaign) => campaign.id)).toEqual(["active-campaign"]);
+    expect(campaigns.map((campaign) => [campaign.id, campaign.status])).toEqual([
+      ["active-campaign", "active"],
+      ["ended-status", "expired"],
+      ["past-end", "expired"],
+      ["finished-status", "expired"],
+    ]);
   });
 
   it("treats whole-number Kick progress values as percentages", () => {
@@ -286,6 +303,13 @@ describe("Kick parsers", () => {
 });
 
 describe("Twitch parsers", () => {
+  // Wraps a bare campaign list in an inventory payload that carries no per-tier
+  // claim state, matching what campaign details / reward campaigns look like.
+  const inventoryOf = (campaigns: unknown[]) =>
+    ({ data: { currentUser: { inventory: { dropCampaigns: campaigns } } } }) as Parameters<
+      typeof mergeTwitchCampaignProgress
+    >[1];
+
   it.each([
     { data: { currentUser: { inventory: {} } } },
     { data: { currentUser: { inventory: { unrelated: [] } } } },
@@ -380,7 +404,7 @@ describe("Twitch parsers", () => {
   });
 
   it("classifies subscription-only campaigns as waiting for a qualifying subscription", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "subscription-campaign",
       name: "Jubilee Badge",
       timeBasedDrops: [{ id: "subscription", name: "Jubilee Badge", requiredMinutesWatched: 0, requiredSubs: 1 }],
@@ -398,7 +422,7 @@ describe("Twitch parsers", () => {
   });
 
   it("classifies unknown zero-minute rewards as action-gated with no farmable rewards", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "action-campaign",
       timeBasedDrops: [{ id: "purchase", name: "Purchase Reward" }],
     }]);
@@ -411,7 +435,7 @@ describe("Twitch parsers", () => {
   });
 
   it("marks claimed subscription-only campaigns completed", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "claimed-subscription-campaign",
       timeBasedDrops: [{
         id: "subscription",
@@ -429,7 +453,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps only watch-based rewards in mixed campaigns", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "mixed-campaign",
       name: "Detroit Badge Drop",
       timeBasedDrops: [
@@ -450,7 +474,7 @@ describe("Twitch parsers", () => {
   });
 
   it("does not farm a mixed watch-and-subscription reward without a real claim instance", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "mixed-only",
       self: { isAccountConnected: true },
       timeBasedDrops: [{
@@ -471,7 +495,7 @@ describe("Twitch parsers", () => {
   });
 
   it("makes an obtained mixed-requirement reward claimable with Twitch's real instance id", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "mixed-obtained",
       timeBasedDrops: [{
         id: "combined",
@@ -489,7 +513,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps linked native badge and emote watch rewards farmable", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "native-rewards",
       self: { isAccountConnected: true },
       timeBasedDrops: [
@@ -514,7 +538,7 @@ describe("Twitch parsers", () => {
   });
 
   it("does not bypass account linking for unconfirmed native reward payloads", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "unlinked-native",
       self: { isAccountConnected: false },
       accountLinkURL: "https://example.test/connect",
@@ -529,7 +553,7 @@ describe("Twitch parsers", () => {
   });
 
   it("treats a URL-less disconnected Twitch campaign as linked", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "url-less-ewc-like",
       self: { isAccountConnected: false },
       timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
@@ -542,7 +566,7 @@ describe("Twitch parsers", () => {
   });
 
   it("treats an empty-link disconnected Twitch campaign as linked", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "empty-link-ewc-like",
       self: { isAccountConnected: false },
       accountLinkURL: "",
@@ -556,7 +580,7 @@ describe("Twitch parsers", () => {
   });
 
   it("ignores Twitch-hosted account links for disconnected Twitch campaigns", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "twitch-link-ewc-like",
       self: { isAccountConnected: false },
       accountLinkURL: "https://www.twitch.tv/drops/inventory",
@@ -571,7 +595,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps a genuine disconnected Twitch campaign unlinked when it provides a link URL", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "genuine-unlinked",
       self: { isAccountConnected: false },
       accountLinkURL: "https://example.test/connect",
@@ -586,7 +610,7 @@ describe("Twitch parsers", () => {
   });
 
   it("does not unlock a watch reward whose paid prerequisite was excluded", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "paid-prerequisite-campaign",
       timeBasedDrops: [
         { id: "subscription", requiredMinutesWatched: 0, requiredSubs: 1 },
@@ -599,7 +623,7 @@ describe("Twitch parsers", () => {
   });
 
   it("makes an obtained subscription reward claimable only with Twitch's real instance id", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "subscription-campaign",
       timeBasedDrops: [{
         id: "subscription",
@@ -617,7 +641,7 @@ describe("Twitch parsers", () => {
   });
 
   it("does not call a Twitch-confirmed claimable subscription reward waiting", () => {
-    const [campaign] = parseTwitchInventory([{
+    const [campaign] = parseTwitchCampaigns([{
       id: "claimable-subscription-campaign",
       timeBasedDrops: [{
         id: "subscription",
@@ -742,14 +766,14 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].rewards[0].claimId).toBeUndefined();
   });
 
-  it("treats a Twitch reward as claimed when its benefit is already owned, regardless of award time", () => {
+  it("treats a Twitch reward as claimed when its benefit was awarded during the drop's own window", () => {
     const campaigns = parseTwitchInventory({
       data: {
         currentUser: {
           inventory: {
             gameEventDrops: [{
               benefit: { id: "shared-benefit" },
-              lastAwardedAt: "2026-05-15T12:00:00.000Z",
+              lastAwardedAt: "2026-06-15T12:00:00.000Z",
             }],
             dropCampaignsInProgress: [{
               id: "abc",
@@ -772,6 +796,38 @@ describe("Twitch parsers", () => {
 
     expect(campaigns[0].rewards[0].status).toBe("claimed");
     expect(campaigns[0].status).toBe("completed");
+  });
+
+  it("does not treat a benefit awarded outside the drop's own window as claiming it", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{
+              benefit: { id: "shared-benefit" },
+              lastAwardedAt: "2026-05-15T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [{
+              id: "abc",
+              name: "Twitch Drops",
+              startAt: "2026-07-01T00:00:00.000Z",
+              endAt: "2026-08-01T00:00:00.000Z",
+              timeBasedDrops: [{
+                id: "drop",
+                name: "Cape",
+                startAt: "2026-07-01T00:00:00.000Z",
+                endAt: "2026-08-01T00:00:00.000Z",
+                requiredMinutesWatched: 60,
+                benefitEdges: [{ benefit: { id: "shared-benefit", name: "Cape" } }],
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards[0].status).toBe("locked");
+    expect(campaigns[0].status).toBe("active");
   });
 
   it("treats a Twitch reward as claimed via owned benefit even when self reports isClaimed false", () => {
@@ -803,6 +859,273 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].rewards[0].status).toBe("claimed");
     expect(campaigns[0].status).toBe("completed");
     expect(campaigns[0].eligibility).toBe("completed");
+  });
+
+  it("keeps v2 progress authoritative when an earlier campaign awarded the same benefit", () => {
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            earnedDropRewards: { edges: [] },
+            gameEventDrops: [{
+              id: "reused-lootbox",
+              lastAwardedAt: "2026-07-01T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [{
+              id: "midseason",
+              timeBasedDrops: [{
+                id: "current-lootbox",
+                requiredMinutesWatched: 420,
+                benefitEdges: [{ benefit: { id: "reused-lootbox", name: "RoT S3 Lootbox" } }],
+                self: { currentMinutesWatched: 210, isClaimed: false },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards[0]).toMatchObject({
+      watchedMinutes: 210,
+      status: "in_progress",
+    });
+  });
+
+  // Hunt: Showdown grants one "Supply Crate" benefit across several watch tiers, so
+  // owning the benefit says nothing about which tiers are still unclaimed. Only the
+  // per-tier self edge can answer that.
+  it("keeps a shared-benefit Twitch tier claimable when its self edge reports isClaimed false", () => {
+    const tier = (id: string, requiredMinutesWatched: number, isClaimed: boolean) => ({
+      id,
+      name: "Supply Crate",
+      requiredMinutesWatched,
+      benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+      self: { currentMinutesWatched: 240, isClaimed, dropInstanceID: `user#hunt#${id}` },
+    });
+    const campaigns = parseTwitchInventory({
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{ id: "supply-crate", lastAwardedAt: "2026-07-25T12:33:11.274Z" }],
+            dropCampaignsInProgress: [{
+              id: "hunt",
+              name: "Hunt 1896 (Week 1, Pt. 2)",
+              status: "ACTIVE",
+              endAt: "2026-07-26T14:59:59.999Z",
+              timeBasedDrops: [
+                tier("tier-30", 30, true),
+                tier("tier-60", 60, true),
+                tier("tier-120", 120, true),
+                tier("tier-180", 180, false),
+              ],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(campaigns[0].rewards.map((reward) => reward.status)).toEqual([
+      "claimed",
+      "claimed",
+      "claimed",
+      "claimable",
+    ]);
+    expect(campaigns[0].rewards[3].claimId).toBe("user#hunt#tier-180");
+    expect(campaigns[0].status).not.toBe("completed");
+    expect(campaignHasClaimableReward(campaigns[0])).toBe(true);
+  });
+
+  it("keeps the pending tier claimable for the captured shared-benefit inventory", () => {
+    // Real gql Inventory capture (user id sanitized, endAt pushed out so the
+    // campaign never expires): Hunt awards one Supply Crate benefit at 30/60/120/
+    // 180 minutes, the benefit is owned, and only the 180 tier is unclaimed.
+    const fixture = JSON.parse(readFileSync(new URL("./fixtures/huntSharedBenefit.json", import.meta.url), "utf8"));
+    const [campaign] = createTwitchInventory("twitch-inventory-v1").parse(fixture);
+
+    expect(campaign.rewards.map((reward) => reward.status)).toEqual([
+      "claimed",
+      "claimed",
+      "claimed",
+      "claimable",
+      "claimed",
+    ]);
+    expect(campaign.status).toBe("active");
+    expect(campaign.eligibility).toBe("eligible");
+    expect(campaignHasClaimableReward(campaign)).toBe(true);
+    expect(campaign.rewards[3].claimId)
+      .toBe("sanitized-user#26935687-0a71-4e48-a978-71f63abd8e1f#29773938-2614-11f1-a132-0a58a9feac02");
+  });
+
+  // Regression: once every tier is claimed the campaign leaves
+  // dropCampaignsInProgress, so no self edge survives to say which tiers are
+  // claimed. Without the owned-benefit fallback the shared tiers read as
+  // unclaimed forever and the scheduler re-farms a finished campaign.
+  it("treats shared-benefit tiers as claimed when the campaign has no progress data", () => {
+    const details = parseTwitchCampaigns([{
+      id: "hunt",
+      name: "Hunt 1896 (Week 1, Pt. 2)",
+      timeBasedDrops: [30, 60, 120, 180].map((minutes) => ({
+        id: `tier-${minutes}`,
+        name: "Supply Crate",
+        requiredMinutesWatched: minutes,
+        benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+      })),
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{ id: "supply-crate", lastAwardedAt: "2026-07-25T13:33:09.586Z" }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards.map((reward) => reward.status)).toEqual([
+      "claimed",
+      "claimed",
+      "claimed",
+      "claimed",
+    ]);
+    expect(merged[0].status).toBe("completed");
+    expect(merged[0].eligibility).toBe("completed");
+    expect(campaignHasClaimableReward(merged[0])).toBe(false);
+  });
+
+  // earnedDropRewards is per claim and campaign-scoped, so it settles the
+  // shared-benefit question outright instead of inferring it from benefit ids.
+  describe("twitch-inventory-v2 earned rewards", () => {
+    const HUNT = "26935687-0a71-4e48-a978-71f63abd8e1f";
+    const CRATE = "9a0d24bc-2604-11f1-9ba4-0a58a9feac02";
+
+    const huntDetails = () => parseTwitchCampaigns([{
+      id: HUNT,
+      name: "Hunt 1896 (Week 1, Pt. 2)",
+      timeBasedDrops: [30, 60, 120, 180].map((minutes) => ({
+        id: `tier-${minutes}`,
+        name: "Supply Crate",
+        requiredMinutesWatched: minutes,
+        benefitEdges: [{ benefit: { id: CRATE, name: "Supply Crate" } }],
+      })),
+    }]);
+
+    const inventoryWithCrateClaims = (claims: number) => ({
+      data: {
+        currentUser: {
+          id: "sanitized-user",
+          inventory: {
+            gameEventDrops: [{ id: CRATE, lastAwardedAt: "2026-07-25T13:33:09.586Z" }],
+            earnedDropRewards: {
+              edges: Array.from({ length: claims }, (_, index) => ({
+                node: {
+                  id: CRATE,
+                  item: { id: CRATE },
+                  campaign: { id: HUNT },
+                  status: "CLAIMED",
+                  earnedAt: `2026-07-25T1${index}:00:00.000Z`,
+                },
+              })),
+            },
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    it("claims exactly as many tiers as the campaign has earned edges", () => {
+      const merged = mergeTwitchCampaignProgress(huntDetails(), inventoryWithCrateClaims(3));
+
+      // Three claims cover the three cheapest tiers; the 180 tier is still owed.
+      expect(merged[0].rewards.map((reward) => reward.status))
+        .toEqual(["claimed", "claimed", "claimed", "locked"]);
+      expect(merged[0].status).not.toBe("completed");
+    });
+
+    it("completes the campaign once every tier has an earned edge", () => {
+      const merged = mergeTwitchCampaignProgress(huntDetails(), inventoryWithCrateClaims(4));
+
+      expect(merged[0].rewards.every((reward) => reward.status === "claimed")).toBe(true);
+      expect(merged[0].status).toBe("completed");
+      expect(campaignHasClaimableReward(merged[0])).toBe(false);
+    });
+
+    it("ignores edges that are not CLAIMED", () => {
+      const inventory = inventoryWithCrateClaims(4);
+      inventory.data.currentUser.inventory.earnedDropRewards.edges
+        .forEach((edge) => { (edge.node as { status: string }).status = "PENDING"; });
+
+      const merged = mergeTwitchCampaignProgress(huntDetails(), inventory);
+
+      // Falls back to the owned-benefit behaviour rather than trusting a count.
+      expect(merged[0].rewards.map((reward) => reward.status))
+        .toEqual(["claimed", "claimed", "claimed", "claimed"]);
+    });
+
+    it("does not let one campaign's claims settle another's tiers", () => {
+      const inventory = inventoryWithCrateClaims(4);
+      inventory.data.currentUser.inventory.earnedDropRewards.edges
+        .forEach((edge) => { (edge.node.campaign as { id: string }).id = "another-campaign"; });
+      inventory.data.currentUser.inventory.gameEventDrops = [];
+
+      const merged = mergeTwitchCampaignProgress(huntDetails(), inventory);
+
+      expect(merged[0].rewards.every((reward) => reward.status === "locked")).toBe(true);
+    });
+
+    it("resolves the captured Hunt inventory through the v2 capability", () => {
+      const fixture = JSON.parse(readFileSync(new URL("./fixtures/twitch-inventory-v2-earned.json", import.meta.url), "utf8"));
+      const merged = createTwitchInventory("twitch-inventory-v2").reconcileProgress(huntDetails(), fixture);
+
+      expect(merged[0].rewards.every((reward) => reward.status === "claimed")).toBe(true);
+      expect(merged[0].status).toBe("completed");
+    });
+  });
+
+  it("keeps a shared-benefit tier claimable when merging progress into campaign details", () => {
+    const details = parseTwitchCampaigns([{
+      id: "hunt",
+      name: "Hunt 1896 (Week 1, Pt. 2)",
+      timeBasedDrops: [{
+        id: "tier-120",
+        name: "Supply Crate",
+        requiredMinutesWatched: 120,
+        benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+      }, {
+        id: "tier-180",
+        name: "Supply Crate",
+        requiredMinutesWatched: 180,
+        benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{ id: "supply-crate", lastAwardedAt: "2026-07-25T12:33:11.274Z" }],
+            dropCampaignsInProgress: [{
+              id: "hunt",
+              timeBasedDrops: [{
+                id: "tier-120",
+                requiredMinutesWatched: 120,
+                benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+                self: { currentMinutesWatched: 240, isClaimed: true, dropInstanceID: "user#hunt#tier-120" },
+              }, {
+                id: "tier-180",
+                requiredMinutesWatched: 180,
+                benefitEdges: [{ benefit: { id: "supply-crate", name: "Supply Crate" } }],
+                self: { currentMinutesWatched: 240, isClaimed: false, dropInstanceID: "user#hunt#tier-180" },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards.map((reward) => reward.status)).toEqual(["claimed", "claimable"]);
+    expect(merged[0].status).not.toBe("completed");
   });
 
   it("infers a Twitch reward is claimed from a matching benefit awarded during the drop window", () => {
@@ -865,7 +1188,7 @@ describe("Twitch parsers", () => {
   });
 
   it("merges Twitch inventory progress into campaign details", () => {
-    const details = parseTwitchInventory([{
+    const details = parseTwitchCampaigns([{
       id: "campaign",
       name: "Details",
       game: { slug: "game-slug", displayName: "Game" },
@@ -900,8 +1223,118 @@ describe("Twitch parsers", () => {
     expect(merged[0].rewards[0].status).toBe("in_progress");
   });
 
+  it("keeps merged v2 progress authoritative when an earlier campaign awarded the same benefit", () => {
+    const details = parseTwitchCampaigns([{
+      id: "midseason",
+      timeBasedDrops: [{
+        id: "current-lootbox",
+        requiredMinutesWatched: 420,
+        benefitEdges: [{ benefit: { id: "reused-lootbox", name: "RoT S3 Lootbox" } }],
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            earnedDropRewards: { edges: [] },
+            gameEventDrops: [{
+              id: "reused-lootbox",
+              lastAwardedAt: "2026-07-01T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [{
+              id: "midseason",
+              timeBasedDrops: [{
+                id: "current-lootbox",
+                requiredMinutesWatched: 420,
+                self: { currentMinutesWatched: 210, isClaimed: false },
+              }],
+            }],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      watchedMinutes: 210,
+      status: "in_progress",
+    });
+  });
+
+  it("keeps a completed reused reward claimable after it leaves v2 progress", () => {
+    const details = parseTwitchCampaigns([{
+      id: "midseason",
+      timeBasedDrops: [{
+        id: "current-lootbox",
+        startAt: "2026-07-15T00:00:00.000Z",
+        endAt: "2026-08-04T00:00:00.000Z",
+        requiredMinutesWatched: 420,
+        benefitEdges: [{ benefit: { id: "reused-lootbox", name: "RoT S3 Lootbox" } }],
+        self: {
+          currentMinutesWatched: 420,
+          isClaimed: false,
+          dropInstanceID: "user#midseason#current-lootbox",
+        },
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            earnedDropRewards: { edges: [] },
+            gameEventDrops: [{
+              // Awarded during the prior Overwatch season, before this drop's window opened.
+              id: "reused-lootbox",
+              lastAwardedAt: "2026-04-01T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      watchedMinutes: 420,
+      status: "claimable",
+      claimId: "user#midseason#current-lootbox",
+    });
+  });
+
+  it("uses owned-benefit completion when a watched reward has no claim instance", () => {
+    const details = parseTwitchCampaigns([{
+      id: "completed-campaign",
+      timeBasedDrops: [{
+        id: "completed-reward",
+        requiredMinutesWatched: 120,
+        benefitEdges: [{ benefit: { id: "owned-benefit", name: "Owned Reward" } }],
+        self: {
+          currentMinutesWatched: 120,
+          isClaimed: false,
+        },
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            earnedDropRewards: { edges: [] },
+            gameEventDrops: [{ id: "owned-benefit" }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      status: "claimed",
+      claimId: undefined,
+    });
+  });
+
   it("marks a tracked campaign completed when its benefit is owned but it dropped out of in-progress", () => {
-    const details = parseTwitchInventory([{
+    const details = parseTwitchCampaigns([{
       id: "campaign",
       name: "Update 1.29.0",
       timeBasedDrops: [{
@@ -927,6 +1360,40 @@ describe("Twitch parsers", () => {
     expect(merged[0].rewards[0].watchedMinutes).toBe(120);
     expect(merged[0].status).toBe("completed");
     expect(merged[0].eligibility).toBe("completed");
+  });
+
+  it("keeps a genuinely in-progress reused-benefit reward in progress when it drops out of the progress payload", () => {
+    const details = parseTwitchCampaigns([{
+      id: "midseason",
+      timeBasedDrops: [{
+        id: "current-lootbox",
+        startAt: "2026-07-15T00:00:00.000Z",
+        endAt: "2026-08-04T00:00:00.000Z",
+        requiredMinutesWatched: 420,
+        benefitEdges: [{ benefit: { id: "reused-lootbox", name: "RoT S3 Lootbox" } }],
+        self: { currentMinutesWatched: 210, isClaimed: false },
+      }],
+    }]);
+
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: {
+        currentUser: {
+          inventory: {
+            gameEventDrops: [{
+              // Awarded during the prior Overwatch season, before this drop's window opened.
+              id: "reused-lootbox",
+              lastAwardedAt: "2026-04-01T12:00:00.000Z",
+            }],
+            dropCampaignsInProgress: [],
+          },
+        },
+      },
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      status: "in_progress",
+      watchedMinutes: 210,
+    });
   });
 
   it("does not treat an old owned benefit as the current campaign's subscription reward", () => {
@@ -959,7 +1426,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps a mixed campaign active when only its watch reward is claimed", () => {
-    const details = parseTwitchInventory([{
+    const details = parseTwitchCampaigns([{
       id: "mixed-campaign",
       timeBasedDrops: [{
         id: "watch",
@@ -970,7 +1437,7 @@ describe("Twitch parsers", () => {
       }],
     }]);
 
-    const merged = mergeTwitchCampaignProgress(details, [{
+    const merged = mergeTwitchCampaignProgress(details, inventoryOf([{
       id: "mixed-campaign",
       timeBasedDrops: [{
         id: "watch",
@@ -980,7 +1447,7 @@ describe("Twitch parsers", () => {
         id: "subscription",
         requiredSubs: 1,
       }],
-    }]);
+    }]));
 
     expect(merged[0].status).toBe("active");
     expect(merged[0].eligibility).toBe("eligible");
@@ -991,7 +1458,7 @@ describe("Twitch parsers", () => {
   });
 
   it("completes a mixed campaign when every tracked reward is claimed", () => {
-    const details = parseTwitchInventory([{
+    const details = parseTwitchCampaigns([{
       id: "mixed-campaign",
       timeBasedDrops: [{
         id: "watch",
@@ -1002,7 +1469,7 @@ describe("Twitch parsers", () => {
       }],
     }]);
 
-    const merged = mergeTwitchCampaignProgress(details, [{
+    const merged = mergeTwitchCampaignProgress(details, inventoryOf([{
       id: "mixed-campaign",
       timeBasedDrops: [{
         id: "watch",
@@ -1013,7 +1480,7 @@ describe("Twitch parsers", () => {
         requiredSubs: 1,
         self: { isClaimed: true },
       }],
-    }]);
+    }]));
 
     expect(merged[0].status).toBe("completed");
     expect(merged[0].eligibility).toBe("completed");
@@ -1021,7 +1488,7 @@ describe("Twitch parsers", () => {
   });
 
   it("evaluates Twitch reward preconditions from claimed prior drops", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "campaign",
       name: "Chain",
       timeBasedDrops: [{
@@ -1041,7 +1508,7 @@ describe("Twitch parsers", () => {
   });
 
   it("marks all-claimed Twitch campaigns as completed and not eligible", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "campaign",
       name: "Done",
       status: "ACTIVE",
@@ -1057,7 +1524,7 @@ describe("Twitch parsers", () => {
   });
 
   it("preserves upcoming and no-reward Twitch campaign states", () => {
-    const campaigns = parseTwitchInventory([{
+    const campaigns = parseTwitchCampaigns([{
       id: "future",
       name: "Future",
       status: "UPCOMING",
@@ -1081,7 +1548,7 @@ describe("Twitch parsers", () => {
   });
 
   it("downgrades a campaign status and re-derives eligibility with withCampaignStatus", () => {
-    const [campaign] = parseTwitchInventory([{
+    const [campaign] = parseTwitchCampaigns([{
       id: "campaign",
       name: "Campaign",
       timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 20 } }],
@@ -1098,7 +1565,7 @@ describe("Twitch parsers", () => {
   });
 
   it("re-derives subscription eligibility with withCampaignStatus", () => {
-    const [campaign] = parseTwitchInventory([{
+    const [campaign] = parseTwitchCampaigns([{
       id: "subscription-campaign",
       timeBasedDrops: [{ id: "subscription", requiredSubs: 1 }],
     }]);
@@ -1110,7 +1577,7 @@ describe("Twitch parsers", () => {
   });
 
   it("keeps an active-status fallback completed when every reward is claimed", () => {
-    const [campaign] = parseTwitchInventory([{
+    const [campaign] = parseTwitchCampaigns([{
       id: "claimed-mixed-campaign",
       timeBasedDrops: [
         { id: "watch", requiredMinutesWatched: 60, self: { isClaimed: true } },
@@ -1125,12 +1592,12 @@ describe("Twitch parsers", () => {
   });
 
   it("detects claimable rewards with campaignHasClaimableReward", () => {
-    const [inProgress] = parseTwitchInventory([{
+    const [inProgress] = parseTwitchCampaigns([{
       id: "in-progress",
       name: "In progress",
       timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 20 } }],
     }]);
-    const [claimable] = parseTwitchInventory([{
+    const [claimable] = parseTwitchCampaigns([{
       id: "claimable",
       name: "Claimable",
       timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 60 } }],

@@ -3,6 +3,7 @@ import type { AdFocusMode, ChannelCandidate, Platform, WatchSession } from "@lur
 import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
 import {
   applyAdFocusWithBrowser,
+  currentValidTwitchIntegrity,
   ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
   fetchKickInBackgroundWith,
@@ -17,6 +18,7 @@ import {
   type CookieApi,
   type PageFetchOptions,
   type SchedulerManagedPageContexts,
+  type TwitchIntegrityRequest,
 } from "@lurkloot/core/tabs";
 import type { PreparedWatchTab, WatchTabOptions } from "@lurkloot/core/adapter";
 
@@ -38,9 +40,11 @@ export function applyAdFocus(platform: Platform, tabId: number | undefined, adAc
   return applyAdFocusWithBrowser(browser as BrowserTabApi, platform, tabId, adActive, mode, emit);
 }
 
-export function ensureTwitchIntegrity(emit?: EventEmitter): Promise<boolean> {
-  return ensureTwitchIntegrityWithBrowser(browser as BrowserTabApi, TWITCH_PAGE_CONTEXT_URL, undefined, emit);
+export function ensureTwitchIntegrity(emit?: EventEmitter, request?: TwitchIntegrityRequest): Promise<boolean> {
+  return ensureTwitchIntegrityWithBrowser(browser as BrowserTabApi, TWITCH_PAGE_CONTEXT_URL, undefined, emit, request);
 }
+
+export { cancelTwitchIntegrityAcquisition, currentValidTwitchIntegrity } from "@lurkloot/core/tabs";
 
 export function fetchTwitchInBackground<T>(url: string, init?: RequestInit): Promise<T> {
   return fetchTwitchInBackgroundWith<T>(browser as CookieApi, url, init);

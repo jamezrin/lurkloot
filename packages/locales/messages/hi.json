@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "शेड्यूल रीफ़्रेश करें"
   },
+  "openInventory": {
+    "message": "इन्वेंटरी खोलें"
+  },
   "openActivity": {
     "message": "गतिविधि खोलें"
   },
@@ -140,26 +143,56 @@
   "watchingPausedHint": {
     "message": "देखना रुका है। Drops फ़ार्मिंग फिर शुरू करने के लिए टॉगल करें।"
   },
-  "hideTipsTitle": { "message": "सुझाव छिपाएँ" },
-  "hideTipsDescription": { "message": "मुख्य पॉपअप से उपयोगी सुझाव हटाएँ।" },
-  "tipCampaignPriority": { "message": "Drops को निष्क्रिय वॉचलिस्ट पर प्राथमिकता मिलती है। क्रम तय करने के लिए कैंपेन को ग्रिप से खींचें।" },
-  "tipMissingCampaigns": { "message": "कैंपेन नहीं दिख रहा? प्लेटफ़ॉर्म की Drops इन्वेंट्री और सेटिंग्स के फ़िल्टर जाँचें।" },
-  "tipCategorySelection": { "message": "सिर्फ़ कुछ गेम चाहिए? ‘सभी श्रेणियाँ फ़ार्म करें’ बंद करके श्रेणियाँ चुनें।" },
-  "tipIdleWatchlist": { "message": "योग्य Drops न होने पर निष्क्रिय वॉचलिस्ट चुने हुए चैनल फ़ार्म करती है।" },
-  "tipTablessMode": { "message": "टैबलेस मोड कम संसाधन इस्तेमाल करता है और ज़रूरत पर म्यूट टैब खोलता है।" },
-  "tipCli": { "message": "एक्सटेंशन नहीं चाहिए? Lurkloot Docker-आधारित CLI के रूप में भी उपलब्ध है।" },
-  "tipCliAction": { "message": "CLI गाइड पढ़ें" },
-  "tipFeedback": { "message": "बग मिला या कोई सुझाव है?" },
-  "tipFeedbackAction": { "message": "GitHub issue खोलें" },
-  "tipExcludedCampaigns": { "message": "गलती से कैंपेन हटाया? उसे Drops सेटिंग्स से वापस लाएँ।" },
+  "hideTipsTitle": {
+    "message": "सुझाव छिपाएँ"
+  },
+  "hideTipsDescription": {
+    "message": "मुख्य पॉपअप से उपयोगी सुझाव हटाएँ।"
+  },
+  "tipCampaignPriority": {
+    "message": "Drops को निष्क्रिय वॉचलिस्ट पर प्राथमिकता मिलती है। क्रम तय करने के लिए कैंपेन को ग्रिप से खींचें।"
+  },
+  "tipMissingCampaigns": {
+    "message": "कैंपेन नहीं दिख रहा? प्लेटफ़ॉर्म की Drops इन्वेंट्री और सेटिंग्स के फ़िल्टर जाँचें।"
+  },
+  "tipCategorySelection": {
+    "message": "सिर्फ़ कुछ गेम चाहिए? ‘सभी श्रेणियाँ फ़ार्म करें’ बंद करके श्रेणियाँ चुनें।"
+  },
+  "tipIdleWatchlist": {
+    "message": "योग्य Drops न होने पर निष्क्रिय वॉचलिस्ट चुने हुए चैनल फ़ार्म करती है।"
+  },
+  "tipTablessMode": {
+    "message": "टैबलेस मोड कम संसाधन इस्तेमाल करता है और ज़रूरत पर म्यूट टैब खोलता है।"
+  },
+  "tipCli": {
+    "message": "एक्सटेंशन नहीं चाहिए? Lurkloot Docker-आधारित CLI के रूप में भी उपलब्ध है।"
+  },
+  "tipCliAction": {
+    "message": "CLI गाइड पढ़ें"
+  },
+  "tipFeedback": {
+    "message": "बग मिला या कोई सुझाव है?"
+  },
+  "tipFeedbackAction": {
+    "message": "GitHub issue खोलें"
+  },
+  "tipExcludedCampaigns": {
+    "message": "गलती से कैंपेन हटाया? उसे Drops सेटिंग्स से वापस लाएँ।"
+  },
   "noCampaigns": {
     "message": "अभी कोई अभियान नहीं मिला।"
   },
   "noActivity": {
     "message": "अभी कोई गतिविधि रिकॉर्ड नहीं हुई। जाँच चलाने के लिए रीफ़्रेश दबाएँ।"
   },
+  "noDiagnostics": {
+    "message": "अभी कोई डायग्नोस्टिक रिकॉर्ड नहीं हुआ। एक्सटेंशन के काम करते ही ये दिखेंगे।"
+  },
   "platformActivity": {
     "message": "$1 गतिविधि"
+  },
+  "platformDiagnostics": {
+    "message": "$1 डायग्नोस्टिक"
   },
   "lastCheck": {
     "message": "अंतिम जाँच $1"
@@ -407,6 +440,18 @@
   "tablessDescription": {
     "message": "वीडियो टैब के बजाय हल्के watch signals से फ़ार्म करें। Twitch watch heartbeats उपयोग करता है; Kick viewer connection उपयोग करता है। कमाई रुकने पर अपने आप टैब पर लौटता है।"
   },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "टैबलेस फ़ॉलबैक सीमा"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "लगातार इतनी टैबलेस वॉच सिग्नल विफलताओं के बाद वीडियो टैब खोलें।"
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "यह सेटिंग बदलने के लिए कम-संसाधन टैबलेस मोड चालू करें।"
+  },
+  "failuresSuffix": {
+    "message": "विफलताएँ"
+  },
   "autoCloseTabsTitle": {
     "message": "फ़ार्मिंग टैब अपने आप बंद करें"
   },
@@ -479,13 +524,27 @@
   "secondsSuffix": {
     "message": "सेक"
   },
-  "deadlineSafetyMarginTitle": { "message": "समय-सीमा सुरक्षा मार्जिन" },
-  "deadlineSafetyMarginDescription": { "message": "इनाम फ़ार्म करने से पहले आवश्यक अतिरिक्त मिनट।" },
-  "deadlineSafetyMarginDisabledReason": { "message": "सुरक्षा मार्जिन बदलने के लिए समय-सीमा फ़िल्टर सक्षम करें।" },
-  "skipUnfinishableRewardsTitle": { "message": "पूरा न हो सकने वाले इनाम छोड़ें" },
-  "skipUnfinishableRewardsDescription": { "message": "जब बचा हुआ देखने का समय समय-सीमा से अधिक हो तो इनाम फ़ार्म न करें।" },
-  "minutesSuffix": { "message": "मिनट" },
-  "insufficientTimeRemaining": { "message": "पर्याप्त समय शेष नहीं" },
+  "deadlineSafetyMarginTitle": {
+    "message": "समय-सीमा सुरक्षा मार्जिन"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "इनाम फ़ार्म करने से पहले आवश्यक अतिरिक्त मिनट।"
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "सुरक्षा मार्जिन बदलने के लिए समय-सीमा फ़िल्टर सक्षम करें।"
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "पूरा न हो सकने वाले इनाम छोड़ें"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "जब बचा हुआ देखने का समय समय-सीमा से अधिक हो तो इनाम फ़ार्म न करें।"
+  },
+  "minutesSuffix": {
+    "message": "मिनट"
+  },
+  "insufficientTimeRemaining": {
+    "message": "पर्याप्त समय शेष नहीं"
+  },
   "automationSectionTitle": {
     "message": "ऑटोमेशन"
   },
@@ -561,11 +620,26 @@
   "activityLogLevelsDescription": {
     "message": "गतिविधि लॉग में कौन से स्तर रिकॉर्ड हों चुनें। त्रुटियाँ हमेशा रखी जाती हैं।"
   },
-  "visibleCampaignsTitle": {
-    "message": "दिखने वाले कैंपेन"
+  "farmUnlinkedTitle": {
+    "message": "बिना लिंक किए गए खाते वाले कैंपेन फ़ार्म करें"
   },
-  "visibleCampaignsDescription": {
-    "message": "Drops सूची में कौन से कैंपेन state दिखें चुनें। क्लेम करने योग्य इनाम वाला कैंपेन हमेशा दिखता है।"
+  "farmUnlinkedDescription": {
+    "message": "बंद होने पर, जिन कैंपेन के लिए आपका खाता लिंक करना ज़रूरी है, उन्हें छोड़ दिया जाता है। Kick लिंक करने से पहले भी वॉच टाइम जोड़ता रहता है।"
+  },
+  "farmSubscriptionTitle": {
+    "message": "सब्सक्रिप्शन वाले कैंपेन फ़ार्म करें"
+  },
+  "farmSubscriptionDescription": {
+    "message": "बंद होने पर, जिन कैंपेन के इनाम के लिए चैनल सब्सक्रिप्शन ज़रूरी है, उन्हें छोड़ दिया जाता है।"
+  },
+  "dropsListFilterTitle": {
+    "message": "Drops सूची दृश्य"
+  },
+  "dropsListFilterDescription": {
+    "message": "चुनें कि Drops सूची में कौन से कैंपेन दिखें। क्लेम करने योग्य इनाम वाला कैंपेन हमेशा दिखता है।"
+  },
+  "dropsListFilterLockedHint": {
+    "message": "जब तक आप इन कैंपेन की फ़ार्मिंग कर रहे हैं, ये हमेशा दिखते हैं।"
   },
   "forgetExcludedTitle": {
     "message": "हटाए गए कैंपेन भूलें"
@@ -666,10 +740,18 @@
   "siteAttributionShort": {
     "message": "वेबसाइट"
   },
-  "updateNoticeTitle": { "message": "Lurkloot को $1 में अपडेट किया गया" },
-  "updateNoticeBody": { "message": "नई सुविधाएँ और बदलाव देखें।" },
-  "updateNoticeAction": { "message": "बदलाव देखें" },
-  "updateNoticeDismiss": { "message": "अपडेट सूचना हटाएँ" },
+  "updateNoticeTitle": {
+    "message": "Lurkloot को $1 में अपडेट किया गया"
+  },
+  "updateNoticeBody": {
+    "message": "नई सुविधाएँ और बदलाव देखें।"
+  },
+  "updateNoticeAction": {
+    "message": "बदलाव देखें"
+  },
+  "updateNoticeDismiss": {
+    "message": "अपडेट सूचना हटाएँ"
+  },
   "rateNudgeTitle": {
     "message": "Lurkloot पसंद आया?"
   },
@@ -706,15 +788,33 @@
   "cliExportButton": {
     "message": "क्रेडेंशियल निर्यात करें"
   },
-  "factoryResetTitle": { "message": "Lurkloot रीसेट करें" },
-  "factoryResetHint": { "message": "Lurkloot की सभी सेटिंग, फ़ार्मिंग प्रगति और गतिविधि इतिहास मिटाता है। आपके Twitch और Kick खाते साइन इन रहेंगे।" },
-  "factoryResetButton": { "message": "Lurkloot रीसेट करें" },
-  "factoryResetConfirm": { "message": "यह फ़ार्मिंग रोकता है, Lurkloot द्वारा खोले गए टैब बंद करता है और Lurkloot का सारा डेटा स्थायी रूप से मिटाता है। Twitch और Kick साइन इन रहेंगे।" },
-  "factoryResetCancel": { "message": "रद्द करें" },
-  "factoryResetConfirmButton": { "message": "सब कुछ रीसेट करें" },
-  "factoryResetProgress": { "message": "रीसेट किया जा रहा है…" },
-  "factoryResetFailed": { "message": "Lurkloot पूरी तरह रीसेट नहीं हो सका। फिर से कोशिश करें।" },
-  "factoryResetRetry": { "message": "फिर से रीसेट करें" },
+  "factoryResetTitle": {
+    "message": "Lurkloot रीसेट करें"
+  },
+  "factoryResetHint": {
+    "message": "Lurkloot की सभी सेटिंग, फ़ार्मिंग प्रगति और गतिविधि इतिहास मिटाता है। आपके Twitch और Kick खाते साइन इन रहेंगे।"
+  },
+  "factoryResetButton": {
+    "message": "Lurkloot रीसेट करें"
+  },
+  "factoryResetConfirm": {
+    "message": "यह फ़ार्मिंग रोकता है, Lurkloot द्वारा खोले गए टैब बंद करता है और Lurkloot का सारा डेटा स्थायी रूप से मिटाता है। Twitch और Kick साइन इन रहेंगे।"
+  },
+  "factoryResetCancel": {
+    "message": "रद्द करें"
+  },
+  "factoryResetConfirmButton": {
+    "message": "सब कुछ रीसेट करें"
+  },
+  "factoryResetProgress": {
+    "message": "रीसेट किया जा रहा है…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot पूरी तरह रीसेट नहीं हो सका। फिर से कोशिश करें।"
+  },
+  "factoryResetRetry": {
+    "message": "फिर से रीसेट करें"
+  },
   "diagnosticLoggingTitle": {
     "message": "डायग्नोस्टिक लॉग शामिल करें"
   },
@@ -733,13 +833,57 @@
   "activityChallengeClaimed": {
     "message": "$2 चैलेंज से $1 कार्ड प्राप्त किया"
   },
-  "activityAuthHealthChanged": { "message": "$1 प्रमाणीकरण $2 से $3 में बदल गया।" },
-  "activityPageContextOpened": { "message": "$1 पर बैकग्राउंड कॉन्टेक्स्ट खोला गया क्योंकि $2।" },
-  "activityPageContextClosed": { "message": "$1 का बैकग्राउंड कॉन्टेक्स्ट बंद किया गया क्योंकि $2।" },
-  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick ने बिना टैब वाला अनुरोध अस्वीकार किया" },
-  "activityPageContextReasonManagedContextUnusable": { "message": "पिछला बैकग्राउंड कॉन्टेक्स्ट उपयोग योग्य नहीं था" },
-  "activityPageContextCloseReasonBackgroundRecovered": { "message": "बिना टैब वाले अनुरोध फिर से काम करने लगे" },
-  "activityPageContextCloseReasonUserTabAvailable": { "message": "एक मौजूदा Kick टैब उपलब्ध हो गया" },
+  "activityAuthHealthChanged": {
+    "message": "$1 प्रमाणीकरण $2 से $3 में बदल गया।"
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 काम नहीं कर रहा है: $2।"
+  },
+  "activityCriticalFailureCleared": {
+    "message": "$1 की गंभीर विफलता खारिज की गई; दोबारा प्रयास किया जा रहा है।"
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "बार-बार त्रुटियों के बावजूद कोई प्रगति नहीं हुई"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "एक टैब बार-बार फिर से खुल रहा था"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot ने काम करना बंद कर दिया है"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "लंबे समय से बार-बार त्रुटियाँ और ड्रॉप्स में कोई प्रगति नहीं। संभवतः इस प्लेटफ़ॉर्म पर कुछ बदल गया है और एक्सटेंशन अब ड्रॉप्स नहीं कमा पा रहा है।"
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "एक टैब बार-बार फिर से खुल रहा था। इसे रोक दिया गया है ताकि आप ब्राउज़र सामान्य रूप से उपयोग कर सकें, और इस प्लेटफ़ॉर्म पर फ़ार्मिंग रोक दी गई है।"
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "लॉग कॉपी करें और issue खोलें"
+  },
+  "criticalFailureDismiss": {
+    "message": "खारिज करें और फिर कोशिश करें"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "अपने आप कॉपी नहीं हो सका। इसे चुनकर कॉपी करें, फिर issue खोलें।"
+  },
+  "activityPageContextOpened": {
+    "message": "$1 पर बैकग्राउंड कॉन्टेक्स्ट खोला गया क्योंकि $2।"
+  },
+  "activityPageContextClosed": {
+    "message": "$1 का बैकग्राउंड कॉन्टेक्स्ट बंद किया गया क्योंकि $2।"
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick ने बिना टैब वाला अनुरोध अस्वीकार किया"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "पिछला बैकग्राउंड कॉन्टेक्स्ट उपयोग योग्य नहीं था"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "बिना टैब वाले अनुरोध फिर से काम करने लगे"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "एक मौजूदा Kick टैब उपलब्ध हो गया"
+  },
   "activityInterruption": {
     "message": "ड्रॉप जुटाना रुका: $1।"
   },
@@ -752,7 +896,9 @@
   "activityReasonPlatformDisabled": {
     "message": "प्लेटफ़ॉर्म बंद किया गया"
   },
-  "activityReasonAuthenticationUnhealthy": { "message": "प्रमाणीकरण उपलब्ध नहीं है" },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "प्रमाणीकरण उपलब्ध नहीं है"
+  },
   "activityReasonPlatformBackoff": {
     "message": "प्लेटफ़ॉर्म कुछ समय के लिए प्रतीक्षा कर रहा है"
   },
@@ -789,11 +935,11 @@
   "activityReasonTargetChanged": {
     "message": "ड्रॉप का लक्ष्य बदला"
   },
+  "activityReasonCriticalFailure": {
+    "message": "एक गंभीर विफलता का पता चला"
+  },
   "activityReasonManualWatch": {
     "message": "मैन्युअल रूप से देखना शुरू हुआ"
-  },
-  "hideDiagnosticLogs": {
-    "message": "डायग्नोस्टिक छिपाएँ"
   },
   "loadMoreActivity": {
     "message": "और लोड करें"
@@ -807,8 +953,20 @@
   "clearActivityFailed": {
     "message": "गतिविधि इतिहास साफ़ नहीं हो सका। फिर कोशिश करें।"
   },
-  "showDiagnosticLogs": {
-    "message": "डायग्नोस्टिक दिखाएँ"
+  "copyActivityLog": {
+    "message": "लॉग कॉपी करें"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 इवेंट कॉपी किए गए"
+  },
+  "copyActivityLogFailed": {
+    "message": "लॉग कॉपी नहीं हो सका। फिर से कोशिश करें।"
+  },
+  "activityViewTab": {
+    "message": "गतिविधि"
+  },
+  "diagnosticsViewTab": {
+    "message": "डायग्नोस्टिक"
   },
   "settingsGroupCompatibility": {
     "message": "संगतता"
@@ -903,6 +1061,9 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "इन्वेंट्री क्वेरी v1"
   },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "इन्वेंट्री क्वेरी v2"
+  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick जुलाई 2026"
   },
@@ -912,17 +1073,55 @@
   "compatibilityOptionKickClaimV2": {
     "message": "लिंक प्रबंधन v2"
   },
-  "automationChecking": { "message": "जाँच जारी है" },
-  "automationNeedsSignIn": { "message": "साइन इन आवश्यक" },
-  "automationBlocked": { "message": "अवरुद्ध" },
-  "automationUnavailable": { "message": "अनुपलब्ध" },
-  "authCheckingDetail": { "message": "आपके साइन-इन सत्र की जाँच हो रही है…" },
-  "authSignInMissing": { "message": "ड्रॉप पाना जारी रखने के लिए साइन इन करें।" },
-  "authSignInRejected": { "message": "आपका सत्र अब मान्य नहीं है। जारी रखने के लिए फिर से साइन इन करें।" },
-  "signInToTwitch": { "message": "Twitch में साइन इन करें" },
-  "signInToKick": { "message": "Kick में साइन इन करें" },
-  "authBrowserProfileBlocked": { "message": "Kick ने इस ब्राउज़र प्रोफ़ाइल को अस्वीकार कर दिया। केवल साइन इन करने से समस्या शायद हल न हो।" },
-  "authCredentialCheckUnavailable": { "message": "आपके ब्राउज़र सत्र की जाँच नहीं हो सकी। Lurkloot अपने आप फिर प्रयास करेगा।" },
-  "authNetworkTemporarilyUnavailable": { "message": "नेटवर्क अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।" },
-  "authPlatformTemporarilyUnavailable": { "message": "प्लेटफ़ॉर्म अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।" }
+  "automationChecking": {
+    "message": "जाँच जारी है"
+  },
+  "automationNeedsSignIn": {
+    "message": "साइन इन आवश्यक"
+  },
+  "automationBlocked": {
+    "message": "अवरुद्ध"
+  },
+  "automationUnavailable": {
+    "message": "अनुपलब्ध"
+  },
+  "authCheckingDetail": {
+    "message": "आपके साइन-इन सत्र की जाँच हो रही है…"
+  },
+  "authSignInMissing": {
+    "message": "ड्रॉप पाना जारी रखने के लिए साइन इन करें।"
+  },
+  "authSignInRejected": {
+    "message": "आपका सत्र अब मान्य नहीं है। जारी रखने के लिए फिर से साइन इन करें।"
+  },
+  "signInToTwitch": {
+    "message": "Twitch में साइन इन करें"
+  },
+  "signInToKick": {
+    "message": "Kick में साइन इन करें"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick ने इस ब्राउज़र प्रोफ़ाइल को अस्वीकार कर दिया। केवल साइन इन करने से समस्या शायद हल न हो।"
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "आपके ब्राउज़र सत्र की जाँच नहीं हो सकी। Lurkloot अपने आप फिर प्रयास करेगा।"
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "नेटवर्क अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।"
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "प्लेटफ़ॉर्म अस्थायी रूप से अनुपलब्ध है। Lurkloot अपने आप फिर प्रयास करेगा।"
+  },
+  "automationPausedTabClosed": {
+    "message": "रुका हुआ — टैब बंद"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "आपने फ़ार्मिंग टैब बंद कर दिया, इसलिए Lurkloot ने यहाँ फ़ार्मिंग रोक दी।"
+  },
+  "resumeFarming": {
+    "message": "फ़ार्मिंग फिर से शुरू करें"
+  },
+  "activityReasonManualTabClose": {
+    "message": "फ़ार्मिंग टैब बंद"
+  }
 }

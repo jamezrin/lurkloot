@@ -4,17 +4,25 @@ import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popup-ui";
+import { catalogDelay, resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
+
+vi.mock("@lurkloot/locales", async (importOriginal) =>
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
 
 let root: Root | undefined;
 
 afterEach(() => {
+  resetCatalogTracking();
   if (root) act(() => root?.unmount());
   root = undefined;
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
-async function mountWithSnapshots(authStatuses: Array<RuntimeSnapshot["state"]["authHealth"]["twitch"]>) {
+async function mountWithSnapshots(
+  authStatuses: Array<RuntimeSnapshot["state"]["authHealth"]["twitch"]>,
+  twitchSession?: Partial<RuntimeSnapshot["state"]["sessions"]["twitch"]>,
+) {
   vi.useFakeTimers();
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
@@ -49,6 +57,7 @@ async function mountWithSnapshots(authStatuses: Array<RuntimeSnapshot["state"]["
           ...base.state.sessions.twitch,
           message: "secret-cookie=must-not-render",
           status: "watching" as const,
+          ...twitchSession,
         },
       },
     },
@@ -72,13 +81,28 @@ async function mountWithSnapshots(authStatuses: Array<RuntimeSnapshot["state"]["
   await act(async () => {
     root = createRoot(container);
     root.render(<Popup adapter={adapter} />);
-    await Promise.resolve();
-    await Promise.resolve();
   });
+  await waitForCatalog();
   return { container, sent };
 }
 
 describe("popup authentication health", () => {
+  // Guards the race these mount helpers used to lose: the copy below is only
+  // present once the catalog import resolves. This file installs fake timers, so
+  // it also covers waitForCatalog advancing them instead of waiting on a
+  // setTimeout that would never fire.
+  it("renders translated copy even when the catalog import resolves late", async () => {
+    catalogDelay.ticks = 5;
+
+    const { container } = await mountWithSnapshots([{
+      status: "missing_credentials",
+      reasonCode: "credentials_missing",
+    }]);
+
+    expect(container.textContent).toContain("Needs sign-in · Twitch");
+    expect(container.textContent).not.toContain("authNeedsSignIn");
+  });
+
   it("keeps the header, switcher, and hero consistent in a degraded state", async () => {
     const { container } = await mountWithSnapshots([{
       status: "missing_credentials",
@@ -104,5 +128,29 @@ describe("popup authentication health", () => {
     expect(container.querySelector('[data-automation-state="running"]')).not.toBeNull();
     expect(container.textContent).toContain("Running · Twitch");
     expect(sent).not.toContainEqual(expect.objectContaining({ type: "setAutomation" }));
+  });
+
+  it("renders one canonical starting state after the enable request settles", async () => {
+    const { container } = await mountWithSnapshots(
+      [{ status: "healthy", checkedAt: "2026-07-29T19:00:00.000Z" }],
+      { status: "starting", message: "Starting automation" },
+    );
+
+    const hero = container.querySelector('[data-automation-state="starting"]');
+    expect(hero).not.toBeNull();
+    expect(hero?.textContent).toContain("Starting");
+    expect(hero?.textContent).toContain("Starting automation...");
+  });
+
+  it("keeps a stale disabled session paused after automation is re-enabled", async () => {
+    const { container } = await mountWithSnapshots(
+      [{ status: "healthy", checkedAt: "2026-07-29T19:00:00.000Z" }],
+      { status: "idle", message: "Automation disabled", reasonCode: "automation_disabled" },
+    );
+
+    const hero = container.querySelector('[data-automation-state="paused"]');
+    expect(hero).not.toBeNull();
+    expect(hero?.textContent).toContain("Paused");
+    expect(hero?.textContent).not.toContain("Automation disabled");
   });
 });

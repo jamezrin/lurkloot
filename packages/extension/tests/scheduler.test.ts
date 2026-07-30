@@ -1,11 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, KickPlatformSettings, Platform, SchedulerState, TwitchPlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
-import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers } from "@lurkloot/core/tabs";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
+import { DEFAULT_CRITICAL_HEALTH } from "@lurkloot/shared/criticalHealth";
+import { TAB_CHURN_LIMIT, TAB_CHURN_WINDOW_MS } from "@lurkloot/core/criticalHealth";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: `reward-${status}`,
@@ -40,11 +42,10 @@ type SettingsPatch = Partial<Omit<ExtensionSettings, "platform">> & {
 function settings(patch: SettingsPatch = {}): ExtensionSettings {
   return {
     ...DEFAULT_SETTINGS,
-    running: true,
     ...patch,
     platform: {
-      twitch: { ...DEFAULT_SETTINGS.platform.twitch, ...patch.platform?.twitch },
-      kick: { ...DEFAULT_SETTINGS.platform.kick, ...patch.platform?.kick },
+      twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true, ...patch.platform?.twitch },
+      kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, ...patch.platform?.kick },
     },
   };
 }
@@ -53,8 +54,7 @@ function adapter(platform: Platform, campaigns: DropCampaign[], candidates: Chan
   return {
     platform,
     checkAuthHealth: vi.fn(async () => ({ status: "checking" as const })),
-    discoverCampaigns: vi.fn(async () => campaigns),
-    readProgress: vi.fn(async (value) => value),
+    refreshCampaigns: vi.fn(async () => campaigns),
     listCandidateChannels: vi.fn(async () => candidates),
     checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
     claimReward: vi.fn(async () => true),
@@ -364,6 +364,28 @@ describe("scheduler campaign selection", () => {
     expect(kick.action).toBe("watch");
   });
 
+  // The Kick parser keeps ended campaigns so the popup visibility filters can
+  // show them; farming must still ignore them.
+  it("never selects an expired or completed Kick campaign for farming", async () => {
+    const listCandidateChannels = vi.fn(async () => [channel("creator", { platform: "kick", url: "https://kick.com/creator" })]);
+
+    const decision = await chooseCampaignDecision(
+      "kick",
+      [
+        campaign("expired", { platform: "kick", status: "expired", endsAt: "2000-01-01T00:00:00.000Z" }),
+        campaign("completed", { platform: "kick", status: "completed", rewards: [reward("claimed")] }),
+      ],
+      settings(),
+      {
+        listCandidateChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("idle");
+    expect(listCandidateChannels).not.toHaveBeenCalled();
+  });
+
   it("keeps upcoming campaigns visible but does not select them for farming", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
@@ -392,6 +414,32 @@ describe("scheduler campaign selection", () => {
       reasonCode: "no_eligible_channel",
     });
     expect(listCandidateChannels).not.toHaveBeenCalled();
+  });
+
+  it("passes cancellation to Idle Watchlist channel checks", async () => {
+    const abort = new AbortController();
+    const checkChannel = vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate }));
+
+    await chooseCampaignDecision(
+      "twitch",
+      [],
+      settings({
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, idleWatchlistChannels: ["fallback"] },
+        },
+      }),
+      {
+        listCandidateChannels: vi.fn(async () => []),
+        checkChannel,
+      },
+      abort.signal,
+    );
+
+    expect(checkChannel).toHaveBeenCalledWith(
+      expect.objectContaining({ username: "fallback" }),
+      { campaign: undefined, signal: abort.signal },
+    );
   });
 
   it("prefers ACL candidates over general category streams", async () => {
@@ -525,6 +573,58 @@ describe("scheduler campaign selection", () => {
     expect(kickDecision.channel?.username).toBe("blocked");
   });
 
+  it("deduplicates candidate usernames before platform checks", async () => {
+    const duplicate = channel("creator");
+    const checkChannel = vi.fn(async (candidate: ChannelCandidate) => ({
+      live: true,
+      categoryMatches: true,
+      candidate,
+    }));
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("drops")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          duplicate,
+          { ...duplicate, displayName: "CREATOR" },
+        ]),
+        checkChannel,
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(checkChannel).toHaveBeenCalledOnce();
+  });
+
+  it("reuses general directory candidates only within one selection pass", async () => {
+    const listCandidateChannels = vi.fn(async () => [channel("creator")]);
+    const checkChannel = vi.fn(async (
+      candidate: ChannelCandidate,
+      options?: { campaign?: DropCampaign },
+    ) => ({
+      live: true,
+      categoryMatches: true,
+      campaignMatches: options?.campaign?.id === "second",
+      candidate,
+    }));
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [
+        campaign("first", { categoryId: "game", slug: "game" }),
+        campaign("second", { categoryId: "game", slug: "game" }),
+      ],
+      settings(),
+      { listCandidateChannels, checkChannel },
+    );
+
+    expect(decision.campaign?.id).toBe("second");
+    expect(listCandidateChannels).toHaveBeenCalledOnce();
+    expect(checkChannel).toHaveBeenCalledTimes(2);
+  });
+
   it("tries another campaign when all candidates for one campaign are excluded", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
@@ -634,6 +734,93 @@ describe("scheduler campaign selection", () => {
 
 });
 
+describe("campaign filters gate farming", () => {
+  const eligibility = (
+    patch: Partial<ExtensionSettings["farmingEligibility"]>,
+  ): ExtensionSettings["farmingEligibility"] =>
+    ({ ...DEFAULT_SETTINGS.farmingEligibility, ...patch });
+
+  const kickAdapter = () => ({
+    listCandidateChannels: vi.fn(async () => [channel("creator", { platform: "kick" as const })]),
+    checkChannel: vi.fn(async (candidate: ChannelCandidate) => ({ live: true, categoryMatches: true, candidate })),
+  });
+
+  const unlinkedKick = () => campaign("unlinked", { platform: "kick", accountLinked: false });
+
+  it("skips an unlinked Kick campaign when farmUnlinkedCampaigns is off", async () => {
+    const decision = await chooseCampaignDecision(
+      "kick",
+      [unlinkedKick()],
+      settings({ farmingEligibility: eligibility({ farmUnlinkedCampaigns: false }) }),
+      kickAdapter(),
+    );
+
+    expect(decision.action).toBe("idle");
+    expect(decision.reason).toContain("farming eligibility");
+  });
+
+  it("still farms an unlinked Kick campaign when farmUnlinkedCampaigns is on", async () => {
+    const decision = await chooseCampaignDecision("kick", [unlinkedKick()], settings(), kickAdapter());
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("unlinked");
+  });
+
+  const subscriptionCampaign = () => campaign("mixed", {
+    rewards: [
+      reward("in_progress"),
+      { id: "sub", name: "Sub reward", requiredMinutes: 0, watchedMinutes: 0, requiredSubs: 1, status: "locked" },
+    ],
+  });
+
+  it("skips a subscription campaign when farmSubscriptionCampaigns is off", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [subscriptionCampaign()],
+      settings({ farmingEligibility: eligibility({ farmSubscriptionCampaigns: false }) }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("idle");
+    expect(decision.reason).toContain("farming eligibility");
+  });
+
+  it("still farms a subscription campaign's watch rewards when farmSubscriptionCampaigns is on", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [subscriptionCampaign()],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("mixed");
+  });
+
+  it("farms an ordinary active campaign under the default eligibility settings", async () => {
+    // Nothing is turned off, so the default farmingEligibility flags must be
+    // behaviour-neutral for a linked, non-subscription campaign.
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("active")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("active");
+  });
+});
+
 describe("scheduler tick", () => {
   const baseState: SchedulerState = {
     authHealth: HEALTHY_AUTH,
@@ -688,9 +875,8 @@ describe("scheduler tick", () => {
       { platforms: ["kick"], stopPageContextTabs },
     );
 
-    expect(kick.stopWatchTab).toHaveBeenCalledWith(previous);
-    expect(kick.discoverCampaigns).not.toHaveBeenCalled();
-    expect(kick.readProgress).not.toHaveBeenCalled();
+    expect(kick.stopWatchTab).toHaveBeenCalledWith(previous, { signal: undefined });
+    expect(kick.refreshCampaigns).not.toHaveBeenCalled();
     expect(kick.claimReward).not.toHaveBeenCalled();
     expect(kick.claimChallenges).not.toHaveBeenCalled();
     expect(kick.listCandidateChannels).not.toHaveBeenCalled();
@@ -923,9 +1109,12 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "new", live: true }),
       expect.objectContaining({ tabId: 7 }),
-      {},
+      { signal: undefined },
     );
-    expect(twitch.readProgress).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ channel: first }));
+    expect(twitch.refreshCampaigns).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: first }),
+      { signal: undefined },
+    );
   });
 
   it("pauses only the platform with recent manual watch activity", async () => {
@@ -957,7 +1146,7 @@ describe("scheduler tick", () => {
       tabId: undefined,
     });
     expect(twitch.stopWatchTab).toHaveBeenCalled();
-    expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(result.state.sessions.kick.status).toBe("watching");
     expect(kick.prepareWatchTab).toHaveBeenCalled();
   });
@@ -993,6 +1182,241 @@ describe("scheduler tick", () => {
     expect(quiet.events.some((event) => event.category === "diagnostic" && event.level === "debug")).toBe(true);
     expect(quiet.events.some((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"))).toBe(true);
     expect(quiet.events.some((event) => event.category === "diagnostic" && event.message.startsWith("Tick start"))).toBe(false);
+  });
+
+  it("reports platform-scoped timings and candidate counts for scheduler phases", async () => {
+    const first = channel("offline");
+    const second = channel("creator");
+    const twitch = adapter("twitch", [campaign("drops")], [first, second]);
+    vi.mocked(twitch.checkChannel)
+      .mockResolvedValueOnce({ live: false, categoryMatches: true, candidate: first })
+      .mockResolvedValueOnce({ live: true, categoryMatches: true, candidate: second });
+
+    const result = await runSchedulerTick(
+      baseState,
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+    const diagnostics = result.events.filter(
+      (event): event is Extract<typeof event, { category: "diagnostic" }> =>
+        event.category === "diagnostic",
+    );
+
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringMatching(/^Campaign refresh finished in \d+ms \(1 campaign\)$/),
+    }));
+    expect(diagnostics).not.toContainEqual(expect.objectContaining({
+      message: expect.stringContaining("Campaign discovery finished"),
+    }));
+    expect(diagnostics).not.toContainEqual(expect.objectContaining({
+      message: expect.stringContaining("Campaign progress refresh finished"),
+    }));
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringMatching(/^Campaign selection finished in \d+ms \(1 campaign checked, 2 candidates checked\)$/),
+    }));
+    expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
+    expect(twitch.refreshCampaigns).toHaveBeenCalledWith(
+      baseState.sessions.twitch,
+      expect.objectContaining({ signal: undefined }),
+    );
+  });
+
+  it("retains the highest-priority current watch before listing replacement candidates", async () => {
+    const current = channel("current");
+    const twitch = adapter(
+      "twitch",
+      [campaign("drops")],
+      Array.from({ length: 25 }, (_, index) => channel(`candidate-${index}`)),
+    );
+    vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+      live: true,
+      categoryMatches: true,
+      campaignMatches: true,
+      candidate,
+    }));
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.listCandidateChannels).not.toHaveBeenCalled();
+    expect(twitch.checkChannel).toHaveBeenCalledOnce();
+    expect(twitch.checkChannel).toHaveBeenCalledWith(current, {
+      campaign: expect.objectContaining({ id: "drops" }),
+      signal: undefined,
+    });
+    expect(result.state.sessions.twitch.reasonCode).toBe("keeping_current_watch");
+    expect(result.events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      message: expect.stringMatching(/^Campaign selection fast path retained current watch in \d+ms \(1 candidate checked\)$/),
+    }));
+  });
+
+  it("bypasses current-watch retention when a higher-priority campaign is available", async () => {
+    const current = channel("current");
+    const replacement = channel("replacement");
+    const twitch = adapter(
+      "twitch",
+      [campaign("current"), campaign("urgent")],
+      [replacement],
+    );
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "current",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({
+        campaignPriorities: { urgent: 10 },
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.listCandidateChannels).toHaveBeenCalledOnce();
+    expect(result.state.sessions.twitch.campaignId).toBe("urgent");
+    expect(result.state.sessions.twitch.channel?.username).toBe("replacement");
+    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_reward");
+  });
+
+  it("falls back to full selection when the current channel no longer offers the campaign", async () => {
+    const current = channel("current");
+    const replacement = channel("replacement");
+    const twitch = adapter("twitch", [campaign("drops")], [replacement]);
+    vi.mocked(twitch.checkChannel)
+      .mockResolvedValueOnce({
+        live: true,
+        categoryMatches: true,
+        campaignMatches: false,
+        candidate: current,
+      })
+      .mockResolvedValue({
+        live: true,
+        categoryMatches: true,
+        campaignMatches: true,
+        candidate: replacement,
+      });
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.listCandidateChannels).toHaveBeenCalledOnce();
+    expect(result.state.sessions.twitch.channel?.username).toBe("replacement");
+  });
+
+  it("bypasses current-watch retention when the current reward completes", async () => {
+    const current = channel("current");
+    const replacement = channel("replacement");
+    const completed = { ...reward("claimed"), id: "finished" };
+    const next = { ...reward("locked"), id: "next" };
+    const twitch = adapter(
+      "twitch",
+      [campaign("drops", { rewards: [completed, next] })],
+      [replacement],
+    );
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "drops",
+            rewardId: "finished",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.listCandidateChannels).toHaveBeenCalledOnce();
+    expect(result.state.sessions.twitch.rewardId).toBe("next");
+    expect(result.state.sessions.twitch.channel?.username).toBe("replacement");
+    expect(result.state.sessions.twitch.reasonCode).toBe("watch_requirement_completed");
   });
 
   it("switches on category mismatch", async () => {
@@ -1074,7 +1498,7 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "old" }),
       expect.objectContaining({ tabId: 7 }),
-      {},
+      { signal: undefined },
     );
   });
 
@@ -1116,7 +1540,7 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "new" }),
       expect.objectContaining({ tabId: 7 }),
-      {},
+      { signal: undefined },
     );
   });
 
@@ -1298,13 +1722,216 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.message).toBe("Watch tab playback did not become active");
     expect(result.state.sessions.twitch.reasonCode).toBe("watch_unhealthy");
     expect(result.state.sessions.twitch.playback).toBeUndefined();
-    expect(result.state.sessions.twitch.playbackChecks).toBe(3);
+    // The replacement tab starts with a clean counter and a fresh grace window.
+    expect(result.state.sessions.twitch.playbackChecks).toBe(0);
+    expect(result.state.sessions.twitch.watchTabOpenedAt).toBeDefined();
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "old" }),
       expect.objectContaining({ tabId: 7 }),
-      {},
+      { signal: undefined },
     );
     expect(result.events.some((event) => event.category === "diagnostic" && event.message === "Watch tab playback did not become active")).toBe(true);
+  });
+
+  it("does not condemn a freshly opened watch tab whose player has not attached yet (#250)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const old = channel("old");
+      const twitch = adapter("twitch", [campaign("drops")], [old]);
+      vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+      vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
+      // The user log: tab opens, reports "0/0 videos playing", and only reports
+      // playback a couple of seconds later.
+      const coldTab: SchedulerState["sessions"]["twitch"] = {
+        platform: "twitch",
+        status: "watching",
+        channel: old,
+        campaignId: "drops",
+        rewardId: "reward-in_progress",
+        offlineChecks: 0,
+        playbackChecks: 0,
+        tabId: 7,
+        watchMode: "tab",
+        watchTabOpenedAt: new Date().toISOString(),
+        playback: {
+          platform: "twitch",
+          checkedAt: new Date().toISOString(),
+          videoCount: 0,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 0,
+          playingVideoCount: 0,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+        },
+      };
+      const engineSettings = settings({
+        offlineRetryLimit: 3,
+        platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+      });
+
+      let session = coldTab;
+      // Several off-cycle ticks inside the grace window must not accumulate.
+      for (let tick = 0; tick < 4; tick += 1) {
+        vi.setSystemTime(new Date(Date.parse("2026-07-19T12:00:00.000Z") + (tick + 1) * 2_000));
+        const result = await runSchedulerTick(
+          {
+            authHealth: HEALTHY_AUTH,
+            sessions: { twitch: session, kick: { platform: "kick", status: "idle", offlineChecks: 0 } },
+            campaigns: { twitch: [], kick: [] },
+          },
+          engineSettings,
+          { twitch, kick: adapter("kick", [], []) },
+        );
+        session = { ...result.state.sessions.twitch, playback: session.playback };
+        expect(session.reasonCode).not.toBe("watch_unhealthy");
+        expect(session.playbackChecks).toBe(0);
+        expect(session.tabId).toBe(7);
+      }
+
+      // Telemetry finally reports playback; the tab is kept.
+      session = {
+        ...session,
+        playback: {
+          platform: "twitch",
+          checkedAt: new Date().toISOString(),
+          videoCount: 1,
+          mutedVideoCount: 1,
+          unmutedVideoCount: 0,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+        },
+      };
+      const settled = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: { twitch: session, kick: { platform: "kick", status: "idle", offlineChecks: 0 } },
+          campaigns: { twitch: [], kick: [] },
+        },
+        engineSettings,
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(settled.state.sessions.twitch.reasonCode).toBe("keeping_current_watch");
+      expect(settled.state.sessions.twitch.playbackChecks).toBe(0);
+      expect(settled.state.sessions.twitch.tabId).toBe(7);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still replaces a watch tab that never plays once the grace period has elapsed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const old = channel("old");
+      const twitch = adapter("twitch", [campaign("drops")], [old]);
+      vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+      const deadPlayback = {
+        platform: "twitch" as const,
+        checkedAt: new Date().toISOString(),
+        videoCount: 1,
+        mutedVideoCount: 1,
+        unmutedVideoCount: 0,
+        playingVideoCount: 0,
+        blockedPlaybackCount: 1,
+        documentHidden: true,
+      };
+      const result = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: {
+              platform: "twitch",
+              status: "watching",
+              channel: old,
+              campaignId: "drops",
+              rewardId: "reward-in_progress",
+              offlineChecks: 0,
+              playbackChecks: 2,
+              tabId: 7,
+              watchMode: "tab",
+              // Opened well before the grace window closed.
+              watchTabOpenedAt: "2026-07-19T11:50:00.000Z",
+              playback: deadPlayback,
+            },
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(result.state.sessions.twitch.reasonCode).toBe("watch_unhealthy");
+      expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
+        expect.objectContaining({ username: "old" }),
+        expect.objectContaining({ tabId: 7 }),
+        { signal: undefined },
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stamps the watch tab open time on a new tab and keeps it while the tab survives", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-07-19T12:00:00.000Z");
+    try {
+      const old = channel("old");
+      const twitch = adapter("twitch", [campaign("drops")], [old]);
+      vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+      vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
+
+      const opened = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(opened.state.sessions.twitch.watchTabOpenedAt).toBe("2026-07-19T12:00:00.000Z");
+
+      vi.setSystemTime("2026-07-19T12:05:00.000Z");
+      const kept = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: {
+              ...opened.state.sessions.twitch,
+              playback: {
+                platform: "twitch",
+                checkedAt: new Date().toISOString(),
+                videoCount: 1,
+                mutedVideoCount: 1,
+                unmutedVideoCount: 0,
+                playingVideoCount: 1,
+                blockedPlaybackCount: 0,
+                documentHidden: true,
+              },
+            },
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(kept.state.sessions.twitch.watchTabOpenedAt).toBe("2026-07-19T12:00:00.000Z");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("switches from a campaign watch tab to fallback when the campaign becomes ineligible", async () => {
@@ -1339,7 +1966,7 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "fallback" }),
       expect.objectContaining({ tabId: 7 }),
-      {},
+      { signal: undefined },
     );
   });
 
@@ -1360,7 +1987,7 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.claimReward).toHaveBeenCalledWith(ready, ready.rewards[0]);
+    expect(twitch.claimReward).toHaveBeenCalledWith(ready, ready.rewards[0], { signal: undefined });
   });
 
   it("claims an obtained non-watch reward without selecting it for farming", async () => {
@@ -1392,7 +2019,7 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.claimReward).toHaveBeenCalledWith(ready, actionReward);
+    expect(twitch.claimReward).toHaveBeenCalledWith(ready, actionReward, { signal: undefined });
     expect(twitch.listCandidateChannels).not.toHaveBeenCalled();
     expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.status).toBe("idle");
@@ -1545,7 +2172,10 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7 }));
+    expect(twitch.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 7 }),
+      { signal: undefined },
+    );
     expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch).toMatchObject({
       status: "idle",
@@ -1710,8 +2340,41 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.claimReward).toHaveBeenCalledWith(ready, ready.rewards[0]);
+    expect(twitch.claimReward).toHaveBeenCalledWith(ready, ready.rewards[0], { signal: undefined });
     expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
+  });
+
+  it("does not reclaim the same reward while fresh inventory remains stale", async () => {
+    const ready = campaign("drops", {
+      rewards: [{ ...reward("claimable"), claimId: "user#drops#reward-claimable" }],
+    });
+    const twitch = {
+      ...adapter("twitch", [ready], [channel("allowed")]),
+      isClaimReady: vi.fn(() => true),
+    };
+    const enabledSettings = settings({
+      platform: {
+        twitch: { enabled: true, idleWatchlistChannels: [] },
+        kick: { enabled: false, idleWatchlistChannels: [] },
+      },
+    });
+    const adapters = { twitch, kick: adapter("kick", [], []) };
+    const initialState: SchedulerState = {
+      authHealth: HEALTHY_AUTH,
+      sessions: {
+        twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+    };
+
+    const first = await runSchedulerTick(initialState, enabledSettings, adapters);
+    const second = await runSchedulerTick(first.state, enabledSettings, adapters);
+
+    expect(twitch.claimReward).toHaveBeenCalledTimes(1);
+    expect(second.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
+    expect(second.events.some((event) =>
+      event.category === "activity" && event.code === "reward_claimed")).toBe(false);
   });
 
   it("does not claim rewards after their claim window has expired", async () => {
@@ -1884,7 +2547,7 @@ describe("scheduler tick", () => {
       { platforms: ["kick"] },
     );
 
-    expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.status).toBe("watching");
     expect(result.state.campaigns.twitch).toEqual([campaign("existing")]);
@@ -1913,6 +2576,7 @@ describe("scheduler tick", () => {
       expect.objectContaining({ tabId: 42 }),
       expect.objectContaining({
         managedTab: expect.objectContaining({ platform: "twitch", tabId: 42 }),
+        signal: undefined,
       }),
     );
   });
@@ -1939,12 +2603,15 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ running: false }),
+      settings({ platform: { twitch: { enabled: false }, kick: { enabled: false } } }),
       { twitch, kick: adapter("kick", [], []) },
       { stopPageContextTabs },
     );
 
-    expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7, tabManagedByExtension: true }));
+    expect(twitch.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 7, tabManagedByExtension: true }),
+      { signal: undefined },
+    );
     expect(result.state.sessions.twitch.tabId).toBeUndefined();
     expect(result.state.sessions.twitch.channel).toBeUndefined();
     expect(result.state.managedPageContextTabs?.twitch).toBeUndefined();
@@ -1970,7 +2637,10 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7 }));
+    expect(twitch.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 7 }),
+      { signal: undefined },
+    );
     expect(result.state.sessions.twitch.status).toBe("idle");
     expect(result.state.sessions.twitch.tabId).toBeUndefined();
   });
@@ -2002,7 +2672,7 @@ describe("scheduler tick", () => {
 
   it("isolates adapter failures per platform", async () => {
     const twitch = adapter("twitch", [], []);
-    vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new Error("Twitch unavailable"));
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch unavailable"));
     const kickCandidate = { ...channel("kicklive"), platform: "kick" as const, url: "https://kick.com/kicklive" };
     const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [kickCandidate]);
 
@@ -2028,7 +2698,7 @@ describe("scheduler tick", () => {
 
   it("uses Idle Watchlist fallback when drop discovery fails and idle watchlist channels exist", async () => {
     const twitch = adapter("twitch", [], []);
-    vi.mocked(twitch.discoverCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
     vi.mocked(twitch.checkChannel).mockResolvedValue({
       live: true,
       categoryMatches: true,
@@ -2048,11 +2718,10 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.readProgress).not.toHaveBeenCalled();
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
       expect.objectContaining({ username: "fallback", live: true }),
       expect.any(Object),
-      {},
+      { signal: undefined },
     );
     expect(result.state.sessions.twitch).toMatchObject({
       status: "watching",
@@ -2061,6 +2730,60 @@ describe("scheduler tick", () => {
       retryAfter: undefined,
     });
     expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("checking Idle Watchlist fallback"))).toBe(true);
+  });
+
+  it("keeps previously discovered campaigns when discovery fails and the Idle Watchlist takes over", async () => {
+    const known = campaign("known-drops");
+    const twitch = adapter("twitch", [], []);
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: channel("fallback"),
+    });
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [known], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: ["fallback"] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.campaigns.twitch).toEqual([known]);
+    expect(result.state.sessions.twitch).toMatchObject({
+      status: "watching",
+      channel: expect.objectContaining({ username: "fallback" }),
+      campaignId: undefined,
+    });
+    expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("checking Idle Watchlist fallback"))).toBe(true);
+  });
+
+  it("keeps previously discovered campaigns when discovery fails without idle watchlist channels", async () => {
+    const known = campaign("known-drops");
+    const twitch = adapter("twitch", [], []);
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [known], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.campaigns.twitch).toEqual([known]);
+    expect(result.state.sessions.twitch.status).toBe("error");
   });
 
   it("backs off failed platforms until their retry time", async () => {
@@ -2087,7 +2810,7 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.discoverCampaigns).not.toHaveBeenCalled();
+    expect(twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.retryAfter).toBe(retryAfter);
     expect(result.events.some((event) => event.category === "diagnostic" && event.message.includes("Waiting until"))).toBe(true);
   });
@@ -2114,7 +2837,7 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.discoverCampaigns).toHaveBeenCalled();
+    expect(twitch.refreshCampaigns).toHaveBeenCalled();
     expect(result.state.sessions.twitch.status).toBe("watching");
     expect(result.state.sessions.twitch.errorChecks).toBe(0);
     expect(result.state.sessions.twitch.retryAfter).toBeUndefined();
@@ -2139,7 +2862,10 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.claimChannelPoints).toHaveBeenCalledWith(expect.objectContaining({ username: "allowed" }));
+    expect(twitch.claimChannelPoints).toHaveBeenCalledWith(
+      expect.objectContaining({ username: "allowed" }),
+      { signal: undefined },
+    );
     expect(result.events.some((event) => event.category === "diagnostic" && event.message.includes("Claimed channel points"))).toBe(true);
   });
 
@@ -2299,7 +3025,7 @@ describe("scheduler tick", () => {
 
   it("keeps transient platform failures on ordinary backoff", async () => {
     const kick = adapter("kick", [], []);
-    vi.mocked(kick.discoverCampaigns).mockRejectedValueOnce(
+    vi.mocked(kick.refreshCampaigns).mockRejectedValueOnce(
       new SafeFetchError({ kind: "http_error", status: 503 }),
     );
 
@@ -2321,7 +3047,7 @@ describe("scheduler tick", () => {
 
   it("does not turn an authentication failure into an Idle Watchlist session", async () => {
     const kick = adapter("kick", [], []);
-    vi.mocked(kick.discoverCampaigns).mockRejectedValueOnce(
+    vi.mocked(kick.refreshCampaigns).mockRejectedValueOnce(
       new SafeFetchError({ kind: "authentication_rejected", status: 401 }),
     );
 
@@ -2391,6 +3117,41 @@ describe("scheduler tabless mode", () => {
     return { ...adapter("twitch", campaigns, candidates), supportsTabless: true };
   }
 
+  async function runTablessFallbackCase(heartbeatChecks: number, overrides: SettingsPatch) {
+    const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: channel("creator") });
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            watchMode: "tabless",
+            heartbeatChecks,
+            lastHeartbeatOk: false,
+            lastHeartbeatAt: new Date().toISOString(),
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [campaign("drops")], kick: [] },
+      },
+      settings({
+        ...overrides,
+        tablessMode: true,
+        platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    return { result, twitch };
+  }
+
   it("does not open a watch tab and marks the session tabless when tabless mode is on", async () => {
     const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
 
@@ -2414,37 +3175,36 @@ describe("scheduler tabless mode", () => {
     expect(result.state.managedWatchTabs?.twitch).toBeUndefined();
   });
 
-  it("falls back to a watch tab after the tabless heartbeat keeps failing", async () => {
-    const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: channel("creator") });
+  it("stays tabless below its configured fallback threshold", async () => {
+    const { result, twitch } = await runTablessFallbackCase(4, {
+      offlineRetryLimit: 1,
+      tablessFallbackFailureLimit: 5,
+    });
 
-    const result = await runSchedulerTick(
-      {
-        authHealth: HEALTHY_AUTH,
-        sessions: {
-          twitch: {
-            platform: "twitch",
-            status: "watching",
-            channel: channel("creator"),
-            campaignId: "drops",
-            rewardId: "reward-in_progress",
-            offlineChecks: 0,
-            watchMode: "tabless",
-            heartbeatChecks: 3,
-            lastHeartbeatOk: false,
-            lastHeartbeatAt: new Date().toISOString(),
-          },
-          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
-        },
-        campaigns: { twitch: [campaign("drops")], kick: [] },
-      },
-      settings({ offlineRetryLimit: 3, tablessMode: true, platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
-      { twitch, kick: adapter("kick", [], []) },
-    );
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch.watchMode).toBe("tabless");
+  });
 
-    expect(twitch.prepareWatchTab).toHaveBeenCalledTimes(1);
+  it("falls back exactly at its configured fallback threshold", async () => {
+    const { result, twitch } = await runTablessFallbackCase(5, {
+      offlineRetryLimit: 10,
+      tablessFallbackFailureLimit: 5,
+    });
+
+    expect(twitch.prepareWatchTab).toHaveBeenCalledOnce();
+    expect(result.state.sessions.twitch).toMatchObject({
+      watchMode: "tab",
+      tablessFallback: true,
+    });
+  });
+
+  it("honors a non-default tabless fallback threshold", async () => {
+    const { result } = await runTablessFallbackCase(2, {
+      offlineRetryLimit: 9,
+      tablessFallbackFailureLimit: 2,
+    });
+
     expect(result.state.sessions.twitch.watchMode).toBe("tab");
-    expect(result.state.sessions.twitch.tablessFallback).toBe(true);
   });
 
   it("stays tabless while heartbeats remain healthy on the same channel", async () => {
@@ -2497,5 +3257,467 @@ describe("scheduler tabless mode", () => {
 
     expect(twitch.prepareWatchTab).toHaveBeenCalledTimes(1);
     expect(result.state.sessions.twitch.watchMode).toBe("tab");
+  });
+});
+
+describe("scheduler critical health observations", () => {
+  const healthState: SchedulerState = {
+    authHealth: HEALTHY_AUTH,
+    sessions: {
+      twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+      kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+    },
+    campaigns: { twitch: [], kick: [] },
+  };
+
+  const healthSettings = (patch: SettingsPatch = {}): ExtensionSettings => settings({
+    ...patch,
+    platform: {
+      twitch: { enabled: true, idleWatchlistChannels: ["fallback"], ...patch.platform?.twitch },
+      kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
+    },
+  });
+
+  function failingAdapter(): PlatformAdapter {
+    const twitch = adapter("twitch", [], [channel("fallback")]);
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new SafeFetchError({ kind: "http_error", status: 503 }));
+    return twitch;
+  }
+
+  it("records a failing tick when discovery throws", async () => {
+    const twitch = failingAdapter();
+    const result = await runSchedulerTick(
+      healthState,
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)?.kind).toBe("api_error");
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      platform: "twitch",
+      code: "http_error",
+      status: 503,
+    });
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+  });
+
+  it("does not track anything when the prompt is disabled", async () => {
+    const twitch = failingAdapter();
+    const result = await runSchedulerTick(
+      healthState,
+      healthSettings({ criticalFailurePromptEnabled: false }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch).toBeUndefined();
+  });
+
+  it("clears the failing counters after a healthy tick", async () => {
+    const tickSettings = healthSettings();
+    const first = await runSchedulerTick(
+      healthState,
+      tickSettings,
+      { twitch: failingAdapter(), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+    expect(first.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+
+    const second = await runSchedulerTick(
+      first.state,
+      tickSettings,
+      { twitch: adapter("twitch", [campaign("drops")], [channel("creator")]), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(second.state.criticalHealth?.twitch?.failingMs).toBe(0);
+    expect(second.state.criticalHealth?.twitch?.failingTicks).toBe(0);
+  });
+
+  it("records the active reward's watched minutes on a healthy tick", async () => {
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        sessions: {
+          ...healthState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+          },
+        },
+      },
+      healthSettings(),
+      { twitch: adapter("twitch", [campaign("drops")], [channel("creator")]), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.lastWatchedMinutes).toBe(20);
+  });
+
+  it("observes every platform on every tick, including early exits", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        sessions: {
+          ...healthState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "error",
+            offlineChecks: 0,
+            errorChecks: 3,
+            retryAfter: "2099-01-01T00:00:00.000Z",
+          },
+        },
+      },
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    // The backoff branch exits the platform iteration early; the detector must
+    // still see this tick, otherwise the churn window never drains.
+    expect(twitch.refreshCampaigns).not.toHaveBeenCalled();
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "platform_backoff",
+    });
+  });
+
+  it("records a failing tick when discovery throws and there is no idle watchlist", async () => {
+    const twitch = failingAdapter();
+    const result = await runSchedulerTick(
+      healthState,
+      healthSettings({ platform: { twitch: { idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).toBe("platform_error");
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "http_error",
+      status: 503,
+    });
+  });
+
+  it("records a failing tick when the watch phase throws after a successful discovery", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    vi.mocked(twitch.checkChannel).mockRejectedValue(new Error("channel lookup exploded"));
+
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+      },
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.refreshCampaigns).toHaveBeenCalled();
+    expect(result.state.sessions.twitch.reasonCode).toBe("platform_error");
+    // The accrual observation set before the throw must not survive as a healthy tick.
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(6);
+    expect(result.state.criticalHealth?.twitch?.failingMs).toBeGreaterThanOrEqual(2_000_000);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "unknown_error",
+      detail: "channel lookup exploded",
+    });
+  });
+
+  it.each([
+    ["platform disabled", () => healthSettings({ platform: { twitch: { enabled: false } } })],
+    ["automation stopped", () => healthSettings({ platform: { twitch: { enabled: false }, kick: { enabled: false } } })],
+  ])("prunes the tab churn window on the %s early exit", async (_name, tickSettings) => {
+    const stale = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        criticalHealth: {
+          twitch: {
+            ...DEFAULT_CRITICAL_HEALTH,
+            managedTabOpens: [stale, stale, stale, stale, stale],
+            breakerOpen: true,
+          },
+        },
+      },
+      tickSettings(),
+      { twitch: adapter("twitch", [], []), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.managedTabOpens).toEqual([]);
+    expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+  });
+
+  it("prunes the tab churn window while authentication is unhealthy", async () => {
+    const stale = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        authHealth: { ...HEALTHY_AUTH, twitch: { status: "invalid_credentials", reasonCode: "credentials_rejected" } },
+        criticalHealth: {
+          twitch: {
+            ...DEFAULT_CRITICAL_HEALTH,
+            managedTabOpens: [stale, stale, stale, stale, stale],
+            breakerOpen: true,
+          },
+        },
+      },
+      healthSettings(),
+      { twitch: adapter("twitch", [], []), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).toBe("authentication_unhealthy");
+    expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
+  });
+
+  it("does not charge a failing tick for an outage that ends in an accrual precondition break", async () => {
+    // Discovery fails (a failing observation) but the tick then finds the idle
+    // watchlist channel it was watching has been superseded — an explainable
+    // stop, so the precondition arm must win and clear the counters.
+    const twitch = failingAdapter();
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        sessions: {
+          ...healthState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            offlineChecks: 0,
+          },
+        },
+        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+      },
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_idle_watchlist");
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(0);
+    expect(result.state.criticalHealth?.twitch?.failingMs).toBe(0);
+  });
+
+  it("resets the failing counters when an accrual precondition breaks", async () => {
+    const tickSettings = healthSettings({ offlineRetryLimit: 1 });
+    const first = await runSchedulerTick(
+      healthState,
+      tickSettings,
+      { twitch: failingAdapter(), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+    expect(first.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+
+    const offline = adapter("twitch", [campaign("drops")], [channel("other")]);
+    vi.mocked(offline.checkChannel).mockImplementation(async (candidate) => ({
+      live: candidate.username !== "creator",
+      categoryMatches: true,
+      candidate,
+    }));
+    const second = await runSchedulerTick(
+      {
+        ...first.state,
+        sessions: {
+          ...first.state.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+          },
+        },
+      },
+      tickSettings,
+      { twitch: offline, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(second.state.sessions.twitch.reasonCode).toBe("channel_offline");
+    expect(second.state.criticalHealth?.twitch?.failingTicks).toBe(0);
+    expect(second.state.criticalHealth?.twitch?.failingMs).toBe(0);
+  });
+});
+
+describe("scheduler managed tab circuit breaker", () => {
+  const openBreakerHealth = () => ({
+    ...DEFAULT_CRITICAL_HEALTH,
+    breakerOpen: true,
+    managedTabOpens: Array.from({ length: TAB_CHURN_LIMIT }, (_unused, index) =>
+      new Date(Date.now() - index * 1000).toISOString()),
+  });
+
+  const breakerSettings = (patch: SettingsPatch = {}): ExtensionSettings => settings({
+    ...patch,
+    platform: {
+      twitch: { enabled: true, idleWatchlistChannels: [], ...patch.platform?.twitch },
+      kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
+    },
+  });
+
+  const watchingState = (): SchedulerState => ({
+    authHealth: HEALTHY_AUTH,
+    sessions: {
+      twitch: {
+        platform: "twitch",
+        status: "watching",
+        channel: channel("creator"),
+        campaignId: "drops",
+        rewardId: "reward-in_progress",
+        offlineChecks: 0,
+        tabId: 42,
+        tabManagedByExtension: true,
+      },
+      kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+    },
+    campaigns: { twitch: [campaign("drops")], kick: [] },
+    managedWatchTabs: {
+      twitch: { platform: "twitch", tabId: 42, channelUrl: channel("creator").url, ownedByExtension: true },
+    },
+  });
+
+  afterEach(() => {
+    syncManagedTabBreakers({});
+  });
+
+  it("does not open a watch tab while the breaker is open", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(twitch.stopWatchTab).toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).not.toBe("watching");
+    expect(result.state.sessions.twitch.reasonCode).toBe("critical_failure");
+    expect(result.state.managedWatchTabs?.twitch).toBeUndefined();
+    expect(managedTabBreakerOpen("twitch")).toBe(true);
+  });
+
+  it("keeps ticking a breaker-paused platform so the breaker can release", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    // Without this observation the churn window never prunes and an unflagged
+    // breaker would never close: farming would stall permanently.
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+  });
+
+  it("releases the breaker once the churn evidence ages out", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const stale = new Date(Date.now() - TAB_CHURN_WINDOW_MS - 60_000).toISOString();
+
+    const result = await runSchedulerTick(
+      {
+        ...watchingState(),
+        criticalHealth: {
+          twitch: { ...DEFAULT_CRITICAL_HEALTH, breakerOpen: true, managedTabOpens: [stale, stale] },
+        },
+      },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
+  });
+
+  it("does not gate anything when the prompt is disabled", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
+      breakerSettings({ criticalFailurePromptEnabled: false }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(result.state.sessions.twitch.status).toBe("watching");
+  });
+
+  it("clears the page-context registry when the prompt is disabled", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    // A breaker latched before the kill switch was flipped would otherwise keep
+    // blocking page-context creation forever: observations no longer run to
+    // release it, and the popup no longer offers the panel that dismisses it.
+    syncManagedTabBreakers({ criticalHealth: { twitch: openBreakerHealth() } });
+    expect(managedTabBreakerOpen("twitch")).toBe(true);
+
+    await runSchedulerTick(
+      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
+      breakerSettings({ criticalFailurePromptEnabled: false }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(managedTabBreakerOpen("twitch")).toBe(false);
+  });
+
+  it("records each newly created managed watch tab", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)?.kind).toBe("watch_tab_open");
+  });
+
+  it("does not record a reused managed watch tab", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    const initial: SchedulerState = {
+      authHealth: HEALTHY_AUTH,
+      sessions: {
+        twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+    };
+
+    const first = await runSchedulerTick(initial, breakerSettings(), { twitch, kick: adapter("kick", [], []) }, { platforms: ["twitch"] });
+    expect(first.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
+
+    const second = await runSchedulerTick(first.state, breakerSettings(), { twitch, kick: adapter("kick", [], []) }, { platforms: ["twitch"] });
+
+    expect(second.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
   });
 });

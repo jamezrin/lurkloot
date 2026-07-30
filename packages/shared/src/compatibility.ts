@@ -9,7 +9,7 @@ export type TwitchHeartbeatId =
   | "twitch-heartbeat-gql-v1"
   | "twitch-heartbeat-spade-v1"
   | "twitch-heartbeat-trowel-v1";
-export type TwitchInventoryId = "twitch-inventory-v1";
+export type TwitchInventoryId = "twitch-inventory-v1" | "twitch-inventory-v2";
 export type KickProfileId = "kick-2026-07";
 export type KickClaimId = "kick-claim-v1" | "kick-claim-v2";
 

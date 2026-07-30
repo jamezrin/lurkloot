@@ -7,6 +7,7 @@ import type {
 } from "@lurkloot/shared/events";
 import type { ActivityPage } from "@lurkloot/shared/messages";
 import type { Platform } from "@lurkloot/shared/models";
+import type { CriticalFailureReason } from "@lurkloot/shared/criticalHealth";
 import type { TFunction } from "./types";
 
 export type ActivityStream = {
@@ -117,7 +118,9 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
     case "watch_requirement_completed": return t("activityReasonWatchRequirementCompleted");
     case "runtime_restart": return t("activityReasonRuntimeRestart");
     case "target_changed": return t("activityReasonTargetChanged");
+    case "critical_failure": return t("activityReasonCriticalFailure");
     case "manual_watch": return t("activityReasonManualWatch");
+    case "manual_tab_close": return t("activityReasonManualTabClose");
     case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     default: {
       const exhaustive: never = reason;
@@ -144,9 +147,21 @@ function formatPageContextCloseReason(reason: PageContextCloseReason, t: TFuncti
     case "platform_disabled": return t("activityReasonPlatformDisabled");
     case "automation_disabled": return t("activityReasonAutomationDisabled");
     case "manual_watch": return t("activityReasonManualWatch");
+    case "manual_tab_close": return t("activityReasonManualTabClose");
     case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     case "runtime_restart": return t("activityReasonRuntimeRestart");
     case "managed_context_unusable": return t("activityPageContextReasonManagedContextUnusable");
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
+
+function formatCriticalFailureReason(reason: CriticalFailureReason, t: TFunction): string {
+  switch (reason) {
+    case "page_context_churn": return t("criticalFailureReasonPageContextChurn");
+    case "no_progress": return t("criticalFailureReasonNoProgress");
     default: {
       const exhaustive: never = reason;
       return exhaustive;
@@ -180,6 +195,10 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
       return t("activityPageContextClosed", [event.data.host, formatPageContextCloseReason(event.data.reason, t)]);
     case "auth_health_changed":
       return t("activityAuthHealthChanged", [event.platform, event.data.from, event.data.to]);
+    case "critical_failure_detected":
+      return t("activityCriticalFailureDetected", [event.platform, formatCriticalFailureReason(event.data.reason, t)]);
+    case "critical_failure_cleared":
+      return t("activityCriticalFailureCleared", event.platform);
     default: {
       const exhaustive: never = event;
       return exhaustive;
@@ -190,6 +209,45 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
 export function formatActivityEvent(event: ActivityHistoryRecord, t: TFunction): string {
   if ("legacy" in event || event.category === "diagnostic") return event.message;
   return formatCurrentActivity(event, t);
+}
+
+export interface ActivityExportInput {
+  // The full loaded list for the visible view, newest first (as held in state).
+  events: readonly ActivityHistoryRecord[];
+  platform: Platform;
+  diagnostics: boolean;
+  version: string;
+  userAgent: string;
+  locale: string;
+  at: string;
+}
+
+// Plain text, not markup: this is pasted into email, Discord and issue bodies,
+// and it has to read as-is in all of them. The header carries the environment
+// facts a bug report is usually missing (version first) and nothing else — the
+// event bodies already decide what user data leaves the machine, and this adds
+// no identity, account or channel information of its own.
+export function buildActivityExport(input: ActivityExportInput, t: TFunction): string {
+  const header = [
+    `Lurkloot ${input.diagnostics ? "diagnostics" : "activity"} log`,
+    `version: ${input.version}`,
+    `platform: ${input.platform}`,
+    `locale: ${input.locale}`,
+    `exported: ${input.at}`,
+    `browser: ${input.userAgent}`,
+    `events: ${input.events.length}`,
+  ].join("\n");
+
+  // Oldest first: a log is read top-down when you are reconstructing what
+  // happened, even though the popup lists newest first.
+  const body = input.events.length === 0
+    ? "(no events)"
+    : [...input.events]
+      .reverse()
+      .map((event) => `${event.at} [${event.level}] ${formatActivityEvent(event, t)}`)
+      .join("\n");
+
+  return `${header}\n\n${body}\n`;
 }
 
 export function mergeActivityPages(

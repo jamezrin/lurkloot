@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PlatformAuthHealth } from "@lurkloot/shared/models";
+import type { PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
 import {
   AUTH_SIGN_IN_URLS,
   automationPresentation,
@@ -16,6 +16,20 @@ function health(
       key: status === "blocked" ? "authSecurityPolicyBlocked" : "authPlatformUnavailable",
       values: { reference: "must-not-render" },
     },
+  };
+}
+
+function session(
+  status: WatchSession["status"] = "idle",
+  message?: string,
+  reasonCode?: WatchSession["reasonCode"],
+): WatchSession {
+  return {
+    platform: "twitch",
+    status,
+    offlineChecks: 0,
+    message,
+    reasonCode,
   };
 }
 
@@ -67,13 +81,13 @@ describe("automation authentication presentation", () => {
         enabled: true,
         pending: false,
         authHealth: health(status),
-      }).action).toEqual({ labelKey: "signInToTwitch", url: "https://www.twitch.tv/login" });
+      }).action).toEqual({ kind: "link", labelKey: "signInToTwitch", url: "https://www.twitch.tv/login" });
       expect(automationPresentation({
         platform: "kick",
         enabled: true,
         pending: false,
         authHealth: health(status),
-      }).action).toEqual({ labelKey: "signInToKick", url: "https://kick.com/login" });
+      }).action).toEqual({ kind: "link", labelKey: "signInToKick", url: "https://kick.com/login" });
     },
   );
 
@@ -89,6 +103,52 @@ describe("automation authentication presentation", () => {
     },
   );
 
+  it("surfaces a manual watch-tab close as a resumable pause", () => {
+    const result = automationPresentation({
+      platform: "kick",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      manualClosePaused: true,
+    });
+
+    expect(result).toMatchObject({
+      state: "paused_tab_closed",
+      badgeKey: "automationPausedTabClosed",
+      detailKey: "watchTabClosedPauseDetail",
+      tone: "warning",
+      operational: false,
+      action: { kind: "resume", labelKey: "resumeFarming" },
+    });
+  });
+
+  it("keeps the manual-close pause visible even while authentication is degraded", () => {
+    expect(automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("missing_credentials"),
+      manualClosePaused: true,
+    }).state).toBe("paused_tab_closed");
+  });
+
+  it("ignores the manual-close pause when the platform is off or pending", () => {
+    expect(automationPresentation({
+      platform: "twitch",
+      enabled: false,
+      pending: false,
+      authHealth: health("healthy"),
+      manualClosePaused: true,
+    }).state).toBe("paused");
+    expect(automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: true,
+      authHealth: health("healthy"),
+      manualClosePaused: true,
+    }).state).toBe("starting");
+  });
+
   it("does not propagate authentication message values", () => {
     const result = automationPresentation({
       platform: "kick",
@@ -98,5 +158,68 @@ describe("automation authentication presentation", () => {
     });
     expect(JSON.stringify(result)).not.toContain("must-not-render");
     expect(result).not.toHaveProperty("message");
+  });
+
+  it("uses the typed starting session status after the request settles", () => {
+    expect(automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: session("starting", "Any display-only detail"),
+    })).toMatchObject({
+      state: "starting",
+      badgeKey: "automationStarting",
+      detailKey: "startingAutomation",
+      operational: false,
+    });
+  });
+
+  it.each([
+    ["automation_disabled", "Automation disabled"],
+    ["platform_disabled", "Platform disabled"],
+  ] as const)(
+    "keeps a stale %s session paused when automation is re-enabled",
+    (reasonCode, message) => {
+      const result = automationPresentation({
+        platform: "twitch",
+        enabled: true,
+        pending: false,
+        authHealth: health("healthy"),
+        session: session("idle", message, reasonCode),
+      });
+
+      expect(result.state).toBe("paused");
+      expect(result.statusMessage).toBeUndefined();
+    },
+  );
+
+  it("does not derive lifecycle from a starting display message", () => {
+    const result = automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: session("idle", "Starting automation", "no_eligible_channel"),
+    });
+
+    expect(result).toMatchObject({
+      state: "running",
+      badgeKey: "automationRunning",
+      statusMessage: "Starting automation",
+    });
+  });
+
+  it("preserves compatible settled scheduler detail for a running platform", () => {
+    expect(automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: session("idle", "Waiting for an eligible stream", "no_eligible_channel"),
+    })).toMatchObject({
+      state: "running",
+      statusMessage: "Waiting for an eligible stream",
+    });
   });
 });

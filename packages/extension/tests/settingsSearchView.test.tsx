@@ -44,8 +44,12 @@ const labels: Record<string, string> = {
   campaignPriorityDescription: "How campaigns are chosen to farm.",
   idleWatchlistFallbackOnlyTitle: "Only when no drops are active",
   idleWatchlistFallbackOnlyDescription: "Preserves drop priority automatically.",
-  visibleCampaignsTitle: "Visible campaigns",
-  visibleCampaignsDescription: "Choose which campaign states show in the Drops list.",
+  farmUnlinkedTitle: "Farm campaigns without a linked account",
+  farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
+  farmSubscriptionTitle: "Farm campaigns that require a subscription",
+  farmSubscriptionDescription: "When off, campaigns whose rewards need a channel subscription are skipped.",
+  dropsListFilterTitle: "Drops list view",
+  dropsListFilterDescription: "Choose which campaigns are shown in the Drops list.",
   forgetExcludedTitle: "Forget excluded campaigns",
   forgetExcludedDescription: "Clear every campaign you excluded from farming.",
   tablessTitle: "Tabless low-resource mode",
@@ -60,6 +64,10 @@ const labels: Record<string, string> = {
   adFocusDescription: "Ad countdowns freeze in background tabs.",
   schedulerIntervalTitle: "Scheduler interval",
   schedulerIntervalDescription: "How often campaign and streamer status refreshes.",
+  tablessFallbackFailureLimitTitle: "Tabless fallback threshold",
+  tablessFallbackFailureLimitDescription: "Open a video tab after this many consecutive failed tabless watch signals.",
+  tablessFallbackFailureLimitDisabledReason: "Enable tabless low-resource mode to change this setting.",
+  failuresSuffix: "failures",
   postClaimHandoffTitle: "Fast reward handoff",
   postClaimHandoffDescription: "After claiming a drop, briefly check for the next reward.",
   postClaimHandoffIntervalTitle: "Handoff check interval",
@@ -192,9 +200,9 @@ describe("settings search view", () => {
     const { container } = mountSettings();
     const search = container.querySelector("input[type=search]") as HTMLInputElement;
     act(() => {
-      setInputValue(search, "scheduler interval");
+      setInputValue(search, "tabless fallback");
     });
-    expect(container.textContent).toContain("Scheduler interval");
+    expect(container.textContent).toContain("Tabless fallback threshold");
     const advancedSwitch = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Show advanced settings");
     expect(advancedSwitch?.getAttribute("aria-checked")).toBe("false");
   });

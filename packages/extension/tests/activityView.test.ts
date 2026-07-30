@@ -6,6 +6,7 @@ import {
   applyActivityPage,
   applyActivityPageForRequest,
   beginActivityMutation,
+  buildActivityExport,
   createActivityMutationSequence,
   createActivityRequestScope,
   createActivityStream,
@@ -315,5 +316,50 @@ describe("activity view model", () => {
       [event("a", "2026-07-14T11:00:00.000Z")],
       [event("c"), event("b")],
     ).map((entry) => entry.id)).toEqual(["c", "b", "a"]);
+  });
+});
+
+describe("activity export", () => {
+  const exportInput = {
+    platform: "kick" as const,
+    diagnostics: false,
+    version: "1.9.0",
+    userAgent: "Mozilla/5.0 (X11; Linux x86_64)",
+    locale: "en",
+    at: "2026-07-26T09:00:00.000Z",
+  };
+  const t = (key: string) => key;
+
+  it("writes a header and the events oldest first, one per line", () => {
+    const text = buildActivityExport({
+      ...exportInput,
+      // Held newest first, as the popup state does.
+      events: [
+        { id: "b", at: "2026-07-14T12:00:00.000Z", legacy: true, level: "warn", message: "second" },
+        { id: "a", at: "2026-07-14T11:00:00.000Z", legacy: true, level: "info", message: "first" },
+      ],
+    }, t);
+
+    expect(text.split("\n\n")[0].split("\n")).toEqual([
+      "Lurkloot activity log",
+      "version: 1.9.0",
+      "platform: kick",
+      "locale: en",
+      "exported: 2026-07-26T09:00:00.000Z",
+      "browser: Mozilla/5.0 (X11; Linux x86_64)",
+      "events: 2",
+    ]);
+    expect(text.trimEnd().split("\n").slice(-2)).toEqual([
+      "2026-07-14T11:00:00.000Z [info] first",
+      "2026-07-14T12:00:00.000Z [warn] second",
+    ]);
+  });
+
+  it("labels the diagnostics view and handles an empty list", () => {
+    const text = buildActivityExport({ ...exportInput, diagnostics: true, events: [] }, t);
+
+    expect(text).toContain("Lurkloot diagnostics log");
+    expect(text).toContain("events: 0");
+    expect(text.trimEnd().endsWith("(no events)")).toBe(true);
   });
 });

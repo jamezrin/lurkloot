@@ -143,9 +143,61 @@ describe("parseCliSettings", () => {
 
   it("hard-errors on extension-only keys, naming them", () => {
     expect(() => parseCliSettings({ adFocusMode: "window" })).toThrow(/"adFocusMode" is an extension-only setting/);
-    expect(() => parseCliSettings({ running: true })).toThrow(/"running" is an extension-only setting/);
     expect(() => parseCliSettings({ tablessMode: true })).toThrow(/"tablessMode" is an extension-only setting/);
     expect(() => parseCliSettings({ diagnosticLogging: true })).toThrow(/"diagnosticLogging" is an extension-only setting/);
+  });
+
+  it("accepts farmingEligibility now that it gates farming", () => {
+    const result = parseCliSettingsWithDiagnostics({ farmingEligibility: { farmUnlinkedCampaigns: false } });
+
+    expect(result.settings.farmingEligibility.farmUnlinkedCampaigns).toBe(false);
+    // Unnamed keys keep their shared defaults.
+    expect(result.settings.farmingEligibility.farmSubscriptionCampaigns).toBe(DEFAULT_CLI_SETTINGS.farmingEligibility.farmSubscriptionCampaigns);
+    expect(result.diagnostics).toEqual([]);
+    expect(toEngineSettings(result.settings).farmingEligibility.farmUnlinkedCampaigns).toBe(false);
+  });
+
+  it("rejects dropsListFilter as an extension-only display preference", () => {
+    // The headless run has no Drops list to filter, so the display-only popup
+    // preference is a hard error rather than a silently-ignored knob.
+    expect(() => parseCliSettings({ dropsListFilter: { showUpcoming: false } }))
+      .toThrow(/"dropsListFilter" is an extension-only setting/);
+  });
+
+  it("rejects a legacy campaignVisibility whose class key now migrates to dropsListFilter", () => {
+    // notLinked was formerly dropped (it had no home). It is now a DISPLAY
+    // preference — the migration maps it to dropsListFilter.showNotLinked, a
+    // display block the CLI rejects as extension-only. This never touches farming
+    // (farmingEligibility is not produced), but the display key reaches the
+    // extension-only boundary and hard-errors. Complements the lifecycle-key case
+    // below: this covers the two new class keys (notLinked/subscription), that
+    // one covers a lifecycle key.
+    expect(() => parseCliSettings({ campaignVisibility: { notLinked: false } }))
+      .toThrow(/"dropsListFilter"\) is an extension-only setting/);
+  });
+
+  it("rejects a legacy campaignVisibility whose lifecycle key migrates to dropsListFilter", () => {
+    // A lifecycle display key in the legacy record migrates into a dropsListFilter
+    // block, which is extension-only — so the CLI hard-errors rather than dropping
+    // it. Unreachable for any real config (campaignVisibility was already
+    // extension-only before this feature), but the boundary must hold.
+    expect(() => parseCliSettings({ campaignVisibility: { upcoming: false } }))
+      .toThrow(/"dropsListFilter"\) is an extension-only setting/);
+  });
+
+  it("hard-errors on unknown farmingEligibility keys", () => {
+    expect(() => parseCliSettings({ farmingEligibility: { nonsense: true } }))
+      .toThrow(/unknown setting "nonsense" under farmingEligibility/);
+  });
+
+  it("hard-errors on non-boolean farmingEligibility values", () => {
+    // Without this the value is dropped and the default silently farms the
+    // wrong set of campaigns.
+    expect(() => parseCliSettings({ farmingEligibility: { farmUnlinkedCampaigns: "yes" } }))
+      .toThrow(/"farmingEligibility.farmUnlinkedCampaigns" must be a boolean/);
+    expect(() => parseCliSettings({ farmingEligibility: { farmSubscriptionCampaigns: null } }))
+      .toThrow(/"farmingEligibility.farmSubscriptionCampaigns" must be a boolean/);
+    expect(() => parseCliSettings({ farmingEligibility: [] })).toThrow(/"farmingEligibility" must be a JSON object/);
   });
 
   it("hard-errors on a truly unknown key", () => {
@@ -196,7 +248,6 @@ describe("parseCliSettings", () => {
 describe("toEngineSettings", () => {
   it("pins the headless invariants regardless of CLI input", () => {
     const engine = toEngineSettings(DEFAULT_CLI_SETTINGS);
-    expect(engine.running).toBe(true);
     expect(engine.tablessMode).toBe(true);
     expect(engine.pauseOnManualWatch).toBe(false);
     expect(engine.autoStartDropFarming).toBe(false);

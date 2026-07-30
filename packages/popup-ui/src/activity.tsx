@@ -1,11 +1,14 @@
-import React, { useMemo } from "react";
-import { Clock3 } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Check, Clipboard, Clock3 } from "lucide-react";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { Platform } from "@lurkloot/shared/models";
 import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { formatEventTime } from "./format";
-import { formatActivityEvent, mergeActivityPages } from "./activity.logic";
+import { buildActivityExport, formatActivityEvent } from "./activity.logic";
+
+// How long the button stays in its confirmation state after a successful copy.
+const COPY_FEEDBACK_MS = 2500;
 
 export function ActivityLog({
   activityEvents,
@@ -19,9 +22,12 @@ export function ActivityLog({
   clearFailed,
   loadingMore,
   clearing,
+  version,
+  locale,
   onShowDiagnosticsChange,
   onLoadMore,
   onClear,
+  writeClipboard,
 }: {
   activityEvents: ActivityHistoryRecord[];
   diagnosticEvents: ActivityHistoryRecord[];
@@ -34,9 +40,14 @@ export function ActivityLog({
   clearFailed: boolean;
   loadingMore: boolean;
   clearing: boolean;
+  version: string;
+  locale: string;
   onShowDiagnosticsChange(show: boolean): void;
   onLoadMore(): void;
   onClear(): void;
+  // Omitted by hosts without a clipboard (the site demo), which hides the copy
+  // control rather than offering a button that can only fail.
+  writeClipboard?(text: string): Promise<boolean>;
 }): React.ReactElement {
   const t = useT();
   const forPlatform = useMemo(
@@ -47,20 +58,53 @@ export function ActivityLog({
     () => diagnosticEvents.filter((event) => !event.platform || event.platform === platform),
     [diagnosticEvents, platform],
   );
-  const visible = useMemo(
-    () => showDiagnostics ? mergeActivityPages(forPlatform, diagnosticsForPlatform) : forPlatform,
-    [diagnosticsForPlatform, forPlatform, showDiagnostics],
-  );
-  const errorCount = forPlatform.filter((event) => event.level === "error").length;
+  // The toggle switches between two views instead of interleaving them: every
+  // activity entry now has a diagnostic counterpart, so a merged list showed the
+  // same thing twice and buried the high-level story in plumbing detail.
+  const visible = showDiagnostics ? diagnosticsForPlatform : forPlatform;
+  const errorCount = visible.filter((event) => event.level === "error").length;
+  const [copied, setCopied] = useState<number | null>(null);
+  const [copyFailed, setCopyFailed] = useState(false);
+
+  // Confirmation is transient, and it must not survive a switch between the two
+  // views: "Copied 42 events" next to a different list is a lie.
+  useEffect(() => {
+    setCopied(null);
+    setCopyFailed(false);
+  }, [showDiagnostics, platform]);
+
+  useEffect(() => {
+    if (copied === null) return;
+    const timer = setTimeout(() => setCopied(null), COPY_FEEDBACK_MS);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  async function copyVisible(): Promise<void> {
+    if (!writeClipboard) return;
+    // Built and written inside the click gesture: navigator.clipboard in the
+    // popup needs the user activation, and nothing here needs a permission.
+    const text = buildActivityExport({
+      events: visible,
+      platform,
+      diagnostics: showDiagnostics,
+      version,
+      userAgent: typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+      locale,
+      at: new Date().toISOString(),
+    }, t);
+    const ok = await writeClipboard(text);
+    setCopyFailed(!ok);
+    setCopied(ok ? visible.length : null);
+  }
 
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between px-0.5">
         <span className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
           <Clock3 size={13} className="text-zinc-400" />
-          {t("platformActivity", PLATFORMS[platform].label)}
+          {t(showDiagnostics ? "platformDiagnostics" : "platformActivity", PLATFORMS[platform].label)}
           {errorCount > 0 ? (
-            <span className="rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white" style={{ backgroundColor: EVENT_LEVEL_COLOR.error }}>
+            <span role="status" className="rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white" style={{ backgroundColor: EVENT_LEVEL_COLOR.error }}>
               {errorCount}
             </span>
           ) : null}
@@ -71,13 +115,30 @@ export function ActivityLog({
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {diagnosticLogging ? (
+          <div role="tablist" className="flex items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
+            {([false, true] as const).map((diagnostics) => (
+              <button
+                key={String(diagnostics)}
+                type="button"
+                role="tab"
+                aria-selected={showDiagnostics === diagnostics}
+                onClick={() => onShowDiagnosticsChange(diagnostics)}
+                className={`rounded-full px-2 py-0.5 text-[9px] font-semibold transition ${showDiagnostics === diagnostics ? "bg-zinc-600 text-white" : "text-zinc-400"}`}
+              >
+                {t(diagnostics ? "diagnosticsViewTab" : "activityViewTab")}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {writeClipboard ? (
           <button
             type="button"
-            onClick={() => onShowDiagnosticsChange(!showDiagnostics)}
-            className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold transition ${showDiagnostics ? "border-transparent bg-zinc-600 text-white" : "border-zinc-200 text-zinc-400 dark:border-zinc-700"}`}
-            aria-pressed={showDiagnostics}
+            onClick={() => void copyVisible()}
+            disabled={visible.length === 0}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold transition disabled:opacity-50 ${copied === null ? "border-zinc-200 text-zinc-400 dark:border-zinc-700" : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"}`}
           >
-            {t(showDiagnostics ? "hideDiagnosticLogs" : "showDiagnosticLogs")}
+            {copied === null ? <Clipboard size={10} /> : <Check size={10} />}
+            {copied === null ? t("copyActivityLog") : t("copyActivityLogCopied", String(copied))}
           </button>
         ) : null}
         <button
@@ -92,9 +153,12 @@ export function ActivityLog({
       {clearFailed ? (
         <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("clearActivityFailed")}</p>
       ) : null}
+      {copyFailed ? (
+        <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("copyActivityLogFailed")}</p>
+      ) : null}
       <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
         {visible.length === 0 ? (
-          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{t("noActivity")}</p>
+          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{t(showDiagnostics ? "noDiagnostics" : "noActivity")}</p>
         ) : (
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
             {visible.map((event) => (

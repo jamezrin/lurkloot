@@ -7,6 +7,7 @@
   "exports": {
     "./models": "./src/models.ts",
     "./categories": "./src/categories.ts",
+    "./campaignFilters": "./src/campaignFilters.ts",
     "./messages": "./src/messages.ts",
     "./settings": "./src/settings.ts",
     "./settingsSchema": "./src/settingsSchema.ts",
@@ -14,6 +15,8 @@
     "./logging": "./src/logging.ts",
     "./rewards": "./src/rewards.ts",
     "./events": "./src/events.ts",
+    "./criticalHealth": "./src/criticalHealth.ts",
+    "./failureReport": "./src/failureReport.ts",
     "./compatibility": "./src/compatibility.ts"
   },
   "scripts": {

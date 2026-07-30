@@ -5,19 +5,23 @@ import type {
   DropReward,
   EngineSettings,
   Platform,
+  PlaybackTelemetry,
   SchedulerState,
   WatchDecision,
   WatchReasonCode,
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
+import { campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims, rewardFeasibility } from "@lurkloot/shared/rewards";
-import { autoClaimChallengesFor, autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
+import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
-import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, type SchedulerManagedPageContexts } from "./tabs";
+import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, syncManagedTabBreakers, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import { authHealthFromError } from "./fetchError";
+import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { applyPlatformAuthHealth } from "./authHealth";
+import type { CriticalHealthObservation } from "./criticalHealth";
+import { isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -50,7 +54,7 @@ function activeReward(campaign: DropCampaign, settings: EngineSettings): DropRew
 // Decides whether to farm this channel without a tab. Off unless tabless mode is
 // enabled and the platform supports it; falls back to a tab (returns false) when
 // we deliberately switched to a tab for this same channel, or when tabless
-// heartbeats have been failing past the retry limit.
+// heartbeats have been failing past the tabless fallback limit.
 function chooseTablessWatch(
   previous: WatchSession,
   settings: EngineSettings,
@@ -59,7 +63,7 @@ function chooseTablessWatch(
 ): boolean {
   if (!settings.tablessMode || !adapter.supportsTabless) return false;
   if (sameChannel && previous.watchMode === "tab" && previous.tablessFallback) return false;
-  if (sameChannel && previous.watchMode === "tabless" && (previous.heartbeatChecks ?? 0) >= settings.offlineRetryLimit) return false;
+  if (sameChannel && previous.watchMode === "tabless" && (previous.heartbeatChecks ?? 0) >= settings.tablessFallbackFailureLimit) return false;
   return true;
 }
 
@@ -68,6 +72,11 @@ function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
   if (hasCampaignEnded(campaign)) return false;
   if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
   if (settings.excludedCampaignIds.includes(campaign.id)) return false;
+  // Farming eligibility: the two flags farmUnlinkedCampaigns and
+  // farmSubscriptionCampaigns gate whether unlinked or subscription-gated
+  // campaigns are farmed. The display-only dropsListFilter is never consulted
+  // here, so hiding finished campaigns in the popup never stops farming.
+  if (!campaignPassesFarmingEligibility(campaign, settings.farmingEligibility)) return false;
   // Category filter: when "Farm all categories" is off for this platform, only
   // campaigns whose category is on the list are farmable (an empty list then
   // farms nothing).
@@ -89,14 +98,60 @@ function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
     && (canClaimReward(reward) || isRewardDeadlineFeasible(campaign, reward, settings)));
 }
 
-function isInPriorityList(campaign: DropCampaign, settings: EngineSettings): boolean {
-  return settings.campaignPriorities[campaign.id] != null;
+// Reason codes that mean the watch stopped accruing for an explainable reason
+// rather than because the extension is broken. The detector treats them as
+// evidence the platform is NOT in a continuous no-value episode, so a channel
+// going offline or a target switch never counts towards the critical prompt.
+const ACCRUAL_PRECONDITION_BREAK_REASONS = new Set<WatchReasonCode>([
+  "channel_offline",
+  "channel_mismatch",
+  "watch_unhealthy",
+  "manual_watch",
+  "target_changed",
+  "higher_priority_reward",
+  "higher_priority_idle_watchlist",
+]);
+
+function preconditionBreakObservation(): CriticalHealthObservation {
+  return { at: Date.now(), failing: false, progressed: false, preconditionBroke: true };
 }
 
-function hasCampaignEnded(campaign: DropCampaign): boolean {
-  if (!campaign.endsAt) return false;
-  const endsAt = Date.parse(campaign.endsAt);
-  return !Number.isNaN(endsAt) && endsAt < Date.now();
+// The tick reached no conclusion about this platform. Not "healthy": it carries no
+// watchedMinutes and no record, it only keeps the detector's clock and its
+// time-based pruning running.
+function neutralObservation(): CriticalHealthObservation {
+  return { at: Date.now(), failing: false, progressed: false, preconditionBroke: false };
+}
+
+// A failing observation with a breadcrumb built from a SafeFetchError when the
+// error is one, and from the plain message otherwise.
+function apiErrorObservation(error: unknown): CriticalHealthObservation {
+  const failure = isSafeFetchError(error) ? error.failure : undefined;
+  return {
+    at: Date.now(),
+    failing: true,
+    progressed: false,
+    preconditionBroke: false,
+    record: {
+      kind: "api_error",
+      code: failure?.kind ?? "unknown_error",
+      ...(failure?.status === undefined ? {} : { status: failure.status }),
+      detail: error instanceof Error ? error.message : String(error),
+    },
+  };
+}
+
+// The reward the session claims to be watching, if it is still present in the
+// freshly-read campaign list. Returns undefined when nothing is being farmed,
+// which the detector reads as "no watch session sustained".
+function activeRewardFor(campaigns: readonly DropCampaign[], session: WatchSession): DropReward | undefined {
+  if (session.status !== "watching" || !session.campaignId || !session.rewardId) return undefined;
+  const campaign = campaigns.find((candidate) => candidate.id === session.campaignId);
+  return campaign?.rewards.find((reward) => reward.id === session.rewardId);
+}
+
+function isInPriorityList(campaign: DropCampaign, settings: EngineSettings): boolean {
+  return settings.campaignPriorities[campaign.id] != null;
 }
 
 function availabilityScore(campaign: DropCampaign): number {
@@ -148,28 +203,62 @@ export async function chooseCampaignDecision(
   platform: Platform,
   campaigns: DropCampaign[],
   settings: EngineSettings,
-  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "checkChannel">,
+  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel">,
+  signal?: AbortSignal,
+  reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
 ): Promise<WatchDecision> {
   const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
   const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
   const waitingForSubscription = onlyWaitingSubscriptionCampaigns(campaigns, settings);
   const subscriptionOnly = onlySubscriptionCampaigns(campaigns, settings);
+  let campaignsChecked = 0;
+  let candidatesChecked = 0;
+  const generalCandidatesByCategory = new Map<string, ChannelCandidate[]>();
+  const finish = (decision: WatchDecision): WatchDecision => {
+    reportMetrics?.({ campaignsChecked, candidatesChecked });
+    return decision;
+  };
 
   for (const campaign of sorted) {
     const reward = activeReward(campaign, settings);
     if (!reward) continue;
+    campaignsChecked += 1;
 
     const excludedChannels = settings.platform[platform].excludedChannels ?? [];
-    const candidates = (await adapter.listCandidateChannels(campaign))
-      .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
+    signal?.throwIfAborted();
+    const reusableDirectoryKey = campaign.allowedChannels?.length
+      ? undefined
+      : campaign.categoryId ?? campaign.slug;
+    let listedCandidates = reusableDirectoryKey
+      ? generalCandidatesByCategory.get(reusableDirectoryKey)
+      : undefined;
+    if (!listedCandidates) {
+      listedCandidates = await adapter.listCandidateChannels(campaign, { signal });
+      if (reusableDirectoryKey && listedCandidates.length > 0) {
+        generalCandidatesByCategory.set(reusableDirectoryKey, listedCandidates);
+      }
+    }
+    const candidates = [...new Map(
+      listedCandidates
+        .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
+        .map((candidate) => ({
+          ...candidate,
+          campaignId: campaign.id,
+          categoryId: campaign.categoryId ?? candidate.categoryId,
+          categoryName: campaign.gameName ?? candidate.categoryName,
+        }))
+        .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
+    ).values()]
       .sort((left, right) => {
         if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
         return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
       });
 
-    const channel = await firstValidCandidate(candidates, campaign, adapter);
+    const channel = await firstValidCandidate(candidates, campaign, adapter, signal, () => {
+      candidatesChecked += 1;
+    });
     if (channel) {
-      return {
+      return finish({
         platform,
         action: "watch",
         campaign,
@@ -177,41 +266,43 @@ export async function chooseCampaignDecision(
         channel,
         reason: "Eligible campaign selected",
         reasonCode: "eligible_campaign",
-      };
+      });
     }
   }
 
   if (subscriptionOnly) {
-    return {
+    return finish({
       platform,
       action: "idle",
       reason: noCampaignReason,
       reasonCode: "campaign_ineligible",
-    };
+    });
   }
 
   const fallbackCandidates = settings.platform[platform].idleWatchlistChannels
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean)
     .map((username) => fallbackChannel(platform, username));
-  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter);
+  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter, signal, () => {
+    candidatesChecked += 1;
+  });
 
   if (fallback) {
-    return {
+    return finish({
       platform,
       action: "fallback",
       channel: fallback,
       reason: `${noCampaignReason}; Idle Watchlist channel selected`,
       reasonCode: "idle_watchlist_selected",
-    };
+    });
   }
 
-  return {
+  return finish({
     platform,
     action: "idle",
     reason: `${noCampaignReason} and no Idle Watchlist channels`,
     reasonCode: waitingForSubscription ? "campaign_ineligible" : "no_eligible_channel",
-  };
+  });
 }
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
@@ -232,6 +323,13 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   }
   if (notExcluded.every((campaign) => campaign.eligibility === "no_rewards" || campaign.rewards.length === 0)) {
     return "Campaigns have no time-based rewards";
+  }
+  // Placed before the account-linked reason so a user who turned
+  // farmUnlinkedCampaigns off is told about their eligibility setting rather
+  // than about the link state that setting keys off. With the flag on, unlinked
+  // campaigns pass this predicate and the more specific reason below still wins.
+  if (notExcluded.every((campaign) => !campaignPassesFarmingEligibility(campaign, settings.farmingEligibility))) {
+    return "All campaigns are skipped by your farming eligibility settings";
   }
   if (notExcluded.every((campaign) => campaign.accountLinked === false || campaign.eligibility === "account_not_linked")) {
     return "Campaign accounts are not linked";
@@ -277,10 +375,19 @@ function onlySubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSe
 async function firstValidCandidate(
   candidates: ChannelCandidate[],
   campaign: DropCampaign | undefined,
-  adapter: Pick<PlatformAdapter, "checkChannel">,
+  adapter: Pick<PlatformAdapter, "selectCandidateChannel" | "checkChannel">,
+  signal?: AbortSignal,
+  onCheck?: () => void,
 ): Promise<ChannelCandidate | undefined> {
+  if (adapter.selectCandidateChannel) {
+    const selection = await adapter.selectCandidateChannel(candidates, campaign, { signal });
+    for (let index = 0; index < selection.checked; index += 1) onCheck?.();
+    return selection.channel;
+  }
   for (const candidate of candidates) {
-    const check = await adapter.checkChannel(candidate, campaign);
+    signal?.throwIfAborted();
+    onCheck?.();
+    const check = await adapter.checkChannel(candidate, { campaign, signal });
     if (check.live && check.categoryMatches && check.campaignMatches !== false) {
       return channelFromCheck(candidate, check);
     }
@@ -329,6 +436,7 @@ function sessionForDecision(
       reasonCode: decision.reasonCode,
       playback: undefined,
       playbackChecks: 0,
+      watchTabOpenedAt: undefined,
       watchMode: undefined,
       tablessFallback: undefined,
       heartbeatChecks: 0,
@@ -373,6 +481,7 @@ export interface SchedulerTickOptions {
   stopPageContextTabs?: StopPageContextTabs;
   waitingClaimRewardIds?: Partial<Record<Platform, Set<string>>>;
   emit?: EventEmitter;
+  signal?: AbortSignal;
 }
 
 export async function runSchedulerTick(
@@ -381,8 +490,10 @@ export async function runSchedulerTick(
   adapters: Record<Platform, PlatformAdapter>,
   options: SchedulerTickOptions = {},
 ): Promise<SchedulerTickResult> {
+  options.signal?.throwIfAborted();
   const stopPageContextTabs = options.stopPageContextTabs ?? forgetManagedPageContextTabs;
-  registerManagedPageContextTabs(state.managedPageContextTabs ?? {});
+  const platforms = options.platforms ?? PLATFORMS;
+  registerManagedPageContextTabs(state.managedPageContextTabs ?? {}, platforms);
   let nextState: SchedulerState = {
     ...state,
     campaigns: { ...state.campaigns },
@@ -405,7 +516,7 @@ export async function runSchedulerTick(
     adapter: PlatformAdapter,
   ): Promise<void> {
     try {
-      await adapter.stopWatchTab?.(previous);
+      await adapter.stopWatchTab?.(previous, { signal: options.signal });
     } catch (error) {
       emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Could not stop watch tab");
     }
@@ -446,15 +557,85 @@ export async function runSchedulerTick(
     }
   }
 
-  const platforms = options.platforms ?? PLATFORMS;
+  // Page-context creation lives several layers deep in tabs.ts with no access to
+  // scheduler state, so the breaker flags are mirrored into a module registry
+  // once per tick — and again after every observation, since an observation can
+  // release the breaker.
+  //
+  // When the kill switch is off the registry is cleared instead of mirrored.
+  // Otherwise a breaker latched before the switch was flipped would keep blocking
+  // page-context creation forever: observations no longer run to release it, and
+  // the popup no longer renders the panel that would dismiss it.
+  syncManagedTabBreakers(
+    settings.criticalFailurePromptEnabled ? nextState : {},
+    platforms,
+  );
+
   for (const platform of platforms) {
+    options.signal?.throwIfAborted();
     const previous = nextState.sessions[platform];
     const platformSettings = settings.platform[platform];
     const adapter = adapters[platform];
+    // Seeded neutral so every exit — including the paths that never reach the
+    // farming work — still applies a truthful observation. That matters because
+    // observeCriticalHealth is what prunes the tab-churn window and releases the
+    // managed-tab breaker: a platform that only ever takes an early exit (signed
+    // out, disabled) must still be able to recover from an open breaker.
+    // Overwritten below as the tick learns what actually happened.
+    let observation: CriticalHealthObservation = neutralObservation();
+    // Runs in the `finally` below, so every exit — early `continue`, thrown
+    // error, or normal completion — reaches the detector exactly once.
+    const applyObservation = (): void => {
+      if (!settings.criticalFailurePromptEnabled) return;
+      const transition = observeCriticalHealth(nextState, platform, observation);
+      nextState = transition.state;
+      syncManagedTabBreakers(nextState, [platform]);
+      // This runs inside a `finally`, so a throwing listener here would replace
+      // the in-flight error and abort the remaining platforms. Health reporting
+      // is never worth that.
+      if (transition.event) {
+        try {
+          emit(transition.event);
+        } catch {
+          // Ignored on purpose: see above.
+        }
+      }
+    };
 
     try {
+      // The user closed the watch tab LurkLoot opened. That is an explicit stop
+      // gesture, so stay paused until they resume from the popup rather than
+      // recovering on this (or any later) tick. Checked before every other gate
+      // so nothing re-opens a tab behind the user's back.
+      if (nextState.manualClosePause?.[platform]) {
+        await adapter.stopWatchTab?.(previous, { signal: options.signal });
+        nextState.sessions[platform] = {
+          ...previous,
+          status: "paused",
+          channel: undefined,
+          campaignId: undefined,
+          rewardId: undefined,
+          tabId: undefined,
+          tabManagedByExtension: undefined,
+          playback: undefined,
+          playbackChecks: 0,
+          errorChecks: 0,
+          retryAfter: undefined,
+          message: "Farming tab closed",
+          reasonCode: "manual_tab_close",
+          watchMode: undefined,
+          tablessFallback: undefined,
+          heartbeatChecks: 0,
+          lastHeartbeatAt: undefined,
+          lastHeartbeatOk: undefined,
+        };
+        nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform], reason: "manual_tab_close", emit });
+        emitDiagnostic(emit, platform, "info", "Farming tab was closed manually; staying paused until the user resumes");
+        continue;
+      }
       if (settings.pauseOnManualWatch && hasRecentManualWatch(nextState, platform)) {
-        await adapter.stopWatchTab?.(previous);
+        await adapter.stopWatchTab?.(previous, { signal: options.signal });
         nextState.sessions[platform] = {
           ...previous,
           status: "paused",
@@ -477,11 +658,16 @@ export async function runSchedulerTick(
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform], reason: "manual_watch", emit });
+        observation = preconditionBreakObservation();
         emitDiagnostic(emit, platform, "info", "Manual watch detected; pausing farming for this platform");
         continue;
       }
-      if (!settings.running || !platformSettings.enabled) {
-        await adapter.stopWatchTab?.(previous);
+      if (!platformSettings.enabled) {
+        // With no master switch, "automation is off" simply means no platform is
+        // enabled; this one being off while the other still farms stays a
+        // platform-scoped stop. Both reason codes remain meaningful.
+        const automationOff = !isFarmingActive(settings);
+        await adapter.stopWatchTab?.(previous, { signal: options.signal });
         nextState.sessions[platform] = {
           ...previous,
           status: "paused",
@@ -495,7 +681,7 @@ export async function runSchedulerTick(
           errorChecks: 0,
           retryAfter: undefined,
           message: "Automation disabled",
-          reasonCode: settings.running ? "platform_disabled" : "automation_disabled",
+          reasonCode: automationOff ? "automation_disabled" : "platform_disabled",
           watchMode: undefined,
           tablessFallback: undefined,
           heartbeatChecks: 0,
@@ -505,10 +691,10 @@ export async function runSchedulerTick(
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, {
           platforms: [platform],
-          reason: settings.running ? "platform_disabled" : "automation_disabled",
+          reason: automationOff ? "automation_disabled" : "platform_disabled",
           emit,
         });
-        emitDiagnostic(emit, platform, "info", "Automation disabled");
+        emitDiagnostic(emit, platform, "info", automationOff ? "Automation disabled" : "Platform disabled");
         continue;
       }
 
@@ -529,7 +715,7 @@ export async function runSchedulerTick(
           [platform]: { lastCheckedAt: new Date().toISOString() },
         };
         try {
-          for (const challenge of await adapter.claimChallenges()) {
+          for (const challenge of await adapter.claimChallenges({ signal: options.signal })) {
             emit({
               category: "activity",
               code: "challenge_claimed",
@@ -539,6 +725,7 @@ export async function runSchedulerTick(
             });
           }
         } catch (error) {
+          options.signal?.throwIfAborted();
           if (authHealthFromError(error)) throw error;
           emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Challenge claim failed");
         }
@@ -552,27 +739,77 @@ export async function runSchedulerTick(
           message: `Waiting until ${previous.retryAfter} before retrying after platform errors`,
           reasonCode: "platform_backoff",
         };
+        observation = {
+          at: Date.now(),
+          failing: true,
+          progressed: false,
+          preconditionBroke: false,
+          record: { kind: "api_error", code: "platform_backoff" },
+        };
         emitDiagnostic(emit, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred");
         continue;
       }
 
       let campaigns: DropCampaign[];
+      let discoveryFailed = false;
       try {
-        const discovered = await adapter.discoverCampaigns();
-        campaigns = await adapter.readProgress(discovered, previous);
+        const refreshStartedAt = Date.now();
+        campaigns = await adapter.refreshCampaigns(previous, { signal: options.signal });
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign refresh finished in ${Date.now() - refreshStartedAt}ms (${countLabel(campaigns.length, "campaign")})`,
+        );
+        campaigns = preserveClaimedRewards(campaigns, state.campaigns[platform]);
       } catch (error) {
+        options.signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
         if (!hasIdleWatchlistChannels(settings, platform)) throw error;
+        // Nothing is farmable this tick, so the decision logic below runs
+        // against an empty list and the Idle Watchlist channel wins. State
+        // keeps the campaigns from the last good discovery — same retention the
+        // rethrow path gets for free — so a transient outage does not blank the
+        // popup until the next successful tick.
         campaigns = [];
+        discoveryFailed = true;
+        observation = apiErrorObservation(error);
         const message = error instanceof Error ? error.message : "Drop discovery failed";
         emitDiagnostic(emit, platform, "warn", `${message}; checking Idle Watchlist fallback`);
         emitDiagnostic(emit, platform, "debug", `Drop discovery error (Idle Watchlist fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
       }
-      nextState.campaigns[platform] = campaigns;
-      if (campaignDiagnosticFingerprint(campaigns) !== campaignDiagnosticFingerprint(state.campaigns[platform])) {
-        emitDiagnostic(emit, platform, "debug", `Campaign inventory changed (${campaigns.length} discovered)`);
-        const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
-        emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
+      if (!discoveryFailed) {
+        nextState.campaigns[platform] = campaigns;
+        // The accrual arm. Fresh progress data is in hand, so record the active
+        // reward's watched minutes and compare them with the last observation.
+        //
+        // Its value is `watchedMinutes`: persisting it as `lastWatchedMinutes`
+        // puts "was this platform actually accruing?" in the failure report, which
+        // is what whoever triages the issue needs. `progressed` itself is inert —
+        // this is the only producer and it always reports `failing: false`, which
+        // resets on its own, so the flag can never change the outcome.
+        //
+        // That is deliberate. The prompt fires only on sustained API failure or
+        // managed-tab churn, the cases we can be certain about; a healthy API that
+        // accrues nothing belongs to the stuck detector (#53), not here. Do NOT
+        // make a healthy tick report `failing: true` to "activate" this.
+        const activeWatchReward = activeRewardFor(campaigns, nextState.sessions[platform]);
+        const previousWatchedMinutes = nextState.criticalHealth?.[platform]?.lastWatchedMinutes;
+        const watchedMinutes = activeWatchReward?.watchedMinutes;
+        observation = {
+          at: Date.now(),
+          failing: false,
+          progressed: watchedMinutes !== undefined
+            && previousWatchedMinutes !== undefined
+            && watchedMinutes > previousWatchedMinutes,
+          preconditionBroke: false,
+          watchedMinutes,
+        };
+        if (campaignDiagnosticFingerprint(campaigns) !== campaignDiagnosticFingerprint(state.campaigns[platform])) {
+          emitDiagnostic(emit, platform, "debug", `Campaign inventory changed (${campaigns.length} discovered)`);
+          const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
+          emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
+        }
       }
 
       const previousInfeasibleRewardIds = new Set(state.deadlineInfeasibleRewardIds?.[platform]);
@@ -617,9 +854,12 @@ export async function runSchedulerTick(
           adapter,
           campaigns,
           options.waitingClaimRewardIds?.[platform] ?? new Set<string>(),
+          options.signal,
         );
         campaigns = claimResult.campaigns;
-        nextState.campaigns[platform] = campaigns;
+        if (!discoveryFailed) {
+          nextState.campaigns[platform] = campaigns;
+        }
         for (const event of claimResult.events) {
           if (event.claimed) {
             emit({
@@ -641,8 +881,51 @@ export async function runSchedulerTick(
         }
       }
 
-      let decision = await chooseCampaignDecision(platform, campaigns, settings, adapter);
-      const shouldKeep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter);
+      const selectionStartedAt = Date.now();
+      const currentWatch = await evaluatePreferredCurrentWatch(
+        previous,
+        campaigns,
+        settings,
+        adapter,
+        options.signal,
+      );
+      let decision: WatchDecision;
+      let shouldKeep: Awaited<ReturnType<typeof shouldKeepWatching>>;
+      if (currentWatch?.keep.keep) {
+        decision = currentWatch.decision;
+        shouldKeep = currentWatch.keep;
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign selection fast path retained current watch in ${Date.now() - selectionStartedAt}ms (1 candidate checked)`,
+        );
+      } else {
+        let selectionMetrics = { campaignsChecked: 0, candidatesChecked: 0 };
+        decision = await chooseCampaignDecision(
+          platform,
+          campaigns,
+          settings,
+          adapter,
+          options.signal,
+          (metrics) => {
+            selectionMetrics = metrics;
+          },
+        );
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign selection finished in ${Date.now() - selectionStartedAt}ms (${countLabel(selectionMetrics.campaignsChecked, "campaign")} checked, ${countLabel(selectionMetrics.candidatesChecked, "candidate")} checked)`,
+        );
+        shouldKeep = currentWatch?.keep
+          ?? await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
+      }
+      // The single site where a stop reason is decided for an existing watch, so
+      // the precondition-break arm is set here rather than at every consumer.
+      if (!shouldKeep.keep && previous.status === "watching" && ACCRUAL_PRECONDITION_BREAK_REASONS.has(shouldKeep.reasonCode)) {
+        observation = preconditionBreakObservation();
+      }
       if (!shouldKeep.keep && previous.status === "watching") {
         emitDiagnostic(
           emit,
@@ -691,11 +974,33 @@ export async function runSchedulerTick(
         emitDiagnostic(emit, platform, decisionLevel, decision.reason);
       }
       if (decision.action === "idle") {
-        await adapter.stopWatchTab?.(previous);
+        await adapter.stopWatchTab?.(previous, { signal: options.signal });
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
       }
       const session = sessionForDecision(decision, previous, shouldKeep);
       if (decision.channel && decision.action !== "idle") {
+        // The breaker is open: a managed tab kept reopening for this platform.
+        // Opening another is exactly the user-hostile loop we detected, so the
+        // platform is parked rather than switched to tabless — the product
+        // decision is to pause, not to change watch modes behind the user's back.
+        // The `finally` on this loop still applies the tick's observation, which
+        // is what prunes the churn window and eventually releases the breaker.
+        if (settings.criticalFailurePromptEnabled && isManagedTabBreakerOpen(nextState, platform)) {
+          await adapter.stopWatchTab?.(previous, { signal: options.signal });
+          nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+          nextState.sessions[platform] = {
+            ...session,
+            status: "idle",
+            lastCheckedAt: new Date().toISOString(),
+            message: "Paused after repeated tab reopening",
+            reasonCode: "critical_failure",
+            tabId: undefined,
+            tabManagedByExtension: undefined,
+            watchMode: undefined,
+          };
+          emitDiagnostic(emit, platform, "warn", "Paused: a managed tab kept reopening");
+          continue;
+        }
         const sameChannel = previous.channel?.url === decision.channel.url;
         const useTabless = chooseTablessWatch(previous, settings, adapter, sameChannel);
         session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
@@ -704,11 +1009,12 @@ export async function runSchedulerTick(
         if (useTabless) {
           // Tabless: no video tab. Close any tab we previously opened for this
           // platform; the controller starts/keeps the heartbeat watcher.
-          await adapter.stopWatchTab?.(previous);
+          await adapter.stopWatchTab?.(previous, { signal: options.signal });
           nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
           session.watchMode = "tabless";
           session.tablessFallback = false;
           session.tabId = undefined;
+          session.watchTabOpenedAt = undefined;
           session.tabManagedByExtension = undefined;
           // Carry heartbeat health across the same channel; reset on a switch.
           session.heartbeatChecks = sameChannel ? previous.heartbeatChecks ?? 0 : 0;
@@ -724,14 +1030,33 @@ export async function runSchedulerTick(
           const watchTabOptions = nextState.managedWatchTabs?.[platform]
             ? { managedTab: nextState.managedWatchTabs[platform] }
             : {};
-          const prepared = await adapter.prepareWatchTab(decision.channel, previous, watchTabOptions);
+          const previousManagedTabId = nextState.managedWatchTabs?.[platform]?.tabId;
+          const prepared = await adapter.prepareWatchTab(
+            decision.channel,
+            previous,
+            { ...watchTabOptions, signal: options.signal },
+          );
+          // Only a genuinely NEW extension-managed tab counts as churn evidence.
+          // Reusing the tab we already track happens on every ordinary tick, and
+          // counting it would trip the breaker during completely normal farming.
+          if (settings.criticalFailurePromptEnabled && prepared.managedByExtension && prepared.tabId !== previousManagedTabId) {
+            const opened = recordManagedTabOpen(nextState, platform, Date.now(), { source: "watch_tab" });
+            nextState = opened.state;
+            if (opened.event) emit(opened.event);
+          }
           session.tabId = prepared.tabId;
           session.tabManagedByExtension = prepared.managedByExtension;
           // Mark a deliberate fallback so the next tick stays on the tab for this
           // channel instead of flipping back to a failing tabless heartbeat.
           session.watchMode = "tab";
           session.tablessFallback = Boolean(settings.tablessMode && adapter.supportsTabless);
-          if (!sameChannel || previous.watchMode !== "tab" || previous.tabId !== prepared.tabId) {
+          // A new tab id, a different channel, or a switch out of tabless all mean
+          // the page starts from scratch: restart the playback grace window (#250).
+          const freshTab = !sameChannel || previous.watchMode !== "tab" || previous.tabId !== prepared.tabId;
+          session.watchTabOpenedAt = freshTab ? new Date().toISOString() : previous.watchTabOpenedAt;
+          // The counter describes the tab we just replaced, not this one.
+          if (freshTab) session.playbackChecks = 0;
+          if (freshTab) {
             emitDiagnostic(emit, platform, "debug", `Watch tab ready (tab ${prepared.tabId}, ${prepared.managedByExtension ? "extension-managed" : "user tab"}) for ${decision.channel.displayName ?? decision.channel.username}`);
           }
           if (prepared.managedByExtension) {
@@ -750,11 +1075,12 @@ export async function runSchedulerTick(
         }
         if (autoClaimChannelPointsFor(settings, platform) && adapter.claimChannelPoints) {
           try {
-            const claimed = await adapter.claimChannelPoints(decision.channel);
+            const claimed = await adapter.claimChannelPoints(decision.channel, { signal: options.signal });
             if (claimed) {
               emitDiagnostic(emit, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`);
             }
           } catch (error) {
+            options.signal?.throwIfAborted();
             if (authHealthFromError(error)) throw error;
             emitDiagnostic(
               emit,
@@ -779,6 +1105,11 @@ export async function runSchedulerTick(
         await suspendPlatformForAuthentication(platform, previous, adapter);
         continue;
       }
+      // The tick died somewhere in the farming work. Without this the accrual
+      // observation set earlier (failing: false) would be what `finally` applies,
+      // so a platform failing every tick after a successful discovery would reset
+      // its own evidence forever and could never flag.
+      observation = apiErrorObservation(error);
       const message = error instanceof Error ? error.message : "Platform scheduler failed";
       const errorChecks = (previous.errorChecks ?? 0) + 1;
       nextState.sessions[platform] = {
@@ -793,6 +1124,8 @@ export async function runSchedulerTick(
       nextState.managedPageContextTabs = currentManagedPageContextTabs();
       emitDiagnostic(emit, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`);
       emitDiagnostic(emit, platform, "debug", `Tick failed from status "${previous.status}" (error #${errorChecks}); ${error instanceof Error && error.stack ? error.stack : message}`);
+    } finally {
+      applyObservation();
     }
   }
 
@@ -849,6 +1182,7 @@ async function claimReadyRewards(
   adapter: PlatformAdapter,
   campaigns: DropCampaign[],
   previouslyWaitingRewardIds: Set<string>,
+  signal?: AbortSignal,
 ): Promise<{ campaigns: DropCampaign[]; events: ClaimReadyRewardEvent[] }> {
   const events: ClaimReadyRewardEvent[] = [];
   const updated: DropCampaign[] = [];
@@ -857,6 +1191,7 @@ async function claimReadyRewards(
   for (const campaign of campaigns) {
     const rewards: DropReward[] = [];
     for (const reward of campaign.rewards) {
+      signal?.throwIfAborted();
       if (reward.status === "claimable" && canClaimReward(reward)) {
         if (adapter.isClaimReady && !adapter.isClaimReady(reward)) {
           // Watched to completion, but the platform hasn't released the claim
@@ -873,7 +1208,7 @@ async function claimReadyRewards(
           continue;
         }
         try {
-          const claimed = await adapter.claimReward(campaign, reward);
+          const claimed = await adapter.claimReward(campaign, reward, { signal });
           rewards.push(claimed ? { ...reward, status: "claimed", watchedMinutes: reward.requiredMinutes } : reward);
           if (claimed) {
             events.push({
@@ -911,6 +1246,35 @@ async function claimReadyRewards(
   return { campaigns: updated, events };
 }
 
+function preserveClaimedRewards(
+  campaigns: DropCampaign[],
+  previousCampaigns: readonly DropCampaign[],
+): DropCampaign[] {
+  const previouslyClaimed = new Map<string, DropReward>();
+  for (const campaign of previousCampaigns) {
+    for (const reward of campaign.rewards) {
+      if (reward.status === "claimed" && reward.claimId) {
+        previouslyClaimed.set(reward.claimId, reward);
+      }
+    }
+  }
+
+  return campaigns.map((campaign) => {
+    let changed = false;
+    const rewards = campaign.rewards.map<DropReward>((reward) => {
+      const previous = reward.claimId ? previouslyClaimed.get(reward.claimId) : undefined;
+      if (!previous || previous.id !== reward.id) return reward;
+      changed = true;
+      return {
+        ...reward,
+        status: "claimed",
+        watchedMinutes: Math.max(reward.watchedMinutes, reward.requiredMinutes),
+      };
+    });
+    return changed ? reconcileCampaignAfterClaims(campaign, rewards) : campaign;
+  });
+}
+
 function isRewardRelevantNow(reward: DropReward): boolean {
   return canClaimReward(reward) || isRewardAvailableToEarn(reward);
 }
@@ -945,19 +1309,53 @@ function canClaimReward(reward: DropReward): boolean {
   return Number.isNaN(claimUntil) || Date.now() < claimUntil;
 }
 
+async function evaluatePreferredCurrentWatch(
+  previous: WatchSession,
+  campaigns: readonly DropCampaign[],
+  settings: EngineSettings,
+  adapter: Pick<PlatformAdapter, "checkChannel">,
+  signal?: AbortSignal,
+): Promise<{
+  decision: WatchDecision;
+  keep: Awaited<ReturnType<typeof shouldKeepWatching>>;
+} | undefined> {
+  if (previous.status !== "watching" || !previous.channel || !previous.campaignId || !previous.rewardId) {
+    return undefined;
+  }
+  const preferredCampaign = sortCampaigns(
+    campaigns.filter((campaign) => isEligible(campaign, settings)),
+    settings,
+  ).find((campaign) => activeReward(campaign, settings));
+  const preferredReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
+  if (preferredCampaign?.id !== previous.campaignId || preferredReward?.id !== previous.rewardId) {
+    return undefined;
+  }
+  const decision: WatchDecision = {
+    platform: previous.platform,
+    action: "watch",
+    campaign: preferredCampaign,
+    reward: preferredReward,
+    channel: previous.channel,
+    reason: "Current campaign remains highest priority",
+    reasonCode: "keeping_current_watch",
+  };
+  const keep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);
+  return { decision, keep };
+}
+
 async function shouldKeepWatching(
   previous: WatchSession,
   nextDecision: WatchDecision,
   campaigns: readonly DropCampaign[],
   settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "checkChannel">,
+  signal?: AbortSignal,
 ): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string; reasonCode: WatchReasonCode; channel?: ChannelCandidate }> {
   if (!previous.channel || previous.status !== "watching") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session", reasonCode: "no_existing_session" };
   }
-  const previousReward = campaigns
-    .find((campaign) => campaign.id === previous.campaignId)
-    ?.rewards.find((reward) => reward.id === previous.rewardId);
+  const previousCampaign = campaigns.find((campaign) => campaign.id === previous.campaignId);
+  const previousReward = previousCampaign?.rewards.find((reward) => reward.id === previous.rewardId);
   if (previousReward?.status === "claimable" || previousReward?.status === "claimed") {
     return {
       keep: false,
@@ -985,10 +1383,10 @@ async function shouldKeepWatching(
   // switch the channel based on liveness/category, so skip playback retries.
   const isTabless = previous.watchMode === "tabless";
   if (!settings.idleWatchlistFallbackOnly && !previous.campaignId && nextDecision.action === "watch") {
-    const fallbackCheck = await adapter.checkChannel(previous.channel);
+    const fallbackCheck = await adapter.checkChannel(previous.channel, { signal });
     const fallbackOfflineChecks = fallbackCheck.live ? 0 : previous.offlineChecks + 1;
     if (fallbackCheck.live && fallbackCheck.categoryMatches) {
-      const fallbackPlaybackChecks = isTabless || isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
+      const fallbackPlaybackChecks = nextPlaybackChecks(previous, isTabless);
       if (fallbackPlaybackChecks < settings.offlineRetryLimit) {
         return {
           keep: true,
@@ -1020,7 +1418,7 @@ async function shouldKeepWatching(
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Idle Watchlist channel available", reasonCode: "higher_priority_idle_watchlist" };
   }
 
-  const check = await adapter.checkChannel(previous.channel);
+  const check = await adapter.checkChannel(previous.channel, { campaign: previousCampaign, signal });
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
   if (offlineChecks >= settings.offlineRetryLimit) {
     return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached", reasonCode: "channel_offline" };
@@ -1029,8 +1427,11 @@ async function shouldKeepWatching(
   if (!check.categoryMatches) {
     return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel category no longer matches", reasonCode: "channel_mismatch" };
   }
+  if (check.campaignMatches === false) {
+    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel no longer offers the current campaign", reasonCode: "campaign_ineligible" };
+  }
 
-  const playbackChecks = isTabless || isPlaybackHealthy(previous) ? 0 : (previous.playbackChecks ?? 0) + 1;
+  const playbackChecks = nextPlaybackChecks(previous, isTabless);
   if (playbackChecks >= settings.offlineRetryLimit) {
     return {
       keep: false,
@@ -1051,16 +1452,48 @@ async function shouldKeepWatching(
   };
 }
 
+// Playing — muted or not — is what indicates farming is working. The browser
+// can block element-level unmuting in a background tab, so the content script
+// may keep the video muted; that is still healthy as long as it plays.
+export function isPlaybackTelemetryHealthy(telemetry: Pick<PlaybackTelemetry, "videoCount" | "playingVideoCount">): boolean {
+  return telemetry.videoCount > 0 && telemetry.playingVideoCount > 0;
+}
+
 function isPlaybackHealthy(session: WatchSession): boolean {
   const playback = session.playback;
   if (!playback) return false;
   const checkedAt = Date.parse(playback.checkedAt);
   if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return false;
-  // Playing — muted or not — is what indicates farming is working. The browser
-  // can block element-level unmuting in a background tab, so the content script
-  // may keep the video muted; that is still healthy as long as it plays.
-  return playback.videoCount > 0
-    && playback.playingVideoCount > 0;
+  return isPlaybackTelemetryHealthy(playback);
+}
+
+// A page that has just been opened or navigated has no player attached yet, so
+// its telemetry legitimately reads "0 videos" for a while. Counting those ticks
+// as failures makes the scheduler destroy the tab and open an equally cold
+// replacement, which is self-sustaining churn (#250). The window is measured
+// from tab creation rather than a tick count because health ticks also run
+// off-cycle (tab closed, telemetry arriving), so a count is not a duration.
+//
+// 90s is one full default poll interval (pollIntervalMinutes: 1) plus slack, so
+// a freshly opened tab is never condemned by its first scheduled evaluation
+// even on a slow/high-latency connection. A tab that genuinely never plays is
+// still replaced after offlineRetryLimit further checks.
+export const WATCH_TAB_PLAYBACK_GRACE_MS = 90 * 1000;
+
+function isWithinPlaybackGrace(session: WatchSession): boolean {
+  if (!session.watchTabOpenedAt) return false;
+  const openedAt = Date.parse(session.watchTabOpenedAt);
+  if (Number.isNaN(openedAt)) return false;
+  const elapsed = Date.now() - openedAt;
+  return elapsed >= 0 && elapsed < WATCH_TAB_PLAYBACK_GRACE_MS;
+}
+
+// Unhealthy playback only accumulates once the tab has had its grace period.
+// A healthy reading (or the grace window) resets the counter to zero, so a tab
+// that dips and recovers is never condemned by stale counters.
+function nextPlaybackChecks(session: WatchSession, isTabless: boolean): number {
+  if (isTabless || isPlaybackHealthy(session) || isWithinPlaybackGrace(session)) return 0;
+  return (session.playbackChecks ?? 0) + 1;
 }
 
 // Health of the current watch, regardless of mode: a tabless session is healthy
@@ -1114,4 +1547,8 @@ function emitDiagnostic(
   message: string,
 ): void {
   emit({ category: "diagnostic", platform, level, message });
+}
+
+function countLabel(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }

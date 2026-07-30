@@ -3,7 +3,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import { KickWafBlockedError } from "../../core/tabs";
 import { authHealthFromError } from "../../core/fetchError";
-import { diagnostic, ignoreEvent, unavailableWatchTabPort, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
 import type { ResolvedCompatibility } from "../../compatibility/types";
@@ -127,15 +127,18 @@ export function createKickFetcher(deps: {
   };
   return {
     fetchJson: async <T,>(url: string, init?: RequestInit, emit: EventEmitter = ignoreEvent): Promise<T> => {
+      init?.signal?.throwIfAborted();
       const host = safeHost(url);
       let result: unknown;
       try {
         result = await background(url, init);
       } catch (error) {
+        init?.signal?.throwIfAborted();
         report(emit, host, "fallback", error instanceof KickWafBlockedError
           ? "→ WAF-blocked from service worker, using page tab"
           : "→ service worker error, using page tab");
         await notifyLifecycle(onPageFallback, host, emit);
+        init?.signal?.throwIfAborted();
         result = await pageFetch(url, init);
         return result as T;
       }
@@ -186,7 +189,7 @@ export class KickAdapter implements PlatformAdapter {
   readonly compatibility?: ResolvedCompatibility["kick"];
   private readonly claimCapability: KickClaimCapability;
 
-  async checkAuthHealth(): Promise<PlatformAuthHealth> {
+  async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
     try {
       // Kick serves this endpoint anonymously as `200 {}` instead of rejecting it, so the
@@ -194,7 +197,11 @@ export class KickAdapter implements PlatformAdapter {
       // It only works because kick.com is in KICK_AUTH_HOSTS (core/tabs.ts) and therefore
       // gets session_token replayed as a Bearer; without that header Kick returns the
       // empty object and a signed-in account looks signed out.
-      const response = await this.fetcher.fetchJson<KickIdentityResponse>("https://kick.com/api/v1/user", undefined, this.emit);
+      const response = await this.fetcher.fetchJson<KickIdentityResponse>(
+        "https://kick.com/api/v1/user",
+        signal ? { signal } : undefined,
+        this.emit,
+      );
       if (hasKickIdentity(response)) return { status: "healthy", checkedAt };
       // An empty/unrecognized body means the request went out without credentials, which
       // is a transport fault rather than proof of a signed-out session. Only an explicit
@@ -264,28 +271,67 @@ export class KickAdapter implements PlatformAdapter {
     );
   }
 
-  async discoverCampaigns(): Promise<DropCampaign[]> {
-    const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/campaigns", undefined, this.emit);
-    return parseKickCampaigns(data as Parameters<typeof parseKickCampaigns>[0]);
+  async refreshCampaigns(
+    _session?: WatchSession,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<DropCampaign[]> {
+    const progressPromise = this.fetchProgressData(signal).then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      (reason: unknown) => ({ status: "rejected" as const, reason }),
+    );
+    const [campaignData, progressResult] = await Promise.all([
+      this.fetchCampaignData(signal),
+      progressPromise,
+    ]);
+    const campaigns = parseKickCampaigns(
+      campaignData as Parameters<typeof parseKickCampaigns>[0],
+    );
+    if (progressResult.status === "fulfilled") {
+      return this.mergeProgress(campaigns, progressResult.value);
+    }
+    signal?.throwIfAborted();
+    if (authHealthFromError(progressResult.reason)) throw progressResult.reason;
+    this.reportProgressFallback(progressResult.reason);
+    return campaigns;
   }
 
-  async readProgress(campaigns: DropCampaign[]): Promise<DropCampaign[]> {
-    try {
-      // Kick's WAF rejects authed drops endpoints that omit X-Client-Token with
-      // "Request blocked by security policy." — the reference sends it on
-      // /drops/progress and /drops/claim (references/kickautodrops/core/kick.py:
-      // 131, 67). pageFetchJson adds the Bearer from session_token on top.
-      const data = await this.fetcher.fetchJson<unknown>("https://web.kick.com/api/v1/drops/progress", {
+  private fetchCampaignData(signal?: AbortSignal): Promise<unknown> {
+    return this.fetcher.fetchJson<unknown>(
+      "https://web.kick.com/api/v1/drops/campaigns",
+      { signal },
+      this.emit,
+    );
+  }
+
+  private fetchProgressData(signal?: AbortSignal): Promise<unknown> {
+    // Kick's WAF rejects authed drops endpoints that omit X-Client-Token with
+    // "Request blocked by security policy." — the reference sends it on
+    // /drops/progress and /drops/claim (references/kickautodrops/core/kick.py:
+    // 131, 67). pageFetchJson adds the Bearer from session_token on top.
+    return this.fetcher.fetchJson<unknown>(
+      "https://web.kick.com/api/v1/drops/progress",
+      {
         headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
-      }, this.emit);
-      const progress = mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
-      return this.claimCapability.reconcileProgress?.(progress, affirmativelyLinkedCampaignIds(data)) ?? progress;
-    } catch (error) {
-      if (authHealthFromError(error)) throw error;
-      const message = error instanceof Error ? error.message : String(error);
-      diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
-      return campaigns;
-    }
+        signal,
+      },
+      this.emit,
+    );
+  }
+
+  private mergeProgress(campaigns: DropCampaign[], data: unknown): DropCampaign[] {
+    const progress = mergeKickProgress(
+      campaigns,
+      data as Parameters<typeof mergeKickProgress>[1],
+    );
+    return this.claimCapability.reconcileProgress?.(
+      progress,
+      affirmativelyLinkedCampaignIds(data),
+    ) ?? progress;
+  }
+
+  private reportProgressFallback(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
   }
 
   async searchCategories(query: string): Promise<CategorySelection[]> {
@@ -301,7 +347,10 @@ export class KickAdapter implements PlatformAdapter {
     return parseKickCategories(data);
   }
 
-  async listCandidateChannels(campaign: DropCampaign): Promise<ChannelCandidate[]> {
+  async listCandidateChannels(
+    campaign: DropCampaign,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<ChannelCandidate[]> {
     const aclCandidates = kickCandidatesFromCampaign(campaign);
     if (aclCandidates.length > 0) return aclCandidates;
 
@@ -310,7 +359,7 @@ export class KickAdapter implements PlatformAdapter {
     url.searchParams.set("sort", "viewer_count_desc");
     if (campaign.categoryId) url.searchParams.set("category_id", campaign.categoryId);
 
-    const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString(), undefined, this.emit);
+    const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString(), { signal }, this.emit);
     const streams = Array.isArray(response.data) ? response.data : response.data?.livestreams ?? [];
     return streams.map((stream): ChannelCandidate => {
       const username = stream.channel?.slug ?? stream.channel?.username ?? stream.slug ?? "";
@@ -330,11 +379,14 @@ export class KickAdapter implements PlatformAdapter {
     }).filter((candidate) => Boolean(candidate.username));
   }
 
-  async checkChannel(channel: ChannelCandidate, campaign?: DropCampaign): Promise<ChannelCheck> {
+  async checkChannel(
+    channel: ChannelCandidate,
+    { campaign, signal }: AdapterOperationOptions & { campaign?: DropCampaign } = {},
+  ): Promise<ChannelCheck> {
     try {
       const data = await this.fetcher.fetchJson<KickChannelResponse>(
         `https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`,
-        undefined,
+        { signal },
         this.emit,
       );
       const livestream = data.livestream;
@@ -357,12 +409,17 @@ export class KickAdapter implements PlatformAdapter {
         },
       };
     } catch (error) {
+      signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      return this.checkChannelFromPage(channel, campaign, error);
+      return this.checkChannelFromPage(channel, campaign, error, signal);
     }
   }
 
-  async claimReward(campaign: DropCampaign, reward: DropReward): Promise<boolean> {
+  async claimReward(
+    campaign: DropCampaign,
+    reward: DropReward,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<boolean> {
     if (!reward.claimId && reward.status !== "claimable") return false;
     if (this.claimCapability.isSuppressed?.(campaign, reward)) return false;
     // JSON.stringify drops `undefined`, so when no claim id was carried by
@@ -387,6 +444,7 @@ export class KickAdapter implements PlatformAdapter {
             reward_id: reward.id,
             claim_id: reward.claimId,
           }),
+          signal,
         },
         this.emit,
       );
@@ -398,6 +456,7 @@ export class KickAdapter implements PlatformAdapter {
       }
       return false;
     } catch (error) {
+      signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
       // Kick accrues watch progress before the account is linked, but rejects
       // the claim until you connect the org account. Turn that into actionable
@@ -417,10 +476,10 @@ export class KickAdapter implements PlatformAdapter {
     }
   }
 
-  async claimChallenges(): Promise<ClaimedChallenge[]> {
+  async claimChallenges({ signal }: AdapterOperationOptions = {}): Promise<ClaimedChallenge[]> {
     const response = await this.fetcher.fetchJson<KickChallengesResponse>(
       "https://web.kick.com/api/v1/gamification/challenges",
-      undefined,
+      { signal },
       this.emit,
     );
     const claimed: ClaimedChallenge[] = [];
@@ -434,7 +493,7 @@ export class KickAdapter implements PlatformAdapter {
       try {
         const result = await this.fetcher.fetchJson<KickChallengeClaimResponse>(
           `https://web.kick.com/api/v1/gamification/challenges/${encodeURIComponent(id)}/claim`,
-          { method: "POST" },
+          { method: "POST", signal },
           this.emit,
         );
         const rarity = result?.data?.winner?.rarity;
@@ -444,6 +503,7 @@ export class KickAdapter implements PlatformAdapter {
           recurrence: typeof challenge.recurrence === "string" && challenge.recurrence.trim() ? challenge.recurrence.trim() : "unknown",
         });
       } catch (error) {
+        signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
         diagnostic(this.emit, "warn", `Kick challenge ${id} claim failed: ${error instanceof Error ? error.message : String(error)}`, "kick");
       }
@@ -480,11 +540,12 @@ export class KickAdapter implements PlatformAdapter {
     channel: ChannelCandidate,
     campaign: DropCampaign | undefined,
     originalError: unknown,
+    signal?: AbortSignal,
   ): Promise<ChannelCheck> {
     const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
     diagnostic(this.emit, "debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "kick");
     try {
-      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, undefined, this.emit);
+      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, { signal }, this.emit);
       const html = page.html ?? "";
       const live = parseBooleanField(html, ["is_live", "isLive", "live"]) ?? html.includes("livestream");
       const actualCategoryId = parseCategoryId(html);
@@ -499,6 +560,7 @@ export class KickAdapter implements PlatformAdapter {
         },
       };
     } catch {
+      signal?.throwIfAborted();
       return {
         live: false,
         categoryMatches: false,

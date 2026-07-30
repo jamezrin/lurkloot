@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Power, Radio } from "lucide-react";
+import { Play, Power, Radio } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
@@ -39,7 +39,7 @@ export function PlatformSwitcher({ active, presentation, onChange }: { active: P
   );
 }
 
-export function AutomationHero({ platform, platformLabel, enabled, pending, presentation, onChange, farmingTitle, farmingChannel, onFarmingTitleClick, statusMessage }: { platform: Platform; platformLabel: string; enabled: boolean; pending: boolean; presentation: AutomationPresentation; onChange(value: boolean): Promise<void>; farmingTitle?: string; farmingChannel?: FarmingChannelView; onFarmingTitleClick?(): void; statusMessage?: string }) {
+export function AutomationHero({ platform, platformLabel, enabled, pending, presentation, onChange, farmingTitle, farmingChannel, onFarmingTitleClick, onResume }: { platform: Platform; platformLabel: string; enabled: boolean; pending: boolean; presentation: AutomationPresentation; onChange(value: boolean): Promise<void>; farmingTitle?: string; farmingChannel?: FarmingChannelView; onFarmingTitleClick?(): void; onResume?(): void }) {
   const t = useT();
   const runtime = usePopupRuntime();
 
@@ -70,7 +70,7 @@ export function AutomationHero({ platform, platformLabel, enabled, pending, pres
                     {farmingChannel.viewers != null && <span className="shrink-0 text-zinc-400 dark:text-zinc-500">· {formatViewers(farmingChannel.viewers)}</span>}
                   </p>
                 ) : (
-                  <p className="line-clamp-2 leading-snug" title={statusMessage}>{statusMessage ?? t("waitingEligibleStream")}</p>
+                  <p className="line-clamp-2 leading-snug" title={presentation.statusMessage}>{presentation.statusMessage ?? t("waitingEligibleStream")}</p>
                 )}
                 {farmingTitle && (
                   <p className="flex items-center gap-1 truncate">
@@ -86,8 +86,14 @@ export function AutomationHero({ platform, platformLabel, enabled, pending, pres
             ) : (
               <>
                 <p className="line-clamp-2 leading-snug">{presentation.detailKey ? t(presentation.detailKey) : null}</p>
-                {presentation.action ? (
-                  <button type="button" data-auth-action={platform} onClick={() => runtime.adapter.openLink(presentation.action!.url)} className="mt-1 w-fit rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--accent-text)] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]">
+                {presentation.action?.kind === "link" ? (
+                  <button type="button" data-auth-action={platform} onClick={() => runtime.adapter.openLink((presentation.action as { url: string }).url)} className="mt-1 w-fit rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--accent-text)] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]">
+                    {t(presentation.action.labelKey)}
+                  </button>
+                ) : null}
+                {presentation.action?.kind === "resume" ? (
+                  <button type="button" data-resume-action={platform} onClick={() => onResume?.()} className="mt-1 flex w-fit items-center gap-1 rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--accent-text)] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]">
+                    <Play size={10} strokeWidth={2.6} />
                     {t(presentation.action.labelKey)}
                   </button>
                 ) : null}

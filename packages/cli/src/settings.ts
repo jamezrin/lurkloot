@@ -5,6 +5,7 @@ import {
   clampNumber,
   mergeEngineSettings,
   normalizeCategorySelections,
+  normalizeFarmingEligibility,
   normalizeChannelList,
   normalizeIdList,
   normalizePriorities,
@@ -34,6 +35,14 @@ export interface CliSettings {
   postClaimHandoffMaxSeconds: number;
   skipUnfinishableRewards: boolean;
   deadlineSafetyMarginMinutes: number;
+  // Kill switch for the critical-failure detector, which runs in the shared
+  // scheduler/controller regardless of host. See EngineSettings.criticalFailurePromptEnabled.
+  criticalFailurePromptEnabled: boolean;
+  // Not extension-only: these two keys gate what the scheduler is allowed to
+  // farm, so they change headless behavior. The display-only popup preference
+  // (dropsListFilter) is rejected as extension-only instead — a headless run has
+  // no Drops list to filter.
+  farmingEligibility: EngineSettings["farmingEligibility"];
   // Gate the controller's reward/no-drops notifications, which the CLI renders
   // as log lines (see runtime/run.ts createNotification).
   notifyRewardEarned: boolean;
@@ -42,6 +51,9 @@ export interface CliSettings {
   compatibility: CompatibilitySettings;
 }
 
+// The two farming-eligibility toggles the CLI honours. Kept local (not imported)
+// because the shared split has no exported key tuple; only these two exist.
+const FARMING_ELIGIBILITY_KEYS: string[] = ["farmUnlinkedCampaigns", "farmSubscriptionCampaigns"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 
@@ -60,11 +72,17 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   postClaimHandoffMaxSeconds: DEFAULT_SETTINGS.postClaimHandoffMaxSeconds,
   skipUnfinishableRewards: DEFAULT_SETTINGS.skipUnfinishableRewards,
   deadlineSafetyMarginMinutes: DEFAULT_SETTINGS.deadlineSafetyMarginMinutes,
+  criticalFailurePromptEnabled: DEFAULT_SETTINGS.criticalFailurePromptEnabled,
+  farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility },
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
+  // Both platforms on by default. The extension ships them off so a fresh
+  // install sits idle until the user opts in; the CLI has no such moment — it is
+  // started deliberately, and running it with everything disabled would do
+  // nothing at all.
   platform: {
-    twitch: { ...DEFAULT_SETTINGS.platform.twitch },
-    kick: { ...DEFAULT_SETTINGS.platform.kick },
+    twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+    kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
   },
   compatibility: {
     twitch: { ...DEFAULT_SETTINGS.compatibility.twitch },
@@ -85,6 +103,8 @@ const CLI_SETTING_KEYS = new Set<string>([
   "postClaimHandoffMaxSeconds",
   "skipUnfinishableRewards",
   "deadlineSafetyMarginMinutes",
+  "criticalFailurePromptEnabled",
+  "farmingEligibility",
   // Accepted only so config parsing can surface the deprecation warning.
   // Runtime log filtering belongs to the global --log option and process logger.
   "enabledLogLevels",
@@ -105,10 +125,11 @@ const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
 
 // Settings that exist in the extension but are inert in the CLI's tabless path.
 // Called out by name so a config copy-pasted from the extension gets an
-// actionable error instead of a silently-ignored knob. `running` and
-// `tablessMode` live here too: the CLI always runs and is always tabless.
+// actionable error instead of a silently-ignored knob. `tablessMode` lives here
+// too: the CLI is always tabless. `running` is deliberately absent: it was
+// removed from the settings contract, so the schema migration strips it (with a
+// diagnostic) before this scan ever sees it.
 const EXTENSION_ONLY_KEYS = new Set<string>([
-  "running",
   "tablessMode",
   "muteFarmingTabs",
   "keepFarmingVideosUnmuted",
@@ -116,10 +137,12 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "adFocusMode",
   "autoCloseFinishedDrops",
   "autoStartDropFarming",
-  "campaignVisibility",
   "languageOverride",
   "rateNudgeStatus",
   "diagnosticLogging",
+  // Display-only popup preference for the Drops list; a headless run has no
+  // Drops list to filter, so it is rejected rather than silently ignored.
+  "dropsListFilter",
 ]);
 
 // A migration may rename a legacy key onto one the CLI rejects — `verboseLogging`
@@ -193,6 +216,26 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     }
   }
 
+  // Eligibility keys are validated like platform/compatibility keys: a typo would
+  // otherwise silently fall back to the default and quietly farm the wrong set.
+  const farmingEligibilityRaw = value.farmingEligibility;
+  if (farmingEligibilityRaw !== undefined) {
+    if (farmingEligibilityRaw === null || typeof farmingEligibilityRaw !== "object" || Array.isArray(farmingEligibilityRaw)) {
+      offenders.push('"farmingEligibility" must be a JSON object');
+    } else {
+      for (const [key, entry] of Object.entries(farmingEligibilityRaw as Record<string, unknown>)) {
+        if (!FARMING_ELIGIBILITY_KEYS.includes(key)) {
+          offenders.push(`unknown setting "${key}" under farmingEligibility (expected one of: ${FARMING_ELIGIBILITY_KEYS.join(", ")})`);
+          continue;
+        }
+        // Values are checked too, not just names: booleanOr would quietly
+        // restore the default for `"farmUnlinkedCampaigns": "yes"`, which is the
+        // same silent wrong-set farming the key check exists to prevent.
+        if (typeof entry !== "boolean") offenders.push(`"farmingEligibility.${key}" must be a boolean`);
+      }
+    }
+  }
+
   const compatibilityRaw = value.compatibility;
   if (compatibilityRaw !== undefined) {
     if (compatibilityRaw === null || typeof compatibilityRaw !== "object" || Array.isArray(compatibilityRaw)) {
@@ -241,6 +284,8 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
       60,
       DEFAULT_CLI_SETTINGS.deadlineSafetyMarginMinutes,
     ),
+    criticalFailurePromptEnabled: booleanOr(v.criticalFailurePromptEnabled, DEFAULT_CLI_SETTINGS.criticalFailurePromptEnabled),
+    farmingEligibility: normalizeFarmingEligibility(v.farmingEligibility),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform),
@@ -294,14 +339,13 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Platfor
 }
 
 // Expands the CLI settings into the EngineSettings contract the shared engine
-// consumes. The CLI invariants are pinned: always running, always tabless, never
+// consumes. The CLI invariants are pinned: always tabless, never
 // pausing on a (nonexistent) manual watch, and never auto-starting via the
 // controller (the CLI drives tick() directly). Tab-policy fields are not part of
 // the engine contract — the CLI never opens a tab — so there is nothing to force.
 export function toEngineSettings(cli: CliSettings): EngineSettings {
   return mergeEngineSettings({
     ...cli,
-    running: true,
     tablessMode: true,
     pauseOnManualWatch: false,
     autoStartDropFarming: false,

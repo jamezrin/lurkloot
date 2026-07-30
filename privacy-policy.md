@@ -1,12 +1,14 @@
 # Lurkloot Privacy Policy
 
-Last updated: May 31, 2026
+Last updated: July 26, 2026
 
 Lurkloot does not collect, transmit, sell, or share user data.
 
 ## Local Storage
 
 The extension stores its settings, scheduler state, campaign progress, managed-tab identifiers, and a compact diagnostic event log locally in the user's browser using extension storage. It also stores a short-lived Twitch "Client-Integrity" token bundle so it can replay the same page-issued headers Twitch requires when claiming a drop; this bundle expires and is refreshed from the user's own Twitch page traffic. All of this data remains on the user's device and is not sent to the developer or to any third-party or analytics service.
+
+The diagnostic event log records the extension's own activity — campaign and reward names and ids, channel names, managed-tab identifiers, reason codes and timings — so a problem can be diagnosed after the fact. It is bounded and pruned automatically, it never contains passwords, cookies or session tokens, and it can be turned off or cleared at any time in the extension. The extension never uploads it. The activity view offers a "Copy log" button that places its contents on the user's clipboard; where the user then pastes it is entirely the user's choice.
 
 ## Platform Access
 

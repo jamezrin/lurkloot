@@ -47,6 +47,48 @@ describe("activity repository", () => {
     vi.useRealTimers();
   }, 30_000);
 
+  // A tick emits its events over real time (an integrity wait alone can take
+  // 12s) but persists them in one batch. Stamping the batch time onto all of
+  // them made every event in an exported log share one timestamp, so durations
+  // were unrecoverable exactly when they mattered.
+  it("keeps the time each event was emitted rather than the batch write time", async () => {
+    const first = new Date(NOW.getTime() - 24_000).toISOString();
+    const second = new Date(NOW.getTime() - 12_000).toISOString();
+
+    await repository.append([
+      { ...diagnosticEvent(1), emittedAt: first },
+      { ...diagnosticEvent(2), emittedAt: second },
+      diagnosticEvent(3),
+    ]);
+
+    const stored = (await repository.load({ category: "diagnostic" })).events;
+    const byMessage = new Map(stored.map((event) => [event.message, event.at]));
+    expect(byMessage.get("diagnostic-1")).toBe(first);
+    expect(byMessage.get("diagnostic-2")).toBe(second);
+    // No emittedAt: falls back to the write time, which is all we know.
+    expect(byMessage.get("diagnostic-3")).toBe(NOW.toISOString());
+    expect(new Set(stored.map((event) => event.at)).size).toBe(3);
+  }, 30_000);
+
+  it("round-trips diagnostic controller and tick correlation fields", async () => {
+    await repository.append([{
+      category: "diagnostic",
+      level: "debug",
+      message: "correlated diagnostic",
+      controllerRunId: "controller-run-id",
+      globalTickId: 42,
+      platformTickId: 7,
+    }]);
+
+    const [stored] = (await repository.load({ category: "diagnostic" })).events;
+
+    expect(stored).toMatchObject({
+      controllerRunId: "controller-run-id",
+      globalTickId: 42,
+      platformTickId: 7,
+    });
+  });
+
   it("keeps activity when diagnostics exceed their independent cap", async () => {
     await repository.append([activityEvent("a")]);
     await repository.append(Array.from({ length: 2_001 }, (_, index) => diagnosticEvent(index)));

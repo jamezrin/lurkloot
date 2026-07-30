@@ -1,10 +1,17 @@
-import type { CampaignFilterKey, Platform } from "@lurkloot/shared/models";
+import type { ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { ScreenshotVariant } from "./types";
 
 export const PLATFORMS: Record<Platform, { label: string; mark: string; color: string }> = {
   twitch: { label: "Twitch", mark: "T", color: "#9147ff" },
   kick: { label: "Kick", mark: "K", color: "#53fc18" },
+};
+
+// Public drop-inventory pages, opened from the popup header so the user does not
+// have to navigate there by hand.
+export const PLATFORM_INVENTORY_URLS: Record<Platform, string> = {
+  twitch: "https://www.twitch.tv/drops/inventory",
+  kick: "https://kick.com/drops/inventory",
 };
 
 export const SELECTED_PLATFORM_KEY = "popup:selectedPlatform";
@@ -21,6 +28,9 @@ export const SITE_URL = "https://lurkloot.jamezrin.com";
 export const GITHUB_REPO_URL = "https://github.com/jamezrin/lurkloot";
 export const CLI_DOCS_URL = "https://github.com/jamezrin/lurkloot/tree/main/packages/cli#readme";
 export const GITHUB_NEW_ISSUE_URL = "https://github.com/jamezrin/lurkloot/issues/new/choose";
+// The chooser URL cannot carry a prefilled title/body, so the critical-failure
+// prompt targets the raw new-issue form instead.
+export const GITHUB_NEW_ISSUE_URL_BASE = "https://github.com/jamezrin/lurkloot/issues/new";
 // How long after install before the one-time "rate it" nudge appears.
 export const RATE_NUDGE_MIN_DAYS = 3;
 
@@ -56,13 +66,27 @@ export const EVENT_LEVEL_COLOR: Record<LogLevel, string> = {
   error: "#ef4444",
 };
 
-export const CAMPAIGN_FILTERS: Array<{ key: CampaignFilterKey; label: string }> = [
-  { key: "notLinked", label: "notLinked" },
-  { key: "subscription", label: "subscriptionCampaigns" },
-  { key: "upcoming", label: "upcoming" },
-  { key: "expired", label: "expired" },
-  { key: "excluded", label: "excluded" },
-  { key: "finished", label: "finished" },
+// The Drops-list view toggles, rendered as a single compact chip row. Pure
+// display: a chip only changes what the Drops list shows, never what is farmed —
+// that axis is now two separate SettingRow toggles (farmingEligibility). Each
+// entry pairs a dropsListFilter key with its per-state chip label message key.
+//
+// The not-linked/subscription chips carry a `lockedBy` naming the farming flag
+// that forces them visible: you cannot hide a class of campaign you are actively
+// farming (the farmed-implies-visible invariant lives in isCampaignVisible). When
+// that flag is on the chip renders locked-on and disabled; the underlying
+// show-flag value is left untouched so it returns when farming is turned off.
+export const DROPS_LIST_FILTERS: Array<{
+  key: keyof ExtensionSettings["dropsListFilter"];
+  label: string;
+  lockedBy?: keyof ExtensionSettings["farmingEligibility"];
+}> = [
+  { key: "showUpcoming", label: "upcoming" },
+  { key: "showExpired", label: "expired" },
+  { key: "showExcluded", label: "excluded" },
+  { key: "showFinished", label: "finished" },
+  { key: "showNotLinked", label: "notLinked", lockedBy: "farmUnlinkedCampaigns" },
+  { key: "showSubscription", label: "subscriptionCampaigns", lockedBy: "farmSubscriptionCampaigns" },
 ];
 
 const TWITCH_GRADIENT =

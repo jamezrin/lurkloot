@@ -3,7 +3,6 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
-import { CAMPAIGN_FILTERS } from "../../popup-ui/src/constants";
 import { I18nContext } from "../../popup-ui/src/context";
 import { DropsPanel } from "../../popup-ui/src/drops";
 import {
@@ -63,6 +62,12 @@ const testT: TFunction = (key, substitutions) => {
   ), message);
 };
 
+// The drops panel only auto-expands the campaign it is currently farming, so mark
+// the view under test as farming to render its expanded body into static markup.
+function expandedView(view: CampaignView): CampaignView {
+  return { ...view, farmingChannel: { name: "test-channel" } };
+}
+
 function renderDrops(campaigns: CampaignView[], refreshing = false): string {
   return renderToStaticMarkup(createElement(
     I18nContext.Provider,
@@ -92,7 +97,7 @@ describe("subscription drop popup views", () => {
     });
 
     expect(view.rewards[0].ineligibilityReason).toBe("insufficient_time");
-    expect(renderDrops([view])).toContain("Insufficient time remaining");
+    expect(renderDrops([expandedView(view)])).toContain("Insufficient time remaining");
 
     const disabled = campaignViewFromCampaign(source, 0, idleSession, false, {
       skipUnfinishableRewards: false,
@@ -194,7 +199,7 @@ describe("subscription drop popup views", () => {
       reward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60, watchedMinutes: 30, status: "in_progress" }),
       reward({ id: "subscribe", name: "Subscriber Cape", requirement: "subscription", requiredSubs: 2 }),
     ]);
-    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
 
     expect(markup).toContain("Subscription required");
     expect(markup).toContain("Watch Crown");
@@ -217,7 +222,7 @@ describe("subscription drop popup views", () => {
       }),
       reward({ id: "subscribe", name: "Subscriber Cape", requirement: "subscription", requiredSubs: 2 }),
     ]);
-    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
 
     expect(markup).not.toContain("&lt;1m");
     expect(markup.match(/Progress unavailable/g)).toHaveLength(2);
@@ -227,7 +232,7 @@ describe("subscription drop popup views", () => {
     const source = campaign("earned-subscription", [
       reward({ id: "subscribe", name: "Earned Subscriber Badge", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
     ]);
-    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
 
     expect(markup).toContain("Earned");
     expect(markup).not.toContain("100%");
@@ -237,7 +242,7 @@ describe("subscription drop popup views", () => {
     const source = campaign("action-only", [
       reward({ id: "purchase", name: "Purchase Bonus", requirement: "action", isWatchBased: false }),
     ]);
-    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
 
     expect(markup).toContain("Action required");
     expect(markup).toContain("Purchase Bonus");
@@ -250,12 +255,12 @@ describe("subscription drop popup views", () => {
     const source = campaign("subscription-only", [
       reward({ id: "subscribe", requirement: "subscription", requiredSubs: 1 }),
     ]);
-    const markup = renderDrops([campaignViewFromCampaign(source, 0, idleSession, false)], true);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))], true);
 
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>.*subscribed — refresh status<\/button>/);
   });
 
-  it("categorizes and filters subscription campaigns while preserving claimable visibility", () => {
+  it("categorizes subscription campaigns and keeps them visible regardless of farming", () => {
     const source = campaign("subscription-only", [
       reward({ requirement: "subscription", requiredSubs: 1 }),
     ]);
@@ -263,17 +268,51 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["subscription"]);
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
-
-    settings.campaignVisibility.subscription = false;
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(false);
+    // Decoupling: dropsListFilter is display-only, so a subscription campaign
+    // stays in the Drops list even when farmingEligibility would skip it. The
+    // view filter has no subscription axis to turn off.
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(true);
+    settings.farmingEligibility.farmSubscriptionCampaigns = false;
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(true);
     expect(isCampaignVisible({
       ...source,
       rewards: [{ ...source.rewards[0], status: "claimable" }],
-    }, settings, excludedIds)).toBe(true);
+    }, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(true);
   });
 
-  it("exposes the subscription campaign filter", () => {
-    expect(CAMPAIGN_FILTERS).toContainEqual({ key: "subscription", label: "subscriptionCampaigns" });
+  // Kick used to drop ended campaigns at parse time, which made these two
+  // toggles dead on that platform; they must behave exactly as on Twitch.
+  it("applies the finished filter to a completed Kick campaign", () => {
+    const source: DropCampaign = {
+      ...campaign("kick-completed", [reward({ status: "claimed" })]),
+      platform: "kick",
+      status: "completed",
+    };
+    const excludedIds = new Set<string>();
+    const settings = mergeSettings(undefined);
+
+    expect(campaignFilterCategories(source, excludedIds)).toEqual(["finished"]);
+    expect(settings.dropsListFilter.showFinished).toBe(true);
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(true);
+
+    settings.dropsListFilter.showFinished = false;
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(false);
+  });
+
+  it("applies the expired filter to an expired Kick campaign", () => {
+    const source: DropCampaign = {
+      ...campaign("kick-expired", [reward({ requiredMinutes: 30 })]),
+      platform: "kick",
+      status: "expired",
+    };
+    const excludedIds = new Set<string>();
+    const settings = mergeSettings(undefined);
+
+    expect(campaignFilterCategories(source, excludedIds)).toEqual(["expired"]);
+    expect(settings.dropsListFilter.showExpired).toBe(false);
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(false);
+
+    settings.dropsListFilter.showExpired = true;
+    expect(isCampaignVisible(source, settings.dropsListFilter, settings.farmingEligibility, excludedIds)).toBe(true);
   });
 });

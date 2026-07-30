@@ -86,6 +86,9 @@
   "refreshSchedule": {
     "message": "Actualizar programación"
   },
+  "openInventory": {
+    "message": "Abrir inventario"
+  },
   "openActivity": {
     "message": "Abrir actividad"
   },
@@ -140,26 +143,56 @@
   "watchingPausedHint": {
     "message": "Visualización pausada. Activa el interruptor para reanudar el farmeo de drops."
   },
-  "hideTipsTitle": { "message": "Ocultar consejos" },
-  "hideTipsDescription": { "message": "Oculta los consejos de la ventana principal." },
-  "tipCampaignPriority": { "message": "Los drops tienen prioridad sobre la lista. Arrastra las campañas por el agarre para ordenar el farmeo." },
-  "tipMissingCampaigns": { "message": "¿Falta una campaña? Comprueba el inventario de drops de la plataforma y los filtros en Ajustes." },
-  "tipCategorySelection": { "message": "¿Solo quieres ciertos juegos? Desactiva «Farmear todas las categorías» y elige las categorías." },
-  "tipIdleWatchlist": { "message": "La lista farmea los canales elegidos cuando no hay drops disponibles." },
-  "tipTablessMode": { "message": "El modo sin pestañas usa menos recursos y recurre a una pestaña silenciada cuando hace falta." },
-  "tipCli": { "message": "¿Prefieres no usar una extensión? Lurkloot también ofrece una CLI para Docker." },
-  "tipCliAction": { "message": "Ver guía de la CLI" },
-  "tipFeedback": { "message": "¿Encontraste un error o tienes una idea?" },
-  "tipFeedbackAction": { "message": "Abrir un issue en GitHub" },
-  "tipExcludedCampaigns": { "message": "¿Excluiste una campaña por error? Restáurala desde los ajustes de Drops." },
+  "hideTipsTitle": {
+    "message": "Ocultar consejos"
+  },
+  "hideTipsDescription": {
+    "message": "Oculta los consejos de la ventana principal."
+  },
+  "tipCampaignPriority": {
+    "message": "Los drops tienen prioridad sobre la lista. Arrastra las campañas por el agarre para ordenar el farmeo."
+  },
+  "tipMissingCampaigns": {
+    "message": "¿Falta una campaña? Comprueba el inventario de drops de la plataforma y los filtros en Ajustes."
+  },
+  "tipCategorySelection": {
+    "message": "¿Solo quieres ciertos juegos? Desactiva «Farmear todas las categorías» y elige las categorías."
+  },
+  "tipIdleWatchlist": {
+    "message": "La lista farmea los canales elegidos cuando no hay drops disponibles."
+  },
+  "tipTablessMode": {
+    "message": "El modo sin pestañas usa menos recursos y recurre a una pestaña silenciada cuando hace falta."
+  },
+  "tipCli": {
+    "message": "¿Prefieres no usar una extensión? Lurkloot también ofrece una CLI para Docker."
+  },
+  "tipCliAction": {
+    "message": "Ver guía de la CLI"
+  },
+  "tipFeedback": {
+    "message": "¿Encontraste un error o tienes una idea?"
+  },
+  "tipFeedbackAction": {
+    "message": "Abrir un issue en GitHub"
+  },
+  "tipExcludedCampaigns": {
+    "message": "¿Excluiste una campaña por error? Restáurala desde los ajustes de Drops."
+  },
   "noCampaigns": {
     "message": "Aún no se han descubierto campañas."
   },
   "noActivity": {
     "message": "Aún no hay actividad registrada. Pulsa actualizar para ejecutar una comprobación."
   },
+  "noDiagnostics": {
+    "message": "Aún no hay diagnósticos registrados. Aparecen mientras la extensión trabaja."
+  },
   "platformActivity": {
     "message": "Actividad de $1"
+  },
+  "platformDiagnostics": {
+    "message": "Diagnósticos de $1"
   },
   "lastCheck": {
     "message": "última comprobación $1"
@@ -407,6 +440,18 @@
   "tablessDescription": {
     "message": "Farmea con señales ligeras de visualización en lugar de una pestaña de vídeo. Twitch usa heartbeats de visualización; Kick usa una conexión de espectador. Vuelve automáticamente a una pestaña si deja de contar."
   },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "Umbral de cambio desde el modo sin pestañas"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "Abre una pestaña de vídeo después de esta cantidad de señales de visualización sin pestañas fallidas consecutivas."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "Activa el modo de bajo consumo sin pestañas para cambiar este ajuste."
+  },
+  "failuresSuffix": {
+    "message": "fallos"
+  },
   "autoCloseTabsTitle": {
     "message": "Cerrar pestañas de farmeo automáticamente"
   },
@@ -479,13 +524,27 @@
   "secondsSuffix": {
     "message": "s"
   },
-  "deadlineSafetyMarginTitle": { "message": "Margen de seguridad del plazo" },
-  "deadlineSafetyMarginDescription": { "message": "Minutos adicionales requeridos antes de farmear una recompensa." },
-  "deadlineSafetyMarginDisabledReason": { "message": "Activa el filtro de plazos para cambiar el margen de seguridad." },
-  "skipUnfinishableRewardsTitle": { "message": "Omitir recompensas que no se pueden completar" },
-  "skipUnfinishableRewardsDescription": { "message": "No farmear recompensas cuyo tiempo de visionado restante supere el plazo disponible." },
-  "minutesSuffix": { "message": "min." },
-  "insufficientTimeRemaining": { "message": "No queda tiempo suficiente" },
+  "deadlineSafetyMarginTitle": {
+    "message": "Margen de seguridad del plazo"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "Minutos adicionales requeridos antes de farmear una recompensa."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "Activa el filtro de plazos para cambiar el margen de seguridad."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "Omitir recompensas que no se pueden completar"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "No farmear recompensas cuyo tiempo de visionado restante supere el plazo disponible."
+  },
+  "minutesSuffix": {
+    "message": "min."
+  },
+  "insufficientTimeRemaining": {
+    "message": "No queda tiempo suficiente"
+  },
   "automationSectionTitle": {
     "message": "Automatización"
   },
@@ -561,11 +620,26 @@
   "activityLogLevelsDescription": {
     "message": "Elige qué niveles se registran en el registro de actividad. Los errores siempre se conservan."
   },
-  "visibleCampaignsTitle": {
-    "message": "Campañas visibles"
+  "farmUnlinkedTitle": {
+    "message": "Farmear campañas sin cuenta vinculada"
   },
-  "visibleCampaignsDescription": {
-    "message": "Elige qué estados de campaña aparecen en la lista de Drops. Una campaña con recompensa reclamable siempre permanece visible."
+  "farmUnlinkedDescription": {
+    "message": "Si está desactivado, se omiten las campañas que requieren vincular tu cuenta. Kick sigue acumulando tiempo de visualización antes de vincular."
+  },
+  "farmSubscriptionTitle": {
+    "message": "Farmear campañas que requieren suscripción"
+  },
+  "farmSubscriptionDescription": {
+    "message": "Si está desactivado, se omiten las campañas cuyas recompensas requieren una suscripción al canal."
+  },
+  "dropsListFilterTitle": {
+    "message": "Vista de la lista Drops"
+  },
+  "dropsListFilterDescription": {
+    "message": "Elige qué campañas se muestran en la lista Drops. Una campaña con una recompensa reclamable siempre permanece visible."
+  },
+  "dropsListFilterLockedHint": {
+    "message": "Siempre se muestran mientras farmeas estas campañas."
   },
   "forgetExcludedTitle": {
     "message": "Olvidar campañas excluidas"
@@ -666,10 +740,18 @@
   "siteAttributionShort": {
     "message": "Sitio web"
   },
-  "updateNoticeTitle": { "message": "Lurkloot se ha actualizado a la versión $1" },
-  "updateNoticeBody": { "message": "Descubre las novedades y los cambios." },
-  "updateNoticeAction": { "message": "Ver cambios" },
-  "updateNoticeDismiss": { "message": "Descartar aviso de actualización" },
+  "updateNoticeTitle": {
+    "message": "Lurkloot se ha actualizado a la versión $1"
+  },
+  "updateNoticeBody": {
+    "message": "Descubre las novedades y los cambios."
+  },
+  "updateNoticeAction": {
+    "message": "Ver cambios"
+  },
+  "updateNoticeDismiss": {
+    "message": "Descartar aviso de actualización"
+  },
   "rateNudgeTitle": {
     "message": "¿Te gusta Lurkloot?"
   },
@@ -706,15 +788,33 @@
   "cliExportButton": {
     "message": "Exportar credenciales"
   },
-  "factoryResetTitle": { "message": "Restablecer Lurkloot" },
-  "factoryResetHint": { "message": "Borra todos los ajustes, el progreso de farmeo y el historial de actividad de Lurkloot. Tus cuentas de Twitch y Kick seguirán conectadas." },
-  "factoryResetButton": { "message": "Restablecer Lurkloot" },
-  "factoryResetConfirm": { "message": "Esto detiene el farmeo, cierra las pestañas abiertas por Lurkloot y borra permanentemente todos sus datos. Twitch y Kick seguirán conectados." },
-  "factoryResetCancel": { "message": "Cancelar" },
-  "factoryResetConfirmButton": { "message": "Borrar todo" },
-  "factoryResetProgress": { "message": "Restableciendo…" },
-  "factoryResetFailed": { "message": "Lurkloot no se pudo restablecer por completo. Inténtalo de nuevo." },
-  "factoryResetRetry": { "message": "Reintentar" },
+  "factoryResetTitle": {
+    "message": "Restablecer Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "Borra todos los ajustes, el progreso de farmeo y el historial de actividad de Lurkloot. Tus cuentas de Twitch y Kick seguirán conectadas."
+  },
+  "factoryResetButton": {
+    "message": "Restablecer Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "Esto detiene el farmeo, cierra las pestañas abiertas por Lurkloot y borra permanentemente todos sus datos. Twitch y Kick seguirán conectados."
+  },
+  "factoryResetCancel": {
+    "message": "Cancelar"
+  },
+  "factoryResetConfirmButton": {
+    "message": "Borrar todo"
+  },
+  "factoryResetProgress": {
+    "message": "Restableciendo…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot no se pudo restablecer por completo. Inténtalo de nuevo."
+  },
+  "factoryResetRetry": {
+    "message": "Reintentar"
+  },
   "diagnosticLoggingTitle": {
     "message": "Incluir registros de diagnóstico"
   },
@@ -733,13 +833,57 @@
   "activityChallengeClaimed": {
     "message": "Reclamó una carta $1 del desafío $2"
   },
-  "activityAuthHealthChanged": { "message": "La autenticación de $1 cambió de $2 a $3." },
-  "activityPageContextOpened": { "message": "Se abrió un contexto en segundo plano en $1 porque $2." },
-  "activityPageContextClosed": { "message": "Se cerró el contexto en segundo plano en $1 porque $2." },
-  "activityPageContextOpenReasonBackgroundRejected": { "message": "Kick rechazó la solicitud sin pestaña" },
-  "activityPageContextReasonManagedContextUnusable": { "message": "el contexto anterior no se podía usar" },
-  "activityPageContextCloseReasonBackgroundRecovered": { "message": "las solicitudes sin pestaña se recuperaron" },
-  "activityPageContextCloseReasonUserTabAvailable": { "message": "había disponible una pestaña de Kick existente" },
+  "activityAuthHealthChanged": {
+    "message": "La autenticación de $1 cambió de $2 a $3."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 no está funcionando: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "Se descartó el fallo crítico de $1; reintentando."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "sin progreso pese a errores repetidos"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "una pestaña seguía reabriéndose"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot ha dejado de funcionar"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "Errores repetidos y ningún progreso en los drops durante mucho tiempo. Es probable que algo haya cambiado en esta plataforma y la extensión ya no pueda conseguir drops."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "Una pestaña se reabría una y otra vez. Se ha detenido la reapertura para que puedas usar el navegador con normalidad, y el farmeo está pausado en esta plataforma."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "Copiar registros y abrir incidencia"
+  },
+  "criticalFailureDismiss": {
+    "message": "Descartar y reintentar"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "No se pudo copiar automáticamente. Selecciona y copia esto y luego abre una incidencia."
+  },
+  "activityPageContextOpened": {
+    "message": "Se abrió un contexto en segundo plano en $1 porque $2."
+  },
+  "activityPageContextClosed": {
+    "message": "Se cerró el contexto en segundo plano en $1 porque $2."
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick rechazó la solicitud sin pestaña"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "el contexto anterior no se podía usar"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "las solicitudes sin pestaña se recuperaron"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "había disponible una pestaña de Kick existente"
+  },
   "activityInterruption": {
     "message": "Obtención interrumpida: $1."
   },
@@ -752,7 +896,9 @@
   "activityReasonPlatformDisabled": {
     "message": "se desactivó la plataforma"
   },
-  "activityReasonAuthenticationUnhealthy": { "message": "la autenticación no está disponible" },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "la autenticación no está disponible"
+  },
   "activityReasonPlatformBackoff": {
     "message": "la plataforma está esperando temporalmente"
   },
@@ -789,11 +935,11 @@
   "activityReasonTargetChanged": {
     "message": "cambió el objetivo de obtención"
   },
+  "activityReasonCriticalFailure": {
+    "message": "se detectó un fallo crítico"
+  },
   "activityReasonManualWatch": {
     "message": "se priorizó la visualización manual"
-  },
-  "hideDiagnosticLogs": {
-    "message": "Ocultar diagnósticos"
   },
   "loadMoreActivity": {
     "message": "Cargar más"
@@ -807,8 +953,20 @@
   "clearActivityFailed": {
     "message": "No se pudo borrar el historial. Inténtalo de nuevo."
   },
-  "showDiagnosticLogs": {
-    "message": "Mostrar diagnósticos"
+  "copyActivityLog": {
+    "message": "Copiar registro"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 eventos copiados"
+  },
+  "copyActivityLogFailed": {
+    "message": "No se pudo copiar el registro. Inténtalo de nuevo."
+  },
+  "activityViewTab": {
+    "message": "Actividad"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnósticos"
   },
   "settingsGroupCompatibility": {
     "message": "Compatibilidad"
@@ -903,6 +1061,9 @@
   "compatibilityOptionTwitchInventoryV1": {
     "message": "Consulta de inventario v1"
   },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Consulta de inventario v2"
+  },
   "compatibilityOptionKickProfile202607": {
     "message": "Kick julio de 2026"
   },
@@ -912,17 +1073,55 @@
   "compatibilityOptionKickClaimV2": {
     "message": "Gestión de enlaces v2"
   },
-  "automationChecking": { "message": "Comprobando" },
-  "automationNeedsSignIn": { "message": "Necesita iniciar sesión" },
-  "automationBlocked": { "message": "Bloqueado" },
-  "automationUnavailable": { "message": "No disponible" },
-  "authCheckingDetail": { "message": "Comprobando tu sesión iniciada…" },
-  "authSignInMissing": { "message": "Inicia sesión para seguir consiguiendo drops." },
-  "authSignInRejected": { "message": "Tu sesión ya no es válida. Vuelve a iniciar sesión para continuar." },
-  "signInToTwitch": { "message": "Iniciar sesión en Twitch" },
-  "signInToKick": { "message": "Iniciar sesión en Kick" },
-  "authBrowserProfileBlocked": { "message": "Kick rechazó este perfil del navegador. Puede que iniciar sesión no sea suficiente para resolverlo." },
-  "authCredentialCheckUnavailable": { "message": "No se pudo comprobar la sesión del navegador. Lurkloot volverá a intentarlo automáticamente." },
-  "authNetworkTemporarilyUnavailable": { "message": "La red no está disponible temporalmente. Lurkloot volverá a intentarlo automáticamente." },
-  "authPlatformTemporarilyUnavailable": { "message": "La plataforma no está disponible temporalmente. Lurkloot volverá a intentarlo automáticamente." }
+  "automationChecking": {
+    "message": "Comprobando"
+  },
+  "automationNeedsSignIn": {
+    "message": "Necesita iniciar sesión"
+  },
+  "automationBlocked": {
+    "message": "Bloqueado"
+  },
+  "automationUnavailable": {
+    "message": "No disponible"
+  },
+  "authCheckingDetail": {
+    "message": "Comprobando tu sesión iniciada…"
+  },
+  "authSignInMissing": {
+    "message": "Inicia sesión para seguir consiguiendo drops."
+  },
+  "authSignInRejected": {
+    "message": "Tu sesión ya no es válida. Vuelve a iniciar sesión para continuar."
+  },
+  "signInToTwitch": {
+    "message": "Iniciar sesión en Twitch"
+  },
+  "signInToKick": {
+    "message": "Iniciar sesión en Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick rechazó este perfil del navegador. Puede que iniciar sesión no sea suficiente para resolverlo."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "No se pudo comprobar la sesión del navegador. Lurkloot volverá a intentarlo automáticamente."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "La red no está disponible temporalmente. Lurkloot volverá a intentarlo automáticamente."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "La plataforma no está disponible temporalmente. Lurkloot volverá a intentarlo automáticamente."
+  },
+  "automationPausedTabClosed": {
+    "message": "En pausa — pestaña cerrada"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "Cerraste la pestaña de farmeo, así que Lurkloot dejó de farmear aquí."
+  },
+  "resumeFarming": {
+    "message": "Reanudar farmeo"
+  },
+  "activityReasonManualTabClose": {
+    "message": "pestaña de farmeo cerrada"
+  }
 }
