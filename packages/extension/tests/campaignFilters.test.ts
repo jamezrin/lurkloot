@@ -448,6 +448,29 @@ describe("isCampaignVisible category selection", () => {
     const c = campaign({ gameName: "Other Game" });
     expect(visible(c, { dropsListFilter: ALL_OFF, categorySelection: selectedOnly })).toBe(false);
   });
+
+  // The category filter has no display-flag override anywhere else; a
+  // not-linked or subscription campaign outside the selected categories must
+  // not slip through via showNotLinked/showSubscription — those flags only
+  // rescue a campaign from ITS OWN class hide, not from the category filter.
+  it("hides a not-linked campaign outside the selected categories even with showNotLinked on", () => {
+    const c = campaign({ accountLinked: false, gameName: "Other Game" });
+    expect(visible(c, { dropsListFilter: SHOW_ALL, categorySelection: selectedOnly })).toBe(false);
+  });
+
+  it("hides a subscription campaign outside the selected categories even with showSubscription on", () => {
+    const c = subscriptionCampaign({ gameName: "Other Game" });
+    expect(visible(c, { dropsListFilter: SHOW_ALL, categorySelection: selectedOnly })).toBe(false);
+  });
+
+  it("shows a not-linked campaign in the selected categories, governed by showNotLinked as usual", () => {
+    // farmUnlinkedCampaigns off so campaignEligibleClass is false for a reason
+    // OTHER than category, landing this campaign in the showNotLinked bucket.
+    const c = campaign({ accountLinked: false, gameName: "Selected Game" });
+    const farmingEligibility = { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false };
+    expect(visible(c, { dropsListFilter: { ...SHOW_ALL, showNotLinked: false }, farmingEligibility, categorySelection: selectedOnly })).toBe(false);
+    expect(visible(c, { dropsListFilter: { ...SHOW_ALL, showNotLinked: true }, farmingEligibility, categorySelection: selectedOnly })).toBe(true);
+  });
 });
 
 describe("isCampaignVisible stays visible despite reward-timing infeasibility", () => {

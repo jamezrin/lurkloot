@@ -149,9 +149,18 @@ export function isCampaignVisible(
   if (isCampaignFinished(campaign)) return filter.showFinished;
   if (isCampaignExpired(campaign)) return filter.showExpired;
   if (isCampaignUpcoming(campaign)) return filter.showUpcoming;
+  // The category filter has no display-flag override — checked before the two
+  // class flags below so a not-linked or subscription campaign outside the
+  // selected categories cannot be shown via showNotLinked/showSubscription. A
+  // campaign can be BOTH out-of-category and not-linked/subscription-gated at
+  // once; without this check first, the class bucket below would rescue it and
+  // the category filter would have no effect on that campaign.
+  const platformSettings = settings.platform[campaign.platform];
+  if (!platformSettings.farmAllCategories && categoryListIndex(campaign, platformSettings.categories) === -1) return false;
   if (campaign.accountLinked === false) return filter.showNotLinked;
   if (campaignHasSubscriptionRewards(campaign)) return filter.showSubscription;
   // An ordinary active campaign that campaignEligibleClass rejected for a reason
-  // with no display flag (category filter) has none to fall back on: hidden.
+  // with no display flag (reward-independent — every branch above is covered)
+  // has none to fall back on: hidden.
   return false;
 }
