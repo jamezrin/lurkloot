@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "उन्नत सेटिंग्स दिखाएँ"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "अनुभाग पर जाएँ"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "उन्नत कार्रवाइयाँ"
+  },
   "settingsSectionGeneral": {
     "message": "सामान्य"
   },

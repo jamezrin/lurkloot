@@ -52,18 +52,18 @@ export function SettingsSection({ id, title, description, icon: Icon, iconNode, 
   const expanded = forceExpanded || !collapsed;
 
   return (
-    <section>
+    <section id={`settings-section-${id}`} className="scroll-mt-2">
       <header className="mb-1.5 px-0.5">
         <button
           type="button"
           aria-expanded={expanded}
           onClick={toggleCollapsed}
-          className="flex w-full items-start justify-between gap-3 rounded-lg px-1 py-1 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-900/70"
+          className="flex w-full items-start justify-between gap-3 rounded-lg border border-zinc-200/70 bg-white px-2 py-1.5 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900/70 dark:hover:bg-zinc-900"
         >
           <span className="min-w-0">
             <span className="flex items-center gap-1.5">
-              {iconNode ?? (Icon ? <Icon size={13} className="text-zinc-400 dark:text-zinc-500" /> : null)}
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</span>
+              {iconNode ?? (Icon ? <Icon size={14} className="text-zinc-500 dark:text-zinc-400" /> : null)}
+              <span className="text-[12px] font-bold uppercase tracking-wide text-zinc-700 dark:text-zinc-200">{title}</span>
               {badge}
             </span>
             {description ? <span className="mt-1 block text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">{description}</span> : null}

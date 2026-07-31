@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "Gelişmiş ayarlar"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "Bölüme git"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Gelişmiş işlemler"
+  },
   "settingsSectionGeneral": {
     "message": "Genel"
   },

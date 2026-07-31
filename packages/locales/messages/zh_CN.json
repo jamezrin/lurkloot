@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "显示高级设置"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "跳转到分区"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "高级操作"
+  },
   "settingsSectionGeneral": {
     "message": "常规"
   },

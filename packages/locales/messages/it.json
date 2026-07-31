@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "Mostra impostazioni avanzate"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "Vai alla sezione"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Azioni avanzate"
+  },
   "settingsSectionGeneral": {
     "message": "Generale"
   },

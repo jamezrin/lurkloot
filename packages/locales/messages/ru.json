@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "Показать дополнительные настройки"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "Перейти к разделу"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Дополнительные действия"
+  },
   "settingsSectionGeneral": {
     "message": "Общие"
   },
