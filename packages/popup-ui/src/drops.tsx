@@ -138,6 +138,9 @@ function SortableCampaign(props: { campaign: CampaignView; index: number; anyFar
 function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing, onToggle, onRefreshCampaign, onToggleExclude, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude?(id: string): void | Promise<void>; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
   const t = useT();
   const runtime = React.useContext(PopupRuntimeContext);
+  // Where the pointer went down on the meta row, so drag-scrolling an
+  // overflowing pill row does not read as a click on the card.
+  const metaPointerX = useRef(0);
   const stats = campaignStats(campaign);
   const isFarming = Boolean(campaign.farmingChannel);
   const emphasized = isFarming || (!anyFarming && index === 0);
@@ -200,11 +203,23 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing,
                 <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-zinc-400 dark:text-zinc-500"><ChevronDown size={16} /></motion.div>
               </div>
             </div>
-            {/* Category and every state pill on one non-wrapping line: a long
-                locale scrolls this row instead of growing the card by a line. */}
-            <div className="no-scrollbar mt-0.5 flex items-center gap-1.5 overflow-x-auto text-[11px] text-zinc-500 dark:text-zinc-400">
+            {/* Category and every state pill on one non-wrapping line. The
+                category name yields first (Pill cannot shrink below its text),
+                and past that the row scrolls rather than growing the card by a
+                line — which needs pointer events back, so the row re-implements
+                the expand toggle the content layer otherwise passes through. */}
+            <div
+              className="no-scrollbar pointer-events-auto mt-0.5 flex items-center gap-1.5 overflow-x-auto text-[11px] text-zinc-500 dark:text-zinc-400"
+              onPointerDown={(event) => { metaPointerX.current = event.clientX; }}
+              onClick={(event) => {
+                // Only a drag suppresses the toggle; a click with no usable
+                // coordinate (keyboard, synthetic) still counts as a click.
+                const travelled = Math.abs(event.clientX - metaPointerX.current);
+                if (!Number.isFinite(travelled) || travelled < 4) onToggle();
+              }}
+            >
               <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: game.accent }} />
-              <span className="shrink-0 truncate">{game.name}</span>
+              <span className="truncate">{game.name}</span>
               {campaign.hasSubscriptionRewards ? <Pill tone="outline"><Users size={9} /> {t("subscriptionRequired")}</Pill> : null}
               {stats.kind === "action" ? <Pill tone="outline"><AlertTriangle size={9} /> {t("actionRequired")}</Pill> : null}
               {isFarming && campaign.hasWatchRewards ? <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill> : null}

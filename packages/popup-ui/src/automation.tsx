@@ -60,12 +60,17 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
   const runtime = usePopupRuntime();
   const action = presentation.action;
   const dotColor = statusColor(presentation, "var(--accent)") ?? "#a1a1aa";
+  // States that carry a call to action, or a diagnosis too long to read in one
+  // truncated line, get a second line. Everything the five-second poll actually
+  // flaps between stays on the fixed single line.
+  const roomy = Boolean(action) || presentation.state === "blocked" || presentation.state === "unavailable";
+  const detail = presentation.detailKey ? t(presentation.detailKey) : undefined;
 
   return (
     <div data-automation-state={presentation.state} className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-      <div className={cn("flex gap-1.5", action ? "items-start" : "h-5 items-center")}>
+      <div className={cn("flex gap-1.5", roomy ? "items-start" : "h-5 items-center")}>
         <span
-          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", action && "mt-1.5")}
+          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", roomy && "mt-1.5")}
           style={{ backgroundColor: dotColor, boxShadow: presentation.operational ? `0 0 6px ${dotColor}` : undefined }}
         />
         {presentation.state === "running" && farmingChannel ? (
@@ -92,12 +97,15 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
         ) : presentation.state === "running" ? (
           <span className="truncate" title={presentation.statusMessage}>{presentation.statusMessage ?? t("waitingEligibleStream")}</span>
         ) : (
-          <span className={cn("min-w-0", action ? "line-clamp-2 leading-snug" : "truncate")}>
+          <span
+            className={cn("min-w-0", roomy ? "line-clamp-2 leading-snug" : "truncate")}
+            title={detail ? `${t(presentation.badgeKey)} · ${detail}` : t(presentation.badgeKey)}
+          >
             <span className="font-semibold text-zinc-600 dark:text-zinc-300">{t(presentation.badgeKey)}</span>
-            {presentation.detailKey ? (
+            {detail ? (
               <>
                 <span className="text-zinc-300 dark:text-zinc-600"> · </span>
-                {t(presentation.detailKey)}
+                {detail}
               </>
             ) : null}
           </span>

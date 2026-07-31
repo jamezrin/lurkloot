@@ -166,6 +166,51 @@ describe("initial drops expansion", () => {
 
     expect(expandedStates()).toEqual(["true"]);
   });
+
+  // The collapsed row's category/pill line takes pointer events back so an
+  // overflowing pill row can be scrolled, which opts it out of the full-area
+  // toggle behind the card content. It has to expand the card itself.
+  it("expands the card when the collapsed row's pill line is clicked", () => {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
+    const container = document.getElementById("app")!;
+
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <I18nContext.Provider value={{ t: (key) => key, dir: "ltr", locale: "en" }}>
+          <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
+            <DropsPanel
+              campaigns={[campaignViewFromCampaign(sourceCampaign(), 0, idleSession, false)]}
+              gameMap={{}}
+              refreshing={false}
+              onRefreshCampaign={() => undefined}
+              onReorder={() => undefined}
+              onToggleExclude={() => undefined}
+            />
+          </PopupRuntimeContext.Provider>
+        </I18nContext.Provider>,
+      );
+    });
+
+    const toggle = container.querySelector("button[aria-expanded]");
+    const pillLine = container.querySelector<HTMLElement>("article .no-scrollbar");
+    expect(pillLine).not.toBeNull();
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => pillLine?.dispatchEvent(new window.Event("click", { bubbles: true })));
+
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+  });
 });
 
 describe("claim-time account link guidance", () => {
