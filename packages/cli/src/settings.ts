@@ -10,7 +10,8 @@ import {
   normalizeIdList,
   normalizePriorities,
 } from "@lurkloot/shared/settings";
-import { migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
+import { CURRENT_SETTINGS_SCHEMA_VERSION, migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
+import { SETTINGS_EXPORT_KIND } from "@lurkloot/shared/settingsExport";
 import type { CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
@@ -185,6 +186,43 @@ export function parseCliSettingsWithDiagnostics(raw: unknown): CliSettingsParseR
 
 export function parseCliSettings(raw: unknown): CliSettings {
   return parseCliSettingsWithDiagnostics(raw).settings;
+}
+
+export interface CliSettingsExportPayload {
+  kind: typeof SETTINGS_EXPORT_KIND;
+  schemaVersion: number;
+  exportedAt: string;
+  settings: CliSettings;
+}
+
+// Uses the same envelope (`kind`/`schemaVersion`) the extension's export does,
+// so a file can be recognized by either host — but the settings block itself
+// is the CLI's own strict schema, not the extension's. Feeding an
+// extension-exported file into `config import` therefore fails with the same
+// per-key "extension-only setting" errors parseCliSettingsWithDiagnostics
+// already gives a copy-pasted config, rather than silently accepting inert
+// extension knobs.
+export function buildCliSettingsExportPayload(settings: CliSettings): CliSettingsExportPayload {
+  return {
+    kind: SETTINGS_EXPORT_KIND,
+    schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    settings: parseCliSettingsWithDiagnostics(settings).settings,
+  };
+}
+
+export function parseCliSettingsImportPayload(raw: unknown): CliSettingsParseResult {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Not a lurkloot settings file: expected a JSON object");
+  }
+  const envelope = raw as Record<string, unknown>;
+  if (envelope.kind !== SETTINGS_EXPORT_KIND) {
+    throw new Error('Not a lurkloot settings file: unrecognized "kind"');
+  }
+  if (envelope.settings === null || typeof envelope.settings !== "object" || Array.isArray(envelope.settings)) {
+    throw new Error('Not a lurkloot settings file: missing "settings"');
+  }
+  return parseCliSettingsWithDiagnostics({ ...(envelope.settings as Record<string, unknown>), schemaVersion: envelope.schemaVersion });
 }
 
 // Validates and normalizes an already-migrated settings payload. See

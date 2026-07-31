@@ -56,6 +56,38 @@ export function createExtensionPopupAdapter(): PopupAdapter {
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     },
+    exportSettings: (payload) => {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "lurkloot-settings.json";
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    },
+    importSettings: () => new Promise<unknown | null>((resolve, reject) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/json";
+      let settled = false;
+      const settle = (result: Promise<unknown | null> | unknown | null) => {
+        if (settled) return;
+        settled = true;
+        Promise.resolve(result).then(resolve, reject);
+      };
+      input.onchange = () => {
+        const file = input.files?.[0];
+        settle(file ? file.text().then((text) => JSON.parse(text)) : null);
+      };
+      // Some browsers never fire onchange when the picker is dismissed without
+      // a selection. `focus` fires right after the dialog closes either way; by
+      // then `input.files` already reflects the user's choice, so this only
+      // resolves the no-selection case. If a file WAS chosen, do nothing here —
+      // onchange (already in flight or about to fire) owns settling the promise.
+      window.addEventListener("focus", () => setTimeout(() => {
+        if (!input.files?.length) settle(null);
+      }, 300), { once: true });
+      input.click();
+    }),
     writeClipboard: async (text) => {
       try {
         await navigator.clipboard.writeText(text);

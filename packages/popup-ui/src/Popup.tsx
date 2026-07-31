@@ -13,6 +13,7 @@ import type { ActivityPage, CategorySearchResult, CliCredentialBlob, RuntimeSnap
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
+import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloot/shared/settingsExport";
 import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import { buildFailureReport } from "@lurkloot/shared/failureReport";
@@ -488,6 +489,27 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }
 
   const settings = mergeSettings(snapshot.settings);
+
+  // Downloads the current settings as a portable JSON file. Available only
+  // when the host adapter supports it (the live extension, not the demo).
+  const exportSettings = adapter.exportSettings
+    ? () => adapter.exportSettings?.(buildSettingsExportPayload(settingsRef.current ?? settings))
+    : undefined;
+
+  // Prompts for a settings file, validates/migrates it (never trusting file
+  // contents), and applies the result as a full patch — the same save path
+  // every other settings mutation uses, so it goes through the same queue and
+  // storage lock. Returns false when the user cancels the file picker.
+  const importSettings = adapter.importSettings
+    ? async () => {
+        const raw = await adapter.importSettings!();
+        if (raw == null) return false;
+        const { settings: imported } = parseSettingsImportPayload(raw);
+        await updateSettings(imported as SettingsPatch, { tickAfterSave: true });
+        return true;
+      }
+    : undefined;
+
   const compatibilityResolution = adapter.resolveCompatibility?.(settings.compatibility);
   const excludedIds = new Set(settings.excludedCampaignIds);
   const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter((campaign) => isCampaignVisible(campaign, settings.dropsListFilter, settings.farmingEligibility, excludedIds)), settings);
@@ -618,7 +640,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} />
+                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} />
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>

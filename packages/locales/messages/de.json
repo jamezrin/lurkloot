@@ -788,6 +788,30 @@
   "cliExportButton": {
     "message": "Anmeldedaten exportieren"
   },
+  "settingsExportTitle": {
+    "message": "Einstellungen importieren/exportieren"
+  },
+  "settingsExportHint": {
+    "message": "Speichere deine Einstellungen in einer Datei oder lade sie in einem anderen Browser. Enthält niemals deine Twitch- oder Kick-Anmeldedaten."
+  },
+  "settingsExportButton": {
+    "message": "Einstellungen exportieren"
+  },
+  "settingsImportButton": {
+    "message": "Einstellungen importieren"
+  },
+  "settingsImportConfirm": {
+    "message": "Dies ersetzt deine aktuellen Einstellungen durch die aus der ausgewählten Datei. Fortfahren?"
+  },
+  "settingsImportCancel": {
+    "message": "Abbrechen"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Datei wählen und importieren"
+  },
+  "settingsImportFailed": {
+    "message": "Diese Datei ist kein gültiger Lurkloot-Einstellungsexport."
+  },
   "factoryResetTitle": {
     "message": "Lurkloot zurücksetzen"
   },

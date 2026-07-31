@@ -1,10 +1,12 @@
 #!/usr/bin/env node
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import yargs, { type Argv, type ArgumentsCamelCase, type CommandModule } from "yargs";
 import { hideBin } from "yargs/helpers";
 import type { DropCampaign, Platform } from "@lurkloot/shared/models";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
-import { loadConfig, TRANSPORTS, type CliConfig, type Transport } from "./config";
+import { loadConfig, saveConfigSettings, TRANSPORTS, type CliConfig, type Transport } from "./config";
+import { buildCliSettingsExportPayload, parseCliSettingsImportPayload } from "./settings";
 import { credentialAvailabilityOf, describeCredentialHealth, forgetCredentials, hasKickAuth, hasTwitchAuth, loadCredentials } from "./authStore";
 import { createTransport, type EnabledPlatforms } from "./transport";
 import { runLoop } from "./runtime/run";
@@ -59,6 +61,50 @@ const validateConfigCommand: CommandModule = {
     const config = configOf(argv, logger);
     process.stdout.write(`${JSON.stringify({ transport: config.transport, authDir: config.authDir, settings: config.settings }, null, 2)}\n`);
   },
+};
+
+const configCommand: CommandModule = {
+  command: "config",
+  describe: "Export or import the settings block of the config file",
+  builder: (y) => y
+    .command({
+      command: "export",
+      describe: 'Print the current settings as a portable file ("-" or --out - = stdout)',
+      builder: (yy) => yy.option("out", { type: "string", default: "-", describe: 'Output file, or "-" for stdout' }),
+      handler: (argv) => {
+        const logger = loggerOf(argv);
+        const config = configOf(argv, logger);
+        const payload = buildCliSettingsExportPayload(config.settings);
+        const text = `${JSON.stringify(payload, null, 2)}\n`;
+        const out = String(argv.out ?? "-");
+        if (out === "-") {
+          process.stdout.write(text);
+        } else {
+          writeFileSync(resolve(process.cwd(), out), text, "utf8");
+          logger.info(`Exported settings to ${resolve(process.cwd(), out)}`, "config");
+        }
+      },
+    })
+    .command({
+      command: "import <file>",
+      describe: 'Import a settings export into the config file ("-" = stdin)',
+      builder: (yy) => yy.positional("file", { type: "string", describe: "Export file, or - to read stdin", demandOption: true }),
+      handler: (argv) => {
+        const logger = loggerOf(argv);
+        const config = configOf(argv, logger);
+        // yargs-parser renders a bare "-" positional as "" — restore the stdin sentinel.
+        const file = argv.file === "" ? "-" : String(argv.file);
+        const text = file === "-" ? readFileSync(0, "utf8") : readFileSync(resolve(process.cwd(), file), "utf8");
+        const raw = JSON.parse(text);
+        const { settings, diagnostics } = parseCliSettingsImportPayload(raw);
+        for (const diagnostic of diagnostics) logger.warn(diagnostic.message, "config");
+        saveConfigSettings(config, settings);
+        logger.info(`Imported settings into ${config.configPath} (comments in the config file were not preserved)`, "config");
+      },
+    })
+    .demandCommand(1, "Specify a config subcommand (export | import)")
+    .strict(),
+  handler: () => { /* a subcommand always runs; see demandCommand above */ },
 };
 
 const discoverCommand: CommandModule = {
@@ -226,6 +272,7 @@ function buildCli(argv: string[]): Argv {
     .option("config", { type: "string", default: "config.json", describe: "Config file (created with defaults if missing)", global: true })
     .option("log", { type: "string", choices: ["debug", "info", "warn", "error"], default: "info", describe: "Log level", global: true })
     .command(validateConfigCommand)
+    .command(configCommand)
     .command(discoverCommand)
     .command(runCommand)
     .command(authCommand)

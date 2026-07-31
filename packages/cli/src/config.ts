@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { CompatibilityWarning } from "@lurkloot/shared/compatibility";
@@ -245,4 +245,18 @@ export function loadConfig(configPath: string): CliConfig {
 
 function isErrno(error: unknown, code: string): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error && error.code === code;
+}
+
+// Overwrites the config's `settings` block in place, keeping `transport` and
+// `authDir` untouched. Used only by `config import`: the config file is
+// otherwise never rewritten (see the warning-formatting comments above), so
+// this is a deliberate, explicit exception the user asked for by running that
+// command. The commented JSONC template is not preserved — the file becomes
+// plain JSON after the first import — which is why the CLI logs where it wrote.
+export function saveConfigSettings(config: CliConfig, settings: CliSettings): void {
+  writeFileSync(config.configPath, `${JSON.stringify({
+    transport: config.transport,
+    authDir: relative(dirname(config.configPath), config.authDir) || ".",
+    settings,
+  }, null, 2)}\n`, "utf8");
 }
