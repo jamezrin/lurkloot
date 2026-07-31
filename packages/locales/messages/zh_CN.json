@@ -614,6 +614,9 @@
   "hasActiveDrops": {
     "message": "有活动掉宝"
   },
+  "otherCategories": {
+    "message": "其他分类"
+  },
   "searchCategories": {
     "message": "搜索 $1 分类"
   },

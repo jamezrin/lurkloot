@@ -614,6 +614,9 @@
   "hasActiveDrops": {
     "message": "لديه Drops نشطة"
   },
+  "otherCategories": {
+    "message": "فئات أخرى"
+  },
   "searchCategories": {
     "message": "البحث في فئات $1"
   },
