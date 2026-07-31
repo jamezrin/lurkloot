@@ -12,8 +12,15 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
-import { campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
-import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims, rewardFeasibility } from "@lurkloot/shared/rewards";
+import { campaignFarmable, campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
+import {
+  canClaimReward,
+  isRewardAvailableToEarn,
+  isRewardDeadlineFeasible,
+  isSubscriptionReward,
+  reconcileCampaignAfterClaims,
+  rewardFeasibility,
+} from "@lurkloot/shared/rewards";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, syncManagedTabBreakers, type SchedulerManagedPageContexts } from "./tabs";
@@ -46,7 +53,7 @@ function activeReward(campaign: DropCampaign, settings: EngineSettings): DropRew
   const earnable = campaign.rewards.filter((reward) =>
     reward.preconditionsMet !== false
     && isRewardAvailableToEarn(reward)
-    && isRewardDeadlineFeasible(campaign, reward, settings));
+    && isRewardDeadlineFeasible(campaign, reward, settings.skipUnfinishableRewards, settings.deadlineSafetyMarginMinutes));
   return earnable.find((reward) => reward.status === "in_progress")
     ?? earnable.find((reward) => reward.status === "locked");
 }
@@ -68,34 +75,16 @@ function chooseTablessWatch(
 }
 
 function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
-  if (campaign.status !== "active") return false;
-  if (hasCampaignEnded(campaign)) return false;
-  if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
-  if (settings.excludedCampaignIds.includes(campaign.id)) return false;
-  // Farming eligibility: the two flags farmUnlinkedCampaigns and
-  // farmSubscriptionCampaigns gate whether unlinked or subscription-gated
-  // campaigns are farmed. The display-only dropsListFilter is never consulted
-  // here, so hiding finished campaigns in the popup never stops farming.
-  if (!campaignPassesFarmingEligibility(campaign, settings.farmingEligibility)) return false;
-  // Category filter: when "Farm all categories" is off for this platform, only
-  // campaigns whose category is on the list are farmable (an empty list then
-  // farms nothing).
-  const platformSettings = settings.platform[campaign.platform];
-  if (!platformSettings.farmAllCategories && categoryListIndex(campaign, platformSettings.categories) === -1) return false;
-  // Twitch cannot earn drops until the account is linked, so an unlinked Twitch
-  // campaign is skipped. Kick DOES accrue watch progress before linking (the
-  // link is only required to claim), so we keep farming unlinked Kick campaigns
-  // and surface the claim-time "link your account" guidance instead.
-  if (campaign.platform !== "kick" && campaign.accountLinked === false) return false;
-  // "Priority list only" farms exclusively the campaigns the user explicitly
-  // reordered (campaignPriorities). Category curation is owned by the separate
-  // per-platform "Farm all categories" filter above.
+  // campaignFarmable is the single shared definition of "is this campaign
+  // farmable" (shared with the popup's isCampaignVisible, so display and
+  // farming never drift apart). "Priority list only" is the one farming-
+  // strategy layer on top of it: it farms exclusively the campaigns the user
+  // explicitly reordered (campaignPriorities), which is deliberately NOT part
+  // of campaignFarmable — a deprioritized campaign must stay farmable-shaped
+  // for display so the user can still add it to the list.
+  if (!campaignFarmable(campaign, settings)) return false;
   if (settings.priorityMode === "priority_list_only" && !isInPriorityList(campaign, settings)) return false;
-  return campaign.rewards.some((reward) =>
-    reward.status !== "claimed"
-    && reward.preconditionsMet !== false
-    && isRewardRelevantNow(reward)
-    && (canClaimReward(reward) || isRewardDeadlineFeasible(campaign, reward, settings)));
+  return true;
 }
 
 // Reason codes that mean the watch stopped accruing for an explainable reason
@@ -349,7 +338,7 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
     && !campaign.rewards.some((reward) =>
       reward.preconditionsMet !== false
       && isRewardAvailableToEarn(reward)
-      && isRewardDeadlineFeasible(campaign, reward, settings)))) {
+      && isRewardDeadlineFeasible(campaign, reward, settings.skipUnfinishableRewards, settings.deadlineSafetyMarginMinutes)))) {
     return "Available rewards cannot be completed before their deadline";
   }
   return "No eligible campaigns";
@@ -1275,38 +1264,8 @@ function preserveClaimedRewards(
   });
 }
 
-function isRewardRelevantNow(reward: DropReward): boolean {
-  return canClaimReward(reward) || isRewardAvailableToEarn(reward);
-}
-
-function isRewardDeadlineFeasible(campaign: DropCampaign, reward: DropReward, settings: EngineSettings): boolean {
-  return rewardFeasibility(
-    campaign,
-    reward,
-    settings.skipUnfinishableRewards,
-    settings.deadlineSafetyMarginMinutes,
-  ).kind !== "insufficient_time";
-}
-
 function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): string {
   return campaigns.map((campaign) => `${campaign.id}:${campaign.status}:${campaign.rewards.map((reward) => `${reward.id}:${reward.status}`).join(",")}`).join("|");
-}
-
-function isRewardAvailableToEarn(reward: DropReward): boolean {
-  if (!isWatchReward(reward)) return false;
-  const now = Date.now();
-  const startsAt = reward.availableFrom ? Date.parse(reward.availableFrom) : undefined;
-  const endsAt = reward.availableUntil ? Date.parse(reward.availableUntil) : undefined;
-  if (startsAt != null && !Number.isNaN(startsAt) && now < startsAt) return false;
-  if (endsAt != null && !Number.isNaN(endsAt) && now >= endsAt) return false;
-  return reward.status !== "claimed" && reward.status !== "claimable";
-}
-
-function canClaimReward(reward: DropReward): boolean {
-  if (reward.status !== "claimable") return false;
-  if (!reward.claimUntil) return true;
-  const claimUntil = Date.parse(reward.claimUntil);
-  return Number.isNaN(claimUntil) || Date.now() < claimUntil;
 }
 
 async function evaluatePreferredCurrentWatch(
