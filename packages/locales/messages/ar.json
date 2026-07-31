@@ -182,6 +182,12 @@
   "noCampaigns": {
     "message": "لم يتم اكتشاف أي حملات بعد."
   },
+  "campaignSearchPlaceholder": {
+    "message": "البحث في الحملات…"
+  },
+  "campaignSearchNoResults": {
+    "message": "لا توجد حملات تطابق «$1»."
+  },
   "noActivity": {
     "message": "لم يتم تسجيل أي نشاط بعد. اضغط تحديث لتشغيل فحص."
   },

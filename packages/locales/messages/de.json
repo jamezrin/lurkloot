@@ -182,6 +182,12 @@
   "noCampaigns": {
     "message": "Noch keine Kampagnen gefunden."
   },
+  "campaignSearchPlaceholder": {
+    "message": "Kampagnen durchsuchen…"
+  },
+  "campaignSearchNoResults": {
+    "message": "Keine Kampagnen entsprechen „$1“."
+  },
   "noActivity": {
     "message": "Noch keine Aktivität aufgezeichnet. Aktualisieren drücken, um eine Prüfung auszuführen."
   },

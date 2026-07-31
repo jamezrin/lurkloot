@@ -182,6 +182,12 @@
   "noCampaigns": {
     "message": "尚未发现活动。"
   },
+  "campaignSearchPlaceholder": {
+    "message": "搜索活动…"
+  },
+  "campaignSearchNoResults": {
+    "message": "未找到与“$1”匹配的活动。"
+  },
   "noActivity": {
     "message": "尚未记录活动。按刷新运行检查。"
   },

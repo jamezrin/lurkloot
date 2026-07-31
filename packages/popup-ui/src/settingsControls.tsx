@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Ban, ChevronDown, Lock, Search, TriangleAlert, type LucideIcon } from "lucide-react";
+import { Ban, ChevronDown, Lock, TriangleAlert, type LucideIcon } from "lucide-react";
 import type { ExtensionSettings } from "@lurkloot/shared/models";
 import {
   COLLAPSED_SETTINGS_SECTIONS_KEY,
   DROPS_LIST_FILTERS,
 } from "./constants";
 import { usePopupRuntime, useT } from "./context";
-import { Toggle, cn } from "./primitives";
+import { SearchBox, Toggle, cn } from "./primitives";
 
 export function SettingsSection({ id, title, description, icon: Icon, iconNode, badge, forceExpanded, children }: {
   // Stable, locale-independent identity. Collapse state is keyed by this, not by
@@ -105,19 +105,7 @@ export function SettingsGroup({ title, description, badge, advanced = false, chi
 
 export function SettingsSearchBox({ value, onChange }: { value: string; onChange(value: string): void }) {
   const t = useT();
-  return (
-    <div className="relative">
-      <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-      <input
-        type="search"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        aria-label={t("settingsSearchPlaceholder")}
-        placeholder={t("settingsSearchPlaceholder")}
-        className="w-full rounded-xl border border-zinc-200 bg-white py-2 pl-8 pr-3 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
-      />
-    </div>
-  );
+  return <SearchBox value={value} onChange={onChange} placeholder={t("settingsSearchPlaceholder")} />;
 }
 
 export function AdvancedSettingsSwitch({ checked, onChange }: { checked: boolean; onChange(value: boolean): void }) {
