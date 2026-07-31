@@ -2,7 +2,7 @@ import React from "react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { motion } from "motion/react";
-import { GripVertical, X, type LucideIcon } from "lucide-react";
+import { GripVertical, Search, X, type LucideIcon } from "lucide-react";
 import type { PopupTab } from "./types";
 
 export function cn(...classes: Array<string | false | null | undefined>): string {
@@ -15,6 +15,22 @@ export function moveById<T extends { id: string }>(list: T[], activeId: string, 
   const newIndex = list.findIndex((item) => item.id === overId);
   if (oldIndex === -1 || newIndex === -1) return list;
   return arrayMove(list, oldIndex, newIndex);
+}
+
+export function SearchBox({ value, onChange, placeholder }: { value: string; onChange(value: string): void; placeholder: string }) {
+  return (
+    <div className="relative">
+      <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label={placeholder}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-zinc-200 bg-white py-2 pl-8 pr-3 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+      />
+    </div>
+  );
 }
 
 export function useDndSensors() {

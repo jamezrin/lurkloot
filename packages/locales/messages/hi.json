@@ -188,6 +188,12 @@
   "noCampaigns": {
     "message": "अभी कोई अभियान नहीं मिला।"
   },
+  "campaignSearchPlaceholder": {
+    "message": "अभियान खोजें…"
+  },
+  "campaignSearchNoResults": {
+    "message": "कोई अभियान “$1” से मेल नहीं खाता।"
+  },
   "noActivity": {
     "message": "अभी कोई गतिविधि रिकॉर्ड नहीं हुई। जाँच चलाने के लिए रीफ़्रेश दबाएँ।"
   },

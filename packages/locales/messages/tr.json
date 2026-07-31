@@ -188,6 +188,12 @@
   "noCampaigns": {
     "message": "Aktif kampanya yok."
   },
+  "campaignSearchPlaceholder": {
+    "message": "Kampanyalarda ara…"
+  },
+  "campaignSearchNoResults": {
+    "message": "“$1” ile ilgili kampanya bulunamadı."
+  },
   "noActivity": {
     "message": "Henüz işlem kaydı yok."
   },

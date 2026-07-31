@@ -133,6 +133,8 @@ Each scheduler tick runs enabled platforms independently:
 
 Campaign ordering is shared across platforms: explicit campaign priority, platform game priority, campaign priority field, optional lowest-availability mode, ending soonest, then campaign name. Per-platform excluded drop channels filter campaign candidates only; they do not suppress Idle Watchlist fallback channels. `farmingEligibility` also narrows eligibility, through its two farming flags (`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`); the separate `dropsListFilter` is a popup view preference that affects nothing the engine does.
 
+For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and its popup visibility (`isCampaignVisible`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
+
 ## Same-Origin Fetching
 
 In the extension, most platform calls go through the page-context fetch helpers wired by `packages/extension/src/core/tabs.ts` onto abstractions from `@lurkloot/core/tabs`. They find or open a temporary tab on the platform origin, then execute `fetch` in the page `MAIN` world. This keeps requests inside the browser's normal logged-in session and any page clearance context.

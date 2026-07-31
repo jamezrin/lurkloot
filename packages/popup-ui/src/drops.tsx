@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragOverlay, closestCenter, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -22,6 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { PopupRuntimeContext, useT } from "./context";
+import { filterCampaigns } from "./campaignSearch";
 import { formatCountdown, formatHours, formatMinutes } from "./format";
 import { campaignStats, fallbackGame } from "./viewModels";
 import type { CampaignLifecycleState, CampaignView, GameItem, RewardView, TFunction } from "./types";
@@ -32,6 +33,7 @@ import {
   MetaStat,
   Pill,
   ProgressBar,
+  SearchBox,
   cn,
   moveById,
   useDndSensors,
@@ -53,10 +55,13 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, onRefreshCam
   const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const farmingId = farmingCampaignId(campaigns);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => initialExpandedIds(campaigns));
   const autoExpandedId = useRef<string | undefined>(farmingId);
   const listRef = useRef<HTMLDivElement>(null);
+  const searching = query.trim().length > 0;
+  const visibleCampaigns = useMemo(() => filterCampaigns(campaigns, gameMap, query), [campaigns, gameMap, query]);
 
   // Campaigns can arrive after mount, and the farmed campaign can change while the
   // popup is open. Expand the new one when that happens, but never collapse anything:
@@ -91,18 +96,33 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, onRefreshCam
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event: DragStartEvent) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
-      <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
-        <div ref={listRef} className="space-y-2">
-          {campaigns.map((campaign, index) => (
-            <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
-          ))}
-        </div>
-      </SortableContext>
-      <DragOverlay dropAnimation={null}>
-        {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex, t)} expanded={false} refreshing={refreshing} onToggle={() => undefined} onRefreshCampaign={onRefreshCampaign} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
-      </DragOverlay>
-    </DndContext>
+    <div className="space-y-2">
+      <SearchBox value={query} onChange={setQuery} placeholder={t("campaignSearchPlaceholder")} />
+      {searching ? (
+        visibleCampaigns.length === 0 ? (
+          <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("campaignSearchNoResults", query.trim())}</p>
+        ) : (
+          <div className="space-y-2">
+            {visibleCampaigns.map((campaign, index) => (
+              <CampaignCard key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
+            ))}
+          </div>
+        )
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event: DragStartEvent) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
+          <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
+            <div ref={listRef} className="space-y-2">
+              {campaigns.map((campaign, index) => (
+                <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
+              ))}
+            </div>
+          </SortableContext>
+          <DragOverlay dropAnimation={null}>
+            {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex, t)} expanded={false} refreshing={refreshing} onToggle={() => undefined} onRefreshCampaign={onRefreshCampaign} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+    </div>
   );
 }
 

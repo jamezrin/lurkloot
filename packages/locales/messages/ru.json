@@ -188,6 +188,12 @@
   "noCampaigns": {
     "message": "Кампании пока не обнаружены."
   },
+  "campaignSearchPlaceholder": {
+    "message": "Искать кампании…"
+  },
+  "campaignSearchNoResults": {
+    "message": "Кампании, соответствующие «$1», не найдены."
+  },
   "noActivity": {
     "message": "Активность пока не записана. Нажмите обновить, чтобы выполнить проверку."
   },

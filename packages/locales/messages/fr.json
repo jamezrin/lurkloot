@@ -188,6 +188,12 @@
   "noCampaigns": {
     "message": "Aucune campagne découverte pour le moment."
   },
+  "campaignSearchPlaceholder": {
+    "message": "Rechercher des campagnes…"
+  },
+  "campaignSearchNoResults": {
+    "message": "Aucune campagne ne correspond à « $1 »."
+  },
   "noActivity": {
     "message": "Aucune activité enregistrée. Appuyez sur actualiser pour lancer une vérification."
   },

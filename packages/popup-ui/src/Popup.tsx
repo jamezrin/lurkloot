@@ -512,7 +512,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
 
   const compatibilityResolution = adapter.resolveCompatibility?.(settings.compatibility);
   const excludedIds = new Set(settings.excludedCampaignIds);
-  const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter((campaign) => isCampaignVisible(campaign, settings.dropsListFilter, settings.farmingEligibility, excludedIds)), settings);
+  const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter((campaign) => isCampaignVisible(campaign, settings, excludedIds)), settings);
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
   const criticalFailure = snapshot.state.criticalHealth?.[platform];
