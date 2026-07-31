@@ -818,6 +818,9 @@
   "settingsImportFailed": {
     "message": "该文件不是有效的 Lurkloot 设置导出文件。"
   },
+  "settingsExportFailed": {
+    "message": "Lurkloot 无法导出您的设置。请重试。"
+  },
   "factoryResetTitle": {
     "message": "重置 Lurkloot"
   },

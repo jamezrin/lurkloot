@@ -11,7 +11,7 @@ import {
   normalizePriorities,
 } from "@lurkloot/shared/settings";
 import { CURRENT_SETTINGS_SCHEMA_VERSION, migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
-import { SETTINGS_EXPORT_KIND } from "@lurkloot/shared/settingsExport";
+import { SETTINGS_EXPORT_KIND, type SettingsExportEnvelope } from "@lurkloot/shared/settingsExport";
 import type { CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
@@ -188,12 +188,7 @@ export function parseCliSettings(raw: unknown): CliSettings {
   return parseCliSettingsWithDiagnostics(raw).settings;
 }
 
-export interface CliSettingsExportPayload {
-  kind: typeof SETTINGS_EXPORT_KIND;
-  schemaVersion: number;
-  exportedAt: string;
-  settings: CliSettings;
-}
+export type CliSettingsExportPayload = SettingsExportEnvelope<CliSettings>;
 
 // Uses the same envelope (`kind`/`schemaVersion`) the extension's export does,
 // so a file can be recognized by either host — but the settings block itself

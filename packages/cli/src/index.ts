@@ -5,7 +5,7 @@ import yargs, { type Argv, type ArgumentsCamelCase, type CommandModule } from "y
 import { hideBin } from "yargs/helpers";
 import type { DropCampaign, Platform } from "@lurkloot/shared/models";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
-import { loadConfig, saveConfigSettings, TRANSPORTS, type CliConfig, type Transport } from "./config";
+import { assertExportOutputPath, loadConfig, saveConfigSettings, TRANSPORTS, type CliConfig, type Transport } from "./config";
 import { buildCliSettingsExportPayload, parseCliSettingsImportPayload } from "./settings";
 import { credentialAvailabilityOf, describeCredentialHealth, forgetCredentials, hasKickAuth, hasTwitchAuth, loadCredentials } from "./authStore";
 import { createTransport, type EnabledPlatforms } from "./transport";
@@ -80,8 +80,10 @@ const configCommand: CommandModule = {
         if (out === "-") {
           process.stdout.write(text);
         } else {
-          writeFileSync(resolve(process.cwd(), out), text, "utf8");
-          logger.info(`Exported settings to ${resolve(process.cwd(), out)}`, "config");
+          const outputPath = resolve(process.cwd(), out);
+          assertExportOutputPath(outputPath, config);
+          writeFileSync(outputPath, text, "utf8");
+          logger.info(`Exported settings to ${outputPath}`, "config");
         }
       },
     })

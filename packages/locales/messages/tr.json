@@ -818,6 +818,9 @@
   "settingsImportFailed": {
     "message": "Bu dosya geçerli bir Lurkloot ayar dışa aktarımı değil."
   },
+  "settingsExportFailed": {
+    "message": "Lurkloot ayarlarınızı dışa aktaramadı. Tekrar deneyin."
+  },
   "factoryResetTitle": {
     "message": "Lurkloot'u Sıfırla"
   },

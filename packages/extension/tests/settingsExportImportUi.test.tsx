@@ -44,8 +44,14 @@ async function mount(overrides: Partial<PopupAdapter> = {}) {
   vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr" }));
   const container = document.getElementById("app")!;
   const demoAdapter = createDemoPopupAdapter();
+  const sentMessages: unknown[] = [];
+  const send: PopupAdapter["send"] = (message) => {
+    sentMessages.push(message);
+    return demoAdapter.send(message);
+  };
   const adapter: PopupAdapter = {
     ...demoAdapter,
+    send,
     getMessage: (key) => labels[key] ?? demoAdapter.getMessage(key),
     exportSettings: vi.fn(),
     importSettings: vi.fn(),
@@ -56,13 +62,22 @@ async function mount(overrides: Partial<PopupAdapter> = {}) {
     root.render(<Popup adapter={adapter} initialState={{ preview: true, variant: screenshotVariant("settings") }} />);
   });
   await waitForCatalog();
-  return { container, exportSettings: adapter.exportSettings as ReturnType<typeof vi.fn>, importSettings: adapter.importSettings as ReturnType<typeof vi.fn> };
+  return {
+    container,
+    exportSettings: adapter.exportSettings as ReturnType<typeof vi.fn>,
+    importSettings: adapter.importSettings as ReturnType<typeof vi.fn>,
+    sentMessages,
+  };
 }
 
 function byText(container: Element, text: string): HTMLButtonElement {
   const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.includes(text));
   if (!button) throw new Error(`Missing button: ${text}`);
   return button as HTMLButtonElement;
+}
+
+function saveSettingsCalls(sentMessages: unknown[]): unknown[] {
+  return sentMessages.filter((message) => (message as { type: string }).type === "saveSettings");
 }
 
 describe("settings export/import", () => {
@@ -96,7 +111,7 @@ describe("settings export/import", () => {
       ...DEFAULT_SETTINGS,
       platform: { ...DEFAULT_SETTINGS.platform, twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true } },
     });
-    const { container, importSettings } = await mount({
+    const { container, importSettings, sentMessages } = await mount({
       importSettings: vi.fn().mockResolvedValue(imported),
     });
 
@@ -106,6 +121,14 @@ describe("settings export/import", () => {
     expect(importSettings).toHaveBeenCalledTimes(1);
     expect(container.textContent).not.toContain("This replaces your current settings.");
     expect(container.textContent).not.toContain("That file isn't a valid Lurkloot settings export.");
+
+    // Confirms the imported settings were actually applied through the normal
+    // save path, not just parsed and discarded.
+    const saved = saveSettingsCalls(sentMessages);
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({
+      settingsPatch: expect.objectContaining({ platform: expect.objectContaining({ twitch: expect.objectContaining({ enabled: true }) }) }),
+    });
   });
 
   it("shows a failure message when the selected file is not a valid export", async () => {
@@ -119,14 +142,19 @@ describe("settings export/import", () => {
     expect(container.textContent).toContain("That file isn't a valid Lurkloot settings export.");
   });
 
-  it("does not call the adapter when the user cancels the file picker", async () => {
-    const { container } = await mount({
+  it("opens the file picker but does not save settings when the user cancels it", async () => {
+    const { container, importSettings, sentMessages } = await mount({
       importSettings: vi.fn().mockResolvedValue(null),
     });
 
     act(() => byText(container, "Import settings").click());
     await act(async () => byText(container, "Choose file and import").click());
 
+    // importSettings must run to open the OS file picker; cancelling it (a
+    // resolved null) is what leaves the confirm panel open with no error and
+    // nothing saved — distinct from the invalid-file case above.
+    expect(importSettings).toHaveBeenCalledTimes(1);
+    expect(saveSettingsCalls(sentMessages)).toHaveLength(0);
     expect(container.textContent).toContain("This replaces your current settings.");
     expect(container.textContent).not.toContain("That file isn't a valid Lurkloot settings export.");
   });

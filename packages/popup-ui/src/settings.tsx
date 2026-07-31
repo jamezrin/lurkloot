@@ -32,6 +32,8 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   const [query, setQuery] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [exportArmed, setExportArmed] = useState(false);
+  const [exportingSettings, setExportingSettings] = useState(false);
+  const [exportSettingsFailed, setExportSettingsFailed] = useState(false);
   const [importArmed, setImportArmed] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importFailed, setImportFailed] = useState(false);
@@ -40,11 +42,31 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   const [resetFailed, setResetFailed] = useState(false);
   useEffect(() => {
     setExportArmed(false);
+    setExportingSettings(false);
+    setExportSettingsFailed(false);
     setImportArmed(false);
     setImportFailed(false);
     setResetArmed(false);
     setResetFailed(false);
   }, [exportConfirmationResetKey]);
+
+  // Export needs no arm/confirm step (it only reads, never mutates), but it
+  // still needs a busy/failure state like import and reset: a slow or failed
+  // download (disk full, permission denied) should not look identical to a
+  // successful one, and a second click while one is in flight should be a
+  // no-op rather than racing two downloads.
+  async function confirmExportSettings(): Promise<void> {
+    if (!onExportSettings || exportingSettings) return;
+    setExportingSettings(true);
+    setExportSettingsFailed(false);
+    try {
+      await onExportSettings();
+    } catch {
+      setExportSettingsFailed(true);
+    } finally {
+      setExportingSettings(false);
+    }
+  }
 
   async function confirmImport(): Promise<void> {
     if (!onImportSettings || importing) return;
@@ -210,12 +232,14 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                 ) : (
                   <div className="mt-1.5 space-y-2">
                     <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("settingsExportHint")}</p>
+                    {exportSettingsFailed ? <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">{t("settingsExportFailed")}</p> : null}
                     <div className="flex flex-wrap justify-end gap-2">
                       {onExportSettings ? (
                         <button
                           type="button"
-                          className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                          onClick={() => void onExportSettings()}
+                          disabled={exportingSettings}
+                          className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          onClick={() => void confirmExportSettings()}
                         >
                           <Download size={13} />
                           {t("settingsExportButton")}

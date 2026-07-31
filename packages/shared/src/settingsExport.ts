@@ -13,12 +13,17 @@ import { CURRENT_SETTINGS_SCHEMA_VERSION, migrateSettings, type SettingsMigratio
 
 export const SETTINGS_EXPORT_KIND = "lurkloot-settings";
 
-export interface SettingsExportPayload {
+// Generic over the settings shape so each host can alias it to its own
+// settings type (ExtensionSettings here, CliSettings in @lurkloot/cli)
+// without redeclaring the shared kind/schemaVersion/exportedAt envelope.
+export interface SettingsExportEnvelope<TSettings> {
   kind: typeof SETTINGS_EXPORT_KIND;
   schemaVersion: number;
   exportedAt: string;
-  settings: ExtensionSettings;
+  settings: TSettings;
 }
+
+export type SettingsExportPayload = SettingsExportEnvelope<ExtensionSettings>;
 
 export class InvalidSettingsImportError extends Error {
   constructor(reason: string) {

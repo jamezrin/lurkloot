@@ -260,3 +260,12 @@ export function saveConfigSettings(config: CliConfig, settings: CliSettings): vo
     settings,
   }, null, 2)}\n`, "utf8");
 }
+
+// `config export --out` must never resolve to the active config file: the
+// export envelope carries only `settings`, not `transport`/`authDir`, so
+// writing it over config.json would silently drop both on the next load.
+export function assertExportOutputPath(outputPath: string, config: CliConfig): void {
+  if (outputPath === config.configPath) {
+    throw new Error(`--out must not be the active config file (${config.configPath}); the export envelope does not carry "transport"/"authDir" and would corrupt it`);
+  }
+}

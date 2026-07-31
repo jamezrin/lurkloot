@@ -818,6 +818,9 @@
   "settingsImportFailed": {
     "message": "Ce fichier n'est pas une exportation de paramètres Lurkloot valide."
   },
+  "settingsExportFailed": {
+    "message": "Lurkloot n'a pas pu exporter vos paramètres. Réessayez."
+  },
   "factoryResetTitle": {
     "message": "Réinitialiser Lurkloot"
   },
