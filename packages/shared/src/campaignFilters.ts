@@ -79,13 +79,21 @@ export function isRewardFarmableNow(
     || isRewardDeadlineFeasible(campaign, reward, settings.skipUnfinishableRewards, settings.deadlineSafetyMarginMinutes);
 }
 
-// The single definition of "is this campaign farmable right now" — everything
-// the engine's isEligible checks EXCEPT settings.priorityMode. Priority-list-only
-// mode is a farming-strategy choice, not a fact about the campaign itself: a
-// campaign the user hasn't prioritized yet must stay farmable-shaped here (and
-// visible in isCampaignVisible below) so they can add it to the list, which is
-// why the scheduler layers that check on top of this rather than folding it in.
-export function campaignFarmable(campaign: DropCampaign, settings: EngineSettings): boolean {
+// Whether a campaign's CLASS could ever be farmed, ignoring the moment-to-moment
+// timing of any individual reward (deadline feasibility, preconditions). This is
+// everything campaignFarmable checks except the final per-reward relevance
+// check, replaced with the much looser "has something left to earn or claim at
+// all". Deliberately separate from campaignFarmable: the popup's visibility
+// (isCampaignVisible) keys off THIS, not full farmability, because a campaign
+// that is momentarily un-farmable for reward-timing reasons (an infeasible
+// deadline under skipUnfinishableRewards, an unmet precondition on a locked
+// follow-up reward) is not a dead campaign — the user may want to see it, ease
+// the deadline margin, or (in "priority list only" mode) drag it into their
+// priority list, which is the ONLY way to make such a campaign farmable there.
+// Priority ordering is built from the currently-visible list (prioritiesFromOrder
+// in popup-ui), so hiding a campaign for a reward-timing reason would make it
+// permanently un-prioritizable — a real regression, not a stricter invariant.
+export function campaignEligibleClass(campaign: DropCampaign, settings: EngineSettings): boolean {
   if (campaign.status !== "active") return false;
   if (hasCampaignEnded(campaign)) return false;
   if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
@@ -97,30 +105,44 @@ export function campaignFarmable(campaign: DropCampaign, settings: EngineSetting
   // campaign is never farmable regardless of farmUnlinkedCampaigns. Kick DOES
   // accrue watch progress before linking (the link is only required to claim).
   if (campaign.platform !== "kick" && campaign.accountLinked === false) return false;
+  return campaign.rewards.some((reward) => reward.status !== "claimed");
+}
+
+// The single definition of "is this campaign farmable right now" — everything
+// the engine's isEligible checks EXCEPT settings.priorityMode. Priority-list-only
+// mode is a farming-strategy choice, not a fact about the campaign itself: a
+// campaign the user hasn't prioritized yet must stay eligible-class here (and
+// visible in isCampaignVisible below) so they can add it to the list, which is
+// why the scheduler layers that check on top of this rather than folding it in.
+// Strictly narrower than campaignEligibleClass — see that function for why
+// isCampaignVisible deliberately does NOT use this one.
+export function campaignFarmable(campaign: DropCampaign, settings: EngineSettings): boolean {
+  if (!campaignEligibleClass(campaign, settings)) return false;
   return campaign.rewards.some((reward) => isRewardFarmableNow(campaign, reward, settings));
 }
 
 // What the popup asks. A claimable reward always stays visible so the user can
 // claim it, independent of farmability — claiming doesn't require the engine to
-// be actively farming the campaign. Everything else derives from a single
-// question, "is this campaign farmable right now" (campaignFarmable): if yes,
-// visible (the invariant below); if no, visible only when a display flag
-// explicitly says to show that class of non-farmable campaign anyway.
+// be actively farming the campaign. Everything else derives from
+// campaignEligibleClass (NOT the stricter campaignFarmable — see its comment):
+// if the campaign's class could ever be farmed, it's visible (the invariant
+// below); if not, visible only when a display flag explicitly says to show that
+// class of non-farmable campaign anyway.
 //
-// INVARIANT: a campaign that will be farmed is always visible here. The user
-// must never farm a campaign they cannot see. This holds by construction: the
-// first campaignFarmable(...) check returns true immediately, before any
-// filter flag is consulted, so no flag can hide a farmable campaign. If a
-// future change reorders this, the binding test in campaignFilters.test.ts
-// fails.
+// INVARIANT: a campaign that will be farmed is always visible here. This holds
+// because campaignFarmable is strictly narrower than campaignEligibleClass (same
+// checks, plus a reward-timing requirement) — so campaignFarmable-true implies
+// campaignEligibleClass-true, and the eligible-class check returns visible
+// immediately, before any filter flag is consulted. If a future change breaks
+// that subset relationship, the binding test in campaignFilters.test.ts fails.
 export function isCampaignVisible(
   campaign: DropCampaign,
   settings: ExtensionSettings,
   excludedIds: ReadonlySet<string>,
 ): boolean {
   if (campaign.rewards.some((reward) => reward.status === "claimable")) return true;
-  if (campaignFarmable(campaign, settings)) return true;
-  // Not farmable right now. Bucket by why, and consult that class's display
+  if (campaignEligibleClass(campaign, settings)) return true;
+  // Not in a farmable class. Bucket by why, and consult that class's display
   // flag — the only way a non-farmable campaign can still be shown.
   const filter = settings.dropsListFilter;
   if (excludedIds.has(campaign.id)) return filter.showExcluded;
@@ -129,8 +151,7 @@ export function isCampaignVisible(
   if (isCampaignUpcoming(campaign)) return filter.showUpcoming;
   if (campaign.accountLinked === false) return filter.showNotLinked;
   if (campaignHasSubscriptionRewards(campaign)) return filter.showSubscription;
-  // An ordinary active campaign that campaignFarmable rejected for a reason with
-  // no display flag (category filter, or every reward currently unearnable/
-  // infeasible) has none to fall back on: hidden.
+  // An ordinary active campaign that campaignEligibleClass rejected for a reason
+  // with no display flag (category filter) has none to fall back on: hidden.
   return false;
 }

@@ -450,28 +450,35 @@ describe("isCampaignVisible category selection", () => {
   });
 });
 
-describe("isCampaignVisible reward-level farmability (no display flag rescues this)", () => {
-  // Regression coverage for a real gap: an ordinary active, linked,
-  // non-subscription, in-category campaign used to stay visible unconditionally
-  // (the old code's final `return true`), even when none of its rewards were
-  // actually farmable right now. There is no display flag for this case — an
-  // un-farmable ordinary campaign must be hidden outright.
-  it("hides an ordinary campaign whose only reward has an infeasible deadline", () => {
+describe("isCampaignVisible stays visible despite reward-timing infeasibility", () => {
+  // A campaign whose only reward is momentarily un-farmable for TIMING reasons
+  // (deadline infeasible under skipUnfinishableRewards, an unmet precondition on
+  // a locked follow-up reward) must NOT vanish from the list, even though
+  // campaignFarmable (and therefore isEligible) correctly refuses to farm it:
+  // the user still needs to see it to adjust settings, or — in "priority list
+  // only" mode — drag it into their priority list, which is the only way to
+  // ever make it farmable there. prioritiesFromOrder (popup-ui) builds
+  // campaignPriorities purely from the rendered/visible list order, so a hidden
+  // campaign could never be prioritized: hiding it here would be a regression,
+  // not a stricter invariant.
+  it("stays visible when the only reward has an infeasible deadline, but is not farmable", () => {
     const c = campaign({
       endsAt: new Date(Date.now() + 60_000).toISOString(),
       rewards: [{ ...campaign().rewards[0]!, requiredMinutes: 120, watchedMinutes: 0 }],
     });
     expect(campaignFarmable(c, settings())).toBe(false);
-    expect(visible(c)).toBe(false);
+    expect(visible(c)).toBe(true);
   });
 
-  it("hides an ordinary campaign whose only reward's precondition is not met", () => {
+  it("stays visible when the only reward's precondition is not met, but is not farmable", () => {
     const c = campaign({ rewards: [{ ...campaign().rewards[0]!, preconditionsMet: false }] });
-    expect(visible(c)).toBe(false);
+    expect(campaignFarmable(c, settings())).toBe(false);
+    expect(visible(c)).toBe(true);
   });
 
-  it("shows the campaign again once the reward becomes farmable", () => {
+  it("is also farmable once the reward's timing becomes feasible again", () => {
     const c = campaign({ rewards: [{ ...campaign().rewards[0]!, preconditionsMet: true }] });
+    expect(campaignFarmable(c, settings())).toBe(true);
     expect(visible(c)).toBe(true);
   });
 });
