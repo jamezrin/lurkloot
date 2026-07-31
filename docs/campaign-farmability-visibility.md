@@ -13,27 +13,25 @@ engine is farming can never be hidden from the person watching it happen.
 Used by the scheduler's `isEligible`. Six structural gates, then one timing
 gate on the rewards themselves.
 
-```
-status === "active"?              no  -> FALSE
-  |yes
-already ended?                    yes -> FALSE
-  |no
-eligibility set and != eligible?  yes -> FALSE
-  |no
-excluded by id?                   yes -> FALSE
-  |no
-class allowed?                    no  -> FALSE
-(farmUnlinkedCampaigns / farmSubscriptionCampaigns)
-  |yes
-outside selected categories?      yes -> FALSE
-(farmAllCategories off + not in list)
-  |no
-Twitch AND not linked?            yes -> FALSE
-  |no
-any reward farmable right now?    no  -> FALSE
-(not claimed, preconditions met, in its window, deadline feasible)
-  |yes
-TRUE — engine farms it
+```mermaid
+flowchart TD
+    A["campaignFarmable(campaign, settings)"] --> B{"status === active?"}
+    B -- no --> N1["FALSE"]
+    B -- yes --> C{"already ended?<br/>hasCampaignEnded"}
+    C -- yes --> N1
+    C -- no --> D{"eligibility set<br/>and ≠ eligible?"}
+    D -- yes --> N1
+    D -- no --> E{"id in<br/>excludedCampaignIds?"}
+    E -- yes --> N1
+    E -- no --> F{"class allowed?<br/>farmUnlinkedCampaigns /<br/>farmSubscriptionCampaigns"}
+    F -- no --> N1
+    F -- yes --> G{"outside selected<br/>categories?<br/>farmAllCategories off"}
+    G -- yes --> N1
+    G -- no --> H{"Twitch AND<br/>not linked?"}
+    H -- yes --> N1
+    H -- no --> I{"any reward<br/>farmable right now?<br/>not claimed, preconditions met,<br/>relevant, deadline feasible"}
+    I -- no --> N1
+    I -- yes --> Y1["TRUE — engine farms it"]
 ```
 
 `campaignFarmable` = `campaignEligibleClass` (section 2) + that last
@@ -58,26 +56,27 @@ Two fast paths first, then the category filter (no override, always wins),
 then one bucket per remaining reason with its own display flag. The first
 `true` reason wins — buckets are checked in this fixed order.
 
-```
-any reward status === "claimable"?  yes -> TRUE (claim it, regardless of anything else)
-  |no
-campaignEligibleClass?              yes -> TRUE   <-- THE INVARIANT:
-  |no                                              farmable ⟹ visible
-outside selected categories?        yes -> FALSE (no override, ever)
-  |no
-excluded by id?                     yes -> showExcluded flag decides
-  |no
-finished?                           yes -> showFinished flag decides
-  |no
-expired?                            yes -> showExpired flag decides
-  |no
-upcoming?                           yes -> showUpcoming flag decides
-  |no
-not linked?                         yes -> showNotLinked flag decides
-  |no
-subscription-gated?                 yes -> showSubscription flag decides
-  |no
-FALSE — no bucket, no flag
+```mermaid
+flowchart TD
+    A["isCampaignVisible(campaign, settings)"] --> B{"any reward<br/>status === claimable?"}
+    B -- yes --> Y1["TRUE — claim it,<br/>regardless of anything else"]
+    B -- no --> C{"campaignEligibleClass?<br/>(section 2 above)"}
+    C -- yes --> Y2["TRUE — the invariant:<br/>farmable ⟹ visible"]
+    C -- no --> D{"outside selected<br/>categories?"}
+    D -- yes --> N1["FALSE — no override,<br/>ever"]
+    D -- no --> E{"excluded by id?"}
+    E -- yes --> F1["showExcluded decides"]
+    E -- no --> G{"finished?"}
+    G -- yes --> F2["showFinished decides"]
+    G -- no --> H{"expired?"}
+    H -- yes --> F3["showExpired decides"]
+    H -- no --> I{"upcoming?"}
+    I -- yes --> F4["showUpcoming decides"]
+    I -- no --> J{"not linked?"}
+    J -- yes --> F5["showNotLinked decides"]
+    J -- no --> K{"subscription-gated?"}
+    K -- yes --> F6["showSubscription decides"]
+    K -- no --> N2["FALSE — no bucket,<br/>no flag"]
 ```
 
 ## Reference
