@@ -449,10 +449,27 @@ describe("isCampaignVisible category selection", () => {
     expect(visible(c, { dropsListFilter: ALL_OFF, categorySelection: selectedOnly })).toBe(false);
   });
 
-  // The category filter has no display-flag override anywhere else; a
-  // not-linked or subscription campaign outside the selected categories must
-  // not slip through via showNotLinked/showSubscription — those flags only
-  // rescue a campaign from ITS OWN class hide, not from the category filter.
+  // The category filter has no display-flag override anywhere, so it wins over
+  // every other bucket — even ones with their own flag turned fully on — for a
+  // campaign that is ALSO in that other bucket's class.
+  it("hides an excluded campaign outside the selected categories even with showExcluded on", () => {
+    const c = campaign({ gameName: "Other Game" });
+    expect(visible(c, { dropsListFilter: SHOW_ALL, excludedCampaignIds: ["campaign"], categorySelection: selectedOnly })).toBe(false);
+  });
+
+  it("hides a finished campaign outside the selected categories even with showFinished on", () => {
+    const c = campaign({
+      gameName: "Other Game",
+      rewards: [{ ...campaign().rewards[0]!, status: "claimed" }],
+    });
+    expect(visible(c, { dropsListFilter: SHOW_ALL, categorySelection: selectedOnly })).toBe(false);
+  });
+
+  it("hides an upcoming campaign outside the selected categories even with showUpcoming on", () => {
+    const c = campaign({ status: "upcoming", gameName: "Other Game" });
+    expect(visible(c, { dropsListFilter: SHOW_ALL, categorySelection: selectedOnly })).toBe(false);
+  });
+
   it("hides a not-linked campaign outside the selected categories even with showNotLinked on", () => {
     const c = campaign({ accountLinked: false, gameName: "Other Game" });
     expect(visible(c, { dropsListFilter: SHOW_ALL, categorySelection: selectedOnly })).toBe(false);

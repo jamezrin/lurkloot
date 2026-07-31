@@ -142,21 +142,21 @@ export function isCampaignVisible(
 ): boolean {
   if (campaign.rewards.some((reward) => reward.status === "claimable")) return true;
   if (campaignEligibleClass(campaign, settings)) return true;
-  // Not in a farmable class. Bucket by why, and consult that class's display
-  // flag — the only way a non-farmable campaign can still be shown.
+  // The category filter has no display-flag override anywhere, so it is
+  // checked first, ahead of every other bucket below — it wins even over a
+  // campaign that is ALSO excluded/finished/expired/upcoming/not-linked/
+  // subscription-gated with its matching display flag on. "Farm all
+  // categories" off means campaigns outside the list are gone from the Drops
+  // list, full stop, not just gone from farming.
+  const platformSettings = settings.platform[campaign.platform];
+  if (!platformSettings.farmAllCategories && categoryListIndex(campaign, platformSettings.categories) === -1) return false;
+  // Not in a farmable class for some other reason. Bucket by why, and consult
+  // that class's display flag — the only way it can still be shown.
   const filter = settings.dropsListFilter;
   if (excludedIds.has(campaign.id)) return filter.showExcluded;
   if (isCampaignFinished(campaign)) return filter.showFinished;
   if (isCampaignExpired(campaign)) return filter.showExpired;
   if (isCampaignUpcoming(campaign)) return filter.showUpcoming;
-  // The category filter has no display-flag override — checked before the two
-  // class flags below so a not-linked or subscription campaign outside the
-  // selected categories cannot be shown via showNotLinked/showSubscription. A
-  // campaign can be BOTH out-of-category and not-linked/subscription-gated at
-  // once; without this check first, the class bucket below would rescue it and
-  // the category filter would have no effect on that campaign.
-  const platformSettings = settings.platform[campaign.platform];
-  if (!platformSettings.farmAllCategories && categoryListIndex(campaign, platformSettings.categories) === -1) return false;
   if (campaign.accountLinked === false) return filter.showNotLinked;
   if (campaignHasSubscriptionRewards(campaign)) return filter.showSubscription;
   // An ordinary active campaign that campaignEligibleClass rejected for a reason
