@@ -33,7 +33,6 @@ import {
   MetaStat,
   Pill,
   ProgressBar,
-  SearchBox,
   cn,
   moveById,
   useDndSensors,
@@ -51,13 +50,15 @@ function farmingCampaignId(campaigns: CampaignView[]): string | undefined {
   return campaigns.find((campaign) => Boolean(campaign.farmingChannel))?.id;
 }
 
-export function DropsPanel({ campaigns, gameMap, focus, refreshing, onRefreshCampaign, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; refreshing: boolean; onRefreshCampaign(id: string): void | Promise<void>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
+export function DropsPanel({ campaigns, gameMap, query = "", focus, refreshing, startCollapsed = false, onRefreshCampaign, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; query?: string; focus?: { id: string; seq: number } | null; refreshing: boolean; startCollapsed?: boolean; onRefreshCampaign(id: string): void | Promise<void>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
   const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
   const farmingId = farmingCampaignId(campaigns);
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => initialExpandedIds(campaigns));
+  // `startCollapsed` is for the store screenshot that is about the Idle
+  // Watchlist: the farmed campaign's reward grid would otherwise push the
+  // watchlist off the bottom of the frame.
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => startCollapsed ? {} : initialExpandedIds(campaigns));
   const autoExpandedId = useRef<string | undefined>(farmingId);
   const listRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
@@ -96,13 +97,12 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, onRefreshCam
   }
 
   return (
-    <div className="space-y-2">
-      <SearchBox value={query} onChange={setQuery} placeholder={t("campaignSearchPlaceholder")} />
+    <div className="space-y-1">
       {searching ? (
         visibleCampaigns.length === 0 ? (
           <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("campaignSearchNoResults", query.trim())}</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {visibleCampaigns.map((campaign, index) => (
               <CampaignCard key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
             ))}
@@ -111,7 +111,7 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, onRefreshCam
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event: DragStartEvent) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
           <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
-            <div ref={listRef} className="space-y-2">
+            <div ref={listRef} className="space-y-1">
               {campaigns.map((campaign, index) => (
                 <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
               ))}
@@ -157,12 +157,18 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing,
   return (
     <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-transparent" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized ? { boxShadow: isOverlay ? "0 20px 50px -12px rgba(0,0,0,0.5)" : "0 0 0 1.5px var(--accent-ring), 0 10px 30px -18px var(--accent-glow)" } : undefined}>
       <div className="relative flex items-stretch">
-        <div className="flex w-8 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">{dragHandle ?? <GripVertical size={16} className="text-zinc-300 dark:text-zinc-600" />}</div>
+        {/* Drag rail doubles as the priority column: the grip keeps reorder
+            discoverable, the number underneath is the campaign's rank — the same
+            handle+index grammar CompactRow uses for watchlist rows. */}
+        <div className="flex w-7 shrink-0 flex-col items-center justify-center gap-0.5 border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">
+          {dragHandle ?? <GripVertical size={14} className="text-zinc-300 dark:text-zinc-600" />}
+          <span className="text-[10px] font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>{index + 1}</span>
+        </div>
         {/* Full-area toggle behind the content so the page-link anchor can live next
             to the title without nesting an <a> inside a <button>. */}
-        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={campaign.title} className="absolute inset-y-0 left-8 right-0 z-0 outline-none" />
-        <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2.5 p-2.5">
-          <div className="relative flex h-10 w-10 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
+        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={campaign.title} className="absolute inset-y-0 left-7 right-0 z-0 outline-none" />
+        <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2 p-1.5">
+          <div className="relative flex h-8 w-8 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
             <ImageWithFallback src={campaign.imageUrl} alt={campaign.title} fit="cover" fallback={
               <div className={cn("flex h-full w-full items-end bg-gradient-to-br p-1.5", campaign.tint)}>
                 <span className="text-[11px] font-black leading-none tracking-normal text-white drop-shadow">{campaign.thumbnail}</span>
@@ -194,11 +200,11 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing,
                 <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-zinc-400 dark:text-zinc-500"><ChevronDown size={16} /></motion.div>
               </div>
             </div>
-            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            {/* Category and every state pill on one non-wrapping line: a long
+                locale scrolls this row instead of growing the card by a line. */}
+            <div className="no-scrollbar mt-0.5 flex items-center gap-1.5 overflow-x-auto text-[11px] text-zinc-500 dark:text-zinc-400">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: game.accent }} />
-              <span className="truncate">{game.name}</span>
-              <span className="shrink-0 text-zinc-300 dark:text-zinc-600">·</span>
-              <Pill tone="accent">#{index + 1}</Pill>
+              <span className="shrink-0 truncate">{game.name}</span>
               {campaign.hasSubscriptionRewards ? <Pill tone="outline"><Users size={9} /> {t("subscriptionRequired")}</Pill> : null}
               {stats.kind === "action" ? <Pill tone="outline"><AlertTriangle size={9} /> {t("actionRequired")}</Pill> : null}
               {isFarming && campaign.hasWatchRewards ? <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill> : null}
@@ -210,9 +216,15 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing,
               {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
               {campaign.excluded && campaign.hasWatchRewards ? <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill> : null}
             </div>
-            {showsWatchProgress ? <div className="mt-2"><ProgressBar value={stats.progress ?? 0} glow={emphasized} /></div> : null}
           </div>
         </div>
+        {/* Watch progress rides the card's bottom edge rather than taking a row
+            of its own inside the collapsed layout. */}
+        {showsWatchProgress ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
+            <ProgressBar value={stats.progress ?? 0} size="edge" glow={emphasized} />
+          </div>
+        ) : null}
       </div>
       <AnimatePresence initial={false}>
         {expanded && (
