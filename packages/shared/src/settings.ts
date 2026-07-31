@@ -270,6 +270,23 @@ export function clampNumber(value: number | undefined, min: number, max: number,
 // non-empty name. The legacy `gamePriority: string[]` is intentionally NOT
 // migrated: it stored ids without display names (and was an ordering hint, not an
 // allowlist), so carrying it over would surface bare numeric ids like "13".
+// Category images render unconditionally as <img src> as soon as the settings
+// view is open — no click required — so an https-only allowlist matters here
+// the same way it does for openHttpsLink's click-through guidance: settings
+// can come from an imported file (see @lurkloot/shared/settingsExport), and a
+// crafted category with a non-https imageUrl would otherwise beacon or probe
+// the local network the instant the popup renders it.
+function httpsUrlOrUndefined(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  try {
+    return new URL(trimmed).protocol === "https:" ? trimmed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function normalizeCategorySelections(value: CategorySelection[] | undefined): CategorySelection[] {
   if (!Array.isArray(value)) return [];
   const seen = new Set<string>();
@@ -281,7 +298,7 @@ export function normalizeCategorySelections(value: CategorySelection[] | undefin
     const key = id.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    const imageUrl = typeof entry?.imageUrl === "string" && entry.imageUrl.trim() ? entry.imageUrl.trim() : undefined;
+    const imageUrl = httpsUrlOrUndefined(entry?.imageUrl);
     result.push(imageUrl ? { id, name, imageUrl } : { id, name });
   }
   return result;

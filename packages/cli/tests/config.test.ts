@@ -298,3 +298,40 @@ describe("CLI config warning integration", () => {
     }
   });
 });
+
+describe("config export/import", () => {
+  it("refuses to export over the active config file and leaves it untouched", () => {
+    const dir = mkdtempSync(join(tmpdir(), "lurkloot-command-"));
+    try {
+      const configPath = writeLegacyConfig(dir);
+      const before = readFileSync(configPath, "utf8");
+      const result = runCli(configPath, ["config", "export", "--out", configPath]);
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toMatch(/--out must not be the active config file/);
+      expect(readFileSync(configPath, "utf8")).toBe(before);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("round-trips settings through export and import", () => {
+    const dir = mkdtempSync(join(tmpdir(), "lurkloot-command-"));
+    try {
+      const configPath = writeLegacyConfig(dir);
+      const exportPath = join(dir, "exported.json");
+      const exportResult = runCli(configPath, ["config", "export", "--out", exportPath]);
+      expect(exportResult.status, exportResult.stderr).toBe(0);
+
+      const importResult = runCli(configPath, ["config", "import", exportPath]);
+      expect(importResult.status, importResult.stderr).toBe(0);
+
+      const validateResult = runCli(configPath, ["validate-config"]);
+      expect(validateResult.status, validateResult.stderr).toBe(0);
+      const settings = JSON.parse(validateResult.stdout).settings;
+      expect(settings.platform.twitch.enabled).toBe(false);
+      expect(settings.platform.kick.enabled).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
