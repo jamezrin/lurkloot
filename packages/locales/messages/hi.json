@@ -614,6 +614,9 @@
   "hasActiveDrops": {
     "message": "सक्रिय drops हैं"
   },
+  "otherCategories": {
+    "message": "अन्य श्रेणियाँ"
+  },
   "searchCategories": {
     "message": "$1 श्रेणियाँ खोजें"
   },

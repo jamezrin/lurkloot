@@ -146,37 +146,10 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
   const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<CategorySelection[]>([]);
-  const [searching, setSearching] = useState(false);
-  // onSearch is a fresh closure each render; ref it so the debounce effect can
-  // depend only on the query and not re-fire on every parent render.
-  const searchRef = useRef(onSearch);
-  searchRef.current = onSearch;
 
   const selectedIds = useMemo(() => new Set(categories.map((category) => category.id.toLowerCase())), [categories]);
   const active = categories.find((category) => category.id === activeId);
   const activeIndex = categories.findIndex((category) => category.id === activeId);
-  const unaddedSuggestions = suggestions.filter((suggestion) => !selectedIds.has(suggestion.id.toLowerCase()));
-  const unaddedResults = results.filter((result) => !selectedIds.has(result.id.toLowerCase()));
-
-  useEffect(() => {
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setResults([]);
-      setSearching(false);
-      return;
-    }
-    let cancelled = false;
-    setSearching(true);
-    const handle = setTimeout(() => {
-      void searchRef.current(trimmed)
-        .then((found) => { if (!cancelled) setResults(found); })
-        .catch(() => { if (!cancelled) setResults([]); })
-        .finally(() => { if (!cancelled) setSearching(false); });
-    }, 350);
-    return () => { cancelled = true; clearTimeout(handle); };
-  }, [query]);
 
   function addCategory(category: CategorySelection): void {
     if (selectedIds.has(category.id.toLowerCase())) return;
@@ -214,61 +187,145 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
         </DndContext>
       )}
 
-      {unaddedSuggestions.length > 0 ? (
-        <div className="space-y-1.5">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("hasActiveDrops")}</div>
-          <div className="flex flex-wrap gap-1.5">
-            {unaddedSuggestions.map((suggestion) => (
-              <CategoryAddChip
-                key={suggestion.id}
-                name={suggestion.name}
-                imageUrl={suggestion.imageUrl}
-                onClick={() => addCategory({
-                  id: suggestion.id,
-                  name: suggestion.name,
-                  ...(suggestion.imageUrl ? { imageUrl: suggestion.imageUrl } : {}),
-                })}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="space-y-1.5">
-        <div className="relative">
-          <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("searchCategories", PLATFORMS[platform].label)}
-            className="w-full rounded-xl border border-zinc-200 bg-white py-2 pl-8 pr-3 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
-          />
-        </div>
-        {query.trim() ? (
-          searching ? (
-            <div className="text-[11px] text-zinc-400">{t("searching")}</div>
-          ) : unaddedResults.length === 0 ? (
-            <div className="text-[11px] text-zinc-400">{results.length === 0 ? t("noCategoriesFound") : t("alreadyAdded")}</div>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {unaddedResults.map((result) => (
-                <CategoryAddChip key={result.id} name={result.name} imageUrl={result.imageUrl} onClick={() => addCategory(result)} />
-              ))}
-            </div>
-          )
-        ) : null}
-      </div>
+      <CategoryPickerCombobox platform={platform} suggestions={suggestions} selectedIds={selectedIds} onSearch={onSearch} onSelect={addCategory} />
     </div>
   );
 }
 
-function CategoryAddChip({ name, imageUrl, onClick }: { name: string; imageUrl?: string; onClick(): void }) {
+// Combobox-style category picker: a single search input that opens a
+// popover listbox on focus, grouped into categories with active drops
+// (already loaded, no network) and other categories (from a debounced live
+// search). Collapses when not focused so a long active-drops list doesn't
+// dominate the settings screen (issue #326).
+function CategoryPickerCombobox({ platform, suggestions, selectedIds, onSearch, onSelect }: {
+  platform: Platform;
+  suggestions: GameItem[];
+  selectedIds: Set<string>;
+  onSearch(query: string): Promise<CategorySelection[]>;
+  onSelect(category: CategorySelection): void;
+}) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<CategorySelection[]>([]);
+  const [searching, setSearching] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // onSearch is a fresh closure each render; ref it so the debounce effect can
+  // depend only on the query and not re-fire on every parent render.
+  const searchRef = useRef(onSearch);
+  searchRef.current = onSearch;
+
+  const trimmedQuery = query.trim();
+  const unaddedSuggestions = useMemo(
+    () => suggestions.filter((suggestion) => !selectedIds.has(suggestion.id.toLowerCase())),
+    [suggestions, selectedIds],
+  );
+  const activeDropsMatches = trimmedQuery
+    ? unaddedSuggestions.filter((suggestion) => suggestion.name.toLowerCase().includes(trimmedQuery.toLowerCase()))
+    : unaddedSuggestions;
+  const activeDropIds = useMemo(() => new Set(activeDropsMatches.map((item) => item.id.toLowerCase())), [activeDropsMatches]);
+  const otherResults = results.filter((result) => !selectedIds.has(result.id.toLowerCase()) && !activeDropIds.has(result.id.toLowerCase()));
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent): void {
+      // Use composedPath() rather than event.target: the popup can render
+      // inside a shadow root (e.g. the site's live demo), and shadow
+      // boundaries retarget .target on composed events like mousedown to the
+      // shadow host, which breaks a plain .contains() containment check.
+      if (containerRef.current && !event.composedPath().includes(containerRef.current)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent): void {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const handle = setTimeout(() => {
+      void searchRef.current(trimmed)
+        .then((found) => { if (!cancelled) setResults(found); })
+        .catch(() => { if (!cancelled) setResults([]); })
+        .finally(() => { if (!cancelled) setSearching(false); });
+    }, 350);
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [query]);
+
+  function select(category: CategorySelection): void {
+    onSelect(category);
+    setQuery("");
+    setOpen(false);
+  }
+
+  const showActiveDrops = activeDropsMatches.length > 0;
+  const showOther = trimmedQuery.length > 0;
+  const isEmpty = !showActiveDrops && (!showOther || (!searching && otherResults.length === 0));
+
   return (
-    <button type="button" onClick={onClick} className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-700 transition-colors hover:border-[var(--accent-ring)] hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:text-white">
-      {imageUrl ? <img src={imageUrl} alt="" className="h-4 w-4 shrink-0 rounded object-cover" /> : null}
-      <span className="truncate">{name}</span>
-      <Plus size={12} className="shrink-0 text-zinc-400" />
-    </button>
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+        <input
+          value={query}
+          onFocus={() => setOpen(true)}
+          onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
+          placeholder={t("searchCategories", PLATFORMS[platform].label)}
+          className="w-full rounded-xl border border-zinc-200 bg-white py-2 pl-8 pr-3 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+        />
+      </div>
+      {open ? (
+        <div className="absolute inset-x-0 top-full z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+          {showActiveDrops ? (
+            <CategoryPickerGroup label={t("hasActiveDrops")} items={activeDropsMatches} onSelect={select} />
+          ) : null}
+          {showOther ? (
+            searching ? (
+              <div className="px-2 py-1.5 text-[11px] text-zinc-400">{t("searching")}</div>
+            ) : otherResults.length > 0 ? (
+              <CategoryPickerGroup label={t("otherCategories")} items={otherResults} onSelect={select} />
+            ) : null
+          ) : null}
+          {isEmpty ? <div className="px-2 py-1.5 text-[11px] text-zinc-400">{t("noCategoriesFound")}</div> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CategoryPickerGroup({ label, items, onSelect }: {
+  label: string;
+  items: (CategorySelection | GameItem)[];
+  onSelect(category: CategorySelection): void;
+}) {
+  return (
+    <div className="space-y-0.5 py-1 first:pt-0">
+      <div className="px-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{label}</div>
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onSelect({ id: item.id, name: item.name, ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}) })}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          {item.imageUrl ? <img src={item.imageUrl} alt="" className="h-4 w-4 shrink-0 rounded object-cover" /> : null}
+          <span className="min-w-0 flex-1 truncate">{item.name}</span>
+          <Plus size={12} className="shrink-0 text-zinc-400" />
+        </button>
+      ))}
+    </div>
   );
 }
 

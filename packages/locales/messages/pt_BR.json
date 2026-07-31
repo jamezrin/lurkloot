@@ -614,6 +614,9 @@
   "hasActiveDrops": {
     "message": "Tem drops ativos"
   },
+  "otherCategories": {
+    "message": "Outras categorias"
+  },
   "searchCategories": {
     "message": "Pesquisar categorias do $1"
   },

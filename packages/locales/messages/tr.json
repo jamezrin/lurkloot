@@ -614,6 +614,9 @@
   "hasActiveDrops": {
     "message": "Aktif droplar var"
   },
+  "otherCategories": {
+    "message": "Diğer kategoriler"
+  },
   "searchCategories": {
     "message": "$1 kategorilerinde ara"
   },

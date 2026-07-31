@@ -614,6 +614,9 @@
   "hasActiveDrops": {
     "message": "Есть активные drops"
   },
+  "otherCategories": {
+    "message": "Другие категории"
+  },
   "searchCategories": {
     "message": "Искать категории $1"
   },

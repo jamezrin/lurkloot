@@ -614,6 +614,9 @@
   "hasActiveDrops": {
     "message": "Tiene drops activos"
   },
+  "otherCategories": {
+    "message": "Otras categorías"
+  },
   "searchCategories": {
     "message": "Buscar categorías de $1"
   },
