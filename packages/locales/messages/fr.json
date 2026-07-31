@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "Afficher les paramètres avancés"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "Aller à la section"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Actions avancées"
+  },
   "settingsSectionGeneral": {
     "message": "Général"
   },
@@ -793,6 +799,33 @@
   },
   "cliExportButton": {
     "message": "Exporter les identifiants"
+  },
+  "settingsExportTitle": {
+    "message": "Importer/exporter les paramètres"
+  },
+  "settingsExportHint": {
+    "message": "Enregistrez vos paramètres dans un fichier ou chargez-les sur un autre navigateur. N'inclut jamais vos identifiants Twitch ou Kick."
+  },
+  "settingsExportButton": {
+    "message": "Exporter les paramètres"
+  },
+  "settingsImportButton": {
+    "message": "Importer les paramètres"
+  },
+  "settingsImportConfirm": {
+    "message": "Cela remplacera vos paramètres actuels par ceux du fichier sélectionné. Continuer ?"
+  },
+  "settingsImportCancel": {
+    "message": "Annuler"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Choisir un fichier et importer"
+  },
+  "settingsImportFailed": {
+    "message": "Ce fichier n'est pas une exportation de paramètres Lurkloot valide."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot n'a pas pu exporter vos paramètres. Réessayez."
   },
   "factoryResetTitle": {
     "message": "Réinitialiser Lurkloot"

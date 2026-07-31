@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "عرض الإعدادات المتقدمة"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "الانتقال إلى قسم"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "إجراءات متقدمة"
+  },
   "settingsSectionGeneral": {
     "message": "عام"
   },
@@ -793,6 +799,33 @@
   },
   "cliExportButton": {
     "message": "تصدير بيانات الاعتماد"
+  },
+  "settingsExportTitle": {
+    "message": "استيراد/تصدير الإعدادات"
+  },
+  "settingsExportHint": {
+    "message": "احفظ إعداداتك في ملف، أو حمّلها على متصفح آخر. لا يتضمن أبدًا بيانات تسجيل الدخول إلى Twitch أو Kick."
+  },
+  "settingsExportButton": {
+    "message": "تصدير الإعدادات"
+  },
+  "settingsImportButton": {
+    "message": "استيراد الإعدادات"
+  },
+  "settingsImportConfirm": {
+    "message": "سيؤدي هذا إلى استبدال إعداداتك الحالية بالإعدادات من الملف المحدد. هل تريد المتابعة؟"
+  },
+  "settingsImportCancel": {
+    "message": "إلغاء"
+  },
+  "settingsImportConfirmButton": {
+    "message": "اختر ملفًا واستورد"
+  },
+  "settingsImportFailed": {
+    "message": "هذا الملف ليس تصديرًا صالحًا لإعدادات Lurkloot."
+  },
+  "settingsExportFailed": {
+    "message": "تعذّر على Lurkloot تصدير إعداداتك. حاول مرة أخرى."
   },
   "factoryResetTitle": {
     "message": "إعادة ضبط Lurkloot"

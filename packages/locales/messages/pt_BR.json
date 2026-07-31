@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "Mostrar configurações avançadas"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "Ir para a seção"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Ações avançadas"
+  },
   "settingsSectionGeneral": {
     "message": "Geral"
   },
@@ -793,6 +799,33 @@
   },
   "cliExportButton": {
     "message": "Exportar credenciais"
+  },
+  "settingsExportTitle": {
+    "message": "Importar/exportar configurações"
+  },
+  "settingsExportHint": {
+    "message": "Salve suas configurações em um arquivo ou carregue-as em outro navegador. Nunca inclui seu login do Twitch ou Kick."
+  },
+  "settingsExportButton": {
+    "message": "Exportar configurações"
+  },
+  "settingsImportButton": {
+    "message": "Importar configurações"
+  },
+  "settingsImportConfirm": {
+    "message": "Isso substituirá suas configurações atuais pelas do arquivo selecionado. Continuar?"
+  },
+  "settingsImportCancel": {
+    "message": "Cancelar"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Escolher arquivo e importar"
+  },
+  "settingsImportFailed": {
+    "message": "Esse arquivo não é uma exportação de configurações válida do Lurkloot."
+  },
+  "settingsExportFailed": {
+    "message": "O Lurkloot não conseguiu exportar suas configurações. Tente novamente."
   },
   "factoryResetTitle": {
     "message": "Redefinir o Lurkloot"

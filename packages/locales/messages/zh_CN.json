@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "显示高级设置"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "跳转到分区"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "高级操作"
+  },
   "settingsSectionGeneral": {
     "message": "常规"
   },
@@ -793,6 +799,33 @@
   },
   "cliExportButton": {
     "message": "导出凭据"
+  },
+  "settingsExportTitle": {
+    "message": "导入/导出设置"
+  },
+  "settingsExportHint": {
+    "message": "将设置保存到文件，或在其他浏览器中加载它们。绝不包含您的 Twitch 或 Kick 登录信息。"
+  },
+  "settingsExportButton": {
+    "message": "导出设置"
+  },
+  "settingsImportButton": {
+    "message": "导入设置"
+  },
+  "settingsImportConfirm": {
+    "message": "这将用所选文件中的设置替换您当前的设置。是否继续？"
+  },
+  "settingsImportCancel": {
+    "message": "取消"
+  },
+  "settingsImportConfirmButton": {
+    "message": "选择文件并导入"
+  },
+  "settingsImportFailed": {
+    "message": "该文件不是有效的 Lurkloot 设置导出文件。"
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot 无法导出您的设置。请重试。"
   },
   "factoryResetTitle": {
     "message": "重置 Lurkloot"

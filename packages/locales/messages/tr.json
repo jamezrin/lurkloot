@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "Gelişmiş ayarlar"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "Bölüme git"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Gelişmiş işlemler"
+  },
   "settingsSectionGeneral": {
     "message": "Genel"
   },
@@ -793,6 +799,33 @@
   },
   "cliExportButton": {
     "message": "Giriş bilgilerini indir"
+  },
+  "settingsExportTitle": {
+    "message": "Ayarları içe/dışa aktar"
+  },
+  "settingsExportHint": {
+    "message": "Ayarlarınızı bir dosyaya kaydedin veya başka bir tarayıcıya yükleyin. Twitch veya Kick giriş bilgilerinizi asla içermez."
+  },
+  "settingsExportButton": {
+    "message": "Ayarları dışa aktar"
+  },
+  "settingsImportButton": {
+    "message": "Ayarları içe aktar"
+  },
+  "settingsImportConfirm": {
+    "message": "Bu, mevcut ayarlarınızı seçilen dosyadaki ayarlarla değiştirecek. Devam edilsin mi?"
+  },
+  "settingsImportCancel": {
+    "message": "İptal"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Dosya seç ve içe aktar"
+  },
+  "settingsImportFailed": {
+    "message": "Bu dosya geçerli bir Lurkloot ayar dışa aktarımı değil."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot ayarlarınızı dışa aktaramadı. Tekrar deneyin."
   },
   "factoryResetTitle": {
     "message": "Lurkloot'u Sıfırla"

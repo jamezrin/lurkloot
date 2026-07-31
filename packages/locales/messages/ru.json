@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "Показать дополнительные настройки"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "Перейти к разделу"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Дополнительные действия"
+  },
   "settingsSectionGeneral": {
     "message": "Общие"
   },
@@ -793,6 +799,33 @@
   },
   "cliExportButton": {
     "message": "Экспортировать учётные данные"
+  },
+  "settingsExportTitle": {
+    "message": "Импорт/экспорт настроек"
+  },
+  "settingsExportHint": {
+    "message": "Сохраните настройки в файл или загрузите их в другом браузере. Никогда не включает вход в Twitch или Kick."
+  },
+  "settingsExportButton": {
+    "message": "Экспортировать настройки"
+  },
+  "settingsImportButton": {
+    "message": "Импортировать настройки"
+  },
+  "settingsImportConfirm": {
+    "message": "Это заменит текущие настройки настройками из выбранного файла. Продолжить?"
+  },
+  "settingsImportCancel": {
+    "message": "Отмена"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Выбрать файл и импортировать"
+  },
+  "settingsImportFailed": {
+    "message": "Этот файл не является допустимым экспортом настроек Lurkloot."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot не удалось экспортировать настройки. Повторите попытку."
   },
   "factoryResetTitle": {
     "message": "Сбросить Lurkloot"

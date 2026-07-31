@@ -65,6 +65,12 @@
   "settingsShowAdvancedTitle": {
     "message": "उन्नत सेटिंग्स दिखाएँ"
   },
+  "settingsSectionJumpNavLabel": {
+    "message": "अनुभाग पर जाएँ"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "उन्नत कार्रवाइयाँ"
+  },
   "settingsSectionGeneral": {
     "message": "सामान्य"
   },
@@ -793,6 +799,33 @@
   },
   "cliExportButton": {
     "message": "क्रेडेंशियल निर्यात करें"
+  },
+  "settingsExportTitle": {
+    "message": "सेटिंग्स आयात/निर्यात करें"
+  },
+  "settingsExportHint": {
+    "message": "अपनी सेटिंग्स को एक फ़ाइल में सहेजें, या उन्हें किसी अन्य ब्राउज़र पर लोड करें। इसमें कभी भी आपका Twitch या Kick लॉगिन शामिल नहीं होता।"
+  },
+  "settingsExportButton": {
+    "message": "सेटिंग्स निर्यात करें"
+  },
+  "settingsImportButton": {
+    "message": "सेटिंग्स आयात करें"
+  },
+  "settingsImportConfirm": {
+    "message": "यह आपकी वर्तमान सेटिंग्स को चयनित फ़ाइल की सेटिंग्स से बदल देगा। जारी रखें?"
+  },
+  "settingsImportCancel": {
+    "message": "रद्द करें"
+  },
+  "settingsImportConfirmButton": {
+    "message": "फ़ाइल चुनें और आयात करें"
+  },
+  "settingsImportFailed": {
+    "message": "वह फ़ाइल एक मान्य Lurkloot सेटिंग्स निर्यात नहीं है।"
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot आपकी सेटिंग्स निर्यात नहीं कर सका। फिर से कोशिश करें।"
   },
   "factoryResetTitle": {
     "message": "Lurkloot रीसेट करें"
