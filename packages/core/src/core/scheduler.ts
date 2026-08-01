@@ -1271,7 +1271,10 @@ function preserveClaimedRewards(
 }
 
 function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): string {
-  return campaigns.map((campaign) => `${campaign.id}:${campaign.status}:${campaign.rewards.map((reward) => `${reward.id}:${reward.status}`).join(",")}`).join("|");
+  return campaigns
+    .map((campaign) => `${campaign.id}:${campaign.status}:${campaign.rewards.map((reward) => `${reward.id}:${reward.status}`).sort().join(",")}`)
+    .sort()
+    .join("|");
 }
 
 async function evaluatePreferredCurrentWatch(
