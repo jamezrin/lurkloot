@@ -199,7 +199,7 @@ class IndexedDbActivityRepository implements ActivityRepository {
       : IDBKeyRange.bound(lower, [query.category, []]);
     const request = index.openCursor(range, "prev");
     const limit = Math.min(MAX_LIMIT, Math.max(1, query.limit ?? DEFAULT_LIMIT));
-    const normalizedQuery = query.query?.trim().toLocaleLowerCase();
+    const normalizedQuery = query.query?.trim().toLowerCase();
     const events: ActivityHistoryRecord[] = [];
 
     await new Promise<void>((resolve, reject) => {
@@ -212,7 +212,7 @@ class IndexedDbActivityRepository implements ActivityRepository {
         }
         const event = cursor.value as ActivityHistoryRecord;
         const matchesPlatform = !query.platform || !event.platform || event.platform === query.platform;
-        const matchesQuery = !normalizedQuery || event.message?.toLocaleLowerCase().includes(normalizedQuery) === true;
+        const matchesQuery = !normalizedQuery || event.message?.toLowerCase().includes(normalizedQuery) === true;
         if (matchesPlatform && matchesQuery) {
           events.push(event);
           if (events.length === limit + 1) {

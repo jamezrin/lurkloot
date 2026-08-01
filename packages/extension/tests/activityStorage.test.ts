@@ -317,6 +317,31 @@ describe("activity repository", () => {
     expect(second.events.map((event) => event.message)).toEqual(["Kick transport failed"]);
   });
 
+  it("matches English diagnostic text independently of the browser locale", async () => {
+    expect("KICK".toLocaleLowerCase("tr")).not.toBe("kick".toLocaleLowerCase("tr"));
+    const originalToLocaleLowerCase = String.prototype.toLocaleLowerCase;
+    vi.spyOn(String.prototype, "toLocaleLowerCase").mockImplementation(function (
+      this: string,
+      locales?: Intl.LocalesArgument,
+    ) {
+      return originalToLocaleLowerCase.call(this, locales ?? "tr");
+    });
+    await repository.append([{
+      category: "diagnostic",
+      level: "debug",
+      platform: "kick",
+      message: "lowercase kick diagnostic",
+    }]);
+
+    const page = await repository.load({
+      category: "diagnostic",
+      platform: "kick",
+      query: "KICK",
+    });
+
+    expect(page.events.map((event) => event.message)).toEqual(["lowercase kick diagnostic"]);
+  });
+
   it("aborts the entire legacy import when a later value cannot be cloned", async () => {
     const invalid = {
       id: "invalid",

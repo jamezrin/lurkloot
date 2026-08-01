@@ -47,6 +47,15 @@ describe("i18n", () => {
     expect(translateFromCatalogs("fallback", undefined, es, en)).toBe("Fallback");
   });
 
+  it("inserts replacement-pattern characters literally", () => {
+    const catalog: MessageCatalog = {
+      patterns: { message: "$1|$2|$3" },
+    };
+
+    expect(translateFromCatalogs("patterns", ["$&", "$$", "$`"], catalog, catalog))
+      .toBe("$&|$$|$`");
+  });
+
   it("keeps locale catalog keys in sync", () => {
     const locales = localeCodes();
     const english = readCatalog("en");
