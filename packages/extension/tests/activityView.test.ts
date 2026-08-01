@@ -106,7 +106,7 @@ describe("activity view model", () => {
       campaignUrl: "https://example.test/campaign",
     });
     expect(buildActivityCard(events.interruption, t)?.chips).toContain("activityReasonRuntimeRestart:");
-    expect(buildActivityCard(events.auth_health_changed, t)?.detail).toContain("healthy");
+    expect(buildActivityCard(events.auth_health_changed, t)?.detail).toContain("Healthy");
     expect(buildActivityCard(legacy, t)).toBeUndefined();
     expect(buildActivityCard(diagnostic, t)).toBeUndefined();
   });
@@ -173,8 +173,22 @@ describe("activity view model", () => {
       level: "warn",
       platform: "kick",
       data: { from: "checking", to: "missing_credentials", reason: "credentials_missing" },
-    }, t)).toBe("activityAuthHealthChanged:kick|checking|missing_credentials");
-    expect(t).toHaveBeenCalledWith("activityAuthHealthChanged", ["kick", "checking", "missing_credentials"]);
+    }, t)).toBe("activityAuthHealthChanged:Kick|Checking|Missing Credentials");
+    expect(t).toHaveBeenCalledWith("activityAuthHealthChanged", ["Kick", "Checking", "Missing Credentials"]);
+  });
+
+  it("uses display labels instead of raw platform and authentication enum values", () => {
+    const t = vi.fn((key: string, substitutions?: string | string[]) =>
+      key === "activityAuthHealthChanged"
+        ? `${(substitutions as string[]).join(" | ")}`
+        : key);
+    const event: ActivityHistoryRecord = {
+      id: "auth-display", at, category: "activity", code: "auth_health_changed", level: "info", platform: "twitch",
+      data: { from: "checking", to: "healthy" },
+    };
+
+    expect(formatActivityEvent(event, t)).toBe("Twitch | Checking | Healthy");
+    expect(buildActivityCard(event, t)?.detail).toBe("Checking → Healthy");
   });
 
   it("formats every farming stop reason through its locale key", () => {

@@ -201,6 +201,13 @@ function formatCriticalFailureReason(reason: CriticalFailureReason, t: TFunction
   }
 }
 
+function formatDisplayValue(value: string): string {
+  return value
+    .split("_")
+    .map((word) => `${word.charAt(0).toLocaleUpperCase()}${word.slice(1)}`)
+    .join(" ");
+}
+
 function formatCurrentActivity(event: StoredEngineEvent & { category: "activity" }, t: TFunction): string {
   switch (event.code) {
     case "farming_started":
@@ -226,7 +233,11 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
     case "page_context_closed":
       return t("activityPageContextClosed", [event.data.host, formatPageContextCloseReason(event.data.reason, t)]);
     case "auth_health_changed":
-      return t("activityAuthHealthChanged", [event.platform, event.data.from, event.data.to]);
+      return t("activityAuthHealthChanged", [
+        formatDisplayValue(event.platform),
+        formatDisplayValue(event.data.from),
+        formatDisplayValue(event.data.to),
+      ]);
     case "critical_failure_detected":
       return t("activityCriticalFailureDetected", [event.platform, formatCriticalFailureReason(event.data.reason, t)]);
     case "critical_failure_cleared":
@@ -312,7 +323,7 @@ export function buildActivityCard(event: ActivityHistoryRecord, t: TFunction): A
         icon: "shield",
         tone: event.level === "error" ? "danger" : "warning",
         summary,
-        detail: `${event.data.from} → ${event.data.to}`,
+        detail: `${formatDisplayValue(event.data.from)} → ${formatDisplayValue(event.data.to)}`,
         chips: event.data.reason ? [event.data.reason] : [],
       };
     case "critical_failure_detected":

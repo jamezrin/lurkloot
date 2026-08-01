@@ -245,6 +245,7 @@ describe("activity log view", () => {
   it("renders a reward card with its image, method chip, and labelled campaign action", () => {
     const { container, openLink } = mount({ showDiagnostics: false });
 
+    expect(container.querySelector("ul")?.className).not.toContain("divide-y");
     expect(container.querySelector('img[alt="Golden Hat"]')?.getAttribute("src"))
       .toBe("https://cdn.example.test/reward.png");
     expect(container.querySelector('[data-activity-card="reward_claimed"]')).not.toBeNull();

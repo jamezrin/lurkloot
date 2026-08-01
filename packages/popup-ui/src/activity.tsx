@@ -184,7 +184,7 @@ export function ActivityLog({
         {visible.length === 0 ? (
           <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{t(showDiagnostics ? "noDiagnostics" : "noActivity")}</p>
         ) : (
-          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+          <ul className="space-y-1 p-1">
             {visible.map((event) => (
               showDiagnostics
                 ? <CompactActivityRow key={event.id} event={event} />
@@ -232,7 +232,7 @@ function ActivityTimelineCard({ event }: { event: ActivityHistoryRecord }): Reac
   return (
     <li
       data-activity-card={event.code}
-      className="flex items-start gap-2 border-s-2 px-2.5 py-2 text-[11px] leading-snug"
+      className="flex items-start gap-2 rounded-lg border-s-2 bg-zinc-50/70 px-2.5 py-2 text-[11px] leading-snug dark:bg-zinc-900/60"
       style={{ borderColor: EVENT_LEVEL_COLOR[event.level] }}
     >
       <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--accent-softer)] text-[var(--accent-text)]">
