@@ -293,6 +293,30 @@ describe("activity repository", () => {
     expect(page.events.some((event) => event.platform == null)).toBe(true);
   });
 
+  it("paginates case-insensitive diagnostic message matches within a platform", async () => {
+    await repository.append([
+      { category: "diagnostic", level: "error", platform: "kick", message: "Kick transport failed" },
+      { category: "diagnostic", level: "info", platform: "kick", message: "Twitch connected" },
+      { category: "diagnostic", level: "info", platform: "kick", message: "kick retry scheduled" },
+      { category: "diagnostic", level: "error", message: "Kick global error" },
+    ]);
+
+    const first = await repository.load({ category: "diagnostic", platform: "kick", query: "KICK", limit: 2 });
+    const second = await repository.load({
+      category: "diagnostic",
+      platform: "kick",
+      query: "KICK",
+      limit: 2,
+      cursor: first.nextCursor,
+    });
+
+    expect(first.events.map((event) => event.message)).toEqual([
+      "Kick global error",
+      "kick retry scheduled",
+    ]);
+    expect(second.events.map((event) => event.message)).toEqual(["Kick transport failed"]);
+  });
+
   it("aborts the entire legacy import when a later value cannot be cloned", async () => {
     const invalid = {
       id: "invalid",
