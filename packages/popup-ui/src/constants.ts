@@ -28,6 +28,7 @@ export const SITE_URL = "https://lurkloot.jamezrin.com";
 export const GITHUB_REPO_URL = "https://github.com/jamezrin/lurkloot";
 export const CLI_DOCS_URL = "https://github.com/jamezrin/lurkloot/tree/main/packages/cli#readme";
 export const GITHUB_NEW_ISSUE_URL = "https://github.com/jamezrin/lurkloot/issues/new/choose";
+export const GITHUB_TRANSLATION_GUIDE_URL = "https://github.com/jamezrin/lurkloot/blob/main/docs/translations.md";
 // The chooser URL cannot carry a prefilled title/body, so the critical-failure
 // prompt targets the raw new-issue form instead.
 export const GITHUB_NEW_ISSUE_URL_BASE = "https://github.com/jamezrin/lurkloot/issues/new";

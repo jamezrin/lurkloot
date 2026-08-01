@@ -185,6 +185,12 @@
   "tipExcludedCampaigns": {
     "message": "误排除了活动？可在 Drops 设置中恢复。"
   },
+  "tipTranslations": {
+    "message": "翻译由 AI 自动维护。欢迎在 GitHub 上帮助改进。"
+  },
+  "tipTranslationsAction": {
+    "message": "阅读翻译指南"
+  },
   "noCampaigns": {
     "message": "尚未发现活动。"
   },

@@ -185,6 +185,12 @@
   "tipExcludedCampaigns": {
     "message": "Excluded a campaign by mistake? Restore excluded campaigns from Drops settings."
   },
+  "tipTranslations": {
+    "message": "Translations are maintained automatically with AI. Help improve them on GitHub."
+  },
+  "tipTranslationsAction": {
+    "message": "Read the translation guide"
+  },
   "noCampaigns": {
     "message": "No campaigns discovered yet."
   },

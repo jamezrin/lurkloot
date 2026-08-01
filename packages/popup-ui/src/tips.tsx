@@ -1,7 +1,7 @@
 import React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Info } from "lucide-react";
-import { CLI_DOCS_URL, GITHUB_NEW_ISSUE_URL } from "./constants";
+import { CLI_DOCS_URL, GITHUB_NEW_ISSUE_URL, GITHUB_TRANSLATION_GUIDE_URL } from "./constants";
 import { useT } from "./context";
 
 export const TIP_ROTATION_MS = 10_000;
@@ -21,6 +21,7 @@ const TIPS: TipDescriptor[] = [
   { messageKey: "tipCli", actionKey: "tipCliAction", href: CLI_DOCS_URL },
   { messageKey: "tipFeedback", actionKey: "tipFeedbackAction", href: GITHUB_NEW_ISSUE_URL },
   { messageKey: "tipExcludedCampaigns" },
+  { messageKey: "tipTranslations", actionKey: "tipTranslationsAction", href: GITHUB_TRANSLATION_GUIDE_URL },
 ];
 
 export function randomTipIndex(count: number, random: () => number = Math.random): number {
