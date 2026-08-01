@@ -197,6 +197,9 @@
   "closeSearch": {
     "message": "Close search"
   },
+  "search": {
+    "message": "Search"
+  },
   "noActivity": {
     "message": "No activity recorded yet. Press refresh to run a check."
   },

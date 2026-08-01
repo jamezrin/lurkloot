@@ -82,6 +82,8 @@ function mountHeader(options: {
   farmingTitle?: string;
   farmingChannel?: { name: string };
   onResume?(): void;
+  onChange?(platform: Platform): void;
+  onToggle?(platform: Platform, value: boolean): Promise<void>;
 }) {
   const otherPlatform: Platform = options.platform === "twitch" ? "kick" : "twitch";
   const fallback = options.other ?? presentation(otherPlatform, { status: "healthy" });
@@ -95,8 +97,8 @@ function mountHeader(options: {
         } as Record<Platform, AutomationPresentation>}
         enabled={{ twitch: true, kick: true }}
         pending={{ twitch: false, kick: false }}
-        onChange={() => undefined}
-        onToggle={async () => undefined}
+        onChange={options.onChange ?? (() => undefined)}
+        onToggle={options.onToggle ?? (async () => undefined)}
       />
       <AutomationStatusLine
         platform={options.platform}
@@ -183,5 +185,57 @@ describe("automation authentication status UI", () => {
     expect(container.textContent).toContain("temporarily unavailable");
     expect(container.textContent).not.toContain("Stale campaign");
     expect(container.textContent).not.toContain("stale-channel");
+  });
+
+  it("toggles an unselected platform without selecting it", () => {
+    const onChange = vi.fn();
+    const onToggle = vi.fn(async () => undefined);
+    const { container } = mountHeader({
+      platform: "twitch",
+      presentation: presentation("twitch", { status: "healthy" }),
+      onChange,
+      onToggle,
+    });
+
+    const kickSwitch = container.querySelector<HTMLButtonElement>('[data-platform-status="kick"] [role="switch"]');
+    act(() => kickSwitch?.click());
+
+    expect(onToggle).toHaveBeenCalledWith("kick", false);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("uses roving tab stops and arrow navigation for platform tabs", () => {
+    const onChange = vi.fn();
+    const { container } = mountHeader({
+      platform: "twitch",
+      presentation: presentation("twitch", { status: "healthy" }),
+      onChange,
+    });
+
+    const twitchTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]');
+    const kickTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]');
+    expect(twitchTab?.getAttribute("tabindex")).toBe("0");
+    expect(kickTab?.getAttribute("tabindex")).toBe("-1");
+
+    const keydown = new window.Event("keydown", { bubbles: true });
+    Object.defineProperty(keydown, "key", { value: "ArrowRight" });
+    act(() => twitchTab?.dispatchEvent(keydown));
+
+    expect(onChange).toHaveBeenCalledWith("kick");
+  });
+
+  it("renders the selected platform as a contrasting Chrome-style tab", () => {
+    const { container } = mountHeader({
+      platform: "twitch",
+      presentation: presentation("twitch", { status: "healthy" }),
+    });
+
+    const twitchTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]');
+    const kickTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]');
+
+    expect(twitchTab?.parentElement?.className).toContain("rounded-xl");
+    expect(twitchTab?.parentElement?.classList.contains("bg-zinc-100")).toBe(true);
+    expect(twitchTab?.parentElement?.className).toContain("dark:bg-zinc-800");
+    expect(kickTab?.parentElement?.classList.contains("bg-zinc-100")).toBe(false);
   });
 });

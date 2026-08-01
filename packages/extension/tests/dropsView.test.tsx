@@ -64,6 +64,7 @@ function mount(url?: string) {
         t: (key) => ({
           externalGameAccountRequired: "External game account required",
           linkExternalGameAccount: "Link external game account",
+          search: "Search",
         })[key] ?? key,
         dir: "ltr",
         locale: "en",
@@ -90,6 +91,15 @@ function mount(url?: string) {
   return { container, openLink };
 }
 
+describe("drops search controls", () => {
+  it("uses an action label for the campaign search button", () => {
+    const { container } = mount();
+
+    const searchButton = container.querySelector<HTMLButtonElement>("button[aria-label='Search']");
+    expect(searchButton).not.toBeNull();
+  });
+});
+
 function farmingSession(campaignId: string): WatchSession {
   return {
     platform: "kick",
@@ -98,6 +108,34 @@ function farmingSession(campaignId: string): WatchSession {
     campaignId,
     channel: { platform: "kick", username: "somechannel", url: "https://kick.com/somechannel" },
   };
+}
+
+function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }) {
+  const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
+  root!.render(
+    <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
+      <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
+        <DropsPanel
+          campaigns={campaigns}
+          gameMap={{}}
+          focus={focus}
+          refreshing={false}
+          onRefreshCampaign={() => undefined}
+          onReorder={() => undefined}
+          onToggleExclude={() => undefined}
+        />
+      </PopupRuntimeContext.Provider>
+    </I18nContext.Provider>,
+  );
+}
+
+function setSearchQuery(input: HTMLInputElement, value: string): void {
+  input.value = value;
+  const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
+  const props = propsKey
+    ? (input as unknown as Record<string, { onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void }>)[propsKey]
+    : undefined;
+  props?.onChange?.({ target: input, currentTarget: input });
 }
 
 describe("initial drops expansion", () => {
@@ -207,9 +245,80 @@ describe("initial drops expansion", () => {
     expect(pillLine).not.toBeNull();
     expect(toggle?.getAttribute("aria-expanded")).toBe("false");
 
-    act(() => pillLine?.dispatchEvent(new window.Event("click", { bubbles: true })));
+    // linkedom does not expose a MouseEvent constructor, so initialize the
+    // click fields the handler reads on its Event implementation instead.
+    const click = new window.Event("click", { bubbles: true });
+    Object.defineProperties(click, {
+      clientX: { value: 0 },
+      detail: { value: 1 },
+    });
+    act(() => pillLine?.dispatchEvent(click));
 
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("scrolls a focused campaign after clearing a filtered search", () => {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { value: scrollIntoView });
+    const container = document.getElementById("app")!;
+    const campaigns = [
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+    ];
+
+    act(() => {
+      root = createRoot(container);
+      renderDropsPanel(campaigns);
+    });
+
+    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
+    const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
+    act(() => setSearchQuery(input, "First"));
+    expect(container.textContent).not.toContain("Second campaign");
+
+    act(() => renderDropsPanel(campaigns, { id: "second", seq: 1 }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+  });
+
+  it("keeps the original priority number in filtered results", () => {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const container = document.getElementById("app")!;
+    const campaigns = [
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+    ];
+
+    act(() => {
+      root = createRoot(container);
+      renderDropsPanel(campaigns);
+    });
+
+    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
+    const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
+    act(() => setSearchQuery(input, "Second"));
+
+    const priority = container.querySelector<HTMLElement>("article .w-7 span");
+    expect(priority?.textContent).toBe("2");
   });
 });
 

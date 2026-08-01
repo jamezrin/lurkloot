@@ -1,4 +1,5 @@
-import { motion } from "motion/react";
+import { useRef } from "react";
+import type { KeyboardEvent } from "react";
 import { Eye, Gift, Play, Radio } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
@@ -31,24 +32,59 @@ export function statusColor(presentation: AutomationPresentation, operationalCol
  * a platform can be turned on without first switching to it. */
 export function PlatformBar({ active, presentation, enabled, pending, onChange, onToggle }: { active: Platform; presentation: Record<Platform, AutomationPresentation>; enabled: Record<Platform, boolean>; pending: Record<Platform, boolean>; onChange(platform: Platform): void; onToggle(platform: Platform, value: boolean): Promise<void> }) {
   const t = useT();
+  const tabRefs = useRef<Partial<Record<Platform, HTMLButtonElement | null>>>({});
+  const platformIds = Object.keys(PLATFORMS) as Platform[];
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, platform: Platform): void {
+    const currentIndex = platformIds.indexOf(platform);
+    if (currentIndex === -1) return;
+    const nextIndex = event.key === "ArrowRight" || event.key === "ArrowDown"
+      ? (currentIndex + 1) % platformIds.length
+      : event.key === "ArrowLeft" || event.key === "ArrowUp"
+        ? (currentIndex - 1 + platformIds.length) % platformIds.length
+        : event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? platformIds.length - 1
+            : -1;
+    if (nextIndex === -1) return;
+    event.preventDefault();
+    const nextPlatform = platformIds[nextIndex];
+    onChange(nextPlatform);
+    tabRefs.current[nextPlatform]?.focus();
+  }
+
   return (
-    // A tab strip, not a segmented control: the shared rule is the track and the
-    // selected platform owns the span of it under its own tab. Everything below
-    // — status line, drops, watchlist — is that tab's panel.
-    <div role="tablist" className="mt-2 grid grid-cols-2 gap-3 border-b border-zinc-200 dark:border-zinc-800">
+    // Like Chrome's dark tabs, the selected platform is a visibly lighter
+    // rounded surface while inactive tabs rest directly on the header.
+    <div role="tablist" aria-orientation="horizontal" className="mt-2 grid grid-cols-2 gap-1">
       {Object.entries(PLATFORMS).map(([key, platform]) => {
         const id = key as Platform;
         const selected = active === id;
         const status = presentation[id];
         const indicatorColor = statusColor(status, platform.color);
         return (
-          <div key={id} data-platform-status={id} data-state={status.state} className="relative flex min-w-0 items-center gap-1.5 px-0.5 pb-1.5 pt-0.5">
+          <div
+            key={id}
+            data-platform-status={id}
+            data-state={status.state}
+            className={cn(
+              "relative flex min-w-0 items-center gap-1.5 rounded-xl px-2.5 pb-2 pt-1.5 transition-colors",
+              selected
+                ? "bg-zinc-100 shadow-sm dark:bg-zinc-800 dark:shadow-black/30"
+                : "hover:bg-zinc-100/70 dark:hover:bg-zinc-900/70",
+            )}
+          >
             <button
               type="button"
               role="tab"
               onClick={() => onChange(id)}
+              onKeyDown={(event) => handleTabKeyDown(event, id)}
               aria-selected={selected}
+              aria-controls="popup-platform-panel"
               aria-label={platform.label}
+              tabIndex={selected ? 0 : -1}
+              ref={(element) => { tabRefs.current[id] = element; }}
               title={`${platform.label}: ${t(status.badgeKey)}`}
               className="absolute inset-0 z-[1] rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             />
@@ -71,14 +107,6 @@ export function PlatformBar({ active, presentation, enabled, pending, onChange, 
                 disabled={pending[id]}
               />
             </span>
-            {selected && (
-              <motion.span
-                layoutId="platform-tab"
-                transition={{ type: "spring", stiffness: 520, damping: 38 }}
-                className="absolute inset-x-0 -bottom-px z-10 h-[2px] rounded-full"
-                style={{ backgroundColor: platform.color, boxShadow: `0 0 8px -1px ${platform.color}` }}
-              />
-            )}
           </div>
         );
       })}

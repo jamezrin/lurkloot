@@ -197,6 +197,9 @@
   "closeSearch": {
     "message": "关闭搜索"
   },
+  "search": {
+    "message": "搜索"
+  },
   "noActivity": {
     "message": "尚未记录活动。按刷新运行检查。"
   },

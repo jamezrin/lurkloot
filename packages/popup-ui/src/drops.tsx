@@ -82,19 +82,27 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
   }, [farmingId]);
 
   // Jump to a campaign requested from elsewhere (e.g. the "Farming {campaign}"
-  // link in the status line): expand it and scroll its card into view. A search
-  // or a collapsed section would hide the very card being jumped to, so clear
-  // both first.
+  // link in the status line): clear anything that could hide the card first.
   useEffect(() => {
     if (!focus) return;
     setQuery("");
     setSearchOpen(false);
     setSectionExpanded(true);
     setExpandedIds((current) => ({ ...current, [focus.id]: true }));
-    const cards = listRef.current?.querySelectorAll<HTMLElement>("[data-campaign-id]");
-    const el = cards && Array.from(cards).find((card) => card.dataset.campaignId === focus.id);
-    requestAnimationFrame(() => el?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }, [focus?.seq]);
+
+  // Search and section expansion update asynchronously. Query the card only
+  // after the visible list has been committed, otherwise a focus request made
+  // while filtered/collapsed loses its scroll target.
+  useEffect(() => {
+    if (!focus || !sectionExpanded || searchOpen || searching) return;
+    const frame = requestAnimationFrame(() => {
+      const cards = listRef.current?.querySelectorAll<HTMLElement>("[data-campaign-id]");
+      const el = cards && Array.from(cards).find((card) => card.dataset.campaignId === focus.id);
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focus?.id, focus?.seq, searching, searchOpen, sectionExpanded]);
   const activeCampaign = campaigns.find((campaign) => campaign.id === activeId);
   const activeIndex = campaigns.findIndex((campaign) => campaign.id === activeId);
   const anyFarming = campaigns.some((campaign) => Boolean(campaign.farmingChannel));
@@ -129,7 +137,7 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
           onToggle={() => setSectionExpanded((current) => !current)}
           action={(
             <IconButton
-              label={t("campaignSearchPlaceholder")}
+              label={t("search")}
               onClick={() => { setSearchOpen(true); setSectionExpanded(true); }}
             >
               <Search size={15} />
@@ -145,9 +153,11 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
                 <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("campaignSearchNoResults", query.trim())}</p>
               ) : (
                 <div className="space-y-1">
-                  {visibleCampaigns.map((campaign, index) => (
-                    <CampaignCard key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
-                  ))}
+                  {visibleCampaigns.map((campaign, visibleIndex) => {
+                    const index = campaigns.findIndex((item) => item.id === campaign.id);
+                    const priorityIndex = index === -1 ? visibleIndex : index;
+                    return <CampaignCard key={campaign.id} campaign={campaign} index={priorityIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, priorityIndex, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />;
+                  })}
                 </div>
               )
             ) : (

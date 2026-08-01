@@ -197,6 +197,9 @@
   "closeSearch": {
     "message": "Suche schließen"
   },
+  "search": {
+    "message": "Suchen"
+  },
   "noActivity": {
     "message": "Noch keine Aktivität aufgezeichnet. Aktualisieren drücken, um eine Prüfung auszuführen."
   },

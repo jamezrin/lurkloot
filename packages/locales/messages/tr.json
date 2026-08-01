@@ -197,6 +197,9 @@
   "closeSearch": {
     "message": "Aramayı kapat"
   },
+  "search": {
+    "message": "Ara"
+  },
   "noActivity": {
     "message": "Henüz işlem kaydı yok."
   },

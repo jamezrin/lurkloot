@@ -197,6 +197,9 @@
   "closeSearch": {
     "message": "إغلاق البحث"
   },
+  "search": {
+    "message": "بحث"
+  },
   "noActivity": {
     "message": "لم يتم تسجيل أي نشاط بعد. اضغط تحديث لتشغيل فحص."
   },

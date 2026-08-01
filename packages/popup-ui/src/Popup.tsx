@@ -657,7 +657,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         ) : null}
       </div>
 
-      <div className="nice-scroll min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
+      <div id="popup-platform-panel" className="nice-scroll min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
         <div className="space-y-2 p-3 pt-2">
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (

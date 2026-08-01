@@ -197,6 +197,9 @@
   "closeSearch": {
     "message": "Cerrar búsqueda"
   },
+  "search": {
+    "message": "Buscar"
+  },
   "noActivity": {
     "message": "Aún no hay actividad registrada. Pulsa actualizar para ejecutar una comprobación."
   },
