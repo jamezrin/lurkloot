@@ -3235,6 +3235,11 @@ describe("background controller", () => {
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
+      ...campaign("twitch"),
+      url: "https://example.test/campaign",
+      rewards: [{ ...reward(), imageUrl: "https://cdn.example.test/reward.png" }],
+    }]);
 
     await env.controller.tick();
     await env.controller.tick();
@@ -3245,6 +3250,10 @@ describe("background controller", () => {
       category: "activity",
       code: "farming_started",
       platform: "twitch",
+      data: expect.objectContaining({
+        rewardImageUrl: "https://cdn.example.test/reward.png",
+        campaignUrl: "https://example.test/campaign",
+      }),
     }));
     // The activity entry always brings its English diagnostic mirror along.
     expect(published.filter((event) => event.category === "diagnostic" && event.code === "farming_started")).toHaveLength(1);
@@ -3364,6 +3373,11 @@ describe("background controller", () => {
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
+      ...campaign("twitch"),
+      url: "https://example.test/campaign",
+      rewards: [{ ...reward(), imageUrl: "https://cdn.example.test/reward.png" }],
+    }]);
     await env.controller.tick();
 
     await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
@@ -3372,7 +3386,11 @@ describe("background controller", () => {
     expect(published).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "farming_stopped",
-      data: expect.objectContaining({ reason: "automation_disabled" }),
+      data: expect.objectContaining({
+        reason: "automation_disabled",
+        rewardImageUrl: "https://cdn.example.test/reward.png",
+        campaignUrl: "https://example.test/campaign",
+      }),
     }));
     expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
   });
@@ -5151,6 +5169,7 @@ describe("background controller", () => {
     const subscriptionReward: DropReward = {
       ...reward("claimable"),
       id: "subscription-reward",
+      imageUrl: "https://cdn.example.test/reward.png",
       requirement: "subscription",
       requiredSubs: 1,
       requiredMinutes: 0,
@@ -5159,6 +5178,7 @@ describe("background controller", () => {
     };
     const twitchCampaign = {
       ...campaign("twitch", "claimed"),
+      url: "https://example.test/campaign",
       rewards: [reward("claimed"), subscriptionReward],
     };
     vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([twitchCampaign]);
@@ -5186,7 +5206,11 @@ describe("background controller", () => {
       expect.objectContaining({
         category: "activity",
         code: "reward_claimed",
-        data: expect.objectContaining({ method: "manual" }),
+        data: expect.objectContaining({
+          method: "manual",
+          rewardImageUrl: "https://cdn.example.test/reward.png",
+          campaignUrl: "https://example.test/campaign",
+        }),
       }),
     ]));
   });

@@ -29,6 +29,8 @@ type CampaignRewardData = {
   campaignName: string;
   rewardId: string;
   rewardName: string;
+  rewardImageUrl?: string;
+  campaignUrl?: string;
 };
 
 export type PageContextOpenReason = "background_rejected" | "managed_context_unusable";

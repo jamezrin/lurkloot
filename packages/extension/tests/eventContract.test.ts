@@ -14,6 +14,8 @@ describe("engine event contract", () => {
         campaignName: "Campaign",
         rewardId: "reward",
         rewardName: "Reward",
+        rewardImageUrl: "https://cdn.example.test/reward.png",
+        campaignUrl: "https://example.test/campaign",
         reason: "runtime_restart",
       },
     };

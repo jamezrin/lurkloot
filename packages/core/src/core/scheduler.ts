@@ -861,6 +861,8 @@ export async function runSchedulerTick(
                 campaignName: event.campaignName,
                 rewardId: event.rewardId,
                 rewardName: event.rewardName,
+                ...(event.rewardImageUrl ? { rewardImageUrl: event.rewardImageUrl } : {}),
+                ...(event.campaignUrl ? { campaignUrl: event.campaignUrl } : {}),
                 method: "automatic",
               },
             });
@@ -1161,6 +1163,8 @@ type ClaimReadyRewardEvent = {
   campaignName: string;
   rewardId: string;
   rewardName: string;
+  rewardImageUrl?: string;
+  campaignUrl?: string;
 } | {
   level: "info" | "warn" | "error";
   message: string;
@@ -1208,6 +1212,8 @@ async function claimReadyRewards(
               campaignName: campaign.name,
               rewardId: reward.id,
               rewardName: reward.name,
+              ...(reward.imageUrl ? { rewardImageUrl: reward.imageUrl } : {}),
+              ...(campaign.url ? { campaignUrl: campaign.url } : {}),
             });
           } else {
             events.push({

@@ -1,12 +1,35 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Check, Clipboard, Clock3 } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Clipboard,
+  Clock3,
+  ExternalLink,
+  Gift,
+  MonitorDown,
+  MonitorUp,
+  OctagonAlert,
+  Pause,
+  Play,
+  RefreshCw,
+  Shield,
+  Trophy,
+  type LucideIcon,
+} from "lucide-react";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { Platform } from "@lurkloot/shared/models";
 import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
-import { useT } from "./context";
+import { PopupRuntimeContext, useT } from "./context";
 import { formatEventTime } from "./format";
-import { buildActivityExport, formatActivityEvent } from "./activity.logic";
-import { SearchBox } from "./primitives";
+import { openHttpsLink } from "./links";
+import { ImageWithFallback, Pill, SearchBox } from "./primitives";
+import {
+  buildActivityCard,
+  buildActivityExport,
+  formatActivityEvent,
+  type ActivityCardIcon,
+  type ActivityCardTone,
+} from "./activity.logic";
 
 // How long the button stays in its confirmation state after a successful copy.
 const COPY_FEEDBACK_MS = 2500;
@@ -25,9 +48,9 @@ export function ActivityLog({
   clearing,
   version,
   locale,
-  searchQuery,
-  onSearchQueryChange,
-  searchingDiagnostics,
+  searchQuery = "",
+  onSearchQueryChange = () => undefined,
+  searchingDiagnostics = false,
   onShowDiagnosticsChange,
   onLoadMore,
   onClear,
@@ -46,9 +69,9 @@ export function ActivityLog({
   clearing: boolean;
   version: string;
   locale: string;
-  searchQuery: string;
-  onSearchQueryChange(query: string): void;
-  searchingDiagnostics: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?(query: string): void;
+  searchingDiagnostics?: boolean;
   onShowDiagnosticsChange(show: boolean): void;
   onLoadMore(): void;
   onClear(): void;
@@ -58,7 +81,9 @@ export function ActivityLog({
 }): React.ReactElement {
   const t = useT();
   const forPlatform = useMemo(
-    () => activityEvents.filter((event) => !event.platform || event.platform === platform),
+    () => activityEvents.filter((event) =>
+      (!event.platform || event.platform === platform)
+      && !(event.category === "activity" && event.code === "auth_health_changed")),
     [activityEvents, platform],
   );
   const diagnosticsForPlatform = useMemo(
@@ -171,13 +196,11 @@ export function ActivityLog({
         {visible.length === 0 ? (
           <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{showDiagnostics && searchingDiagnostics && trimmedSearchQuery ? t("noDiagnosticsMatch", trimmedSearchQuery) : t(showDiagnostics ? "noDiagnostics" : "noActivity")}</p>
         ) : (
-          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+          <ul className="space-y-1 p-1">
             {visible.map((event) => (
-              <li key={event.id} className="flex items-start gap-2 px-2.5 py-1.5 text-[11px] leading-snug">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }} />
-                <span className="shrink-0 font-mono text-[10px] text-zinc-400">{formatEventTime(event.at)}</span>
-                <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">{formatActivityEvent(event, t)}</span>
-              </li>
+              showDiagnostics
+                ? <CompactActivityRow key={event.id} event={event} />
+                : <ActivityTimelineCard key={event.id} event={event} />
             ))}
           </ul>
         )}
@@ -194,4 +217,110 @@ export function ActivityLog({
       ) : null}
     </div>
   );
+}
+
+function CompactActivityRow({ event }: { event: ActivityHistoryRecord }): React.ReactElement {
+  const t = useT();
+
+  return (
+    <li className="flex items-start gap-2 px-2.5 py-1.5 text-[11px] leading-snug">
+      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }} />
+      <span className="shrink-0 font-mono text-[10px] text-zinc-400">{formatEventTime(event.at)}</span>
+      <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">{formatActivityEvent(event, t)}</span>
+    </li>
+  );
+}
+
+function ActivityTimelineCard({ event }: { event: ActivityHistoryRecord }): React.ReactElement {
+  const t = useT();
+  const runtime = React.useContext(PopupRuntimeContext);
+  const card = buildActivityCard(event, t);
+  if (!card) return <CompactActivityRow event={event} />;
+
+  const campaignActionLabel = card.campaignName
+    ? `${t("viewDropPage")}: ${card.campaignName}`
+    : t("viewDropPage");
+
+  return (
+    <li
+      data-activity-card={event.code}
+      className="flex items-start gap-2 rounded-lg bg-zinc-50/70 px-2.5 py-2 text-[11px] leading-snug dark:bg-zinc-900/60"
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--accent-softer)] text-[var(--accent-text)]">
+        {card.reward ? <ActivityRewardImage name={card.reward.name} imageUrl={card.reward.imageUrl} /> : <EventIcon icon={card.icon} aria-hidden="true" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+          <p className="min-w-0 break-words font-medium text-zinc-700 dark:text-zinc-200">{card.summary}</p>
+          <time className="shrink-0 font-mono text-[10px] text-zinc-400">{formatEventTime(event.at)}</time>
+        </div>
+        {card.detail ? <p className="mt-0.5 break-words text-zinc-500 dark:text-zinc-400">{card.detail}</p> : null}
+        {card.chips.length > 0 ? (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {card.chips.map((chip) => (
+              <span key={chip} data-activity-chip={chip}>
+                <Pill tone={activityCardPillTone(card.tone)}>{chip}</Pill>
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {card.campaignUrl && runtime ? (
+        <button
+          type="button"
+          aria-label={campaignActionLabel}
+          title={campaignActionLabel}
+          onClick={(clickEvent) => {
+            clickEvent.stopPropagation();
+            openHttpsLink(card.campaignUrl!, runtime.adapter.openLink);
+          }}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent-text)] focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500"
+        >
+          <ExternalLink size={13} aria-hidden="true" />
+        </button>
+      ) : null}
+    </li>
+  );
+}
+
+function ActivityRewardImage({ name, imageUrl }: { name: string; imageUrl?: string }): React.ReactElement {
+  const source = imageUrl?.trim() || undefined;
+  const initial = name.trim().charAt(0).toLocaleUpperCase() || "?";
+
+  return (
+    <ImageWithFallback
+      src={source}
+      alt={name}
+      fit="contain"
+      className="p-0.5"
+      fallback={<span data-activity-reward-fallback role="img" aria-label={name} className="text-sm font-bold">{initial}</span>}
+    />
+  );
+}
+
+function EventIcon({ icon, ...props }: { icon: ActivityCardIcon } & React.ComponentProps<LucideIcon>): React.ReactElement {
+  const icons = {
+    gift: Gift,
+    play: Play,
+    pause: Pause,
+    trophy: Trophy,
+    triangle: AlertTriangle,
+    "monitor-up": MonitorUp,
+    "monitor-down": MonitorDown,
+    shield: Shield,
+    "octagon-alert": OctagonAlert,
+    refresh: RefreshCw,
+  } satisfies Record<ActivityCardIcon, LucideIcon>;
+  const Icon = icons[icon];
+  return <Icon size={17} {...props} />;
+}
+
+function activityCardPillTone(tone: ActivityCardTone): "muted" | "accent" | "live" | "warning" | "danger" {
+  switch (tone) {
+    case "success": return "live";
+    case "accent": return "accent";
+    case "danger": return "danger";
+    case "warning": return "warning";
+    case "muted": return "muted";
+  }
 }
