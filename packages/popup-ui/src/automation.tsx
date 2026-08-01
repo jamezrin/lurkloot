@@ -1,12 +1,17 @@
 import { motion } from "motion/react";
-import { Play, Power, Radio } from "lucide-react";
+import { Eye, Gift, Play, Power, Radio } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
 import { usePopupRuntime, useT } from "./context";
 import { formatViewers } from "./format";
 import type { FarmingChannelView } from "./types";
-import { Toggle, cn } from "./primitives";
+import { Pill, Toggle, cn } from "./primitives";
+
+// Both names in the status line open something — the channel its stream, the
+// campaign its card — so both carry a standing underline rather than only
+// revealing one on hover.
+const LINK_CLASS = "truncate font-semibold text-zinc-800 underline decoration-dotted decoration-current/30 underline-offset-2 outline-none hover:text-[var(--accent-text)] hover:decoration-current focus-visible:text-[var(--accent-text)] dark:text-zinc-100";
 
 /** Colour of the status dot for a platform's current automation state. Shared by
  * the platform tabs and the status line so both read the same at a glance. */
@@ -87,22 +92,32 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
           style={{ backgroundColor: dotColor, boxShadow: presentation.operational ? `0 0 6px ${dotColor}` : undefined }}
         />
         {presentation.state === "running" && farmingChannel ? (
+          // Two groups, each labelled by a glyph so the numbers and names are not
+          // bare: where it is watching (channel + eye/viewers) and what that earns
+          // (gift/campaign). Both names are links, so both are underlined.
           <span className="flex min-w-0 items-center gap-1">
             <Radio size={11} className="shrink-0" style={{ color: "var(--accent-text)" }} />
             <span className="shrink-0">{t("watchingLabel")}</span>
+            {/* The channel holds its width and the campaign absorbs the
+                truncation: the campaign name is also spelled out in the list
+                below, the channel is not written anywhere else. */}
             {farmingChannel.url ? (
-              <a href={farmingChannel.url} target="_blank" rel="noreferrer" className="max-w-[9rem] truncate font-semibold text-zinc-800 outline-none hover:text-[var(--accent-text)] hover:underline focus-visible:text-[var(--accent-text)] dark:text-zinc-100">{farmingChannel.name}</a>
+              <a href={farmingChannel.url} target="_blank" rel="noreferrer" title={`${t("watchingLabel")} ${farmingChannel.name}`} className={cn(LINK_CLASS, "max-w-[7.5rem] shrink-0")}>{farmingChannel.name}</a>
             ) : (
-              <span className="max-w-[9rem] truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingChannel.name}</span>
+              <span className="max-w-[7.5rem] shrink-0 truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingChannel.name}</span>
             )}
-            {farmingChannel.viewers != null && <span className="shrink-0 text-zinc-400 dark:text-zinc-500">· {formatViewers(farmingChannel.viewers)}</span>}
+            {farmingChannel.viewers != null && (
+              <span className="shrink-0">
+                <Pill tone="muted"><Eye size={9} aria-hidden />{formatViewers(farmingChannel.viewers)}</Pill>
+              </span>
+            )}
             {farmingTitle && (
               <>
-                <span className="shrink-0 text-zinc-300 dark:text-zinc-600">·</span>
+                <Gift size={11} className="ml-0.5 shrink-0" aria-hidden style={{ color: "var(--accent-text)" }} />
                 {onFarmingTitleClick ? (
-                  <button type="button" onClick={onFarmingTitleClick} title={farmingTitle} className="truncate font-semibold text-zinc-800 outline-none hover:text-[var(--accent-text)] hover:underline focus-visible:text-[var(--accent-text)] dark:text-zinc-100">{farmingTitle}</button>
+                  <button type="button" onClick={onFarmingTitleClick} title={`${t("farmingLabel")} ${farmingTitle}`} className={cn(LINK_CLASS, "min-w-0 flex-1 text-left")}>{farmingTitle}</button>
                 ) : (
-                  <span className="truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span>
+                  <span className="min-w-0 flex-1 truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span>
                 )}
               </>
             )}

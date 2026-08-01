@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { DndContext, DragOverlay, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Play, Plus } from "lucide-react";
+import { Eye, GripVertical, Play, Plus } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import { useT } from "./context";
 import { formatViewers } from "./format";
@@ -116,7 +116,14 @@ function SortableIdleWatchlist({ streamer, index, platform, onRemove }: { stream
 function IdleWatchlistStatus({ streamer }: { streamer: StreamerItem }): React.ReactElement {
   const t = useT();
   if (streamer.live) {
-    return <Pill tone="live"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{streamer.viewers != null ? formatViewers(streamer.viewers) : t("live")}</Pill>;
+    // Same eye-plus-count grammar the status line uses, so a bare number always
+    // means viewers wherever it appears.
+    return (
+      <Pill tone="live">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        {streamer.viewers != null ? <><Eye size={9} aria-hidden />{formatViewers(streamer.viewers)}</> : t("live")}
+      </Pill>
+    );
   }
   return <Pill tone="muted">{t("idleWatchlistChannel")}</Pill>;
 }
