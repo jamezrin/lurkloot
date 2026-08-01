@@ -1,4 +1,15 @@
-import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
+import {
+  TWITCH_DISCOVERY_SNAPSHOT_MAX_ENTRIES,
+  TWITCH_DISCOVERY_SNAPSHOT_VERSION,
+  type CategorySelection,
+  type ChannelCandidate,
+  type ChannelCheck,
+  type DropCampaign,
+  type DropReward,
+  type PlatformAuthHealth,
+  type TwitchDiscoverySnapshot,
+  type WatchSession,
+} from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
@@ -12,6 +23,7 @@ import { createTwitchHeartbeat } from "./heartbeat/factory";
 import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
 import { createTwitchInventory } from "./inventory/factory";
 import type { TwitchInventoryCapability } from "./inventory/types";
+import { isTwitchCampaignDetailPayload, normalizeTwitchDiscoverySnapshot } from "../../core/defaults";
 
 export { createTwitchInventory } from "./inventory/factory";
 export type { TwitchInventoryCapability } from "./inventory/types";
@@ -23,7 +35,7 @@ const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
-const DISCOVERY_DETAIL_PRUNE_LIMIT = 32;
+const DISCOVERY_DETAIL_CACHE_TTL_MS = 5 * 60_000;
 const GQL_BATCH_OPERATION_LIMIT = 20;
 const GQL_BATCH_CONCURRENCY = 2;
 // How long a discovery result stays usable when Twitch stops answering. Long
@@ -317,7 +329,8 @@ interface CachedAvailableCampaigns {
 
 interface CachedCampaignDetails {
   campaign: unknown;
-  expiresAt: number;
+  freshUntil: number;
+  retainedUntil: number;
 }
 
 interface CachedDashboardCampaigns {
@@ -346,10 +359,50 @@ export class TwitchDiscoveryState {
 
   setAuthenticatedUser(userId: string): void {
     if (this.authenticatedUserId && this.authenticatedUserId !== userId) {
-      this.retainedDashboard = undefined;
-      this.campaignDetailsByDropId.clear();
+      this.clear();
     }
     this.authenticatedUserId = userId;
+  }
+
+  clear(): void {
+    this.authenticatedUserId = undefined;
+    this.retainedDashboard = undefined;
+    this.campaignDetailsByDropId.clear();
+  }
+
+  snapshot(): TwitchDiscoverySnapshot | undefined {
+    if (!this.authenticatedUserId) return undefined;
+    const now = Date.now();
+    const entries = [...this.campaignDetailsByDropId.entries()]
+      .filter(([, cached]) => cached.freshUntil > now && cached.retainedUntil > now)
+      .sort(([leftID], [rightID]) => leftID.localeCompare(rightID))
+      .slice(0, TWITCH_DISCOVERY_SNAPSHOT_MAX_ENTRIES)
+      .map(([dropID, cached]) => ({
+        dropID,
+        campaign: cached.campaign,
+        freshUntil: new Date(cached.freshUntil).toISOString(),
+        retainedUntil: new Date(cached.retainedUntil).toISOString(),
+      }));
+    if (entries.length === 0) return undefined;
+    return {
+      version: TWITCH_DISCOVERY_SNAPSHOT_VERSION,
+      userId: this.authenticatedUserId,
+      entries,
+    };
+  }
+
+  restore(snapshot: unknown): void {
+    const normalized = normalizeTwitchDiscoverySnapshot(snapshot);
+    this.clear();
+    if (!normalized) return;
+    this.authenticatedUserId = normalized.userId;
+    for (const entry of normalized.entries) {
+      this.campaignDetailsByDropId.set(entry.dropID, {
+        campaign: entry.campaign,
+        freshUntil: Date.parse(entry.freshUntil),
+        retainedUntil: Date.parse(entry.retainedUntil),
+      });
+    }
   }
 
   rememberDashboardCampaignIds(campaignIds: string[]): void {
@@ -370,26 +423,54 @@ export class TwitchDiscoveryState {
 
   rememberCampaignDetails(dropID: string, campaign: unknown): void {
     const now = Date.now();
-    let inspected = 0;
     for (const [cachedDropID, cached] of this.campaignDetailsByDropId) {
-      if (inspected >= DISCOVERY_DETAIL_PRUNE_LIMIT) break;
-      inspected += 1;
-      if (cached.expiresAt <= now) this.campaignDetailsByDropId.delete(cachedDropID);
+      if (cached.retainedUntil <= now) this.campaignDetailsByDropId.delete(cachedDropID);
     }
     this.campaignDetailsByDropId.set(dropID, {
       campaign,
-      expiresAt: now + DISCOVERY_RETENTION_TTL_MS,
+      freshUntil: now + DISCOVERY_DETAIL_CACHE_TTL_MS,
+      retainedUntil: now + DISCOVERY_RETENTION_TTL_MS,
     });
+    const overflow = this.campaignDetailsByDropId.size - TWITCH_DISCOVERY_SNAPSHOT_MAX_ENTRIES;
+    if (overflow <= 0) return;
+    const oldest = [...this.campaignDetailsByDropId.entries()]
+      .sort(([leftID, left], [rightID, right]) =>
+        left.retainedUntil - right.retainedUntil || leftID.localeCompare(rightID));
+    for (const [cachedDropID] of oldest.slice(0, overflow)) {
+      this.campaignDetailsByDropId.delete(cachedDropID);
+    }
   }
 
   forgetCampaignDetails(dropID: string): void {
     this.campaignDetailsByDropId.delete(dropID);
   }
 
+  forgetCampaignDetailsAbsentFrom(campaignIds: readonly string[]): number {
+    const retainedIds = new Set(campaignIds);
+    let forgotten = 0;
+    for (const dropID of this.campaignDetailsByDropId.keys()) {
+      if (retainedIds.has(dropID)) continue;
+      this.campaignDetailsByDropId.delete(dropID);
+      forgotten += 1;
+    }
+    return forgotten;
+  }
+
+  freshCampaignDetails(dropID: string): unknown {
+    const cached = this.campaignDetailsByDropId.get(dropID);
+    if (!cached) return undefined;
+    const now = Date.now();
+    if (cached.retainedUntil <= now) {
+      this.campaignDetailsByDropId.delete(dropID);
+      return undefined;
+    }
+    return cached.freshUntil > now ? cached.campaign : undefined;
+  }
+
   retainedCampaignDetails(dropID: string): unknown {
     const cached = this.campaignDetailsByDropId.get(dropID);
     if (!cached) return undefined;
-    if (cached.expiresAt <= Date.now()) {
+    if (cached.retainedUntil <= Date.now()) {
       this.campaignDetailsByDropId.delete(dropID);
       return undefined;
     }
@@ -604,6 +685,7 @@ export class TwitchAdapter implements PlatformAdapter {
   }
 
   private async discoverCampaignSnapshot(
+    session?: WatchSession,
     { signal }: AdapterOperationOptions = {},
   ): Promise<DropCampaign[]> {
     let [inventory, dashboardResult] = await Promise.all([
@@ -664,8 +746,10 @@ export class TwitchAdapter implements PlatformAdapter {
     // already started — so falling back to it hides every campaign they have
     // not. Reuse the last dashboard we did get instead. `dashboardResponded`
     // stays false so the expiry stamping below never fires off a stale list.
+    let invalidatedDetails = 0;
     if (dashboardResult.ok && authenticatedUserId) {
       this.discoveryState.rememberDashboardCampaignIds(freshCampaignIds);
+      invalidatedDetails = this.discoveryState.forgetCampaignDetailsAbsentFrom(freshCampaignIds);
     }
     const discoverableCampaignIds = dashboardResult.ok
       ? freshCampaignIds
@@ -682,15 +766,31 @@ export class TwitchAdapter implements PlatformAdapter {
       );
     }
 
+    const activeCampaignId = session?.status === "watching" || session?.status === "starting"
+      ? session.campaignId ?? session.channel?.campaignId
+      : undefined;
+    const detailByDropID = new Map<string, unknown>();
+    const detailFetchIds: string[] = [];
+    let cachedDetails = 0;
+    let staleDetails = 0;
+    for (const dropID of discoverableCampaignIds) {
+      const fresh = dropID === activeCampaignId
+        ? undefined
+        : this.discoveryState.freshCampaignDetails(dropID);
+      if (fresh !== undefined) {
+        detailByDropID.set(dropID, fresh);
+        cachedDetails += 1;
+        continue;
+      }
+      if (dropID !== activeCampaignId && this.discoveryState.retainedCampaignDetails(dropID) !== undefined) {
+        staleDetails += 1;
+      }
+      detailFetchIds.push(dropID);
+    }
+
     const detailsStartedAt = Date.now();
-    const detailFetch = await this.fetchCampaignDetails(discoverableCampaignIds, userLogin, signal);
+    const detailFetch = await this.fetchCampaignDetails(detailFetchIds, userLogin, signal);
     const details = detailFetch.results;
-    diagnostic(
-      this.emit,
-      "debug",
-      `Twitch campaign details finished in ${Date.now() - detailsStartedAt}ms (${discoverableCampaignIds.length} operations: ${detailFetch.batchRequests} batch requests, ${detailFetch.singleFallbacks} single fallbacks)`,
-      "twitch",
-    );
     signal?.throwIfAborted();
     for (const result of details) {
       if (result.status === "rejected" && authHealthFromError(result.reason)) throw result.reason;
@@ -698,48 +798,58 @@ export class TwitchAdapter implements PlatformAdapter {
     // A campaign the user has not started is only ever described by its detail
     // request, so dropping a rejection loses the campaign entirely. Serve the
     // last details we saw for it instead, and never lose the failure silently.
-    const detailedCampaigns: unknown[] = [];
-    details.forEach((result, index) => {
-      const dropID = discoverableCampaignIds[index];
-      if (result.status === "fulfilled") {
-        const data = result.value.data;
-        const campaign = data?.dropCampaign ?? data?.user?.dropCampaign;
-        if (!campaign) {
-          const campaignWasAuthoritativelyMissing = Boolean(
-            data
-            && (
-              Object.prototype.hasOwnProperty.call(data, "dropCampaign")
-              || (
-                data.user
-                && Object.prototype.hasOwnProperty.call(data.user, "dropCampaign")
-              )
-            ),
-          );
-          if (authenticatedUserId && campaignWasAuthoritativelyMissing) {
-            this.discoveryState.forgetCampaignDetails(dropID);
-          }
-          return;
-        }
-        if (authenticatedUserId) this.discoveryState.rememberCampaignDetails(dropID, campaign);
-        detailedCampaigns.push(campaign);
-        return;
-      }
+    const useRetainedDetails = (dropID: string, reason: unknown): void => {
       const retained = authenticatedUserId
         ? this.discoveryState.retainedCampaignDetails(dropID)
         : undefined;
-      const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      const message = reason instanceof Error ? reason.message : String(reason);
       diagnostic(
         this.emit,
         "warn",
         `Twitch campaign details for ${dropID} failed; ${retained ? "reusing the last known details" : "leaving the campaign out of this refresh"}: ${message}`,
         "twitch",
       );
-      if (retained) detailedCampaigns.push(retained);
+      if (retained !== undefined) detailByDropID.set(dropID, retained);
+    };
+    details.forEach((result, index) => {
+      const dropID = detailFetchIds[index];
+      if (result.status === "fulfilled") {
+        const data = result.value.data;
+        const campaign = data?.dropCampaign ?? data?.user?.dropCampaign;
+        const campaignMatchesDropID = isTwitchCampaignDetailPayload(campaign, dropID);
+        if (!campaignMatchesDropID) {
+          const campaignWasAuthoritativelyMissing = data?.dropCampaign === null
+            || data?.user?.dropCampaign === null;
+          if (authenticatedUserId && campaignWasAuthoritativelyMissing) {
+            this.discoveryState.forgetCampaignDetails(dropID);
+            invalidatedDetails += 1;
+          } else {
+            useRetainedDetails(dropID, "Twitch returned ambiguous campaign details");
+          }
+          return;
+        }
+        if (authenticatedUserId) this.discoveryState.rememberCampaignDetails(dropID, campaign);
+        detailByDropID.set(dropID, campaign);
+        return;
+      }
+      useRetainedDetails(dropID, result.reason);
     });
+    const operationLabel = discoverableCampaignIds.length === 1 ? "operation" : "operations";
+    diagnostic(
+      this.emit,
+      "debug",
+      `Twitch campaign details finished in ${Date.now() - detailsStartedAt}ms (${discoverableCampaignIds.length} ${operationLabel}: ${detailFetchIds.length} fetched, ${cachedDetails} served from cache, ${staleDetails} stale, ${invalidatedDetails} invalidated, ${detailFetch.batchRequests} batch requests, ${detailFetch.singleFallbacks} single fallbacks)`,
+      "twitch",
+    );
+    const detailedCampaigns = discoverableCampaignIds
+      .map((dropID) => detailByDropID.get(dropID))
+      .filter((campaign) => campaign !== undefined);
     if (detailedCampaigns.length === 0) {
       return inventoryCampaigns;
     }
-    const parsedDetails = parseTwitchCampaigns(detailedCampaigns as Parameters<typeof parseTwitchCampaigns>[0]);
+    const parsedDetails = parseTwitchCampaigns(
+      detailedCampaigns as unknown as Parameters<typeof parseTwitchCampaigns>[0],
+    );
     const mergedDetails = mergeTwitchCampaignProgress(parsedDetails, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
     const detailedIds = new Set(mergedDetails.map((campaign) => campaign.id));
     // The Inventory payload omits campaign/reward end dates, so an ended
@@ -761,7 +871,7 @@ export class TwitchAdapter implements PlatformAdapter {
     session?: WatchSession,
     options: AdapterOperationOptions = {},
   ): Promise<DropCampaign[]> {
-    const campaigns = await this.discoverCampaignSnapshot(options);
+    const campaigns = await this.discoverCampaignSnapshot(session, options);
     if (!session?.channel || session.status !== "watching") return campaigns;
     return this.mergeCurrentSessionProgress(campaigns, session.channel, options.signal);
   }
@@ -1513,7 +1623,9 @@ export class TwitchAdapter implements PlatformAdapter {
     await this.ensureIntegrity({ signal });
 
     try {
-      return await this.runClaim(reward, signal);
+      const claimed = await this.runClaim(reward, signal);
+      if (claimed) this.discoveryState.forgetCampaignDetails(campaign.id);
+      return claimed;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       // Only integrity rejections are worth a refresh + retry; everything else
@@ -1530,7 +1642,11 @@ export class TwitchAdapter implements PlatformAdapter {
         rejectedToken,
         signal,
       });
-      if (refreshed) return await this.runClaim(reward, signal);
+      if (refreshed) {
+        const claimed = await this.runClaim(reward, signal);
+        if (claimed) this.discoveryState.forgetCampaignDetails(campaign.id);
+        return claimed;
+      }
       throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
     }
   }

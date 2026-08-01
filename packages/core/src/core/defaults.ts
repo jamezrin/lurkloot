@@ -1,4 +1,15 @@
-import type { Platform, PlatformAuthHealth, PlatformAuthMessageKey, PlatformAuthReasonCode, PlatformAuthStatus, SchedulerState } from "@lurkloot/shared/models";
+import {
+  TWITCH_DISCOVERY_SNAPSHOT_MAX_ENTRIES,
+  TWITCH_DISCOVERY_SNAPSHOT_VERSION,
+  type Platform,
+  type PlatformAuthHealth,
+  type PlatformAuthMessageKey,
+  type PlatformAuthReasonCode,
+  type PlatformAuthStatus,
+  type SchedulerState,
+  type TwitchDiscoverySnapshot,
+  type TwitchDiscoverySnapshotEntry,
+} from "@lurkloot/shared/models";
 import { normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 
 const AUTH_STATUSES = new Set<PlatformAuthStatus>([
@@ -45,6 +56,55 @@ function normalizedIsoTimestamp(value: unknown): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+export function isTwitchCampaignDetailPayload(value: unknown, dropID: string): value is Record<string, unknown> {
+  return isRecord(value)
+    && value.id === dropID
+    && typeof value.name === "string"
+    && value.name.length > 0
+    && Array.isArray(value.timeBasedDrops);
+}
+
+export function normalizeTwitchDiscoverySnapshot(value: unknown): TwitchDiscoverySnapshot | undefined {
+  if (!isRecord(value) || value.version !== TWITCH_DISCOVERY_SNAPSHOT_VERSION) return undefined;
+  if (typeof value.userId !== "string" || value.userId.length === 0 || value.userId.length > 128) return undefined;
+  if (
+    !Array.isArray(value.entries)
+    || value.entries.length === 0
+    || value.entries.length > TWITCH_DISCOVERY_SNAPSHOT_MAX_ENTRIES
+  ) return undefined;
+
+  const now = Date.now();
+  const seen = new Set<string>();
+  const entries: TwitchDiscoverySnapshotEntry[] = [];
+  for (const rawEntry of value.entries) {
+    if (!isRecord(rawEntry)) return undefined;
+    const dropID = rawEntry.dropID;
+    if (typeof dropID !== "string" || dropID.length === 0 || dropID.length > 256 || seen.has(dropID)) {
+      return undefined;
+    }
+    if (!isTwitchCampaignDetailPayload(rawEntry.campaign, dropID)) return undefined;
+    const freshUntil = normalizedIsoTimestamp(rawEntry.freshUntil);
+    const retainedUntil = normalizedIsoTimestamp(rawEntry.retainedUntil);
+    if (!freshUntil || !retainedUntil) return undefined;
+    const freshUntilTime = Date.parse(freshUntil);
+    const retainedUntilTime = Date.parse(retainedUntil);
+    if (freshUntilTime <= now || retainedUntilTime < freshUntilTime) return undefined;
+    seen.add(dropID);
+    entries.push({
+      dropID,
+      campaign: rawEntry.campaign,
+      freshUntil,
+      retainedUntil,
+    });
+  }
+
+  return {
+    version: TWITCH_DISCOVERY_SNAPSHOT_VERSION,
+    userId: value.userId,
+    entries,
+  };
 }
 
 export function normalizePlatformAuthHealth(value: unknown): PlatformAuthHealth {
@@ -113,7 +173,12 @@ export const DEFAULT_STATE: SchedulerState = {
 // layer and any file-backed storage so a new top-level slice only has to be
 // added in one place.
 export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined): SchedulerState {
-  const { events: _legacyEvents, criticalHealth: _rawCriticalHealth, ...operationalState } = stored as (Partial<SchedulerState> & { events?: unknown }) ?? {};
+  const {
+    events: _legacyEvents,
+    criticalHealth: _rawCriticalHealth,
+    twitchDiscovery: rawTwitchDiscovery,
+    ...operationalState
+  } = stored as (Partial<SchedulerState> & { events?: unknown }) ?? {};
   const normalizedCriticalHealth = stored?.criticalHealth
     ? (Object.fromEntries(
         (Object.entries(stored.criticalHealth) as [Platform, unknown][]).map(([platform, value]) => [
@@ -125,6 +190,7 @@ export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined)
   const criticalHealth = normalizedCriticalHealth && Object.keys(normalizedCriticalHealth).length > 0
     ? normalizedCriticalHealth
     : undefined;
+  const twitchDiscovery = normalizeTwitchDiscoverySnapshot(rawTwitchDiscovery);
   return {
     ...DEFAULT_STATE,
     ...operationalState,
@@ -138,5 +204,6 @@ export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined)
     manualWatch: { ...stored?.manualWatch },
     campaigns: { ...DEFAULT_STATE.campaigns, ...stored?.campaigns },
     ...(criticalHealth ? { criticalHealth } : {}),
+    ...(twitchDiscovery ? { twitchDiscovery } : {}),
   };
 }

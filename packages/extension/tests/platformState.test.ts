@@ -1,6 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 import { mergePlatformState } from "@lurkloot/core/background/platformState";
+import { mergeSchedulerState } from "@lurkloot/core/defaults";
+
+function discoverySnapshot(
+  overrides: Record<string, unknown> = {},
+  entryOverrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    version: 1,
+    userId: "user-id",
+    entries: [{
+      dropID: "campaign",
+      campaign: { id: "campaign", name: "Campaign", timeBasedDrops: [] },
+      freshUntil: "2026-08-01T12:05:00.000Z",
+      retainedUntil: "2026-08-01T12:30:00.000Z",
+      ...entryOverrides,
+    }],
+    ...overrides,
+  };
+}
 
 function state(label: string, lastTickAt: string): SchedulerState {
   const session = (platform: Platform) => ({
@@ -81,5 +100,70 @@ describe("mergePlatformState", () => {
       destination.deadlineInfeasibleRewardIds?.kick,
     );
     expect(merged.lastTickAt).toBe("2026-07-29T12:00:00.000Z");
+  });
+
+  it("replaces Twitch discovery only with the Twitch platform slice", () => {
+    const destination = state("destination", "2026-07-29T11:00:00.000Z") as SchedulerState & {
+      twitchDiscovery?: unknown;
+    };
+    const source = state("source", "2026-07-29T12:00:00.000Z") as SchedulerState & {
+      twitchDiscovery?: unknown;
+    };
+    destination.twitchDiscovery = discoverySnapshot({ userId: "destination-user" }) as unknown as SchedulerState["twitchDiscovery"];
+    source.twitchDiscovery = discoverySnapshot({ userId: "source-user" }) as unknown as SchedulerState["twitchDiscovery"];
+
+    expect((mergePlatformState(destination, source, "twitch") as SchedulerState & { twitchDiscovery?: unknown })
+      .twitchDiscovery).toEqual(source.twitchDiscovery);
+    expect((mergePlatformState(destination, source, "kick") as SchedulerState & { twitchDiscovery?: unknown })
+      .twitchDiscovery).toEqual(destination.twitchDiscovery);
+  });
+});
+
+describe("mergeSchedulerState Twitch discovery", () => {
+  it("keeps a valid versioned fresh snapshot", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime("2026-08-01T12:00:00.000Z");
+      const snapshot = discoverySnapshot() as unknown as NonNullable<SchedulerState["twitchDiscovery"]>;
+
+      const merged = mergeSchedulerState({ twitchDiscovery: snapshot });
+
+      expect((merged as SchedulerState & { twitchDiscovery?: unknown }).twitchDiscovery).toEqual(snapshot);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ["unknown version", discoverySnapshot({ version: 2 })],
+    ["missing identity", discoverySnapshot({ userId: "" })],
+    ["expired entry", discoverySnapshot({}, { freshUntil: "2026-08-01T12:00:00.000Z" })],
+    ["mismatched campaign identity", discoverySnapshot({}, { campaign: { id: "other" } })],
+    ["malformed campaign payload", discoverySnapshot({}, { campaign: { id: "campaign", name: "Campaign" } })],
+    ["duplicate campaign identity", discoverySnapshot({
+      entries: [
+        (discoverySnapshot().entries as unknown[])[0],
+        (discoverySnapshot().entries as unknown[])[0],
+      ],
+    })],
+    ["oversized entry set", discoverySnapshot({
+      entries: Array.from({ length: 129 }, (_, index) => ({
+        dropID: `campaign-${index}`,
+        campaign: { id: `campaign-${index}`, name: `Campaign ${index}`, timeBasedDrops: [] },
+        freshUntil: "2026-08-01T12:05:00.000Z",
+        retainedUntil: "2026-08-01T12:30:00.000Z",
+      })),
+    })],
+  ])("discards a snapshot with %s", (_label, snapshot) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime("2026-08-01T12:00:00.000Z");
+
+      const merged = mergeSchedulerState({ twitchDiscovery: snapshot } as unknown as Partial<SchedulerState>);
+
+      expect((merged as SchedulerState & { twitchDiscovery?: unknown }).twitchDiscovery).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
