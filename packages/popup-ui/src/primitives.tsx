@@ -117,29 +117,34 @@ export function ListToolbar({ counts, actions }: { counts: Array<{ label: string
 }
 
 /** Collapsible group heading, used to fold the Idle Watchlist under the drops
- * list instead of hiding it behind a tab. */
-export function SectionHeader({ label, count, expanded, icon: Icon, onToggle }: { label: string; count: string; expanded: boolean; icon: LucideIcon; onToggle(): void }) {
+ * list instead of hiding it behind a tab. `action` is a sibling of the toggle,
+ * not a child: the section's own actions belong on its heading, and a button
+ * cannot nest inside a button. */
+export function SectionHeader({ label, count, expanded, icon: Icon, onToggle, action }: { label: string; count: string; expanded: boolean; icon: LucideIcon; onToggle(): void; action?: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={expanded}
-      className="flex w-full items-center gap-1.5 rounded-lg px-1 py-1 text-[11px] font-semibold text-zinc-500 outline-none transition-colors hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-400 dark:hover:text-zinc-100"
-    >
-      <motion.span animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }} className="flex shrink-0 items-center">
-        <ChevronRight size={13} />
-      </motion.span>
-      <Icon size={13} style={{ color: "var(--accent-text)" }} />
-      <span className="truncate">{label}</span>
-      <span className="ml-auto shrink-0 tabular text-zinc-400 dark:text-zinc-500">{count}</span>
-    </button>
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 py-1 text-[11px] font-semibold text-zinc-500 outline-none transition-colors hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-400 dark:hover:text-zinc-100"
+      >
+        <motion.span animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }} className="flex shrink-0 items-center">
+          <ChevronRight size={13} />
+        </motion.span>
+        <Icon size={13} className="shrink-0" style={{ color: "var(--accent-text)" }} />
+        <span className="truncate">{label}</span>
+        <span className="ml-auto shrink-0 tabular text-zinc-400 dark:text-zinc-500">{count}</span>
+      </button>
+      {action}
+    </div>
   );
 }
 
 export function ProgressBar({ value, size = "md", glow = false }: { value: number; size?: "sm" | "md" | "edge"; glow?: boolean }) {
   const edge = size === "edge";
   return (
-    <div className={cn("w-full overflow-hidden bg-zinc-200/70 dark:bg-zinc-700/60", edge ? "h-[3px]" : "rounded-full", size === "sm" ? "h-1" : size === "md" ? "h-1.5" : "")}>
+    <div className={cn("w-full overflow-hidden bg-zinc-200/70 dark:bg-zinc-700/60", edge ? "h-[2px]" : "rounded-full", size === "sm" ? "h-1" : size === "md" ? "h-1.5" : "")}>
       <motion.div className={cn("h-full", !edge && "rounded-full")} initial={{ width: 0 }} animate={{ width: `${Math.max(value, value > 0 ? 4 : 0)}%` }} transition={{ duration: 0.5 }} style={{ backgroundColor: "var(--accent)", boxShadow: glow && value > 0 ? "0 0 10px -1px var(--accent-glow)" : undefined }} />
     </div>
   );

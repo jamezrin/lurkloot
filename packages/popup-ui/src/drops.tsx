@@ -170,7 +170,9 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing,
         {/* Full-area toggle behind the content so the page-link anchor can live next
             to the title without nesting an <a> inside a <button>. */}
         <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={campaign.title} className="absolute inset-y-0 left-7 right-0 z-0 outline-none" />
-        <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2 p-1.5">
+        {/* Extra bottom padding is the progress bar's breathing room: the bar
+            overlays the last 2px of it, leaving a clear gap under the pill row. */}
+        <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2 px-1.5 pb-2 pt-1.5">
           <div className="relative flex h-8 w-8 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
             <ImageWithFallback src={campaign.imageUrl} alt={campaign.title} fit="cover" fallback={
               <div className={cn("flex h-full w-full items-end bg-gradient-to-br p-1.5", campaign.tint)}>

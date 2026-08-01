@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Clock3,
   Package,
-  Plus,
   RotateCcw,
   Search,
   Settings as SettingsIcon,
@@ -674,17 +673,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   { label: t("idleWatchlistTab"), value: `${idleWatchlist.length}/20` },
                 ]}
                 actions={
-                  <>
-                    <IconButton label={t("campaignSearchPlaceholder")} onClick={() => setSearchOpen(true)}>
-                      <Search size={15} />
-                    </IconButton>
-                    <IconButton
-                      label={t("addChannel")}
-                      onClick={() => { setWatchlistExpanded(true); setWatchlistAdding(true); }}
-                    >
-                      <Plus size={15} />
-                    </IconButton>
-                  </>
+                  <IconButton label={t("campaignSearchPlaceholder")} onClick={() => setSearchOpen(true)}>
+                    <Search size={15} />
+                  </IconButton>
                 }
               />
             )}
@@ -693,7 +684,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       </div>
 
       <div className="nice-scroll min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
-        <div className="space-y-2 p-3 pt-2.5">
+        <div className="space-y-2 p-3 pt-2">
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">

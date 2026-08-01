@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Play, Radio } from "lucide-react";
+import { Play, Power, Radio } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
@@ -22,9 +22,10 @@ export function statusColor(presentation: AutomationPresentation, operationalCol
  * has always controlled. */
 export function PlatformBar({ active, presentation, enabled, pending, onChange, onToggle }: { active: Platform; presentation: Record<Platform, AutomationPresentation>; enabled: boolean; pending: boolean; onChange(platform: Platform): void; onToggle(value: boolean): Promise<void> }) {
   const t = useT();
+  const label = t("automationTitle", PLATFORMS[active].label);
   return (
-    <div className="mt-2 flex items-center gap-2">
-      <div className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
+    <div className="mt-2 flex items-center gap-1.5">
+      <div className="grid h-8 min-w-0 flex-1 grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
         {Object.entries(PLATFORMS).map(([id, platform]) => {
           const selected = active === id;
           const status = presentation[id as Platform];
@@ -43,7 +44,19 @@ export function PlatformBar({ active, presentation, enabled, pending, onChange, 
           );
         })}
       </div>
-      <Toggle checked={enabled} onChange={onToggle} label={t("automationTitle", PLATFORMS[active].label)} disabled={pending} />
+      {/* The switch sits in a well matching the tab group's height and fill so it
+          reads as the tab group's sibling control rather than a loose toggle, and
+          the power glyph says what it switches. */}
+      <div className="flex h-8 shrink-0 items-center gap-1.5 rounded-xl bg-zinc-100/80 pl-2 pr-1.5 dark:bg-zinc-800/60" title={label}>
+        <Power
+          size={13}
+          strokeWidth={2.4}
+          aria-hidden
+          className={cn("shrink-0 transition-colors", enabled ? "" : "text-zinc-400 dark:text-zinc-500")}
+          style={enabled ? { color: "var(--accent-text)" } : undefined}
+        />
+        <Toggle checked={enabled} onChange={onToggle} label={label} disabled={pending} />
+      </div>
     </div>
   );
 }

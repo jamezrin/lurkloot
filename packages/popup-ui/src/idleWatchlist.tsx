@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { DndContext, DragOverlay, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Play } from "lucide-react";
+import { GripVertical, Play, Plus } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import { useT } from "./context";
 import { formatViewers } from "./format";
@@ -13,6 +13,7 @@ import {
   CompactRow,
   DragHandle,
   EmptyPanel,
+  IconButton,
   Pill,
   RemoveRowButton,
   SectionHeader,
@@ -63,6 +64,14 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, onEx
         icon={Play}
         expanded={expanded}
         onToggle={() => onExpandedChange(!expanded)}
+        action={(
+          <IconButton
+            label={t("addChannel")}
+            onClick={() => { onExpandedChange(true); onAddingChange(true); }}
+          >
+            <Plus size={15} />
+          </IconButton>
+        )}
       />
       <AnimatePresence initial={false}>
         {expanded ? (
