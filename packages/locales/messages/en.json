@@ -212,6 +212,12 @@
   "noDiagnostics": {
     "message": "No diagnostics recorded yet. They appear as the extension works."
   },
+  "searchDiagnostics": {
+    "message": "Search diagnostics"
+  },
+  "noDiagnosticsMatch": {
+    "message": "No diagnostics match \"$1\"."
+  },
   "platformActivity": {
     "message": "$1 activity"
   },

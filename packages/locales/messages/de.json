@@ -212,6 +212,12 @@
   "noDiagnostics": {
     "message": "Noch keine Diagnosen aufgezeichnet. Sie erscheinen, während die Erweiterung arbeitet."
   },
+  "searchDiagnostics": {
+    "message": "Diagnosen suchen"
+  },
+  "noDiagnosticsMatch": {
+    "message": "Keine Diagnose stimmt mit \"$1\" überein."
+  },
   "platformActivity": {
     "message": "$1-Aktivität"
   },

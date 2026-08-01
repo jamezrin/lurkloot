@@ -212,6 +212,12 @@
   "noDiagnostics": {
     "message": "अभी कोई डायग्नोस्टिक रिकॉर्ड नहीं हुआ। एक्सटेंशन के काम करते ही ये दिखेंगे।"
   },
+  "searchDiagnostics": {
+    "message": "डायग्नोस्टिक खोजें"
+  },
+  "noDiagnosticsMatch": {
+    "message": "\"$1\" से मेल खाने वाला कोई डायग्नोस्टिक नहीं है।"
+  },
   "platformActivity": {
     "message": "$1 गतिविधि"
   },

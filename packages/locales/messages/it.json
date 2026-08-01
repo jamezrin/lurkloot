@@ -212,6 +212,12 @@
   "noDiagnostics": {
     "message": "Nessuna diagnostica registrata. Compare mentre l'estensione lavora."
   },
+  "searchDiagnostics": {
+    "message": "Cerca diagnostica"
+  },
+  "noDiagnosticsMatch": {
+    "message": "Nessuna diagnostica corrisponde a \"$1\"."
+  },
   "platformActivity": {
     "message": "Attività $1"
   },
