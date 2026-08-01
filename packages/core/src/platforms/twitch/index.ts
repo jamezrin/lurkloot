@@ -346,6 +346,11 @@ type CampaignAvailabilityCacheLookup =
   | { status: "hit"; available: boolean }
   | { status: "miss" | "expired" };
 
+interface AvailabilityRequestIdentity {
+  userId: string;
+  generation: number;
+}
+
 interface CachedCampaignDetails {
   campaign: unknown;
   freshUntil: number;
@@ -384,6 +389,7 @@ export class TwitchDiscoveryState {
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
   private authenticatedUserId?: string;
+  private identityGeneration = 0;
   private retainedDashboard?: CachedDashboardCampaigns;
 
   setAuthenticatedUser(userId: string): number {
@@ -393,15 +399,25 @@ export class TwitchDiscoveryState {
       this.authenticatedUserId = userId;
       return invalidatedAvailabilityEntries;
     }
+    if (this.authenticatedUserId !== userId) this.identityGeneration += 1;
     this.authenticatedUserId = userId;
     return 0;
   }
 
   clear(): void {
+    this.identityGeneration += 1;
     this.authenticatedUserId = undefined;
     this.retainedDashboard = undefined;
     this.availableCampaignsByChannel.clear();
     this.campaignDetailsByDropId.clear();
+  }
+
+  availabilityRequestIdentity(): AvailabilityRequestIdentity | undefined {
+    if (!this.authenticatedUserId) return undefined;
+    return {
+      userId: this.authenticatedUserId,
+      generation: this.identityGeneration,
+    };
   }
 
   campaignAvailability(channelId: string, campaignId: string): CampaignAvailabilityCacheLookup {
@@ -418,15 +434,23 @@ export class TwitchDiscoveryState {
     return { status: "hit", available: cached.campaignIds.has(campaignId) };
   }
 
-  rememberAvailableCampaigns(channelId: string, campaignIds: Iterable<string>): void {
-    if (!this.authenticatedUserId) return;
+  rememberAvailableCampaigns(
+    channelId: string,
+    campaignIds: Iterable<string>,
+    requestIdentity: AvailabilityRequestIdentity | undefined,
+  ): void {
+    if (
+      !requestIdentity
+      || requestIdentity.userId !== this.authenticatedUserId
+      || requestIdentity.generation !== this.identityGeneration
+    ) return;
     const now = Date.now();
     for (const [cachedChannelId, cached] of this.availableCampaignsByChannel) {
       if (cached.expiresAt <= now) this.availableCampaignsByChannel.delete(cachedChannelId);
     }
     this.availableCampaignsByChannel.delete(channelId);
     this.availableCampaignsByChannel.set(channelId, {
-      userId: this.authenticatedUserId,
+      userId: requestIdentity.userId,
       campaignIds: new Set(campaignIds),
       expiresAt: now + CHANNEL_CAMPAIGN_CACHE_TTL_MS,
     });
@@ -1392,6 +1416,7 @@ export class TwitchAdapter implements PlatformAdapter {
         ),
       );
     };
+    const requestIdentity = this.discoveryState.availabilityRequestIdentity();
     const integrity = this.options.currentIntegrity?.();
     let raw: unknown;
     try {
@@ -1449,7 +1474,11 @@ export class TwitchAdapter implements PlatformAdapter {
         await fallback(candidate);
         continue;
       }
-      this.discoveryState.rememberAvailableCampaigns(candidate.channelId, campaignIds);
+      this.discoveryState.rememberAvailableCampaigns(
+        candidate.channelId,
+        campaignIds,
+        requestIdentity,
+      );
       matches.set(candidate.channelId, campaignIds.has(campaignId));
     }
     return { matches, singleFallbacks };
@@ -1600,6 +1629,7 @@ export class TwitchAdapter implements PlatformAdapter {
       };
     } catch (error) {
       signal?.throwIfAborted();
+      if (authHealthFromError(error)) throw error;
       return this.checkChannelFromPage(channel, campaign, error, signal);
     }
   }
@@ -1617,6 +1647,7 @@ export class TwitchAdapter implements PlatformAdapter {
       if (cached.status === "hit") return cached.available;
     }
 
+    const requestIdentity = this.discoveryState.availabilityRequestIdentity();
     try {
       if (metrics) metrics.checks += 1;
       const response = await this.gqlWithIntegrityRetry<TwitchAvailableDropsData>(
@@ -1634,7 +1665,7 @@ export class TwitchAdapter implements PlatformAdapter {
         return undefined;
       }
 
-      this.discoveryState.rememberAvailableCampaigns(channelId, campaignIds);
+      this.discoveryState.rememberAvailableCampaigns(channelId, campaignIds, requestIdentity);
       return campaignIds.has(campaignId);
     } catch (error) {
       signal?.throwIfAborted();
