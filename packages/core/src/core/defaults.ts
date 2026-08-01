@@ -45,6 +45,9 @@ const AUTH_MESSAGE_KEYS: Record<PlatformAuthStatus | PlatformAuthReasonCode, Pla
   network_unavailable: "authNetworkUnavailable",
 };
 
+const TWITCH_DISCOVERY_SNAPSHOT_FRESH_HORIZON_MS = 5 * 60_000;
+const TWITCH_DISCOVERY_SNAPSHOT_RETENTION_HORIZON_MS = 30 * 60_000;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -182,7 +185,12 @@ export function normalizeTwitchDiscoverySnapshot(value: unknown): TwitchDiscover
     if (!freshUntil || !retainedUntil) return undefined;
     const freshUntilTime = Date.parse(freshUntil);
     const retainedUntilTime = Date.parse(retainedUntil);
-    if (freshUntilTime <= now || retainedUntilTime < freshUntilTime) return undefined;
+    if (
+      freshUntilTime <= now
+      || freshUntilTime > now + TWITCH_DISCOVERY_SNAPSHOT_FRESH_HORIZON_MS
+      || retainedUntilTime < freshUntilTime
+      || retainedUntilTime > now + TWITCH_DISCOVERY_SNAPSHOT_RETENTION_HORIZON_MS
+    ) return undefined;
     seen.add(dropID);
     entries.push({
       dropID,

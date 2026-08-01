@@ -36,8 +36,12 @@ const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
 const DISCOVERY_DETAIL_CACHE_TTL_MS = 5 * 60_000;
+// Wider than the default one-minute discovery cadence, so one batch crosses
+// its deadlines over two later ticks while every entry remains fresh for >3m.
+const DISCOVERY_DETAIL_CACHE_STAGGER_WINDOW_MS = 2 * 60_000;
 const GQL_BATCH_OPERATION_LIMIT = 20;
 const GQL_BATCH_CONCURRENCY = 2;
+const TWITCH_DASHBOARD_CAMPAIGN_STATUSES = new Set(["ACTIVE", "UPCOMING", "EXPIRED"]);
 // How long a discovery result stays usable when Twitch stops answering. Long
 // enough to ride out an outage of many ticks, short enough that a campaign
 // Twitch quietly stopped serving does not linger for a whole session.
@@ -344,6 +348,15 @@ interface CachedDashboardCampaigns {
   expiresAt: number;
 }
 
+function campaignDetailFreshTtlMs(dropID: string): number {
+  let hash = 2_166_136_261;
+  for (let index = 0; index < dropID.length; index += 1) {
+    hash = Math.imul(hash ^ dropID.charCodeAt(index), 16_777_619);
+  }
+  return DISCOVERY_DETAIL_CACHE_TTL_MS
+    - (hash >>> 0) % DISCOVERY_DETAIL_CACHE_STAGGER_WINDOW_MS;
+}
+
 function reconcileInventoryCampaignStatuses(
   campaigns: DropCampaign[],
   activeDashboardIds: ReadonlySet<string>,
@@ -435,7 +448,7 @@ export class TwitchDiscoveryState {
     }
     this.campaignDetailsByDropId.set(dropID, {
       campaign,
-      freshUntil: now + DISCOVERY_DETAIL_CACHE_TTL_MS,
+      freshUntil: now + campaignDetailFreshTtlMs(dropID),
       retainedUntil: now + DISCOVERY_RETENTION_TTL_MS,
     });
     const overflow = this.campaignDetailsByDropId.size - TWITCH_DISCOVERY_SNAPSHOT_MAX_ENTRIES;
@@ -825,11 +838,12 @@ export class TwitchAdapter implements PlatformAdapter {
       const dropID = detailFetchIds[index];
       if (result.status === "fulfilled") {
         const data = result.value.data;
-        const campaign = data?.dropCampaign ?? data?.user?.dropCampaign;
-        const campaignMatchesDropID = isTwitchCampaignDetailPayload(campaign, dropID);
-        if (!campaignMatchesDropID) {
-          const campaignWasAuthoritativelyMissing = data?.dropCampaign === null
-            || data?.user?.dropCampaign === null;
+        const campaignCandidates = [data?.dropCampaign, data?.user?.dropCampaign];
+        const campaign = campaignCandidates.find((candidate) =>
+          isTwitchCampaignDetailPayload(candidate, dropID));
+        if (!campaign) {
+          const campaignWasAuthoritativelyMissing = campaignCandidates.some((candidate) => candidate === null)
+            && campaignCandidates.every((candidate) => candidate == null);
           if (authenticatedUserId && campaignWasAuthoritativelyMissing) {
             this.discoveryState.forgetCampaignDetails(dropID);
             invalidatedDetails += 1;
@@ -2039,7 +2053,8 @@ function twitchDashboardCampaigns(dashboard: unknown): TwitchDashboardCampaign[]
     isRecord(campaign)
     && typeof campaign.id === "string"
     && campaign.id.length > 0
-    && typeof campaign.status === "string")) return undefined;
+    && typeof campaign.status === "string"
+    && TWITCH_DASHBOARD_CAMPAIGN_STATUSES.has(campaign.status))) return undefined;
   return campaigns as TwitchDashboardCampaign[];
 }
 

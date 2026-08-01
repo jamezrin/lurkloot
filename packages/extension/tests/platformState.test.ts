@@ -138,6 +138,12 @@ describe("mergeSchedulerState Twitch discovery", () => {
     ["unknown version", discoverySnapshot({ version: 2 })],
     ["missing identity", discoverySnapshot({ userId: "" })],
     ["expired entry", discoverySnapshot({}, { freshUntil: "2026-08-01T12:00:00.000Z" })],
+    ["fresh deadline beyond the five-minute restore horizon", discoverySnapshot({}, {
+      freshUntil: "2026-08-01T12:05:00.001Z",
+    })],
+    ["24-hour retained deadline", discoverySnapshot({}, {
+      retainedUntil: "2026-08-02T12:00:00.000Z",
+    })],
     ["mismatched campaign identity", discoverySnapshot({}, { campaign: { id: "other" } })],
     ["malformed campaign payload", discoverySnapshot({}, { campaign: { id: "campaign", name: "Campaign" } })],
     ["null campaign reward", discoverySnapshot({}, {
