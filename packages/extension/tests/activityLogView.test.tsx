@@ -4,7 +4,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
-import { I18nContext } from "../../popup-ui/src/context";
+import type { PopupAdapter } from "../../popup-ui/src/types";
+import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
 import { ActivityLog } from "../../popup-ui/src/activity";
 
 let root: Root | undefined;
@@ -15,20 +16,25 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const ACTIVITY: ActivityHistoryRecord[] = [{
+const REWARD_ACTIVITY: Extract<ActivityHistoryRecord, { code: "reward_claimed" }> = {
   id: "activity-1",
   at: "2026-07-25T12:00:00.000Z",
   category: "activity",
-  code: "farming_started",
+  code: "reward_claimed",
   level: "info",
   platform: "kick",
   data: {
     campaignId: "campaign-1",
     campaignName: "Summer Campaign",
+    campaignUrl: "https://www.example.test/campaigns/summer",
     rewardId: "reward-1",
     rewardName: "Golden Hat",
+    rewardImageUrl: "https://cdn.example.test/reward.png",
+    method: "automatic",
   },
-}];
+};
+
+const ACTIVITY = [REWARD_ACTIVITY];
 
 const DIAGNOSTICS: ActivityHistoryRecord[] = [{
   id: "diagnostic-1",
@@ -46,16 +52,15 @@ function mount(options: {
   omitClipboard?: boolean;
   activityEvents?: ActivityHistoryRecord[];
   diagnosticEvents?: ActivityHistoryRecord[];
-  searchQuery?: string;
-  searchingDiagnostics?: boolean;
 }) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const onShowDiagnosticsChange = vi.fn();
-  const onSearchQueryChange = vi.fn();
   const writeClipboard = options.writeClipboard ?? vi.fn(async () => true);
+  const openLink = vi.fn();
+  const adapter = { openLink } as unknown as PopupAdapter;
   const container = document.getElementById("app")!;
 
   act(() => {
@@ -64,14 +69,14 @@ function mount(options: {
       <I18nContext.Provider value={{
         t: (key, substitutions) => ({
           activityFarmingStarted: "Started farming a reward",
+          activityRewardClaimed: "Claimed Golden Hat from Summer Campaign",
+          activityPageContextOpened: "Opened managed page context for kick.com",
           platformActivity: "Kick activity",
           platformDiagnostics: "Kick diagnostics",
           activityViewTab: "Activity",
           diagnosticsViewTab: "Diagnostics",
           noActivity: "No activity recorded yet.",
           noDiagnostics: "No diagnostics recorded yet.",
-          searchDiagnostics: "Search diagnostics",
-          noDiagnosticsMatch: `No diagnostics match \"${String(substitutions)}\".`,
           copyActivityLog: "Copy log",
           copyActivityLogCopied: `Copied ${String(substitutions)} events`,
           copyActivityLogFailed: "Could not copy the log. Try again.",
@@ -79,52 +84,42 @@ function mount(options: {
         dir: "ltr",
         locale: "en",
       }}>
-        <ActivityLog
-          activityEvents={options.activityEvents ?? ACTIVITY}
-          diagnosticEvents={options.diagnosticEvents ?? DIAGNOSTICS}
-          platform="kick"
-          diagnosticLogging={options.diagnosticLogging ?? true}
-          showDiagnostics={options.showDiagnostics}
-          hasMore={false}
-          clearArmed={false}
-          clearFailed={false}
-          loadingMore={false}
-          clearing={false}
-          version="1.9.0"
-          locale="en"
-          searchQuery={options.searchQuery ?? ""}
-          onSearchQueryChange={onSearchQueryChange}
-          searchingDiagnostics={options.searchingDiagnostics ?? false}
-          onShowDiagnosticsChange={onShowDiagnosticsChange}
-          onLoadMore={() => undefined}
-          onClear={() => undefined}
-          writeClipboard={options.omitClipboard ? undefined : writeClipboard}
-        />
+        <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
+          <ActivityLog
+            activityEvents={options.activityEvents ?? ACTIVITY}
+            diagnosticEvents={options.diagnosticEvents ?? DIAGNOSTICS}
+            platform="kick"
+            diagnosticLogging={options.diagnosticLogging ?? true}
+            showDiagnostics={options.showDiagnostics}
+            hasMore={false}
+            clearArmed={false}
+            clearFailed={false}
+            loadingMore={false}
+            clearing={false}
+            version="1.9.0"
+            locale="en"
+            onShowDiagnosticsChange={onShowDiagnosticsChange}
+            onLoadMore={() => undefined}
+            onClear={() => undefined}
+            writeClipboard={options.omitClipboard ? undefined : writeClipboard}
+          />
+        </PopupRuntimeContext.Provider>
       </I18nContext.Provider>,
     );
   });
 
-  return { container, onShowDiagnosticsChange, onSearchQueryChange, writeClipboard };
+  return { container, onShowDiagnosticsChange, writeClipboard, openLink };
 }
 
 const copyButton = (container: Element) =>
   [...container.querySelectorAll<HTMLButtonElement>("button")]
     .find((button) => button.textContent?.includes("Copy log") || button.textContent?.includes("Copied"));
 
-function setSearchQuery(input: HTMLInputElement, value: string): void {
-  input.value = value;
-  const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
-  const props = propsKey
-    ? (input as unknown as Record<string, { onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void }>)[propsKey]
-    : undefined;
-  props?.onChange?.({ target: input, currentTarget: input });
-}
-
 describe("activity log view", () => {
   it("shows only activity entries while the activity view is selected", () => {
     const { container } = mount({ showDiagnostics: false });
 
-    expect(container.textContent).toContain("Started farming a reward");
+    expect(container.textContent).toContain("Claimed Golden Hat from Summer Campaign");
     expect(container.textContent).not.toContain("HTTP 503");
     expect(container.textContent).toContain("Kick activity");
     expect(container.querySelectorAll("ul > li")).toHaveLength(1);
@@ -134,36 +129,10 @@ describe("activity log view", () => {
     const { container } = mount({ showDiagnostics: true });
 
     expect(container.textContent).toContain("HTTP 503");
-    expect(container.textContent).not.toContain("Started farming a reward");
+    expect(container.textContent).not.toContain("Claimed Golden Hat from Summer Campaign");
     expect(container.textContent).toContain("Kick diagnostics");
     expect(container.querySelectorAll("ul > li")).toHaveLength(1);
-  });
-
-  it("renders the diagnostics search field and forwards typed queries", () => {
-    const { container, onSearchQueryChange } = mount({ showDiagnostics: true });
-    const input = container.querySelector<HTMLInputElement>('input[type="search"]');
-
-    expect(input?.getAttribute("aria-label")).toBe("Search diagnostics");
-    act(() => { if (input) setSearchQuery(input, "timeout"); });
-    expect(onSearchQueryChange).toHaveBeenCalledWith("timeout");
-  });
-
-  it("shows the query-specific empty state when diagnostics search finds no results", () => {
-    const { container } = mount({
-      showDiagnostics: true,
-      diagnosticEvents: [],
-      searchQuery: " timeout ",
-      searchingDiagnostics: true,
-    });
-
-    expect(container.textContent).toContain("No diagnostics match \"timeout\".");
-  });
-
-  it("keeps the activity empty state without a diagnostics search field", () => {
-    const { container } = mount({ showDiagnostics: false, activityEvents: [] });
-
-    expect(container.querySelector('input[type="search"]')).toBeNull();
-    expect(container.textContent).toContain("No activity recorded yet.");
+    expect(container.querySelector("[data-activity-card]")).toBeNull();
   });
 
   it("marks the selected view on the switch and requests the other one on click", () => {
@@ -222,9 +191,6 @@ describe("activity log view", () => {
             clearing={false}
             version="1.9.0"
             locale="en"
-            searchQuery=""
-            onSearchQueryChange={() => undefined}
-            searchingDiagnostics={false}
             onShowDiagnosticsChange={() => undefined}
             onLoadMore={() => undefined}
             onClear={() => undefined}
@@ -257,7 +223,7 @@ describe("activity log view", () => {
 
     const text = (writeClipboard as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(text).toContain("Lurkloot activity log");
-    expect(text).toContain("Started farming a reward");
+    expect(text).toContain("Claimed Golden Hat from Summer Campaign");
     expect(text).not.toContain("HTTP 503");
   });
 
@@ -274,5 +240,60 @@ describe("activity log view", () => {
     const { container } = mount({ showDiagnostics: false, omitClipboard: true });
 
     expect(copyButton(container)).toBeUndefined();
+  });
+
+  it("renders a reward card with its image, method chip, and labelled campaign action", () => {
+    const { container, openLink } = mount({ showDiagnostics: false });
+
+    expect(container.querySelector('img[alt="Golden Hat"]')?.getAttribute("src"))
+      .toBe("https://cdn.example.test/reward.png");
+    expect(container.querySelector('[data-activity-card="reward_claimed"]')).not.toBeNull();
+    expect(container.querySelector('[data-activity-chip="automatic"]')).not.toBeNull();
+
+    const action = container.querySelector<HTMLButtonElement>('button[aria-label*="Summer Campaign"]');
+    expect(action).not.toBeNull();
+    act(() => action?.click());
+    expect(openLink).toHaveBeenCalledWith("https://www.example.test/campaigns/summer");
+  });
+
+  it("does not open a campaign action with a non-HTTPS URL", () => {
+    const unsafeActivity: ActivityHistoryRecord[] = [{
+      ...ACTIVITY[0],
+      data: { ...ACTIVITY[0].data, campaignUrl: "http://www.example.test/campaigns/summer" },
+    }];
+    const { container, openLink } = mount({ showDiagnostics: false, activityEvents: unsafeActivity });
+
+    const action = container.querySelector<HTMLButtonElement>('button[aria-label*="Summer Campaign"]');
+    expect(action).not.toBeNull();
+    act(() => action?.click());
+
+    expect(openLink).not.toHaveBeenCalled();
+  });
+
+  it("renders a generated reward fallback tile when no reward image is available", () => {
+    const withoutImage: ActivityHistoryRecord[] = [{
+      ...ACTIVITY[0],
+      data: { ...ACTIVITY[0].data, rewardImageUrl: undefined },
+    }];
+    const { container } = mount({ showDiagnostics: false, activityEvents: withoutImage });
+
+    expect(container.querySelector('img[alt="Golden Hat"]')).toBeNull();
+    expect(container.querySelector('[data-activity-reward-fallback]')?.textContent).toBe("G");
+  });
+
+  it("renders operational events as marked cards with their localized summary", () => {
+    const operationalActivity: ActivityHistoryRecord[] = [{
+      id: "page-context-1",
+      at: "2026-07-25T12:00:00.000Z",
+      category: "activity",
+      code: "page_context_opened",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_rejected" },
+    }];
+    const { container } = mount({ showDiagnostics: false, activityEvents: operationalActivity });
+
+    expect(container.querySelector('[data-activity-card="page_context_opened"]')).not.toBeNull();
+    expect(container.textContent).toContain("Opened managed page context for kick.com");
   });
 });
