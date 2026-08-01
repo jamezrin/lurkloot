@@ -417,9 +417,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     await save;
   }
 
-  async function setAutomation(enabled: boolean): Promise<void> {
-    if (!snapshot || pendingAutomation[platform] != null) return;
-    const pendingPlatform = platform;
+  // Addressed by platform rather than "the selected one": each platform tab now
+  // carries its own switch, so either can be toggled without selecting it first.
+  async function setAutomation(pendingPlatform: Platform, enabled: boolean): Promise<void> {
+    if (!snapshot || pendingAutomation[pendingPlatform] != null) return;
     setPendingAutomation((current) => ({ ...current, [pendingPlatform]: enabled }));
     try {
       setSnapshot(snapshotWithMergedSettings(await adapter.send<RuntimeSnapshot>({ type: "setAutomation", platform: pendingPlatform, enabled })));
@@ -557,8 +558,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     twitch: pendingAutomation.twitch ?? settings.platform.twitch.enabled,
     kick: pendingAutomation.kick ?? settings.platform.kick.enabled,
   };
-  const enabled = automation[platform];
-  const automationPending = pendingAutomation[platform] != null;
+  const automationPending: Record<Platform, boolean> = {
+    twitch: pendingAutomation.twitch != null,
+    kick: pendingAutomation.kick != null,
+  };
   const automationPresentationByPlatform = Object.fromEntries(
     (Object.keys(PLATFORMS) as Platform[]).map((id) => [id, automationPresentation({
       platform: id,
@@ -634,7 +637,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             <PlatformBar
               active={platform}
               presentation={automationPresentationByPlatform}
-              enabled={enabled}
+              enabled={automation}
               pending={automationPending}
               onChange={selectPlatform}
               onToggle={setAutomation}

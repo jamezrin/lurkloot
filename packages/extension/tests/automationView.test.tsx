@@ -93,8 +93,8 @@ function mountHeader(options: {
           [options.platform]: options.presentation,
           [otherPlatform]: fallback,
         } as Record<Platform, AutomationPresentation>}
-        enabled
-        pending={false}
+        enabled={{ twitch: true, kick: true }}
+        pending={{ twitch: false, kick: false }}
         onChange={() => undefined}
         onToggle={async () => undefined}
       />
@@ -122,7 +122,7 @@ describe("automation authentication status UI", () => {
     expect(action).not.toBeNull();
     act(() => action?.click());
     expect(openLink).toHaveBeenCalledWith("https://www.twitch.tv/login");
-    expect(container.querySelector('[role="switch"]')?.hasAttribute("disabled")).toBe(false);
+    expect(container.querySelector('[data-platform-status="twitch"] [role="switch"]')?.hasAttribute("disabled")).toBe(false);
   });
 
   it("offers a one-click resume after the user closed the farming tab", () => {
@@ -158,7 +158,7 @@ describe("automation authentication status UI", () => {
     expect(container.querySelector('[data-automation-state="blocked"]')).not.toBeNull();
     expect(container.textContent).toContain("Kick rejected this browser profile");
     expect(container.querySelector("[data-auth-action]")).toBeNull();
-    expect(container.querySelector('[role="switch"]')?.hasAttribute("disabled")).toBe(false);
+    expect(container.querySelector('[data-platform-status="kick"] [role="switch"]')?.hasAttribute("disabled")).toBe(false);
   });
 
   it("shows operational state independently for each platform", () => {

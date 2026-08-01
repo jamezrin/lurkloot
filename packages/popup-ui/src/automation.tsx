@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Eye, Gift, Play, Power, Radio } from "lucide-react";
+import { Eye, Gift, Play, Radio } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
@@ -22,46 +22,55 @@ export function statusColor(presentation: AutomationPresentation, operationalCol
   return undefined;
 }
 
-/** Platform picker and the automation switch on one row: the toggle sits next to
- * the tabs so it reads as belonging to the selected platform, which is what it
- * has always controlled. */
-export function PlatformBar({ active, presentation, enabled, pending, onChange, onToggle }: { active: Platform; presentation: Record<Platform, AutomationPresentation>; enabled: boolean; pending: boolean; onChange(platform: Platform): void; onToggle(value: boolean): Promise<void> }) {
+/** Platform picker where each half carries its own automation switch.
+ *
+ * Every tab is a cell, not a button: a full-area button behind the content
+ * selects the platform, and the switch sits above it, so a switch can live
+ * inside a tab without nesting one button in another. Each half then reads
+ * name-left / control-right, the same rhythm as the status line under it, and
+ * a platform can be turned on without first switching to it. */
+export function PlatformBar({ active, presentation, enabled, pending, onChange, onToggle }: { active: Platform; presentation: Record<Platform, AutomationPresentation>; enabled: Record<Platform, boolean>; pending: Record<Platform, boolean>; onChange(platform: Platform): void; onToggle(platform: Platform, value: boolean): Promise<void> }) {
   const t = useT();
-  const label = t("automationTitle", PLATFORMS[active].label);
   return (
-    <div className="mt-2 flex items-center gap-1.5">
-      <div className="grid h-8 min-w-0 flex-1 grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
-        {Object.entries(PLATFORMS).map(([id, platform]) => {
-          const selected = active === id;
-          const status = presentation[id as Platform];
-          const indicatorColor = statusColor(status, platform.color);
-          return (
-            <button key={id} type="button" data-platform-status={id} data-state={status.state} onClick={() => onChange(id as Platform)} title={`${platform.label}: ${t(status.badgeKey)}`} className={cn("relative flex items-center justify-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-semibold transition-colors outline-none", selected ? "text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200")}>
-              {selected && <motion.span layoutId="platform-pill" transition={{ type: "spring", stiffness: 520, damping: 38 }} className="absolute inset-0 rounded-lg bg-white shadow-sm dark:bg-zinc-700" />}
-              <span className="relative z-10 flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-black" style={{ backgroundColor: selected ? platform.color : "transparent", color: selected ? (id === "kick" ? "#07140a" : "#fff") : platform.color, boxShadow: selected ? `0 0 12px -2px ${platform.color}` : undefined }}>
+    <div className="mt-2 grid h-8 grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
+      {Object.entries(PLATFORMS).map(([key, platform]) => {
+        const id = key as Platform;
+        const selected = active === id;
+        const status = presentation[id];
+        const indicatorColor = statusColor(status, platform.color);
+        return (
+          <div key={id} data-platform-status={id} data-state={status.state} className="relative flex min-w-0 items-center gap-1.5 rounded-lg pl-1.5 pr-1">
+            {selected && <motion.span layoutId="platform-pill" transition={{ type: "spring", stiffness: 520, damping: 38 }} className="absolute inset-0 z-0 rounded-lg bg-white shadow-sm dark:bg-zinc-700" />}
+            <button
+              type="button"
+              onClick={() => onChange(id)}
+              aria-pressed={selected}
+              aria-label={platform.label}
+              title={`${platform.label}: ${t(status.badgeKey)}`}
+              className="absolute inset-0 z-[1] rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            />
+            <span className={cn("pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-1.5 text-[12px] font-semibold transition-colors", selected ? "text-zinc-900 dark:text-white" : "text-zinc-500 dark:text-zinc-400")}>
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-black" style={{ backgroundColor: selected ? platform.color : "transparent", color: selected ? (id === "kick" ? "#07140a" : "#fff") : platform.color, boxShadow: selected ? `0 0 12px -2px ${platform.color}` : undefined }}>
                 {platform.mark}
               </span>
-              <span className="relative z-10 truncate">{platform.label}</span>
-              <span className="relative z-10 flex shrink-0 items-center" aria-hidden>
+              <span className="truncate">{platform.label}</span>
+              <span className="flex shrink-0 items-center" aria-hidden>
                 {indicatorColor ? <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: indicatorColor, boxShadow: `0 0 6px ${indicatorColor}` }} /> : <span className="h-1.5 w-1.5 rounded-full border border-zinc-400 dark:border-zinc-500" />}
               </span>
-            </button>
-          );
-        })}
-      </div>
-      {/* The switch sits in a well matching the tab group's height and fill so it
-          reads as the tab group's sibling control rather than a loose toggle, and
-          the power glyph says what it switches. */}
-      <div className="flex h-8 shrink-0 items-center gap-1.5 rounded-xl bg-zinc-100/80 pl-2 pr-1.5 dark:bg-zinc-800/60" title={label}>
-        <Power
-          size={13}
-          strokeWidth={2.4}
-          aria-hidden
-          className={cn("shrink-0 transition-colors", enabled ? "" : "text-zinc-400 dark:text-zinc-500")}
-          style={enabled ? { color: "var(--accent-text)" } : undefined}
-        />
-        <Toggle checked={enabled} onChange={onToggle} label={label} disabled={pending} />
-      </div>
+            </span>
+            <span className="relative z-10 shrink-0">
+              <Toggle
+                size="sm"
+                color={platform.color}
+                checked={enabled[id]}
+                onChange={(value) => onToggle(id, value)}
+                label={t("automationTitle", platform.label)}
+                disabled={pending[id]}
+              />
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
