@@ -22,7 +22,7 @@ import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
 import { PopupRuntimeContext, useT } from "./context";
 import { formatEventTime } from "./format";
 import { openHttpsLink } from "./links";
-import { ImageWithFallback, Pill } from "./primitives";
+import { ImageWithFallback, Pill, SearchBox } from "./primitives";
 import {
   buildActivityCard,
   buildActivityExport,
@@ -48,6 +48,9 @@ export function ActivityLog({
   clearing,
   version,
   locale,
+  searchQuery = "",
+  onSearchQueryChange = () => undefined,
+  searchingDiagnostics = false,
   onShowDiagnosticsChange,
   onLoadMore,
   onClear,
@@ -66,6 +69,9 @@ export function ActivityLog({
   clearing: boolean;
   version: string;
   locale: string;
+  searchQuery?: string;
+  onSearchQueryChange?(query: string): void;
+  searchingDiagnostics?: boolean;
   onShowDiagnosticsChange(show: boolean): void;
   onLoadMore(): void;
   onClear(): void;
@@ -88,6 +94,7 @@ export function ActivityLog({
   // activity entry now has a diagnostic counterpart, so a merged list showed the
   // same thing twice and buried the high-level story in plumbing detail.
   const visible = showDiagnostics ? diagnosticsForPlatform : forPlatform;
+  const trimmedSearchQuery = searchQuery.trim();
   const errorCount = visible.filter((event) => event.level === "error").length;
   const [copied, setCopied] = useState<number | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -182,9 +189,12 @@ export function ActivityLog({
       {copyFailed ? (
         <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("copyActivityLogFailed")}</p>
       ) : null}
+      {showDiagnostics ? (
+        <SearchBox compact value={searchQuery} onChange={onSearchQueryChange} placeholder={t("searchDiagnostics")} />
+      ) : null}
       <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
         {visible.length === 0 ? (
-          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{t(showDiagnostics ? "noDiagnostics" : "noActivity")}</p>
+          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{showDiagnostics && searchingDiagnostics && trimmedSearchQuery ? t("noDiagnosticsMatch", trimmedSearchQuery) : t(showDiagnostics ? "noDiagnostics" : "noActivity")}</p>
         ) : (
           <ul className="space-y-1 p-1">
             {visible.map((event) => (
@@ -234,8 +244,7 @@ function ActivityTimelineCard({ event }: { event: ActivityHistoryRecord }): Reac
   return (
     <li
       data-activity-card={event.code}
-      className="flex items-start gap-2 rounded-lg border-s-2 bg-zinc-50/70 px-2.5 py-2 text-[11px] leading-snug dark:bg-zinc-900/60"
-      style={{ borderColor: EVENT_LEVEL_COLOR[event.level] }}
+      className="flex items-start gap-2 rounded-lg bg-zinc-50/70 px-2.5 py-2 text-[11px] leading-snug dark:bg-zinc-900/60"
     >
       <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--accent-softer)] text-[var(--accent-text)]">
         {card.reward ? <ActivityRewardImage name={card.reward.name} imageUrl={card.reward.imageUrl} /> : <EventIcon icon={card.icon} aria-hidden="true" />}
