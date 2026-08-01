@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Ban, ChevronDown, Lock, TriangleAlert, type LucideIcon } from "lucide-react";
+import { Ban, ChevronDown, Lock, type LucideIcon } from "lucide-react";
 import type { ExtensionSettings } from "@lurkloot/shared/models";
 import {
   COLLAPSED_SETTINGS_SECTIONS_KEY,
@@ -58,12 +58,12 @@ export function SettingsSection({ id, title, description, icon: Icon, iconNode, 
           type="button"
           aria-expanded={expanded}
           onClick={toggleCollapsed}
-          className="flex w-full items-start justify-between gap-3 rounded-lg border border-zinc-200/70 bg-white px-2 py-1.5 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900/70 dark:hover:bg-zinc-900"
+          className="flex w-full items-start justify-between gap-3 rounded-lg px-1 py-1 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-900/70"
         >
           <span className="min-w-0">
             <span className="flex items-center gap-1.5">
-              {iconNode ?? (Icon ? <Icon size={14} className="text-zinc-500 dark:text-zinc-400" /> : null)}
-              <span className="text-[12px] font-bold uppercase tracking-wide text-zinc-700 dark:text-zinc-200">{title}</span>
+              {iconNode ?? (Icon ? <Icon size={13} className="text-zinc-400 dark:text-zinc-500" /> : null)}
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</span>
               {badge}
             </span>
             {description ? <span className="mt-1 block text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">{description}</span> : null}
@@ -76,11 +76,10 @@ export function SettingsSection({ id, title, description, icon: Icon, iconNode, 
   );
 }
 
-// A labelled divider inside a section. Groups do not collapse: two levels of
-// accordion in a 600px popup is tedious, and search is the real answer to a long
-// page. Advanced groups are visually demoted so they read as advanced even once
-// the "show advanced" switch has revealed them.
-export function SettingsGroup({ title, description, badge, advanced = false, children }: {
+// A labelled divider inside the flat settings flow. Groups do not collapse:
+// search is the direct route to a long page, and all advanced settings remain
+// available without a separate visual warning state.
+export function SettingsGroup({ title, description, badge, children }: {
   title: string;
   // Groups whose whole body is one editor carry that editor's subtitle and count
   // here, so the editor itself renders bare instead of repeating the heading.
@@ -90,10 +89,9 @@ export function SettingsGroup({ title, description, badge, advanced = false, chi
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn("mt-3 first:mt-0", advanced && "rounded-lg border border-amber-500/20 bg-amber-500/[0.03] px-2 pb-1 dark:border-amber-500/20")}>
+    <div className="mt-3 first:mt-0">
       <div className="mb-0.5 flex items-center gap-1.5 pt-1">
-        {advanced ? <TriangleAlert size={11} className="shrink-0 text-amber-500/80" /> : null}
-        <span className={cn("text-[10px] font-semibold uppercase tracking-wide", advanced ? "text-amber-600/90 dark:text-amber-400/90" : "text-zinc-400 dark:text-zinc-500")}>{title}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{title}</span>
         <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/70" />
         {badge}
       </div>
@@ -103,9 +101,9 @@ export function SettingsGroup({ title, description, badge, advanced = false, chi
   );
 }
 
-export function SettingsSearchBox({ value, onChange }: { value: string; onChange(value: string): void }) {
+export function SettingsSearchBox({ value, onChange, autoFocus = false, compact = false }: { value: string; onChange(value: string): void; autoFocus?: boolean; compact?: boolean }) {
   const t = useT();
-  return <SearchBox value={value} onChange={onChange} placeholder={t("settingsSearchPlaceholder")} />;
+  return <SearchBox autoFocus={autoFocus} compact={compact} value={value} onChange={onChange} placeholder={t("settingsSearchPlaceholder")} />;
 }
 
 export function AdvancedSettingsSwitch({ checked, onChange }: { checked: boolean; onChange(value: boolean): void }) {

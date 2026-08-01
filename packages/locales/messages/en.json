@@ -62,6 +62,12 @@
   "settingsSearchNoResults": {
     "message": "No settings match “$1”."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "Platform & Categories/Games"
+  },
+  "settingsPlatformSettings": {
+    "message": "$1 settings"
+  },
   "settingsShowAdvancedTitle": {
     "message": "Show advanced settings"
   },
@@ -71,14 +77,8 @@
   "settingsSectionAdvancedActions": {
     "message": "Advanced actions"
   },
-  "settingsSectionGeneral": {
-    "message": "General"
-  },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
-  },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Import, export, or reset Lurkloot settings."
   },
   "activityTitle": {
     "message": "Activity"
@@ -144,7 +144,7 @@
     "message": "Farming"
   },
   "waitingEligibleStream": {
-    "message": "Waiting for an eligible stream"
+    "message": "No eligible live stream is currently available for this campaign"
   },
   "watchingPausedHint": {
     "message": "Watching paused. Toggle to resume drop farming."
@@ -348,7 +348,7 @@
     "message": "Add channel"
   },
   "idleWatchlistChannel": {
-    "message": "On watchlist"
+    "message": "Offline"
   },
   "live": {
     "message": "live"
@@ -360,7 +360,7 @@
     "message": "General settings"
   },
   "settingsGeneralDescription": {
-    "message": "Applies to Twitch and Kick."
+    "message": "Language, startup, and popup behavior."
   },
   "settingsGroupAppearance": {
     "message": "Appearance & behavior"
@@ -381,7 +381,7 @@
     "message": "Notifications"
   },
   "notificationsDescription": {
-    "message": "Applies to all enabled platforms."
+    "message": "Alerts when rewards are ready or campaigns finish."
   },
   "settingsGroupNotifications": {
     "message": "Notifications"
@@ -402,7 +402,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "Shared campaign farming behavior."
+    "message": "Claiming, eligibility, priorities, and campaign visibility."
   },
   "settingsGroupDrops": {
     "message": "Drops"
@@ -1041,7 +1041,7 @@
     "message": "Compatibility"
   },
   "compatibilitySectionDescription": {
-    "message": "How Lurkloot talks to each platform. Automatic follows the bundled profile."
+    "message": "Only change these if Twitch or Kick is not working; they can help work around platform issues."
   },
   "compatibilityComponentProfile": {
     "message": "Profile"

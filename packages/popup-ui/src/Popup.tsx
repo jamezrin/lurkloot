@@ -607,7 +607,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             <div className="font-display truncate text-[14px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">{viewTitle}</div>
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
-            {settingsOpen || activityOpen ? (
+            {settingsOpen ? (
+              <>
+                <IconButton
+                  label={t("back")}
+                  onClick={() => { setSettingsOpen(false); closeActivityView(); }}
+                >
+                  <ArrowLeft size={16} />
+                </IconButton>
+              </>
+            ) : activityOpen ? (
               <IconButton
                 label={t("back")}
                 onClick={() => { setSettingsOpen(false); closeActivityView(); }}
@@ -650,6 +659,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
               presentation={presentation}
               farmingTitle={activeCampaign?.title}
               farmingChannel={farmingChannel}
+              watchingIdleWatchlist={!activeCampaign && Boolean(farmingChannel)}
               onFarmingTitleClick={onFarmingTitleClick}
               onResume={resumeAfterManualClose}
             />

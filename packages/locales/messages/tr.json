@@ -62,6 +62,12 @@
   "settingsSearchNoResults": {
     "message": "“$1” ile ilgili ayar bulunamadı."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "Platform ve kategoriler/oyunlar"
+  },
+  "settingsPlatformSettings": {
+    "message": "$1 ayarları"
+  },
   "settingsShowAdvancedTitle": {
     "message": "Gelişmiş ayarlar"
   },
@@ -71,14 +77,8 @@
   "settingsSectionAdvancedActions": {
     "message": "Gelişmiş işlemler"
   },
-  "settingsSectionGeneral": {
-    "message": "Genel"
-  },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
-  },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Lurkloot ayarlarını içe aktarın, dışa aktarın veya sıfırlayın."
   },
   "activityTitle": {
     "message": "Geçmiş"
@@ -144,7 +144,7 @@
     "message": "Toplanıyor"
   },
   "waitingEligibleStream": {
-    "message": "Uygun yayın bekleniyor"
+    "message": "Bu kampanya için şu anda uygun canlı yayın yok"
   },
   "watchingPausedHint": {
     "message": "İzleme duraklatıldı. Devam etmek için tekrar başlatın."
@@ -348,7 +348,7 @@
     "message": "Kanal ekle"
   },
   "idleWatchlistChannel": {
-    "message": "Listede"
+    "message": "Çevrim dışı"
   },
   "live": {
     "message": "CANLI"
@@ -360,7 +360,7 @@
     "message": "Genel Ayarlar"
   },
   "settingsGeneralDescription": {
-    "message": "Hem Twitch hem de Kick için geçerlidir."
+    "message": "Dil, başlangıç ve açılır pencere davranışı."
   },
   "settingsGroupAppearance": {
     "message": "Görünüm ve Davranış"
@@ -381,7 +381,7 @@
     "message": "Bildirimler"
   },
   "notificationsDescription": {
-    "message": "Tüm platformlar için bildirim ayarları."
+    "message": "Ödüller hazır olduğunda veya kampanyalar bittiğinde uyarılar."
   },
   "settingsGroupNotifications": {
     "message": "Bildirimler"
@@ -402,7 +402,7 @@
     "message": "Drop Ayarları"
   },
   "dropsSettingsDescription": {
-    "message": "Genel drop toplama kuralları."
+    "message": "Talep etme, uygunluk, öncelikler ve kampanya görünürlüğü."
   },
   "settingsGroupDrops": {
     "message": "Droplar"
@@ -1041,7 +1041,7 @@
     "message": "Uyumluluk"
   },
   "compatibilitySectionDescription": {
-    "message": "Platform protokol ayarları."
+    "message": "Yalnızca Twitch veya Kick çalışmıyorsa değiştirin; platform sorunlarını aşmaya yardımcı olabilir."
   },
   "compatibilityComponentProfile": {
     "message": "Profil"

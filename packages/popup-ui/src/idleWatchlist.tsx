@@ -122,11 +122,10 @@ function IdleWatchlistStatus({ streamer }: { streamer: StreamerItem }): React.Re
     return (
       <span role={viewers ? "img" : undefined} aria-label={viewers} title={viewers}>
         <Pill tone="live">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           {streamer.viewers != null ? <><Eye size={9} aria-hidden />{formatViewers(streamer.viewers)}</> : t("live")}
         </Pill>
       </span>
     );
   }
-  return <Pill tone="muted">{t("idleWatchlistChannel")}</Pill>;
+  return <></>;
 }

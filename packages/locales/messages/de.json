@@ -62,6 +62,12 @@
   "settingsSearchNoResults": {
     "message": "Keine Einstellungen entsprechen „$1“."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "Plattform & Kategorien/Spiele"
+  },
+  "settingsPlatformSettings": {
+    "message": "$1-Einstellungen"
+  },
   "settingsShowAdvancedTitle": {
     "message": "Erweiterte Einstellungen anzeigen"
   },
@@ -71,14 +77,8 @@
   "settingsSectionAdvancedActions": {
     "message": "Erweiterte Aktionen"
   },
-  "settingsSectionGeneral": {
-    "message": "Allgemein"
-  },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
-  },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Lurkloot-Einstellungen importieren, exportieren oder zurücksetzen."
   },
   "activityTitle": {
     "message": "Aktivität"
@@ -144,7 +144,7 @@
     "message": "Farmt"
   },
   "waitingEligibleStream": {
-    "message": "Wartet auf einen geeigneten Stream"
+    "message": "Für diese Kampagne ist derzeit kein geeigneter Livestream verfügbar"
   },
   "watchingPausedHint": {
     "message": "Schauen pausiert. Schalter aktivieren, um Drop-Farming fortzusetzen."
@@ -348,7 +348,7 @@
     "message": "Kanal hinzufügen"
   },
   "idleWatchlistChannel": {
-    "message": "in Leerlauf-Watchlist"
+    "message": "Nicht online"
   },
   "live": {
     "message": "live"
@@ -360,7 +360,7 @@
     "message": "Allgemeine Einstellungen"
   },
   "settingsGeneralDescription": {
-    "message": "Gilt für Twitch und Kick."
+    "message": "Sprache, Startverhalten und Verhalten des Popups."
   },
   "settingsGroupAppearance": {
     "message": "Erscheinungsbild und Verhalten"
@@ -381,7 +381,7 @@
     "message": "Benachrichtigungen"
   },
   "notificationsDescription": {
-    "message": "Gilt für alle aktivierten Plattformen."
+    "message": "Benachrichtigungen, wenn Belohnungen bereit sind oder Kampagnen enden."
   },
   "settingsGroupNotifications": {
     "message": "Benachrichtigungen"
@@ -402,7 +402,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "Gemeinsames Verhalten für Kampagnen-Farming."
+    "message": "Beanspruchen, Teilnahme, Prioritäten und Sichtbarkeit von Kampagnen."
   },
   "settingsGroupDrops": {
     "message": "Drops"
@@ -1041,7 +1041,7 @@
     "message": "Kompatibilität"
   },
   "compatibilitySectionDescription": {
-    "message": "Wie Lurkloot mit den einzelnen Plattformen kommuniziert. Automatisch folgt dem mitgelieferten Profil."
+    "message": "Nur ändern, wenn Twitch oder Kick nicht funktioniert; sie können Plattformprobleme umgehen."
   },
   "compatibilityComponentProfile": {
     "message": "Profil"

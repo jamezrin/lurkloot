@@ -130,7 +130,7 @@ export function PlatformBar({ active, presentation, enabled, pending, onChange, 
  * campaign list under the pointer. Only the states carrying a call to action —
  * sign-in, blocked, unavailable, tab-closed — are allowed to grow, and there the
  * movement is the point. */
-export function AutomationStatusLine({ platform, presentation, farmingTitle, farmingChannel, onFarmingTitleClick, onResume }: { platform: Platform; presentation: AutomationPresentation; farmingTitle?: string; farmingChannel?: FarmingChannelView; onFarmingTitleClick?(): void; onResume?(): void }) {
+export function AutomationStatusLine({ platform, presentation, farmingTitle, farmingChannel, watchingIdleWatchlist = false, onFarmingTitleClick, onResume }: { platform: Platform; presentation: AutomationPresentation; farmingTitle?: string; farmingChannel?: FarmingChannelView; watchingIdleWatchlist?: boolean; onFarmingTitleClick?(): void; onResume?(): void }) {
   const t = useT();
   const runtime = usePopupRuntime();
   const action = presentation.action;
@@ -178,6 +178,12 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
                 ) : (
                   <span className="min-w-0 truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span>
                 )}
+              </span>
+            )}
+            {watchingIdleWatchlist && (
+              <span className="ml-auto flex min-w-0 items-center gap-1 pl-1 text-zinc-700 dark:text-zinc-200">
+                <Play size={11} className="shrink-0" aria-hidden style={{ color: "var(--accent-text)" }} />
+                <span className="truncate font-semibold">{t("idleWatchlistTab")}</span>
               </span>
             )}
           </span>
