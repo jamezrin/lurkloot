@@ -14,13 +14,13 @@ import {
 describe("tip rotation", () => {
   it("chooses a bounded random starting tip", () => {
     expect(randomTipIndex(8, () => 0)).toBe(0);
-    expect(randomTipIndex(8, () => 0.999)).toBe(7);
+    expect(randomTipIndex(9, () => 0.999)).toBe(8);
     expect(randomTipIndex(0, () => 0.5)).toBe(0);
   });
 
   it("advances sequentially and wraps without an immediate repeat", () => {
-    expect(nextTipIndex(2, 8)).toBe(3);
-    expect(nextTipIndex(7, 8)).toBe(0);
+    expect(nextTipIndex(2, 9)).toBe(3);
+    expect(nextTipIndex(8, 9)).toBe(0);
     expect(nextTipIndex(0, 1)).toBe(0);
   });
 
@@ -66,9 +66,43 @@ describe("TipsBanner", () => {
     expect(html).toContain("rel=\"noreferrer\"");
   });
 
+  it("links the localized translation tip to the contributor guide", () => {
+    const html = renderToStaticMarkup(createElement(
+      I18nContext.Provider,
+      { value: { t: (key: string) => key, dir: "ltr", locale: "en" } },
+      createElement(TipsBanner, { initialIndex: 8 }),
+    ));
+
+    expect(html).toContain("tipTranslations");
+    expect(html).toContain("tipTranslationsAction");
+    expect(html).toContain("https://github.com/jamezrin/lurkloot/blob/main/docs/translations.md");
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noreferrer"');
+  });
+
+  it("excludes the translation tip from the preview variant", () => {
+    const html = renderToStaticMarkup(createElement(
+      I18nContext.Provider,
+      { value: { t: (key: string) => key, dir: "ltr", locale: "en" } },
+      createElement(TipsBanner, { initialIndex: 8, preview: true }),
+    ));
+
+    expect(html).toContain("tipCampaignPriority");
+    expect(html).not.toContain("tipTranslations");
+    expect(html).not.toContain("tipTranslationsAction");
+  });
+
+  it("documents the translation contribution workflow", () => {
+    const guide = readFileSync(resolve(import.meta.dirname, "../../../docs/translations.md"), "utf8");
+    expect(guide).toContain("# Improving translations");
+    expect(guide).toContain("packages/locales/messages/");
+    expect(guide).toContain("pnpm --filter @lurkloot/extension test -- tips.test.ts");
+    expect(guide).toContain("base branch: `develop`");
+  });
+
   it("is gated by the popup preference and deterministic in previews", () => {
     const popupSource = readFileSync(resolve(import.meta.dirname, "../../popup-ui/src/Popup.tsx"), "utf8");
-    expect(popupSource).toContain("settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} /> : null");
+    expect(popupSource).toContain("settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} /> : null");
   });
 
   it("has a Hide tips control in General settings", () => {
@@ -92,6 +126,8 @@ describe("TipsBanner", () => {
       "tipFeedback",
       "tipFeedbackAction",
       "tipExcludedCampaigns",
+      "tipTranslations",
+      "tipTranslationsAction",
     ];
     const locales = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
 

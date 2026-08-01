@@ -185,6 +185,12 @@
   "tipExcludedCampaigns": {
     "message": "Kampagne versehentlich ausgeschlossen? Stelle sie in den Drops-Einstellungen wieder her."
   },
+  "tipTranslations": {
+    "message": "Übersetzungen werden automatisch mit KI gepflegt. Hilf mit, sie auf GitHub zu verbessern."
+  },
+  "tipTranslationsAction": {
+    "message": "Übersetzungsleitfaden lesen"
+  },
   "noCampaigns": {
     "message": "Noch keine Kampagnen gefunden."
   },
