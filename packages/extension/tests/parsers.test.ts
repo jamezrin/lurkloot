@@ -799,24 +799,29 @@ describe("Twitch parsers", () => {
   });
 
   it("does not treat a benefit awarded outside the drop's own window as claiming it", () => {
+    // The campaign has to still be running for the status assertion below to mean
+    // anything, so its window is relative to now rather than a fixed date that
+    // silently turns this into an expired-campaign test once it passes.
+    const day = 24 * 60 * 60 * 1000;
+    const at = (offsetDays: number) => new Date(Date.now() + offsetDays * day).toISOString();
     const campaigns = parseTwitchInventory({
       data: {
         currentUser: {
           inventory: {
             gameEventDrops: [{
               benefit: { id: "shared-benefit" },
-              lastAwardedAt: "2026-05-15T12:00:00.000Z",
+              lastAwardedAt: at(-60),
             }],
             dropCampaignsInProgress: [{
               id: "abc",
               name: "Twitch Drops",
-              startAt: "2026-07-01T00:00:00.000Z",
-              endAt: "2026-08-01T00:00:00.000Z",
+              startAt: at(-15),
+              endAt: at(15),
               timeBasedDrops: [{
                 id: "drop",
                 name: "Cape",
-                startAt: "2026-07-01T00:00:00.000Z",
-                endAt: "2026-08-01T00:00:00.000Z",
+                startAt: at(-15),
+                endAt: at(15),
                 requiredMinutesWatched: 60,
                 benefitEdges: [{ benefit: { id: "shared-benefit", name: "Cape" } }],
               }],
