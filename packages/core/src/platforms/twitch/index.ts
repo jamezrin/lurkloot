@@ -34,7 +34,11 @@ const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 // Twitch's web Client-ID — the default identity. It is the one Twitch gates
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
-const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
+// Discovery normally runs once per minute. Keep one full tick of headroom so
+// scheduler-created adapters can reuse an authoritative answer on the next
+// tick without extending channel availability beyond a short-lived window.
+const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 2 * 60_000;
+const CHANNEL_CAMPAIGN_CACHE_MAX_ENTRIES = 128;
 const DISCOVERY_DETAIL_CACHE_TTL_MS = 5 * 60_000;
 // Wider than the default one-minute discovery cadence, so one batch crosses
 // its deadlines over two later ticks while every entry remains fresh for >3m.
@@ -333,9 +337,14 @@ interface TwitchAvailableDropsData {
 }
 
 interface CachedAvailableCampaigns {
+  userId: string;
   campaignIds: Set<string>;
   expiresAt: number;
 }
+
+type CampaignAvailabilityCacheLookup =
+  | { status: "hit"; available: boolean }
+  | { status: "miss" | "expired" };
 
 interface CachedCampaignDetails {
   campaign: unknown;
@@ -372,21 +381,60 @@ function reconcileInventoryCampaignStatuses(
 }
 
 export class TwitchDiscoveryState {
+  private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
   private authenticatedUserId?: string;
   private retainedDashboard?: CachedDashboardCampaigns;
 
-  setAuthenticatedUser(userId: string): void {
+  setAuthenticatedUser(userId: string): number {
     if (this.authenticatedUserId && this.authenticatedUserId !== userId) {
+      const invalidatedAvailabilityEntries = this.availableCampaignsByChannel.size;
       this.clear();
+      this.authenticatedUserId = userId;
+      return invalidatedAvailabilityEntries;
     }
     this.authenticatedUserId = userId;
+    return 0;
   }
 
   clear(): void {
     this.authenticatedUserId = undefined;
     this.retainedDashboard = undefined;
+    this.availableCampaignsByChannel.clear();
     this.campaignDetailsByDropId.clear();
+  }
+
+  campaignAvailability(channelId: string, campaignId: string): CampaignAvailabilityCacheLookup {
+    const cached = this.availableCampaignsByChannel.get(channelId);
+    if (!cached || !this.authenticatedUserId) return { status: "miss" };
+    if (cached.userId !== this.authenticatedUserId) {
+      this.availableCampaignsByChannel.delete(channelId);
+      return { status: "miss" };
+    }
+    if (cached.expiresAt <= Date.now()) {
+      this.availableCampaignsByChannel.delete(channelId);
+      return { status: "expired" };
+    }
+    return { status: "hit", available: cached.campaignIds.has(campaignId) };
+  }
+
+  rememberAvailableCampaigns(channelId: string, campaignIds: Iterable<string>): void {
+    if (!this.authenticatedUserId) return;
+    const now = Date.now();
+    for (const [cachedChannelId, cached] of this.availableCampaignsByChannel) {
+      if (cached.expiresAt <= now) this.availableCampaignsByChannel.delete(cachedChannelId);
+    }
+    this.availableCampaignsByChannel.delete(channelId);
+    this.availableCampaignsByChannel.set(channelId, {
+      userId: this.authenticatedUserId,
+      campaignIds: new Set(campaignIds),
+      expiresAt: now + CHANNEL_CAMPAIGN_CACHE_TTL_MS,
+    });
+    while (this.availableCampaignsByChannel.size > CHANNEL_CAMPAIGN_CACHE_MAX_ENTRIES) {
+      const oldestChannelId = this.availableCampaignsByChannel.keys().next().value;
+      if (typeof oldestChannelId !== "string") break;
+      this.availableCampaignsByChannel.delete(oldestChannelId);
+    }
   }
 
   snapshot(): TwitchDiscoverySnapshot | undefined {
@@ -673,7 +721,6 @@ export class TwitchAdapter implements PlatformAdapter {
 
   private readonly gqlTransport: TwitchGqlTransport;
   private readonly inventoryCapability: TwitchInventoryCapability;
-  private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
   private readonly discoveryState: TwitchDiscoveryState;
 
   constructor(
@@ -752,7 +799,18 @@ export class TwitchAdapter implements PlatformAdapter {
     }
 
     const authenticatedUserId = twitchCurrentUserId(inventory) ?? dashboard.data?.currentUser?.id;
-    if (authenticatedUserId) this.discoveryState.setAuthenticatedUser(authenticatedUserId);
+    if (authenticatedUserId) {
+      const invalidatedAvailabilityEntries = this.discoveryState.setAuthenticatedUser(authenticatedUserId);
+      if (invalidatedAvailabilityEntries > 0) {
+        const entryLabel = invalidatedAvailabilityEntries === 1 ? "entry" : "entries";
+        diagnostic(
+          this.emit,
+          "debug",
+          `Twitch availability cache invalidated after authenticated identity changed (${invalidatedAvailabilityEntries} ${entryLabel})`,
+          "twitch",
+        );
+      }
+    }
     const userLogin = authenticatedUserId ?? dashboard.data?.currentUser?.login ?? "";
     const freshCampaignIds = dashboardCampaigns
       .filter((campaign) =>
@@ -1152,15 +1210,22 @@ export class TwitchAdapter implements PlatformAdapter {
           batchRequests: 0,
           singleFallbacks: 0,
           cacheHits: 0,
+          cacheMisses: 0,
+          cacheExpirations: 0,
         };
 
     let checked = 0;
     let winnerFallbacks = 0;
     const reportSelectionFinished = () => {
+      const cacheHitLabel = availabilityResult.cacheHits === 1 ? "hit" : "hits";
+      const cacheMissLabel = availabilityResult.cacheMisses === 1 ? "miss" : "misses";
+      const cacheExpirationLabel = availabilityResult.cacheExpirations === 1
+        ? "expiration"
+        : "expirations";
       diagnostic(
         this.emit,
         "debug",
-        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
+        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache ${cacheHitLabel}, ${availabilityResult.cacheMisses} availability cache ${cacheMissLabel}, ${availabilityResult.cacheExpirations} availability cache ${cacheExpirationLabel}, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
         "twitch",
       );
     };
@@ -1193,6 +1258,22 @@ export class TwitchAdapter implements PlatformAdapter {
     return { checked: candidates.length };
   }
 
+  private cachedCampaignAvailability(
+    channelId: string,
+    campaignId: string,
+    metrics?: { cacheHits: number },
+  ): CampaignAvailabilityCacheLookup {
+    const lookup = this.discoveryState.campaignAvailability(channelId, campaignId);
+    diagnostic(
+      this.emit,
+      "debug",
+      `Twitch availability cache ${lookup.status} for channel ${channelId}`,
+      "twitch",
+    );
+    if (lookup.status === "hit" && metrics) metrics.cacheHits += 1;
+    return lookup;
+  }
+
   private async batchCampaignAvailability(
     candidates: readonly { channelId: string; channelLogin: string }[],
     campaignId: string,
@@ -1202,19 +1283,24 @@ export class TwitchAdapter implements PlatformAdapter {
     batchRequests: number;
     singleFallbacks: number;
     cacheHits: number;
+    cacheMisses: number;
+    cacheExpirations: number;
   }> {
     const matches = new Map<string, boolean | undefined>();
     const uncached: Array<{ channelId: string; channelLogin: string }> = [];
     let cacheHits = 0;
+    let cacheMisses = 0;
+    let cacheExpirations = 0;
     for (const candidate of candidates) {
       if (matches.has(candidate.channelId)) continue;
-      const cached = this.availableCampaignsByChannel.get(candidate.channelId);
-      if (cached && cached.expiresAt > Date.now()) {
+      const cached = this.discoveryState.campaignAvailability(candidate.channelId, campaignId);
+      if (cached.status === "hit") {
         cacheHits += 1;
-        matches.set(candidate.channelId, cached.campaignIds.has(campaignId));
+        matches.set(candidate.channelId, cached.available);
         continue;
       }
-      if (cached) this.availableCampaignsByChannel.delete(candidate.channelId);
+      if (cached.status === "expired") cacheExpirations += 1;
+      else cacheMisses += 1;
       uncached.push(candidate);
     }
     if (uncached.length === 1) {
@@ -1228,6 +1314,7 @@ export class TwitchAdapter implements PlatformAdapter {
           candidate.channelLogin,
           signal,
           metrics,
+          true,
         ),
       );
       return {
@@ -1235,6 +1322,8 @@ export class TwitchAdapter implements PlatformAdapter {
         batchRequests: 0,
         singleFallbacks: metrics.checks,
         cacheHits: cacheHits + metrics.cacheHits,
+        cacheMisses,
+        cacheExpirations,
       };
     }
     const chunks = Array.from(
@@ -1274,6 +1363,8 @@ export class TwitchAdapter implements PlatformAdapter {
       batchRequests: chunks.length,
       singleFallbacks: results.reduce((total, result) => total + result.singleFallbacks, 0),
       cacheHits,
+      cacheMisses,
+      cacheExpirations,
     };
   }
 
@@ -1296,6 +1387,8 @@ export class TwitchAdapter implements PlatformAdapter {
           campaignId,
           candidate.channelLogin,
           signal,
+          undefined,
+          true,
         ),
       );
     };
@@ -1348,19 +1441,15 @@ export class TwitchAdapter implements PlatformAdapter {
     let singleFallbacks = 0;
     for (const [index, candidate] of candidates.entries()) {
       const response = normalizeTwitchGqlResponse<TwitchAvailableDropsData>(responses[index]);
-      const campaigns = response?.data?.channel?.viewerDropCampaigns;
-      if (!Array.isArray(campaigns) || response?.errors?.length || response?.error) {
+      const campaignIds = response
+        ? twitchAvailableCampaignIds(response, candidate.channelId)
+        : undefined;
+      if (!campaignIds) {
         singleFallbacks += 1;
         await fallback(candidate);
         continue;
       }
-      const campaignIds = new Set(
-        campaigns.map((campaign) => campaign.id).filter((id): id is string => Boolean(id)),
-      );
-      this.availableCampaignsByChannel.set(candidate.channelId, {
-        campaignIds,
-        expiresAt: Date.now() + CHANNEL_CAMPAIGN_CACHE_TTL_MS,
-      });
+      this.discoveryState.rememberAvailableCampaigns(candidate.channelId, campaignIds);
       matches.set(candidate.channelId, campaignIds.has(campaignId));
     }
     return { matches, singleFallbacks };
@@ -1521,13 +1610,12 @@ export class TwitchAdapter implements PlatformAdapter {
     channelLogin: string,
     signal?: AbortSignal,
     metrics?: { checks: number; cacheHits: number },
+    cacheAlreadyChecked = false,
   ): Promise<boolean | undefined> {
-    const cached = this.availableCampaignsByChannel.get(channelId);
-    if (cached && cached.expiresAt > Date.now()) {
-      if (metrics) metrics.cacheHits += 1;
-      return cached.campaignIds.has(campaignId);
+    if (!cacheAlreadyChecked) {
+      const cached = this.cachedCampaignAvailability(channelId, campaignId, metrics);
+      if (cached.status === "hit") return cached.available;
     }
-    if (cached) this.availableCampaignsByChannel.delete(channelId);
 
     try {
       if (metrics) metrics.checks += 1;
@@ -1540,19 +1628,13 @@ export class TwitchAdapter implements PlatformAdapter {
         this.emit,
         signal,
       );
-      const campaigns = response.data?.channel?.viewerDropCampaigns;
-      if (!Array.isArray(campaigns)) {
+      const campaignIds = twitchAvailableCampaignIds(response, channelId);
+      if (!campaignIds) {
         diagnostic(this.emit, "debug", `Twitch did not return available campaign data for ${channelLogin}; using live/category validation`, "twitch");
         return undefined;
       }
 
-      const campaignIds = new Set(
-        campaigns.map((campaign) => campaign.id).filter((id): id is string => Boolean(id)),
-      );
-      this.availableCampaignsByChannel.set(channelId, {
-        campaignIds,
-        expiresAt: Date.now() + CHANNEL_CAMPAIGN_CACHE_TTL_MS,
-      });
+      this.discoveryState.rememberAvailableCampaigns(channelId, campaignIds);
       return campaignIds.has(campaignId);
     } catch (error) {
       signal?.throwIfAborted();
@@ -2056,6 +2138,24 @@ function twitchDashboardCampaigns(dashboard: unknown): TwitchDashboardCampaign[]
     && typeof campaign.status === "string"
     && TWITCH_DASHBOARD_CAMPAIGN_STATUSES.has(campaign.status))) return undefined;
   return campaigns as TwitchDashboardCampaign[];
+}
+
+function twitchAvailableCampaignIds(
+  response: TwitchGqlResponse<TwitchAvailableDropsData>,
+  expectedChannelId: string,
+): Set<string> | undefined {
+  if (response.errors?.length || response.error) return undefined;
+  const channel = response.data?.channel;
+  if (!channel || !Array.isArray(channel.viewerDropCampaigns)) return undefined;
+  if (channel.id !== expectedChannelId) return undefined;
+  const campaignIds = new Set<string>();
+  for (const campaign of channel.viewerDropCampaigns) {
+    if (!isRecord(campaign) || typeof campaign.id !== "string" || campaign.id.length === 0) {
+      return undefined;
+    }
+    campaignIds.add(campaign.id);
+  }
+  return campaignIds;
 }
 
 function twitchCurrentUserId(value: unknown): string | undefined {
