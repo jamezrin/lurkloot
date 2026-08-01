@@ -6,6 +6,7 @@ import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { formatEventTime } from "./format";
 import { buildActivityExport, formatActivityEvent } from "./activity.logic";
+import { SearchBox } from "./primitives";
 
 // How long the button stays in its confirmation state after a successful copy.
 const COPY_FEEDBACK_MS = 2500;
@@ -24,6 +25,9 @@ export function ActivityLog({
   clearing,
   version,
   locale,
+  searchQuery,
+  onSearchQueryChange,
+  searchingDiagnostics,
   onShowDiagnosticsChange,
   onLoadMore,
   onClear,
@@ -42,6 +46,9 @@ export function ActivityLog({
   clearing: boolean;
   version: string;
   locale: string;
+  searchQuery: string;
+  onSearchQueryChange(query: string): void;
+  searchingDiagnostics: boolean;
   onShowDiagnosticsChange(show: boolean): void;
   onLoadMore(): void;
   onClear(): void;
@@ -62,6 +69,7 @@ export function ActivityLog({
   // activity entry now has a diagnostic counterpart, so a merged list showed the
   // same thing twice and buried the high-level story in plumbing detail.
   const visible = showDiagnostics ? diagnosticsForPlatform : forPlatform;
+  const trimmedSearchQuery = searchQuery.trim();
   const errorCount = visible.filter((event) => event.level === "error").length;
   const [copied, setCopied] = useState<number | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -156,9 +164,12 @@ export function ActivityLog({
       {copyFailed ? (
         <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("copyActivityLogFailed")}</p>
       ) : null}
+      {showDiagnostics ? (
+        <SearchBox compact value={searchQuery} onChange={onSearchQueryChange} placeholder={t("searchDiagnostics")} />
+      ) : null}
       <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
         {visible.length === 0 ? (
-          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{t(showDiagnostics ? "noDiagnostics" : "noActivity")}</p>
+          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{showDiagnostics && searchingDiagnostics && trimmedSearchQuery ? t("noDiagnosticsMatch", trimmedSearchQuery) : t(showDiagnostics ? "noDiagnostics" : "noActivity")}</p>
         ) : (
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
             {visible.map((event) => (

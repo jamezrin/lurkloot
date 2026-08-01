@@ -212,6 +212,12 @@
   "noDiagnostics": {
     "message": "Henüz teknik kayıt yok. Uzantı çalıştıkça görünür."
   },
+  "searchDiagnostics": {
+    "message": "Teknik kayıtları ara"
+  },
+  "noDiagnosticsMatch": {
+    "message": "\"$1\" ile eşleşen teknik kayıt yok."
+  },
   "platformActivity": {
     "message": "$1 geçmişi"
   },

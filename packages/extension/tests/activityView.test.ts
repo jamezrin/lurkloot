@@ -228,6 +228,13 @@ describe("activity view model", () => {
     expect(isActivityRequestCurrent(afterClear, afterClear)).toBe(true);
   });
 
+  it("rejects a late diagnostic page after its query changes", () => {
+    expect(isActivityRequestCurrent(
+      { generation: 2, platform: "kick", query: "timeout" },
+      { generation: 2, platform: "kick", query: "retry" },
+    )).toBe(false);
+  });
+
   it("rejects an older refresh response after a newer refresh was issued", () => {
     const sequence = createActivityMutationSequence();
     const scope = createActivityRequestScope("twitch");

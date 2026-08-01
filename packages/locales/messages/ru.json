@@ -212,6 +212,12 @@
   "noDiagnostics": {
     "message": "Диагностика пока не записана. Она появляется по мере работы расширения."
   },
+  "searchDiagnostics": {
+    "message": "Искать диагностику"
+  },
+  "noDiagnosticsMatch": {
+    "message": "Нет диагностических записей, соответствующих \"$1\"."
+  },
   "platformActivity": {
     "message": "Активность $1"
   },

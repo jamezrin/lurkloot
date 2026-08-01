@@ -212,6 +212,12 @@
   "noDiagnostics": {
     "message": "Aucun diagnostic enregistré. Ils apparaissent au fil du travail de l'extension."
   },
+  "searchDiagnostics": {
+    "message": "Rechercher des diagnostics"
+  },
+  "noDiagnosticsMatch": {
+    "message": "Aucun diagnostic ne correspond à \"$1\"."
+  },
   "platformActivity": {
     "message": "Activité $1"
   },

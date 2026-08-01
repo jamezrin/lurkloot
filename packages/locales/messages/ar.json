@@ -212,6 +212,12 @@
   "noDiagnostics": {
     "message": "لم يتم تسجيل أي تشخيصات بعد. تظهر أثناء عمل الإضافة."
   },
+  "searchDiagnostics": {
+    "message": "البحث في التشخيصات"
+  },
+  "noDiagnosticsMatch": {
+    "message": "لا توجد تشخيصات تطابق \"$1\"."
+  },
   "platformActivity": {
     "message": "نشاط $1"
   },

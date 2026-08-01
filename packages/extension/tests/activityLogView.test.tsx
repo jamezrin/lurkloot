@@ -44,12 +44,17 @@ function mount(options: {
   diagnosticLogging?: boolean;
   writeClipboard?: (text: string) => Promise<boolean>;
   omitClipboard?: boolean;
+  activityEvents?: ActivityHistoryRecord[];
+  diagnosticEvents?: ActivityHistoryRecord[];
+  searchQuery?: string;
+  searchingDiagnostics?: boolean;
 }) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const onShowDiagnosticsChange = vi.fn();
+  const onSearchQueryChange = vi.fn();
   const writeClipboard = options.writeClipboard ?? vi.fn(async () => true);
   const container = document.getElementById("app")!;
 
@@ -65,6 +70,8 @@ function mount(options: {
           diagnosticsViewTab: "Diagnostics",
           noActivity: "No activity recorded yet.",
           noDiagnostics: "No diagnostics recorded yet.",
+          searchDiagnostics: "Search diagnostics",
+          noDiagnosticsMatch: `No diagnostics match \"${String(substitutions)}\".`,
           copyActivityLog: "Copy log",
           copyActivityLogCopied: `Copied ${String(substitutions)} events`,
           copyActivityLogFailed: "Could not copy the log. Try again.",
@@ -73,8 +80,8 @@ function mount(options: {
         locale: "en",
       }}>
         <ActivityLog
-          activityEvents={ACTIVITY}
-          diagnosticEvents={DIAGNOSTICS}
+          activityEvents={options.activityEvents ?? ACTIVITY}
+          diagnosticEvents={options.diagnosticEvents ?? DIAGNOSTICS}
           platform="kick"
           diagnosticLogging={options.diagnosticLogging ?? true}
           showDiagnostics={options.showDiagnostics}
@@ -85,6 +92,9 @@ function mount(options: {
           clearing={false}
           version="1.9.0"
           locale="en"
+          searchQuery={options.searchQuery ?? ""}
+          onSearchQueryChange={onSearchQueryChange}
+          searchingDiagnostics={options.searchingDiagnostics ?? false}
           onShowDiagnosticsChange={onShowDiagnosticsChange}
           onLoadMore={() => undefined}
           onClear={() => undefined}
@@ -94,12 +104,21 @@ function mount(options: {
     );
   });
 
-  return { container, onShowDiagnosticsChange, writeClipboard };
+  return { container, onShowDiagnosticsChange, onSearchQueryChange, writeClipboard };
 }
 
 const copyButton = (container: Element) =>
   [...container.querySelectorAll<HTMLButtonElement>("button")]
     .find((button) => button.textContent?.includes("Copy log") || button.textContent?.includes("Copied"));
+
+function setSearchQuery(input: HTMLInputElement, value: string): void {
+  input.value = value;
+  const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
+  const props = propsKey
+    ? (input as unknown as Record<string, { onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void }>)[propsKey]
+    : undefined;
+  props?.onChange?.({ target: input, currentTarget: input });
+}
 
 describe("activity log view", () => {
   it("shows only activity entries while the activity view is selected", () => {
@@ -118,6 +137,33 @@ describe("activity log view", () => {
     expect(container.textContent).not.toContain("Started farming a reward");
     expect(container.textContent).toContain("Kick diagnostics");
     expect(container.querySelectorAll("ul > li")).toHaveLength(1);
+  });
+
+  it("renders the diagnostics search field and forwards typed queries", () => {
+    const { container, onSearchQueryChange } = mount({ showDiagnostics: true });
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]');
+
+    expect(input?.getAttribute("aria-label")).toBe("Search diagnostics");
+    act(() => { if (input) setSearchQuery(input, "timeout"); });
+    expect(onSearchQueryChange).toHaveBeenCalledWith("timeout");
+  });
+
+  it("shows the query-specific empty state when diagnostics search finds no results", () => {
+    const { container } = mount({
+      showDiagnostics: true,
+      diagnosticEvents: [],
+      searchQuery: " timeout ",
+      searchingDiagnostics: true,
+    });
+
+    expect(container.textContent).toContain("No diagnostics match \"timeout\".");
+  });
+
+  it("keeps the activity empty state without a diagnostics search field", () => {
+    const { container } = mount({ showDiagnostics: false, activityEvents: [] });
+
+    expect(container.querySelector('input[type="search"]')).toBeNull();
+    expect(container.textContent).toContain("No activity recorded yet.");
   });
 
   it("marks the selected view on the switch and requests the other one on click", () => {
@@ -176,6 +222,9 @@ describe("activity log view", () => {
             clearing={false}
             version="1.9.0"
             locale="en"
+            searchQuery=""
+            onSearchQueryChange={() => undefined}
+            searchingDiagnostics={false}
             onShowDiagnosticsChange={() => undefined}
             onLoadMore={() => undefined}
             onClear={() => undefined}

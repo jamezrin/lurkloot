@@ -60,6 +60,7 @@ export interface PlaybackControl {
 export interface ActivityQuery {
   platform?: Platform;
   category: EventCategory;
+  query?: string;
   cursor?: string;
   limit?: number;
 }

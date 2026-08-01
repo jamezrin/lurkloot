@@ -212,6 +212,12 @@
   "noDiagnostics": {
     "message": "尚未记录诊断信息。扩展运行时会出现。"
   },
+  "searchDiagnostics": {
+    "message": "搜索诊断信息"
+  },
+  "noDiagnosticsMatch": {
+    "message": "没有与“$1”匹配的诊断信息。"
+  },
   "platformActivity": {
     "message": "$1 活动"
   },
