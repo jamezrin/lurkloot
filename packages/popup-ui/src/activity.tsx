@@ -75,7 +75,9 @@ export function ActivityLog({
 }): React.ReactElement {
   const t = useT();
   const forPlatform = useMemo(
-    () => activityEvents.filter((event) => !event.platform || event.platform === platform),
+    () => activityEvents.filter((event) =>
+      (!event.platform || event.platform === platform)
+      && !(event.category === "activity" && event.code === "auth_health_changed")),
     [activityEvents, platform],
   );
   const diagnosticsForPlatform = useMemo(

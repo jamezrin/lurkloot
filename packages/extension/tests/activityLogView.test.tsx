@@ -135,6 +135,23 @@ describe("activity log view", () => {
     expect(container.querySelector("[data-activity-card]")).toBeNull();
   });
 
+  it("keeps authentication transitions out of the user-facing activity stream", () => {
+    const events: ActivityHistoryRecord[] = [{
+      id: "auth-1",
+      at: "2026-07-25T12:00:01.000Z",
+      category: "activity",
+      code: "auth_health_changed",
+      level: "info",
+      platform: "kick",
+      data: { from: "checking", to: "healthy" },
+    }, ...ACTIVITY];
+    const { container } = mount({ showDiagnostics: false, activityEvents: events });
+
+    expect(container.querySelector('[data-activity-card="auth_health_changed"]')).toBeNull();
+    expect(container.textContent).not.toContain("authentication changed");
+    expect(container.querySelectorAll("ul > li")).toHaveLength(1);
+  });
+
   it("marks the selected view on the switch and requests the other one on click", () => {
     const { container, onShowDiagnosticsChange } = mount({ showDiagnostics: false });
     const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
