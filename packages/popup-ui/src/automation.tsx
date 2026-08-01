@@ -32,25 +32,28 @@ export function statusColor(presentation: AutomationPresentation, operationalCol
 export function PlatformBar({ active, presentation, enabled, pending, onChange, onToggle }: { active: Platform; presentation: Record<Platform, AutomationPresentation>; enabled: Record<Platform, boolean>; pending: Record<Platform, boolean>; onChange(platform: Platform): void; onToggle(platform: Platform, value: boolean): Promise<void> }) {
   const t = useT();
   return (
-    <div className="mt-2 grid h-8 grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
+    // A tab strip, not a segmented control: the shared rule is the track and the
+    // selected platform owns the span of it under its own tab. Everything below
+    // — status line, drops, watchlist — is that tab's panel.
+    <div role="tablist" className="mt-2 grid grid-cols-2 gap-3 border-b border-zinc-200 dark:border-zinc-800">
       {Object.entries(PLATFORMS).map(([key, platform]) => {
         const id = key as Platform;
         const selected = active === id;
         const status = presentation[id];
         const indicatorColor = statusColor(status, platform.color);
         return (
-          <div key={id} data-platform-status={id} data-state={status.state} className="relative flex min-w-0 items-center gap-1.5 rounded-lg pl-1.5 pr-1">
-            {selected && <motion.span layoutId="platform-pill" transition={{ type: "spring", stiffness: 520, damping: 38 }} className="absolute inset-0 z-0 rounded-lg bg-white shadow-sm dark:bg-zinc-700" />}
+          <div key={id} data-platform-status={id} data-state={status.state} className="relative flex min-w-0 items-center gap-1.5 px-0.5 pb-1.5 pt-0.5">
             <button
               type="button"
+              role="tab"
               onClick={() => onChange(id)}
-              aria-pressed={selected}
+              aria-selected={selected}
               aria-label={platform.label}
               title={`${platform.label}: ${t(status.badgeKey)}`}
-              className="absolute inset-0 z-[1] rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+              className="absolute inset-0 z-[1] rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             />
-            <span className={cn("pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-1.5 text-[12px] font-semibold transition-colors", selected ? "text-zinc-900 dark:text-white" : "text-zinc-500 dark:text-zinc-400")}>
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-black" style={{ backgroundColor: selected ? platform.color : "transparent", color: selected ? (id === "kick" ? "#07140a" : "#fff") : platform.color, boxShadow: selected ? `0 0 12px -2px ${platform.color}` : undefined }}>
+            <span className={cn("pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-1.5 text-[12px] font-semibold transition-colors", selected ? "text-zinc-900 dark:text-white" : "text-zinc-400 dark:text-zinc-500")}>
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-black transition-opacity" style={{ backgroundColor: selected ? platform.color : "transparent", color: selected ? (id === "kick" ? "#07140a" : "#fff") : platform.color, boxShadow: selected ? `0 0 12px -2px ${platform.color}` : undefined, opacity: selected ? 1 : 0.6 }}>
                 {platform.mark}
               </span>
               <span className="truncate">{platform.label}</span>
@@ -68,6 +71,14 @@ export function PlatformBar({ active, presentation, enabled, pending, onChange, 
                 disabled={pending[id]}
               />
             </span>
+            {selected && (
+              <motion.span
+                layoutId="platform-tab"
+                transition={{ type: "spring", stiffness: 520, damping: 38 }}
+                className="absolute inset-x-0 -bottom-px z-10 h-[2px] rounded-full"
+                style={{ backgroundColor: platform.color, boxShadow: `0 0 8px -1px ${platform.color}` }}
+              />
+            )}
           </div>
         );
       })}
