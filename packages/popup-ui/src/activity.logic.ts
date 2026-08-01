@@ -19,6 +19,7 @@ export type ActivityStream = {
 export type ActivityRequestScope = {
   generation: number;
   platform: Platform;
+  query: string;
 };
 
 export type ActivityMutationSequence = { latest: number };
@@ -57,22 +58,25 @@ export function applyActivityPage(
   };
 }
 
-export function createActivityRequestScope(platform: Platform): ActivityRequestScope {
-  return { generation: 0, platform };
+export function createActivityRequestScope(platform: Platform, query = ""): ActivityRequestScope {
+  return { generation: 0, platform, query };
 }
 
 export function advanceActivityRequestScope(
   current: ActivityRequestScope,
   platform: Platform = current.platform,
+  query: string = current.query,
 ): ActivityRequestScope {
-  return { generation: current.generation + 1, platform };
+  return { generation: current.generation + 1, platform, query };
 }
 
 export function isActivityRequestCurrent(
   request: ActivityRequestScope,
   current: ActivityRequestScope,
 ): boolean {
-  return request.generation === current.generation && request.platform === current.platform;
+  return request.generation === current.generation
+    && request.platform === current.platform
+    && request.query === current.query;
 }
 
 export function applyActivityPageForRequest(

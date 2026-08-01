@@ -24,6 +24,9 @@ export function ActivityLog({
   clearing,
   version,
   locale,
+  searchQuery: _searchQuery,
+  onSearchQueryChange: _onSearchQueryChange,
+  searchingDiagnostics: _searchingDiagnostics,
   onShowDiagnosticsChange,
   onLoadMore,
   onClear,
@@ -42,6 +45,9 @@ export function ActivityLog({
   clearing: boolean;
   version: string;
   locale: string;
+  searchQuery: string;
+  onSearchQueryChange(query: string): void;
+  searchingDiagnostics: boolean;
   onShowDiagnosticsChange(show: boolean): void;
   onLoadMore(): void;
   onClear(): void;

@@ -90,6 +90,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>(createActivityStream);
   const [reportEvents, setReportEvents] = useState<ActivityHistoryRecord[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [diagnosticSearchQuery, setDiagnosticSearchQuery] = useState("");
   const [loadingMoreActivity, setLoadingMoreActivity] = useState(false);
   const [clearActivityArmed, setClearActivityArmed] = useState(false);
   const [clearingActivity, setClearingActivity] = useState(false);
@@ -109,6 +110,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const diagnosticMutationSequenceRef = useRef(createActivityMutationSequence());
   const activityClearInFlightRef = useRef(false);
   const [activityRequestGeneration, setActivityRequestGeneration] = useState(0);
+  const trimmedDiagnosticSearchQuery = diagnosticSearchQuery.trim();
   const languageOverride = initialState?.locale ?? snapshot?.settings.languageOverride ?? DEFAULT_SETTINGS.languageOverride;
   const locale = effectiveLocale(languageOverride, adapter.getUiLanguage());
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
@@ -121,8 +123,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return message === key ? adapter.getMessage(key, substitutions) || message : message;
   };
 
-  function invalidateActivityRequests(nextPlatform: Platform = activityRequestScopeRef.current.platform): ActivityRequestScope {
-    const nextScope = advanceActivityRequestScope(activityRequestScopeRef.current, nextPlatform);
+  function invalidateActivityRequests(
+    nextPlatform: Platform = activityRequestScopeRef.current.platform,
+    nextQuery: string = activityRequestScopeRef.current.query,
+  ): ActivityRequestScope {
+    const nextScope = advanceActivityRequestScope(activityRequestScopeRef.current, nextPlatform, nextQuery);
     activityRequestScopeRef.current = nextScope;
     setActivityRequestGeneration(nextScope.generation);
     setLoadingMoreActivity(false);
@@ -226,16 +231,25 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }, [activityOpen, activityRequestGeneration, adapter, clearingActivity, preview]);
 
   useEffect(() => {
-    if (activityRequestScopeRef.current.platform !== platform) invalidateActivityRequests(platform);
+    if (activityRequestScopeRef.current.platform !== platform || activityRequestScopeRef.current.query) {
+      invalidateActivityRequests(platform, "");
+    }
     setActivityStream(createActivityStream());
     setDiagnosticStream(createActivityStream());
+    setDiagnosticSearchQuery("");
     setShowDiagnostics(false);
     setClearActivityArmed(false);
     setClearActivityFailed(false);
   }, [platform]);
 
   useEffect(() => {
-    if (!snapshot?.settings.diagnosticLogging) setShowDiagnostics(false);
+    if (activityRequestScopeRef.current.query === trimmedDiagnosticSearchQuery) return;
+    invalidateActivityRequests(platform, trimmedDiagnosticSearchQuery);
+    setDiagnosticStream(createActivityStream());
+  }, [platform, trimmedDiagnosticSearchQuery]);
+
+  useEffect(() => {
+    if (!snapshot?.settings.diagnosticLogging) handleShowDiagnosticsChange(false);
   }, [snapshot?.settings.diagnosticLogging]);
 
   // The failure report needs recent activity, but the Activity view's stream is
@@ -263,7 +277,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     const refresh = () => {
       if (activityClearInFlightRef.current || !isActivityRequestCurrent(requestScope, activityRequestScopeRef.current)) return;
       const refreshRequest = beginActivityMutation(diagnosticMutationSequenceRef.current);
-      void adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "diagnostic", limit: 80 }).then((page) => {
+      void adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "diagnostic", query: requestScope.query || undefined, limit: 80 }).then((page) => {
         if (!cancelled) {
           setDiagnosticStream((current) => applyActivityMutationForRequest(
             current,
@@ -310,7 +324,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     if (showDiagnostics && snapshot?.settings.diagnosticLogging && diagnosticStream.nextCursor) {
       const cursor = diagnosticStream.nextCursor;
       const pageRequest = beginActivityMutation(diagnosticMutationSequenceRef.current);
-      requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "diagnostic", cursor, limit: 80 })
+      requests.push(adapter.send<ActivityPage>({ type: "getActivity", platform: requestScope.platform, category: "diagnostic", query: requestScope.query || undefined, cursor, limit: 80 })
         .then((page) => {
           setDiagnosticStream((current) => applyActivityMutationForRequest(
             current,
@@ -346,6 +360,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       invalidateActivityRequests();
       setActivityStream(createActivityStream());
       setDiagnosticStream(createActivityStream());
+      setDiagnosticSearchQuery("");
+      invalidateActivityRequests(platform, "");
       setClearActivityArmed(false);
       setClearingActivity(false);
     }).catch(() => {
@@ -386,7 +402,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }, [adapter, preview]);
 
   function selectPlatform(nextPlatform: Platform): void {
-    if (nextPlatform !== activityRequestScopeRef.current.platform) invalidateActivityRequests(nextPlatform);
+    if (nextPlatform !== activityRequestScopeRef.current.platform) invalidateActivityRequests(nextPlatform, "");
+    setDiagnosticSearchQuery("");
     setPlatform(nextPlatform);
     // The watchlist add form belongs to the platform it was opened on: leaving
     // it open would submit a name typed for one platform into the other's list.
@@ -395,10 +412,21 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }
 
   function closeActivityView(): void {
-    if (activityOpen) invalidateActivityRequests();
+    if (activityOpen) invalidateActivityRequests(platform, "");
     setClearActivityArmed(false);
     setClearActivityFailed(false);
+    setDiagnosticSearchQuery("");
+    setDiagnosticStream(createActivityStream());
     setActivityOpen(false);
+  }
+
+  function handleShowDiagnosticsChange(nextShowDiagnostics: boolean): void {
+    if (showDiagnostics && !nextShowDiagnostics) {
+      invalidateActivityRequests(platform, "");
+      setDiagnosticSearchQuery("");
+      setDiagnosticStream(createActivityStream());
+    }
+    setShowDiagnostics(nextShowDiagnostics);
   }
 
   async function updateSettings(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
@@ -690,7 +718,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   clearing={clearingActivity}
                   version={adapter.version}
                   locale={locale}
-                  onShowDiagnosticsChange={setShowDiagnostics}
+                  searchQuery={diagnosticSearchQuery}
+                  onSearchQueryChange={setDiagnosticSearchQuery}
+                  searchingDiagnostics={Boolean(trimmedDiagnosticSearchQuery)}
+                  onShowDiagnosticsChange={handleShowDiagnosticsChange}
                   onLoadMore={loadMoreActivity}
                   onClear={clearActivityHistory}
                   writeClipboard={adapter.writeClipboard}
