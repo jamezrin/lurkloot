@@ -16,7 +16,7 @@ Help extension users improve Lurkloot translations by adding one localized rotat
 
 `packages/popup-ui/src/tips.tsx` owns the rotating banner used in the extension popup. Add a descriptor beside the existing external-action tips. Its message communicates that AI maintains translations and that human improvements are welcome; its localized action reads the translation guide. The action opens the GitHub-rendered guide in a new tab with the component's existing safe link attributes.
 
-The new guide URL becomes a named popup constant. It points to `https://github.com/jamezrin/lurkloot/blob/main/docs/translations.md`, so installed extension versions always lead users to the current published instructions. The Astro site does not render `TipsBanner`, and no site source will be changed.
+The new guide URL becomes a named popup constant. It points to `https://github.com/jamezrin/lurkloot/blob/main/docs/translations.md`, so installed extension versions always lead users to the current published instructions. The Astro site renders `TipsBanner` through the shared popup preview, so that preview explicitly filters out the extension-only translation tip without requiring a site source change.
 
 ## Localization
 

@@ -80,6 +80,18 @@ describe("TipsBanner", () => {
     expect(html).toContain('rel="noreferrer"');
   });
 
+  it("excludes the translation tip from the preview variant", () => {
+    const html = renderToStaticMarkup(createElement(
+      I18nContext.Provider,
+      { value: { t: (key: string) => key, dir: "ltr", locale: "en" } },
+      createElement(TipsBanner, { initialIndex: 8, preview: true }),
+    ));
+
+    expect(html).toContain("tipCampaignPriority");
+    expect(html).not.toContain("tipTranslations");
+    expect(html).not.toContain("tipTranslationsAction");
+  });
+
   it("documents the translation contribution workflow", () => {
     const guide = readFileSync(resolve(import.meta.dirname, "../../../docs/translations.md"), "utf8");
     expect(guide).toContain("# Improving translations");
@@ -90,7 +102,7 @@ describe("TipsBanner", () => {
 
   it("is gated by the popup preference and deterministic in previews", () => {
     const popupSource = readFileSync(resolve(import.meta.dirname, "../../popup-ui/src/Popup.tsx"), "utf8");
-    expect(popupSource).toContain("settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} /> : null");
+    expect(popupSource).toContain("settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} /> : null");
   });
 
   it("has a Hide tips control in General settings", () => {
