@@ -1588,8 +1588,9 @@ export class TwitchAdapter implements PlatformAdapter {
     channel: ChannelCandidate,
     { campaign, signal }: AdapterOperationOptions & { campaign?: DropCampaign } = {},
   ): Promise<ChannelCheck> {
+    let response: TwitchGqlResponse<TwitchStreamInfoData>;
     try {
-      const response = await this.gql<TwitchStreamInfoData>(
+      response = await this.gql<TwitchStreamInfoData>(
         "StreamInfo",
         TWITCH_QUERIES.streamInfoHash,
         { channel: channel.username },
@@ -1600,38 +1601,38 @@ export class TwitchAdapter implements PlatformAdapter {
         this.emit,
         signal,
       );
-      const stream = response.data?.user?.stream;
-      const channelId = response.data?.user?.id;
-      const actualCategoryId = stream?.game?.id;
-      const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
-      const categoryMatches = !expectedCategoryId || actualCategoryId === expectedCategoryId;
-      const campaignMatches = stream && categoryMatches && campaign && channelId
-        ? await this.checkCampaignAvailability(channelId, campaign.id, channel.username, signal)
-        : undefined;
-      return {
-        live: Boolean(stream),
-        categoryMatches,
-        campaignMatches,
-        reason: !stream
-          ? "Twitch channel is offline"
-          : campaignMatches === false
-            ? "Twitch campaign is not available on this channel"
-            : undefined,
-        candidate: {
-          ...channel,
-          displayName: response.data?.user?.displayName ?? channel.displayName,
-          categoryId: actualCategoryId ?? channel.categoryId,
-          categoryName: stream?.game?.name ?? channel.categoryName,
-          viewerCount: stream?.viewersCount ?? channel.viewerCount,
-          channelId: channelId ?? channel.channelId,
-          broadcastId: stream?.id ?? channel.broadcastId,
-        },
-      };
     } catch (error) {
       signal?.throwIfAborted();
-      if (authHealthFromError(error)) throw error;
       return this.checkChannelFromPage(channel, campaign, error, signal);
     }
+
+    const stream = response.data?.user?.stream;
+    const channelId = response.data?.user?.id;
+    const actualCategoryId = stream?.game?.id;
+    const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
+    const categoryMatches = !expectedCategoryId || actualCategoryId === expectedCategoryId;
+    const campaignMatches = stream && categoryMatches && campaign && channelId
+      ? await this.checkCampaignAvailability(channelId, campaign.id, channel.username, signal)
+      : undefined;
+    return {
+      live: Boolean(stream),
+      categoryMatches,
+      campaignMatches,
+      reason: !stream
+        ? "Twitch channel is offline"
+        : campaignMatches === false
+          ? "Twitch campaign is not available on this channel"
+          : undefined,
+      candidate: {
+        ...channel,
+        displayName: response.data?.user?.displayName ?? channel.displayName,
+        categoryId: actualCategoryId ?? channel.categoryId,
+        categoryName: stream?.game?.name ?? channel.categoryName,
+        viewerCount: stream?.viewersCount ?? channel.viewerCount,
+        channelId: channelId ?? channel.channelId,
+        broadcastId: stream?.id ?? channel.broadcastId,
+      },
+    };
   }
 
   private async checkCampaignAvailability(

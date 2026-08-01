@@ -4211,6 +4211,36 @@ describe("TwitchAdapter", () => {
     });
   });
 
+  it("falls back to Twitch channel page data when anonymous StreamInfo authentication is rejected", async () => {
+    const failure = new SafeFetchError({
+      kind: "authentication_rejected",
+      status: 401,
+      reason: "rejected",
+    });
+    let pageFallbackCalls = 0;
+    const fetcher = jsonFetcher((url, init) => {
+      if (url === "https://gql.twitch.tv/gql" && operation(init) === "StreamInfo") {
+        throw failure;
+      }
+      if (url === "https://www.twitch.tv/creator") {
+        pageFallbackCalls += 1;
+        return { html: '{"isLiveBroadcast":true,"game":{"id":"game","name":"Game"}}' };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    await expect(new TwitchAdapter(fetcher).checkChannel(
+      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+      { campaign: { categoryId: "game" } as DropCampaign },
+    )).resolves.toMatchObject({
+      live: true,
+      categoryMatches: true,
+      reason: "Twitch GQL check failed; used channel page fallback",
+      candidate: { categoryId: "game" },
+    });
+    expect(pageFallbackCalls).toBe(1);
+  });
+
   it("treats Twitch channel validation as invalid when GQL and page fallback both fail", async () => {
     const fetcher = jsonFetcher((url, init) => {
       if (url === "https://gql.twitch.tv/gql" && operation(init) === "StreamInfo") {
