@@ -8,6 +8,7 @@ export function repositoryPatch() {
     allow_merge_commit: true,
     allow_squash_merge: true,
     allow_rebase_merge: false,
+    allow_auto_merge: false,
     merge_commit_title: "PR_TITLE",
     merge_commit_message: "PR_BODY",
     squash_merge_commit_title: "PR_TITLE",
