@@ -2646,7 +2646,10 @@ describe("scheduler tick", () => {
   });
 
   it("marks claimed rewards and emits scheduler events", async () => {
-    const ready = campaign("drops", { rewards: [reward("claimable")] });
+    const ready = campaign("drops", {
+      url: "https://example.test/campaign",
+      rewards: [{ ...reward("claimable"), imageUrl: "https://cdn.example.test/reward.png" }],
+    });
     const twitch = adapter("twitch", [ready], [channel("allowed")]);
 
     const result = await runSchedulerTick(
@@ -2666,7 +2669,11 @@ describe("scheduler tick", () => {
     expect(result.events).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "reward_claimed",
-      data: expect.objectContaining({ method: "automatic" }),
+      data: expect.objectContaining({
+        method: "automatic",
+        rewardImageUrl: "https://cdn.example.test/reward.png",
+        campaignUrl: "https://example.test/campaign",
+      }),
     }));
   });
 

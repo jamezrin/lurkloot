@@ -2327,6 +2327,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
               campaignName: campaign.name,
               rewardId: reward.id,
               rewardName: reward.name,
+              ...(reward.imageUrl ? { rewardImageUrl: reward.imageUrl } : {}),
+              ...(campaign.url ? { campaignUrl: campaign.url } : {}),
               method: "manual",
             },
           }
@@ -2655,6 +2657,8 @@ function farmingLifecycleEvents(previous: SchedulerState, next: SchedulerState):
           campaignName: before.campaign.name,
           rewardId: before.reward.id,
           rewardName: before.reward.name,
+          ...(before.reward.imageUrl ? { rewardImageUrl: before.reward.imageUrl } : {}),
+          ...(before.campaign.url ? { campaignUrl: before.campaign.url } : {}),
           reason,
         },
       });
@@ -2670,6 +2674,8 @@ function farmingLifecycleEvents(previous: SchedulerState, next: SchedulerState):
           campaignName: after.campaign.name,
           rewardId: after.reward.id,
           rewardName: after.reward.name,
+          ...(after.reward.imageUrl ? { rewardImageUrl: after.reward.imageUrl } : {}),
+          ...(after.campaign.url ? { campaignUrl: after.campaign.url } : {}),
           ...(after.session.channel ? { channel: after.session.channel.displayName ?? after.session.channel.username } : {}),
         },
       });

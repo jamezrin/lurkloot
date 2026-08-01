@@ -7,6 +7,8 @@ const TARGET = {
   campaignName: "Summer Campaign",
   rewardId: "reward-1",
   rewardName: "Golden Hat",
+  rewardImageUrl: "https://cdn.example.test/reward.png",
+  campaignUrl: "https://example.test/campaign",
 };
 
 const EVENTS = {
@@ -131,7 +133,7 @@ describe("activity diagnostics", () => {
       platform: "twitch",
       code: "farming_stopped",
       mirroredActivity: true,
-      message: expect.stringContaining("reason=channel_offline"),
+      message: 'Stopped farming "Golden Hat" from campaign "Summer Campaign" (campaign campaign-1, reward reward-1): reason=channel_offline',
       data: { ...TARGET, reason: "channel_offline" },
     });
   });
