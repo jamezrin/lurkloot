@@ -53,8 +53,6 @@ describe("matchesSearch", () => {
 
 describe("filterSettingsTree", () => {
   const labels: Record<string, string> = {
-    generalTitle: "General",
-    twitchTitle: "Twitch",
     dropsTitle: "Drops",
     schedulerTitle: "Scheduler & timing",
     autoClaimTitle: "Auto-claim drops",
@@ -66,10 +64,13 @@ describe("filterSettingsTree", () => {
   };
   const t = (key: string) => labels[key] ?? key;
 
+  it("does not use broad section labels as search shortcuts", () => {
+    expect(filterSettingsTree(tree, { t, query: "general", showAdvanced: false })).toEqual([]);
+  });
+
   const tree: SettingsSectionNode[] = [
     {
       id: "general",
-      titleKey: "generalTitle",
       rows: [],
       groups: [
         {
@@ -87,7 +88,6 @@ describe("filterSettingsTree", () => {
     },
     {
       id: "twitch",
-      titleKey: "twitchTitle",
       rows: [],
       groups: [
         {
@@ -134,12 +134,6 @@ describe("filterSettingsTree", () => {
     expect(result.every((section) => section.matchCount === 0)).toBe(true);
   });
 
-  it("matches a section by its own title and keeps all its non-advanced content", () => {
-    const result = filterSettingsTree(tree, { t, query: "general", showAdvanced: false });
-    expect(result.map((section) => section.id)).toEqual(["general"]);
-    expect(result[0]!.groups.map((group) => group.id)).toEqual(["general.drops"]);
-  });
-
   it("reveals an advanced group's entries when its own title matches, switch off", () => {
     const result = filterSettingsTree(tree, { t, query: "scheduler", showAdvanced: false });
     expect(result.map((section) => section.id)).toEqual(["general"]);
@@ -147,14 +141,8 @@ describe("filterSettingsTree", () => {
     expect(result[0]!.groups[0]!.entries.map((entry) => entry.id)).toEqual(["general.scheduler.interval"]);
   });
 
-  it("keeps a broad section-title match from leaking advanced groups", () => {
-    const result = filterSettingsTree(tree, { t, query: "general", showAdvanced: false });
-    expect(result[0]!.groups.map((group) => group.id)).toEqual(["general.drops"]);
-  });
-
   it("finds an entry by the word substituted into its description placeholder", () => {
     const substitutionLabels: Record<string, string> = {
-      kickSectionTitle: "Kick",
       categoriesGroupTitle: "Categories",
       farmAllTitle: "Farm all categories",
       farmAllDescription: "Farm drops in every $1 category.",
@@ -166,7 +154,6 @@ describe("filterSettingsTree", () => {
     const substitutionTree: SettingsSectionNode[] = [
       {
         id: "kick",
-        titleKey: "kickSectionTitle",
         rows: [],
         groups: [
           {

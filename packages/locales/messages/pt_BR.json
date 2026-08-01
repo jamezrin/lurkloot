@@ -62,6 +62,12 @@
   "settingsSearchNoResults": {
     "message": "Nenhuma configuração corresponde a “$1”."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "Plataforma e categorias/jogos"
+  },
+  "settingsPlatformSettings": {
+    "message": "Configurações de $1"
+  },
   "settingsShowAdvancedTitle": {
     "message": "Mostrar configurações avançadas"
   },
@@ -71,14 +77,8 @@
   "settingsSectionAdvancedActions": {
     "message": "Ações avançadas"
   },
-  "settingsSectionGeneral": {
-    "message": "Geral"
-  },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
-  },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Importe, exporte ou redefina as configurações do Lurkloot."
   },
   "activityTitle": {
     "message": "Atividade"
@@ -144,7 +144,7 @@
     "message": "Farmando"
   },
   "waitingEligibleStream": {
-    "message": "Aguardando uma live elegível"
+    "message": "Nenhuma transmissão ao vivo elegível está disponível para esta campanha no momento"
   },
   "watchingPausedHint": {
     "message": "Visualização pausada. Ative para retomar o farming de drops."
@@ -193,6 +193,12 @@
   },
   "campaignSearchNoResults": {
     "message": "Nenhuma campanha corresponde a “$1”."
+  },
+  "closeSearch": {
+    "message": "Fechar busca"
+  },
+  "search": {
+    "message": "Pesquisar"
   },
   "noActivity": {
     "message": "Nenhuma atividade registrada ainda. Pressione atualizar para executar uma verificação."
@@ -342,16 +348,19 @@
     "message": "Adicionar canal"
   },
   "idleWatchlistChannel": {
-    "message": "na lista"
+    "message": "Desconectado"
   },
   "live": {
     "message": "ao vivo"
+  },
+  "viewerCount": {
+    "message": "$1 espectadores"
   },
   "settingsGeneralTitle": {
     "message": "Configurações gerais"
   },
   "settingsGeneralDescription": {
-    "message": "Aplica-se à Twitch e Kick."
+    "message": "Idioma, inicialização e comportamento do pop-up."
   },
   "settingsGroupAppearance": {
     "message": "Aparência e comportamento"
@@ -372,7 +381,7 @@
     "message": "Notificações"
   },
   "notificationsDescription": {
-    "message": "Aplica-se a todas as plataformas ativadas."
+    "message": "Alertas quando recompensas estão prontas ou campanhas terminam."
   },
   "settingsGroupNotifications": {
     "message": "Notificações"
@@ -393,7 +402,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "Comportamento compartilhado de farming de campanhas."
+    "message": "Resgate, elegibilidade, prioridades e visibilidade de campanhas."
   },
   "settingsGroupDrops": {
     "message": "Drops"
@@ -1032,7 +1041,7 @@
     "message": "Compatibilidade"
   },
   "compatibilitySectionDescription": {
-    "message": "Como o Lurkloot se comunica com cada plataforma. O modo automático segue o perfil incluído."
+    "message": "Altere apenas se Twitch ou Kick não estiver funcionando; elas podem contornar problemas da plataforma."
   },
   "compatibilityComponentProfile": {
     "message": "Perfil"

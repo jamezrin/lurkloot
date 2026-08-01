@@ -33,7 +33,6 @@ export interface PopupCompatibilityResolution {
   readonly warnings: readonly unknown[];
 }
 
-export type PopupTab = "drops" | "idleWatchlist";
 export type GameItem = {
   id: string;
   name: string;

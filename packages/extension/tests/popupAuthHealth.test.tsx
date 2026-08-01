@@ -99,18 +99,20 @@ describe("popup authentication health", () => {
       reasonCode: "credentials_missing",
     }]);
 
-    expect(container.textContent).toContain("Needs sign-in · Twitch");
+    expect(container.querySelector("[data-automation-state]")?.textContent).toContain("Needs sign-in");
     expect(container.textContent).not.toContain("authNeedsSignIn");
   });
 
-  it("keeps the header, switcher, and hero consistent in a degraded state", async () => {
+  it("keeps the header, platform bar, and status line consistent in a degraded state", async () => {
     const { container } = await mountWithSnapshots([{
       status: "missing_credentials",
       reasonCode: "credentials_missing",
     }]);
 
-    expect(container.querySelector('[data-automation-state="needs_sign_in"]')).not.toBeNull();
-    expect(container.textContent).toContain("Needs sign-in · Twitch");
+    const status = container.querySelector('[data-automation-state="needs_sign_in"]');
+    expect(status).not.toBeNull();
+    expect(status?.textContent).toContain("Needs sign-in");
+    expect(container.querySelector('[data-platform-status="twitch"]')?.textContent).toContain("Twitch");
     expect(container.querySelector('[data-platform-status="twitch"]')?.getAttribute("data-state")).toBe("needs_sign_in");
     expect(container.textContent).not.toContain("secret-cookie=must-not-render");
   });
@@ -126,7 +128,7 @@ describe("popup authentication health", () => {
       await vi.advanceTimersByTimeAsync(5_000);
     });
     expect(container.querySelector('[data-automation-state="running"]')).not.toBeNull();
-    expect(container.textContent).toContain("Running · Twitch");
+    expect(container.querySelector('[data-platform-status="twitch"]')?.getAttribute("data-state")).toBe("running");
     expect(sent).not.toContainEqual(expect.objectContaining({ type: "setAutomation" }));
   });
 

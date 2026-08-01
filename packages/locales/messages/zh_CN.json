@@ -62,6 +62,12 @@
   "settingsSearchNoResults": {
     "message": "未找到与“$1”匹配的设置。"
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "平台和分类/游戏"
+  },
+  "settingsPlatformSettings": {
+    "message": "$1 设置"
+  },
   "settingsShowAdvancedTitle": {
     "message": "显示高级设置"
   },
@@ -71,14 +77,8 @@
   "settingsSectionAdvancedActions": {
     "message": "高级操作"
   },
-  "settingsSectionGeneral": {
-    "message": "常规"
-  },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
-  },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "导入、导出或重置 Lurkloot 设置。"
   },
   "activityTitle": {
     "message": "活动"
@@ -144,7 +144,7 @@
     "message": "正在刷"
   },
   "waitingEligibleStream": {
-    "message": "等待符合条件的直播"
+    "message": "当前没有适合此活动的符合条件的直播"
   },
   "watchingPausedHint": {
     "message": "观看已暂停。切换开关以继续刷掉宝。"
@@ -193,6 +193,12 @@
   },
   "campaignSearchNoResults": {
     "message": "未找到与“$1”匹配的活动。"
+  },
+  "closeSearch": {
+    "message": "关闭搜索"
+  },
+  "search": {
+    "message": "搜索"
   },
   "noActivity": {
     "message": "尚未记录活动。按刷新运行检查。"
@@ -342,16 +348,19 @@
     "message": "添加频道"
   },
   "idleWatchlistChannel": {
-    "message": "已加入列表"
+    "message": "离线"
   },
   "live": {
     "message": "直播"
+  },
+  "viewerCount": {
+    "message": "$1 名观众"
   },
   "settingsGeneralTitle": {
     "message": "常规设置"
   },
   "settingsGeneralDescription": {
-    "message": "适用于 Twitch 和 Kick。"
+    "message": "语言、启动和弹窗行为。"
   },
   "settingsGroupAppearance": {
     "message": "外观和行为"
@@ -372,7 +381,7 @@
     "message": "通知"
   },
   "notificationsDescription": {
-    "message": "适用于所有已启用的平台。"
+    "message": "奖励可领取或活动结束时的提醒。"
   },
   "settingsGroupNotifications": {
     "message": "通知"
@@ -393,7 +402,7 @@
     "message": "掉宝"
   },
   "dropsSettingsDescription": {
-    "message": "共享的活动刷取行为。"
+    "message": "领取资格、优先级和活动可见性。"
   },
   "settingsGroupDrops": {
     "message": "掉宝"
@@ -1032,7 +1041,7 @@
     "message": "兼容性"
   },
   "compatibilitySectionDescription": {
-    "message": "Lurkloot 与各平台通信的方式。自动模式会沿用内置配置方案。"
+    "message": "仅当 Twitch 或 Kick 无法正常工作时再更改；这些设置可帮助绕过平台问题。"
   },
   "compatibilityComponentProfile": {
     "message": "配置方案"

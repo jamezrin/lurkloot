@@ -3,7 +3,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Platform, PlatformAuthHealth } from "@lurkloot/shared/models";
-import { AutomationHero, PlatformSwitcher } from "../../popup-ui/src/automation";
+import { AutomationStatusLine, PlatformBar } from "../../popup-ui/src/automation";
+import type { AutomationPresentation } from "../../popup-ui/src/automationStatus";
 import { automationPresentation } from "../../popup-ui/src/automationStatus";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
 import type { PopupAdapter } from "../../popup-ui/src/types";
@@ -71,18 +72,51 @@ function mount(element: React.ReactElement) {
   return { container, openLink };
 }
 
+// The popup header renders the platform bar (tabs + automation switch) directly
+// above the status line, so the assertions below exercise the pair the way the
+// user actually sees it.
+function mountHeader(options: {
+  platform: Platform;
+  presentation: AutomationPresentation;
+  other?: AutomationPresentation;
+  farmingTitle?: string;
+  farmingChannel?: { name: string };
+  onResume?(): void;
+  onChange?(platform: Platform): void;
+  onToggle?(platform: Platform, value: boolean): Promise<void>;
+}) {
+  const otherPlatform: Platform = options.platform === "twitch" ? "kick" : "twitch";
+  const fallback = options.other ?? presentation(otherPlatform, { status: "healthy" });
+  return mount(
+    <>
+      <PlatformBar
+        active={options.platform}
+        presentation={{
+          [options.platform]: options.presentation,
+          [otherPlatform]: fallback,
+        } as Record<Platform, AutomationPresentation>}
+        enabled={{ twitch: true, kick: true }}
+        pending={{ twitch: false, kick: false }}
+        onChange={options.onChange ?? (() => undefined)}
+        onToggle={options.onToggle ?? (async () => undefined)}
+      />
+      <AutomationStatusLine
+        platform={options.platform}
+        presentation={options.presentation}
+        farmingTitle={options.farmingTitle}
+        farmingChannel={options.farmingChannel}
+        onResume={options.onResume}
+      />
+    </>,
+  );
+}
+
 describe("automation authentication status UI", () => {
   it("shows an explicit Twitch sign-in action and keeps the toggle enabled", () => {
-    const { container, openLink } = mount(
-      <AutomationHero
-        platform="twitch"
-        platformLabel="Twitch"
-        enabled
-        pending={false}
-        presentation={presentation("twitch", { status: "missing_credentials" })}
-        onChange={async () => undefined}
-      />,
-    );
+    const { container, openLink } = mountHeader({
+      platform: "twitch",
+      presentation: presentation("twitch", { status: "missing_credentials" }),
+    });
 
     expect(container.textContent).toContain("Needs sign-in");
     expect(container.textContent).toContain("Sign in to Twitch");
@@ -90,28 +124,22 @@ describe("automation authentication status UI", () => {
     expect(action).not.toBeNull();
     act(() => action?.click());
     expect(openLink).toHaveBeenCalledWith("https://www.twitch.tv/login");
-    expect(container.querySelector('[role="switch"]')?.hasAttribute("disabled")).toBe(false);
+    expect(container.querySelector('[data-platform-status="twitch"] [role="switch"]')?.hasAttribute("disabled")).toBe(false);
   });
 
   it("offers a one-click resume after the user closed the farming tab", () => {
     const onResume = vi.fn();
-    const { container } = mount(
-      <AutomationHero
-        platform="kick"
-        platformLabel="Kick"
-        enabled
-        pending={false}
-        presentation={automationPresentation({
-          platform: "kick",
-          enabled: true,
-          pending: false,
-          authHealth: { status: "healthy" },
-          manualClosePaused: true,
-        })}
-        onChange={async () => undefined}
-        onResume={onResume}
-      />,
-    );
+    const { container } = mountHeader({
+      platform: "kick",
+      presentation: automationPresentation({
+        platform: "kick",
+        enabled: true,
+        pending: false,
+        authHealth: { status: "healthy" },
+        manualClosePaused: true,
+      }),
+      onResume,
+    });
 
     expect(container.querySelector('[data-automation-state="paused_tab_closed"]')).not.toBeNull();
     expect(container.textContent).toContain("Paused — tab closed");
@@ -124,55 +152,91 @@ describe("automation authentication status UI", () => {
   });
 
   it("explains a Kick browser-profile block without offering sign-in", () => {
-    const { container } = mount(
-      <AutomationHero
-        platform="kick"
-        platformLabel="Kick"
-        enabled
-        pending={false}
-        presentation={presentation("kick", { status: "blocked", reasonCode: "security_policy_blocked" })}
-        onChange={async () => undefined}
-      />,
-    );
+    const { container } = mountHeader({
+      platform: "kick",
+      presentation: presentation("kick", { status: "blocked", reasonCode: "security_policy_blocked" }),
+    });
 
     expect(container.querySelector('[data-automation-state="blocked"]')).not.toBeNull();
     expect(container.textContent).toContain("Kick rejected this browser profile");
     expect(container.querySelector("[data-auth-action]")).toBeNull();
-    expect(container.querySelector('[role="switch"]')?.hasAttribute("disabled")).toBe(false);
+    expect(container.querySelector('[data-platform-status="kick"] [role="switch"]')?.hasAttribute("disabled")).toBe(false);
   });
 
   it("shows operational state independently for each platform", () => {
-    const { container } = mount(
-      <PlatformSwitcher
-        active="twitch"
-        presentation={{
-          twitch: presentation("twitch", { status: "healthy" }),
-          kick: presentation("kick", { status: "unavailable", reasonCode: "platform_unavailable" }),
-        }}
-        onChange={() => undefined}
-      />,
-    );
+    const { container } = mountHeader({
+      platform: "twitch",
+      presentation: presentation("twitch", { status: "healthy" }),
+      other: presentation("kick", { status: "unavailable", reasonCode: "platform_unavailable" }),
+    });
 
     expect(container.querySelector('[data-platform-status="twitch"]')?.getAttribute("data-state")).toBe("running");
     expect(container.querySelector('[data-platform-status="kick"]')?.getAttribute("data-state")).toBe("unavailable");
   });
 
   it("hides stale farming detail while authentication is degraded", () => {
-    const { container } = mount(
-      <AutomationHero
-        platform="kick"
-        platformLabel="Kick"
-        enabled
-        pending={false}
-        presentation={presentation("kick", { status: "unavailable" })}
-        farmingTitle="Stale campaign"
-        farmingChannel={{ name: "stale-channel" }}
-        onChange={async () => undefined}
-      />,
-    );
+    const { container } = mountHeader({
+      platform: "kick",
+      presentation: presentation("kick", { status: "unavailable" }),
+      farmingTitle: "Stale campaign",
+      farmingChannel: { name: "stale-channel" },
+    });
 
     expect(container.textContent).toContain("temporarily unavailable");
     expect(container.textContent).not.toContain("Stale campaign");
     expect(container.textContent).not.toContain("stale-channel");
+  });
+
+  it("toggles an unselected platform without selecting it", () => {
+    const onChange = vi.fn();
+    const onToggle = vi.fn(async () => undefined);
+    const { container } = mountHeader({
+      platform: "twitch",
+      presentation: presentation("twitch", { status: "healthy" }),
+      onChange,
+      onToggle,
+    });
+
+    const kickSwitch = container.querySelector<HTMLButtonElement>('[data-platform-status="kick"] [role="switch"]');
+    act(() => kickSwitch?.click());
+
+    expect(onToggle).toHaveBeenCalledWith("kick", false);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("uses roving tab stops and arrow navigation for platform tabs", () => {
+    const onChange = vi.fn();
+    const { container } = mountHeader({
+      platform: "twitch",
+      presentation: presentation("twitch", { status: "healthy" }),
+      onChange,
+    });
+
+    const twitchTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]');
+    const kickTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]');
+    expect(twitchTab?.getAttribute("tabindex")).toBe("0");
+    expect(kickTab?.getAttribute("tabindex")).toBe("-1");
+
+    const keydown = new window.Event("keydown", { bubbles: true });
+    Object.defineProperty(keydown, "key", { value: "ArrowRight" });
+    act(() => twitchTab?.dispatchEvent(keydown));
+
+    expect(onChange).toHaveBeenCalledWith("kick");
+  });
+
+  it("renders the selected platform as an accent-tinted active tab", () => {
+    const { container } = mountHeader({
+      platform: "twitch",
+      presentation: presentation("twitch", { status: "healthy" }),
+    });
+
+    const twitchTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]');
+    const kickTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]');
+
+    expect(twitchTab?.parentElement?.className).toContain("-mb-px");
+    expect(twitchTab?.parentElement?.className).toContain("border-[var(--accent-ring)]");
+    expect(twitchTab?.parentElement?.className).toContain("bg-[var(--accent-soft)]");
+    expect(kickTab?.parentElement?.className).not.toContain("bg-[var(--accent-soft)]");
+    expect(twitchTab?.parentElement?.querySelector(".inset-x-0.-bottom-px")).not.toBeNull();
   });
 });

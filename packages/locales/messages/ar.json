@@ -62,6 +62,12 @@
   "settingsSearchNoResults": {
     "message": "لا توجد إعدادات تطابق «$1»."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "المنصة والفئات/الألعاب"
+  },
+  "settingsPlatformSettings": {
+    "message": "إعدادات $1"
+  },
   "settingsShowAdvancedTitle": {
     "message": "عرض الإعدادات المتقدمة"
   },
@@ -71,14 +77,8 @@
   "settingsSectionAdvancedActions": {
     "message": "إجراءات متقدمة"
   },
-  "settingsSectionGeneral": {
-    "message": "عام"
-  },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
-  },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "استورد إعدادات Lurkloot أو صدّرها أو أعد تعيينها."
   },
   "activityTitle": {
     "message": "النشاط"
@@ -144,7 +144,7 @@
     "message": "يفارم"
   },
   "waitingEligibleStream": {
-    "message": "بانتظار بث مؤهل"
+    "message": "لا يوجد بث مباشر مؤهل متاح حاليًا لهذه الحملة"
   },
   "watchingPausedHint": {
     "message": "المشاهدة متوقفة مؤقتًا. فعّل المفتاح لاستئناف فارم Drops."
@@ -193,6 +193,12 @@
   },
   "campaignSearchNoResults": {
     "message": "لا توجد حملات تطابق «$1»."
+  },
+  "closeSearch": {
+    "message": "إغلاق البحث"
+  },
+  "search": {
+    "message": "بحث"
   },
   "noActivity": {
     "message": "لم يتم تسجيل أي نشاط بعد. اضغط تحديث لتشغيل فحص."
@@ -342,16 +348,19 @@
     "message": "إضافة قناة"
   },
   "idleWatchlistChannel": {
-    "message": "في القائمة"
+    "message": "غير متصل"
   },
   "live": {
     "message": "مباشر"
+  },
+  "viewerCount": {
+    "message": "$1 مشاهد"
   },
   "settingsGeneralTitle": {
     "message": "الإعدادات العامة"
   },
   "settingsGeneralDescription": {
-    "message": "ينطبق على Twitch وKick."
+    "message": "اللغة وبدء التشغيل وسلوك النافذة المنبثقة."
   },
   "settingsGroupAppearance": {
     "message": "المظهر والسلوك"
@@ -372,7 +381,7 @@
     "message": "الإشعارات"
   },
   "notificationsDescription": {
-    "message": "ينطبق على كل المنصات المفعلة."
+    "message": "تنبيهات عند جاهزية المكافآت أو انتهاء الحملات."
   },
   "settingsGroupNotifications": {
     "message": "الإشعارات"
@@ -393,7 +402,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "سلوك فارم الحملات المشترك."
+    "message": "المطالبة والأهلية والأولويات وظهور الحملات."
   },
   "settingsGroupDrops": {
     "message": "Drops"
@@ -1032,7 +1041,7 @@
     "message": "التوافق"
   },
   "compatibilitySectionDescription": {
-    "message": "كيف يتواصل Lurkloot مع كل منصة. الوضع التلقائي يتبع الملف المضمَّن."
+    "message": "لا تغيّرها إلا إذا لم يعمل Twitch أو Kick؛ فقد تساعد في تجاوز مشكلات المنصة."
   },
   "compatibilityComponentProfile": {
     "message": "الملف الشخصي"

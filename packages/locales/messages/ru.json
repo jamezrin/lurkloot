@@ -62,6 +62,12 @@
   "settingsSearchNoResults": {
     "message": "Настройки, соответствующие «$1», не найдены."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "Платформа и категории/игры"
+  },
+  "settingsPlatformSettings": {
+    "message": "Настройки $1"
+  },
   "settingsShowAdvancedTitle": {
     "message": "Показать дополнительные настройки"
   },
@@ -71,14 +77,8 @@
   "settingsSectionAdvancedActions": {
     "message": "Дополнительные действия"
   },
-  "settingsSectionGeneral": {
-    "message": "Общие"
-  },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
-  },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Импортируйте, экспортируйте или сбросьте настройки Lurkloot."
   },
   "activityTitle": {
     "message": "Активность"
@@ -144,7 +144,7 @@
     "message": "Фарм"
   },
   "waitingEligibleStream": {
-    "message": "Ожидание подходящего стрима"
+    "message": "Для этой кампании сейчас нет подходящего активного стрима"
   },
   "watchingPausedHint": {
     "message": "Просмотр приостановлен. Включите переключатель, чтобы продолжить фарм drops."
@@ -193,6 +193,12 @@
   },
   "campaignSearchNoResults": {
     "message": "Кампании, соответствующие «$1», не найдены."
+  },
+  "closeSearch": {
+    "message": "Закрыть поиск"
+  },
+  "search": {
+    "message": "Искать"
   },
   "noActivity": {
     "message": "Активность пока не записана. Нажмите обновить, чтобы выполнить проверку."
@@ -342,16 +348,19 @@
     "message": "Добавить канал"
   },
   "idleWatchlistChannel": {
-    "message": "в списке"
+    "message": "Не в сети"
   },
   "live": {
     "message": "в эфире"
+  },
+  "viewerCount": {
+    "message": "$1 зрителей"
   },
   "settingsGeneralTitle": {
     "message": "Общие настройки"
   },
   "settingsGeneralDescription": {
-    "message": "Применяется к Twitch и Kick."
+    "message": "Язык, запуск и поведение всплывающего окна."
   },
   "settingsGroupAppearance": {
     "message": "Внешний вид и поведение"
@@ -372,7 +381,7 @@
     "message": "Уведомления"
   },
   "notificationsDescription": {
-    "message": "Применяется ко всем включённым платформам."
+    "message": "Оповещения, когда награды готовы или кампании завершаются."
   },
   "settingsGroupNotifications": {
     "message": "Уведомления"
@@ -393,7 +402,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "Общее поведение фарма кампаний."
+    "message": "Получение, доступность, приоритеты и видимость кампаний."
   },
   "settingsGroupDrops": {
     "message": "Drops"
@@ -1032,7 +1041,7 @@
     "message": "Совместимость"
   },
   "compatibilitySectionDescription": {
-    "message": "Как Lurkloot взаимодействует с каждой платформой. Автоматический режим следует встроенному профилю."
+    "message": "Меняйте только если Twitch или Kick не работает: эти настройки могут обойти проблемы платформы."
   },
   "compatibilityComponentProfile": {
     "message": "Профиль"

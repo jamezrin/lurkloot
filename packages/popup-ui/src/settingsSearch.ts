@@ -48,7 +48,6 @@ export interface SettingsGroupNode<TEntry extends SettingsEntryNode = SettingsEn
 
 export interface SettingsSectionNode<TEntry extends SettingsEntryNode = SettingsEntryNode> {
   id: string;
-  titleKey: string;
   rows: TEntry[];
   groups: Array<SettingsGroupNode<TEntry>>;
 }
@@ -86,23 +85,18 @@ export function filterSettingsTree<
 
   const result: Array<TSection & { matchCount: number }> = [];
   for (const section of sections) {
-    // A section title match keeps the whole section, so "twitch" surfaces
-    // everything Twitch-related rather than only rows containing the word.
-    const sectionMatched = searching && matchesSearch([t(section.titleKey)], query);
     let matchCount = 0;
 
     const keepEntry = (entry: TEntry, groupAdvanced = false): boolean => {
       const isAdvanced = Boolean(entry.advanced ?? groupAdvanced);
       if (!advancedVisible(isAdvanced, showAdvanced, searching)) return false;
       if (!searching) return true;
-      // Under a section-title match, advanced content still obeys the switch.
-      if (sectionMatched) return !isAdvanced || showAdvanced;
       return matchesSearch(entryText(entry, t), query);
     };
 
     const rows = section.rows.filter((row) => {
       const kept = keepEntry(row);
-      if (kept && searching && !sectionMatched) matchCount += 1;
+      if (kept && searching) matchCount += 1;
       return kept;
     });
 
@@ -112,17 +106,18 @@ export function filterSettingsTree<
     for (const group of section.groups) {
       const groupAdvanced = Boolean(group.advanced);
       if (!advancedVisible(groupAdvanced, showAdvanced, searching)) continue;
-      // A group-title match keeps the group's entries, same reasoning as sections.
-      const groupMatched = searching && !sectionMatched && matchesSearch([t(group.titleKey)], query);
+      // A group-title match keeps the group's entries, so searching "drops"
+      // finds the controls in that focused group without reviving a broad
+      // General/Twitch/Kick wrapper.
+      const groupMatched = searching && matchesSearch([t(group.titleKey)], query);
       const entries = group.entries.filter((entry) => {
         // A group-title match is as specific as an entry match, so it reveals
-        // the group's advanced entries without the switch. A section-title
-        // match is broad and deliberately does not — see keepEntry.
+        // the group's advanced entries without the switch.
         if (groupMatched) return true;
         return keepEntry(entry, groupAdvanced);
       });
       if (entries.length === 0) continue;
-      if (searching && !sectionMatched) matchCount += entries.length;
+      if (searching) matchCount += entries.length;
       groups.push({ ...group, entries });
     }
 

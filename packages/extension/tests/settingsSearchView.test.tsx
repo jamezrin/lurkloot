@@ -13,17 +13,30 @@ import type { PopupAdapter } from "../../popup-ui/src/types";
 // key name, which makes the assertions below fail confusingly rather than
 // cleanly, so keep this in sync with settingsRegistry.tsx.
 const labels: Record<string, string> = {
+  search: "Search",
+  closeSearch: "Close search",
   settingsSearchPlaceholder: "Search settings…",
   settingsSearchNoResults: "No settings match",
+  settingsPlatformSettingsTitle: "Platform & Categories/Games",
+  settingsPlatformSettings: "$1",
   settingsShowAdvancedTitle: "Show advanced settings",
-  settingsSectionGeneral: "General",
-  settingsSectionTwitch: "Twitch",
-  settingsSectionKick: "Kick",
+  settingsSectionAdvancedActions: "Advanced actions",
+  settingsSectionAdvancedActionsDescription: "Import, export, or reset Lurkloot settings.",
+  settingsExportTitle: "Import and export",
+  settingsExportHint: "Save or restore your settings.",
+  settingsExportButton: "Export settings",
+  settingsImportButton: "Import settings",
   settingsGroupAppearance: "Appearance & behavior",
+  settingsGeneralDescription: "Language, startup, and popup behavior.",
   settingsGroupNotifications: "Notifications",
+  notificationsDescription: "Alerts when rewards are ready or campaigns finish.",
   settingsGroupDrops: "Drops",
+  dropsSettingsDescription: "Claiming, eligibility, priorities, and campaign visibility.",
   settingsGroupFarmingTabs: "Farming tabs",
+  farmingTabsDescription: "Controls for video-tab farming.",
   settingsGroupAdvanced: "Advanced",
+  advancedDescription: "Low-level scheduler and logging behavior.",
+  platformSettingsDescription: "Automation and channels for one provider.",
   settingsGroupCategories: "Categories",
   settingsGroupExcludedChannels: "Excluded channels",
   settingsLanguageTitle: "Language",
@@ -145,7 +158,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mountSettings(settings = DEFAULT_SETTINGS) {
+function mountSettings(settings = DEFAULT_SETTINGS, actions: Partial<Pick<React.ComponentProps<typeof SettingsView>, "onExportSettings" | "onImportSettings" | "onReset" | "onExportCredentials">> = {}) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -161,13 +174,14 @@ function mountSettings(settings = DEFAULT_SETTINGS) {
     root = createRoot(container);
     root.render(
       <PopupRuntimeContext.Provider value={{ adapter, preview: true }}>
-        <I18nContext.Provider value={{ t: (key: string) => labels[key] ?? key, dir: "ltr", locale: "en" }}>
+        <I18nContext.Provider value={{ t: (key: string, substitutions?: string | string[]) => (labels[key] ?? key).replace("$1", Array.isArray(substitutions) ? substitutions[0] ?? "" : substitutions ?? ""), dir: "ltr", locale: "en" }}>
           <SettingsView
             suggestions={{ twitch: [], kick: [] }}
             onSearchCategories={async () => []}
             settings={settings}
             onSettingsChange={onSettingsChange}
             exportConfirmationResetKey={0}
+            {...actions}
           />
         </I18nContext.Provider>
       </PopupRuntimeContext.Provider>,
@@ -177,18 +191,71 @@ function mountSettings(settings = DEFAULT_SETTINGS) {
   return { container, onSettingsChange };
 }
 
+function openSearch(container: HTMLElement): HTMLInputElement {
+  return container.querySelector("input[type=search]") as HTMLInputElement;
+}
+
 describe("settings search view", () => {
-  it("hides advanced groups until the advanced switch is turned on", () => {
+  it("shows advanced settings without an advanced-settings switch", () => {
     const { container } = mountSettings();
-    expect(container.textContent).not.toContain("Scheduler interval");
-    const advancedSwitch = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Show advanced settings");
-    act(() => advancedSwitch?.click());
     expect(container.textContent).toContain("Scheduler interval");
+    expect(container.querySelector('[aria-label="Show advanced settings"]')).toBeNull();
+  });
+
+  it("organizes the normal view into ordered collapsible settings sections", () => {
+    const { container } = mountSettings();
+    const sectionTitles = [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')]
+      .map((button) => button.querySelectorAll<HTMLSpanElement>("span")[2]?.textContent?.trim());
+
+    expect(sectionTitles).toEqual([
+      "Appearance & behavior",
+      "Notifications",
+      "Drops",
+      "Farming tabs",
+      "Platform & Categories/Games",
+      "Advanced",
+    ]);
+    expect(container.textContent).toContain("Language, startup, and popup behavior.");
+    expect(container.textContent).toContain("Alerts when rewards are ready or campaigns finish.");
+    expect(container.textContent).toContain("Claiming, eligibility, priorities, and campaign visibility.");
+  });
+
+  it("keeps reward-completion policy with the other drop controls", () => {
+    const { container } = mountSettings();
+    const drops = container.querySelector("#settings-section-general\\.drops");
+    const advanced = container.querySelector("#settings-section-general\\.advanced");
+
+    expect(drops?.textContent).toContain("Skip rewards that cannot be completed");
+    expect(advanced?.textContent).not.toContain("Skip rewards that cannot be completed");
+  });
+
+  it("keeps the compact settings search field visible without a separate action", () => {
+    const { container } = mountSettings();
+    expect(container.querySelector("input[type=search]")).not.toBeNull();
+    expect(container.querySelector('[aria-label="Search"]')).toBeNull();
+  });
+
+  it("shows one platform settings section at a time", () => {
+    const { container } = mountSettings();
+    const twitchTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]');
+    const kickTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]');
+
+    expect(container.textContent).toContain("Platform & Categories/Games");
+    expect(twitchTab?.getAttribute("aria-selected")).toBe("true");
+    expect(container.querySelector('[role="tab"][aria-label="Twitch settings"]')).toBeNull();
+    expect(container.textContent).toContain("Auto-claim channel points");
+    expect(container.textContent).not.toContain("Auto-claim daily challenges");
+
+    act(() => kickTab?.click());
+
+    expect(kickTab?.getAttribute("aria-selected")).toBe("true");
+    expect(container.textContent).toContain("Auto-claim daily challenges");
+    expect(container.textContent).not.toContain("Auto-claim channel points");
   });
 
   it("filters settings by title as the user types", () => {
     const { container } = mountSettings();
-    const search = container.querySelector("input[type=search]") as HTMLInputElement;
+    const search = openSearch(container);
     act(() => {
       setInputValue(search, "mute");
     });
@@ -196,20 +263,37 @@ describe("settings search view", () => {
     expect(container.textContent).not.toContain("Auto-claim drops");
   });
 
-  it("reveals a matching advanced setting without enabling the advanced switch", () => {
+  it("shows matching setting groups instead of a broad General search section", () => {
     const { container } = mountSettings();
-    const search = container.querySelector("input[type=search]") as HTMLInputElement;
-    act(() => {
-      setInputValue(search, "tabless fallback");
+    const search = openSearch(container);
+
+    act(() => setInputValue(search, "campaign"));
+
+    const drops = container.querySelector<HTMLButtonElement>("#settings-section-general\\.drops button[aria-expanded]");
+    expect(container.querySelector("#settings-section-general")).toBeNull();
+    expect(drops?.textContent).toContain("Drops");
+
+    act(() => drops?.click());
+    expect(drops?.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("finds import and export actions", () => {
+    const { container } = mountSettings(DEFAULT_SETTINGS, {
+      onExportSettings: async () => undefined,
+      onImportSettings: async () => false,
     });
-    expect(container.textContent).toContain("Tabless fallback threshold");
-    const advancedSwitch = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Show advanced settings");
-    expect(advancedSwitch?.getAttribute("aria-checked")).toBe("false");
+    const search = openSearch(container);
+
+    act(() => setInputValue(search, "export"));
+
+    expect(container.textContent).toContain("Export settings");
+    expect(container.textContent).toContain("Import settings");
+    expect(container.textContent).not.toContain("No settings match");
   });
 
   it("restores the full tree when the query is cleared", () => {
     const { container } = mountSettings();
-    const search = container.querySelector("input[type=search]") as HTMLInputElement;
+    const search = openSearch(container);
     act(() => setInputValue(search, "mute"));
     act(() => setInputValue(search, ""));
     expect(container.textContent).toContain("Auto-claim drops");
@@ -217,7 +301,7 @@ describe("settings search view", () => {
 
   it("shows an empty state when nothing matches", () => {
     const { container } = mountSettings();
-    const search = container.querySelector("input[type=search]") as HTMLInputElement;
+    const search = openSearch(container);
     act(() => setInputValue(search, "zzzznotasetting"));
     expect(container.textContent).toContain("No settings match");
   });
