@@ -185,6 +185,12 @@
   "tipExcludedCampaigns": {
     "message": "Geri getirmek istediğiniz kampanyaları Drops ayarlarından düzenleyebilirsiniz."
   },
+  "tipTranslations": {
+    "message": "Çeviriler yapay zekâ ile otomatik olarak güncel tutulur. GitHub'da iyileştirmeye yardımcı olun."
+  },
+  "tipTranslationsAction": {
+    "message": "Çeviri rehberini okuyun"
+  },
   "noCampaigns": {
     "message": "Aktif kampanya yok."
   },

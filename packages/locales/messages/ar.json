@@ -185,6 +185,12 @@
   "tipExcludedCampaigns": {
     "message": "استبعدت حملة بالخطأ؟ استعدها من إعدادات Drops."
   },
+  "tipTranslations": {
+    "message": "تُصان الترجمات تلقائيًا بالذكاء الاصطناعي. ساعد في تحسينها على GitHub."
+  },
+  "tipTranslationsAction": {
+    "message": "اقرأ دليل الترجمة"
+  },
   "noCampaigns": {
     "message": "لم يتم اكتشاف أي حملات بعد."
   },

@@ -1,7 +1,7 @@
 import React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Info } from "lucide-react";
-import { CLI_DOCS_URL, GITHUB_NEW_ISSUE_URL } from "./constants";
+import { CLI_DOCS_URL, GITHUB_NEW_ISSUE_URL, GITHUB_TRANSLATION_GUIDE_URL } from "./constants";
 import { useT } from "./context";
 
 export const TIP_ROTATION_MS = 10_000;
@@ -21,7 +21,10 @@ const TIPS: TipDescriptor[] = [
   { messageKey: "tipCli", actionKey: "tipCliAction", href: CLI_DOCS_URL },
   { messageKey: "tipFeedback", actionKey: "tipFeedbackAction", href: GITHUB_NEW_ISSUE_URL },
   { messageKey: "tipExcludedCampaigns" },
+  { messageKey: "tipTranslations", actionKey: "tipTranslationsAction", href: GITHUB_TRANSLATION_GUIDE_URL },
 ];
+
+const PREVIEW_TIPS = TIPS.filter((tip) => tip.messageKey !== "tipTranslations");
 
 export function randomTipIndex(count: number, random: () => number = Math.random): number {
   return count > 0 ? Math.floor(random() * count) : 0;
@@ -48,17 +51,18 @@ export function createTipRotator({
   return () => cancel(handle);
 }
 
-export function TipsBanner({ initialIndex }: { initialIndex?: number }): React.ReactElement {
+export function TipsBanner({ initialIndex, preview = false }: { initialIndex?: number; preview?: boolean }): React.ReactElement {
   const t = useT();
   const reduceMotion = useReducedMotion();
-  const [tipIndex, setTipIndex] = React.useState(() => initialIndex ?? randomTipIndex(TIPS.length));
+  const tips = preview ? PREVIEW_TIPS : TIPS;
+  const [tipIndex, setTipIndex] = React.useState(() => initialIndex ?? randomTipIndex(tips.length));
 
   React.useEffect(() => createTipRotator({
-    onAdvance: () => setTipIndex((current) => nextTipIndex(current, TIPS.length)),
+    onAdvance: () => setTipIndex((current) => nextTipIndex(current, tips.length)),
     isVisible: () => typeof document === "undefined" || document.visibilityState === "visible",
-  }), []);
+  }), [tips.length]);
 
-  const tip = TIPS[tipIndex] ?? TIPS[0];
+  const tip = tips[tipIndex] ?? tips[0];
   return (
     <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
       <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />

@@ -715,7 +715,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     />
                   ) : null}
                 </AnimatePresence>
-                {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} /> : null}
+                {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} /> : null}
                 {criticalFailureReason ? (
                   <CriticalFailurePanel
                     platform={platform}
