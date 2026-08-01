@@ -5,5 +5,28 @@
   ],
   "extends": [
     "config:recommended"
+  ],
+  "ignoreTests": false,
+  "lockFileMaintenance": {
+    "automerge": true,
+    "automergeType": "pr",
+    "platformAutomerge": true,
+    "automergeStrategy": "squash"
+  },
+  "packageRules": [
+    {
+      "description": "Automerge non-major dependency updates after CI passes",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest",
+        "rollback"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true,
+      "automergeStrategy": "squash"
+    }
   ]
 }
