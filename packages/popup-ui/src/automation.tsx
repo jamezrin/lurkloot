@@ -95,7 +95,7 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
           // Two groups, each labelled by a glyph so the numbers and names are not
           // bare: where it is watching (channel + eye/viewers) and what that earns
           // (gift/campaign). Both names are links, so both are underlined.
-          <span className="flex min-w-0 items-center gap-1">
+          <span className="flex min-w-0 flex-1 items-center gap-1">
             <Radio size={11} className="shrink-0" style={{ color: "var(--accent-text)" }} />
             <span className="shrink-0">{t("watchingLabel")}</span>
             {/* The channel holds its width and the campaign absorbs the
@@ -112,14 +112,14 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
               </span>
             )}
             {farmingTitle && (
-              <>
-                <Gift size={11} className="ml-0.5 shrink-0" aria-hidden style={{ color: "var(--accent-text)" }} />
+              <span className="ml-auto flex min-w-0 items-center gap-1 pl-1">
+                <Gift size={11} className="shrink-0" aria-hidden style={{ color: "var(--accent-text)" }} />
                 {onFarmingTitleClick ? (
-                  <button type="button" onClick={onFarmingTitleClick} title={`${t("farmingLabel")} ${farmingTitle}`} className={cn(LINK_CLASS, "min-w-0 flex-1 text-left")}>{farmingTitle}</button>
+                  <button type="button" onClick={onFarmingTitleClick} title={`${t("farmingLabel")} ${farmingTitle}`} className={cn(LINK_CLASS, "min-w-0 text-left")}>{farmingTitle}</button>
                 ) : (
-                  <span className="min-w-0 flex-1 truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span>
+                  <span className="min-w-0 truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span>
                 )}
-              </>
+              </span>
             )}
           </span>
         ) : presentation.state === "running" ? (
