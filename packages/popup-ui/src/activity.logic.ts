@@ -22,6 +22,34 @@ export type ActivityRequestScope = {
   query: string;
 };
 
+export type ActivityCardIcon =
+  | "gift"
+  | "play"
+  | "pause"
+  | "trophy"
+  | "triangle"
+  | "monitor-up"
+  | "monitor-down"
+  | "shield"
+  | "octagon-alert"
+  | "refresh";
+
+export type ActivityCardTone = "success" | "accent" | "danger" | "warning" | "muted";
+
+export type ActivityCard = {
+  icon: ActivityCardIcon;
+  tone: ActivityCardTone;
+  summary: string;
+  detail?: string;
+  chips: string[];
+  reward?: {
+    name: string;
+    imageUrl?: string;
+  };
+  campaignName?: string;
+  campaignUrl?: string;
+};
+
 export type ActivityMutationSequence = { latest: number };
 
 export function createActivityMutationSequence(): ActivityMutationSequence {
@@ -213,6 +241,99 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
 export function formatActivityEvent(event: ActivityHistoryRecord, t: TFunction): string {
   if ("legacy" in event || event.category === "diagnostic") return event.message;
   return formatCurrentActivity(event, t);
+}
+
+export function buildActivityCard(event: ActivityHistoryRecord, t: TFunction): ActivityCard | undefined {
+  if ("legacy" in event || event.category === "diagnostic") return undefined;
+
+  const summary = formatCurrentActivity(event, t);
+  switch (event.code) {
+    case "reward_claimed":
+      return {
+        icon: "gift",
+        tone: "success",
+        summary,
+        chips: [event.data.method],
+        reward: { name: event.data.rewardName, imageUrl: event.data.rewardImageUrl },
+        campaignName: event.data.campaignName,
+        campaignUrl: event.data.campaignUrl,
+      };
+    case "farming_started":
+      return {
+        icon: "play",
+        tone: "accent",
+        summary,
+        chips: event.data.channel ? [event.data.channel] : [],
+        reward: { name: event.data.rewardName, imageUrl: event.data.rewardImageUrl },
+        campaignName: event.data.campaignName,
+        campaignUrl: event.data.campaignUrl,
+      };
+    case "farming_stopped":
+      return {
+        icon: "pause",
+        tone: event.level === "error" ? "danger" : "warning",
+        summary,
+        chips: [formatStopReason(event.data.reason, t)],
+        reward: { name: event.data.rewardName, imageUrl: event.data.rewardImageUrl },
+        campaignName: event.data.campaignName,
+        campaignUrl: event.data.campaignUrl,
+      };
+    case "challenge_claimed":
+      return {
+        icon: "trophy",
+        tone: "success",
+        summary,
+        chips: [event.data.rarity, event.data.recurrence],
+      };
+    case "interruption":
+      return {
+        icon: "triangle",
+        tone: event.level === "error" ? "danger" : "warning",
+        summary,
+        detail: event.data.detail,
+        chips: [formatStopReason(event.data.reason, t)],
+      };
+    case "page_context_opened":
+      return {
+        icon: "monitor-up",
+        tone: "accent",
+        summary,
+        chips: [event.data.host, formatPageContextOpenReason(event.data.reason, t)],
+      };
+    case "page_context_closed":
+      return {
+        icon: "monitor-down",
+        tone: "muted",
+        summary,
+        chips: [event.data.host, formatPageContextCloseReason(event.data.reason, t)],
+      };
+    case "auth_health_changed":
+      return {
+        icon: "shield",
+        tone: event.level === "error" ? "danger" : "warning",
+        summary,
+        detail: `${event.data.from} → ${event.data.to}`,
+        chips: event.data.reason ? [event.data.reason] : [],
+      };
+    case "critical_failure_detected":
+      return {
+        icon: "octagon-alert",
+        tone: "danger",
+        summary,
+        chips: [formatCriticalFailureReason(event.data.reason, t)],
+      };
+    case "critical_failure_cleared":
+      return {
+        icon: "refresh",
+        tone: "success",
+        summary,
+        chips: [formatCriticalFailureReason(event.data.reason, t)],
+      };
+    default: {
+      const exhaustive: never = event;
+      return exhaustive;
+    }
+  }
 }
 
 export interface ActivityExportInput {

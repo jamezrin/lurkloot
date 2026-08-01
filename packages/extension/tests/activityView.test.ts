@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ActivityHistoryRecord, FarmingStopReason } from "@lurkloot/shared/events";
+import type { ActivityEvent, ActivityHistoryRecord, FarmingStopReason } from "@lurkloot/shared/events";
 import {
   advanceActivityRequestScope,
   applyActivityMutationForRequest,
   applyActivityPage,
   applyActivityPageForRequest,
   beginActivityMutation,
+  buildActivityCard,
   buildActivityExport,
   createActivityMutationSequence,
   createActivityRequestScope,
@@ -30,6 +31,86 @@ function event(id: string, eventAt = at): ActivityHistoryRecord {
 }
 
 describe("activity view model", () => {
+  it("builds an exhaustive rich card for each current activity code", () => {
+    const t = vi.fn((key: string, substitutions?: string | string[]) =>
+      `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
+    const events = {
+      farming_started: {
+        id: "farming-started", at, category: "activity", code: "farming_started", level: "info", platform: "twitch",
+        data: {
+          campaignId: "campaign", campaignName: "Campaign", campaignUrl: "https://example.test/campaign",
+          rewardId: "reward", rewardName: "Golden Hat", rewardImageUrl: "https://cdn.example.test/reward.png",
+          channel: "streamer",
+        },
+      },
+      farming_stopped: {
+        id: "farming-stopped", at, category: "activity", code: "farming_stopped", level: "error", platform: "twitch",
+        data: {
+          campaignId: "campaign", campaignName: "Campaign", campaignUrl: "https://example.test/campaign",
+          rewardId: "reward", rewardName: "Golden Hat", rewardImageUrl: "https://cdn.example.test/reward.png",
+          reason: "runtime_restart",
+        },
+      },
+      reward_claimed: {
+        id: "reward-claimed", at, category: "activity", code: "reward_claimed", level: "info", platform: "twitch",
+        data: {
+          campaignId: "campaign", campaignName: "Campaign", campaignUrl: "https://example.test/campaign",
+          rewardId: "reward", rewardName: "Golden Hat", rewardImageUrl: "https://cdn.example.test/reward.png",
+          method: "automatic",
+        },
+      },
+      interruption: {
+        id: "interruption", at, category: "activity", code: "interruption", level: "warn",
+        data: { reason: "runtime_restart", detail: "The browser restarted." },
+      },
+      challenge_claimed: {
+        id: "challenge-claimed", at, category: "activity", code: "challenge_claimed", level: "info", platform: "kick",
+        data: { challengeId: "challenge", rarity: "rare", recurrence: "daily" },
+      },
+      page_context_opened: {
+        id: "page-context-opened", at, category: "activity", code: "page_context_opened", level: "info", platform: "kick",
+        data: { host: "kick.com", reason: "background_rejected" },
+      },
+      page_context_closed: {
+        id: "page-context-closed", at, category: "activity", code: "page_context_closed", level: "info", platform: "kick",
+        data: { host: "kick.com", reason: "background_recovered" },
+      },
+      auth_health_changed: {
+        id: "auth-health-changed", at, category: "activity", code: "auth_health_changed", level: "warn", platform: "twitch",
+        data: { from: "checking", to: "healthy", reason: "credentials_rejected" },
+      },
+      critical_failure_detected: {
+        id: "critical-failure-detected", at, category: "activity", code: "critical_failure_detected", level: "error", platform: "twitch",
+        data: { reason: "page_context_churn" },
+      },
+      critical_failure_cleared: {
+        id: "critical-failure-cleared", at, category: "activity", code: "critical_failure_cleared", level: "info", platform: "twitch",
+        data: { reason: "no_progress" },
+      },
+    } satisfies Record<ActivityEvent["code"], ActivityHistoryRecord>;
+    const diagnostic: ActivityHistoryRecord = {
+      id: "diagnostic", at, category: "diagnostic", level: "debug", message: "network detail",
+    };
+    const legacy: ActivityHistoryRecord = {
+      id: "legacy", at, level: "info", message: "old activity", legacy: true,
+    };
+
+    for (const event of Object.values(events)) {
+      expect(buildActivityCard(event, t)?.summary).toBe(formatActivityEvent(event, t));
+    }
+
+    expect(buildActivityCard(events.reward_claimed, t)).toMatchObject({
+      icon: "gift",
+      tone: "success",
+      reward: { name: "Golden Hat", imageUrl: "https://cdn.example.test/reward.png" },
+      campaignUrl: "https://example.test/campaign",
+    });
+    expect(buildActivityCard(events.interruption, t)?.chips).toContain("activityReasonRuntimeRestart:");
+    expect(buildActivityCard(events.auth_health_changed, t)?.detail).toContain("healthy");
+    expect(buildActivityCard(legacy, t)).toBeUndefined();
+    expect(buildActivityCard(diagnostic, t)).toBeUndefined();
+  });
+
   it("formats current activity wording from code and payload", () => {
     const t = vi.fn((key: string, substitutions?: string | string[]) =>
       `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
