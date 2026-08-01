@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import type { KeyboardEvent } from "react";
+import { motion } from "motion/react";
 import { Eye, Gift, Play, Radio } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
@@ -55,9 +56,9 @@ export function PlatformBar({ active, presentation, enabled, pending, onChange, 
   }
 
   return (
-    // Like Chrome's dark tabs, the selected platform is a visibly lighter
-    // rounded surface while inactive tabs rest directly on the header.
-    <div role="tablist" aria-orientation="horizontal" className="mt-2 grid grid-cols-2 gap-1">
+    // The selected platform owns its span of the shared tab track; the accent
+    // surface, border, and underline keep it visually distinct at a glance.
+    <div role="tablist" aria-orientation="horizontal" className="mt-2 grid grid-cols-2 gap-3 border-b border-zinc-200 dark:border-zinc-800">
       {Object.entries(PLATFORMS).map(([key, platform]) => {
         const id = key as Platform;
         const selected = active === id;
@@ -69,10 +70,10 @@ export function PlatformBar({ active, presentation, enabled, pending, onChange, 
             data-platform-status={id}
             data-state={status.state}
             className={cn(
-              "relative flex min-w-0 items-center gap-1.5 rounded-xl px-2.5 pb-2 pt-1.5 transition-colors",
+              "relative -mb-px flex min-w-0 items-center gap-1.5 rounded-t-md border px-2 pb-2 pt-1 transition-colors",
               selected
-                ? "bg-zinc-100 shadow-sm dark:bg-zinc-800 dark:shadow-black/30"
-                : "hover:bg-zinc-100/70 dark:hover:bg-zinc-900/70",
+                ? "border-[var(--accent-ring)] border-b-[var(--accent-soft)] bg-[var(--accent-soft)] shadow-sm"
+                : "border-transparent hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60",
             )}
           >
             <button
@@ -107,6 +108,14 @@ export function PlatformBar({ active, presentation, enabled, pending, onChange, 
                 disabled={pending[id]}
               />
             </span>
+            {selected && (
+              <motion.span
+                layoutId="platform-tab"
+                transition={{ type: "spring", stiffness: 520, damping: 38 }}
+                className="absolute inset-x-0 -bottom-px z-10 h-[2px] rounded-full"
+                style={{ backgroundColor: platform.color, boxShadow: `0 0 8px -1px ${platform.color}` }}
+              />
+            )}
           </div>
         );
       })}

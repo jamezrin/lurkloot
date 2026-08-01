@@ -224,7 +224,7 @@ describe("automation authentication status UI", () => {
     expect(onChange).toHaveBeenCalledWith("kick");
   });
 
-  it("renders the selected platform as a contrasting Chrome-style tab", () => {
+  it("renders the selected platform as an accent-tinted active tab", () => {
     const { container } = mountHeader({
       platform: "twitch",
       presentation: presentation("twitch", { status: "healthy" }),
@@ -233,9 +233,10 @@ describe("automation authentication status UI", () => {
     const twitchTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]');
     const kickTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]');
 
-    expect(twitchTab?.parentElement?.className).toContain("rounded-xl");
-    expect(twitchTab?.parentElement?.classList.contains("bg-zinc-100")).toBe(true);
-    expect(twitchTab?.parentElement?.className).toContain("dark:bg-zinc-800");
-    expect(kickTab?.parentElement?.classList.contains("bg-zinc-100")).toBe(false);
+    expect(twitchTab?.parentElement?.className).toContain("-mb-px");
+    expect(twitchTab?.parentElement?.className).toContain("border-[var(--accent-ring)]");
+    expect(twitchTab?.parentElement?.className).toContain("bg-[var(--accent-soft)]");
+    expect(kickTab?.parentElement?.className).not.toContain("bg-[var(--accent-soft)]");
+    expect(twitchTab?.parentElement?.querySelector(".inset-x-0.-bottom-px")).not.toBeNull();
   });
 });
