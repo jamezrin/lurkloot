@@ -194,6 +194,9 @@
   "campaignSearchNoResults": {
     "message": "Aucune campagne ne correspond à « $1 »."
   },
+  "closeSearch": {
+    "message": "Fermer la recherche"
+  },
   "noActivity": {
     "message": "Aucune activité enregistrée. Appuyez sur actualiser pour lancer une vérification."
   },
@@ -346,6 +349,9 @@
   },
   "live": {
     "message": "en direct"
+  },
+  "viewerCount": {
+    "message": "$1 spectateurs"
   },
   "settingsGeneralTitle": {
     "message": "Paramètres généraux"

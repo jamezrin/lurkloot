@@ -194,6 +194,9 @@
   "campaignSearchNoResults": {
     "message": "कोई अभियान “$1” से मेल नहीं खाता।"
   },
+  "closeSearch": {
+    "message": "खोज बंद करें"
+  },
   "noActivity": {
     "message": "अभी कोई गतिविधि रिकॉर्ड नहीं हुई। जाँच चलाने के लिए रीफ़्रेश दबाएँ।"
   },
@@ -346,6 +349,9 @@
   },
   "live": {
     "message": "लाइव"
+  },
+  "viewerCount": {
+    "message": "$1 दर्शक"
   },
   "settingsGeneralTitle": {
     "message": "सामान्य सेटिंग्स"

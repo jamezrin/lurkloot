@@ -194,6 +194,9 @@
   "campaignSearchNoResults": {
     "message": "No campaigns match “$1”."
   },
+  "closeSearch": {
+    "message": "Close search"
+  },
   "noActivity": {
     "message": "No activity recorded yet. Press refresh to run a check."
   },
@@ -346,6 +349,9 @@
   },
   "live": {
     "message": "live"
+  },
+  "viewerCount": {
+    "message": "$1 viewers"
   },
   "settingsGeneralTitle": {
     "message": "General settings"

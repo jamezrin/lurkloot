@@ -116,13 +116,16 @@ function SortableIdleWatchlist({ streamer, index, platform, onRemove }: { stream
 function IdleWatchlistStatus({ streamer }: { streamer: StreamerItem }): React.ReactElement {
   const t = useT();
   if (streamer.live) {
-    // Same eye-plus-count grammar the status line uses, so a bare number always
-    // means viewers wherever it appears.
+    // Same eye-plus-count grammar (and same accessible label) the status line
+    // uses, so a bare number means viewers wherever it appears.
+    const viewers = streamer.viewers != null ? t("viewerCount", formatViewers(streamer.viewers)) : undefined;
     return (
-      <Pill tone="live">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        {streamer.viewers != null ? <><Eye size={9} aria-hidden />{formatViewers(streamer.viewers)}</> : t("live")}
-      </Pill>
+      <span role={viewers ? "img" : undefined} aria-label={viewers} title={viewers}>
+        <Pill tone="live">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          {streamer.viewers != null ? <><Eye size={9} aria-hidden />{formatViewers(streamer.viewers)}</> : t("live")}
+        </Pill>
+      </span>
     );
   }
   return <Pill tone="muted">{t("idleWatchlistChannel")}</Pill>;

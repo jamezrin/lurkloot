@@ -194,6 +194,9 @@
   "campaignSearchNoResults": {
     "message": "Keine Kampagnen entsprechen „$1“."
   },
+  "closeSearch": {
+    "message": "Suche schließen"
+  },
   "noActivity": {
     "message": "Noch keine Aktivität aufgezeichnet. Aktualisieren drücken, um eine Prüfung auszuführen."
   },
@@ -346,6 +349,9 @@
   },
   "live": {
     "message": "live"
+  },
+  "viewerCount": {
+    "message": "$1 Zuschauer"
   },
   "settingsGeneralTitle": {
     "message": "Allgemeine Einstellungen"

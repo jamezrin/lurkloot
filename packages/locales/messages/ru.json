@@ -194,6 +194,9 @@
   "campaignSearchNoResults": {
     "message": "Кампании, соответствующие «$1», не найдены."
   },
+  "closeSearch": {
+    "message": "Закрыть поиск"
+  },
   "noActivity": {
     "message": "Активность пока не записана. Нажмите обновить, чтобы выполнить проверку."
   },
@@ -346,6 +349,9 @@
   },
   "live": {
     "message": "в эфире"
+  },
+  "viewerCount": {
+    "message": "$1 зрителей"
   },
   "settingsGeneralTitle": {
     "message": "Общие настройки"

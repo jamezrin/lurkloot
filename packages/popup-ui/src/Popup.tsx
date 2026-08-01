@@ -388,6 +388,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   function selectPlatform(nextPlatform: Platform): void {
     if (nextPlatform !== activityRequestScopeRef.current.platform) invalidateActivityRequests(nextPlatform);
     setPlatform(nextPlatform);
+    // The watchlist add form belongs to the platform it was opened on: leaving
+    // it open would submit a name typed for one platform into the other's list.
+    setWatchlistAdding(false);
     if (!preview) void adapter.setStorage({ [SELECTED_PLATFORM_KEY]: nextPlatform });
   }
 
@@ -743,7 +746,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   />
                 )}
                 <div ref={watchlistRef}>
+                  {/* Keyed by platform so the add field's own text cannot survive
+                      a platform switch either. */}
                   <IdleWatchlistPanel
+                    key={platform}
                     platform={platform}
                     streamers={idleWatchlist}
                     expanded={watchlistExpanded}

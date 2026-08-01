@@ -194,6 +194,9 @@
   "campaignSearchNoResults": {
     "message": "未找到与“$1”匹配的活动。"
   },
+  "closeSearch": {
+    "message": "关闭搜索"
+  },
   "noActivity": {
     "message": "尚未记录活动。按刷新运行检查。"
   },
@@ -346,6 +349,9 @@
   },
   "live": {
     "message": "直播"
+  },
+  "viewerCount": {
+    "message": "$1 名观众"
   },
   "settingsGeneralTitle": {
     "message": "常规设置"

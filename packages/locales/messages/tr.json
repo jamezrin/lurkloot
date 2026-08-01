@@ -194,6 +194,9 @@
   "campaignSearchNoResults": {
     "message": "“$1” ile ilgili kampanya bulunamadı."
   },
+  "closeSearch": {
+    "message": "Aramayı kapat"
+  },
   "noActivity": {
     "message": "Henüz işlem kaydı yok."
   },
@@ -346,6 +349,9 @@
   },
   "live": {
     "message": "CANLI"
+  },
+  "viewerCount": {
+    "message": "$1 izleyici"
   },
   "settingsGeneralTitle": {
     "message": "Genel Ayarlar"

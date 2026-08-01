@@ -194,6 +194,9 @@
   "campaignSearchNoResults": {
     "message": "لا توجد حملات تطابق «$1»."
   },
+  "closeSearch": {
+    "message": "إغلاق البحث"
+  },
   "noActivity": {
     "message": "لم يتم تسجيل أي نشاط بعد. اضغط تحديث لتشغيل فحص."
   },
@@ -346,6 +349,9 @@
   },
   "live": {
     "message": "مباشر"
+  },
+  "viewerCount": {
+    "message": "$1 مشاهد"
   },
   "settingsGeneralTitle": {
     "message": "الإعدادات العامة"

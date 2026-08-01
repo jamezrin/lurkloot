@@ -127,7 +127,9 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
               <span className="max-w-[7.5rem] shrink-0 truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingChannel.name}</span>
             )}
             {farmingChannel.viewers != null && (
-              <span className="shrink-0">
+              // The eye carries the meaning visually; role+label carries it to a
+              // screen reader, which would otherwise hear a bare "18K".
+              <span className="shrink-0" role="img" aria-label={t("viewerCount", formatViewers(farmingChannel.viewers))} title={t("viewerCount", formatViewers(farmingChannel.viewers))}>
                 <Pill tone="muted"><Eye size={9} aria-hidden />{formatViewers(farmingChannel.viewers)}</Pill>
               </span>
             )}

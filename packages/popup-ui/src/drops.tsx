@@ -116,7 +116,7 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
           <div className="min-w-0 flex-1">
             <SearchBox compact autoFocus value={query} onChange={setQuery} placeholder={t("campaignSearchPlaceholder")} />
           </div>
-          <IconButton label={t("back")} onClick={() => { setQuery(""); setSearchOpen(false); }}>
+          <IconButton label={t("closeSearch")} onClick={() => { setQuery(""); setSearchOpen(false); }}>
             <X size={15} />
           </IconButton>
         </div>
@@ -259,10 +259,12 @@ function CampaignCard({ campaign, index, anyFarming, game, expanded, refreshing,
               className="no-scrollbar pointer-events-auto mt-0.5 flex items-center gap-1.5 overflow-x-auto text-[11px] text-zinc-500 dark:text-zinc-400"
               onPointerDown={(event) => { metaPointerX.current = event.clientX; }}
               onClick={(event) => {
-                // Only a drag suppresses the toggle; a click with no usable
-                // coordinate (keyboard, synthetic) still counts as a click.
-                const travelled = Math.abs(event.clientX - metaPointerX.current);
-                if (!Number.isFinite(travelled) || travelled < 4) onToggle();
+                // Suppress only what is positively a pointer click that moved:
+                // that is a drag-scroll of this row, not a click on the card.
+                // `detail` is 0 for keyboard and programmatic clicks, which
+                // report clientX 0 and would otherwise look like a long drag.
+                if (event.detail > 0 && Math.abs(event.clientX - metaPointerX.current) >= 4) return;
+                onToggle();
               }}
             >
               <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: game.accent }} />
