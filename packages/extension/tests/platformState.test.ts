@@ -140,6 +140,24 @@ describe("mergeSchedulerState Twitch discovery", () => {
     ["expired entry", discoverySnapshot({}, { freshUntil: "2026-08-01T12:00:00.000Z" })],
     ["mismatched campaign identity", discoverySnapshot({}, { campaign: { id: "other" } })],
     ["malformed campaign payload", discoverySnapshot({}, { campaign: { id: "campaign", name: "Campaign" } })],
+    ["null campaign reward", discoverySnapshot({}, {
+      campaign: { id: "campaign", name: "Campaign", timeBasedDrops: [null] },
+    })],
+    ["null campaign benefit edge", discoverySnapshot({}, {
+      campaign: {
+        id: "campaign",
+        name: "Campaign",
+        timeBasedDrops: [{ id: "drop", benefitEdges: [null] }],
+      },
+    })],
+    ["malformed campaign game", discoverySnapshot({}, {
+      campaign: {
+        id: "campaign",
+        name: "Campaign",
+        game: { id: "game", slug: 42 },
+        timeBasedDrops: [],
+      },
+    })],
     ["duplicate campaign identity", discoverySnapshot({
       entries: [
         (discoverySnapshot().entries as unknown[])[0],

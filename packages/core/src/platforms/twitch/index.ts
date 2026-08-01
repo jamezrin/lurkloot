@@ -231,14 +231,20 @@ function isCredentialRejection(message: string | undefined): boolean {
   return message != null && /unauthenticated|unauthorized|(?:the )?oauth token (?:(?:is|was) )?invalid|invalid oauth token|token (?:has )?expired/i.test(message);
 }
 
+interface TwitchDashboardCampaign {
+  id?: string;
+  status?: string;
+  self?: { isAccountConnected?: boolean };
+}
+
 interface TwitchDashboardData {
   currentUser?: {
     id?: string;
     login?: string;
     inventory?: {
-      dropCampaigns?: Array<{ id?: string; status?: string; self?: { isAccountConnected?: boolean } }>;
+      dropCampaigns?: TwitchDashboardCampaign[];
     };
-    dropCampaigns?: Array<{ id?: string; status?: string; self?: { isAccountConnected?: boolean } }>;
+    dropCampaigns?: TwitchDashboardCampaign[];
   };
 }
 
@@ -422,6 +428,7 @@ export class TwitchDiscoveryState {
   }
 
   rememberCampaignDetails(dropID: string, campaign: unknown): void {
+    if (!isTwitchCampaignDetailPayload(campaign, dropID)) return;
     const now = Date.now();
     for (const [cachedDropID, cached] of this.campaignDetailsByDropId) {
       if (cached.retainedUntil <= now) this.campaignDetailsByDropId.delete(cachedDropID);
@@ -693,7 +700,7 @@ export class TwitchAdapter implements PlatformAdapter {
       this.fetchDashboard(TWITCH_QUERIES.dashboard.variables, signal),
     ]);
     let inventoryCampaigns = this.inventoryCapability.parse(inventory);
-    let dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
+    let dashboardCampaigns = dashboardResult.campaigns;
 
     if (inventoryCampaigns.length === 0 && dashboardCampaigns.length === 0) {
       try {
@@ -708,7 +715,7 @@ export class TwitchAdapter implements PlatformAdapter {
         inventoryCampaigns = this.inventoryCapability.parse(inventory);
         if (fallbackDashboardResult.ok || !dashboardResult.ok) {
           dashboardResult = fallbackDashboardResult;
-          dashboardCampaigns = twitchDashboardCampaigns(dashboardResult.response);
+          dashboardCampaigns = dashboardResult.campaigns;
         }
       } catch (error) {
         signal?.throwIfAborted();
@@ -740,12 +747,15 @@ export class TwitchAdapter implements PlatformAdapter {
         && (campaign.status === "ACTIVE" || campaign.status === "UPCOMING")
       )
       .map((campaign) => campaign.id as string);
+    const activeCampaignId = session?.status === "watching" || session?.status === "starting"
+      ? session.campaignId ?? session.channel?.campaignId
+      : undefined;
 
-    // A failed dashboard parses to the same empty list as a dashboard with no
-    // active drops, and the Inventory payload only carries campaigns the user
-    // already started — so falling back to it hides every campaign they have
-    // not. Reuse the last dashboard we did get instead. `dashboardResponded`
-    // stays false so the expiry stamping below never fires off a stale list.
+    // Only a validated dashboard collection is authoritative. A failed or
+    // malformed dashboard leaves `ok` false, and the Inventory payload only
+    // carries campaigns the user already started — so falling back to it hides
+    // every campaign they have not. Reuse the last valid dashboard instead.
+    // `dashboardResponded` stays false so expiry stamping never uses stale data.
     let invalidatedDetails = 0;
     if (dashboardResult.ok && authenticatedUserId) {
       this.discoveryState.rememberDashboardCampaignIds(freshCampaignIds);
@@ -757,8 +767,11 @@ export class TwitchAdapter implements PlatformAdapter {
         ? this.discoveryState.retainedDashboardCampaignIds()
         : [];
     const dashboardResponded = dashboardResult.ok && dashboardCampaigns.length > 0;
+    const detailCampaignIds = activeCampaignId && !discoverableCampaignIds.includes(activeCampaignId)
+      ? [...discoverableCampaignIds, activeCampaignId]
+      : discoverableCampaignIds;
 
-    if (discoverableCampaignIds.length === 0) {
+    if (detailCampaignIds.length === 0) {
       return reconcileInventoryCampaignStatuses(
         inventoryCampaigns,
         new Set(discoverableCampaignIds),
@@ -766,14 +779,11 @@ export class TwitchAdapter implements PlatformAdapter {
       );
     }
 
-    const activeCampaignId = session?.status === "watching" || session?.status === "starting"
-      ? session.campaignId ?? session.channel?.campaignId
-      : undefined;
     const detailByDropID = new Map<string, unknown>();
     const detailFetchIds: string[] = [];
     let cachedDetails = 0;
     let staleDetails = 0;
-    for (const dropID of discoverableCampaignIds) {
+    for (const dropID of detailCampaignIds) {
       const fresh = dropID === activeCampaignId
         ? undefined
         : this.discoveryState.freshCampaignDetails(dropID);
@@ -834,14 +844,14 @@ export class TwitchAdapter implements PlatformAdapter {
       }
       useRetainedDetails(dropID, result.reason);
     });
-    const operationLabel = discoverableCampaignIds.length === 1 ? "operation" : "operations";
+    const operationLabel = detailCampaignIds.length === 1 ? "operation" : "operations";
     diagnostic(
       this.emit,
       "debug",
-      `Twitch campaign details finished in ${Date.now() - detailsStartedAt}ms (${discoverableCampaignIds.length} ${operationLabel}: ${detailFetchIds.length} fetched, ${cachedDetails} served from cache, ${staleDetails} stale, ${invalidatedDetails} invalidated, ${detailFetch.batchRequests} batch requests, ${detailFetch.singleFallbacks} single fallbacks)`,
+      `Twitch campaign details finished in ${Date.now() - detailsStartedAt}ms (${detailCampaignIds.length} ${operationLabel}: ${detailFetchIds.length} fetched, ${cachedDetails} served from cache, ${staleDetails} stale, ${invalidatedDetails} invalidated, ${detailFetch.batchRequests} batch requests, ${detailFetch.singleFallbacks} single fallbacks)`,
       "twitch",
     );
-    const detailedCampaigns = discoverableCampaignIds
+    const detailedCampaigns = detailCampaignIds
       .map((dropID) => detailByDropID.get(dropID))
       .filter((campaign) => campaign !== undefined);
     if (detailedCampaigns.length === 0) {
@@ -1581,7 +1591,11 @@ export class TwitchAdapter implements PlatformAdapter {
   private async fetchDashboard(
     variables: Record<string, unknown>,
     signal?: AbortSignal,
-  ): Promise<{ response: TwitchGqlResponse<TwitchDashboardData>; ok: boolean }> {
+  ): Promise<{
+    response: TwitchGqlResponse<TwitchDashboardData>;
+    campaigns: TwitchDashboardCampaign[];
+    ok: boolean;
+  }> {
     try {
       const response = await this.gqlWithIntegrityRetry<TwitchDashboardData>(
         TWITCH_QUERIES.dashboard.operationName,
@@ -1592,13 +1606,23 @@ export class TwitchAdapter implements PlatformAdapter {
         this.emit,
         signal,
       );
-      return { response, ok: true };
+      const campaigns = twitchDashboardCampaigns(response);
+      if (!campaigns) {
+        diagnostic(
+          this.emit,
+          "warn",
+          "Twitch drops dashboard response did not contain a valid campaign collection; reusing the last campaign list it returned",
+          "twitch",
+        );
+        return { response, campaigns: [], ok: false };
+      }
+      return { response, campaigns, ok: true };
     } catch (error) {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       diagnostic(this.emit, "warn", `Twitch drops dashboard request failed; reusing the last campaign list it returned: ${message}`, "twitch");
-      return { response: {}, ok: false };
+      return { response: {}, campaigns: [], ok: false };
     }
   }
 
@@ -1999,10 +2023,24 @@ class TwitchWatcher implements TablessWatchController {
   }
 }
 
-function twitchDashboardCampaigns(dashboard: TwitchGqlResponse<TwitchDashboardData>) {
-  return dashboard.data?.currentUser?.dropCampaigns
-    ?? dashboard.data?.currentUser?.inventory?.dropCampaigns
-    ?? [];
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function twitchDashboardCampaigns(dashboard: unknown): TwitchDashboardCampaign[] | undefined {
+  if (!isRecord(dashboard) || !isRecord(dashboard.data)) return undefined;
+  const currentUser = dashboard.data.currentUser;
+  if (!isRecord(currentUser)) return undefined;
+  const inventory = currentUser.inventory;
+  const campaigns = currentUser.dropCampaigns
+    ?? (isRecord(inventory) ? inventory.dropCampaigns : undefined);
+  if (!Array.isArray(campaigns)) return undefined;
+  if (!campaigns.every((campaign) =>
+    isRecord(campaign)
+    && typeof campaign.id === "string"
+    && campaign.id.length > 0
+    && typeof campaign.status === "string")) return undefined;
+  return campaigns as TwitchDashboardCampaign[];
 }
 
 function twitchCurrentUserId(value: unknown): string | undefined {

@@ -1486,6 +1486,55 @@ describe("TwitchAdapter", () => {
     }
   });
 
+  it.each(["starting", "watching"] as const)("fetches reconstructed current campaign details when a valid dashboard omits them while %s", async (status) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime("2026-08-01T12:00:00.000Z");
+      let dashboardIds = ["campaign"];
+      const detailRequests: string[] = [];
+      const fetcher = jsonFetcher((_url, init) => {
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+        if (Array.isArray(body)) {
+          return body.map((entry) => {
+            const dropID = String((entry.variables as { dropID?: string }).dropID);
+            detailRequests.push(dropID);
+            return twitchCampaignDetails(dropID);
+          });
+        }
+        if (body.operationName === "Inventory") return twitchInventory([]);
+        if (body.operationName === "ViewerDropsDashboard") return twitchDashboard(dashboardIds);
+        throw new Error(`Unexpected operation ${String(body.operationName)}`);
+      });
+      const session = {
+        platform: "twitch" as const,
+        status,
+        campaignId: "campaign",
+        offlineChecks: 0,
+      };
+      const initialDiscoveryState = new TwitchDiscoveryState();
+
+      await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState: initialDiscoveryState })
+        .refreshCampaigns(session);
+      const persisted = JSON.parse(JSON.stringify(initialDiscoveryState.snapshot())) as unknown;
+      const reconstructedDiscoveryState = new TwitchDiscoveryState();
+      reconstructedDiscoveryState.restore(persisted);
+      dashboardIds = [];
+
+      const first = await new TwitchAdapter(fetcher, undefined, undefined, {
+        discoveryState: reconstructedDiscoveryState,
+      }).refreshCampaigns(session);
+      const second = await new TwitchAdapter(fetcher, undefined, undefined, {
+        discoveryState: reconstructedDiscoveryState,
+      }).refreshCampaigns(session);
+
+      expect(first.map((campaign) => campaign.id)).toEqual(["campaign"]);
+      expect(second.map((campaign) => campaign.id)).toEqual(["campaign"]);
+      expect(detailRequests).toEqual(["campaign", "campaign", "campaign"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("reuses fresh campaign details after discovery-state reconstruction", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
@@ -1730,6 +1779,61 @@ describe("TwitchAdapter", () => {
     expect(detailRequests).toBe(2);
   });
 
+  it.each([
+    ["a null reward", {
+      id: "campaign",
+      name: "Malformed Campaign",
+      timeBasedDrops: [null],
+    }],
+    ["a null benefit edge", {
+      id: "campaign",
+      name: "Malformed Campaign",
+      timeBasedDrops: [{
+        id: "campaign-drop",
+        requiredMinutesWatched: 60,
+        benefitEdges: [null],
+      }],
+    }],
+    ["a malformed game", {
+      id: "campaign",
+      name: "Malformed Campaign",
+      game: { id: "game", slug: 42 },
+      timeBasedDrops: [],
+    }],
+  ])("rejects nested malformed details with %s and preserves the known-good cache", async (_label, malformedCampaign) => {
+    let malformed = false;
+    const fetcher = jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) {
+        return body.map((entry) => malformed
+          ? { data: { dropCampaign: malformedCampaign } }
+          : twitchCampaignDetails(String((entry.variables as { dropID?: string }).dropID)));
+      }
+      if (body.operationName === "Inventory") return twitchInventory([]);
+      if (body.operationName === "ViewerDropsDashboard") return twitchDashboard(["campaign"]);
+      throw new Error(`Unexpected operation ${String(body.operationName)}`);
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const activeSession = {
+      platform: "twitch" as const,
+      status: "watching" as const,
+      campaignId: "campaign",
+      offlineChecks: 0,
+    };
+
+    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+      .resolves.toEqual([expect.objectContaining({ id: "campaign", name: "Campaign campaign" })]);
+    malformed = true;
+
+    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns(activeSession))
+      .resolves.toEqual([expect.objectContaining({ id: "campaign", name: "Campaign campaign" })]);
+    expect(discoveryState.retainedCampaignDetails("campaign")).toMatchObject({
+      id: "campaign",
+      name: "Campaign campaign",
+      timeBasedDrops: [{ id: "campaign-drop" }],
+    });
+  });
+
   it("starts Twitch inventory and dashboard discovery requests concurrently", async () => {
     let releaseInventory!: () => void;
     const inventoryGate = new Promise<void>((resolve) => {
@@ -1891,6 +1995,44 @@ describe("TwitchAdapter", () => {
 
     dashboardFails = false;
     expect((await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
+  });
+
+  it.each([
+    ["is absent", { data: { currentUser: { id: "user-id", login: "viewer" } } }],
+    ["has the wrong shape", {
+      data: {
+        currentUser: {
+          id: "user-id",
+          login: "viewer",
+          dropCampaigns: { campaign: { id: "campaign", status: "ACTIVE" } },
+        },
+      },
+    }],
+  ])("retains cached campaigns when the dashboard campaign collection %s", async (_label, malformedDashboard) => {
+    let malformed = false;
+    let detailRequests = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") return twitchInventory([]);
+      if (op === "ViewerDropsDashboard") {
+        return malformed ? malformedDashboard : twitchDashboard(["campaign"]);
+      }
+      if (op === "DropCampaignDetails") {
+        detailRequests += 1;
+        return twitchCampaignDetails("campaign");
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+    const discoveryState = new TwitchDiscoveryState();
+
+    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+      .resolves.toEqual([expect.objectContaining({ id: "campaign" })]);
+    malformed = true;
+
+    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+      .resolves.toEqual([expect.objectContaining({ id: "campaign" })]);
+    expect(discoveryState.retainedCampaignDetails("campaign")).toBeDefined();
+    expect(detailRequests).toBe(1);
   });
 
   it("does not retain dashboard campaigns when the dashboard genuinely returns none", async () => {
@@ -2117,6 +2259,27 @@ describe("TwitchAdapter", () => {
       .resolves.toEqual([]);
   });
 
+  it("does not replace known-good details through a malformed cache write", () => {
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.rememberCampaignDetails("campaign", {
+      id: "campaign",
+      name: "Known Good",
+      timeBasedDrops: [],
+    });
+
+    discoveryState.rememberCampaignDetails("campaign", {
+      id: "campaign",
+      name: "Malformed",
+      timeBasedDrops: [null],
+    });
+
+    expect(discoveryState.retainedCampaignDetails("campaign")).toEqual({
+      id: "campaign",
+      name: "Known Good",
+      timeBasedDrops: [],
+    });
+  });
+
   it("prunes expired retained campaign details during a later write", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
@@ -2126,9 +2289,17 @@ describe("TwitchAdapter", () => {
         campaignDetailsByDropId: Map<string, unknown>;
       }).campaignDetailsByDropId;
 
-      discoveryState.rememberCampaignDetails("expired", { id: "expired" });
+      discoveryState.rememberCampaignDetails("expired", {
+        id: "expired",
+        name: "Expired",
+        timeBasedDrops: [],
+      });
       vi.setSystemTime("2026-07-26T12:31:00.000Z");
-      discoveryState.rememberCampaignDetails("fresh", { id: "fresh" });
+      discoveryState.rememberCampaignDetails("fresh", {
+        id: "fresh",
+        name: "Fresh",
+        timeBasedDrops: [],
+      });
 
       expect([...details.keys()]).toEqual(["fresh"]);
     } finally {
@@ -2147,7 +2318,11 @@ describe("TwitchAdapter", () => {
 
       for (let index = 0; index < 129; index += 1) {
         const id = `campaign-${index.toString().padStart(3, "0")}`;
-        discoveryState.rememberCampaignDetails(id, { id });
+        discoveryState.rememberCampaignDetails(id, {
+          id,
+          name: `Campaign ${index}`,
+          timeBasedDrops: [],
+        });
       }
 
       expect(details).toHaveLength(128);

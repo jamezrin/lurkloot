@@ -58,12 +58,104 @@ function normalizedIsoTimestamp(value: unknown): string | undefined {
   }
 }
 
+function isOptionalString(value: unknown): boolean {
+  return value == null || typeof value === "string";
+}
+
+function isOptionalNumber(value: unknown): boolean {
+  return value == null || (typeof value === "number" && Number.isFinite(value));
+}
+
+function isOptionalBoolean(value: unknown): boolean {
+  return value == null || typeof value === "boolean";
+}
+
+function isTwitchBenefitEdge(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const benefit = value.benefit;
+  return benefit == null || (
+    isRecord(benefit)
+    && isOptionalString(benefit.id)
+    && isOptionalString(benefit.name)
+    && isOptionalString(benefit.imageAssetURL)
+    && isOptionalString(benefit.distributionType)
+  );
+}
+
+function isTwitchCampaignReward(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.id !== "string" || value.id.length === 0) return false;
+  const benefitEdges = value.benefitEdges;
+  const preconditionDrops = value.preconditionDrops;
+  const self = value.self;
+  return isOptionalString(value.name)
+    && isOptionalString(value.startAt)
+    && isOptionalString(value.endAt)
+    && isOptionalNumber(value.requiredMinutesWatched)
+    && isOptionalNumber(value.requiredSubs)
+    && (benefitEdges == null || (Array.isArray(benefitEdges) && benefitEdges.every(isTwitchBenefitEdge)))
+    && (preconditionDrops == null || (
+      Array.isArray(preconditionDrops)
+      && preconditionDrops.every((drop) => isRecord(drop) && typeof drop.id === "string")
+    ))
+    && (self == null || (
+      isRecord(self)
+      && isOptionalNumber(self.currentMinutesWatched)
+      && isOptionalBoolean(self.isClaimed)
+      && isOptionalString(self.dropInstanceID)
+    ));
+}
+
+function isTwitchAllowedChannel(value: unknown): boolean {
+  return typeof value === "string" || (
+    isRecord(value)
+    && isOptionalString(value.name)
+    && isOptionalString(value.login)
+  );
+}
+
+function isTwitchCampaignGame(value: unknown): boolean {
+  return value == null || (
+    isRecord(value)
+    && isOptionalString(value.id)
+    && isOptionalString(value.name)
+    && isOptionalString(value.displayName)
+    && isOptionalString(value.slug)
+    && isOptionalString(value.boxArtURL)
+  );
+}
+
 export function isTwitchCampaignDetailPayload(value: unknown, dropID: string): value is Record<string, unknown> {
-  return isRecord(value)
-    && value.id === dropID
-    && typeof value.name === "string"
-    && value.name.length > 0
-    && Array.isArray(value.timeBasedDrops);
+  if (
+    !isRecord(value)
+    || value.id !== dropID
+    || typeof value.name !== "string"
+    || value.name.length === 0
+    || !Array.isArray(value.timeBasedDrops)
+    || !value.timeBasedDrops.every(isTwitchCampaignReward)
+  ) return false;
+  const game = value.game;
+  const self = value.self;
+  const allow = value.allow;
+  const allowedChannels = value.allowedChannels;
+  return isTwitchCampaignGame(game)
+    && isOptionalString(value.imageURL)
+    && isOptionalString(value.startAt)
+    && isOptionalString(value.endAt)
+    && isOptionalString(value.status)
+    && isOptionalString(value.accountLinkURL)
+    && isOptionalString(value.detailsURL)
+    && (self == null || (isRecord(self) && isOptionalBoolean(self.isAccountConnected)))
+    && (allow == null || (
+      isRecord(allow)
+      && (allow.channels == null || (
+        Array.isArray(allow.channels)
+        && allow.channels.every(isTwitchAllowedChannel)
+      ))
+    ))
+    && (allowedChannels == null || (
+      Array.isArray(allowedChannels)
+      && allowedChannels.every(isTwitchAllowedChannel)
+    ));
 }
 
 export function normalizeTwitchDiscoverySnapshot(value: unknown): TwitchDiscoverySnapshot | undefined {
