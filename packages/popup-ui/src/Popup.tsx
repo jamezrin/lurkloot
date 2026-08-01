@@ -5,9 +5,7 @@ import {
   Clock3,
   Package,
   RotateCcw,
-  Search,
   Settings as SettingsIcon,
-  X,
 } from "lucide-react";
 import type { ActivityPage, CategorySearchResult, CliCredentialBlob, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
@@ -42,7 +40,7 @@ import {
   sortCampaignsForPopup,
   streamerItemFromFallback,
 } from "./viewModels";
-import { IconButton, ListToolbar, SearchBox, cn } from "./primitives";
+import { IconButton, cn } from "./primitives";
 import { ActivityLog } from "./activity";
 import {
   advanceActivityRequestScope,
@@ -85,8 +83,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // the campaigns until asked for (or until a screenshot variant wants it).
   const [watchlistExpanded, setWatchlistExpanded] = useState(preview && initialVariant.view === "idleWatchlist");
   const [watchlistAdding, setWatchlistAdding] = useState(false);
-  const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(preview && initialVariant.view === "settings");
   const [settingsOpenGeneration, setSettingsOpenGeneration] = useState(0);
   const [activityOpen, setActivityOpen] = useState(preview && initialVariant.view === "activity");
@@ -487,8 +483,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         setPlatform("twitch");
         setWatchlistExpanded(false);
         setWatchlistAdding(false);
-        setQuery("");
-        setSearchOpen(false);
         setPendingChangelogVersion(undefined);
         setSnapshot(snapshotWithMergedSettings(nextSnapshot));
         setSettingsOpen(false);
@@ -579,11 +573,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const activeCampaign = campaigns.find((campaign) => campaign.farmingChannel);
   const farmingChannel = activeCampaign?.farmingChannel ?? sessionChannel;
   const onFarmingTitleClick = activeCampaign
-    ? () => {
-        setQuery("");
-        setSearchOpen(false);
-        setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }));
-      }
+    ? () => setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }))
     : undefined;
   const mainViewOpen = !settingsOpen && !activityOpen;
   const viewTitle = settingsOpen ? t("settingsTitle") : activityOpen ? t("activityTitle") : "Lurkloot";
@@ -657,28 +647,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
               onFarmingTitleClick={onFarmingTitleClick}
               onResume={resumeAfterManualClose}
             />
-            {searchOpen ? (
-              <div className="mt-1.5 flex h-7 items-center gap-1">
-                <div className="min-w-0 flex-1">
-                  <SearchBox compact autoFocus value={query} onChange={setQuery} placeholder={t("campaignSearchPlaceholder")} />
-                </div>
-                <IconButton label={t("back")} onClick={() => { setQuery(""); setSearchOpen(false); }}>
-                  <X size={15} />
-                </IconButton>
-              </div>
-            ) : (
-              <ListToolbar
-                counts={[
-                  { label: t("dropsTab"), value: String(campaigns.length) },
-                  { label: t("idleWatchlistTab"), value: `${idleWatchlist.length}/20` },
-                ]}
-                actions={
-                  <IconButton label={t("campaignSearchPlaceholder")} onClick={() => setSearchOpen(true)}>
-                    <Search size={15} />
-                  </IconButton>
-                }
-              />
-            )}
           </>
         ) : null}
       </div>
@@ -758,7 +726,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   <DropsPanel
                     campaigns={campaigns}
                     gameMap={gameMap}
-                    query={query}
                     focus={campaignFocus}
                     refreshing={refreshing}
                     startCollapsed={watchlistScreenshot}

@@ -17,8 +17,10 @@ import {
   Link2,
   Radio,
   RotateCcw,
+  Search,
   Trophy,
   Users,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { PopupRuntimeContext, useT } from "./context";
@@ -29,10 +31,13 @@ import type { CampaignLifecycleState, CampaignView, GameItem, RewardView, TFunct
 import {
   DragHandle,
   EmptyPanel,
+  IconButton,
   ImageWithFallback,
   MetaStat,
   Pill,
   ProgressBar,
+  SearchBox,
+  SectionHeader,
   cn,
   moveById,
   useDndSensors,
@@ -50,10 +55,13 @@ function farmingCampaignId(campaigns: CampaignView[]): string | undefined {
   return campaigns.find((campaign) => Boolean(campaign.farmingChannel))?.id;
 }
 
-export function DropsPanel({ campaigns, gameMap, query = "", focus, refreshing, startCollapsed = false, onRefreshCampaign, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; query?: string; focus?: { id: string; seq: number } | null; refreshing: boolean; startCollapsed?: boolean; onRefreshCampaign(id: string): void | Promise<void>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
+export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollapsed = false, onRefreshCampaign, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; refreshing: boolean; startCollapsed?: boolean; onRefreshCampaign(id: string): void | Promise<void>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
   const t = useT();
   const sensors = useDndSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [sectionExpanded, setSectionExpanded] = useState(true);
   const farmingId = farmingCampaignId(campaigns);
   // `startCollapsed` is for the store screenshot that is about the Idle
   // Watchlist: the farmed campaign's reward grid would otherwise push the
@@ -74,9 +82,14 @@ export function DropsPanel({ campaigns, gameMap, query = "", focus, refreshing, 
   }, [farmingId]);
 
   // Jump to a campaign requested from elsewhere (e.g. the "Farming {campaign}"
-  // link in the hero): expand it and scroll its card into view.
+  // link in the status line): expand it and scroll its card into view. A search
+  // or a collapsed section would hide the very card being jumped to, so clear
+  // both first.
   useEffect(() => {
     if (!focus) return;
+    setQuery("");
+    setSearchOpen(false);
+    setSectionExpanded(true);
     setExpandedIds((current) => ({ ...current, [focus.id]: true }));
     const cards = listRef.current?.querySelectorAll<HTMLElement>("[data-campaign-id]");
     const el = cards && Array.from(cards).find((card) => card.dataset.campaignId === focus.id);
@@ -85,8 +98,6 @@ export function DropsPanel({ campaigns, gameMap, query = "", focus, refreshing, 
   const activeCampaign = campaigns.find((campaign) => campaign.id === activeId);
   const activeIndex = campaigns.findIndex((campaign) => campaign.id === activeId);
   const anyFarming = campaigns.some((campaign) => Boolean(campaign.farmingChannel));
-
-  if (campaigns.length === 0) return <EmptyPanel>{t("noCampaigns")}</EmptyPanel>;
 
   function endDrag(event: DragEndEvent): void {
     setActiveId(null);
@@ -97,32 +108,66 @@ export function DropsPanel({ campaigns, gameMap, query = "", focus, refreshing, 
   }
 
   return (
-    <div className="space-y-1">
-      {searching ? (
-        visibleCampaigns.length === 0 ? (
-          <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("campaignSearchNoResults", query.trim())}</p>
-        ) : (
-          <div className="space-y-1">
-            {visibleCampaigns.map((campaign, index) => (
-              <CampaignCard key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
-            ))}
+    <section className="space-y-1.5">
+      {/* The list owns its own heading: name, count and the search that filters
+          it, the same shape the Idle Watchlist section has. */}
+      {searchOpen ? (
+        <div className="flex h-7 items-center gap-1">
+          <div className="min-w-0 flex-1">
+            <SearchBox compact autoFocus value={query} onChange={setQuery} placeholder={t("campaignSearchPlaceholder")} />
           </div>
-        )
+          <IconButton label={t("back")} onClick={() => { setQuery(""); setSearchOpen(false); }}>
+            <X size={15} />
+          </IconButton>
+        </div>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event: DragStartEvent) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
-          <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
-            <div ref={listRef} className="space-y-1">
-              {campaigns.map((campaign, index) => (
-                <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
-              ))}
-            </div>
-          </SortableContext>
-          <DragOverlay dropAnimation={null}>
-            {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex, t)} expanded={false} refreshing={refreshing} onToggle={() => undefined} onRefreshCampaign={onRefreshCampaign} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
-          </DragOverlay>
-        </DndContext>
+        <SectionHeader
+          label={t("dropsTab")}
+          count={String(campaigns.length)}
+          icon={Gift}
+          expanded={sectionExpanded}
+          onToggle={() => setSectionExpanded((current) => !current)}
+          action={(
+            <IconButton
+              label={t("campaignSearchPlaceholder")}
+              onClick={() => { setSearchOpen(true); setSectionExpanded(true); }}
+            >
+              <Search size={15} />
+            </IconButton>
+          )}
+        />
       )}
-    </div>
+      <AnimatePresence initial={false}>
+        {sectionExpanded ? (
+          <motion.div key="campaigns" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+            {campaigns.length === 0 ? <EmptyPanel>{t("noCampaigns")}</EmptyPanel> : searching ? (
+              visibleCampaigns.length === 0 ? (
+                <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("campaignSearchNoResults", query.trim())}</p>
+              ) : (
+                <div className="space-y-1">
+                  {visibleCampaigns.map((campaign, index) => (
+                    <CampaignCard key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
+                  ))}
+                </div>
+              )
+            ) : (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event: DragStartEvent) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
+                <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
+                  <div ref={listRef} className="space-y-1">
+                    {campaigns.map((campaign, index) => (
+                      <SortableCampaign key={campaign.id} campaign={campaign} index={index} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
+                    ))}
+                  </div>
+                </SortableContext>
+                <DragOverlay dropAnimation={null}>
+                  {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex, t)} expanded={false} refreshing={refreshing} onToggle={() => undefined} onRefreshCampaign={onRefreshCampaign} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
+                </DragOverlay>
+              </DndContext>
+            )}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </section>
   );
 }
 

@@ -97,25 +97,6 @@ export function DragHandle({ setActivatorNodeRef, attributes, listeners, label }
   );
 }
 
-/** One row of chrome above the lists: what they hold, and the two actions that
- * used to each cost a row of their own (a permanent search field and a pair of
- * view tabs). */
-export function ListToolbar({ counts, actions }: { counts: Array<{ label: string; value: string }>; actions: React.ReactNode }) {
-  return (
-    <div className="mt-1.5 flex h-7 items-center gap-1">
-      <span className="min-w-0 truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-        {counts.map((count, index) => (
-          <React.Fragment key={count.label}>
-            {index > 0 ? <span className="text-zinc-300 dark:text-zinc-600"> · </span> : null}
-            {count.label} <span className="font-bold tabular text-zinc-700 dark:text-zinc-200">{count.value}</span>
-          </React.Fragment>
-        ))}
-      </span>
-      <span className="ml-auto flex shrink-0 items-center gap-0.5">{actions}</span>
-    </div>
-  );
-}
-
 /** Collapsible group heading, used to fold the Idle Watchlist under the drops
  * list instead of hiding it behind a tab. `action` is a sibling of the toggle,
  * not a child: the section's own actions belong on its heading, and a button

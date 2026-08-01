@@ -84,7 +84,7 @@ function mount(url?: string) {
 
   // Cards open collapsed unless a campaign is farming, so expand the card under
   // test before asserting on its body.
-  const toggle = container.querySelector<HTMLButtonElement>("button[aria-expanded]");
+  const toggle = container.querySelector<HTMLButtonElement>("article button[aria-expanded]");
   act(() => toggle?.click());
 
   return { container, openLink };
@@ -158,7 +158,7 @@ describe("initial drops expansion", () => {
       render(idleSession);
     });
 
-    const expandedStates = () => Array.from(container.querySelectorAll("button[aria-expanded]")).map((toggle) => toggle.getAttribute("aria-expanded"));
+    const expandedStates = () => Array.from(container.querySelectorAll("article button[aria-expanded]")).map((toggle) => toggle.getAttribute("aria-expanded"));
 
     expect(expandedStates()).toEqual(["false"]);
 
@@ -202,7 +202,7 @@ describe("initial drops expansion", () => {
       );
     });
 
-    const toggle = container.querySelector("button[aria-expanded]");
+    const toggle = container.querySelector("article button[aria-expanded]");
     const pillLine = container.querySelector<HTMLElement>("article .no-scrollbar");
     expect(pillLine).not.toBeNull();
     expect(toggle?.getAttribute("aria-expanded")).toBe("false");
