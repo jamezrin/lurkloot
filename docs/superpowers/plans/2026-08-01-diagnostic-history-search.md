@@ -61,10 +61,10 @@ Expected: FAIL because `query` is absent and unmatched rows are returned.
 
 - [ ] **Step 3: Implement the contract and storage predicate**
 
-Add `query?: string` to `ActivityQuery`. In `load`, derive `const normalizedQuery = query.query?.trim().toLocaleLowerCase();`; only push a platform-eligible record if the query is empty or its `message` contains the normalized query. Keep the category/time index, cursor encoding, retention, and `limit + 1` pagination untouched.
+Add `query?: string` to `ActivityQuery`. In `load`, derive `const normalizedQuery = query.query?.trim().toLowerCase();`; only push a platform-eligible record if the query is empty or its `message` contains the normalized query. Keep the category/time index, cursor encoding, retention, and `limit + 1` pagination untouched.
 
 ```ts
-const matchesQuery = !normalizedQuery || event.message.toLocaleLowerCase().includes(normalizedQuery);
+const matchesQuery = !normalizedQuery || event.message.toLowerCase().includes(normalizedQuery);
 if (matchesPlatform && matchesQuery) events.push(event);
 ```
 

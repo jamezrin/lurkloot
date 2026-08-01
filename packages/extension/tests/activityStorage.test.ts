@@ -44,6 +44,7 @@ describe("activity repository", () => {
 
   afterEach(async () => {
     await repository.deleteDatabase();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   }, 30_000);
 
@@ -298,6 +299,7 @@ describe("activity repository", () => {
       { category: "diagnostic", level: "error", platform: "kick", message: "Kick transport failed" },
       { category: "diagnostic", level: "info", platform: "kick", message: "Twitch connected" },
       { category: "diagnostic", level: "info", platform: "kick", message: "kick retry scheduled" },
+      { category: "diagnostic", level: "info", platform: "twitch", message: "KICK connection from Twitch" },
       { category: "diagnostic", level: "error", message: "Kick global error" },
     ]);
 
@@ -315,6 +317,7 @@ describe("activity repository", () => {
       "kick retry scheduled",
     ]);
     expect(second.events.map((event) => event.message)).toEqual(["Kick transport failed"]);
+    expect([...first.events, ...second.events].some((event) => event.message === "KICK connection from Twitch")).toBe(false);
   });
 
   it("matches English diagnostic text independently of the browser locale", async () => {
