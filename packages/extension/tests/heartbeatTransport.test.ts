@@ -63,6 +63,26 @@ describe("Twitch heartbeat extension transport", () => {
     expect(String(error)).not.toMatch(/do-not-log|settings\.js/);
   });
 
+  it("gives up on a response whose body never arrives", async () => {
+    vi.useFakeTimers();
+    // Headers land, the body stalls. The timeout has to span the whole request,
+    // not just the fetch: the timer is cleared the moment withHeartbeatTimeout
+    // returns, so a body read outside it is unbounded again.
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: () => new Promise<string>(() => {}),
+    })));
+    const pending = twitchHeartbeatFetchText("https://assets.twitch.tv/config/settings.js")
+      .catch((caught: unknown) => caught);
+
+    await vi.advanceTimersByTimeAsync(HEARTBEAT_REQUEST_TIMEOUT_MS);
+
+    expect(String(await pending)).toBe(
+      `Error: Twitch Spade destination fetch failed for assets.twitch.tv: Twitch heartbeat request timed out after ${HEARTBEAT_REQUEST_TIMEOUT_MS}ms`,
+    );
+  });
+
   it("gives up on a stalled heartbeat POST and names the timeout as the cause", async () => {
     vi.useFakeTimers();
     stubHangingFetch();

@@ -23,12 +23,17 @@ function safeErrorCause(error: unknown): string {
 export async function twitchHeartbeatFetchText(url: string, init?: RequestInit): Promise<string> {
   const hostname = safeHostname(url);
   try {
-    const response = await withHeartbeatTimeout(
-      (signal) => fetch(url, { ...init, signal }),
+    // Body read included: the timer is cleared as soon as withHeartbeatTimeout
+    // returns, so reading outside it leaves a host that sends headers and then
+    // stalls the body unbounded — the same lock-holding hang, one step later.
+    return await withHeartbeatTimeout(
+      async (signal) => {
+        const response = await fetch(url, { ...init, signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.text();
+      },
       init?.signal,
     );
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.text();
   } catch (error) {
     throw new Error(`Twitch Spade destination fetch failed for ${hostname}: ${safeErrorCause(error)}`);
   }
