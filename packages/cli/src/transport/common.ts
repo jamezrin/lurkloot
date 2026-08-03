@@ -39,34 +39,15 @@ export function createLazyAdapters(
   };
 }
 
-export const HEARTBEAT_REQUEST_TIMEOUT_MS = 15_000;
-
-export async function withHeartbeatTimeout<T>(
-  operation: (signal: AbortSignal) => Promise<T>,
-  callerSignal?: AbortSignal | null,
-  timeoutMs = HEARTBEAT_REQUEST_TIMEOUT_MS,
-): Promise<T> {
-  const controller = new AbortController();
-  const abortFromCaller = () => controller.abort(callerSignal?.reason);
-  if (callerSignal?.aborted) abortFromCaller();
-  else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
-  const timeout = setTimeout(() => {
-    controller.abort(new Error(`Twitch heartbeat request timed out after ${timeoutMs}ms`));
-  }, timeoutMs);
-
-  const aborted = new Promise<never>((_resolve, reject) => {
-    const rejectAbort = () => reject(controller.signal.reason);
-    if (controller.signal.aborted) rejectAbort();
-    else controller.signal.addEventListener("abort", rejectAbort, { once: true });
-  });
-
-  try {
-    return await Promise.race([operation(controller.signal), aborted]);
-  } finally {
-    clearTimeout(timeout);
-    callerSignal?.removeEventListener("abort", abortFromCaller);
-  }
-}
+// Shared engine code, so it lives in core alongside the heartbeat strategies it
+// bounds — the extension's transport uses the same helper. Re-exported here so
+// both CLI transports keep importing their transport helpers from one place.
+export {
+  HEARTBEAT_REQUEST_TIMEOUT_MS,
+  HeartbeatTimeoutError,
+  isHeartbeatTimeoutError,
+  withHeartbeatTimeout,
+} from "@lurkloot/core/twitch/heartbeat";
 
 // Watch port for the headless transports, which never open a tab: opening fails
 // clearly (the CLI farms tabless only — keep tablessMode on), while stopping is
