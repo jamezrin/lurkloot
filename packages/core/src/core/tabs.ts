@@ -513,6 +513,13 @@ export const TWITCH_PAGE_CONTEXT_URL = "https://www.twitch.tv/drops/inventory";
 // 12s could not cover that, so the wait timed out, the operation degraded to
 // stale data, and the token landed anyway once nobody was waiting for it.
 //
+// Note that "the token landed once nobody was waiting" also had a second, then
+// unknown cause: the capture path installed tokens under the same platform lock
+// the waiting tick held, so a rejection-recovery wait could never be satisfied
+// no matter how long this budget was. That deadlock is fixed in the controller's
+// captureTwitchIntegrity. This budget still covers genuine cold-boot latency on
+// the readiness path, which has always run outside that lock.
+//
 // Raising it is only affordable because a forced refresh is now bounded by
 // rejectedToken (see below): a tick pays this once, not once per rejected
 // operation. Provisional — it covers a single observed sample with margin, and
