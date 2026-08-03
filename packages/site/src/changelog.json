@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.10.1",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Fixed the Twitch inventory page opening and closing in a loop on every check. When Twitch rejected one of its anti-bot verification tokens mid-check, Lurkloot could not take delivery of the replacement it had just asked for, so it waited the full 30 seconds, gave up, and opened another tab to try again. Drop claims and progress could stall for minutes while this repeated."
+      }
+    ],
+    "date": "2026-08-03"
+  },
+  {
     "version": "1.10.0",
     "changes": [
       {
