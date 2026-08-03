@@ -23,6 +23,13 @@ const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
+// The follow list only breaks ties between eligible channels, so a stale minute
+// costs nothing while a fresh read on every tick would be a wasted request.
+const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
+const FOLLOWED_CHANNELS_FAILURE_TTL_MS = 60_000;
+// Followed channels that are live right now. Bounded generously: the preference
+// only matters for channels that also show up in a campaign's directory page.
+const FOLLOWED_CHANNELS_LIMIT = 100;
 const DISCOVERY_DETAIL_PRUNE_LIMIT = 32;
 const GQL_BATCH_OPERATION_LIMIT = 20;
 const GQL_BATCH_CONCURRENCY = 2;
@@ -78,6 +85,20 @@ const STREAM_INFO_QUERY = `query StreamInfo($channel: String!) {
     id
     displayName
     stream { id type viewersCount game { id name } }
+  }
+}`;
+
+// Inline query for the signed-in account's live followed channels. Sent inline
+// because the web client resolves the follow directory from its sidebar cache,
+// so there is no persisted hash of ours to piggyback on; field/arg names were
+// validated against the live schema, so a "Cannot query field" here means the
+// schema drifted rather than a typo.
+const FOLLOWED_LIVE_QUERY = `query FollowedLiveChannels($limit: Int!) {
+  currentUser {
+    id
+    followedLiveUsers(first: $limit) {
+      edges { node { id login } }
+    }
   }
 }`;
 
@@ -312,6 +333,20 @@ interface TwitchAvailableDropsData {
 
 interface CachedAvailableCampaigns {
   campaignIds: Set<string>;
+  expiresAt: number;
+}
+
+interface TwitchFollowedLiveData {
+  currentUser?: {
+    id?: string;
+    followedLiveUsers?: {
+      edges?: Array<{ node?: { id?: string; login?: string } }>;
+    } | null;
+  } | null;
+}
+
+interface CachedFollowedChannels {
+  logins: string[];
   expiresAt: number;
 }
 
@@ -573,6 +608,7 @@ export class TwitchAdapter implements PlatformAdapter {
   private readonly gqlTransport: TwitchGqlTransport;
   private readonly inventoryCapability: TwitchInventoryCapability;
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
+  private cachedFollowedChannels?: CachedFollowedChannels;
   private readonly discoveryState: TwitchDiscoveryState;
 
   constructor(
@@ -961,6 +997,45 @@ export class TwitchAdapter implements PlatformAdapter {
         };
       })
       .filter((candidate): candidate is ChannelCandidate => Boolean(candidate));
+  }
+
+  // Live channels the signed-in account follows, so the scheduler can send a
+  // campaign's watch time to someone the user actually watches. A signed-out or
+  // failing lookup answers with an empty list: the preference is a nicety, never
+  // a reason to lose a farming tick.
+  async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
+    const cached = this.cachedFollowedChannels;
+    if (cached && cached.expiresAt > Date.now()) return cached.logins;
+    let logins: string[];
+    let ttl = FOLLOWED_CHANNELS_CACHE_TTL_MS;
+    try {
+      const response = await this.gqlWithIntegrityRetry<TwitchFollowedLiveData>(
+        "FollowedLiveChannels",
+        "",
+        { limit: FOLLOWED_CHANNELS_LIMIT },
+        FOLLOWED_LIVE_QUERY,
+        undefined,
+        this.emit,
+        signal,
+      );
+      logins = (response.data?.currentUser?.followedLiveUsers?.edges ?? [])
+        .map((edge) => edge.node?.login?.toLowerCase())
+        .filter((login): login is string => Boolean(login));
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      diagnostic(
+        this.emit,
+        "debug",
+        `Twitch followed-channel lookup failed (${error instanceof Error ? error.message : String(error)}); channel preference falls back to viewer count`,
+        "twitch",
+      );
+      logins = [];
+      // Short backoff instead of the full TTL: a failure should not keep the
+      // preference switched off for minutes once Twitch answers again.
+      ttl = FOLLOWED_CHANNELS_FAILURE_TTL_MS;
+    }
+    this.cachedFollowedChannels = { logins, expiresAt: Date.now() + ttl };
+    return logins;
   }
 
   async selectCandidateChannel(
