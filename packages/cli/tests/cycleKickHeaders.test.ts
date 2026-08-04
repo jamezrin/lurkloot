@@ -28,10 +28,13 @@ describe("kickHeaders", () => {
   });
 
   // Every URL here is a near-miss for a genuinely authenticated endpoint: a
-  // look-alike host or an unintended subpath. None may receive the token.
+  // look-alike host, an unintended subpath, or a plaintext downgrade of an
+  // endpoint that *does* receive the token over https/wss. None may receive it.
   it.each([
+    ["look-alike host mentioning a Kick host", "https://evil.example/?r=web.kick.com"],
     ["look-alike host suffixing a Kick host", "https://web.kick.com.evil.example/api/v1/user"],
     ["subpath of the identity endpoint", "https://kick.com/api/v1/user/profile"],
+    ["plaintext downgrade of an authenticated endpoint", "http://web.kick.com/api/v1/drops/progress"],
   ])("never attaches the session token to a %s", (_case, url) => {
     expect(kickHeaders(url, undefined, creds).authorization).toBeUndefined();
   });

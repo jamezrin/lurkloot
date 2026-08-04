@@ -26,6 +26,9 @@ function needsKickBearer(url: string): boolean {
   } catch {
     return false;
   }
+  // wss:, not just https:, because the viewer WebSocket (websockets.kick.com)
+  // goes through this same header builder — see createCycleKickWebSocketFactory.
+  if (parsed.protocol !== "https:" && parsed.protocol !== "wss:") return false;
   return KICK_AUTH_HOSTS.includes(parsed.host) || (parsed.host === "kick.com" && KICK_BEARER_PATHS.includes(parsed.pathname));
 }
 
