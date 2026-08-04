@@ -454,7 +454,11 @@ export class KickAdapter implements PlatformAdapter {
         .map((stream) => (stream.channel?.slug ?? stream.channel?.username)?.toLowerCase())
         .filter((username): username is string => Boolean(username));
     } catch (error) {
-      if (signal?.aborted) throw error;
+      // Never rethrown, even for the caller's own abort: this promise is shared
+      // via refreshFollowedChannelsOnce, so rejecting it would hand a second,
+      // unrelated caller an abort that was never theirs. The tick that owns
+      // `signal` still notices its own cancellation through the scheduler's
+      // other throwIfAborted() checks moments later.
       diagnostic(
         this.emit,
         "debug",
