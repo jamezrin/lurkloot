@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { isSafeFetchError } from "@lurkloot/core/fetchError";
 import { createImpersonateTransport } from "../src/transport/impersonate";
 import { createTvLinkAuthenticator } from "../src/transport/cycle";
 import { CHROME_JA3 } from "../src/transport/common";
@@ -96,7 +97,32 @@ describe("impersonate transport", () => {
   });
 
   it("surfaces a Cloudflare 403 as KickWafBlockedError", async () => {
-    const client = fakeClient(() => Promise.resolve({ status: 403, data: "blocked" }));
+    const client = fakeClient(() => Promise.resolve({
+      status: 403,
+      data: { error: "Request blocked by security policy.", reference: "9e4db7e3" },
+    }));
+    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    await expect(handle.adapters.kick.refreshCampaigns()).rejects.toBeInstanceOf(KickWafBlockedError);
+    await handle.dispose();
+  });
+
+  it("surfaces a non-WAF Kick 403 as a plain auth rejection, not KickWafBlockedError", async () => {
+    const client = fakeClient(() => Promise.resolve({
+      status: 403,
+      data: { error: "Invalid session" },
+    }));
+    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const error = await handle.adapters.kick.refreshCampaigns().catch((caught: unknown) => caught);
+    expect(error).not.toBeInstanceOf(KickWafBlockedError);
+    expect(isSafeFetchError(error) && error.failure.kind).toBe("authentication_rejected");
+    await handle.dispose();
+  });
+
+  it("surfaces a non-JSON 403 body (HTML challenge page) as KickWafBlockedError", async () => {
+    const client = fakeClient(() => Promise.resolve({
+      status: 403,
+      data: "<html><body>Attention Required! | Cloudflare</body></html>",
+    }));
     const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
     await expect(handle.adapters.kick.refreshCampaigns()).rejects.toBeInstanceOf(KickWafBlockedError);
     await handle.dispose();

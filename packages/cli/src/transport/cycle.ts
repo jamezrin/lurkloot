@@ -1,5 +1,6 @@
 import initCycleTLS, { type CycleTLSClient, type CycleTLSWebSocketResponse } from "cycletls";
-import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { KickWafBlockedError, safeKickFailure } from "@lurkloot/core/tabs";
+import { SafeFetchError } from "@lurkloot/core/fetchError";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/kick/watch";
 import type { PlatformCredentials } from "../authStore";
@@ -62,11 +63,24 @@ export function createCycleKickFetcher(cycleTLS: CycleTLSClient, creds: Platform
         body: typeof init?.body === "string" ? init.body : undefined,
       }, method);
 
-      if (response.status === 403) {
-        throw new KickWafBlockedError(`HTTP 403 from ${new URL(url).host} (Cloudflare blocked the impersonated request)`);
-      }
       if (response.status >= 400) {
-        throw new Error(`HTTP ${response.status} from ${new URL(url).host}`);
+        // Mirrors fetchKickInBackgroundWith's classification so checkAuthHealth sees the
+        // same failure kinds (WAF challenge vs. rejected credentials) over this transport
+        // as it does over the extension's page-context fetcher. safeKickFailure only
+        // recognizes Cloudflare's block by matching Kick's JSON error envelope; against
+        // this impersonated session a 401/403 is just as likely to come back as an HTML
+        // challenge page (see tabs.ts's own "likely a challenge page" handling), which
+        // would otherwise silently fall through to "authentication_rejected" and could
+        // suspend farming on what was actually a WAF block, not a bad session token.
+        const text = typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
+        const isJsonBody = (typeof response.data === "object" && response.data !== null) || safeJsonParse(text) !== undefined;
+        if (!isJsonBody && (response.status === 401 || response.status === 403)) {
+          throw new KickWafBlockedError(`HTTP ${response.status} from ${new URL(url).host} — non-JSON body (likely a Cloudflare challenge page)`);
+        }
+        const failure = safeKickFailure(response.status, text);
+        throw failure.kind === "security_policy_blocked"
+          ? new KickWafBlockedError(failure)
+          : new SafeFetchError(failure);
       }
 
       const data = response.data;
