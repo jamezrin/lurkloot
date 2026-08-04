@@ -1281,6 +1281,48 @@ describe("TwitchAdapter", () => {
     expect(calls).toBe(1);
   });
 
+  it("drops the followed-channel cache when the authenticated user changes", async () => {
+    // Follows are per-account, so a cache populated under one user must never
+    // answer for the next one — the discoveryState outlives the adapter, so
+    // without an explicit reset the old account's list would serve for the rest
+    // of the TTL.
+    let calls = 0;
+    const fetcher = jsonFetcher(() => {
+      calls += 1;
+      const login = calls === 1 ? "first-account-friend" : "second-account-friend";
+      return { data: { currentUser: { followedLiveUsers: { edges: [{ node: { login } }] } } } };
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.setAuthenticatedUser("user-1");
+    const firstTick = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    await expect(firstTick.listFollowedChannels()).resolves.toEqual(["first-account-friend"]);
+
+    discoveryState.setAuthenticatedUser("user-2");
+    const secondTick = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+
+    await expect(secondTick.listFollowedChannels()).resolves.toEqual(["second-account-friend"]);
+    expect(calls).toBe(2);
+  });
+
+  it("keeps the followed-channel cache when the same user re-authenticates", async () => {
+    let calls = 0;
+    const fetcher = jsonFetcher(() => {
+      calls += 1;
+      return { data: { currentUser: { followedLiveUsers: { edges: [{ node: { login: "friend" } }] } } } };
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.setAuthenticatedUser("user-1");
+    const firstTick = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    await expect(firstTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+
+    // Discovery re-reports the same id every tick; that must not cost a refetch.
+    discoveryState.setAuthenticatedUser("user-1");
+    const secondTick = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+
+    await expect(secondTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+    expect(calls).toBe(1);
+  });
+
   it("serves a stale followed-channel cache immediately and refreshes in the background", async () => {
     vi.useFakeTimers();
     try {

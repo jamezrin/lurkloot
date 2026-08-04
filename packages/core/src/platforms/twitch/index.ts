@@ -375,15 +375,23 @@ export class TwitchDiscoveryState {
   private retainedDashboard?: CachedDashboardCampaigns;
   // The extension reconstructs TwitchAdapter fresh every tick, so this lives
   // here (state injected from outside the adapter) rather than on the adapter
-  // itself. A plain readonly field, unlike the other caches on this class: it
-  // is already a small, fully self-contained value object, so wrapping it in
-  // pass-through methods would only add indirection.
-  readonly followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
+  // itself. Exposed as a bare field rather than behind pass-through methods,
+  // unlike the other caches on this class: it is already a small, fully
+  // self-contained value object. Not readonly only so setAuthenticatedUser can
+  // swap it wholesale — see there for why replacing beats clearing in place.
+  followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
 
   setAuthenticatedUser(userId: string): void {
     if (this.authenticatedUserId && this.authenticatedUserId !== userId) {
       this.retainedDashboard = undefined;
       this.campaignDetailsByDropId.clear();
+      // Follows are per-account, so the previous user's list must not survive
+      // the switch. Replaced rather than cleared in place because a refresh may
+      // already be in flight for the old account: clearing would let that
+      // pending fetch write the old user's logins back into the live cache
+      // moments later. The orphaned instance still settles, but into an object
+      // nothing reads any more.
+      this.followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
     }
     this.authenticatedUserId = userId;
   }

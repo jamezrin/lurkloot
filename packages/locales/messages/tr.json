@@ -453,10 +453,10 @@
     "message": "Yeni bir drop çıktığında yedek kanaldan hemen ayrılır."
   },
   "preferKnownChannelsTitle": {
-    "message": "Takip edilen ve yedek kanal listesindeki kanalları tercih et"
+    "message": "Takip edilen ve yedek kanalları tercih et"
   },
   "preferKnownChannelsDescription": {
-    "message": "Bir drop birden fazla kanalda mevcut olduğunda, tanımadığınız bir kanal yerine takip ettiğiniz veya yedek kanal listenizdeki bir kanalı seçer."
+    "message": "Bir drop birden fazla kanalda mevcut olduğunda, tanımadığınız bir kanal yerine takip ettiğiniz veya yedek kanallarınızdan birini seçer."
   },
   "platformSettingsTitle": {
     "message": "Platform Ayarları"
