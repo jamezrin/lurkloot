@@ -1,7 +1,14 @@
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
-import type { PlatformAdapter, WatchTabPort } from "@lurkloot/core/adapter";
-import type { CompatibilityResolution } from "@lurkloot/core";
+import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
+import type { PageFetcher, PlatformAdapter, WatchTabPort } from "@lurkloot/core/adapter";
+import type { WebSocketFactory } from "@lurkloot/core/kick/watch";
+import { KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
+import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
+import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost } from "@lurkloot/core/twitch/heartbeat";
+import { resolveCompatibility, type CompatibilityResolution } from "@lurkloot/core";
+import type { PlatformCredentials } from "../authStore";
+import { twitchClientIdentity } from "../twitch";
 
 // A built set of platform adapters plus a teardown hook (e.g. to stop the
 // cycletls subprocess the impersonate transport owns). Every transport returns
@@ -36,6 +43,76 @@ export function createLazyAdapters(
     get kick() {
       return kick ??= createAdapter("kick");
     },
+  };
+}
+
+// What a CLI transport supplies to get the shared TwitchAdapter/KickAdapter
+// construction below: how each platform reaches the network. Everything else
+// (identity resolution, compatibility resolution, discovery/claim state,
+// tabless watch wiring) is identical between the http and impersonate
+// transports and lives here once.
+export interface CliTransportDeps {
+  twitchFetcher(): PageFetcher;
+  twitchHeartbeat(identity: ReturnType<typeof twitchClientIdentity>): {
+    heartbeatFetchText: TwitchHeartbeatFetchText;
+    heartbeatPost: TwitchHeartbeatPost;
+  };
+  kickFetcher(): PageFetcher;
+  // Absent for the http transport: it never opens the viewer WebSocket itself
+  // (Kick's WAF blocks it from a pure-Node origin anyway).
+  kickWebSocketFactory?(): WebSocketFactory;
+}
+
+export function createCliAdapters(
+  creds: PlatformCredentials,
+  deps: CliTransportDeps,
+): Pick<TransportHandle, "adapters" | "createAdapter" | "createAdapters"> {
+  const kickClaimState = new KickClaimState();
+  const kickDiscoveryState = new KickDiscoveryState();
+  const twitchDiscoveryState = new TwitchDiscoveryState();
+  const createAdapter = (platform: Platform, emit: EventEmitter | undefined, settings: EngineSettings = DEFAULT_ENGINE_SETTINGS) => {
+    const identity = twitchClientIdentity(creds);
+    const twitchIdentity = identity.userAgent ? "android" : "web";
+    const resolution = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity });
+    const adapter = platform === "twitch"
+      ? new TwitchAdapter(
+        deps.twitchFetcher(),
+        async () => false,
+        tablessWatchPort,
+        {
+          ...identity,
+          compatibility: resolution.compatibility.twitch,
+          discoveryState: twitchDiscoveryState,
+          heartbeatIdentity: twitchIdentity,
+          ...deps.twitchHeartbeat(identity),
+        },
+        emit,
+      )
+      : new KickAdapter(
+        deps.kickFetcher(),
+        tablessWatchPort,
+        deps.kickWebSocketFactory?.(),
+        emit,
+        { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
+      );
+    return { adapter, ...resolution };
+  };
+  const createAdapters = (emit: EventEmitter | undefined, settings: EngineSettings = DEFAULT_ENGINE_SETTINGS) => {
+    const twitch = createAdapter("twitch", emit, settings);
+    const kick = createAdapter("kick", emit, settings);
+    return {
+      adapters: {
+        twitch: twitch.adapter,
+        kick: kick.adapter,
+      },
+      compatibility: twitch.compatibility,
+      warnings: twitch.warnings,
+    };
+  };
+  return {
+    adapters: createLazyAdapters((platform) => createAdapter(platform, undefined).adapter),
+    createAdapter,
+    createAdapters,
   };
 }
 
