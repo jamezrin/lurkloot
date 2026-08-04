@@ -320,6 +320,12 @@ export interface EngineSettings {
   notifyNoDropsLeft: boolean;
   autoStartDropFarming: boolean;
   idleWatchlistFallbackOnly: boolean;
+  // Ranks Idle Watchlist and followed channels ahead of anonymous directory
+  // channels when picking who to farm a campaign on (see chooseCampaignDecision
+  // in the scheduler). Off reverts to viewer-count-only ordering and skips the
+  // adapter's followed-channel lookup entirely, so a platform/account that never
+  // wants the extra request can turn it off.
+  preferKnownChannels: boolean;
   priorityMode: PriorityMode;
   platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;

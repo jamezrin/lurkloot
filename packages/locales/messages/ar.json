@@ -452,6 +452,12 @@
   "idleWatchlistFallbackOnlyDescription": {
     "message": "يغادر قناة قائمة المشاهدة الخاملة فور توفر drop مؤهل. عند التعطيل، يستمر في مشاهدتها حتى تصبح غير متصلة."
   },
+  "preferKnownChannelsTitle": {
+    "message": "تفضيل القنوات المتابَعة وقنوات قائمة المشاهدة الخاملة"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "عند توفر drop على عدة قنوات، يتم اختيار قناة تتابعها أو مدرجة في قائمة المشاهدة الخاملة بدلاً من قناة غير معروفة."
+  },
   "platformSettingsTitle": {
     "message": "إعدادات المنصة"
   },

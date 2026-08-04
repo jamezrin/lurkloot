@@ -388,6 +388,39 @@ describe("KickAdapter", () => {
     expect(candidates[0]).toMatchObject({ username: "creator", viewerCount: 123, title: "Drops" });
   });
 
+  it("lists followed live channels from the Kick user livestreams endpoint and caches them", async () => {
+    let calls = 0;
+    let requestedUrl = "";
+    const adapter = new KickAdapter(jsonFetcher((url) => {
+      requestedUrl = url;
+      calls += 1;
+      return [
+        { channel: { slug: "Friend" } },
+        { channel: { username: "other" } },
+        { channel: {} },
+      ];
+    }));
+
+    await expect(adapter.listFollowedChannels()).resolves.toEqual(["friend", "other"]);
+    await expect(adapter.listFollowedChannels()).resolves.toEqual(["friend", "other"]);
+
+    expect(requestedUrl).toBe("https://kick.com/api/v1/user/livestreams");
+    expect(calls).toBe(1);
+  });
+
+  it("reports no followed channels for a signed-out session or a failed lookup", async () => {
+    const emit = vi.fn();
+    const adapter = new KickAdapter(jsonFetcher(() => {
+      throw new SafeFetchError({ kind: "authentication_rejected", status: 401 });
+    }), undefined, undefined, emit);
+
+    await expect(adapter.listFollowedChannels()).resolves.toEqual([]);
+    expect(emit).toHaveBeenCalledWith(expect.objectContaining({
+      category: "diagnostic",
+      message: expect.stringContaining("followed-channel lookup failed"),
+    }));
+  });
+
   it("lists general live streams for site-wide Kick campaigns", async () => {
     let requestedUrl = "";
     const fetcher = jsonFetcher((url) => {

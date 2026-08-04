@@ -29,6 +29,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   notifyNoDropsLeft: true,
   autoStartDropFarming: true,
   idleWatchlistFallbackOnly: true,
+  preferKnownChannels: true,
   priorityMode: "ending_soonest",
   platform: {
     twitch: {
@@ -129,6 +130,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_ENGINE_SETTINGS.notifyNoDropsLeft),
     autoStartDropFarming: booleanOr(value?.autoStartDropFarming, DEFAULT_ENGINE_SETTINGS.autoStartDropFarming),
     idleWatchlistFallbackOnly: booleanOr(value?.idleWatchlistFallbackOnly, DEFAULT_ENGINE_SETTINGS.idleWatchlistFallbackOnly),
+    preferKnownChannels: booleanOr(value?.preferKnownChannels, DEFAULT_ENGINE_SETTINGS.preferKnownChannels),
     priorityMode: PRIORITY_MODES.includes(value?.priorityMode as PriorityMode)
       ? (value!.priorityMode as PriorityMode)
       : DEFAULT_ENGINE_SETTINGS.priorityMode,

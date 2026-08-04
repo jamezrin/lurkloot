@@ -974,11 +974,17 @@ export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string
   return (isUsableTwitchGql(json) ? json : twitchGqlErrorEnvelope("returned an unusable response", response.status, text, headers)) as T;
 }
 
+// Exact kick.com pathnames that require the session_token Bearer. Kept as a
+// literal list (not a prefix match) mirrored into the pageFetchJson predicate
+// below: /api/v1/user because Kick serves it anonymously as `200 {}` instead of
+// a 401 (see KickAdapter.checkAuthHealth), and /api/v1/user/livestreams for the
+// followed-live lookup, which instead answers anonymously with a clean 401 (no
+// same ambiguity, but the Bearer is still required to identify the account).
+const KICK_BEARER_PATHS = ["/api/v1/user", "/api/v1/user/livestreams"];
+
 // Kick endpoints that replay the session_token cookie as a Bearer (mirrors the
 // predicate inlined in pageFetchJson). kick.com/api/v2/* and /api/search are public
-// and do not need it; kick.com/api/v1/user does, because Kick serves it anonymously
-// as `200 {}` instead of a 401, so a missing Bearer there is indistinguishable from a
-// signed-out session (see KickAdapter.checkAuthHealth).
+// and do not need it.
 //
 // Matched on the parsed host and pathname rather than by substring: `includes` would
 // also attach the session token to hosts that merely mention a Kick host (e.g.
@@ -992,7 +998,7 @@ function needsKickSessionBearer(url: string): boolean {
   }
   if (parsed.protocol !== "https:") return false;
   if (parsed.host === "web.kick.com" || parsed.host === "websockets.kick.com") return true;
-  return parsed.host === "kick.com" && parsed.pathname === "/api/v1/user";
+  return parsed.host === "kick.com" && KICK_BEARER_PATHS.includes(parsed.pathname);
 }
 
 // Distinguishes "Kick's WAF / origin check rejected the service-worker request"
@@ -1659,17 +1665,19 @@ export type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageC
 async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
   const parsedInit = initJson ? JSON.parse(initJson) : undefined;
   const headers = new Headers(parsedInit?.headers ?? {});
-  // Mirrors needsKickSessionBearer; inlined because executeScript only serializes this
-  // function's own source, so module-scope helpers are unavailable in the page. Matches
-  // on parsed host/pathname so the session token is never attached to a look-alike host
-  // or to an unintended subpath of /api/v1/user.
+  // Mirrors needsKickSessionBearer (KICK_BEARER_PATHS); inlined because
+  // executeScript only serializes this function's own source, so module-scope
+  // helpers are unavailable in the page. Matches on parsed host/pathname so the
+  // session token is never attached to a look-alike host or to an unintended
+  // subpath of /api/v1/user.
   let needsKickBearer = false;
   try {
     const parsedTarget = new URL(targetUrl);
     needsKickBearer = parsedTarget.protocol === "https:"
       && (parsedTarget.host === "web.kick.com"
         || parsedTarget.host === "websockets.kick.com"
-        || (parsedTarget.host === "kick.com" && parsedTarget.pathname === "/api/v1/user"));
+        || (parsedTarget.host === "kick.com"
+          && (parsedTarget.pathname === "/api/v1/user" || parsedTarget.pathname === "/api/v1/user/livestreams")));
   } catch {
     needsKickBearer = false;
   }

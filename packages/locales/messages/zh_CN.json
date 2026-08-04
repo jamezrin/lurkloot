@@ -452,6 +452,12 @@
   "idleWatchlistFallbackOnlyDescription": {
     "message": "一旦有可刷取的合格掉宝，就离开空闲观看列表频道。关闭时，会一直观看该频道直到其下播。"
   },
+  "preferKnownChannelsTitle": {
+    "message": "优先选择已关注和空闲观看列表中的频道"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "当某个掉宝在多个频道上可获取时，优先选择你已关注或在空闲观看列表中的频道，而非陌生频道。"
+  },
   "platformSettingsTitle": {
     "message": "平台设置"
   },

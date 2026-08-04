@@ -452,6 +452,12 @@
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Verlässt einen Kanal der Leerlauf-Watchlist, sobald ein geeigneter Drop verfügbar ist. Wenn deaktiviert, wird er weiter angesehen, bis er offline geht."
   },
+  "preferKnownChannelsTitle": {
+    "message": "Gefolgte und Leerlauf-Watchlist-Kanäle bevorzugen"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Wenn ein Drop auf mehreren Kanälen verfügbar ist, wird ein Kanal bevorzugt, dem du folgst oder der in deiner Leerlauf-Watchlist steht, statt eines unbekannten."
+  },
   "platformSettingsTitle": {
     "message": "Plattformeinstellungen"
   },

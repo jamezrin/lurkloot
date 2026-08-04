@@ -17,6 +17,15 @@ export { createKickClaimCapability } from "./claim/factory";
 export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
 export { KickClaimState } from "./claim/v2";
 
+// The follow list only breaks ties between eligible channels, so a stale minute
+// costs nothing while a fresh read on every tick would be a wasted request.
+const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
+
+interface CachedFollowedChannels {
+  usernames: string[];
+  expiresAt: number;
+}
+
 export interface KickAdapterOptions {
   // Resolved metadata is injected by the host and fixed for this adapter's
   // lifetime. Settings changes construct a fresh adapter rather than switching
@@ -61,6 +70,22 @@ interface KickClaimResponse {
 interface KickChallengesResponse {
   data?: KickChallenge[];
 }
+
+// A single item from GET kick.com/api/v1/user/livestreams — the account's live
+// followed channels only, not the full follow list. Shape confirmed against the
+// Kick mobile app's own client (references/kcik-tv-app ChannelApiService.
+// getFollowingLiveStreamsV1 / LiveStreamItem); anonymous requests get a clean
+// 401 rather than Kick's ambiguous `200 {}`, so a schema mismatch here surfaces
+// as a parse producing no candidates rather than a silent wrong answer.
+interface KickFollowedLiveStream {
+  channel?: { slug?: string; username?: string };
+}
+
+// Kick's v1 endpoints are inconsistent about wrapping (see KickLivestreamsResponse
+// above): accept a bare array or one wrapped in `data`, so an envelope change here
+// degrades to "no preference" rather than being silently indistinguishable from
+// "this account follows nobody live".
+type KickFollowedLiveStreamsResponse = KickFollowedLiveStream[] | { data?: KickFollowedLiveStream[] };
 
 interface KickIdentityResponse {
   id?: string | number;
@@ -188,6 +213,7 @@ export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
   readonly compatibility?: ResolvedCompatibility["kick"];
   private readonly claimCapability: KickClaimCapability;
+  private cachedFollowedChannels?: CachedFollowedChannels;
 
   async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
@@ -345,6 +371,40 @@ export class KickAdapter implements PlatformAdapter {
     url.searchParams.set("searched_word", trimmed);
     const data = await this.fetcher.fetchJson<unknown>(url.toString(), undefined, this.emit);
     return parseKickCategories(data);
+  }
+
+  // Live channels the signed-in account follows, so the scheduler can send a
+  // campaign's watch time to someone the user actually watches. A single
+  // request that Kick itself already filters to live channels, rather than
+  // paginating the full follow list and filtering client-side. A signed-out
+  // session or a failing lookup answers with an empty list: the preference is a
+  // nicety, never a reason to lose a farming tick.
+  async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
+    const cached = this.cachedFollowedChannels;
+    if (cached && cached.expiresAt > Date.now()) return cached.usernames;
+    let usernames: string[];
+    try {
+      const response = await this.fetcher.fetchJson<KickFollowedLiveStreamsResponse>(
+        "https://kick.com/api/v1/user/livestreams",
+        { signal },
+        this.emit,
+      );
+      const streams = Array.isArray(response) ? response : response?.data ?? [];
+      usernames = streams
+        .map((stream) => (stream.channel?.slug ?? stream.channel?.username)?.toLowerCase())
+        .filter((username): username is string => Boolean(username));
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      diagnostic(
+        this.emit,
+        "debug",
+        `Kick followed-channel lookup failed (${error instanceof Error ? error.message : String(error)}); channel preference falls back to viewer count`,
+        "kick",
+      );
+      usernames = [];
+    }
+    this.cachedFollowedChannels = { usernames, expiresAt: Date.now() + FOLLOWED_CHANNELS_CACHE_TTL_MS };
+    return usernames;
   }
 
   async listCandidateChannels(

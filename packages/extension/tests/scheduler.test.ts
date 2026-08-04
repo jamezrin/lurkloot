@@ -477,6 +477,30 @@ describe("scheduler campaign selection", () => {
     expect(decision.channel?.username).toBe("popular");
   });
 
+  it("reverts to viewer-count ordering when preferKnownChannels is off", async () => {
+    const listFollowedChannels = vi.fn(async () => ["friend"]);
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings({ preferKnownChannels: false, platform: { twitch: { idleWatchlistChannels: ["watched"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000 }),
+          channel("friend", { viewerCount: 12 }),
+          channel("watched", { viewerCount: 5 }),
+        ]),
+        listFollowedChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("popular");
+    // Not just outranked: never asked at all, so a disabled preference costs no
+    // extra request.
+    expect(listFollowedChannels).not.toHaveBeenCalled();
+  });
+
   it("does not select campaigns whose only unclaimed reward is outside its earn and claim windows", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",

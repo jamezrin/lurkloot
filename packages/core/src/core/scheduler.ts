@@ -218,18 +218,22 @@ export async function chooseCampaignDecision(
   let campaignsChecked = 0;
   let candidatesChecked = 0;
   const generalCandidatesByCategory = new Map<string, ChannelCandidate[]>();
-  const idleWatchlist = new Set(settings.platform[platform].idleWatchlistChannels
-    .map((username) => username.trim().toLowerCase())
-    .filter(Boolean));
+  const idleWatchlist = settings.preferKnownChannels
+    ? new Set(settings.platform[platform].idleWatchlistChannels
+      .map((username) => username.trim().toLowerCase())
+      .filter(Boolean))
+    : new Set<string>();
   // Resolved at most once per decision (campaigns are looped, and the follow list
   // does not change between them) and only when a candidate list is long enough
   // for the preference to matter. A platform without the capability, or a failed
-  // lookup, degrades to no preference rather than losing the tick.
+  // lookup, degrades to no preference rather than losing the tick. When the
+  // setting is off, the adapter method is never called at all — not just
+  // ignored — so a user who disables it pays no extra request for it.
   let followedChannels: ReadonlySet<string> | undefined;
   const resolveFollowedChannels = async (): Promise<ReadonlySet<string>> => {
     if (followedChannels) return followedChannels;
     followedChannels = new Set<string>();
-    if (!adapter.listFollowedChannels) return followedChannels;
+    if (!settings.preferKnownChannels || !adapter.listFollowedChannels) return followedChannels;
     try {
       const logins = await adapter.listFollowedChannels({ signal });
       followedChannels = new Set(logins.map((login) => login.trim().toLowerCase()).filter(Boolean));

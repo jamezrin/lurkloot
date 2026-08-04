@@ -2183,6 +2183,22 @@ describe("fetchKickInBackgroundWith", () => {
     }
   });
 
+  it("replays the session_token cookie as a Bearer for the followed-live endpoint", async () => {
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    try {
+      await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user/livestreams");
+
+      expect(new Headers(captured?.headers).get("authorization")).toBe("Bearer sess 789");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   // Every URL here is a near-miss for a genuinely authenticated endpoint: a look-alike
   // host, an unintended subpath, or a plaintext downgrade of an endpoint that *does*
   // receive the token over https (see the web.kick.com case above). None may receive it.
