@@ -25,7 +25,8 @@ vi.mock("../src/core/activityStorage", () => ({
   importLegacyActivityEvents: mocks.importLegacyActivityEvents,
 }));
 
-import { DEFAULT_STATE, loadState, resetStorage, saveState } from "../src/core/storage";
+import { createTwitchDiscoveryStateStorage, DEFAULT_STATE, loadState, resetStorage, saveState } from "../src/core/storage";
+import { TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { withSchemaVersion } from "@lurkloot/shared/settingsSchema";
 
@@ -140,5 +141,56 @@ describe("legacy activity migration", () => {
     await expect(resetStorage()).resolves.toBeUndefined();
 
     expect(mocks.values.schedulerState).toEqual(DEFAULT_STATE);
+  });
+
+  it("restores fresh Twitch details across a reconstructed state-storage boundary", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime("2026-08-01T12:00:00.000Z");
+      mocks.values.schedulerState = DEFAULT_STATE;
+      const firstDiscoveryState = new TwitchDiscoveryState();
+      const firstStorage = createTwitchDiscoveryStateStorage(firstDiscoveryState);
+      await firstStorage.loadState();
+      firstDiscoveryState.setAuthenticatedUser("user-id");
+      firstDiscoveryState.rememberCampaignDetails("campaign", {
+        id: "campaign",
+        name: "Campaign",
+        timeBasedDrops: [],
+      });
+      await firstStorage.saveState(DEFAULT_STATE);
+
+      vi.advanceTimersByTime(60_000);
+      const reconstructedDiscoveryState = new TwitchDiscoveryState();
+      const reconstructedStorage = createTwitchDiscoveryStateStorage(reconstructedDiscoveryState);
+      await reconstructedStorage.loadState();
+
+      expect(reconstructedDiscoveryState.freshCampaignDetails("campaign"))
+        .toEqual({ id: "campaign", name: "Campaign", timeBasedDrops: [] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears restored Twitch details during an extension storage reset", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime("2026-08-01T12:00:00.000Z");
+      const discoveryState = new TwitchDiscoveryState();
+      const stateStorage = createTwitchDiscoveryStateStorage(discoveryState);
+      await stateStorage.loadState();
+      discoveryState.setAuthenticatedUser("user-id");
+      discoveryState.rememberCampaignDetails("campaign", {
+        id: "campaign",
+        name: "Campaign",
+        timeBasedDrops: [],
+      });
+
+      await stateStorage.resetStorage();
+
+      expect(discoveryState.freshCampaignDetails("campaign")).toBeUndefined();
+      expect(mocks.values.schedulerState).toEqual(DEFAULT_STATE);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

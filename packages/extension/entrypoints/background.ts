@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
+import { createTwitchDiscoveryStateStorage, loadSettings, loadTwitchIntegrity, saveSettings, saveTwitchIntegrity } from "../src/core/storage";
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import {
   applyAdFocus,
@@ -49,6 +49,7 @@ const reportEvents = createActivityEventReporter({
 });
 const kickClaimState = new KickClaimState();
 const twitchDiscoveryState = new TwitchDiscoveryState();
+const twitchDiscoveryStorage = createTwitchDiscoveryStateStorage(twitchDiscoveryState);
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const checkCredentialAvailability = createCredentialAvailabilityProvider({
   get: (details) => browser.cookies.get(details),
@@ -130,8 +131,8 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
 const controller = createBackgroundController<ExtensionSettings>({
   loadSettings,
   saveSettings,
-  loadState,
-  saveState,
+  loadState: twitchDiscoveryStorage.loadState,
+  saveState: twitchDiscoveryStorage.saveState,
   reportEvents,
   checkCredentialAvailability,
   createAlarm: (name, options) => browser.alarms.create(name, options),
@@ -212,7 +213,7 @@ function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
   resetMutation = (async () => {
     await controller.prepareForHostReset(async () => {
       kickClaimState.clear();
-      await resetStorage();
+      await twitchDiscoveryStorage.resetStorage();
     });
     return await controller.handleMessage({ type: "getSnapshot" }) as RuntimeSnapshot<ExtensionSettings>;
   })().finally(() => {

@@ -126,3 +126,45 @@ export async function resetStorage(): Promise<void> {
   });
   await clearActivityEvents();
 }
+
+interface PersistedTwitchDiscoveryState {
+  restore(snapshot: unknown): void;
+  snapshot(): SchedulerState["twitchDiscovery"];
+  clear(): void;
+}
+
+// Binds the browser-free Twitch cache lifecycle to the extension's existing
+// scheduler-state document. Hydration happens once per MV3 worker evaluation;
+// later state reads cannot restore an older snapshot over fresher in-memory
+// details, while every state save carries the latest bounded snapshot.
+export function createTwitchDiscoveryStateStorage(discoveryState: PersistedTwitchDiscoveryState) {
+  let hydrated = false;
+  let hydration: Promise<SchedulerState> | undefined;
+  const ensureHydrated = (): Promise<SchedulerState> => {
+    hydration ??= loadState().then((state) => {
+      discoveryState.restore(state.twitchDiscovery);
+      hydrated = true;
+      return state;
+    });
+    return hydration;
+  };
+
+  return {
+    async loadState(): Promise<SchedulerState> {
+      if (!hydrated) return ensureHydrated();
+      return loadState();
+    },
+    async saveState(state: SchedulerState): Promise<void> {
+      await ensureHydrated();
+      const snapshot = discoveryState.snapshot();
+      const nextState = { ...state, twitchDiscovery: snapshot };
+      if (!snapshot) delete nextState.twitchDiscovery;
+      await saveState(nextState);
+    },
+    async resetStorage(): Promise<void> {
+      await ensureHydrated();
+      discoveryState.clear();
+      await resetStorage();
+    },
+  };
+}

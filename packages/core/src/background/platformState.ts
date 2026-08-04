@@ -79,6 +79,9 @@ export function mergePlatformState(
       source.deadlineInfeasibleRewardIds,
       platform,
     ),
+    twitchDiscovery: platform === "twitch"
+      ? source.twitchDiscovery
+      : destination.twitchDiscovery,
     lastTickAt: newestTimestamp(destination.lastTickAt, source.lastTickAt),
   };
 }

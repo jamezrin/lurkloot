@@ -385,6 +385,22 @@ export interface ExtensionSettings extends EngineSettings {
   diagnosticLogging: boolean;
 }
 
+export const TWITCH_DISCOVERY_SNAPSHOT_VERSION = 1;
+export const TWITCH_DISCOVERY_SNAPSHOT_MAX_ENTRIES = 128;
+
+export interface TwitchDiscoverySnapshotEntry {
+  dropID: string;
+  campaign: unknown;
+  freshUntil: string;
+  retainedUntil: string;
+}
+
+export interface TwitchDiscoverySnapshot {
+  version: typeof TWITCH_DISCOVERY_SNAPSHOT_VERSION;
+  userId: string;
+  entries: TwitchDiscoverySnapshotEntry[];
+}
+
 export interface SchedulerState {
   sessions: Record<Platform, WatchSession>;
   authHealth: Record<Platform, PlatformAuthHealth>;
@@ -401,6 +417,10 @@ export interface SchedulerState {
   // Persisted because adapters are rebuilt every tick, so an in-memory throttle
   // would never survive to the next one.
   gamification?: Partial<Record<Platform, { lastCheckedAt: string }>>;
+  // Versioned, bounded raw Twitch campaign details that are still inside the
+  // short read-through window. The host may persist this browser-free snapshot
+  // so an MV3 service-worker reconstruction does not force a cold details pass.
+  twitchDiscovery?: TwitchDiscoverySnapshot;
   campaigns: Record<Platform, DropCampaign[]>;
   deadlineInfeasibleRewardIds?: Partial<Record<Platform, string[]>>;
   lastTickAt?: string;
