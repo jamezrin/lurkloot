@@ -1013,7 +1013,10 @@ export class KickWafBlockedError extends SafeFetchError {
   }
 }
 
-function safeKickFailure(status: number, text: string): SafeFetchFailure {
+// Exported so headless transports outside the extension (e.g. the CLI's
+// cycletls-backed Kick fetcher) classify Kick's HTTP failures the same way
+// checkAuthHealth does, instead of guessing from the status code alone.
+export function safeKickFailure(status: number, text: string): SafeFetchFailure {
   let body: Record<string, unknown> = {};
   try {
     const parsed = JSON.parse(text) as unknown;
