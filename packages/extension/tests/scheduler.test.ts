@@ -1143,6 +1143,86 @@ describe("scheduler tick", () => {
     expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("campaigns eligible"))).toEqual([]);
   });
 
+  it("does not emit inventory diagnostics when campaigns and rewards are reordered", async () => {
+    const first = [
+      campaign("first", {
+        rewards: [
+          { ...reward("in_progress"), id: "first-a" },
+          { ...reward("locked"), id: "first-b" },
+        ],
+      }),
+      campaign("second", {
+        rewards: [
+          { ...reward("in_progress"), id: "second-a" },
+          { ...reward("locked"), id: "second-b" },
+        ],
+      }),
+    ];
+    const reordered = [
+      { ...first[1], rewards: [...first[1].rewards].reverse() },
+      { ...first[0], rewards: [...first[0].rewards].reverse() },
+    ];
+    const twitch = adapter("twitch", first, []);
+    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
+    const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+
+    const initial = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce(reordered);
+    const second = await runSchedulerTick(initial.state, tickSettings, tickAdapters);
+
+    expect(second.events.filter((event) => event.category === "diagnostic" && (
+      event.message.startsWith("Campaign inventory changed")
+      || event.message.includes("campaigns eligible")
+    ))).toEqual([]);
+  });
+
+  const inventoryChanges: Array<[string, DropCampaign[], DropCampaign[]]> = [
+    ["campaign added", [campaign("drops")], [campaign("drops"), campaign("new-drops")]],
+    ["campaign removed", [campaign("drops")], []],
+    ["campaign status changed", [campaign("drops")], [campaign("drops", { status: "completed" })]],
+    [
+      "reward status changed",
+      [campaign("drops", { rewards: [{ ...reward("in_progress"), id: "reward-a" }] })],
+      [campaign("drops", { rewards: [{ ...reward("claimed"), id: "reward-a" }] })],
+    ],
+  ];
+
+  it.each(inventoryChanges)("emits both inventory diagnostics when %s", async (_change, previous, next) => {
+    const twitch = adapter("twitch", previous, []);
+    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
+    const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+
+    const initial = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce(next);
+    const second = await runSchedulerTick(initial.state, tickSettings, tickAdapters);
+    const inventoryDiagnostics = second.events.filter((event) => event.category === "diagnostic" && (
+      event.message.startsWith("Campaign inventory changed")
+      || event.message.includes("campaigns eligible")
+    ));
+
+    expect(inventoryDiagnostics).toHaveLength(2);
+    expect(inventoryDiagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: expect.stringContaining("Campaign inventory changed") }),
+      expect.objectContaining({ message: expect.stringContaining("campaigns eligible") }),
+    ]));
+  });
+
+  it("does not rerun the eligibility predicate or emit inventory diagnostics for an identical discovery", async () => {
+    const drops = campaign("drops");
+    const twitch = adapter("twitch", [drops], []);
+    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
+    const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+
+    const initial = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce([{ ...drops, rewards: [...drops.rewards] }]);
+    const second = await runSchedulerTick(initial.state, tickSettings, tickAdapters);
+
+    expect(second.events.filter((event) => event.category === "diagnostic" && (
+      event.message.startsWith("Campaign inventory changed")
+      || event.message.includes("campaigns eligible")
+    ))).toEqual([]);
+  });
+
   it("emits structured diagnostics for rewards excluded by deadline feasibility", async () => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-07-19T12:00:00.000Z");
