@@ -26,7 +26,6 @@ const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
 // The follow list only breaks ties between eligible channels, so a stale minute
 // costs nothing while a fresh read on every tick would be a wasted request.
 const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
-const FOLLOWED_CHANNELS_FAILURE_TTL_MS = 60_000;
 // Followed channels that are live right now. Bounded generously: the preference
 // only matters for channels that also show up in a campaign's directory page.
 const FOLLOWED_CHANNELS_LIMIT = 100;
@@ -1007,7 +1006,6 @@ export class TwitchAdapter implements PlatformAdapter {
     const cached = this.cachedFollowedChannels;
     if (cached && cached.expiresAt > Date.now()) return cached.logins;
     let logins: string[];
-    let ttl = FOLLOWED_CHANNELS_CACHE_TTL_MS;
     try {
       const response = await this.gqlWithIntegrityRetry<TwitchFollowedLiveData>(
         "FollowedLiveChannels",
@@ -1019,8 +1017,8 @@ export class TwitchAdapter implements PlatformAdapter {
         signal,
       );
       // A GQL errors body (the shape schema drift arrives in) is raised by the
-      // transport, so it lands in the catch below with the short retry TTL
-      // instead of passing for a signed-out account with no live follows.
+      // transport, so it lands in the catch below rather than passing for a
+      // signed-out account with no live follows.
       logins = (response.data?.currentUser?.followedLiveUsers?.edges ?? [])
         .map((edge) => edge.node?.login?.toLowerCase())
         .filter((login): login is string => Boolean(login));
@@ -1033,11 +1031,12 @@ export class TwitchAdapter implements PlatformAdapter {
         "twitch",
       );
       logins = [];
-      // Short backoff instead of the full TTL: a failure should not keep the
-      // preference switched off for minutes once Twitch answers again.
-      ttl = FOLLOWED_CHANNELS_FAILURE_TTL_MS;
+      // Deliberately cached for the same TTL as a success rather than retried
+      // sooner: an integrity rejection here would force a token refresh (and a
+      // page context with it) on every tick, which is a steep price for a
+      // tie-break the scheduler is happy to farm without.
     }
-    this.cachedFollowedChannels = { logins, expiresAt: Date.now() + ttl };
+    this.cachedFollowedChannels = { logins, expiresAt: Date.now() + FOLLOWED_CHANNELS_CACHE_TTL_MS };
     return logins;
   }
 

@@ -358,6 +358,27 @@ describe("scheduler campaign selection", () => {
     expect(decision.channel?.username).toBe("allowed");
   });
 
+  it("orders allow-listed channels by preference when none carry a viewer count", async () => {
+    // Campaign allow lists come from `allow { channels }`, which has no viewer
+    // count, so every candidate ties there and the preference is the only thing
+    // that can reorder them.
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("acl")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("stranger", { isAclMatch: true }),
+          channel("friend", { isAclMatch: true }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("friend");
+  });
+
   it("still excludes an excluded channel the user follows", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
