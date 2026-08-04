@@ -37,7 +37,7 @@ option is its sole event filter.
 
 Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`,
 `campaignPriorities`, `excludedCampaignIds`, `idleWatchlistFallbackOnly`,
-`offlineRetryLimit`, `pollIntervalMinutes`,
+`preferKnownChannels`, `offlineRetryLimit`, `pollIntervalMinutes`,
 `notifyRewardEarned`, `notifyNoDropsLeft`, `farmingEligibility`, and per-platform
 `enabled`, `idleWatchlistChannels`, `excludedChannels`, `farmAllCategories`,
 `categories`.
