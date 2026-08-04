@@ -4,7 +4,7 @@ import type { TablessWatchController } from "../../core/tablessWatch";
 import { KickWafBlockedError } from "../../core/tabs";
 import { authHealthFromError } from "../../core/fetchError";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
-import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
 import type { ResolvedCompatibility } from "../../compatibility/types";
@@ -36,8 +36,10 @@ export class KickDiscoveryState {
 export interface KickAdapterOptions {
   // Resolved metadata is injected by the host and fixed for this adapter's
   // lifetime. Settings changes construct a fresh adapter rather than switching
-  // claim behavior after a request failure.
-  compatibility?: ResolvedCompatibility["kick"];
+  // claim behavior after a request failure. Required: resolveCompatibility()
+  // is the only thing that may decide which capability an adapter gets — no
+  // construction site restates a default.
+  compatibility: ResolvedCompatibility["kick"];
   claimState?: KickClaimState;
   discoveryState?: KickDiscoveryState;
 }
@@ -288,20 +290,26 @@ export class KickAdapter implements PlatformAdapter {
 
   constructor(
     private readonly fetcher: PageFetcher,
-    // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
-    private readonly watchTabPort: WatchTabPort = unavailableWatchTabPort,
-    // Optional factory for the tabless viewer WebSocket. The extension leaves it
-    // unset (the watcher uses the platform WebSocket from the service worker); a
+    // Tab-based watch is browser-bound, so it is injected (see WatchTabPort). No
+    // default: a required options.compatibility below would follow an optional
+    // parameter, which TypeScript rejects (a required parameter cannot follow an
+    // optional one), so this and webSocketFactory lost their defaults too. emit
+    // moved after options (instead of before) so it could keep its default.
+    private readonly watchTabPort: WatchTabPort,
+    // Factory for the tabless viewer WebSocket. The extension passes undefined
+    // (the watcher uses the platform WebSocket from the service worker); a
     // headless runtime injects one that rides its impersonated session so the
     // handshake clears Kick's WAF.
-    private readonly webSocketFactory?: WebSocketFactory,
+    private readonly webSocketFactory: WebSocketFactory | undefined,
+    // No default: options.compatibility is required, so every construction
+    // site must resolve it via resolveCompatibility() rather than get one implied.
+    options: KickAdapterOptions,
     private readonly emit: EventEmitter = ignoreEvent,
-    options: KickAdapterOptions = {},
   ) {
     this.compatibility = options.compatibility;
     this.discoveryState = options.discoveryState ?? new KickDiscoveryState();
     this.claimCapability = createKickClaimCapability(
-      options.compatibility?.claim ?? "kick-claim-v2",
+      options.compatibility.claim,
       options.claimState,
     );
   }

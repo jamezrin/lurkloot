@@ -73,8 +73,8 @@ export async function createImpersonateTransport(
         createCycleKickFetcher(cycleTLS, creds),
         tablessWatchPort,
         createCycleKickWebSocketFactory(cycleTLS, creds),
-        emit,
         { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
+        emit,
       );
     return { adapter, ...resolution };
   };
