@@ -5,6 +5,7 @@ import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
 import type { TwitchIntegrityRequest } from "../../core/tabs";
 import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
+import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type CandidateChannelSelection, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
@@ -344,11 +345,6 @@ interface TwitchFollowedLiveData {
   } | null;
 }
 
-interface CachedFollowedChannels {
-  logins: string[];
-  expiresAt: number;
-}
-
 interface CachedCampaignDetails {
   campaign: unknown;
   expiresAt: number;
@@ -377,11 +373,12 @@ export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
   private authenticatedUserId?: string;
   private retainedDashboard?: CachedDashboardCampaigns;
-  private followedChannels?: CachedFollowedChannels;
-  // The extension reconstructs TwitchAdapter fresh every tick (only this state
-  // object survives across ticks), so a per-adapter-instance in-flight guard
-  // would never dedupe overlapping refreshes. This one lives here instead.
-  private followedChannelsRefresh?: Promise<void>;
+  // The extension reconstructs TwitchAdapter fresh every tick, so this lives
+  // here (state injected from outside the adapter) rather than on the adapter
+  // itself. A plain readonly field, unlike the other caches on this class: it
+  // is already a small, fully self-contained value object, so wrapping it in
+  // pass-through methods would only add indirection.
+  readonly followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
 
   setAuthenticatedUser(userId: string): void {
     if (this.authenticatedUserId && this.authenticatedUserId !== userId) {
@@ -433,32 +430,6 @@ export class TwitchDiscoveryState {
       return undefined;
     }
     return cached.campaign;
-  }
-
-  // undefined means "never fetched"; the caller distinguishes that (block once)
-  // from a stale-but-present list (serve it, refresh in the background).
-  cachedFollowedChannels(): string[] | undefined {
-    return this.followedChannels?.logins;
-  }
-
-  followedChannelsStale(): boolean {
-    return !this.followedChannels || this.followedChannels.expiresAt <= Date.now();
-  }
-
-  rememberFollowedChannels(logins: string[], ttlMs: number): void {
-    this.followedChannels = { logins, expiresAt: Date.now() + ttlMs };
-  }
-
-  // Runs `perform` at most once concurrently, sharing the in-flight promise with
-  // any overlapping caller. `perform` is responsible for calling
-  // rememberFollowedChannels itself on success.
-  refreshFollowedChannelsOnce(perform: () => Promise<void>): Promise<void> {
-    if (!this.followedChannelsRefresh) {
-      this.followedChannelsRefresh = perform().finally(() => {
-        this.followedChannelsRefresh = undefined;
-      });
-    }
-    return this.followedChannelsRefresh;
   }
 }
 
@@ -1044,19 +1015,23 @@ export class TwitchAdapter implements PlatformAdapter {
   // session (shouldKeepWatching never switches mid-session for the same
   // campaign).
   async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
-    const cached = this.discoveryState.cachedFollowedChannels();
+    const cache = this.discoveryState.followedChannels;
+    const cached = cache.get();
     if (cached) {
-      if (this.discoveryState.followedChannelsStale()) {
-        void this.discoveryState.refreshFollowedChannelsOnce(() => this.fetchFollowedChannels());
-      }
+      if (cache.isStale()) void cache.refreshOnce(() => this.fetchFollowedChannels());
       return cached;
     }
-    await this.discoveryState.refreshFollowedChannelsOnce(() => this.fetchFollowedChannels(signal));
-    return this.discoveryState.cachedFollowedChannels() ?? [];
+    await cache.refreshOnce(() => this.fetchFollowedChannels(signal));
+    return cache.get() ?? [];
   }
 
-  private async fetchFollowedChannels(signal?: AbortSignal): Promise<void> {
-    let logins: string[];
+  // Never rejects: it is shared via StaleWhileRevalidateCache.refreshOnce, so a
+  // rejection would propagate to any unrelated overlapping caller, including
+  // one whose own abort signal was never involved. On failure this resolves to
+  // an empty list instead — the tick that owns `signal` still notices its own
+  // cancellation through the scheduler's other throwIfAborted() checks moments
+  // later.
+  private async fetchFollowedChannels(signal?: AbortSignal): Promise<string[]> {
     try {
       // A single plain attempt, not gqlWithIntegrityRetry: an integrity
       // rejection there forces a token refresh (and potentially a page context)
@@ -1076,24 +1051,18 @@ export class TwitchAdapter implements PlatformAdapter {
       // A GQL errors body (the shape schema drift arrives in) is raised by the
       // transport, so it lands in the catch below rather than passing for a
       // signed-out account with no live follows.
-      logins = (response.data?.currentUser?.followedLiveUsers?.edges ?? [])
+      return (response.data?.currentUser?.followedLiveUsers?.edges ?? [])
         .map((edge) => edge.node?.login?.toLowerCase())
         .filter((login): login is string => Boolean(login));
     } catch (error) {
-      // Never rethrown, even for the caller's own abort: this promise is shared
-      // via refreshFollowedChannelsOnce, so rejecting it would hand a second,
-      // unrelated caller an abort that was never theirs. The tick that owns
-      // `signal` still notices its own cancellation through the scheduler's
-      // other throwIfAborted() checks moments later.
       diagnostic(
         this.emit,
         "debug",
         `Twitch followed-channel lookup failed (${error instanceof Error ? error.message : String(error)}); channel preference falls back to viewer count`,
         "twitch",
       );
-      logins = [];
+      return [];
     }
-    this.discoveryState.rememberFollowedChannels(logins, FOLLOWED_CHANNELS_CACHE_TTL_MS);
   }
 
   async selectCandidateChannel(

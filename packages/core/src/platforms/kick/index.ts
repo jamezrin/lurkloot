@@ -3,6 +3,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import { KickWafBlockedError } from "../../core/tabs";
 import { authHealthFromError } from "../../core/fetchError";
+import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
@@ -21,43 +22,12 @@ export { KickClaimState } from "./claim/v2";
 // costs nothing while a fresh read on every tick would be a wasted request.
 const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
 
-interface CachedFollowedChannels {
-  usernames: string[];
-  expiresAt: number;
-}
-
 // Cross-tick cache for listFollowedChannels. A field on KickAdapter itself would
 // not do: every host reconstructs KickAdapter fresh each scheduler tick (see
 // TwitchDiscoveryState for the same constraint on the Twitch side), so only
 // state injected from outside the adapter survives to the next tick.
 export class KickDiscoveryState {
-  private followedChannels?: CachedFollowedChannels;
-  // Shared so overlapping ticks (a new adapter instance each time) dedupe onto
-  // the same in-flight request instead of each firing their own.
-  private followedChannelsRefresh?: Promise<void>;
-
-  // undefined means "never fetched"; the caller distinguishes that (block once)
-  // from a stale-but-present list (serve it, refresh in the background).
-  cachedFollowedChannels(): string[] | undefined {
-    return this.followedChannels?.usernames;
-  }
-
-  followedChannelsStale(): boolean {
-    return !this.followedChannels || this.followedChannels.expiresAt <= Date.now();
-  }
-
-  rememberFollowedChannels(usernames: string[], ttlMs: number): void {
-    this.followedChannels = { usernames, expiresAt: Date.now() + ttlMs };
-  }
-
-  refreshFollowedChannelsOnce(perform: () => Promise<void>): Promise<void> {
-    if (!this.followedChannelsRefresh) {
-      this.followedChannelsRefresh = perform().finally(() => {
-        this.followedChannelsRefresh = undefined;
-      });
-    }
-    return this.followedChannelsRefresh;
-  }
+  readonly followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
 }
 
 export interface KickAdapterOptions {
@@ -427,19 +397,23 @@ export class KickAdapter implements PlatformAdapter {
   // session (shouldKeepWatching never switches mid-session for the same
   // campaign).
   async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
-    const cached = this.discoveryState.cachedFollowedChannels();
+    const cache = this.discoveryState.followedChannels;
+    const cached = cache.get();
     if (cached) {
-      if (this.discoveryState.followedChannelsStale()) {
-        void this.discoveryState.refreshFollowedChannelsOnce(() => this.fetchFollowedChannels());
-      }
+      if (cache.isStale()) void cache.refreshOnce(() => this.fetchFollowedChannels());
       return cached;
     }
-    await this.discoveryState.refreshFollowedChannelsOnce(() => this.fetchFollowedChannels(signal));
-    return this.discoveryState.cachedFollowedChannels() ?? [];
+    await cache.refreshOnce(() => this.fetchFollowedChannels(signal));
+    return cache.get() ?? [];
   }
 
-  private async fetchFollowedChannels(signal?: AbortSignal): Promise<void> {
-    let usernames: string[];
+  // Never rejects: it is shared via StaleWhileRevalidateCache.refreshOnce, so a
+  // rejection would propagate to any unrelated overlapping caller, including
+  // one whose own abort signal was never involved. On failure this resolves to
+  // an empty list instead — the tick that owns `signal` still notices its own
+  // cancellation through the scheduler's other throwIfAborted() checks moments
+  // later.
+  private async fetchFollowedChannels(signal?: AbortSignal): Promise<string[]> {
     try {
       // Never passed the calling tick's signal when refreshing a stale cache in
       // the background (see listFollowedChannels): that fetch must outlive the
@@ -450,24 +424,18 @@ export class KickAdapter implements PlatformAdapter {
         this.emit,
       );
       const streams = Array.isArray(response) ? response : response?.data ?? [];
-      usernames = streams
+      return streams
         .map((stream) => (stream.channel?.slug ?? stream.channel?.username)?.toLowerCase())
         .filter((username): username is string => Boolean(username));
     } catch (error) {
-      // Never rethrown, even for the caller's own abort: this promise is shared
-      // via refreshFollowedChannelsOnce, so rejecting it would hand a second,
-      // unrelated caller an abort that was never theirs. The tick that owns
-      // `signal` still notices its own cancellation through the scheduler's
-      // other throwIfAborted() checks moments later.
       diagnostic(
         this.emit,
         "debug",
         `Kick followed-channel lookup failed (${error instanceof Error ? error.message : String(error)}); channel preference falls back to viewer count`,
         "kick",
       );
-      usernames = [];
+      return [];
     }
-    this.discoveryState.rememberFollowedChannels(usernames, FOLLOWED_CHANNELS_CACHE_TTL_MS);
   }
 
   async listCandidateChannels(
