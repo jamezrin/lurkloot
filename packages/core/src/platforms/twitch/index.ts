@@ -377,6 +377,11 @@ export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
   private authenticatedUserId?: string;
   private retainedDashboard?: CachedDashboardCampaigns;
+  private followedChannels?: CachedFollowedChannels;
+  // The extension reconstructs TwitchAdapter fresh every tick (only this state
+  // object survives across ticks), so a per-adapter-instance in-flight guard
+  // would never dedupe overlapping refreshes. This one lives here instead.
+  private followedChannelsRefresh?: Promise<void>;
 
   setAuthenticatedUser(userId: string): void {
     if (this.authenticatedUserId && this.authenticatedUserId !== userId) {
@@ -428,6 +433,32 @@ export class TwitchDiscoveryState {
       return undefined;
     }
     return cached.campaign;
+  }
+
+  // undefined means "never fetched"; the caller distinguishes that (block once)
+  // from a stale-but-present list (serve it, refresh in the background).
+  cachedFollowedChannels(): string[] | undefined {
+    return this.followedChannels?.logins;
+  }
+
+  followedChannelsStale(): boolean {
+    return !this.followedChannels || this.followedChannels.expiresAt <= Date.now();
+  }
+
+  rememberFollowedChannels(logins: string[], ttlMs: number): void {
+    this.followedChannels = { logins, expiresAt: Date.now() + ttlMs };
+  }
+
+  // Runs `perform` at most once concurrently, sharing the in-flight promise with
+  // any overlapping caller. `perform` is responsible for calling
+  // rememberFollowedChannels itself on success.
+  refreshFollowedChannelsOnce(perform: () => Promise<void>): Promise<void> {
+    if (!this.followedChannelsRefresh) {
+      this.followedChannelsRefresh = perform().finally(() => {
+        this.followedChannelsRefresh = undefined;
+      });
+    }
+    return this.followedChannelsRefresh;
   }
 }
 
@@ -607,7 +638,6 @@ export class TwitchAdapter implements PlatformAdapter {
   private readonly gqlTransport: TwitchGqlTransport;
   private readonly inventoryCapability: TwitchInventoryCapability;
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
-  private cachedFollowedChannels?: CachedFollowedChannels;
   private readonly discoveryState: TwitchDiscoveryState;
 
   constructor(
@@ -1002,12 +1032,39 @@ export class TwitchAdapter implements PlatformAdapter {
   // campaign's watch time to someone the user actually watches. A signed-out or
   // failing lookup answers with an empty list: the preference is a nicety, never
   // a reason to lose a farming tick.
+  //
+  // Caching lives on discoveryState, not on `this`: the extension reconstructs
+  // TwitchAdapter fresh every scheduler tick, so a per-instance cache would
+  // never survive to the next tick and this would hit the network every time —
+  // exactly the tick latency this cache exists to avoid. A cached value (even a
+  // stale one) is served immediately and refreshed in the background, never
+  // blocking the caller; only the very first call ever (nothing cached yet)
+  // blocks once, so the first campaign decision after startup can still prefer
+  // a followed channel instead of being stuck on a stranger for the rest of the
+  // session (shouldKeepWatching never switches mid-session for the same
+  // campaign).
   async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
-    const cached = this.cachedFollowedChannels;
-    if (cached && cached.expiresAt > Date.now()) return cached.logins;
+    const cached = this.discoveryState.cachedFollowedChannels();
+    if (cached) {
+      if (this.discoveryState.followedChannelsStale()) {
+        void this.discoveryState.refreshFollowedChannelsOnce(() => this.fetchFollowedChannels());
+      }
+      return cached;
+    }
+    await this.discoveryState.refreshFollowedChannelsOnce(() => this.fetchFollowedChannels(signal));
+    return this.discoveryState.cachedFollowedChannels() ?? [];
+  }
+
+  private async fetchFollowedChannels(signal?: AbortSignal): Promise<void> {
     let logins: string[];
     try {
-      const response = await this.gqlWithIntegrityRetry<TwitchFollowedLiveData>(
+      // A single plain attempt, not gqlWithIntegrityRetry: an integrity
+      // rejection there forces a token refresh (and potentially a page context)
+      // with a ~30s tail, which is a steep price for a tie-break nicety. Also
+      // never passed the calling tick's signal when refreshing a stale cache in
+      // the background (see listFollowedChannels): that fetch must outlive the
+      // tick that triggered it, not be cancelled when the tick ends.
+      const response = await this.gql<TwitchFollowedLiveData>(
         "FollowedLiveChannels",
         "",
         { limit: FOLLOWED_CHANNELS_LIMIT },
@@ -1031,13 +1088,8 @@ export class TwitchAdapter implements PlatformAdapter {
         "twitch",
       );
       logins = [];
-      // Deliberately cached for the same TTL as a success rather than retried
-      // sooner: an integrity rejection here would force a token refresh (and a
-      // page context with it) on every tick, which is a steep price for a
-      // tie-break the scheduler is happy to farm without.
     }
-    this.cachedFollowedChannels = { logins, expiresAt: Date.now() + FOLLOWED_CHANNELS_CACHE_TTL_MS };
-    return logins;
+    this.discoveryState.rememberFollowedChannels(logins, FOLLOWED_CHANNELS_CACHE_TTL_MS);
   }
 
   async selectCandidateChannel(

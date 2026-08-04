@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
-import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
+import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
@@ -419,6 +419,62 @@ describe("KickAdapter", () => {
       category: "diagnostic",
       message: expect.stringContaining("followed-channel lookup failed"),
     }));
+  });
+
+  it("shares the followed-channel cache across adapter instances via discoveryState", async () => {
+    // Every host reconstructs KickAdapter fresh every scheduler tick, so a cache
+    // the discoveryState doesn't survive would hit the network on every tick.
+    // Two separate instances standing in for two ticks proves the cache
+    // outlives the adapter.
+    let calls = 0;
+    const fetcher = jsonFetcher(() => {
+      calls += 1;
+      return [{ channel: { slug: "friend" } }];
+    });
+    const discoveryState = new KickDiscoveryState();
+    const firstTick = new KickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+    const secondTick = new KickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+
+    await expect(firstTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+    await expect(secondTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+
+    expect(calls).toBe(1);
+  });
+
+  it("serves a stale followed-channel cache immediately and refreshes in the background", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      let resolveSecondFetch: (() => void) | undefined;
+      const fetcher = jsonFetcher(() => {
+        calls += 1;
+        if (calls === 1) return [{ channel: { slug: "stale-friend" } }];
+        // The second (background) fetch never resolves until the test lets it,
+        // so a caller blocking on it would hang the assertion below.
+        return new Promise((resolve) => {
+          resolveSecondFetch = () => resolve([{ channel: { slug: "fresh-friend" } }]);
+        });
+      });
+      const discoveryState = new KickDiscoveryState();
+      const firstTick = new KickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+
+      await expect(firstTick.listFollowedChannels()).resolves.toEqual(["stale-friend"]);
+      expect(calls).toBe(1);
+
+      vi.advanceTimersByTime(6 * 60_000); // past the 5-minute cache TTL
+      const secondTick = new KickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+
+      // Resolves with the stale value without waiting on the (still-pending)
+      // background refresh.
+      await expect(secondTick.listFollowedChannels()).resolves.toEqual(["stale-friend"]);
+      expect(calls).toBe(2);
+
+      resolveSecondFetch?.();
+      await vi.waitFor(() => expect(new KickAdapter(fetcher, undefined, undefined, undefined, { discoveryState }).listFollowedChannels())
+        .resolves.toEqual(["fresh-friend"]));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("lists general live streams for site-wide Kick campaigns", async () => {
@@ -1203,6 +1259,64 @@ describe("TwitchAdapter", () => {
     const adapter = new TwitchAdapter(jsonFetcher(() => ({ data: { currentUser: null } })));
 
     await expect(adapter.listFollowedChannels()).resolves.toEqual([]);
+  });
+
+  it("shares the followed-channel cache across adapter instances via discoveryState", async () => {
+    // The extension reconstructs TwitchAdapter fresh every scheduler tick, so a
+    // cache the discoveryState doesn't survive would hit the network on every
+    // tick. Two separate instances standing in for two ticks proves the cache
+    // outlives the adapter.
+    let calls = 0;
+    const fetcher = jsonFetcher(() => {
+      calls += 1;
+      return { data: { currentUser: { followedLiveUsers: { edges: [{ node: { login: "friend" } }] } } } };
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const firstTick = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const secondTick = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+
+    await expect(firstTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+    await expect(secondTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+
+    expect(calls).toBe(1);
+  });
+
+  it("serves a stale followed-channel cache immediately and refreshes in the background", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      let resolveSecondFetch: (() => void) | undefined;
+      const fetcher = jsonFetcher(() => {
+        calls += 1;
+        if (calls === 1) {
+          return { data: { currentUser: { followedLiveUsers: { edges: [{ node: { login: "stale-friend" } }] } } } };
+        }
+        // The second (background) fetch never resolves until the test lets it,
+        // so a caller blocking on it would hang the assertion below.
+        return new Promise((resolve) => {
+          resolveSecondFetch = () => resolve({ data: { currentUser: { followedLiveUsers: { edges: [{ node: { login: "fresh-friend" } }] } } } });
+        });
+      });
+      const discoveryState = new TwitchDiscoveryState();
+      const firstTick = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+
+      await expect(firstTick.listFollowedChannels()).resolves.toEqual(["stale-friend"]);
+      expect(calls).toBe(1);
+
+      vi.advanceTimersByTime(6 * 60_000); // past the 5-minute cache TTL
+      const secondTick = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+
+      // Resolves with the stale value without waiting on the (still-pending)
+      // background refresh.
+      await expect(secondTick.listFollowedChannels()).resolves.toEqual(["stale-friend"]);
+      expect(calls).toBe(2);
+
+      resolveSecondFetch?.();
+      await vi.waitFor(() => expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).listFollowedChannels())
+        .resolves.toEqual(["fresh-friend"]));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("passes the auth probe signal to the Twitch CurrentUser request", async () => {

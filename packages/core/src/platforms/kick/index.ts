@@ -26,12 +26,47 @@ interface CachedFollowedChannels {
   expiresAt: number;
 }
 
+// Cross-tick cache for listFollowedChannels. A field on KickAdapter itself would
+// not do: every host reconstructs KickAdapter fresh each scheduler tick (see
+// TwitchDiscoveryState for the same constraint on the Twitch side), so only
+// state injected from outside the adapter survives to the next tick.
+export class KickDiscoveryState {
+  private followedChannels?: CachedFollowedChannels;
+  // Shared so overlapping ticks (a new adapter instance each time) dedupe onto
+  // the same in-flight request instead of each firing their own.
+  private followedChannelsRefresh?: Promise<void>;
+
+  // undefined means "never fetched"; the caller distinguishes that (block once)
+  // from a stale-but-present list (serve it, refresh in the background).
+  cachedFollowedChannels(): string[] | undefined {
+    return this.followedChannels?.usernames;
+  }
+
+  followedChannelsStale(): boolean {
+    return !this.followedChannels || this.followedChannels.expiresAt <= Date.now();
+  }
+
+  rememberFollowedChannels(usernames: string[], ttlMs: number): void {
+    this.followedChannels = { usernames, expiresAt: Date.now() + ttlMs };
+  }
+
+  refreshFollowedChannelsOnce(perform: () => Promise<void>): Promise<void> {
+    if (!this.followedChannelsRefresh) {
+      this.followedChannelsRefresh = perform().finally(() => {
+        this.followedChannelsRefresh = undefined;
+      });
+    }
+    return this.followedChannelsRefresh;
+  }
+}
+
 export interface KickAdapterOptions {
   // Resolved metadata is injected by the host and fixed for this adapter's
   // lifetime. Settings changes construct a fresh adapter rather than switching
   // claim behavior after a request failure.
   compatibility?: ResolvedCompatibility["kick"];
   claimState?: KickClaimState;
+  discoveryState?: KickDiscoveryState;
 }
 
 interface KickLivestreamsResponse {
@@ -213,7 +248,7 @@ export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
   readonly compatibility?: ResolvedCompatibility["kick"];
   private readonly claimCapability: KickClaimCapability;
-  private cachedFollowedChannels?: CachedFollowedChannels;
+  private readonly discoveryState: KickDiscoveryState;
 
   async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
@@ -291,6 +326,7 @@ export class KickAdapter implements PlatformAdapter {
     options: KickAdapterOptions = {},
   ) {
     this.compatibility = options.compatibility;
+    this.discoveryState = options.discoveryState ?? new KickDiscoveryState();
     this.claimCapability = createKickClaimCapability(
       options.compatibility?.claim ?? "kick-claim-v2",
       options.claimState,
@@ -379,11 +415,35 @@ export class KickAdapter implements PlatformAdapter {
   // paginating the full follow list and filtering client-side. A signed-out
   // session or a failing lookup answers with an empty list: the preference is a
   // nicety, never a reason to lose a farming tick.
+  //
+  // Caching lives on discoveryState, not on `this`: every host reconstructs
+  // KickAdapter fresh each scheduler tick, so a per-instance cache would never
+  // survive to the next tick and this would hit the network every time —
+  // exactly the tick latency this cache exists to avoid. A cached value (even a
+  // stale one) is served immediately and refreshed in the background, never
+  // blocking the caller; only the very first call ever (nothing cached yet)
+  // blocks once, so the first campaign decision after startup can still prefer
+  // a followed channel instead of being stuck on a stranger for the rest of the
+  // session (shouldKeepWatching never switches mid-session for the same
+  // campaign).
   async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
-    const cached = this.cachedFollowedChannels;
-    if (cached && cached.expiresAt > Date.now()) return cached.usernames;
+    const cached = this.discoveryState.cachedFollowedChannels();
+    if (cached) {
+      if (this.discoveryState.followedChannelsStale()) {
+        void this.discoveryState.refreshFollowedChannelsOnce(() => this.fetchFollowedChannels());
+      }
+      return cached;
+    }
+    await this.discoveryState.refreshFollowedChannelsOnce(() => this.fetchFollowedChannels(signal));
+    return this.discoveryState.cachedFollowedChannels() ?? [];
+  }
+
+  private async fetchFollowedChannels(signal?: AbortSignal): Promise<void> {
     let usernames: string[];
     try {
+      // Never passed the calling tick's signal when refreshing a stale cache in
+      // the background (see listFollowedChannels): that fetch must outlive the
+      // tick that triggered it, not be cancelled when the tick ends.
       const response = await this.fetcher.fetchJson<KickFollowedLiveStreamsResponse>(
         "https://kick.com/api/v1/user/livestreams",
         { signal },
@@ -403,8 +463,7 @@ export class KickAdapter implements PlatformAdapter {
       );
       usernames = [];
     }
-    this.cachedFollowedChannels = { usernames, expiresAt: Date.now() + FOLLOWED_CHANNELS_CACHE_TTL_MS };
-    return usernames;
+    this.discoveryState.rememberFollowedChannels(usernames, FOLLOWED_CHANNELS_CACHE_TTL_MS);
   }
 
   async listCandidateChannels(

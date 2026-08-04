@@ -1,5 +1,5 @@
 import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
-import { KickAdapter, KickClaimState } from "@lurkloot/core/kick";
+import { KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { EventEmitter } from "@lurkloot/shared/events";
@@ -18,6 +18,7 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
   const twitchApi = twitchCookieApi(creds);
   const kickApi = kickCookieApi(creds);
   const kickClaimState = new KickClaimState();
+  const kickDiscoveryState = new KickDiscoveryState();
   const twitchDiscoveryState = new TwitchDiscoveryState();
   const createAdapter = (platform: Platform, emit: EventEmitter | undefined, settings = DEFAULT_ENGINE_SETTINGS) => {
     const identity = twitchClientIdentity(creds);
@@ -55,7 +56,7 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
         tablessWatchPort,
         undefined,
         emit,
-        { compatibility: resolution.compatibility.kick, claimState: kickClaimState },
+        { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
       );
     return { adapter, ...resolution };
   };
