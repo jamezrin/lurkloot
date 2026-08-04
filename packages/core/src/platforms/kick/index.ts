@@ -25,7 +25,10 @@ const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
 // Cross-tick cache for listFollowedChannels. A field on KickAdapter itself would
 // not do: every host reconstructs KickAdapter fresh each scheduler tick (see
 // TwitchDiscoveryState for the same constraint on the Twitch side), so only
-// state injected from outside the adapter survives to the next tick.
+// state injected from outside the adapter survives to the next tick. Only one
+// field today, but this is the deliberate injection point for any future
+// cross-tick Kick state (mirroring TwitchDiscoveryState) — resist collapsing it
+// back into a bare StaleWhileRevalidateCache passed around directly.
 export class KickDiscoveryState {
   readonly followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
 }

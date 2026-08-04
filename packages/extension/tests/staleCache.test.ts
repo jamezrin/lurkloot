@@ -63,4 +63,18 @@ describe("StaleWhileRevalidateCache", () => {
 
     expect(calls).toBe(2);
   });
+
+  // `perform` is documented to never reject (callers swallow their own
+  // failures), but nothing stops a future caller from breaking that contract.
+  // If it happens anyway, the guard must still clear — a permanently stuck
+  // `refreshing` promise would silently freeze every future refresh.
+  it("clears the in-flight guard even if perform rejects, despite that being against contract", async () => {
+    const cache = new StaleWhileRevalidateCache<string[]>(1000);
+
+    await expect(cache.refreshOnce(async () => { throw new Error("boom"); })).rejects.toThrow("boom");
+    expect(cache.get()).toBeUndefined();
+
+    await expect(cache.refreshOnce(async () => ["recovered"])).resolves.toBeUndefined();
+    expect(cache.get()).toEqual(["recovered"]);
+  });
 });
