@@ -8,11 +8,28 @@ import { CHROME_HTTP2, CHROME_JA3, CHROME_UA, hasHeader, headersToObject } from 
 export type { CycleTLSClient } from "cycletls";
 
 // Hosts whose endpoints replay the session_token cookie as a Bearer (mirrors the
-// engine's KICK_AUTH_HOSTS); kick.com/api/v2/* is public and needs no auth.
+// engine's needsKickSessionBearer in @lurkloot/core/tabs). kick.com/api/v2/* is
+// public and needs no auth; bare kick.com only needs it on the two paths below
+// (the identity probe and the followed-live lookup), both of which Kick would
+// otherwise answer as an unauthenticated stranger rather than reject outright.
 const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com"];
+const KICK_BEARER_PATHS = ["/api/v1/user", "/api/v1/user/livestreams"];
 
 export function initCycle(): Promise<CycleTLSClient> {
   return initCycleTLS();
+}
+
+function needsKickBearer(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  // wss:, not just https:, because the viewer WebSocket (websockets.kick.com)
+  // goes through this same header builder — see createCycleKickWebSocketFactory.
+  if (parsed.protocol !== "https:" && parsed.protocol !== "wss:") return false;
+  return KICK_AUTH_HOSTS.includes(parsed.host) || (parsed.host === "kick.com" && KICK_BEARER_PATHS.includes(parsed.pathname));
 }
 
 export function kickHeaders(url: string, init: RequestInit | undefined, creds: PlatformCredentials): Record<string, string> {
@@ -20,7 +37,7 @@ export function kickHeaders(url: string, init: RequestInit | undefined, creds: P
   headers.Origin ??= "https://kick.com";
   headers.Referer ??= "https://kick.com/";
   const sessionToken = creds.kick?.sessionToken;
-  if (sessionToken && KICK_AUTH_HOSTS.some((host) => url.includes(host)) && !hasHeader(headers, "authorization")) {
+  if (sessionToken && needsKickBearer(url) && !hasHeader(headers, "authorization")) {
     headers.authorization = `Bearer ${decodeURIComponent(sessionToken)}`;
   }
   return headers;

@@ -452,6 +452,12 @@
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Yeni bir drop çıktığında yedek kanaldan hemen ayrılır."
   },
+  "preferKnownChannelsTitle": {
+    "message": "Takip edilen ve yedek kanalları tercih et"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Bir drop birden fazla kanalda mevcut olduğunda, tanımadığınız bir kanal yerine takip ettiğiniz veya yedek kanallarınızdan birini seçer."
+  },
   "platformSettingsTitle": {
     "message": "Platform Ayarları"
   },

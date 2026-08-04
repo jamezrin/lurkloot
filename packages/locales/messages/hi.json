@@ -452,6 +452,12 @@
   "idleWatchlistFallbackOnlyDescription": {
     "message": "कोई योग्य drop उपलब्ध होते ही निष्क्रिय वॉचलिस्ट चैनल छोड़ देता है। बंद होने पर, चैनल के ऑफ़लाइन होने तक उसे देखता रहता है।"
   },
+  "preferKnownChannelsTitle": {
+    "message": "फ़ॉलो किए गए और निष्क्रिय वॉचलिस्ट चैनलों को प्राथमिकता दें"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "जब कोई drop कई चैनलों पर उपलब्ध हो, तो किसी अनजान चैनल के बजाय ऐसा चैनल चुनता है जिसे आप फ़ॉलो करते हैं या जो आपकी निष्क्रिय वॉचलिस्ट में है।"
+  },
   "platformSettingsTitle": {
     "message": "प्लेटफ़ॉर्म सेटिंग्स"
   },

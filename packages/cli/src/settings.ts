@@ -27,6 +27,9 @@ export interface CliSettings {
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
   idleWatchlistFallbackOnly: boolean;
+  // See EngineSettings.preferKnownChannels. Applies to campaign channel
+  // selection the same way headless as in the extension.
+  preferKnownChannels: boolean;
   offlineRetryLimit: number;
   pollIntervalMinutes: number;
   // Bounded post-claim refresh. Twitch-only in practice: the Kick adapter does
@@ -66,6 +69,7 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   campaignPriorities: { ...DEFAULT_SETTINGS.campaignPriorities },
   excludedCampaignIds: [...DEFAULT_SETTINGS.excludedCampaignIds],
   idleWatchlistFallbackOnly: DEFAULT_SETTINGS.idleWatchlistFallbackOnly,
+  preferKnownChannels: DEFAULT_SETTINGS.preferKnownChannels,
   offlineRetryLimit: DEFAULT_SETTINGS.offlineRetryLimit,
   pollIntervalMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
   postClaimHandoff: DEFAULT_SETTINGS.postClaimHandoff,
@@ -97,6 +101,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "campaignPriorities",
   "excludedCampaignIds",
   "idleWatchlistFallbackOnly",
+  "preferKnownChannels",
   "offlineRetryLimit",
   "pollIntervalMinutes",
   "postClaimHandoff",
@@ -305,6 +310,7 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     campaignPriorities: normalizePriorities(v.campaignPriorities),
     excludedCampaignIds: normalizeIdList(v.excludedCampaignIds),
     idleWatchlistFallbackOnly: booleanOr(v.idleWatchlistFallbackOnly, DEFAULT_CLI_SETTINGS.idleWatchlistFallbackOnly),
+    preferKnownChannels: booleanOr(v.preferKnownChannels, DEFAULT_CLI_SETTINGS.preferKnownChannels),
     offlineRetryLimit: clampInteger(v.offlineRetryLimit, 1, 10, DEFAULT_CLI_SETTINGS.offlineRetryLimit),
     pollIntervalMinutes: clampNumber(v.pollIntervalMinutes, 1, 60, DEFAULT_CLI_SETTINGS.pollIntervalMinutes),
     postClaimHandoff: booleanOr(v.postClaimHandoff, DEFAULT_CLI_SETTINGS.postClaimHandoff),

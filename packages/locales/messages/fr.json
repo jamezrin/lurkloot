@@ -452,6 +452,12 @@
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Quitte une chaîne de la Liste de veille inactive dès qu’un drop éligible devient disponible. Si désactivé, continue à la regarder jusqu’à ce qu’elle se déconnecte."
   },
+  "preferKnownChannelsTitle": {
+    "message": "Préférer les chaînes suivies et celles de la Liste de veille inactive"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Lorsqu’un drop est disponible sur plusieurs chaînes, choisit une chaîne que vous suivez ou qui figure dans votre Liste de veille inactive plutôt qu’une chaîne inconnue."
+  },
   "platformSettingsTitle": {
     "message": "Paramètres de plateforme"
   },

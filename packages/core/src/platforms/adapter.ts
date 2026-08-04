@@ -62,6 +62,11 @@ export interface PlatformAdapter {
     campaign?: DropCampaign,
     options?: AdapterOperationOptions,
   ): Promise<CandidateChannelSelection>;
+  // Logins of live channels the signed-in account follows. Used only to break
+  // ties between candidates that are already eligible for the same campaign, so
+  // a platform without a follow API (or a signed-out session) can return an
+  // empty list and lose nothing but the preference.
+  listFollowedChannels?(options?: AdapterOperationOptions): Promise<string[]>;
   checkChannel(channel: ChannelCandidate, options?: AdapterOperationOptions & { campaign?: DropCampaign }): Promise<ChannelCheck>;
   claimReward(campaign: DropCampaign, reward: DropReward, options?: AdapterOperationOptions): Promise<boolean>;
   // Whether a "claimable" reward can actually be claimed right now. Twitch only

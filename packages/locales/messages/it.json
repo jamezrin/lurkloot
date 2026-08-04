@@ -452,6 +452,12 @@
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Lascia un canale della Lista di visione inattiva non appena è disponibile un drop idoneo. Se disattivato, continua a guardarlo finché non va offline."
   },
+  "preferKnownChannelsTitle": {
+    "message": "Preferisci i canali seguiti e quelli della Lista di visione inattiva"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Quando un drop è disponibile su più canali, ne sceglie uno che segui o presente nella tua Lista di visione inattiva invece di uno sconosciuto."
+  },
   "platformSettingsTitle": {
     "message": "Impostazioni piattaforma"
   },

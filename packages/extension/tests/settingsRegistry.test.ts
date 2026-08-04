@@ -123,6 +123,7 @@ describe("settings registry", () => {
         "general.drops.farmSubscription",
         "general.drops.priorityMode",
         "general.drops.skipUnfinishable",
+        "general.drops.preferKnownChannels",
         "general.drops.idleWatchlistFallbackOnly",
         "general.drops.dropsListFilter",
         "general.drops.forgetExcluded",

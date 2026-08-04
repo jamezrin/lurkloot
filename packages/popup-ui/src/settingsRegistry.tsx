@@ -193,6 +193,12 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             render: () => <SettingRow title={t("skipUnfinishableRewardsTitle")} description={t("skipUnfinishableRewardsDescription")} checked={settings.skipUnfinishableRewards} onChange={(value) => void onSettingsChange({ skipUnfinishableRewards: value }, { tickAfterSave: true })} />,
           },
           {
+            id: "general.drops.preferKnownChannels",
+            titleKey: "preferKnownChannelsTitle",
+            descriptionKey: "preferKnownChannelsDescription",
+            render: () => <SettingRow title={t("preferKnownChannelsTitle")} description={t("preferKnownChannelsDescription")} checked={settings.preferKnownChannels} onChange={(value) => void onSettingsChange({ preferKnownChannels: value }, { tickAfterSave: true })} />,
+          },
+          {
             id: "general.drops.idleWatchlistFallbackOnly",
             titleKey: "idleWatchlistFallbackOnlyTitle",
             descriptionKey: "idleWatchlistFallbackOnlyDescription",

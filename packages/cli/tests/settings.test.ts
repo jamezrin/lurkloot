@@ -37,6 +37,13 @@ describe("parseCliSettings", () => {
     expect(settings.platform.kick.idleWatchlistChannels).toEqual(["new"]);
   });
 
+  it("defaults preferKnownChannels to on and honors an explicit override", () => {
+    expect(DEFAULT_CLI_SETTINGS.preferKnownChannels).toBe(true);
+    expect(parseCliSettings({}).preferKnownChannels).toBe(true);
+    expect(parseCliSettings({ preferKnownChannels: false }).preferKnownChannels).toBe(false);
+    expect(toEngineSettings(parseCliSettings({ preferKnownChannels: false })).preferKnownChannels).toBe(false);
+  });
+
   it("accepts a deprecated top-level autoClaimChannelPoints instead of erroring", () => {
     const { settings, diagnostics } = parseCliSettingsWithDiagnostics({ autoClaimChannelPoints: false });
     expect(settings.platform.twitch.autoClaimChannelPoints).toBe(false);
