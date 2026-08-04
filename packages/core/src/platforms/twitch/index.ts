@@ -1018,6 +1018,9 @@ export class TwitchAdapter implements PlatformAdapter {
         this.emit,
         signal,
       );
+      // A GQL errors body (the shape schema drift arrives in) is raised by the
+      // transport, so it lands in the catch below with the short retry TTL
+      // instead of passing for a signed-out account with no live follows.
       logins = (response.data?.currentUser?.followedLiveUsers?.edges ?? [])
         .map((edge) => edge.node?.login?.toLowerCase())
         .filter((login): login is string => Boolean(login));

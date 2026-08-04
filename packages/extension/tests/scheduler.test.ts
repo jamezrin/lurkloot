@@ -408,6 +408,35 @@ describe("scheduler campaign selection", () => {
     expect(listFollowedChannels).not.toHaveBeenCalled();
   });
 
+  it("applies the preference through an adapter that batches its own selection", async () => {
+    // Twitch selects candidates itself and answers with the first one that
+    // passes, in the order the scheduler handed them over — mirror that here so
+    // the ordering is proven on the path production actually takes.
+    const selectCandidateChannel = vi.fn(async (candidates: ChannelCandidate[]) => ({
+      checked: candidates.length,
+      channel: candidates[0],
+    }));
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000, live: true, isAclMatch: false }),
+          channel("friend", { viewerCount: 12, live: true, isAclMatch: false }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        selectCandidateChannel,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("friend");
+    expect(selectCandidateChannel.mock.calls[0]?.[0].map((candidate) => candidate.username))
+      .toEqual(["friend", "popular"]);
+  });
+
   it("falls back to viewer count when the followed lookup fails", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",

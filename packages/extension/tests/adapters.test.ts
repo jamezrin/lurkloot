@@ -1120,6 +1120,58 @@ describe("TwitchAdapter", () => {
     expect(campaigns[0]?.rewards[0]?.watchedMinutes).toBe(42);
   });
 
+  it("lists followed live channels and caches them across calls", async () => {
+    let calls = 0;
+    const adapter = new TwitchAdapter(jsonFetcher((_url, init) => {
+      const body = requestBody(init);
+      if (body.operationName !== "FollowedLiveChannels") throw new Error(`Unexpected operation ${String(body.operationName)}`);
+      calls += 1;
+      return {
+        data: {
+          currentUser: {
+            id: "user-id",
+            followedLiveUsers: {
+              edges: [
+                { node: { id: "1", login: "Friend" } },
+                { node: { id: "2", login: "other" } },
+                { node: {} },
+              ],
+            },
+          },
+        },
+      };
+    }));
+
+    await expect(adapter.listFollowedChannels()).resolves.toEqual(["friend", "other"]);
+    await expect(adapter.listFollowedChannels()).resolves.toEqual(["friend", "other"]);
+    expect(calls).toBe(1);
+  });
+
+  it("reports no followed channels when the query returns GQL errors", async () => {
+    const emit = vi.fn();
+    // Schema drift answers 200 with an errors body rather than throwing, so it
+    // must not be mistaken for a signed-out account with no live follows.
+    const adapter = new TwitchAdapter(
+      jsonFetcher(() => ({ errors: [{ message: "Cannot query field followedLiveUsers" }] })),
+      undefined,
+      undefined,
+      undefined,
+      emit,
+    );
+
+    await expect(adapter.listFollowedChannels()).resolves.toEqual([]);
+    expect(emit).toHaveBeenCalledWith(expect.objectContaining({
+      category: "diagnostic",
+      message: expect.stringContaining("followed-channel lookup failed"),
+    }));
+  });
+
+  it("returns no followed channels for a signed-out session", async () => {
+    const adapter = new TwitchAdapter(jsonFetcher(() => ({ data: { currentUser: null } })));
+
+    await expect(adapter.listFollowedChannels()).resolves.toEqual([]);
+  });
+
   it("passes the auth probe signal to the Twitch CurrentUser request", async () => {
     const abort = new AbortController();
     const emit = vi.fn();
