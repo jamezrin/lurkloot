@@ -5,6 +5,7 @@ import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
 import type { TwitchIntegrityRequest } from "../../core/tabs";
 import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
+import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type CandidateChannelSelection, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
@@ -23,6 +24,12 @@ const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 60_000;
+// The follow list only breaks ties between eligible channels, so a stale minute
+// costs nothing while a fresh read on every tick would be a wasted request.
+const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
+// Followed channels that are live right now. Bounded generously: the preference
+// only matters for channels that also show up in a campaign's directory page.
+const FOLLOWED_CHANNELS_LIMIT = 100;
 const DISCOVERY_DETAIL_PRUNE_LIMIT = 32;
 const GQL_BATCH_OPERATION_LIMIT = 20;
 const GQL_BATCH_CONCURRENCY = 2;
@@ -78,6 +85,20 @@ const STREAM_INFO_QUERY = `query StreamInfo($channel: String!) {
     id
     displayName
     stream { id type viewersCount game { id name } }
+  }
+}`;
+
+// Inline query for the signed-in account's live followed channels. Sent inline
+// because the web client resolves the follow directory from its sidebar cache,
+// so there is no persisted hash of ours to piggyback on; field/arg names were
+// validated against the live schema, so a "Cannot query field" here means the
+// schema drifted rather than a typo.
+const FOLLOWED_LIVE_QUERY = `query FollowedLiveChannels($limit: Int!) {
+  currentUser {
+    id
+    followedLiveUsers(first: $limit) {
+      edges { node { id login } }
+    }
   }
 }`;
 
@@ -315,6 +336,15 @@ interface CachedAvailableCampaigns {
   expiresAt: number;
 }
 
+interface TwitchFollowedLiveData {
+  currentUser?: {
+    id?: string;
+    followedLiveUsers?: {
+      edges?: Array<{ node?: { id?: string; login?: string } }>;
+    } | null;
+  } | null;
+}
+
 interface CachedCampaignDetails {
   campaign: unknown;
   expiresAt: number;
@@ -343,11 +373,25 @@ export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
   private authenticatedUserId?: string;
   private retainedDashboard?: CachedDashboardCampaigns;
+  // The extension reconstructs TwitchAdapter fresh every tick, so this lives
+  // here (state injected from outside the adapter) rather than on the adapter
+  // itself. Exposed as a bare field rather than behind pass-through methods,
+  // unlike the other caches on this class: it is already a small, fully
+  // self-contained value object. Not readonly only so setAuthenticatedUser can
+  // swap it wholesale — see there for why replacing beats clearing in place.
+  followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
 
   setAuthenticatedUser(userId: string): void {
     if (this.authenticatedUserId && this.authenticatedUserId !== userId) {
       this.retainedDashboard = undefined;
       this.campaignDetailsByDropId.clear();
+      // Follows are per-account, so the previous user's list must not survive
+      // the switch. Replaced rather than cleared in place because a refresh may
+      // already be in flight for the old account: clearing would let that
+      // pending fetch write the old user's logins back into the live cache
+      // moments later. The orphaned instance still settles, but into an object
+      // nothing reads any more.
+      this.followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
     }
     this.authenticatedUserId = userId;
   }
@@ -961,6 +1005,72 @@ export class TwitchAdapter implements PlatformAdapter {
         };
       })
       .filter((candidate): candidate is ChannelCandidate => Boolean(candidate));
+  }
+
+  // Live channels the signed-in account follows, so the scheduler can send a
+  // campaign's watch time to someone the user actually watches. A signed-out or
+  // failing lookup answers with an empty list: the preference is a nicety, never
+  // a reason to lose a farming tick.
+  //
+  // Caching lives on discoveryState, not on `this`: the extension reconstructs
+  // TwitchAdapter fresh every scheduler tick, so a per-instance cache would
+  // never survive to the next tick and this would hit the network every time —
+  // exactly the tick latency this cache exists to avoid. A cached value (even a
+  // stale one) is served immediately and refreshed in the background, never
+  // blocking the caller; only the very first call ever (nothing cached yet)
+  // blocks once, so the first campaign decision after startup can still prefer
+  // a followed channel instead of being stuck on a stranger for the rest of the
+  // session (shouldKeepWatching never switches mid-session for the same
+  // campaign).
+  async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
+    const cache = this.discoveryState.followedChannels;
+    const cached = cache.get();
+    if (cached) {
+      if (cache.isStale()) void cache.refreshOnce(() => this.fetchFollowedChannels());
+      return cached;
+    }
+    await cache.refreshOnce(() => this.fetchFollowedChannels(signal));
+    return cache.get() ?? [];
+  }
+
+  // Never rejects: it is shared via StaleWhileRevalidateCache.refreshOnce, so a
+  // rejection would propagate to any unrelated overlapping caller, including
+  // one whose own abort signal was never involved. On failure this resolves to
+  // an empty list instead — the tick that owns `signal` still notices its own
+  // cancellation through the scheduler's other throwIfAborted() checks moments
+  // later.
+  private async fetchFollowedChannels(signal?: AbortSignal): Promise<string[]> {
+    try {
+      // A single plain attempt, not gqlWithIntegrityRetry: an integrity
+      // rejection there forces a token refresh (and potentially a page context)
+      // with a ~30s tail, which is a steep price for a tie-break nicety. Also
+      // never passed the calling tick's signal when refreshing a stale cache in
+      // the background (see listFollowedChannels): that fetch must outlive the
+      // tick that triggered it, not be cancelled when the tick ends.
+      const response = await this.gql<TwitchFollowedLiveData>(
+        "FollowedLiveChannels",
+        "",
+        { limit: FOLLOWED_CHANNELS_LIMIT },
+        FOLLOWED_LIVE_QUERY,
+        undefined,
+        this.emit,
+        signal,
+      );
+      // A GQL errors body (the shape schema drift arrives in) is raised by the
+      // transport, so it lands in the catch below rather than passing for a
+      // signed-out account with no live follows.
+      return (response.data?.currentUser?.followedLiveUsers?.edges ?? [])
+        .map((edge) => edge.node?.login?.toLowerCase())
+        .filter((login): login is string => Boolean(login));
+    } catch (error) {
+      diagnostic(
+        this.emit,
+        "debug",
+        `Twitch followed-channel lookup failed (${error instanceof Error ? error.message : String(error)}); channel preference falls back to viewer count`,
+        "twitch",
+      );
+      return [];
+    }
   }
 
   async selectCandidateChannel(

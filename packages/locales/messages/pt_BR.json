@@ -452,6 +452,12 @@
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Sai de um canal da Lista de visualização ociosa assim que um drop elegível ficar disponível. Se desativado, continua assistindo até o canal ficar offline."
   },
+  "preferKnownChannelsTitle": {
+    "message": "Preferir canais seguidos e da Lista de visualização ociosa"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Quando um drop está disponível em vários canais, escolhe um que você segue ou que está na sua Lista de visualização ociosa em vez de um desconhecido."
+  },
   "platformSettingsTitle": {
     "message": "Configurações da plataforma"
   },

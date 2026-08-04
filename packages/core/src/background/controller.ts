@@ -740,25 +740,46 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     noteTwitchGqlRequest(tabId);
     const integrity = integrityFromHeaders(headers);
     if (!integrity) return;
+    // Installed outside withStateLock, and synchronously before the first await.
+    //
+    // A mint waits on setTwitchIntegrity waking its waiters (see core/tabs.ts),
+    // and the two paths that can force a refresh — runTick around
+    // runSchedulerTick, and runPlatformWatchHeartbeat around watcher.tick — both
+    // hold the platform lock across that wait. Installing under the same lock
+    // made the waiter depend on a lock its own holder owns: the token arrived,
+    // sat queued behind the tick, and the wait could only ever time out. Each
+    // timeout then booted another page-context tab, which is what users saw as
+    // twitch.tv/drops/inventory opening and closing every tick.
+    //
+    // The compare and the install must stay in one uninterrupted synchronous
+    // block: webRequest fires on every GQL request, so an await between them
+    // would let two captures interleave and both report themselves as new.
     let isNew = false;
-    await withStateLock(() => withEventCollector(async (emit, events) => {
+    await withEventCollector(async (emit, events) => {
       isNew = integrity.integrity !== installedTwitchIntegrity?.integrity;
       installTwitchIntegrity(integrity, isNew, emit);
-      if (integrity.integrity !== persistedIntegrityToken && deps.saveTwitchIntegrity) {
-        try {
-          await deps.saveTwitchIntegrity(integrity);
-          persistedIntegrityToken = integrity.integrity;
-        } catch {
-          emit({
-            category: "diagnostic",
-            platform: "twitch",
-            level: "warn",
-            message: "Could not persist the captured Twitch integrity token",
-          });
-        }
+      await reportBestEffort(events);
+    });
+    // Persistence still takes the lock: persistedIntegrityToken is read and
+    // written by reconcileStoredTwitchIntegrity under it. Scoped to twitch —
+    // this touches no Kick state, and holding both locks let a busy Kick tick
+    // delay Twitch token bookkeeping. Nothing waits on this, so queueing behind
+    // an in-flight tick is harmless.
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      if (integrity.integrity === persistedIntegrityToken || !deps.saveTwitchIntegrity) return;
+      try {
+        await deps.saveTwitchIntegrity(integrity);
+        persistedIntegrityToken = integrity.integrity;
+      } catch {
+        emit({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "warn",
+          message: "Could not persist the captured Twitch integrity token",
+        });
       }
       await reportBestEffort(events);
-    }));
+    }), ["twitch"]);
     if (!isNew) return;
     const lifecycleGeneration = integrityLifecycleGeneration;
     const settingsTransitionGeneration = twitchSettingsTransitionGeneration;

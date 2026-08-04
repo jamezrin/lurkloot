@@ -452,6 +452,12 @@
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Abandona un canal de la Lista de visualización inactiva en cuanto haya un drop elegible disponible. Si se desactiva, lo sigue viendo hasta que se desconecte."
   },
+  "preferKnownChannelsTitle": {
+    "message": "Preferir canales seguidos y de la Lista de visualización inactiva"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Cuando un drop está disponible en varios canales, elige uno que sigues o que está en tu Lista de visualización inactiva antes que uno desconocido."
+  },
   "platformSettingsTitle": {
     "message": "Configuración de plataforma"
   },

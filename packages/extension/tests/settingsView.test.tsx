@@ -48,6 +48,8 @@ const labels: Record<string, string> = {
   autoClaimDescription: "Claim earned drop rewards automatically when they become available.",
   campaignPriorityTitle: "Campaign priority",
   campaignPriorityDescription: "How campaigns are chosen to farm.",
+  preferKnownChannelsTitle: "Prefer followed and Idle Watchlist channels",
+  preferKnownChannelsDescription: "Picks a channel you know over an unfamiliar one.",
   idleWatchlistFallbackOnlyTitle: "Only when no drops are active",
   idleWatchlistFallbackOnlyDescription: "Preserves drop priority automatically.",
   farmUnlinkedTitle: "Farm campaigns without a linked account",

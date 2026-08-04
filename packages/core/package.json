@@ -1,6 +1,6 @@
 {
   "name": "@lurkloot/core",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "license": "Apache-2.0",
   "type": "module",
   "private": true,
@@ -15,6 +15,7 @@
     "./activityDiagnostics": "./src/core/activityDiagnostics.ts",
     "./criticalHealth": "./src/core/criticalHealth.ts",
     "./fetchError": "./src/core/fetchError.ts",
+    "./staleCache": "./src/core/staleCache.ts",
     "./adapter": "./src/platforms/adapter.ts",
     "./twitch": "./src/platforms/twitch/index.ts",
     "./twitch/parser": "./src/platforms/twitch/parser.ts",

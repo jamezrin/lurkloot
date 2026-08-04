@@ -188,11 +188,26 @@ function categoryPriorityScore(campaign: DropCampaign, settings: EngineSettings)
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
+// Ranks candidates the user has a relationship with above anonymous directory
+// channels: an explicit Idle Watchlist entry first, then a followed channel.
+// Purely a tie-break among channels that already qualify for the campaign, so it
+// never changes *what* is farmed, only *where* it is farmed.
+function channelPreferenceScore(
+  candidate: ChannelCandidate,
+  idleWatchlist: ReadonlySet<string>,
+  followed: ReadonlySet<string>,
+): number {
+  const username = candidate.username.toLowerCase();
+  if (idleWatchlist.has(username)) return 0;
+  if (followed.has(username)) return 1;
+  return 2;
+}
+
 export async function chooseCampaignDecision(
   platform: Platform,
   campaigns: DropCampaign[],
   settings: EngineSettings,
-  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel">,
+  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">,
   signal?: AbortSignal,
   reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
 ): Promise<WatchDecision> {
@@ -203,6 +218,30 @@ export async function chooseCampaignDecision(
   let campaignsChecked = 0;
   let candidatesChecked = 0;
   const generalCandidatesByCategory = new Map<string, ChannelCandidate[]>();
+  const idleWatchlist = settings.preferKnownChannels
+    ? new Set(settings.platform[platform].idleWatchlistChannels
+      .map((username) => username.trim().toLowerCase())
+      .filter(Boolean))
+    : new Set<string>();
+  // Resolved at most once per decision (campaigns are looped, and the follow list
+  // does not change between them) and only when a candidate list is long enough
+  // for the preference to matter. A platform without the capability, or a failed
+  // lookup, degrades to no preference rather than losing the tick. When the
+  // setting is off, the adapter method is never called at all — not just
+  // ignored — so a user who disables it pays no extra request for it.
+  let followedChannels: ReadonlySet<string> | undefined;
+  const resolveFollowedChannels = async (): Promise<ReadonlySet<string>> => {
+    if (followedChannels) return followedChannels;
+    followedChannels = new Set<string>();
+    if (!settings.preferKnownChannels || !adapter.listFollowedChannels) return followedChannels;
+    try {
+      const logins = await adapter.listFollowedChannels({ signal });
+      followedChannels = new Set(logins.map((login) => login.trim().toLowerCase()).filter(Boolean));
+    } catch (error) {
+      if (signal?.aborted) throw error;
+    }
+    return followedChannels;
+  };
   const finish = (decision: WatchDecision): WatchDecision => {
     reportMetrics?.({ campaignsChecked, candidatesChecked });
     return decision;
@@ -227,7 +266,7 @@ export async function chooseCampaignDecision(
         generalCandidatesByCategory.set(reusableDirectoryKey, listedCandidates);
       }
     }
-    const candidates = [...new Map(
+    const deduplicated = [...new Map(
       listedCandidates
         .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
         .map((candidate) => ({
@@ -237,9 +276,20 @@ export async function chooseCampaignDecision(
           categoryName: campaign.gameName ?? candidate.categoryName,
         }))
         .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
-    ).values()]
+    ).values()];
+    // Only worth asking the platform who the user follows when more than one
+    // candidate could win the campaign.
+    const followed = deduplicated.length > 1
+      ? await resolveFollowedChannels()
+      : followedChannels ?? new Set<string>();
+    const candidates = deduplicated
       .sort((left, right) => {
+        // ACL stays the strongest key: for an ACL-restricted campaign a followed
+        // channel outside the allow list cannot earn the drop at all.
         if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
+        const preference = channelPreferenceScore(left, idleWatchlist, followed)
+          - channelPreferenceScore(right, idleWatchlist, followed);
+        if (preference !== 0) return preference;
         return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
       });
 

@@ -1687,6 +1687,88 @@ describe("background controller", () => {
       expect(new Set(integrityAlarmCalls.map(([, options]) => JSON.stringify(options))).size).toBe(1);
     });
 
+    // The invariant both of these guard: installing a captured token must never
+    // need a lock that a waiting mint's own caller is holding. runTick and
+    // runPlatformWatchHeartbeat both hold the platform lock across work that can
+    // force a refresh, so a capture that took that lock could not be installed
+    // until the holder gave up — which it only did by timing out.
+    it("installs a captured token while a tick holds the platform lock", async () => {
+      const replacement = integrityBundle({
+        integrity: "captured-during-locked-tick",
+      });
+      const refreshGate = deferred<void>();
+      const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
+      await env.controller.settleBackgroundWork();
+      setTwitchIntegrity(undefined);
+
+      // refreshCampaigns runs inside runSchedulerTick, which runTick wraps in
+      // withStateLock for the whole scheduler run.
+      env.twitch.refreshCampaigns = vi.fn(async () => {
+        await refreshGate.promise;
+        return [campaign("twitch")];
+      });
+
+      const ticking = env.controller.tick(["twitch"], "manual_tick");
+      await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+
+      // Deliberately not awaited: persistence still queues behind the tick, and
+      // the install must already have happened by the time the call returns.
+      const capturing = env.controller.captureTwitchIntegrity(integrityHeaders(replacement));
+      const installedWhileLocked = currentValidTwitchIntegrity()?.integrity;
+
+      refreshGate.resolve();
+      await Promise.all([capturing, ticking]);
+      setTwitchIntegrity(undefined);
+
+      expect(installedWhileLocked).toBe(replacement.integrity);
+    });
+
+    it("satisfies a rejection-recovery mint raised from inside the platform lock", async () => {
+      const replacement = integrityBundle({
+        integrity: "minted-during-locked-tick",
+      });
+      const browser = {
+        tabs: {
+          get: vi.fn(),
+          update: vi.fn(async () => undefined),
+          remove: vi.fn(async () => undefined),
+          query: vi.fn(async () => []),
+          create: vi.fn(async () => ({ id: 77 })),
+        },
+      } satisfies BrowserTabApi;
+      registerManagedPageContextTabs({});
+      resetTwitchIntegrityRefreshBounds();
+      setTwitchIntegrity(undefined);
+      const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
+      await env.controller.settleBackgroundWork();
+
+      let mintedInsideLock: boolean | undefined;
+      // Stands in for the adapter forcing a refresh after Twitch rejects a token
+      // it still considers unexpired (platforms/twitch/index.ts). This runs under
+      // the platform lock, so before the fix it could only ever time out.
+      env.twitch.refreshCampaigns = vi.fn(async () => {
+        mintedInsideLock = await ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          1_000,
+          () => undefined,
+          { forceRefresh: true, reason: "rejection_recovery" },
+        );
+        return [campaign("twitch")];
+      });
+
+      const ticking = env.controller.tick(["twitch"], "manual_tick");
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+      const capturing = env.controller.captureTwitchIntegrity(integrityHeaders(replacement));
+
+      await ticking;
+      await capturing;
+      resetTwitchIntegrityRefreshBounds();
+      setTwitchIntegrity(undefined);
+
+      expect(mintedInsideLock).toBe(true);
+    });
+
     it("forces the next normal tick after a proactive refresh is deferred", async () => {
       const integrity = integrityBundle({
         integrity: "deferred-proactive-token",

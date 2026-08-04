@@ -285,6 +285,222 @@ describe("scheduler campaign selection", () => {
     expect(decision.campaign?.id).toBe("pinned");
   });
 
+  it("prefers an Idle Watchlist channel over a bigger directory channel", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings({ platform: { twitch: { idleWatchlistChannels: ["Watched"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000 }),
+          channel("watched", { viewerCount: 12 }),
+        ]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.channel?.username).toBe("watched");
+  });
+
+  it("prefers a followed channel over a bigger directory channel", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000 }),
+          channel("friend", { viewerCount: 12 }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["Friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.channel?.username).toBe("friend");
+  });
+
+  it("ranks an Idle Watchlist channel above a followed one", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings({ platform: { twitch: { idleWatchlistChannels: ["watched"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("friend", { viewerCount: 5_000 }),
+          channel("watched", { viewerCount: 12 }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("watched");
+  });
+
+  it("keeps allow-listed channels ahead of a followed channel outside the allow list", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("acl")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("friend", { viewerCount: 5_000, isAclMatch: false }),
+          channel("allowed", { viewerCount: 12, isAclMatch: true }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("allowed");
+  });
+
+  it("orders allow-listed channels by preference when none carry a viewer count", async () => {
+    // Campaign allow lists come from `allow { channels }`, which has no viewer
+    // count, so every candidate ties there and the preference is the only thing
+    // that can reorder them.
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("acl")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("stranger", { isAclMatch: true }),
+          channel("friend", { isAclMatch: true }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("friend");
+  });
+
+  it("still excludes an excluded channel the user follows", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings({ platform: { twitch: { excludedChannels: ["friend"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000 }),
+          channel("friend", { viewerCount: 12 }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("popular");
+  });
+
+  it("looks up followed channels once per decision and skips it for a single candidate", async () => {
+    const listFollowedChannels = vi.fn(async () => ["friend"]);
+
+    const many = await chooseCampaignDecision(
+      "twitch",
+      [campaign("first", { gameName: "First" }), campaign("second", { gameName: "Second" })],
+      settings(),
+      {
+        // Neither campaign's candidates are eligible, so both are listed before
+        // the decision falls through to idle.
+        listCandidateChannels: vi.fn(async () => [channel("popular"), channel("friend")]),
+        listFollowedChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: false, categoryMatches: true, candidate })),
+      },
+    );
+    expect(many.action).toBe("idle");
+    expect(listFollowedChannels).toHaveBeenCalledTimes(1);
+
+    listFollowedChannels.mockClear();
+    await chooseCampaignDecision(
+      "twitch",
+      [campaign("solo")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("only")]),
+        listFollowedChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+    expect(listFollowedChannels).not.toHaveBeenCalled();
+  });
+
+  it("applies the preference through an adapter that batches its own selection", async () => {
+    // Twitch selects candidates itself and answers with the first one that
+    // passes, in the order the scheduler handed them over — mirror that here so
+    // the ordering is proven on the path production actually takes.
+    const selectCandidateChannel = vi.fn(async (candidates: ChannelCandidate[]) => ({
+      checked: candidates.length,
+      channel: candidates[0],
+    }));
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000, live: true, isAclMatch: false }),
+          channel("friend", { viewerCount: 12, live: true, isAclMatch: false }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        selectCandidateChannel,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("friend");
+    expect(selectCandidateChannel.mock.calls[0]?.[0].map((candidate) => candidate.username))
+      .toEqual(["friend", "popular"]);
+  });
+
+  it("falls back to viewer count when the followed lookup fails", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("small", { viewerCount: 12 }),
+          channel("popular", { viewerCount: 90_000 }),
+        ]),
+        listFollowedChannels: vi.fn(async () => { throw new Error("gql unavailable"); }),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.channel?.username).toBe("popular");
+  });
+
+  it("reverts to viewer-count ordering when preferKnownChannels is off", async () => {
+    const listFollowedChannels = vi.fn(async () => ["friend"]);
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings({ preferKnownChannels: false, platform: { twitch: { idleWatchlistChannels: ["watched"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000 }),
+          channel("friend", { viewerCount: 12 }),
+          channel("watched", { viewerCount: 5 }),
+        ]),
+        listFollowedChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("popular");
+    // Not just outranked: never asked at all, so a disabled preference costs no
+    // extra request.
+    expect(listFollowedChannels).not.toHaveBeenCalled();
+  });
+
   it("does not select campaigns whose only unclaimed reward is outside its earn and claim windows", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",

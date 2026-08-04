@@ -59,6 +59,9 @@ export function defaultConfigJsonc(): string {
 
     // Keep eligible drops first; use the Idle Watchlist only when none are available.
     "idleWatchlistFallbackOnly": ${json(defaults.idleWatchlistFallbackOnly)},
+    // Prefer an Idle Watchlist or followed channel over a bigger anonymous one
+    // when picking who to farm a campaign on.
+    "preferKnownChannels": ${json(defaults.preferKnownChannels)},
     "offlineRetryLimit": ${json(defaults.offlineRetryLimit)},
     // How often campaign discovery and watch state are refreshed (1-60 minutes).
     "pollIntervalMinutes": ${json(defaults.pollIntervalMinutes)},

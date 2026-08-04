@@ -452,6 +452,12 @@
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Leaves an Idle Watchlist channel as soon as an eligible drop becomes available. When off, keeps watching it until it goes offline."
   },
+  "preferKnownChannelsTitle": {
+    "message": "Prefer followed and Idle Watchlist channels"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "When a drop is available on several channels, picks one you follow or listed in your Idle Watchlist over an unfamiliar one."
+  },
   "platformSettingsTitle": {
     "message": "Platform settings"
   },
