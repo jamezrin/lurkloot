@@ -33,7 +33,7 @@
     "motion": "^12.40.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "wxt": "^0.20.0"
+    "wxt": "^0.21.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.0",
