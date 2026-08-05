@@ -4728,6 +4728,40 @@ describe("background controller", () => {
     });
   });
 
+  // A clock rollback can leave the stored manual-watch `checkedAt` in the
+  // future. Reading that as "recently active" would keep a stale record
+  // winning over fresher telemetry from a different tab, so a future stamp
+  // counts as stale and the new telemetry is applied instead.
+  it("overrides manual watch activity stamped in the future with fresh telemetry", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    env.state.manualWatch = {
+      twitch: {
+        platform: "twitch",
+        tabId: 999,
+        active: true,
+        checkedAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+    };
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 0,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    }, { tab: { id: 1000 } });
+
+    expect(env.state.manualWatch?.twitch).toMatchObject({
+      tabId: 1000,
+      active: false,
+    });
+  });
+
   it("logs playback transitions such as ad starts and blocked playback", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });

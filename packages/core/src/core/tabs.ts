@@ -4,6 +4,7 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TwitchIntegrity } from "./twitchIntegrity";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "./fetchError";
+import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
 
 const ignoreEvent: EventEmitter = () => {};
 
@@ -222,8 +223,7 @@ function shouldPrimePlayback(tab: BrowserTab, url: string, session?: WatchSessio
   if (tab.url !== url) return true;
   const playback = session?.playback;
   if (!playback) return true;
-  const checkedAt = Date.parse(playback.checkedAt);
-  if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return true;
+  if (isTimestampStale(playback.checkedAt, PLAYBACK_TELEMETRY_MAX_AGE_MS, Date.now())) return true;
   // Priming foreground-activates the tab to coax a deferred player into loading
   // and playing — not to unmute. A muted-but-playing video is fine, so do not
   // re-prime just because the browser kept it muted.

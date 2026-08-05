@@ -29,6 +29,7 @@ import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
 import { isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
+import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -1177,8 +1178,7 @@ export async function runSchedulerTick(
 function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolean {
   const manualWatch = state.manualWatch?.[platform];
   if (!manualWatch?.active) return false;
-  const checkedAt = Date.parse(manualWatch.checkedAt);
-  return !Number.isNaN(checkedAt) && Date.now() - checkedAt <= MANUAL_WATCH_TTL_MS;
+  return !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
 }
 
 function hasIdleWatchlistChannels(settings: EngineSettings, platform: Platform): boolean {
@@ -1480,8 +1480,7 @@ export function isPlaybackTelemetryHealthy(telemetry: Pick<PlaybackTelemetry, "v
 function isPlaybackHealthy(session: WatchSession): boolean {
   const playback = session.playback;
   if (!playback) return false;
-  const checkedAt = Date.parse(playback.checkedAt);
-  if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return false;
+  if (isTimestampStale(playback.checkedAt, PLAYBACK_TELEMETRY_MAX_AGE_MS, Date.now())) return false;
   return isPlaybackTelemetryHealthy(playback);
 }
 
