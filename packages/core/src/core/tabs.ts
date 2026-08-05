@@ -989,14 +989,20 @@ const KICK_BEARER_PATHS = ["/api/v1/user", "/api/v1/user/livestreams"];
 // Matched on the parsed host and pathname rather than by substring: `includes` would
 // also attach the session token to hosts that merely mention a Kick host (e.g.
 // https://evil.example/?r=web.kick.com) and to unintended subpaths of /api/v1/user.
-function needsKickSessionBearer(url: string): boolean {
+//
+// Exported so packages/cli/src/transport/cycle.ts shares this decision instead of
+// reimplementing it (see #370): the CLI's WebSocket transport reaches
+// websockets.kick.com over wss, not https, which this module's own callers never
+// do, so the accepted protocols are parameterized rather than hardcoded here.
+export function needsKickSessionBearer(url: string, options?: { protocols?: readonly string[] }): boolean {
+  const protocols = options?.protocols ?? ["https:"];
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
     return false;
   }
-  if (parsed.protocol !== "https:") return false;
+  if (!protocols.includes(parsed.protocol)) return false;
   if (parsed.host === "web.kick.com" || parsed.host === "websockets.kick.com") return true;
   return parsed.host === "kick.com" && KICK_BEARER_PATHS.includes(parsed.pathname);
 }
@@ -1665,7 +1671,12 @@ export type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageC
 // cannot be reached from the twitch.tv page (CORS / anti-tampering). Must be
 // self-contained: executeScript only serializes this function's own source, so
 // module-scope helpers are unavailable in the page.
-async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
+//
+// Test seam: exported so tests can call it directly with a stubbed fetch/document
+// instead of only through the mocked executeScript path (see fetchJsonInPageWithBrowser's
+// tests). Exporting does not affect executeScript injection, which serializes only
+// this function's own toString() output, not how it was imported.
+export async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
   const parsedInit = initJson ? JSON.parse(initJson) : undefined;
   const headers = new Headers(parsedInit?.headers ?? {});
   // Mirrors needsKickSessionBearer (KICK_BEARER_PATHS); inlined because
