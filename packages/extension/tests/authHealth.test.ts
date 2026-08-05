@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_STATE, mergeSchedulerState, normalizePlatformAuthHealth } from "@lurkloot/core/defaults";
-import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import { ignoreEvent, unavailableWatchTabPort, type PlatformAdapter } from "@lurkloot/core/adapter";
 import { KickAdapter } from "@lurkloot/core/kick";
 import { applyPlatformAuthHealth } from "@lurkloot/core/authHealth";
+import { testCompatibility } from "./helpers/compatibility";
+
+const KICK_COMPAT = testCompatibility().kick;
 
 describe("authentication health normalization", () => {
   it("requires adapters to expose a browser-neutral auth probe", async () => {
@@ -23,7 +26,7 @@ describe("authentication health normalization", () => {
       },
     };
 
-    const health = await new KickAdapter(fetcher).checkAuthHealth();
+    const health = await new KickAdapter(fetcher, unavailableWatchTabPort, undefined, { compatibility: KICK_COMPAT }, ignoreEvent).checkAuthHealth();
 
     expect(health.status).toBe("healthy");
     expect(Date.parse(health.checkedAt ?? "")).not.toBeNaN();
@@ -40,7 +43,7 @@ describe("authentication health normalization", () => {
     // here is what suspended farming for signed-in users (regression from #213/#214).
     const fetcher = { fetchJson: async <T,>(): Promise<T> => response as T };
 
-    await expect(new KickAdapter(fetcher).checkAuthHealth()).resolves.toMatchObject({
+    await expect(new KickAdapter(fetcher, unavailableWatchTabPort, undefined, { compatibility: KICK_COMPAT }, ignoreEvent).checkAuthHealth()).resolves.toMatchObject({
       status: "unavailable",
       reasonCode: "platform_unavailable",
       message: { key: "authPlatformUnavailable" },

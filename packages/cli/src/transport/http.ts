@@ -55,8 +55,8 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
         { fetchJson: (url, init) => fetchKickInBackgroundWith(kickApi, url, init) },
         tablessWatchPort,
         undefined,
-        emit,
         { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
+        emit,
       );
     return { adapter, ...resolution };
   };

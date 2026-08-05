@@ -14,8 +14,9 @@ import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS, isFarmingActive } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
-import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
-import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
+import { createKickFetcher, KickClaimState } from "@lurkloot/core/kick";
+import { TwitchDiscoveryState } from "@lurkloot/core/twitch";
+import { kickAdapter, twitchAdapter } from "./helpers/adapters";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import {
@@ -2115,7 +2116,7 @@ describe("background controller", () => {
       }) as PageFetcher["fetchJson"],
     };
     vi.mocked(env.deps.createAdapter).mockImplementation((_platform, emit, settings) => ({
-      adapter: new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit),
+      adapter: twitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit),
       ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
     }));
 
@@ -2275,7 +2276,7 @@ describe("background controller", () => {
         backgroundStarted = resolve;
       });
       const pageFetch = vi.fn(async () => ({ id: 42 }));
-      const kick = new KickAdapter(createKickFetcher({
+      const kick = kickAdapter(createKickFetcher({
         background: async (_url, init) => {
           backgroundStarted();
           await new Promise<void>((resolve) => {
@@ -3412,7 +3413,7 @@ describe("background controller", () => {
     };
     const claimState = new KickClaimState();
     env.deps.createAdapter.mockImplementation((platform, emit, settings) => {
-      const kick = new KickAdapter(fetcher, undefined, undefined, emit, { claimState });
+      const kick = kickAdapter(fetcher, undefined, undefined, emit, { claimState });
       kick.listCandidateChannels = vi.fn(async () => []);
       return {
         adapter: platform === "kick" ? kick : env.twitch,
@@ -3441,7 +3442,7 @@ describe("background controller", () => {
     expect(claimPosts).toBe(2);
 
     const separateState = new KickClaimState();
-    const separateAdapter = new KickAdapter(fetcher, undefined, undefined, () => {}, { claimState: separateState });
+    const separateAdapter = kickAdapter(fetcher, undefined, undefined, () => {}, { claimState: separateState });
     await separateAdapter.claimReward(campaign("kick", "claimable"), campaign("kick", "claimable").rewards[0]);
     expect(claimPosts).toBe(3);
   });

@@ -6,7 +6,7 @@ import type { TwitchIntegrityRequest } from "../../core/tabs";
 import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
-import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type CandidateChannelSelection, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
@@ -46,7 +46,9 @@ export interface TwitchAdapterOptions {
   // non-browser runtimes — browsers forbid overriding User-Agent on fetch.
   userAgent?: string;
   // Resolved metadata selects the registered heartbeat and inventory versions.
-  compatibility?: ResolvedCompatibility["twitch"];
+  // Required: resolveCompatibility() is the only thing that may decide which
+  // capability an adapter gets — no construction site restates a default.
+  compatibility: ResolvedCompatibility["twitch"];
   heartbeatStrategy?: TwitchHeartbeatStrategy;
   heartbeatIdentity?: TwitchIdentity;
   heartbeatFetchText?: TwitchHeartbeatFetchText;
@@ -456,7 +458,7 @@ export type TwitchGqlTransport = <T>(
 // so a persistent watcher never retains an operation-scoped adapter/emitter.
 export function createTwitchGqlTransport(
   fetcher: PageFetcher,
-  options: TwitchAdapterOptions = {},
+  options: TwitchAdapterOptions,
 ): TwitchGqlTransport {
   const clientId = options.clientId ?? TWITCH_CLIENT_ID;
   const userAgent = options.userAgent;
@@ -627,24 +629,27 @@ export class TwitchAdapter implements PlatformAdapter {
     private readonly fetcher: PageFetcher,
     // Twitch only enforces Client-Integrity (Kasada) for the WEB client id, so
     // this is only meaningful under that id (the extension, which captures the
-    // page-minted token). A runtime using a non-web client id never needs it, so
-    // it defaults to "no integrity available".
-    private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean> = async () => false,
+    // page-minted token). A runtime using a non-web client id never needs it —
+    // pass `async () => false` for "no integrity available". No default: a
+    // required options.compatibility below would follow an optional parameter,
+    // which TypeScript rejects (a required parameter cannot follow an optional
+    // one), so this and watchTabPort lost their defaults too.
+    private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean>,
     // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
-    private readonly watchTabPort: WatchTabPort = unavailableWatchTabPort,
+    private readonly watchTabPort: WatchTabPort,
     // Identity the GQL requests present. Defaults to the WEB client (what the
     // extension uses). A headless runtime can pass a non-web client id + matching
     // user agent (e.g. the Android app) so Twitch never gates it behind integrity
     // — the persisted-query hashes are client-agnostic, so claims work unchanged.
-    private readonly options: TwitchAdapterOptions = {},
+    // No default: options.compatibility is required, so every construction site
+    // must resolve it via resolveCompatibility() rather than get one implied.
+    private readonly options: TwitchAdapterOptions,
     private readonly emit: EventEmitter = ignoreEvent,
   ) {
     this.compatibility = options.compatibility;
     this.discoveryState = options.discoveryState ?? new TwitchDiscoveryState();
     this.gqlTransport = createTwitchGqlTransport(fetcher, options);
-    this.inventoryCapability = createTwitchInventory(
-      options.compatibility?.inventory ?? "twitch-inventory-v1",
-    );
+    this.inventoryCapability = createTwitchInventory(options.compatibility.inventory);
   }
 
   private async discoverCampaignSnapshot(
@@ -1894,7 +1899,7 @@ class TwitchWatcher implements TablessWatchController {
     private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean> = async () => false,
   ) {
     this.heartbeatStrategy = options.heartbeatStrategy ?? createTwitchHeartbeat(
-      options.compatibility?.heartbeat ?? "twitch-heartbeat-gql-v1",
+      options.compatibility.heartbeat,
       {
         gql,
         emit: this.diagnostics.emit,
