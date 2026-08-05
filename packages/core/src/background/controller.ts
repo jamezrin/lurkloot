@@ -6,6 +6,7 @@ import { isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
+import { isTimestampStale } from "../core/timestamps";
 import {
   currentManagedPageContextTabs,
   INTEGRITY_REFRESH_TIMEOUT_MS,
@@ -2241,7 +2242,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
     const active = message.telemetry.playingVideoCount > 0 && !message.telemetry.documentHidden;
     const previous = manualWatch[message.platform];
-    const recentPrevious = previous?.active && Date.now() - Date.parse(previous.checkedAt) <= MANUAL_WATCH_TTL_MS;
+    const recentPrevious = previous?.active && !isTimestampStale(previous.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
     if (!active && previous?.tabId !== senderTabId && recentPrevious) return state;
 
     manualWatch[message.platform] = {

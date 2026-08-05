@@ -1470,6 +1470,32 @@ describe("scheduler tick", () => {
     expect(twitch.prepareWatchTab).toHaveBeenCalled();
   });
 
+  // A clock rollback can leave `checkedAt` in the future. Treating that as
+  // "recently watched" would pause farming until the clock caught up, so a
+  // future stamp counts as stale instead (mirrors the Kick challenge-poll fix).
+  it("ignores manual watch activity stamped in the future", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        manualWatch: {
+          twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date(Date.now() + 60 * 60_000).toISOString() },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.status).toBe("watching");
+    expect(twitch.prepareWatchTab).toHaveBeenCalled();
+  });
+
   it("returns diagnostics without host log filtering", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
     const adapters = () => ({ twitch, kick: adapter("kick", [], []) });
@@ -1879,6 +1905,103 @@ describe("scheduler tick", () => {
 
     expect(result.state.sessions.twitch.playbackChecks).toBe(0);
     expect(result.state.sessions.twitch.playback?.playingVideoCount).toBe(1);
+  });
+
+  // A clock rollback can leave `playback.checkedAt` in the future. Reading
+  // that as "just checked" would let telemetry from before the rollback keep
+  // counting as healthy indefinitely, so a future stamp counts as stale and
+  // still accumulates toward the offline-retry limit.
+  it("treats playback telemetry stamped in the future as stale", async () => {
+    const old = channel("old");
+    const twitch = adapter("twitch", [campaign("drops")], [old]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: old,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            tabId: 7,
+            watchMode: "tab",
+            watchTabOpenedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+            playback: {
+              platform: "twitch",
+              checkedAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+              videoCount: 1,
+              mutedVideoCount: 0,
+              unmutedVideoCount: 1,
+              playingVideoCount: 1,
+              blockedPlaybackCount: 0,
+              documentHidden: true,
+            },
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.status).toBe("watching");
+    expect(result.state.sessions.twitch.tabId).toBe(7);
+    expect(result.state.sessions.twitch.playbackChecks).toBe(1);
+  });
+
+  // An unparseable `checkedAt` must land on the same "stale" branch as a
+  // future one — previously it fell through to the telemetry check instead
+  // (NaN comparisons are always false), which happened to read as healthy.
+  it("treats unparseable playback telemetry timestamps as stale", async () => {
+    const old = channel("old");
+    const twitch = adapter("twitch", [campaign("drops")], [old]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: old,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            tabId: 7,
+            watchMode: "tab",
+            watchTabOpenedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+            playback: {
+              platform: "twitch",
+              checkedAt: "not-a-date",
+              videoCount: 1,
+              mutedVideoCount: 0,
+              unmutedVideoCount: 1,
+              playingVideoCount: 1,
+              blockedPlaybackCount: 0,
+              documentHidden: true,
+            },
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.status).toBe("watching");
+    expect(result.state.sessions.twitch.tabId).toBe(7);
+    expect(result.state.sessions.twitch.playbackChecks).toBe(1);
   });
 
   it("treats a muted but playing watch tab as healthy", async () => {

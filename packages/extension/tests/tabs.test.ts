@@ -331,6 +331,75 @@ describe("tab manager", () => {
     expect(browser.tabs.update).not.toHaveBeenCalled();
   });
 
+  // A clock rollback can leave `playback.checkedAt` in the future. Reading
+  // that as "just checked" would let stale-but-healthy-looking telemetry from
+  // before the rollback suppress re-priming indefinitely, so a future stamp
+  // counts as stale and re-priming still happens.
+  it("re-primes a matching managed tab whose playback telemetry is stamped in the future", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({
+      id: 4,
+      url: channel.url,
+      pinned: true,
+      mutedInfo: { muted: true },
+      active: false,
+    });
+
+    await openPinnedMutedTabWithBrowser(browser, channel, {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+      playback: {
+        platform: "twitch",
+        checkedAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    });
+
+    expect(browser.tabs.update).toHaveBeenCalledWith(4, { active: true });
+  });
+
+  // An unparseable `checkedAt` must land on the same "stale" branch as a
+  // future one — previously NaN comparisons were always false, so it fell
+  // through to the telemetry check and read as healthy instead.
+  it("re-primes a matching managed tab whose playback telemetry has an unparseable timestamp", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({
+      id: 4,
+      url: channel.url,
+      pinned: true,
+      mutedInfo: { muted: true },
+      active: false,
+    });
+
+    await openPinnedMutedTabWithBrowser(browser, channel, {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+      playback: {
+        platform: "twitch",
+        checkedAt: "not-a-date",
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    });
+
+    expect(browser.tabs.update).toHaveBeenCalledWith(4, { active: true });
+  });
+
   it("does not re-prime a matching managed tab that is playing but muted", async () => {
     const browser = browserMock();
     browser.tabs.get.mockResolvedValue({
