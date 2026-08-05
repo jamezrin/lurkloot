@@ -92,8 +92,8 @@ export function createCliAdapters(
         deps.kickFetcher(),
         tablessWatchPort,
         deps.kickWebSocketFactory?.(),
-        emit,
         { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
+        emit,
       );
     return { adapter, ...resolution };
   };

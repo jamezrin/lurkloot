@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { TwitchAdapter } from "@lurkloot/core/twitch";
 import type { TwitchHeartbeatStrategy } from "@lurkloot/core/twitch/heartbeat";
 import {
   createSpadeHeartbeat,
@@ -9,6 +8,7 @@ import {
 } from "@lurkloot/core/twitch/heartbeat";
 import { resolveCompatibility } from "@lurkloot/core";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { twitchAdapter } from "./helpers/adapters";
 
 describe("Twitch heartbeat strategies", () => {
   describe("compatibility selection", () => {
@@ -94,7 +94,7 @@ describe("Twitch heartbeat strategies", () => {
       }
       throw new Error(`unexpected operation ${operationName}`);
     });
-    const adapter = new TwitchAdapter(
+    const adapter = twitchAdapter(
       { fetchJson: fetchJson as never },
       undefined,
       undefined,

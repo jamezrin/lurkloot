@@ -122,8 +122,8 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
       }),
       watchTabPort,
       undefined,
-      emit,
       { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
+      emit,
     );
   return { adapter, ...resolution };
 }
