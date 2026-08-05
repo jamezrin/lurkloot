@@ -53,5 +53,5 @@ export function translateFromCatalogs(
     : substitutions == null
       ? []
       : [substitutions];
-  return values.reduce((text, value, index) => text.replaceAll(`$${index + 1}`, value), template);
+  return values.reduce((text, value, index) => text.replaceAll(`$${index + 1}`, () => value), template);
 }

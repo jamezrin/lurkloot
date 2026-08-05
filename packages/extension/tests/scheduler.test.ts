@@ -285,6 +285,222 @@ describe("scheduler campaign selection", () => {
     expect(decision.campaign?.id).toBe("pinned");
   });
 
+  it("prefers an Idle Watchlist channel over a bigger directory channel", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings({ platform: { twitch: { idleWatchlistChannels: ["Watched"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000 }),
+          channel("watched", { viewerCount: 12 }),
+        ]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.channel?.username).toBe("watched");
+  });
+
+  it("prefers a followed channel over a bigger directory channel", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000 }),
+          channel("friend", { viewerCount: 12 }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["Friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.channel?.username).toBe("friend");
+  });
+
+  it("ranks an Idle Watchlist channel above a followed one", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings({ platform: { twitch: { idleWatchlistChannels: ["watched"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("friend", { viewerCount: 5_000 }),
+          channel("watched", { viewerCount: 12 }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("watched");
+  });
+
+  it("keeps allow-listed channels ahead of a followed channel outside the allow list", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("acl")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("friend", { viewerCount: 5_000, isAclMatch: false }),
+          channel("allowed", { viewerCount: 12, isAclMatch: true }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("allowed");
+  });
+
+  it("orders allow-listed channels by preference when none carry a viewer count", async () => {
+    // Campaign allow lists come from `allow { channels }`, which has no viewer
+    // count, so every candidate ties there and the preference is the only thing
+    // that can reorder them.
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("acl")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("stranger", { isAclMatch: true }),
+          channel("friend", { isAclMatch: true }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("friend");
+  });
+
+  it("still excludes an excluded channel the user follows", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings({ platform: { twitch: { excludedChannels: ["friend"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000 }),
+          channel("friend", { viewerCount: 12 }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("popular");
+  });
+
+  it("looks up followed channels once per decision and skips it for a single candidate", async () => {
+    const listFollowedChannels = vi.fn(async () => ["friend"]);
+
+    const many = await chooseCampaignDecision(
+      "twitch",
+      [campaign("first", { gameName: "First" }), campaign("second", { gameName: "Second" })],
+      settings(),
+      {
+        // Neither campaign's candidates are eligible, so both are listed before
+        // the decision falls through to idle.
+        listCandidateChannels: vi.fn(async () => [channel("popular"), channel("friend")]),
+        listFollowedChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: false, categoryMatches: true, candidate })),
+      },
+    );
+    expect(many.action).toBe("idle");
+    expect(listFollowedChannels).toHaveBeenCalledTimes(1);
+
+    listFollowedChannels.mockClear();
+    await chooseCampaignDecision(
+      "twitch",
+      [campaign("solo")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("only")]),
+        listFollowedChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+    expect(listFollowedChannels).not.toHaveBeenCalled();
+  });
+
+  it("applies the preference through an adapter that batches its own selection", async () => {
+    // Twitch selects candidates itself and answers with the first one that
+    // passes, in the order the scheduler handed them over — mirror that here so
+    // the ordering is proven on the path production actually takes.
+    const selectCandidateChannel = vi.fn(async (candidates: ChannelCandidate[]) => ({
+      checked: candidates.length,
+      channel: candidates[0],
+    }));
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000, live: true, isAclMatch: false }),
+          channel("friend", { viewerCount: 12, live: true, isAclMatch: false }),
+        ]),
+        listFollowedChannels: vi.fn(async () => ["friend"]),
+        selectCandidateChannel,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("friend");
+    expect(selectCandidateChannel.mock.calls[0]?.[0].map((candidate) => candidate.username))
+      .toEqual(["friend", "popular"]);
+  });
+
+  it("falls back to viewer count when the followed lookup fails", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings(),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("small", { viewerCount: 12 }),
+          channel("popular", { viewerCount: 90_000 }),
+        ]),
+        listFollowedChannels: vi.fn(async () => { throw new Error("gql unavailable"); }),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.channel?.username).toBe("popular");
+  });
+
+  it("reverts to viewer-count ordering when preferKnownChannels is off", async () => {
+    const listFollowedChannels = vi.fn(async () => ["friend"]);
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any")],
+      settings({ preferKnownChannels: false, platform: { twitch: { idleWatchlistChannels: ["watched"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [
+          channel("popular", { viewerCount: 90_000 }),
+          channel("friend", { viewerCount: 12 }),
+          channel("watched", { viewerCount: 5 }),
+        ]),
+        listFollowedChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.channel?.username).toBe("popular");
+    // Not just outranked: never asked at all, so a disabled preference costs no
+    // extra request.
+    expect(listFollowedChannels).not.toHaveBeenCalled();
+  });
+
   it("does not select campaigns whose only unclaimed reward is outside its earn and claim windows", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
@@ -927,6 +1143,86 @@ describe("scheduler tick", () => {
     expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("campaigns eligible"))).toEqual([]);
   });
 
+  it("does not emit inventory diagnostics when campaigns and rewards are reordered", async () => {
+    const first = [
+      campaign("first", {
+        rewards: [
+          { ...reward("in_progress"), id: "first-a" },
+          { ...reward("locked"), id: "first-b" },
+        ],
+      }),
+      campaign("second", {
+        rewards: [
+          { ...reward("in_progress"), id: "second-a" },
+          { ...reward("locked"), id: "second-b" },
+        ],
+      }),
+    ];
+    const reordered = [
+      { ...first[1], rewards: [...first[1].rewards].reverse() },
+      { ...first[0], rewards: [...first[0].rewards].reverse() },
+    ];
+    const twitch = adapter("twitch", first, []);
+    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
+    const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+
+    const initial = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce(reordered);
+    const second = await runSchedulerTick(initial.state, tickSettings, tickAdapters);
+
+    expect(second.events.filter((event) => event.category === "diagnostic" && (
+      event.message.startsWith("Campaign inventory changed")
+      || event.message.includes("campaigns eligible")
+    ))).toEqual([]);
+  });
+
+  const inventoryChanges: Array<[string, DropCampaign[], DropCampaign[]]> = [
+    ["campaign added", [campaign("drops")], [campaign("drops"), campaign("new-drops")]],
+    ["campaign removed", [campaign("drops")], []],
+    ["campaign status changed", [campaign("drops")], [campaign("drops", { status: "completed" })]],
+    [
+      "reward status changed",
+      [campaign("drops", { rewards: [{ ...reward("in_progress"), id: "reward-a" }] })],
+      [campaign("drops", { rewards: [{ ...reward("claimed"), id: "reward-a" }] })],
+    ],
+  ];
+
+  it.each(inventoryChanges)("emits both inventory diagnostics when %s", async (_change, previous, next) => {
+    const twitch = adapter("twitch", previous, []);
+    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
+    const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+
+    const initial = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce(next);
+    const second = await runSchedulerTick(initial.state, tickSettings, tickAdapters);
+    const inventoryDiagnostics = second.events.filter((event) => event.category === "diagnostic" && (
+      event.message.startsWith("Campaign inventory changed")
+      || event.message.includes("campaigns eligible")
+    ));
+
+    expect(inventoryDiagnostics).toHaveLength(2);
+    expect(inventoryDiagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: expect.stringContaining("Campaign inventory changed") }),
+      expect.objectContaining({ message: expect.stringContaining("campaigns eligible") }),
+    ]));
+  });
+
+  it("does not rerun the eligibility predicate or emit inventory diagnostics for an identical discovery", async () => {
+    const drops = campaign("drops");
+    const twitch = adapter("twitch", [drops], []);
+    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
+    const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+
+    const initial = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce([{ ...drops, rewards: [...drops.rewards] }]);
+    const second = await runSchedulerTick(initial.state, tickSettings, tickAdapters);
+
+    expect(second.events.filter((event) => event.category === "diagnostic" && (
+      event.message.startsWith("Campaign inventory changed")
+      || event.message.includes("campaigns eligible")
+    ))).toEqual([]);
+  });
+
   it("emits structured diagnostics for rewards excluded by deadline feasibility", async () => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-07-19T12:00:00.000Z");
@@ -1163,6 +1459,32 @@ describe("scheduler tick", () => {
         },
         manualWatch: {
           twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date(Date.now() - 60_000).toISOString() },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.status).toBe("watching");
+    expect(twitch.prepareWatchTab).toHaveBeenCalled();
+  });
+
+  // A clock rollback can leave `checkedAt` in the future. Treating that as
+  // "recently watched" would pause farming until the clock caught up, so a
+  // future stamp counts as stale instead (mirrors the Kick challenge-poll fix).
+  it("ignores manual watch activity stamped in the future", async () => {
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        manualWatch: {
+          twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date(Date.now() + 60 * 60_000).toISOString() },
         },
         campaigns: { twitch: [], kick: [] },
       },
@@ -1583,6 +1905,103 @@ describe("scheduler tick", () => {
 
     expect(result.state.sessions.twitch.playbackChecks).toBe(0);
     expect(result.state.sessions.twitch.playback?.playingVideoCount).toBe(1);
+  });
+
+  // A clock rollback can leave `playback.checkedAt` in the future. Reading
+  // that as "just checked" would let telemetry from before the rollback keep
+  // counting as healthy indefinitely, so a future stamp counts as stale and
+  // still accumulates toward the offline-retry limit.
+  it("treats playback telemetry stamped in the future as stale", async () => {
+    const old = channel("old");
+    const twitch = adapter("twitch", [campaign("drops")], [old]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: old,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            tabId: 7,
+            watchMode: "tab",
+            watchTabOpenedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+            playback: {
+              platform: "twitch",
+              checkedAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+              videoCount: 1,
+              mutedVideoCount: 0,
+              unmutedVideoCount: 1,
+              playingVideoCount: 1,
+              blockedPlaybackCount: 0,
+              documentHidden: true,
+            },
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.status).toBe("watching");
+    expect(result.state.sessions.twitch.tabId).toBe(7);
+    expect(result.state.sessions.twitch.playbackChecks).toBe(1);
+  });
+
+  // An unparseable `checkedAt` must land on the same "stale" branch as a
+  // future one — previously it fell through to the telemetry check instead
+  // (NaN comparisons are always false), which happened to read as healthy.
+  it("treats unparseable playback telemetry timestamps as stale", async () => {
+    const old = channel("old");
+    const twitch = adapter("twitch", [campaign("drops")], [old]);
+    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: old,
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            tabId: 7,
+            watchMode: "tab",
+            watchTabOpenedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+            playback: {
+              platform: "twitch",
+              checkedAt: "not-a-date",
+              videoCount: 1,
+              mutedVideoCount: 0,
+              unmutedVideoCount: 1,
+              playingVideoCount: 1,
+              blockedPlaybackCount: 0,
+              documentHidden: true,
+            },
+          },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.status).toBe("watching");
+    expect(result.state.sessions.twitch.tabId).toBe(7);
+    expect(result.state.sessions.twitch.playbackChecks).toBe(1);
   });
 
   it("treats a muted but playing watch tab as healthy", async () => {
@@ -2646,7 +3065,10 @@ describe("scheduler tick", () => {
   });
 
   it("marks claimed rewards and emits scheduler events", async () => {
-    const ready = campaign("drops", { rewards: [reward("claimable")] });
+    const ready = campaign("drops", {
+      url: "https://example.test/campaign",
+      rewards: [{ ...reward("claimable"), imageUrl: "https://cdn.example.test/reward.png" }],
+    });
     const twitch = adapter("twitch", [ready], [channel("allowed")]);
 
     const result = await runSchedulerTick(
@@ -2666,7 +3088,11 @@ describe("scheduler tick", () => {
     expect(result.events).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "reward_claimed",
-      data: expect.objectContaining({ method: "automatic" }),
+      data: expect.objectContaining({
+        method: "automatic",
+        rewardImageUrl: "https://cdn.example.test/reward.png",
+        campaignUrl: "https://example.test/campaign",
+      }),
     }));
   });
 

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { mergeSettings } from "@lurkloot/shared/settings";
 import { migrateSettings } from "@lurkloot/shared/settingsSchema";
-import { DEFAULT_CLI_SETTINGS, parseCliSettings, parseCliSettingsWithDiagnostics, toEngineSettings } from "../src/settings";
+import { SETTINGS_EXPORT_KIND } from "@lurkloot/shared/settingsExport";
+import {
+  DEFAULT_CLI_SETTINGS,
+  buildCliSettingsExportPayload,
+  parseCliSettings,
+  parseCliSettingsImportPayload,
+  parseCliSettingsWithDiagnostics,
+  toEngineSettings,
+} from "../src/settings";
 
 describe("parseCliSettings", () => {
   it("migrates legacy Watch Queue settings and reports them", () => {
@@ -27,6 +35,13 @@ describe("parseCliSettings", () => {
     expect(settings.idleWatchlistFallbackOnly).toBe(true);
     expect(settings.platform.twitch.idleWatchlistChannels).toEqual([]);
     expect(settings.platform.kick.idleWatchlistChannels).toEqual(["new"]);
+  });
+
+  it("defaults preferKnownChannels to on and honors an explicit override", () => {
+    expect(DEFAULT_CLI_SETTINGS.preferKnownChannels).toBe(true);
+    expect(parseCliSettings({}).preferKnownChannels).toBe(true);
+    expect(parseCliSettings({ preferKnownChannels: false }).preferKnownChannels).toBe(false);
+    expect(toEngineSettings(parseCliSettings({ preferKnownChannels: false })).preferKnownChannels).toBe(false);
   });
 
   it("accepts a deprecated top-level autoClaimChannelPoints instead of erroring", () => {
@@ -294,5 +309,40 @@ describe("toEngineSettings", () => {
     expect(cliEngine.platform.kick.idleWatchlistChannels).toEqual(extension.platform.kick.idleWatchlistChannels);
     expect(cliEngine.platform.twitch.autoClaimChannelPoints).toBe(extension.platform.twitch.autoClaimChannelPoints);
     expect(cliEngine.platform.twitch.autoClaimChannelPoints).toBe(false);
+  });
+});
+
+describe("CLI settings export/import", () => {
+  it("round-trips a customized settings object", () => {
+    const settings = parseCliSettings({
+      autoClaim: false,
+      excludedCampaignIds: ["abc123"],
+      platform: { twitch: { enabled: true, idleWatchlistChannels: ["someone"] } },
+    });
+    const payload = buildCliSettingsExportPayload(settings);
+    expect(payload.kind).toBe(SETTINGS_EXPORT_KIND);
+
+    const { settings: imported } = parseCliSettingsImportPayload(JSON.parse(JSON.stringify(payload)));
+    expect(imported).toEqual(settings);
+  });
+
+  it("never carries credential-shaped fields", () => {
+    const payload = buildCliSettingsExportPayload(DEFAULT_CLI_SETTINGS);
+    expect(JSON.stringify(payload)).not.toMatch(/authToken|sessionToken|deviceId|twitchIntegrity/i);
+  });
+
+  it("rejects a file that is not a lurkloot settings export", () => {
+    expect(() => parseCliSettingsImportPayload({ foo: "bar" })).toThrow(/unrecognized "kind"/);
+    expect(() => parseCliSettingsImportPayload(null)).toThrow(/expected a JSON object/);
+    expect(() => parseCliSettingsImportPayload({ kind: SETTINGS_EXPORT_KIND })).toThrow(/missing "settings"/);
+  });
+
+  it("rejects an extension-exported file the same way it rejects a copy-pasted extension config", () => {
+    const payload = {
+      kind: SETTINGS_EXPORT_KIND,
+      schemaVersion: 4,
+      settings: { autoClaim: true, muteFarmingTabs: true },
+    };
+    expect(() => parseCliSettingsImportPayload(payload)).toThrow(/"muteFarmingTabs" is an extension-only setting/);
   });
 });

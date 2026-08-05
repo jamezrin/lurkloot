@@ -11,6 +11,7 @@
     "./messages": "./src/messages.ts",
     "./settings": "./src/settings.ts",
     "./settingsSchema": "./src/settingsSchema.ts",
+    "./settingsExport": "./src/settingsExport.ts",
     "./i18n": "./src/i18n.ts",
     "./logging": "./src/logging.ts",
     "./rewards": "./src/rewards.ts",

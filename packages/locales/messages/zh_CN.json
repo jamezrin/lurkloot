@@ -62,17 +62,23 @@
   "settingsSearchNoResults": {
     "message": "未找到与“$1”匹配的设置。"
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "平台和分类/游戏"
+  },
+  "settingsPlatformSettings": {
+    "message": "$1 设置"
+  },
   "settingsShowAdvancedTitle": {
     "message": "显示高级设置"
   },
-  "settingsSectionGeneral": {
-    "message": "常规"
+  "settingsSectionJumpNavLabel": {
+    "message": "跳转到分区"
   },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
+  "settingsSectionAdvancedActions": {
+    "message": "高级操作"
   },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "导入、导出或重置 Lurkloot 设置。"
   },
   "activityTitle": {
     "message": "活动"
@@ -138,7 +144,7 @@
     "message": "正在刷"
   },
   "waitingEligibleStream": {
-    "message": "等待符合条件的直播"
+    "message": "当前没有适合此活动的符合条件的直播"
   },
   "watchingPausedHint": {
     "message": "观看已暂停。切换开关以继续刷掉宝。"
@@ -179,14 +185,38 @@
   "tipExcludedCampaigns": {
     "message": "误排除了活动？可在 Drops 设置中恢复。"
   },
+  "tipTranslations": {
+    "message": "翻译由 AI 自动维护。欢迎在 GitHub 上帮助改进。"
+  },
+  "tipTranslationsAction": {
+    "message": "阅读翻译指南"
+  },
   "noCampaigns": {
     "message": "尚未发现活动。"
+  },
+  "campaignSearchPlaceholder": {
+    "message": "搜索活动…"
+  },
+  "campaignSearchNoResults": {
+    "message": "未找到与“$1”匹配的活动。"
+  },
+  "closeSearch": {
+    "message": "关闭搜索"
+  },
+  "search": {
+    "message": "搜索"
   },
   "noActivity": {
     "message": "尚未记录活动。按刷新运行检查。"
   },
   "noDiagnostics": {
     "message": "尚未记录诊断信息。扩展运行时会出现。"
+  },
+  "searchDiagnostics": {
+    "message": "搜索诊断信息"
+  },
+  "noDiagnosticsMatch": {
+    "message": "没有与“$1”匹配的诊断信息。"
   },
   "platformActivity": {
     "message": "$1 活动"
@@ -330,16 +360,19 @@
     "message": "添加频道"
   },
   "idleWatchlistChannel": {
-    "message": "已加入列表"
+    "message": "离线"
   },
   "live": {
     "message": "直播"
+  },
+  "viewerCount": {
+    "message": "$1 名观众"
   },
   "settingsGeneralTitle": {
     "message": "常规设置"
   },
   "settingsGeneralDescription": {
-    "message": "适用于 Twitch 和 Kick。"
+    "message": "语言、启动和弹窗行为。"
   },
   "settingsGroupAppearance": {
     "message": "外观和行为"
@@ -360,7 +393,7 @@
     "message": "通知"
   },
   "notificationsDescription": {
-    "message": "适用于所有已启用的平台。"
+    "message": "奖励可领取或活动结束时的提醒。"
   },
   "settingsGroupNotifications": {
     "message": "通知"
@@ -381,7 +414,7 @@
     "message": "掉宝"
   },
   "dropsSettingsDescription": {
-    "message": "共享的活动刷取行为。"
+    "message": "领取资格、优先级和活动可见性。"
   },
   "settingsGroupDrops": {
     "message": "掉宝"
@@ -418,6 +451,12 @@
   },
   "idleWatchlistFallbackOnlyDescription": {
     "message": "一旦有可刷取的合格掉宝，就离开空闲观看列表频道。关闭时，会一直观看该频道直到其下播。"
+  },
+  "preferKnownChannelsTitle": {
+    "message": "优先选择已关注和空闲观看列表中的频道"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "当某个掉宝在多个频道上可获取时，优先选择你已关注或在空闲观看列表中的频道，而非陌生频道。"
   },
   "platformSettingsTitle": {
     "message": "平台设置"
@@ -601,6 +640,9 @@
   },
   "hasActiveDrops": {
     "message": "有活动掉宝"
+  },
+  "otherCategories": {
+    "message": "其他分类"
   },
   "searchCategories": {
     "message": "搜索 $1 分类"
@@ -787,6 +829,33 @@
   },
   "cliExportButton": {
     "message": "导出凭据"
+  },
+  "settingsExportTitle": {
+    "message": "导入/导出设置"
+  },
+  "settingsExportHint": {
+    "message": "将设置保存到文件，或在其他浏览器中加载它们。绝不包含您的 Twitch 或 Kick 登录信息。"
+  },
+  "settingsExportButton": {
+    "message": "导出设置"
+  },
+  "settingsImportButton": {
+    "message": "导入设置"
+  },
+  "settingsImportConfirm": {
+    "message": "这将用所选文件中的设置替换您当前的设置。是否继续？"
+  },
+  "settingsImportCancel": {
+    "message": "取消"
+  },
+  "settingsImportConfirmButton": {
+    "message": "选择文件并导入"
+  },
+  "settingsImportFailed": {
+    "message": "该文件不是有效的 Lurkloot 设置导出文件。"
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot 无法导出您的设置。请重试。"
   },
   "factoryResetTitle": {
     "message": "重置 Lurkloot"
@@ -990,7 +1059,7 @@
     "message": "兼容性"
   },
   "compatibilitySectionDescription": {
-    "message": "Lurkloot 与各平台通信的方式。自动模式会沿用内置配置方案。"
+    "message": "仅当 Twitch 或 Kick 无法正常工作时再更改；这些设置可帮助绕过平台问题。"
   },
   "compatibilityComponentProfile": {
     "message": "配置方案"

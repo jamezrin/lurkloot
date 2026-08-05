@@ -1,5 +1,6 @@
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale } from "@lurkloot/shared/models";
+import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
 export interface CompatibilityOptionMetadata {
@@ -32,7 +33,6 @@ export interface PopupCompatibilityResolution {
   readonly warnings: readonly unknown[];
 }
 
-export type PopupTab = "drops" | "idleWatchlist";
 export type GameItem = {
   id: string;
   name: string;
@@ -126,6 +126,14 @@ export interface PopupAdapter {
   // Optional: download/persist an exported credential blob for the headless CLI.
   // Only the live extension implements it (the demo omits it, hiding the action).
   exportCredentials?(blob: CliCredentialBlob): void;
+  // Optional: download the current settings as a portable JSON file. Only the
+  // live extension implements it (the demo omits it, hiding the action).
+  exportSettings?(payload: SettingsExportPayload): void;
+  // Optional: prompt the user for a settings file and resolve its raw parsed
+  // JSON contents (or null if they cancel the picker). Validation/migration of
+  // the result happens in Popup.tsx via @lurkloot/shared/settingsExport, not
+  // here, so this stays a thin file-read.
+  importSettings?(): Promise<unknown | null>;
   // Optional: write text to the system clipboard, resolving to whether it
   // worked. Hosts that omit it (the site demo) make the critical-failure panel
   // fall back to a selectable textarea instead of pretending the copy succeeded.

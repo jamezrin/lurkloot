@@ -2,8 +2,7 @@ import React from "react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { motion } from "motion/react";
-import { GripVertical, X, type LucideIcon } from "lucide-react";
-import type { PopupTab } from "./types";
+import { ChevronRight, GripVertical, Search, X, type LucideIcon } from "lucide-react";
 
 export function cn(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
@@ -15,6 +14,25 @@ export function moveById<T extends { id: string }>(list: T[], activeId: string, 
   const newIndex = list.findIndex((item) => item.id === overId);
   if (oldIndex === -1 || newIndex === -1) return list;
   return arrayMove(list, oldIndex, newIndex);
+}
+
+// `compact` only trims the vertical padding — the icon offset and left padding
+// classes stay put because styles.css mirrors those exact class names for RTL.
+export function SearchBox({ value, onChange, placeholder, autoFocus = false, compact = false }: { value: string; onChange(value: string): void; placeholder: string; autoFocus?: boolean; compact?: boolean }) {
+  return (
+    <div className="relative">
+      <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+      <input
+        type="search"
+        autoFocus={autoFocus}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label={placeholder}
+        placeholder={placeholder}
+        className={cn("w-full rounded-xl border border-zinc-200 bg-white pl-8 pr-3 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100", compact ? "py-1" : "py-2")}
+      />
+    </div>
+  );
 }
 
 export function useDndSensors() {
@@ -30,10 +48,14 @@ export function ImageWithFallback({ src, alt, className, fit = "cover", fallback
   return <img src={src} alt={alt} loading="lazy" className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-contain", className)} onError={() => setFailed(true)} />;
 }
 
-export function Toggle({ checked, onChange, label, disabled = false }: { checked: boolean; onChange(value: boolean): void | Promise<void>; label: string; disabled?: boolean }) {
+// `sm` is sized to sit inside a platform tab without growing its row. `color`
+// overrides the popup accent for switches that belong to a specific platform
+// rather than to the selected one.
+export function Toggle({ checked, onChange, label, disabled = false, size = "md", color }: { checked: boolean; onChange(value: boolean): void | Promise<void>; label: string; disabled?: boolean; size?: "sm" | "md"; color?: string }) {
+  const small = size === "sm";
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => void onChange(!checked)} className={cn("relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", checked ? "" : "bg-zinc-200 dark:bg-zinc-700", disabled && "cursor-not-allowed opacity-70")} style={checked ? { backgroundColor: "var(--accent)" } : undefined}>
-      <motion.span layout transition={{ type: "spring", stiffness: 550, damping: 32 }} className="h-[18px] w-[18px] rounded-full bg-white shadow-sm" style={{ marginLeft: checked ? 16 : 0 }} />
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => void onChange(!checked)} className={cn("relative inline-flex shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", small ? "h-[18px] w-[31px]" : "h-[22px] w-[38px]", checked ? "" : "bg-zinc-300 dark:bg-zinc-600", disabled && "cursor-not-allowed opacity-70")} style={checked ? { backgroundColor: color ?? "var(--accent)" } : undefined}>
+      <motion.span layout transition={{ type: "spring", stiffness: 550, damping: 32 }} className={cn("rounded-full bg-white shadow-sm", small ? "h-[14px] w-[14px]" : "h-[18px] w-[18px]")} style={{ marginLeft: checked ? (small ? 13 : 16) : 0 }} />
     </button>
   );
 }
@@ -51,7 +73,7 @@ export function Pill({ children, tone = "muted" }: { children: React.ReactNode; 
 }
 
 export function IconButton({ children, label, active, disabled, onClick }: { children: React.ReactNode; label: string; active?: boolean; disabled?: boolean; onClick(): void }) {
-  return <button type="button" title={label} aria-label={label} onClick={onClick} disabled={disabled} className={cn("flex h-8 w-8 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", disabled ? "text-zinc-300 dark:text-zinc-700" : active ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200")}>{children}</button>;
+  return <button type="button" title={label} aria-label={label} onClick={onClick} disabled={disabled} className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", disabled ? "text-zinc-300 dark:text-zinc-700" : active ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200")}>{children}</button>;
 }
 
 export function RemoveRowButton({ label, onClick }: { label: string; onClick(): void }) {
@@ -79,29 +101,36 @@ export function DragHandle({ setActivatorNodeRef, attributes, listeners, label }
   );
 }
 
-export function SubTabs({ tabs, active, onChange }: { tabs: Array<{ id: PopupTab; label: string; icon: LucideIcon; count: number | string }>; active: PopupTab; onChange(tab: PopupTab): void }) {
+/** Collapsible group heading, used to fold the Idle Watchlist under the drops
+ * list instead of hiding it behind a tab. `action` is a sibling of the toggle,
+ * not a child: the section's own actions belong on its heading, and a button
+ * cannot nest inside a button. */
+export function SectionHeader({ label, count, expanded, icon: Icon, onToggle, action }: { label: string; count: string; expanded: boolean; icon: LucideIcon; onToggle(): void; action?: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-100/80 p-1 dark:bg-zinc-800/60">
-      {tabs.map((tab) => {
-        const selected = active === tab.id;
-        const Icon = tab.icon;
-        return (
-          <button key={tab.id} type="button" onClick={() => onChange(tab.id)} className={cn("relative flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors outline-none", selected ? "text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200")}>
-            {selected && <motion.span layoutId="subtab-pill" transition={{ type: "spring", stiffness: 520, damping: 38 }} className="absolute inset-0 rounded-lg bg-white shadow-sm dark:bg-zinc-700" />}
-            <Icon size={14} className="relative z-10" style={selected ? { color: "var(--accent-text)" } : undefined} />
-            <span className="relative z-10">{tab.label}</span>
-            <span className="relative z-10 text-[10px] font-bold tabular text-zinc-400 dark:text-zinc-500">{tab.count}</span>
-          </button>
-        );
-      })}
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 py-1 text-[11px] font-semibold text-zinc-500 outline-none transition-colors hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-400 dark:hover:text-zinc-100"
+      >
+        <motion.span animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }} className="flex shrink-0 items-center">
+          <ChevronRight size={13} />
+        </motion.span>
+        <Icon size={13} className="shrink-0" style={{ color: "var(--accent-text)" }} />
+        <span className="truncate">{label}</span>
+        <span className="ml-auto shrink-0 tabular text-zinc-400 dark:text-zinc-500">{count}</span>
+      </button>
+      {action}
     </div>
   );
 }
 
-export function ProgressBar({ value, size = "md", glow = false }: { value: number; size?: "sm" | "md"; glow?: boolean }) {
+export function ProgressBar({ value, size = "md", glow = false }: { value: number; size?: "sm" | "md" | "edge"; glow?: boolean }) {
+  const edge = size === "edge";
   return (
-    <div className={cn("w-full overflow-hidden rounded-full bg-zinc-200/70 dark:bg-zinc-700/60", size === "sm" ? "h-1" : "h-1.5")}>
-      <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${Math.max(value, value > 0 ? 4 : 0)}%` }} transition={{ duration: 0.5 }} style={{ backgroundColor: "var(--accent)", boxShadow: glow && value > 0 ? "0 0 10px -1px var(--accent-glow)" : undefined }} />
+    <div className={cn("w-full overflow-hidden bg-zinc-200/70 dark:bg-zinc-700/60", edge ? "h-[2px]" : "rounded-full", size === "sm" ? "h-1" : size === "md" ? "h-1.5" : "")}>
+      <motion.div className={cn("h-full", !edge && "rounded-full")} initial={{ width: 0 }} animate={{ width: `${Math.max(value, value > 0 ? 4 : 0)}%` }} transition={{ duration: 0.5 }} style={{ backgroundColor: "var(--accent)", boxShadow: glow && value > 0 ? "0 0 10px -1px var(--accent-glow)" : undefined }} />
     </div>
   );
 }

@@ -100,3 +100,24 @@ The repository is licensed under Apache License 2.0; see `LICENSE`. New source f
 ## Security & Configuration Tips
 
 Do not add features that store credentials, export cookies, or bypass platform detection. The extension relies on normal logged-in browser sessions and visible muted tabs. Keep `permissions` and `host_permissions` scoped to the services declared in `packages/extension/wxt.config.ts`, and document any new permission in the PR.
+
+## Manually Reproducing Platform GQL Requests
+
+When a user needs to hand-run a Twitch GQL query (e.g. DevTools console) to inspect live data
+outside the extension, base it on the actual transport, not assumptions:
+
+- Twitch auth is an explicit `Authorization: OAuth <auth-token>` header built from the `auth-token`
+  cookie value (see the `authorization` header line in `packages/core/src/core/tabs.ts` and the
+  integrity comments in `packages/core/src/platforms/twitch/index.ts`) — it is **not** cookie-based
+  `fetch` credentials. A repro using `credentials: "include"` instead of the header will fail
+  cross-origin CORS in ways that look unrelated to auth (e.g. a wildcard-`Access-Control-Allow-
+  Origin` error), wasting a debugging round-trip.
+- `auth-token` is a live session credential. Never ask a user to paste one into chat or a durable
+  file; scratch scripts only, and tell them to clear it afterward.
+- Don't trust this repo's own vendored GQL query text (`packages/core/src/platforms/twitch/
+  inventory/{v1,v2}.ts`, `index.ts`) as a guaranteed match for Twitch's *current* live schema before
+  sending it. GraphQL validates every selected field's existence against the live schema even
+  behind an `@include(if: false)` directive or an unused operation variable, so drift shows up as
+  a normal-looking GQL error (`Cannot query field ...`, `Variable ... is never used`) that reads
+  like a typo but can actually mean Twitch's schema moved out from under the vendored query. Treat
+  those errors as a signal to check for schema drift, not just fix syntax and retry blindly.

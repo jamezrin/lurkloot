@@ -62,17 +62,23 @@
   "settingsSearchNoResults": {
     "message": "Aucun paramètre ne correspond à « $1 »."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "Plateforme et catégories/jeux"
+  },
+  "settingsPlatformSettings": {
+    "message": "Paramètres de $1"
+  },
   "settingsShowAdvancedTitle": {
     "message": "Afficher les paramètres avancés"
   },
-  "settingsSectionGeneral": {
-    "message": "Général"
+  "settingsSectionJumpNavLabel": {
+    "message": "Aller à la section"
   },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
+  "settingsSectionAdvancedActions": {
+    "message": "Actions avancées"
   },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Importez, exportez ou réinitialisez les paramètres de Lurkloot."
   },
   "activityTitle": {
     "message": "Activité"
@@ -138,7 +144,7 @@
     "message": "Farm"
   },
   "waitingEligibleStream": {
-    "message": "En attente d’un stream éligible"
+    "message": "Aucun stream en direct éligible n’est actuellement disponible pour cette campagne"
   },
   "watchingPausedHint": {
     "message": "Visionnage en pause. Activez le bouton pour reprendre le farm de drops."
@@ -179,14 +185,38 @@
   "tipExcludedCampaigns": {
     "message": "Campagne exclue par erreur ? Restaurez-la dans les paramètres des Drops."
   },
+  "tipTranslations": {
+    "message": "Les traductions sont maintenues automatiquement par IA. Aidez à les améliorer sur GitHub."
+  },
+  "tipTranslationsAction": {
+    "message": "Lire le guide de traduction"
+  },
   "noCampaigns": {
     "message": "Aucune campagne découverte pour le moment."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "Rechercher des campagnes…"
+  },
+  "campaignSearchNoResults": {
+    "message": "Aucune campagne ne correspond à « $1 »."
+  },
+  "closeSearch": {
+    "message": "Fermer la recherche"
+  },
+  "search": {
+    "message": "Rechercher"
   },
   "noActivity": {
     "message": "Aucune activité enregistrée. Appuyez sur actualiser pour lancer une vérification."
   },
   "noDiagnostics": {
     "message": "Aucun diagnostic enregistré. Ils apparaissent au fil du travail de l'extension."
+  },
+  "searchDiagnostics": {
+    "message": "Rechercher des diagnostics"
+  },
+  "noDiagnosticsMatch": {
+    "message": "Aucun diagnostic ne correspond à \"$1\"."
   },
   "platformActivity": {
     "message": "Activité $1"
@@ -330,16 +360,19 @@
     "message": "Ajouter une chaîne"
   },
   "idleWatchlistChannel": {
-    "message": "dans la liste de veille"
+    "message": "Hors ligne"
   },
   "live": {
     "message": "en direct"
+  },
+  "viewerCount": {
+    "message": "$1 spectateurs"
   },
   "settingsGeneralTitle": {
     "message": "Paramètres généraux"
   },
   "settingsGeneralDescription": {
-    "message": "S’applique à Twitch et Kick."
+    "message": "Langue, démarrage et comportement de la fenêtre contextuelle."
   },
   "settingsGroupAppearance": {
     "message": "Apparence et comportement"
@@ -360,7 +393,7 @@
     "message": "Notifications"
   },
   "notificationsDescription": {
-    "message": "S’applique à toutes les plateformes activées."
+    "message": "Alertes lorsque les récompenses sont prêtes ou que les campagnes se terminent."
   },
   "settingsGroupNotifications": {
     "message": "Notifications"
@@ -381,7 +414,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "Comportement partagé de farm des campagnes."
+    "message": "Réclamation, éligibilité, priorités et visibilité des campagnes."
   },
   "settingsGroupDrops": {
     "message": "Drops"
@@ -418,6 +451,12 @@
   },
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Quitte une chaîne de la Liste de veille inactive dès qu’un drop éligible devient disponible. Si désactivé, continue à la regarder jusqu’à ce qu’elle se déconnecte."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "Préférer les chaînes suivies et celles de la Liste de veille inactive"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Lorsqu’un drop est disponible sur plusieurs chaînes, choisit une chaîne que vous suivez ou qui figure dans votre Liste de veille inactive plutôt qu’une chaîne inconnue."
   },
   "platformSettingsTitle": {
     "message": "Paramètres de plateforme"
@@ -601,6 +640,9 @@
   },
   "hasActiveDrops": {
     "message": "Drops actifs"
+  },
+  "otherCategories": {
+    "message": "Autres catégories"
   },
   "searchCategories": {
     "message": "Rechercher des catégories $1"
@@ -787,6 +829,33 @@
   },
   "cliExportButton": {
     "message": "Exporter les identifiants"
+  },
+  "settingsExportTitle": {
+    "message": "Importer/exporter les paramètres"
+  },
+  "settingsExportHint": {
+    "message": "Enregistrez vos paramètres dans un fichier ou chargez-les sur un autre navigateur. N'inclut jamais vos identifiants Twitch ou Kick."
+  },
+  "settingsExportButton": {
+    "message": "Exporter les paramètres"
+  },
+  "settingsImportButton": {
+    "message": "Importer les paramètres"
+  },
+  "settingsImportConfirm": {
+    "message": "Cela remplacera vos paramètres actuels par ceux du fichier sélectionné. Continuer ?"
+  },
+  "settingsImportCancel": {
+    "message": "Annuler"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Choisir un fichier et importer"
+  },
+  "settingsImportFailed": {
+    "message": "Ce fichier n'est pas une exportation de paramètres Lurkloot valide."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot n'a pas pu exporter vos paramètres. Réessayez."
   },
   "factoryResetTitle": {
     "message": "Réinitialiser Lurkloot"
@@ -990,7 +1059,7 @@
     "message": "Compatibilité"
   },
   "compatibilitySectionDescription": {
-    "message": "Comment Lurkloot communique avec chaque plateforme. Le mode automatique suit le profil fourni."
+    "message": "Modifiez-les seulement si Twitch ou Kick ne fonctionne pas ; ils peuvent contourner des problèmes de plateforme."
   },
   "compatibilityComponentProfile": {
     "message": "Profil"

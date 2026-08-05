@@ -78,13 +78,13 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
 
   const general: SettingsSectionDef = {
     id: "general",
-    titleKey: "settingsSectionGeneral",
     icon: SettingsIcon,
     rows: [],
     groups: [
       {
         id: "general.appearance",
         titleKey: "settingsGroupAppearance",
+        description: t("settingsGeneralDescription"),
         entries: [
           {
             id: "general.appearance.language",
@@ -126,6 +126,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       {
         id: "general.notifications",
         titleKey: "settingsGroupNotifications",
+        description: t("notificationsDescription"),
         entries: [
           {
             id: "general.notifications.rewardEarned",
@@ -144,6 +145,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       {
         id: "general.drops",
         titleKey: "settingsGroupDrops",
+        description: t("dropsSettingsDescription"),
         entries: [
           {
             id: "general.drops.autoClaim",
@@ -185,6 +187,18 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             ),
           },
           {
+            id: "general.drops.skipUnfinishable",
+            titleKey: "skipUnfinishableRewardsTitle",
+            descriptionKey: "skipUnfinishableRewardsDescription",
+            render: () => <SettingRow title={t("skipUnfinishableRewardsTitle")} description={t("skipUnfinishableRewardsDescription")} checked={settings.skipUnfinishableRewards} onChange={(value) => void onSettingsChange({ skipUnfinishableRewards: value }, { tickAfterSave: true })} />,
+          },
+          {
+            id: "general.drops.preferKnownChannels",
+            titleKey: "preferKnownChannelsTitle",
+            descriptionKey: "preferKnownChannelsDescription",
+            render: () => <SettingRow title={t("preferKnownChannelsTitle")} description={t("preferKnownChannelsDescription")} checked={settings.preferKnownChannels} onChange={(value) => void onSettingsChange({ preferKnownChannels: value }, { tickAfterSave: true })} />,
+          },
+          {
             id: "general.drops.idleWatchlistFallbackOnly",
             titleKey: "idleWatchlistFallbackOnlyTitle",
             descriptionKey: "idleWatchlistFallbackOnlyDescription",
@@ -210,6 +224,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       {
         id: "general.farmingTabs",
         titleKey: "settingsGroupFarmingTabs",
+        description: t("farmingTabsDescription"),
         entries: [
           {
             id: "general.farmingTabs.tabless",
@@ -263,6 +278,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
         // hold a single toggle.
         id: "general.advanced",
         titleKey: "settingsGroupAdvanced",
+        description: t("advancedDescription"),
         advanced: true,
         entries: [
           {
@@ -311,12 +327,6 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             render: () => <NumberSettingRow title={t("postClaimHandoffMaxTitle")} description={t("postClaimHandoffMaxDescription")} value={settings.postClaimHandoffMaxSeconds} min={5} max={120} suffix={t("secondsSuffix")} disabled={!settings.postClaimHandoff} disabledReason={t("postClaimHandoffDescription")} onChange={(value) => void onSettingsChange({ postClaimHandoffMaxSeconds: value })} />,
           },
           {
-            id: "general.advanced.skipUnfinishable",
-            titleKey: "skipUnfinishableRewardsTitle",
-            descriptionKey: "skipUnfinishableRewardsDescription",
-            render: () => <SettingRow title={t("skipUnfinishableRewardsTitle")} description={t("skipUnfinishableRewardsDescription")} checked={settings.skipUnfinishableRewards} onChange={(value) => void onSettingsChange({ skipUnfinishableRewards: value }, { tickAfterSave: true })} />,
-          },
-          {
             id: "general.advanced.deadlineSafetyMargin",
             titleKey: "deadlineSafetyMarginTitle",
             descriptionKey: "deadlineSafetyMarginDescription",
@@ -333,7 +343,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
     ],
   };
 
-  const platformSection = (platform: Platform, titleKey: string): SettingsSectionDef => {
+  const platformSection = (platform: Platform): SettingsSectionDef => {
     // The old SettingsPlatformSwitch rendered its selected platform this way;
     // it's the only styling carried forward now that the switch is gone.
     const details = PLATFORMS[platform];
@@ -419,6 +429,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       groups.push({
         id: `${platform}.compatibility`,
         titleKey: "settingsGroupCompatibility",
+        description: t("compatibilitySectionDescription"),
         advanced: true,
         entries: [
           {
@@ -439,12 +450,12 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       });
     }
 
-    return { id: platform, titleKey, iconNode, rows: [claimEntry], groups };
+    return { id: platform, iconNode, rows: [claimEntry], groups };
   };
 
   return [
     general,
-    platformSection("twitch", "settingsSectionTwitch"),
-    platformSection("kick", "settingsSectionKick"),
+    platformSection("twitch"),
+    platformSection("kick"),
   ];
 }

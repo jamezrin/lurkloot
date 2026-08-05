@@ -54,6 +54,38 @@ export function rewardFeasibility(
   };
 }
 
+// A watch reward not yet claimable but still within its earn window — the
+// scheduler picks these to actively watch. Shared with the popup's farmability
+// check (campaignFarmable) so both agree on what "still earning" means.
+export function isRewardAvailableToEarn(reward: DropReward, now = Date.now()): boolean {
+  if (!isWatchReward(reward)) return false;
+  const startsAt = reward.availableFrom ? Date.parse(reward.availableFrom) : undefined;
+  const endsAt = reward.availableUntil ? Date.parse(reward.availableUntil) : undefined;
+  if (startsAt != null && !Number.isNaN(startsAt) && now < startsAt) return false;
+  if (endsAt != null && !Number.isNaN(endsAt) && now >= endsAt) return false;
+  return reward.status !== "claimed" && reward.status !== "claimable";
+}
+
+export function canClaimReward(reward: DropReward, now = Date.now()): boolean {
+  if (reward.status !== "claimable") return false;
+  if (!reward.claimUntil) return true;
+  const claimUntil = Date.parse(reward.claimUntil);
+  return Number.isNaN(claimUntil) || now < claimUntil;
+}
+
+export function isRewardRelevantNow(reward: DropReward, now = Date.now()): boolean {
+  return canClaimReward(reward, now) || isRewardAvailableToEarn(reward, now);
+}
+
+export function isRewardDeadlineFeasible(
+  campaign: Pick<DropCampaign, "endsAt">,
+  reward: DropReward,
+  enabled: boolean,
+  marginMinutes: number,
+): boolean {
+  return rewardFeasibility(campaign, reward, enabled, marginMinutes).kind !== "insufficient_time";
+}
+
 export function isWaitingSubscriptionReward(reward: DropReward, now = Date.now()): boolean {
   if (!isSubscriptionReward(reward)) return false;
   if (reward.status !== "locked" && reward.status !== "in_progress") return false;

@@ -12,6 +12,7 @@ export {
   applyActivityPage,
   applyActivityPageForRequest,
   beginActivityMutation,
+  buildActivityCard,
   buildActivityExport,
   createActivityMutationSequence,
   createActivityRequestScope,
@@ -21,4 +22,5 @@ export {
   isLatestActivityMutation,
   mergeActivityPages,
 } from "./activity.logic";
+export type { ActivityCard, ActivityCardIcon, ActivityCardTone } from "./activity.logic";
 export type { PopupAdapter, PopupInitialState, ScreenshotVariant } from "./types";

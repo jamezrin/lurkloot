@@ -44,6 +44,7 @@ describe("activity repository", () => {
 
   afterEach(async () => {
     await repository.deleteDatabase();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   }, 30_000);
 
@@ -291,6 +292,57 @@ describe("activity repository", () => {
     expect(page.events).toHaveLength(2);
     expect(page.events.some((event) => event.platform === "kick")).toBe(false);
     expect(page.events.some((event) => event.platform == null)).toBe(true);
+  });
+
+  it("paginates case-insensitive diagnostic message matches within a platform", async () => {
+    await repository.append([
+      { category: "diagnostic", level: "error", platform: "kick", message: "Kick transport failed" },
+      { category: "diagnostic", level: "info", platform: "kick", message: "Twitch connected" },
+      { category: "diagnostic", level: "info", platform: "kick", message: "kick retry scheduled" },
+      { category: "diagnostic", level: "info", platform: "twitch", message: "KICK connection from Twitch" },
+      { category: "diagnostic", level: "error", message: "Kick global error" },
+    ]);
+
+    const first = await repository.load({ category: "diagnostic", platform: "kick", query: "KICK", limit: 2 });
+    const second = await repository.load({
+      category: "diagnostic",
+      platform: "kick",
+      query: "KICK",
+      limit: 2,
+      cursor: first.nextCursor,
+    });
+
+    expect(first.events.map((event) => event.message)).toEqual([
+      "Kick global error",
+      "kick retry scheduled",
+    ]);
+    expect(second.events.map((event) => event.message)).toEqual(["Kick transport failed"]);
+    expect([...first.events, ...second.events].some((event) => event.message === "KICK connection from Twitch")).toBe(false);
+  });
+
+  it("matches English diagnostic text independently of the browser locale", async () => {
+    expect("KICK".toLocaleLowerCase("tr")).not.toBe("kick".toLocaleLowerCase("tr"));
+    const originalToLocaleLowerCase = String.prototype.toLocaleLowerCase;
+    vi.spyOn(String.prototype, "toLocaleLowerCase").mockImplementation(function (
+      this: string,
+      locales?: Intl.LocalesArgument,
+    ) {
+      return originalToLocaleLowerCase.call(this, locales ?? "tr");
+    });
+    await repository.append([{
+      category: "diagnostic",
+      level: "debug",
+      platform: "kick",
+      message: "lowercase kick diagnostic",
+    }]);
+
+    const page = await repository.load({
+      category: "diagnostic",
+      platform: "kick",
+      query: "KICK",
+    });
+
+    expect(page.events.map((event) => event.message)).toEqual(["lowercase kick diagnostic"]);
   });
 
   it("aborts the entire legacy import when a later value cannot be cloned", async () => {

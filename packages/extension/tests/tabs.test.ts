@@ -17,6 +17,7 @@ import {
   KickWafBlockedError,
   noteTwitchGqlRequest,
   openPinnedMutedTabWithBrowser,
+  pageFetchJson,
   PLAYBACK_PRIME_BACKOFF_MS,
   PLAYBACK_PRIME_MAX_ATTEMPTS,
   recordManagedPageContextBackgroundSuccessWithBrowser,
@@ -30,6 +31,7 @@ import {
   type TwitchIntegrityRequest,
 } from "@lurkloot/core/tabs";
 import { isSafeFetchError } from "@lurkloot/core/fetchError";
+import { KICK_BEARER_NEAR_MISS_CASES, KICK_BEARER_POSITIVE_CASES } from "@lurkloot/core/kickBearerCases";
 
 const channel: ChannelCandidate = {
   platform: "twitch",
@@ -329,6 +331,75 @@ describe("tab manager", () => {
     });
 
     expect(browser.tabs.update).not.toHaveBeenCalled();
+  });
+
+  // A clock rollback can leave `playback.checkedAt` in the future. Reading
+  // that as "just checked" would let stale-but-healthy-looking telemetry from
+  // before the rollback suppress re-priming indefinitely, so a future stamp
+  // counts as stale and re-priming still happens.
+  it("re-primes a matching managed tab whose playback telemetry is stamped in the future", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({
+      id: 4,
+      url: channel.url,
+      pinned: true,
+      mutedInfo: { muted: true },
+      active: false,
+    });
+
+    await openPinnedMutedTabWithBrowser(browser, channel, {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+      playback: {
+        platform: "twitch",
+        checkedAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    });
+
+    expect(browser.tabs.update).toHaveBeenCalledWith(4, { active: true });
+  });
+
+  // An unparseable `checkedAt` must land on the same "stale" branch as a
+  // future one — previously NaN comparisons were always false, so it fell
+  // through to the telemetry check and read as healthy instead.
+  it("re-primes a matching managed tab whose playback telemetry has an unparseable timestamp", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({
+      id: 4,
+      url: channel.url,
+      pinned: true,
+      mutedInfo: { muted: true },
+      active: false,
+    });
+
+    await openPinnedMutedTabWithBrowser(browser, channel, {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+      playback: {
+        platform: "twitch",
+        checkedAt: "not-a-date",
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    });
+
+    expect(browser.tabs.update).toHaveBeenCalledWith(4, { active: true });
   });
 
   it("does not re-prime a matching managed tab that is playing but muted", async () => {
@@ -2151,20 +2222,6 @@ describe("fetchKickInBackgroundWith", () => {
     vi.unstubAllGlobals();
   });
 
-  it("does not attach a Bearer for the public kick.com channel API", async () => {
-    let captured: RequestInit | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
-      captured = init;
-      return new Response(JSON.stringify({ id: 1 }), { status: 200, headers: { "content-type": "application/json" } });
-    }));
-
-    await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v2/channels/someone");
-
-    expect(cookieApi.cookies.get).not.toHaveBeenCalled();
-    expect(new Headers(captured?.headers).has("authorization")).toBe(false);
-    vi.unstubAllGlobals();
-  });
-
   it("replays the session_token cookie as a Bearer for the kick.com identity endpoint", async () => {
     // Kick serves this endpoint anonymously as `200 {}` rather than a 401, so without the
     // Bearer the auth probe cannot tell a signed-in account from a signed-out one.
@@ -2183,15 +2240,26 @@ describe("fetchKickInBackgroundWith", () => {
     }
   });
 
-  // Every URL here is a near-miss for a genuinely authenticated endpoint: a look-alike
-  // host, an unintended subpath, or a plaintext downgrade of an endpoint that *does*
-  // receive the token over https (see the web.kick.com case above). None may receive it.
-  it.each([
-    ["look-alike host mentioning a Kick host", "https://evil.example/?r=web.kick.com"],
-    ["look-alike host suffixing a Kick host", "https://web.kick.com.evil.example/api/v1/user"],
-    ["subpath of the identity endpoint", "https://kick.com/api/v1/user/profile"],
-    ["plaintext downgrade of an authenticated endpoint", "http://web.kick.com/api/v1/drops/progress"],
-  ])("never attaches the session token to a %s", async (_case, url) => {
+  it("replays the session_token cookie as a Bearer for the followed-live endpoint", async () => {
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    try {
+      await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user/livestreams");
+
+      expect(new Headers(captured?.headers).get("authorization")).toBe("Bearer sess 789");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  // Shared with cycleKickHeaders.test.ts (kickHeaders) and pageFetchJson's own
+  // test, so all three copies of the predicate are pinned to the same
+  // expectations. See packages/core/src/core/kickBearerCases.ts.
+  it.each(KICK_BEARER_NEAR_MISS_CASES)("never attaches the session token to a %s", async (_case, url) => {
     let captured: RequestInit | undefined;
     vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
       captured = init;
@@ -2281,6 +2349,54 @@ describe("fetchKickInBackgroundWith", () => {
 
     expect(result.html).toBe("<html>is_live</html>");
     vi.unstubAllGlobals();
+  });
+});
+
+// pageFetchJson is injected into a Kick page's MAIN world via executeScript
+// (see fetchJsonInPageWithBrowser), whose tests mock executeScript wholesale and
+// so never exercise this function's own logic. These tests call it directly with
+// a stubbed fetch/document instead, including its inlined Bearer predicate — the
+// one copy that cannot import needsKickSessionBearer (see fetchKickInBackgroundWith
+// above and kickHeaders in packages/cli/src/transport/cycle.ts for the other two).
+describe("pageFetchJson", () => {
+  beforeEach(() => {
+    vi.stubGlobal("document", { cookie: "session_token=sess%20789" });
+  });
+
+  it.each(KICK_BEARER_POSITIVE_CASES)("replays the session_token cookie as a Bearer for %s", async (_case, url) => {
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_target: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    try {
+      await pageFetchJson(url);
+
+      expect(new Headers(captured?.headers).get("authorization")).toBe("Bearer sess 789");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  // Shared with tabs.test.ts's fetchKickInBackgroundWith suite and
+  // cycleKickHeaders.test.ts (kickHeaders), so all three copies of the
+  // predicate are pinned to the same expectations. See
+  // packages/core/src/core/kickBearerCases.ts.
+  it.each(KICK_BEARER_NEAR_MISS_CASES)("never attaches the session token to a %s", async (_case, url) => {
+    let captured: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_target: string, init: RequestInit) => {
+      captured = init;
+      return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    try {
+      await pageFetchJson(url);
+
+      expect(new Headers(captured?.headers).has("authorization")).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

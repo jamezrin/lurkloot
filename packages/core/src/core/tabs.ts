@@ -4,6 +4,7 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TwitchIntegrity } from "./twitchIntegrity";
 import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "./fetchError";
+import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
 
 const ignoreEvent: EventEmitter = () => {};
 
@@ -222,8 +223,7 @@ function shouldPrimePlayback(tab: BrowserTab, url: string, session?: WatchSessio
   if (tab.url !== url) return true;
   const playback = session?.playback;
   if (!playback) return true;
-  const checkedAt = Date.parse(playback.checkedAt);
-  if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return true;
+  if (isTimestampStale(playback.checkedAt, PLAYBACK_TELEMETRY_MAX_AGE_MS, Date.now())) return true;
   // Priming foreground-activates the tab to coax a deferred player into loading
   // and playing — not to unmute. A muted-but-playing video is fine, so do not
   // re-prime just because the browser kept it muted.
@@ -974,25 +974,37 @@ export async function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string
   return (isUsableTwitchGql(json) ? json : twitchGqlErrorEnvelope("returned an unusable response", response.status, text, headers)) as T;
 }
 
+// Exact kick.com pathnames that require the session_token Bearer. Kept as a
+// literal list (not a prefix match) mirrored into the pageFetchJson predicate
+// below: /api/v1/user because Kick serves it anonymously as `200 {}` instead of
+// a 401 (see KickAdapter.checkAuthHealth), and /api/v1/user/livestreams for the
+// followed-live lookup, which instead answers anonymously with a clean 401 (no
+// same ambiguity, but the Bearer is still required to identify the account).
+const KICK_BEARER_PATHS = ["/api/v1/user", "/api/v1/user/livestreams"];
+
 // Kick endpoints that replay the session_token cookie as a Bearer (mirrors the
 // predicate inlined in pageFetchJson). kick.com/api/v2/* and /api/search are public
-// and do not need it; kick.com/api/v1/user does, because Kick serves it anonymously
-// as `200 {}` instead of a 401, so a missing Bearer there is indistinguishable from a
-// signed-out session (see KickAdapter.checkAuthHealth).
+// and do not need it.
 //
 // Matched on the parsed host and pathname rather than by substring: `includes` would
 // also attach the session token to hosts that merely mention a Kick host (e.g.
 // https://evil.example/?r=web.kick.com) and to unintended subpaths of /api/v1/user.
-function needsKickSessionBearer(url: string): boolean {
+//
+// Exported so packages/cli/src/transport/cycle.ts shares this decision instead of
+// reimplementing it (see #370): the CLI's WebSocket transport reaches
+// websockets.kick.com over wss, not https, which this module's own callers never
+// do, so the accepted protocols are parameterized rather than hardcoded here.
+export function needsKickSessionBearer(url: string, options?: { protocols?: readonly string[] }): boolean {
+  const protocols = options?.protocols ?? ["https:"];
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
     return false;
   }
-  if (parsed.protocol !== "https:") return false;
+  if (!protocols.includes(parsed.protocol)) return false;
   if (parsed.host === "web.kick.com" || parsed.host === "websockets.kick.com") return true;
-  return parsed.host === "kick.com" && parsed.pathname === "/api/v1/user";
+  return parsed.host === "kick.com" && KICK_BEARER_PATHS.includes(parsed.pathname);
 }
 
 // Distinguishes "Kick's WAF / origin check rejected the service-worker request"
@@ -1007,7 +1019,10 @@ export class KickWafBlockedError extends SafeFetchError {
   }
 }
 
-function safeKickFailure(status: number, text: string): SafeFetchFailure {
+// Exported so headless transports outside the extension (e.g. the CLI's
+// cycletls-backed Kick fetcher) classify Kick's HTTP failures the same way
+// checkAuthHealth does, instead of guessing from the status code alone.
+export function safeKickFailure(status: number, text: string): SafeFetchFailure {
   let body: Record<string, unknown> = {};
   try {
     const parsed = JSON.parse(text) as unknown;
@@ -1656,20 +1671,27 @@ export type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageC
 // cannot be reached from the twitch.tv page (CORS / anti-tampering). Must be
 // self-contained: executeScript only serializes this function's own source, so
 // module-scope helpers are unavailable in the page.
-async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
+//
+// Test seam: exported so tests can call it directly with a stubbed fetch/document
+// instead of only through the mocked executeScript path (see fetchJsonInPageWithBrowser's
+// tests). Exporting does not affect executeScript injection, which serializes only
+// this function's own toString() output, not how it was imported.
+export async function pageFetchJson(targetUrl: string, initJson?: string): Promise<unknown> {
   const parsedInit = initJson ? JSON.parse(initJson) : undefined;
   const headers = new Headers(parsedInit?.headers ?? {});
-  // Mirrors needsKickSessionBearer; inlined because executeScript only serializes this
-  // function's own source, so module-scope helpers are unavailable in the page. Matches
-  // on parsed host/pathname so the session token is never attached to a look-alike host
-  // or to an unintended subpath of /api/v1/user.
+  // Mirrors needsKickSessionBearer (KICK_BEARER_PATHS); inlined because
+  // executeScript only serializes this function's own source, so module-scope
+  // helpers are unavailable in the page. Matches on parsed host/pathname so the
+  // session token is never attached to a look-alike host or to an unintended
+  // subpath of /api/v1/user.
   let needsKickBearer = false;
   try {
     const parsedTarget = new URL(targetUrl);
     needsKickBearer = parsedTarget.protocol === "https:"
       && (parsedTarget.host === "web.kick.com"
         || parsedTarget.host === "websockets.kick.com"
-        || (parsedTarget.host === "kick.com" && parsedTarget.pathname === "/api/v1/user"));
+        || (parsedTarget.host === "kick.com"
+          && (parsedTarget.pathname === "/api/v1/user" || parsedTarget.pathname === "/api/v1/user/livestreams")));
   } catch {
     needsKickBearer = false;
   }

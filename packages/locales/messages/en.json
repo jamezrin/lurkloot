@@ -62,17 +62,23 @@
   "settingsSearchNoResults": {
     "message": "No settings match “$1”."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "Platform & Categories/Games"
+  },
+  "settingsPlatformSettings": {
+    "message": "$1 settings"
+  },
   "settingsShowAdvancedTitle": {
     "message": "Show advanced settings"
   },
-  "settingsSectionGeneral": {
-    "message": "General"
+  "settingsSectionJumpNavLabel": {
+    "message": "Jump to section"
   },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
+  "settingsSectionAdvancedActions": {
+    "message": "Advanced actions"
   },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Import, export, or reset Lurkloot settings."
   },
   "activityTitle": {
     "message": "Activity"
@@ -138,7 +144,7 @@
     "message": "Farming"
   },
   "waitingEligibleStream": {
-    "message": "Waiting for an eligible stream"
+    "message": "No eligible live stream is currently available for this campaign"
   },
   "watchingPausedHint": {
     "message": "Watching paused. Toggle to resume drop farming."
@@ -179,14 +185,38 @@
   "tipExcludedCampaigns": {
     "message": "Excluded a campaign by mistake? Restore excluded campaigns from Drops settings."
   },
+  "tipTranslations": {
+    "message": "Translations are maintained automatically with AI. Help improve them on GitHub."
+  },
+  "tipTranslationsAction": {
+    "message": "Read the translation guide"
+  },
   "noCampaigns": {
     "message": "No campaigns discovered yet."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "Search campaigns…"
+  },
+  "campaignSearchNoResults": {
+    "message": "No campaigns match “$1”."
+  },
+  "closeSearch": {
+    "message": "Close search"
+  },
+  "search": {
+    "message": "Search"
   },
   "noActivity": {
     "message": "No activity recorded yet. Press refresh to run a check."
   },
   "noDiagnostics": {
     "message": "No diagnostics recorded yet. They appear as the extension works."
+  },
+  "searchDiagnostics": {
+    "message": "Search diagnostics"
+  },
+  "noDiagnosticsMatch": {
+    "message": "No diagnostics match \"$1\"."
   },
   "platformActivity": {
     "message": "$1 activity"
@@ -330,16 +360,19 @@
     "message": "Add channel"
   },
   "idleWatchlistChannel": {
-    "message": "On watchlist"
+    "message": "Offline"
   },
   "live": {
     "message": "live"
+  },
+  "viewerCount": {
+    "message": "$1 viewers"
   },
   "settingsGeneralTitle": {
     "message": "General settings"
   },
   "settingsGeneralDescription": {
-    "message": "Applies to Twitch and Kick."
+    "message": "Language, startup, and popup behavior."
   },
   "settingsGroupAppearance": {
     "message": "Appearance & behavior"
@@ -360,7 +393,7 @@
     "message": "Notifications"
   },
   "notificationsDescription": {
-    "message": "Applies to all enabled platforms."
+    "message": "Alerts when rewards are ready or campaigns finish."
   },
   "settingsGroupNotifications": {
     "message": "Notifications"
@@ -381,7 +414,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "Shared campaign farming behavior."
+    "message": "Claiming, eligibility, priorities, and campaign visibility."
   },
   "settingsGroupDrops": {
     "message": "Drops"
@@ -418,6 +451,12 @@
   },
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Leaves an Idle Watchlist channel as soon as an eligible drop becomes available. When off, keeps watching it until it goes offline."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "Prefer followed and Idle Watchlist channels"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "When a drop is available on several channels, picks one you follow or listed in your Idle Watchlist over an unfamiliar one."
   },
   "platformSettingsTitle": {
     "message": "Platform settings"
@@ -601,6 +640,9 @@
   },
   "hasActiveDrops": {
     "message": "Has active drops"
+  },
+  "otherCategories": {
+    "message": "Other categories"
   },
   "searchCategories": {
     "message": "Search $1 categories"
@@ -787,6 +829,33 @@
   },
   "cliExportButton": {
     "message": "Export credentials"
+  },
+  "settingsExportTitle": {
+    "message": "Import / export settings"
+  },
+  "settingsExportHint": {
+    "message": "Save your settings to a file, or load them on another browser. Never includes your Twitch or Kick login."
+  },
+  "settingsExportButton": {
+    "message": "Export settings"
+  },
+  "settingsImportButton": {
+    "message": "Import settings"
+  },
+  "settingsImportConfirm": {
+    "message": "This replaces your current settings with the ones from the selected file. Continue?"
+  },
+  "settingsImportCancel": {
+    "message": "Cancel"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Choose file and import"
+  },
+  "settingsImportFailed": {
+    "message": "That file isn't a valid Lurkloot settings export."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot couldn't export your settings. Try again."
   },
   "factoryResetTitle": {
     "message": "Reset Lurkloot"
@@ -990,7 +1059,7 @@
     "message": "Compatibility"
   },
   "compatibilitySectionDescription": {
-    "message": "How Lurkloot talks to each platform. Automatic follows the bundled profile."
+    "message": "Only change these if Twitch or Kick is not working; they can help work around platform issues."
   },
   "compatibilityComponentProfile": {
     "message": "Profile"

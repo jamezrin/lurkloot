@@ -5,5 +5,16 @@
   ],
   "extends": [
     "config:recommended"
-  ]
+  ],
+  "packageRules": [
+    {
+      "description": "Automerge non-major dependency updates after CI passes",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest", "lockFileMaintenance"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": false,
+      "automergeStrategy": "squash"
+    }
+  ],
+  "ignoreTests": false
 }

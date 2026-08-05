@@ -74,7 +74,6 @@ describe("settings registry", () => {
 
   it("resolves every message key against the English catalog", () => {
     for (const section of registry()) {
-      expect(english[section.titleKey], section.titleKey).toBeTruthy();
       const entries = [...section.rows, ...section.groups.flatMap((group) => group.entries)];
       for (const group of section.groups) expect(english[group.titleKey], group.titleKey).toBeTruthy();
       for (const entry of entries) {
@@ -123,6 +122,8 @@ describe("settings registry", () => {
         "general.drops.farmUnlinked",
         "general.drops.farmSubscription",
         "general.drops.priorityMode",
+        "general.drops.skipUnfinishable",
+        "general.drops.preferKnownChannels",
         "general.drops.idleWatchlistFallbackOnly",
         "general.drops.dropsListFilter",
         "general.drops.forgetExcluded",
@@ -136,7 +137,6 @@ describe("settings registry", () => {
         "general.advanced.postClaimHandoff",
         "general.advanced.postClaimHandoffInterval",
         "general.advanced.postClaimHandoffMax",
-        "general.advanced.skipUnfinishable",
         "general.advanced.deadlineSafetyMargin",
         "general.advanced.diagnosticLogging",
         "twitch.autoClaimChannelPoints",

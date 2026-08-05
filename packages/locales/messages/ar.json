@@ -62,17 +62,23 @@
   "settingsSearchNoResults": {
     "message": "لا توجد إعدادات تطابق «$1»."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "المنصة والفئات/الألعاب"
+  },
+  "settingsPlatformSettings": {
+    "message": "إعدادات $1"
+  },
   "settingsShowAdvancedTitle": {
     "message": "عرض الإعدادات المتقدمة"
   },
-  "settingsSectionGeneral": {
-    "message": "عام"
+  "settingsSectionJumpNavLabel": {
+    "message": "الانتقال إلى قسم"
   },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
+  "settingsSectionAdvancedActions": {
+    "message": "إجراءات متقدمة"
   },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "استورد إعدادات Lurkloot أو صدّرها أو أعد تعيينها."
   },
   "activityTitle": {
     "message": "النشاط"
@@ -138,7 +144,7 @@
     "message": "يفارم"
   },
   "waitingEligibleStream": {
-    "message": "بانتظار بث مؤهل"
+    "message": "لا يوجد بث مباشر مؤهل متاح حاليًا لهذه الحملة"
   },
   "watchingPausedHint": {
     "message": "المشاهدة متوقفة مؤقتًا. فعّل المفتاح لاستئناف فارم Drops."
@@ -179,14 +185,38 @@
   "tipExcludedCampaigns": {
     "message": "استبعدت حملة بالخطأ؟ استعدها من إعدادات Drops."
   },
+  "tipTranslations": {
+    "message": "تُصان الترجمات تلقائيًا بالذكاء الاصطناعي. ساعد في تحسينها على GitHub."
+  },
+  "tipTranslationsAction": {
+    "message": "اقرأ دليل الترجمة"
+  },
   "noCampaigns": {
     "message": "لم يتم اكتشاف أي حملات بعد."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "البحث في الحملات…"
+  },
+  "campaignSearchNoResults": {
+    "message": "لا توجد حملات تطابق «$1»."
+  },
+  "closeSearch": {
+    "message": "إغلاق البحث"
+  },
+  "search": {
+    "message": "بحث"
   },
   "noActivity": {
     "message": "لم يتم تسجيل أي نشاط بعد. اضغط تحديث لتشغيل فحص."
   },
   "noDiagnostics": {
     "message": "لم يتم تسجيل أي تشخيصات بعد. تظهر أثناء عمل الإضافة."
+  },
+  "searchDiagnostics": {
+    "message": "البحث في التشخيصات"
+  },
+  "noDiagnosticsMatch": {
+    "message": "لا توجد تشخيصات تطابق \"$1\"."
   },
   "platformActivity": {
     "message": "نشاط $1"
@@ -330,16 +360,19 @@
     "message": "إضافة قناة"
   },
   "idleWatchlistChannel": {
-    "message": "في القائمة"
+    "message": "غير متصل"
   },
   "live": {
     "message": "مباشر"
+  },
+  "viewerCount": {
+    "message": "$1 مشاهد"
   },
   "settingsGeneralTitle": {
     "message": "الإعدادات العامة"
   },
   "settingsGeneralDescription": {
-    "message": "ينطبق على Twitch وKick."
+    "message": "اللغة وبدء التشغيل وسلوك النافذة المنبثقة."
   },
   "settingsGroupAppearance": {
     "message": "المظهر والسلوك"
@@ -360,7 +393,7 @@
     "message": "الإشعارات"
   },
   "notificationsDescription": {
-    "message": "ينطبق على كل المنصات المفعلة."
+    "message": "تنبيهات عند جاهزية المكافآت أو انتهاء الحملات."
   },
   "settingsGroupNotifications": {
     "message": "الإشعارات"
@@ -381,7 +414,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "سلوك فارم الحملات المشترك."
+    "message": "المطالبة والأهلية والأولويات وظهور الحملات."
   },
   "settingsGroupDrops": {
     "message": "Drops"
@@ -418,6 +451,12 @@
   },
   "idleWatchlistFallbackOnlyDescription": {
     "message": "يغادر قناة قائمة المشاهدة الخاملة فور توفر drop مؤهل. عند التعطيل، يستمر في مشاهدتها حتى تصبح غير متصلة."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "تفضيل القنوات المتابَعة وقنوات قائمة المشاهدة الخاملة"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "عند توفر drop على عدة قنوات، يتم اختيار قناة تتابعها أو مدرجة في قائمة المشاهدة الخاملة بدلاً من قناة غير معروفة."
   },
   "platformSettingsTitle": {
     "message": "إعدادات المنصة"
@@ -601,6 +640,9 @@
   },
   "hasActiveDrops": {
     "message": "لديه Drops نشطة"
+  },
+  "otherCategories": {
+    "message": "فئات أخرى"
   },
   "searchCategories": {
     "message": "البحث في فئات $1"
@@ -787,6 +829,33 @@
   },
   "cliExportButton": {
     "message": "تصدير بيانات الاعتماد"
+  },
+  "settingsExportTitle": {
+    "message": "استيراد/تصدير الإعدادات"
+  },
+  "settingsExportHint": {
+    "message": "احفظ إعداداتك في ملف، أو حمّلها على متصفح آخر. لا يتضمن أبدًا بيانات تسجيل الدخول إلى Twitch أو Kick."
+  },
+  "settingsExportButton": {
+    "message": "تصدير الإعدادات"
+  },
+  "settingsImportButton": {
+    "message": "استيراد الإعدادات"
+  },
+  "settingsImportConfirm": {
+    "message": "سيؤدي هذا إلى استبدال إعداداتك الحالية بالإعدادات من الملف المحدد. هل تريد المتابعة؟"
+  },
+  "settingsImportCancel": {
+    "message": "إلغاء"
+  },
+  "settingsImportConfirmButton": {
+    "message": "اختر ملفًا واستورد"
+  },
+  "settingsImportFailed": {
+    "message": "هذا الملف ليس تصديرًا صالحًا لإعدادات Lurkloot."
+  },
+  "settingsExportFailed": {
+    "message": "تعذّر على Lurkloot تصدير إعداداتك. حاول مرة أخرى."
   },
   "factoryResetTitle": {
     "message": "إعادة ضبط Lurkloot"
@@ -990,7 +1059,7 @@
     "message": "التوافق"
   },
   "compatibilitySectionDescription": {
-    "message": "كيف يتواصل Lurkloot مع كل منصة. الوضع التلقائي يتبع الملف المضمَّن."
+    "message": "لا تغيّرها إلا إذا لم يعمل Twitch أو Kick؛ فقد تساعد في تجاوز مشكلات المنصة."
   },
   "compatibilityComponentProfile": {
     "message": "الملف الشخصي"

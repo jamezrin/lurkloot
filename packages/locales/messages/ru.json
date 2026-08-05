@@ -62,17 +62,23 @@
   "settingsSearchNoResults": {
     "message": "Настройки, соответствующие «$1», не найдены."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "Платформа и категории/игры"
+  },
+  "settingsPlatformSettings": {
+    "message": "Настройки $1"
+  },
   "settingsShowAdvancedTitle": {
     "message": "Показать дополнительные настройки"
   },
-  "settingsSectionGeneral": {
-    "message": "Общие"
+  "settingsSectionJumpNavLabel": {
+    "message": "Перейти к разделу"
   },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
+  "settingsSectionAdvancedActions": {
+    "message": "Дополнительные действия"
   },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Импортируйте, экспортируйте или сбросьте настройки Lurkloot."
   },
   "activityTitle": {
     "message": "Активность"
@@ -138,7 +144,7 @@
     "message": "Фарм"
   },
   "waitingEligibleStream": {
-    "message": "Ожидание подходящего стрима"
+    "message": "Для этой кампании сейчас нет подходящего активного стрима"
   },
   "watchingPausedHint": {
     "message": "Просмотр приостановлен. Включите переключатель, чтобы продолжить фарм drops."
@@ -179,14 +185,38 @@
   "tipExcludedCampaigns": {
     "message": "Исключили кампанию случайно? Восстановите её в настройках Drops."
   },
+  "tipTranslations": {
+    "message": "Переводы автоматически поддерживаются с помощью ИИ. Помогите улучшить их на GitHub."
+  },
+  "tipTranslationsAction": {
+    "message": "Открыть руководство по переводу"
+  },
   "noCampaigns": {
     "message": "Кампании пока не обнаружены."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "Искать кампании…"
+  },
+  "campaignSearchNoResults": {
+    "message": "Кампании, соответствующие «$1», не найдены."
+  },
+  "closeSearch": {
+    "message": "Закрыть поиск"
+  },
+  "search": {
+    "message": "Искать"
   },
   "noActivity": {
     "message": "Активность пока не записана. Нажмите обновить, чтобы выполнить проверку."
   },
   "noDiagnostics": {
     "message": "Диагностика пока не записана. Она появляется по мере работы расширения."
+  },
+  "searchDiagnostics": {
+    "message": "Искать диагностику"
+  },
+  "noDiagnosticsMatch": {
+    "message": "Нет диагностических записей, соответствующих \"$1\"."
   },
   "platformActivity": {
     "message": "Активность $1"
@@ -330,16 +360,19 @@
     "message": "Добавить канал"
   },
   "idleWatchlistChannel": {
-    "message": "в списке"
+    "message": "Не в сети"
   },
   "live": {
     "message": "в эфире"
+  },
+  "viewerCount": {
+    "message": "$1 зрителей"
   },
   "settingsGeneralTitle": {
     "message": "Общие настройки"
   },
   "settingsGeneralDescription": {
-    "message": "Применяется к Twitch и Kick."
+    "message": "Язык, запуск и поведение всплывающего окна."
   },
   "settingsGroupAppearance": {
     "message": "Внешний вид и поведение"
@@ -360,7 +393,7 @@
     "message": "Уведомления"
   },
   "notificationsDescription": {
-    "message": "Применяется ко всем включённым платформам."
+    "message": "Оповещения, когда награды готовы или кампании завершаются."
   },
   "settingsGroupNotifications": {
     "message": "Уведомления"
@@ -381,7 +414,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "Общее поведение фарма кампаний."
+    "message": "Получение, доступность, приоритеты и видимость кампаний."
   },
   "settingsGroupDrops": {
     "message": "Drops"
@@ -418,6 +451,12 @@
   },
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Покидает канал из списка просмотра в простое, как только появляется подходящий drop. Если выключено, продолжает смотреть его, пока он не уйдёт офлайн."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "Отдавать предпочтение подписанным каналам и списку просмотра в простое"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Если drop доступен на нескольких каналах, выбирает тот, на который вы подписаны или который есть в вашем списке просмотра в простое, а не незнакомый канал."
   },
   "platformSettingsTitle": {
     "message": "Настройки платформы"
@@ -601,6 +640,9 @@
   },
   "hasActiveDrops": {
     "message": "Есть активные drops"
+  },
+  "otherCategories": {
+    "message": "Другие категории"
   },
   "searchCategories": {
     "message": "Искать категории $1"
@@ -787,6 +829,33 @@
   },
   "cliExportButton": {
     "message": "Экспортировать учётные данные"
+  },
+  "settingsExportTitle": {
+    "message": "Импорт/экспорт настроек"
+  },
+  "settingsExportHint": {
+    "message": "Сохраните настройки в файл или загрузите их в другом браузере. Никогда не включает вход в Twitch или Kick."
+  },
+  "settingsExportButton": {
+    "message": "Экспортировать настройки"
+  },
+  "settingsImportButton": {
+    "message": "Импортировать настройки"
+  },
+  "settingsImportConfirm": {
+    "message": "Это заменит текущие настройки настройками из выбранного файла. Продолжить?"
+  },
+  "settingsImportCancel": {
+    "message": "Отмена"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Выбрать файл и импортировать"
+  },
+  "settingsImportFailed": {
+    "message": "Этот файл не является допустимым экспортом настроек Lurkloot."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot не удалось экспортировать настройки. Повторите попытку."
   },
   "factoryResetTitle": {
     "message": "Сбросить Lurkloot"
@@ -990,7 +1059,7 @@
     "message": "Совместимость"
   },
   "compatibilitySectionDescription": {
-    "message": "Как Lurkloot взаимодействует с каждой платформой. Автоматический режим следует встроенному профилю."
+    "message": "Меняйте только если Twitch или Kick не работает: эти настройки могут обойти проблемы платформы."
   },
   "compatibilityComponentProfile": {
     "message": "Профиль"

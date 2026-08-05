@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { RotateCcw, Terminal } from "lucide-react";
+import { Download, RotateCcw, Terminal, Upload } from "lucide-react";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { SHOW_ADVANCED_SETTINGS_KEY } from "./constants";
-import { AdvancedSettingsSwitch, SettingsGroup, SettingsSearchBox, SettingsSection } from "./settingsControls";
+import { PLATFORMS } from "./constants";
+import { SettingsGroup, SettingsSearchBox, SettingsSection } from "./settingsControls";
 import { buildSettingsRegistry, type SettingsChangeOptions } from "./settingsRegistry";
 import { filterSettingsTree } from "./settingsSearch";
-import { usePopupRuntime, useT } from "./context";
+import { useT } from "./context";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
@@ -17,24 +17,70 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   // Optional: when provided, the settings view shows an "Export credentials"
   // action for the headless CLI. The extension wires it; the demo omits it.
   onExportCredentials?: () => void | Promise<void>;
+  // Optional: download the current settings as a portable JSON file.
+  onExportSettings?: () => void | Promise<void>;
+  // Optional: prompt for a settings file and apply it. Resolves false when the
+  // user cancels the file picker, throws when the file is invalid/corrupt.
+  onImportSettings?: () => Promise<boolean>;
   onReset?: () => Promise<void>;
   exportConfirmationResetKey: number;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
 }) {
   const t = useT();
-  const { adapter, preview } = usePopupRuntime();
   const [query, setQuery] = useState("");
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [platform, setPlatform] = useState<Platform>("twitch");
   const [exportArmed, setExportArmed] = useState(false);
+  const [exportingSettings, setExportingSettings] = useState(false);
+  const [exportSettingsFailed, setExportSettingsFailed] = useState(false);
+  const [importArmed, setImportArmed] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importFailed, setImportFailed] = useState(false);
   const [resetArmed, setResetArmed] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetFailed, setResetFailed] = useState(false);
   useEffect(() => {
     setExportArmed(false);
+    setExportingSettings(false);
+    setExportSettingsFailed(false);
+    setImportArmed(false);
+    setImportFailed(false);
     setResetArmed(false);
     setResetFailed(false);
   }, [exportConfirmationResetKey]);
+
+  // Export needs no arm/confirm step (it only reads, never mutates), but it
+  // still needs a busy/failure state like import and reset: a slow or failed
+  // download (disk full, permission denied) should not look identical to a
+  // successful one, and a second click while one is in flight should be a
+  // no-op rather than racing two downloads.
+  async function confirmExportSettings(): Promise<void> {
+    if (!onExportSettings || exportingSettings) return;
+    setExportingSettings(true);
+    setExportSettingsFailed(false);
+    try {
+      await onExportSettings();
+    } catch {
+      setExportSettingsFailed(true);
+    } finally {
+      setExportingSettings(false);
+    }
+  }
+
+  async function confirmImport(): Promise<void> {
+    if (!onImportSettings || importing) return;
+    setImporting(true);
+    setImportFailed(false);
+    try {
+      const applied = await onImportSettings();
+      if (applied) setImportArmed(false);
+    } catch {
+      setImportArmed(true);
+      setImportFailed(true);
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function confirmReset(): Promise<void> {
     if (!onReset || resetting) return;
@@ -50,177 +96,309 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     }
   }
 
-  useEffect(() => {
-    if (preview) return;
-    let mounted = true;
-    void adapter.getStorage(SHOW_ADVANCED_SETTINGS_KEY).then((stored) => {
-      if (mounted) setShowAdvanced(stored[SHOW_ADVANCED_SETTINGS_KEY] === true);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [adapter, preview]);
-
-  function toggleAdvanced(value: boolean): void {
-    setShowAdvanced(value);
-    if (preview) return;
-    void adapter.setStorage({ [SHOW_ADVANCED_SETTINGS_KEY]: value });
-  }
-
   const sections = useMemo(
     () => buildSettingsRegistry({ t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution }),
     [t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution],
   );
   const visible = useMemo(
-    () => filterSettingsTree(sections, { t, query, showAdvanced }),
-    [sections, t, query, showAdvanced],
+    () => filterSettingsTree(sections, { t, query, showAdvanced: true }),
+    [sections, t, query],
   );
   const searching = query.trim().length > 0;
+  const hasActions = Boolean(onExportSettings || onImportSettings || onExportCredentials || onReset);
+  const actionSearchText = [
+    t("settingsSectionAdvancedActions"),
+    t("settingsSectionAdvancedActionsDescription"),
+    t("settingsExportTitle"),
+    t("settingsExportHint"),
+    t("settingsExportButton"),
+    t("settingsImportButton"),
+    t("cliExportTitle"),
+    t("cliExportHint"),
+    t("cliExportButton"),
+    t("factoryResetTitle"),
+    t("factoryResetHint"),
+    t("factoryResetButton"),
+  ].join(" ").toLocaleLowerCase();
+  const showActions = hasActions && (!searching || actionSearchText.includes(query.trim().toLocaleLowerCase()));
+  const generalSection = visible.find((section) => section.id === "general");
+  const platformSection = visible.find((section) => section.id === platform);
+  const compatibilityGroup = platformSection?.groups.find((group) => group.id.endsWith(".compatibility"));
+  const platformContentGroups = platformSection?.groups.filter((group) => group !== compatibilityGroup) ?? [];
+
+  function renderGroupContent(group: typeof sections[number]["groups"][number], includeDescription = true): React.ReactNode {
+    return (
+      <>
+        {includeDescription && group.description ? <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{group.description}</p> : null}
+        <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+          {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
+        </div>
+      </>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <SettingsSearchBox value={query} onChange={setQuery} />
-        <AdvancedSettingsSwitch checked={showAdvanced} onChange={toggleAdvanced} />
-      </div>
+    <div className="space-y-3">
+      <SettingsSearchBox compact value={query} onChange={setQuery} />
 
-      {visible.length === 0 ? (
+      {visible.length === 0 && !showActions ? (
         <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("settingsSearchNoResults", query.trim())}</p>
-      ) : (
-        <div className="space-y-6">
-          {visible.map((section) => (
-            <SettingsSection
-              key={section.id}
-              id={section.id}
-              title={t(section.titleKey)}
-              icon={section.icon}
-              iconNode={section.iconNode}
-              // While searching, a section holding matches opens regardless of
-              // the state the user left it in, and that state is not overwritten.
-              forceExpanded={searching}
-            >
-              {section.rows.length > 0 ? (
+      ) : searching ? (
+        <div className="space-y-4">
+          {visible.flatMap((section) => [
+            section.rows.length > 0 ? (
+              <SettingsSection
+                key={`${section.id}.rows`}
+                id={`${section.id}.rows`}
+                title={PLATFORMS[section.id as Platform].label}
+                icon={section.icon}
+                iconNode={section.iconNode}
+              >
                 <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
                   {section.rows.map((row) => <React.Fragment key={row.id}>{row.render()}</React.Fragment>)}
                 </div>
-              ) : null}
-              {section.groups.map((group) => (
-                <SettingsGroup key={group.id} title={t(group.titleKey)} description={group.description} badge={group.badge} advanced={group.advanced}>
-                  {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
-                </SettingsGroup>
-              ))}
+              </SettingsSection>
+            ) : null,
+            ...section.groups.map((group) => (
+              <SettingsSection
+                key={group.id}
+                id={group.id}
+                title={section.id === "general" ? t(group.titleKey) : `${PLATFORMS[section.id as Platform].label} · ${t(group.titleKey)}`}
+                icon={section.id === "general" ? undefined : section.icon}
+                iconNode={section.id === "general" ? undefined : section.iconNode}
+              >
+                {renderGroupContent(group, false)}
+              </SettingsSection>
+            )),
+          ])}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {generalSection?.groups.map((group) => group.id !== "general.advanced" ? (
+            <SettingsSection key={group.id} id={group.id} title={t(group.titleKey)} description={group.description}>
+              {renderGroupContent(group, false)}
             </SettingsSection>
-          ))}
+          ) : null)}
+
+          <SettingsSection id="platform-specific" title={t("settingsPlatformSettingsTitle")} description={t("platformSettingsDescription")}>
+            <div role="tablist" aria-label={t("settingsPlatformSettingsTitle")} className="grid grid-cols-2 gap-2">
+              {(Object.keys(PLATFORMS) as Platform[]).map((id) => {
+                const selected = platform === id;
+                const definition = PLATFORMS[id];
+                const label = definition.label;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-label={label}
+                    aria-selected={selected}
+                    aria-controls="platform-settings-panel"
+                    onClick={() => setPlatform(id)}
+                    className={selected
+                      ? "relative flex items-center justify-center gap-1.5 overflow-hidden rounded-xl border bg-white px-2 py-2 text-[11px] font-bold shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:bg-zinc-900"
+                      : "flex items-center justify-center gap-1.5 rounded-xl border border-transparent px-2 py-2 text-[11px] font-semibold text-zinc-400 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"}
+                    style={selected ? { backgroundColor: `${definition.color}18`, borderColor: `${definition.color}80`, color: definition.color } : undefined}
+                  >
+                    <span className="text-[10px] font-black" style={{ color: definition.color }}>{definition.mark}</span>
+                    {label}
+                    {selected ? <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full" style={{ backgroundColor: definition.color }} /> : null}
+                  </button>
+                );
+              })}
+            </div>
+            {platformSection ? (
+              <section id="platform-settings-panel" aria-label={PLATFORMS[platform].label} className="space-y-3">
+                {platformSection.rows.length > 0 ? (
+                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                    {platformSection.rows.map((row) => <React.Fragment key={row.id}>{row.render()}</React.Fragment>)}
+                  </div>
+                ) : null}
+                {platformContentGroups.map((group) => (
+                  <SettingsGroup key={group.id} title={t(group.titleKey)} description={group.description} badge={group.badge}>
+                    {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
+                  </SettingsGroup>
+                ))}
+              </section>
+            ) : null}
+          </SettingsSection>
+
+          {generalSection?.groups.find((group) => group.id === "general.advanced") ? (
+            <SettingsSection id="general.advanced" title={t("settingsGroupAdvanced")} description={generalSection.groups.find((group) => group.id === "general.advanced")!.description}>
+              {renderGroupContent(generalSection.groups.find((group) => group.id === "general.advanced")!, false)}
+            </SettingsSection>
+          ) : null}
+
+          {compatibilityGroup ? (
+            <SettingsSection id={compatibilityGroup.id} title={t(compatibilityGroup.titleKey)} description={compatibilityGroup.description}>
+              {renderGroupContent(compatibilityGroup, false)}
+            </SettingsSection>
+          ) : null}
         </div>
       )}
 
-      {onExportCredentials && !searching ? (
-        <div className="pt-2">
-          {/* Labelled like a group header so the action reads as deliberate
-              rather than orphaned, without becoming a settings section: this is
-              an action, not a setting. The header's own trailing rule is the
-              separator — a border on this wrapper would stack a second line
-              directly above it. */}
-          <div className="mb-1 flex items-center gap-1.5 px-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("cliExportTitle")}</span>
-            <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/70" />
-          </div>
-          {exportArmed ? (
-            <div className="space-y-2 px-1 py-1">
-              <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">{t("cliExportConfirm")}</p>
-              <div className="flex flex-wrap justify-end gap-2">
-                <button
-                  type="button"
-                  className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  onClick={() => setExportArmed(false)}
-                >
-                  {t("cliExportCancel")}
-                </button>
-                <button
-                  type="button"
-                  className="rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-                  onClick={() => {
-                    setExportArmed(false);
-                    void onExportCredentials();
-                  }}
-                >
-                  {t("cliExportConfirmButton")}
-                </button>
+      {showActions ? (
+        <SettingsSection id="actions" title={t("settingsSectionAdvancedActions")} description={t("settingsSectionAdvancedActionsDescription")}>
+          <div className="divide-y divide-zinc-100 rounded-xl border border-zinc-200/70 bg-white dark:divide-zinc-800/70 dark:border-zinc-800 dark:bg-zinc-900/40">
+            {onExportSettings || onImportSettings ? (
+              <div className="p-2.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("settingsExportTitle")}</div>
+                {importArmed ? (
+                  <div className="mt-1.5 space-y-2">
+                    <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">{t("settingsImportConfirm")}</p>
+                    {importFailed ? <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">{t("settingsImportFailed")}</p> : null}
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={importing}
+                        className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        onClick={() => {
+                          setImportArmed(false);
+                          setImportFailed(false);
+                        }}
+                      >
+                        {t("settingsImportCancel")}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={importing}
+                        className="rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50"
+                        onClick={() => void confirmImport()}
+                      >
+                        {t("settingsImportConfirmButton")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-1.5 space-y-2">
+                    <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("settingsExportHint")}</p>
+                    {exportSettingsFailed ? <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">{t("settingsExportFailed")}</p> : null}
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {onExportSettings ? (
+                        <button
+                          type="button"
+                          disabled={exportingSettings}
+                          className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          onClick={() => void confirmExportSettings()}
+                        >
+                          <Download size={13} />
+                          {t("settingsExportButton")}
+                        </button>
+                      ) : null}
+                      {onImportSettings ? (
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          onClick={() => setImportArmed(true)}
+                        >
+                          <Upload size={13} />
+                          {t("settingsImportButton")}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ) : (
-            // The hint gets the full width so it wraps as prose instead of a
-            // ragged column beside the button. The button stays secondary here
-            // and the accent is spent on the confirm step, which is the one
-            // that actually writes session tokens to disk.
-            <div className="space-y-2 px-1 pb-1">
-              <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("cliExportHint")}</p>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  onClick={() => setExportArmed(true)}
-                >
-                  <Terminal size={13} />
-                  {t("cliExportButton")}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : null}
+            ) : null}
 
-      {onReset && !searching ? (
-        <div className="pt-2">
-          <div className="mb-1 flex items-center gap-1.5 px-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-red-500 dark:text-red-400">{t("factoryResetTitle")}</span>
-            <span className="h-px flex-1 bg-red-100 dark:bg-red-950" />
+            {onExportCredentials ? (
+              <div className="p-2.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("cliExportTitle")}</div>
+                {exportArmed ? (
+                  <div className="mt-1.5 space-y-2">
+                    <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">{t("cliExportConfirm")}</p>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        onClick={() => setExportArmed(false)}
+                      >
+                        {t("cliExportCancel")}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                        onClick={() => {
+                          setExportArmed(false);
+                          void onExportCredentials();
+                        }}
+                      >
+                        {t("cliExportConfirmButton")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // The button stays secondary here and the accent is spent on the
+                  // confirm step, which is the one that actually writes session
+                  // tokens to disk.
+                  <div className="mt-1.5 space-y-2">
+                    <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("cliExportHint")}</p>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        onClick={() => setExportArmed(true)}
+                      >
+                        <Terminal size={13} />
+                        {t("cliExportButton")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {onReset ? (
+              <div className="p-2.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500 dark:text-red-400">{t("factoryResetTitle")}</div>
+                {resetArmed ? (
+                  <div className="mt-1.5 space-y-2">
+                    <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{t("factoryResetConfirm")}</p>
+                    {resetFailed ? <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">{t("factoryResetFailed")}</p> : null}
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={resetting}
+                        className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        onClick={() => {
+                          setResetArmed(false);
+                          setResetFailed(false);
+                        }}
+                      >
+                        {t("factoryResetCancel")}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={resetting}
+                        className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white outline-none transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50 dark:bg-red-700 dark:hover:bg-red-600"
+                        onClick={() => void confirmReset()}
+                      >
+                        {t(resetting ? "factoryResetProgress" : resetFailed ? "factoryResetRetry" : "factoryResetConfirmButton")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-1.5 space-y-2">
+                    <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("factoryResetHint")}</p>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 outline-none transition-colors hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-400 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+                        onClick={() => {
+                          setResetArmed(true);
+                          setResetFailed(false);
+                        }}
+                      >
+                        <RotateCcw size={13} />
+                        {t("factoryResetButton")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
-          {resetArmed ? (
-            <div className="space-y-2 px-1 py-1">
-              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{t("factoryResetConfirm")}</p>
-              {resetFailed ? <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">{t("factoryResetFailed")}</p> : null}
-              <div className="flex flex-wrap justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={resetting}
-                  className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  onClick={() => {
-                    setResetArmed(false);
-                    setResetFailed(false);
-                  }}
-                >
-                  {t("factoryResetCancel")}
-                </button>
-                <button
-                  type="button"
-                  disabled={resetting}
-                  className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white outline-none transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50 dark:bg-red-700 dark:hover:bg-red-600"
-                  onClick={() => void confirmReset()}
-                >
-                  {t(resetting ? "factoryResetProgress" : resetFailed ? "factoryResetRetry" : "factoryResetConfirmButton")}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2 px-1 pb-1">
-              <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("factoryResetHint")}</p>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 outline-none transition-colors hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-400 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
-                  onClick={() => {
-                    setResetArmed(true);
-                    setResetFailed(false);
-                  }}
-                >
-                  <RotateCcw size={13} />
-                  {t("factoryResetButton")}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        </SettingsSection>
       ) : null}
     </div>
   );

@@ -47,6 +47,15 @@ describe("i18n", () => {
     expect(translateFromCatalogs("fallback", undefined, es, en)).toBe("Fallback");
   });
 
+  it("inserts replacement-pattern characters literally", () => {
+    const catalog: MessageCatalog = {
+      patterns: { message: "$1|$2|$3" },
+    };
+
+    expect(translateFromCatalogs("patterns", ["$&", "$$", "$`"], catalog, catalog))
+      .toBe("$&|$$|$`");
+  });
+
   it("keeps locale catalog keys in sync", () => {
     const locales = localeCodes();
     const english = readCatalog("en");
@@ -177,9 +186,6 @@ describe("i18n", () => {
       "notificationsTitle",
       "farmingLabel",
       "off",
-      "settingsSectionTwitch",
-      "settingsSectionKick",
-      "settingsSectionGeneral",
       "settingsGroupDrops",
       "settingsGroupNotifications",
       // Footer link labels: two are brand names, and "Website" is the German
@@ -225,9 +231,6 @@ describe("i18n", () => {
       "settingsSearchPlaceholder",
       "settingsSearchNoResults",
       "settingsShowAdvancedTitle",
-      "settingsSectionGeneral",
-      "settingsSectionTwitch",
-      "settingsSectionKick",
       "settingsGroupAppearance",
       "settingsGroupNotifications",
       "settingsGroupDrops",

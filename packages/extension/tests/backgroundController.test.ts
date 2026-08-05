@@ -14,8 +14,9 @@ import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS, isFarmingActive } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
-import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
-import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
+import { createKickFetcher, KickClaimState } from "@lurkloot/core/kick";
+import { TwitchDiscoveryState } from "@lurkloot/core/twitch";
+import { kickAdapter, twitchAdapter } from "./helpers/adapters";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import {
@@ -2115,7 +2116,7 @@ describe("background controller", () => {
       }) as PageFetcher["fetchJson"],
     };
     vi.mocked(env.deps.createAdapter).mockImplementation((_platform, emit, settings) => ({
-      adapter: new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit),
+      adapter: twitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit),
       ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
     }));
 
@@ -2275,7 +2276,7 @@ describe("background controller", () => {
         backgroundStarted = resolve;
       });
       const pageFetch = vi.fn(async () => ({ id: 42 }));
-      const kick = new KickAdapter(createKickFetcher({
+      const kick = kickAdapter(createKickFetcher({
         background: async (_url, init) => {
           backgroundStarted();
           await new Promise<void>((resolve) => {
@@ -3317,6 +3318,11 @@ describe("background controller", () => {
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
+      ...campaign("twitch"),
+      url: "https://example.test/campaign",
+      rewards: [{ ...reward(), imageUrl: "https://cdn.example.test/reward.png" }],
+    }]);
 
     await env.controller.tick();
     await env.controller.tick();
@@ -3327,6 +3333,10 @@ describe("background controller", () => {
       category: "activity",
       code: "farming_started",
       platform: "twitch",
+      data: expect.objectContaining({
+        rewardImageUrl: "https://cdn.example.test/reward.png",
+        campaignUrl: "https://example.test/campaign",
+      }),
     }));
     // The activity entry always brings its English diagnostic mirror along.
     expect(published.filter((event) => event.category === "diagnostic" && event.code === "farming_started")).toHaveLength(1);
@@ -3403,7 +3413,7 @@ describe("background controller", () => {
     };
     const claimState = new KickClaimState();
     env.deps.createAdapter.mockImplementation((platform, emit, settings) => {
-      const kick = new KickAdapter(fetcher, undefined, undefined, emit, { claimState });
+      const kick = kickAdapter(fetcher, undefined, undefined, emit, { claimState });
       kick.listCandidateChannels = vi.fn(async () => []);
       return {
         adapter: platform === "kick" ? kick : env.twitch,
@@ -3432,7 +3442,7 @@ describe("background controller", () => {
     expect(claimPosts).toBe(2);
 
     const separateState = new KickClaimState();
-    const separateAdapter = new KickAdapter(fetcher, undefined, undefined, () => {}, { claimState: separateState });
+    const separateAdapter = kickAdapter(fetcher, undefined, undefined, () => {}, { claimState: separateState });
     await separateAdapter.claimReward(campaign("kick", "claimable"), campaign("kick", "claimable").rewards[0]);
     expect(claimPosts).toBe(3);
   });
@@ -3446,6 +3456,11 @@ describe("background controller", () => {
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
       },
     });
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
+      ...campaign("twitch"),
+      url: "https://example.test/campaign",
+      rewards: [{ ...reward(), imageUrl: "https://cdn.example.test/reward.png" }],
+    }]);
     await env.controller.tick();
 
     await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
@@ -3454,7 +3469,11 @@ describe("background controller", () => {
     expect(published).toContainEqual(expect.objectContaining({
       category: "activity",
       code: "farming_stopped",
-      data: expect.objectContaining({ reason: "automation_disabled" }),
+      data: expect.objectContaining({
+        reason: "automation_disabled",
+        rewardImageUrl: "https://cdn.example.test/reward.png",
+        campaignUrl: "https://example.test/campaign",
+      }),
     }));
     expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
   });
@@ -4709,6 +4728,40 @@ describe("background controller", () => {
     });
   });
 
+  // A clock rollback can leave the stored manual-watch `checkedAt` in the
+  // future. Reading that as "recently active" would keep a stale record
+  // winning over fresher telemetry from a different tab, so a future stamp
+  // counts as stale and the new telemetry is applied instead.
+  it("overrides manual watch activity stamped in the future with fresh telemetry", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    env.state.manualWatch = {
+      twitch: {
+        platform: "twitch",
+        tabId: 999,
+        active: true,
+        checkedAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+    };
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 0,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    }, { tab: { id: 1000 } });
+
+    expect(env.state.manualWatch?.twitch).toMatchObject({
+      tabId: 1000,
+      active: false,
+    });
+  });
+
   it("logs playback transitions such as ad starts and blocked playback", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
@@ -5233,6 +5286,7 @@ describe("background controller", () => {
     const subscriptionReward: DropReward = {
       ...reward("claimable"),
       id: "subscription-reward",
+      imageUrl: "https://cdn.example.test/reward.png",
       requirement: "subscription",
       requiredSubs: 1,
       requiredMinutes: 0,
@@ -5241,6 +5295,7 @@ describe("background controller", () => {
     };
     const twitchCampaign = {
       ...campaign("twitch", "claimed"),
+      url: "https://example.test/campaign",
       rewards: [reward("claimed"), subscriptionReward],
     };
     vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([twitchCampaign]);
@@ -5268,7 +5323,11 @@ describe("background controller", () => {
       expect.objectContaining({
         category: "activity",
         code: "reward_claimed",
-        data: expect.objectContaining({ method: "manual" }),
+        data: expect.objectContaining({
+          method: "manual",
+          rewardImageUrl: "https://cdn.example.test/reward.png",
+          campaignUrl: "https://example.test/campaign",
+        }),
       }),
     ]));
   });

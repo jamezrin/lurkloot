@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
-import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
+import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
@@ -10,6 +10,7 @@ import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { resolveCompatibility } from "@lurkloot/core";
 import { SafeFetchError, type SafeFetchFailureKind } from "@lurkloot/core/fetchError";
+import { kickAdapter, twitchAdapter, TWITCH_COMPAT } from "./helpers/adapters";
 
 function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
   const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
@@ -97,7 +98,7 @@ describe("KickAdapter", () => {
   it("starts Kick campaign and progress requests concurrently", async () => {
     let campaignStarted = false;
     let progressStarted = false;
-    const adapter = new KickAdapter(jsonFetcher(async (url) => {
+    const adapter = kickAdapter(jsonFetcher(async (url) => {
       if (url.endsWith("/drops/campaigns")) {
         campaignStarted = true;
         await vi.waitFor(() => expect(progressStarted).toBe(true));
@@ -132,7 +133,7 @@ describe("KickAdapter", () => {
 
   it("keeps Kick campaigns when concurrent progress refresh fails", async () => {
     const events: EngineEvent[] = [];
-    const adapter = new KickAdapter(jsonFetcher((url) => {
+    const adapter = kickAdapter(jsonFetcher((url) => {
       if (url.endsWith("/drops/campaigns")) {
         return {
           data: [{
@@ -158,7 +159,7 @@ describe("KickAdapter", () => {
 
   it("propagates Kick progress authentication failures during refresh", async () => {
     const failure = new SafeFetchError({ kind: "authentication_rejected", status: 401 });
-    const adapter = new KickAdapter(jsonFetcher((url) => {
+    const adapter = kickAdapter(jsonFetcher((url) => {
       if (url.endsWith("/drops/campaigns")) return { data: [] };
       throw failure;
     }));
@@ -168,7 +169,7 @@ describe("KickAdapter", () => {
 
   it("propagates Kick campaign discovery failures during refresh", async () => {
     const failure = new Error("campaigns unavailable");
-    const adapter = new KickAdapter(jsonFetcher((url) => {
+    const adapter = kickAdapter(jsonFetcher((url) => {
       if (url.endsWith("/drops/progress")) return { data: [] };
       throw failure;
     }));
@@ -179,7 +180,7 @@ describe("KickAdapter", () => {
   it("propagates Kick refresh cancellation without reporting a progress fallback", async () => {
     const abort = new AbortController();
     const events: EngineEvent[] = [];
-    const adapter = new KickAdapter(jsonFetcher((url, init) => {
+    const adapter = kickAdapter(jsonFetcher((url, init) => {
       if (url.endsWith("/drops/campaigns")) return { data: [] };
       return new Promise((_, reject) => {
         init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
@@ -204,7 +205,7 @@ describe("KickAdapter", () => {
     const fetchJson = vi.fn(async () => ({ id: 42 }));
     const fetcher = { fetchJson: fetchJson as PageFetcher["fetchJson"] };
 
-    await new KickAdapter(fetcher, undefined, undefined, emit).checkAuthHealth(abort.signal);
+    await kickAdapter(fetcher, undefined, undefined, emit).checkAuthHealth(abort.signal);
 
     expect(fetchJson).toHaveBeenCalledWith(
       "https://kick.com/api/v1/user",
@@ -215,7 +216,7 @@ describe("KickAdapter", () => {
 
   it("does not swallow authentication failures while refreshing progress", async () => {
     const failure = new SafeFetchError({ kind: "authentication_rejected", status: 401 });
-    const adapter = new KickAdapter(jsonFetcher((url) => {
+    const adapter = kickAdapter(jsonFetcher((url) => {
       if (url.endsWith("/drops/campaigns")) return { data: [] };
       throw failure;
     }));
@@ -225,7 +226,7 @@ describe("KickAdapter", () => {
 
   it("does not swallow security-policy failures while claiming challenges", async () => {
     const failure = new SafeFetchError({ kind: "security_policy_blocked", status: 403, reference: "safe-ref" });
-    const adapter = new KickAdapter(jsonFetcher((url) => {
+    const adapter = kickAdapter(jsonFetcher((url) => {
       if (url.endsWith("/gamification/challenges")) {
         return { data: [{ id: "daily", claimed_at: null, recurrence: "daily", condition: { progress: 1, threshold: 1 } }] };
       }
@@ -250,7 +251,7 @@ describe("KickAdapter", () => {
       });
     });
 
-    const health = await new KickAdapter(fetcher).checkAuthHealth();
+    const health = await kickAdapter(fetcher).checkAuthHealth();
 
     expect(health).toMatchObject({ status, reasonCode, message: { key } });
     expect(health.message?.values?.reference).toBe(kind === "security_policy_blocked" ? "9e4db7e3" : undefined);
@@ -260,7 +261,7 @@ describe("KickAdapter", () => {
   it("does not copy unknown account probe errors into health state", async () => {
     const fetcher = jsonFetcher(() => { throw new Error("token=secret-value"); });
 
-    const health = await new KickAdapter(fetcher).checkAuthHealth();
+    const health = await kickAdapter(fetcher).checkAuthHealth();
 
     expect(health).toMatchObject({
       status: "unavailable",
@@ -283,7 +284,7 @@ describe("KickAdapter", () => {
       host: "extension",
       twitchIdentity: "web",
     }).compatibility.kick;
-    const adapter = new KickAdapter(fetcher, undefined, undefined, undefined, { compatibility });
+    const adapter = kickAdapter(fetcher, undefined, undefined, undefined, { compatibility });
     const campaign = { id: "campaign" } as DropCampaign;
     const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
 
@@ -308,7 +309,7 @@ describe("KickAdapter", () => {
       ...DEFAULT_SETTINGS.compatibility,
       kick: { ...DEFAULT_SETTINGS.compatibility.kick, claimLinkHandling: "kick-claim-v1" },
     }, { host: "extension", twitchIdentity: "web" }).compatibility.kick;
-    const adapter = new KickAdapter(fetcher, undefined, undefined, undefined, { compatibility });
+    const adapter = kickAdapter(fetcher, undefined, undefined, undefined, { compatibility });
     const campaign = { id: "campaign", accountLinked: true } as DropCampaign;
     const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
 
@@ -328,8 +329,8 @@ describe("KickAdapter", () => {
     });
     const first: EngineEvent[] = [];
     const second: EngineEvent[] = [];
-    const firstAdapter = new KickAdapter(failingFetcher, undefined, undefined, (event) => first.push(event));
-    const secondAdapter = new KickAdapter(failingFetcher, undefined, undefined, (event) => second.push(event));
+    const firstAdapter = kickAdapter(failingFetcher, undefined, undefined, (event) => first.push(event));
+    const secondAdapter = kickAdapter(failingFetcher, undefined, undefined, (event) => second.push(event));
 
     await firstAdapter.refreshCampaigns();
     await secondAdapter.refreshCampaigns();
@@ -378,7 +379,7 @@ describe("KickAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new KickAdapter(fetcher);
+    const adapter = kickAdapter(fetcher);
 
     const campaigns = await adapter.refreshCampaigns();
     const candidates = await adapter.listCandidateChannels(campaigns[0]);
@@ -386,6 +387,95 @@ describe("KickAdapter", () => {
     expect(campaigns[0].rewards[0].watchedMinutes).toBe(30);
     expect(campaigns[0].rewards[0].status).toBe("in_progress");
     expect(candidates[0]).toMatchObject({ username: "creator", viewerCount: 123, title: "Drops" });
+  });
+
+  it("lists followed live channels from the Kick user livestreams endpoint and caches them", async () => {
+    let calls = 0;
+    let requestedUrl = "";
+    const adapter = kickAdapter(jsonFetcher((url) => {
+      requestedUrl = url;
+      calls += 1;
+      return [
+        { channel: { slug: "Friend" } },
+        { channel: { username: "other" } },
+        { channel: {} },
+      ];
+    }));
+
+    await expect(adapter.listFollowedChannels()).resolves.toEqual(["friend", "other"]);
+    await expect(adapter.listFollowedChannels()).resolves.toEqual(["friend", "other"]);
+
+    expect(requestedUrl).toBe("https://kick.com/api/v1/user/livestreams");
+    expect(calls).toBe(1);
+  });
+
+  it("reports no followed channels for a signed-out session or a failed lookup", async () => {
+    const emit = vi.fn();
+    const adapter = kickAdapter(jsonFetcher(() => {
+      throw new SafeFetchError({ kind: "authentication_rejected", status: 401 });
+    }), undefined, undefined, emit);
+
+    await expect(adapter.listFollowedChannels()).resolves.toEqual([]);
+    expect(emit).toHaveBeenCalledWith(expect.objectContaining({
+      category: "diagnostic",
+      message: expect.stringContaining("followed-channel lookup failed"),
+    }));
+  });
+
+  it("shares the followed-channel cache across adapter instances via discoveryState", async () => {
+    // Every host reconstructs KickAdapter fresh every scheduler tick, so a cache
+    // the discoveryState doesn't survive would hit the network on every tick.
+    // Two separate instances standing in for two ticks proves the cache
+    // outlives the adapter.
+    let calls = 0;
+    const fetcher = jsonFetcher(() => {
+      calls += 1;
+      return [{ channel: { slug: "friend" } }];
+    });
+    const discoveryState = new KickDiscoveryState();
+    const firstTick = kickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+    const secondTick = kickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+
+    await expect(firstTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+    await expect(secondTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+
+    expect(calls).toBe(1);
+  });
+
+  it("serves a stale followed-channel cache immediately and refreshes in the background", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      let resolveSecondFetch: (() => void) | undefined;
+      const fetcher = jsonFetcher(() => {
+        calls += 1;
+        if (calls === 1) return [{ channel: { slug: "stale-friend" } }];
+        // The second (background) fetch never resolves until the test lets it,
+        // so a caller blocking on it would hang the assertion below.
+        return new Promise((resolve) => {
+          resolveSecondFetch = () => resolve([{ channel: { slug: "fresh-friend" } }]);
+        });
+      });
+      const discoveryState = new KickDiscoveryState();
+      const firstTick = kickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+
+      await expect(firstTick.listFollowedChannels()).resolves.toEqual(["stale-friend"]);
+      expect(calls).toBe(1);
+
+      vi.advanceTimersByTime(6 * 60_000); // past the 5-minute cache TTL
+      const secondTick = kickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+
+      // Resolves with the stale value without waiting on the (still-pending)
+      // background refresh.
+      await expect(secondTick.listFollowedChannels()).resolves.toEqual(["stale-friend"]);
+      expect(calls).toBe(2);
+
+      resolveSecondFetch?.();
+      await vi.waitFor(() => expect(kickAdapter(fetcher, undefined, undefined, undefined, { discoveryState }).listFollowedChannels())
+        .resolves.toEqual(["fresh-friend"]));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("lists general live streams for site-wide Kick campaigns", async () => {
@@ -406,7 +496,7 @@ describe("KickAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new KickAdapter(fetcher);
+    const adapter = kickAdapter(fetcher);
 
     const candidates = await adapter.listCandidateChannels({
       id: "site-wide",
@@ -436,7 +526,7 @@ describe("KickAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new KickAdapter(fetcher);
+    const adapter = kickAdapter(fetcher);
     const settings: ExtensionSettings = {
       ...DEFAULT_SETTINGS,
       platform: {
@@ -473,7 +563,7 @@ describe("KickAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new KickAdapter(fetcher);
+    const adapter = kickAdapter(fetcher);
 
     const decision = await chooseCampaignDecision(
       "kick",
@@ -505,7 +595,7 @@ describe("KickAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new KickAdapter(fetcher);
+    const adapter = kickAdapter(fetcher);
     const campaign = { id: "campaign", categoryId: "99" } as DropCampaign;
     const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
 
@@ -524,7 +614,7 @@ describe("KickAdapter", () => {
   it("treats a Kick claim as successful only on a positive response signal", async () => {
     const campaign = { id: "campaign" } as DropCampaign;
     const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
-    const claimWith = (body: unknown) => new KickAdapter(jsonFetcher((url) => {
+    const claimWith = (body: unknown) => kickAdapter(jsonFetcher((url) => {
       if (url === "https://web.kick.com/api/v1/drops/claim") return body;
       throw new Error(`Unexpected URL ${url}`);
     })).claimReward(campaign, reward);
@@ -589,7 +679,7 @@ describe("KickAdapter", () => {
       if (url === "https://web.kick.com/api/v1/drops/progress") return progress;
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new KickAdapter(fetcher, undefined, undefined, (event) => events.push(event));
+    const adapter = kickAdapter(fetcher, undefined, undefined, (event) => events.push(event));
     const campaign = {
       id: "campaign",
       platform: "kick",
@@ -647,7 +737,7 @@ describe("KickAdapter", () => {
   it("clears v2 suppression from a bare-array affirmative progress response", async () => {
     let claimPosts = 0;
     let progress: unknown = [{ campaign_id: "campaign" }];
-    const adapter = new KickAdapter(jsonFetcher((url) => {
+    const adapter = kickAdapter(jsonFetcher((url) => {
       if (url === "https://web.kick.com/api/v1/drops/claim") {
         claimPosts += 1;
         return { connect_url: "https://accounts.example/link" };
@@ -682,17 +772,17 @@ describe("KickAdapter", () => {
     const reward = { id: "reward", name: "Reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
 
     const state = new KickClaimState();
-    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
-    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
+    await kickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
+    await kickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
 
     expect(claimPosts).toBe(1);
 
     state.clear();
-    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
+    await kickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
 
     expect(claimPosts).toBe(2);
 
-    await new KickAdapter(fetcher, undefined, undefined, undefined, { claimState: new KickClaimState() }).claimReward(campaign, reward);
+    await kickAdapter(fetcher, undefined, undefined, undefined, { claimState: new KickClaimState() }).claimReward(campaign, reward);
 
     expect(claimPosts).toBe(3);
   });
@@ -717,7 +807,7 @@ describe("KickAdapter", () => {
   it("guides the user to link instead of erroring when an unlinked Kick claim is rejected", async () => {
     const reward = { id: "reward", name: "Spray", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
     let rejectionPosts = 0;
-    const rejecting = () => new KickAdapter(jsonFetcher((url) => {
+    const rejecting = () => kickAdapter(jsonFetcher((url) => {
       if (url === "https://web.kick.com/api/v1/drops/claim") {
         rejectionPosts += 1;
         throw new Error("403 Forbidden");
@@ -749,7 +839,7 @@ describe("KickAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const check = await new KickAdapter(fetcher).checkChannel({ platform: "kick", username: "creator", url: "https://kick.com/creator" });
+    const check = await kickAdapter(fetcher).checkChannel({ platform: "kick", username: "creator", url: "https://kick.com/creator" });
     expect(check.live).toBe(true);
     expect(check.candidate.viewerCount).toBe(164);
     expect(check.candidate.categoryName).toBe("Rust");
@@ -767,7 +857,7 @@ describe("KickAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new KickAdapter(fetcher);
+    const adapter = kickAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "kick", username: "creator", url: "https://kick.com/creator" },
@@ -790,7 +880,7 @@ describe("KickAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new KickAdapter(fetcher);
+    const adapter = kickAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "kick", username: "creator", url: "https://kick.com/creator" },
@@ -817,14 +907,14 @@ describe("KickAdapter", () => {
       };
     });
 
-    await expect(new KickAdapter(fetcher).searchCategories("rust")).resolves.toEqual([
+    await expect(kickAdapter(fetcher).searchCategories("rust")).resolves.toEqual([
       { id: "13", name: "Rust", imageUrl: "https://files.kick.com/rust.webp" },
     ]);
   });
 
   it("returns no categories for a blank query without fetching", async () => {
     const fetcher = jsonFetcher(() => { throw new Error("should not fetch"); });
-    await expect(new KickAdapter(fetcher).searchCategories("   ")).resolves.toEqual([]);
+    await expect(kickAdapter(fetcher).searchCategories("   ")).resolves.toEqual([]);
   });
 
   it("claims only completed, unclaimed Kick challenges", async () => {
@@ -847,7 +937,7 @@ describe("KickAdapter", () => {
       throw new Error(`Unexpected URL ${url}`);
     });
 
-    const adapter = new KickAdapter(fetcher);
+    const adapter = kickAdapter(fetcher);
 
     await expect(adapter.claimChallenges!()).resolves.toEqual([
       { id: "done", rarity: "legendary", recurrence: "daily" },
@@ -864,7 +954,7 @@ describe("KickAdapter", () => {
       throw new Error(`Unexpected URL ${url}`);
     });
 
-    await expect(new KickAdapter(fetcher).claimChallenges!()).resolves.toEqual([
+    await expect(kickAdapter(fetcher).claimChallenges!()).resolves.toEqual([
       { id: "done", rarity: "unknown", recurrence: "weekly" },
     ]);
   });
@@ -886,14 +976,14 @@ describe("KickAdapter", () => {
       throw new Error(`Unexpected URL ${url}`);
     });
 
-    await expect(new KickAdapter(fetcher).claimChallenges!()).resolves.toEqual([
+    await expect(kickAdapter(fetcher).claimChallenges!()).resolves.toEqual([
       { id: "good", rarity: "common", recurrence: "daily" },
     ]);
   });
 
   it("returns nothing when Kick reports no challenges", async () => {
     const fetcher = jsonFetcher(() => ({}));
-    await expect(new KickAdapter(fetcher).claimChallenges!()).resolves.toEqual([]);
+    await expect(kickAdapter(fetcher).claimChallenges!()).resolves.toEqual([]);
   });
 });
 
@@ -1049,7 +1139,7 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
 describe("TwitchAdapter", () => {
   it("refreshes Twitch campaigns with one inventory request", async () => {
     let inventoryCalls = 0;
-    const adapter = new TwitchAdapter(jsonFetcher((_url, init) => {
+    const adapter = twitchAdapter(jsonFetcher((_url, init) => {
       const body = JSON.parse(String(init?.body)) as
         | Record<string, unknown>
         | Array<Record<string, unknown>>;
@@ -1072,7 +1162,7 @@ describe("TwitchAdapter", () => {
   it("merges active Twitch session progress without repeating inventory", async () => {
     let inventoryCalls = 0;
     let currentDropCalls = 0;
-    const adapter = new TwitchAdapter(jsonFetcher((_url, init) => {
+    const adapter = twitchAdapter(jsonFetcher((_url, init) => {
       const body = JSON.parse(String(init?.body)) as
         | Record<string, unknown>
         | Array<Record<string, unknown>>;
@@ -1120,13 +1210,165 @@ describe("TwitchAdapter", () => {
     expect(campaigns[0]?.rewards[0]?.watchedMinutes).toBe(42);
   });
 
+  it("lists followed live channels and caches them across calls", async () => {
+    let calls = 0;
+    const adapter = twitchAdapter(jsonFetcher((_url, init) => {
+      const body = requestBody(init);
+      if (body.operationName !== "FollowedLiveChannels") throw new Error(`Unexpected operation ${String(body.operationName)}`);
+      calls += 1;
+      return {
+        data: {
+          currentUser: {
+            id: "user-id",
+            followedLiveUsers: {
+              edges: [
+                { node: { id: "1", login: "Friend" } },
+                { node: { id: "2", login: "other" } },
+                { node: {} },
+              ],
+            },
+          },
+        },
+      };
+    }));
+
+    await expect(adapter.listFollowedChannels()).resolves.toEqual(["friend", "other"]);
+    await expect(adapter.listFollowedChannels()).resolves.toEqual(["friend", "other"]);
+    expect(calls).toBe(1);
+  });
+
+  it("reports no followed channels when the query returns GQL errors", async () => {
+    const emit = vi.fn();
+    // Schema drift answers 200 with an errors body rather than throwing, so it
+    // must not be mistaken for a signed-out account with no live follows.
+    const adapter = twitchAdapter(
+      jsonFetcher(() => ({ errors: [{ message: "Cannot query field followedLiveUsers" }] })),
+      undefined,
+      undefined,
+      undefined,
+      emit,
+    );
+
+    await expect(adapter.listFollowedChannels()).resolves.toEqual([]);
+    expect(emit).toHaveBeenCalledWith(expect.objectContaining({
+      category: "diagnostic",
+      message: expect.stringContaining("followed-channel lookup failed"),
+    }));
+  });
+
+  it("returns no followed channels for a signed-out session", async () => {
+    const adapter = twitchAdapter(jsonFetcher(() => ({ data: { currentUser: null } })));
+
+    await expect(adapter.listFollowedChannels()).resolves.toEqual([]);
+  });
+
+  it("shares the followed-channel cache across adapter instances via discoveryState", async () => {
+    // The extension reconstructs TwitchAdapter fresh every scheduler tick, so a
+    // cache the discoveryState doesn't survive would hit the network on every
+    // tick. Two separate instances standing in for two ticks proves the cache
+    // outlives the adapter.
+    let calls = 0;
+    const fetcher = jsonFetcher(() => {
+      calls += 1;
+      return { data: { currentUser: { followedLiveUsers: { edges: [{ node: { login: "friend" } }] } } } };
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+
+    await expect(firstTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+    await expect(secondTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+
+    expect(calls).toBe(1);
+  });
+
+  it("drops the followed-channel cache when the authenticated user changes", async () => {
+    // Follows are per-account, so a cache populated under one user must never
+    // answer for the next one — the discoveryState outlives the adapter, so
+    // without an explicit reset the old account's list would serve for the rest
+    // of the TTL.
+    let calls = 0;
+    const fetcher = jsonFetcher(() => {
+      calls += 1;
+      const login = calls === 1 ? "first-account-friend" : "second-account-friend";
+      return { data: { currentUser: { followedLiveUsers: { edges: [{ node: { login } }] } } } };
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.setAuthenticatedUser("user-1");
+    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    await expect(firstTick.listFollowedChannels()).resolves.toEqual(["first-account-friend"]);
+
+    discoveryState.setAuthenticatedUser("user-2");
+    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+
+    await expect(secondTick.listFollowedChannels()).resolves.toEqual(["second-account-friend"]);
+    expect(calls).toBe(2);
+  });
+
+  it("keeps the followed-channel cache when the same user re-authenticates", async () => {
+    let calls = 0;
+    const fetcher = jsonFetcher(() => {
+      calls += 1;
+      return { data: { currentUser: { followedLiveUsers: { edges: [{ node: { login: "friend" } }] } } } };
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.setAuthenticatedUser("user-1");
+    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    await expect(firstTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+
+    // Discovery re-reports the same id every tick; that must not cost a refetch.
+    discoveryState.setAuthenticatedUser("user-1");
+    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+
+    await expect(secondTick.listFollowedChannels()).resolves.toEqual(["friend"]);
+    expect(calls).toBe(1);
+  });
+
+  it("serves a stale followed-channel cache immediately and refreshes in the background", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      let resolveSecondFetch: (() => void) | undefined;
+      const fetcher = jsonFetcher(() => {
+        calls += 1;
+        if (calls === 1) {
+          return { data: { currentUser: { followedLiveUsers: { edges: [{ node: { login: "stale-friend" } }] } } } };
+        }
+        // The second (background) fetch never resolves until the test lets it,
+        // so a caller blocking on it would hang the assertion below.
+        return new Promise((resolve) => {
+          resolveSecondFetch = () => resolve({ data: { currentUser: { followedLiveUsers: { edges: [{ node: { login: "fresh-friend" } }] } } } });
+        });
+      });
+      const discoveryState = new TwitchDiscoveryState();
+      const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+
+      await expect(firstTick.listFollowedChannels()).resolves.toEqual(["stale-friend"]);
+      expect(calls).toBe(1);
+
+      vi.advanceTimersByTime(6 * 60_000); // past the 5-minute cache TTL
+      const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+
+      // Resolves with the stale value without waiting on the (still-pending)
+      // background refresh.
+      await expect(secondTick.listFollowedChannels()).resolves.toEqual(["stale-friend"]);
+      expect(calls).toBe(2);
+
+      resolveSecondFetch?.();
+      await vi.waitFor(() => expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).listFollowedChannels())
+        .resolves.toEqual(["fresh-friend"]));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("passes the auth probe signal to the Twitch CurrentUser request", async () => {
     const abort = new AbortController();
     const emit = vi.fn();
     const fetchJson = vi.fn(async () => ({ data: { currentUser: { id: "u" } } }));
     const fetcher = { fetchJson: fetchJson as PageFetcher["fetchJson"] };
 
-    await new TwitchAdapter(fetcher, undefined, undefined, undefined, emit).checkAuthHealth(abort.signal);
+    await twitchAdapter(fetcher, undefined, undefined, undefined, emit).checkAuthHealth(abort.signal);
 
     expect(fetchJson).toHaveBeenCalledWith(
       "https://gql.twitch.tv/gql",
@@ -1143,7 +1385,7 @@ describe("TwitchAdapter", () => {
       return { data: { currentUser: { id: "private-user-id" } } };
     });
 
-    await expect(new TwitchAdapter(fetcher, ensureIntegrity).checkAuthHealth()).resolves.toEqual({
+    await expect(twitchAdapter(fetcher, ensureIntegrity).checkAuthHealth()).resolves.toEqual({
       status: "healthy",
       checkedAt: expect.any(String),
       message: { key: "authHealthy" },
@@ -1158,7 +1400,7 @@ describe("TwitchAdapter", () => {
   ])("rejects a completed response without authenticated identity: %j", async (response) => {
     const fetcher = jsonFetcher(() => response);
 
-    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+    await expect(twitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
       status: "invalid_credentials",
       checkedAt: expect.any(String),
       reasonCode: "credentials_rejected",
@@ -1173,7 +1415,7 @@ describe("TwitchAdapter", () => {
   ])("classifies explicit Twitch credential rejection as invalid: %j", async (response) => {
     const fetcher = jsonFetcher(() => response);
 
-    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+    await expect(twitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
       status: "invalid_credentials",
       checkedAt: expect.any(String),
       reasonCode: "credentials_rejected",
@@ -1198,7 +1440,7 @@ describe("TwitchAdapter", () => {
     };
 
     try {
-      await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+      await expect(twitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
         status: healthStatus,
         checkedAt: expect.any(String),
         reasonCode,
@@ -1214,7 +1456,7 @@ describe("TwitchAdapter", () => {
       throw new TypeError("Failed to fetch secret-url");
     });
 
-    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+    await expect(twitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
       status: "unavailable",
       checkedAt: expect.any(String),
       reasonCode: "network_unavailable",
@@ -1229,7 +1471,7 @@ describe("TwitchAdapter", () => {
   ])("classifies Twitch response failure as platform unavailability: %j", async (response) => {
     const fetcher = jsonFetcher(() => response);
 
-    await expect(new TwitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+    await expect(twitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
       status: "unavailable",
       checkedAt: expect.any(String),
       reasonCode: "platform_unavailable",
@@ -1245,8 +1487,8 @@ describe("TwitchAdapter", () => {
 
     // Read through the interface: the capability is optional there, and Kick's
     // concrete class deliberately does not declare it at all.
-    const twitch: PlatformAdapter = new TwitchAdapter(fetcher);
-    const kick: PlatformAdapter = new KickAdapter(fetcher);
+    const twitch: PlatformAdapter = twitchAdapter(fetcher);
+    const kick: PlatformAdapter = kickAdapter(fetcher);
 
     expect(twitch.supportsPostClaimHandoff).toBe(true);
     expect(kick.supportsPostClaimHandoff).toBeUndefined();
@@ -1306,7 +1548,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected op ${op}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     const campaigns = await adapter.refreshCampaigns();
 
@@ -1354,7 +1596,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher).refreshCampaigns();
 
     expect(campaigns).toHaveLength(1);
     expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Inventory Campaign", status: "active" });
@@ -1384,7 +1626,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected operation ${String(body.operationName)}`);
     });
 
-    const campaigns = await new TwitchAdapter(
+    const campaigns = await twitchAdapter(
       fetcher,
       undefined,
       undefined,
@@ -1420,7 +1662,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected operation ${op}`);
     });
-    const discovery = new TwitchAdapter(fetcher).refreshCampaigns();
+    const discovery = twitchAdapter(fetcher).refreshCampaigns();
 
     try {
       await vi.waitFor(() => expect(dashboardStarted).toBe(true));
@@ -1458,7 +1700,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher).refreshCampaigns();
 
     expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Inventory Campaign", eligibility: "eligible" });
   });
@@ -1478,11 +1720,11 @@ describe("TwitchAdapter", () => {
     });
     const events: EngineEvent[] = [];
     const discoveryState = new TwitchDiscoveryState();
-    const firstAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
 
     expect((await firstAdapter.refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["a", "b"]);
     failing = "b";
-    const secondAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
+    const secondAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
     const campaigns = await secondAdapter.refreshCampaigns();
 
     expect(campaigns.map((campaign) => campaign.id)).toEqual(["a", "b"]);
@@ -1502,7 +1744,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
     const events: EngineEvent[] = [];
-    const adapter = new TwitchAdapter(fetcher, undefined, undefined, undefined, (event) => events.push(event));
+    const adapter = twitchAdapter(fetcher, undefined, undefined, undefined, (event) => events.push(event));
 
     const campaigns = await adapter.refreshCampaigns();
 
@@ -1521,7 +1763,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await expect(new TwitchAdapter(fetcher).refreshCampaigns()).rejects.toThrow(SafeFetchError);
+    await expect(twitchAdapter(fetcher).refreshCampaigns()).rejects.toThrow(SafeFetchError);
   });
 
   it("keeps not-yet-started campaigns when the dashboard request fails after a successful one", async () => {
@@ -1540,18 +1782,18 @@ describe("TwitchAdapter", () => {
     });
     const events: EngineEvent[] = [];
     const discoveryState = new TwitchDiscoveryState();
-    const firstAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
 
     expect((await firstAdapter.refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
     dashboardFails = true;
-    const secondAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
+    const secondAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
     const campaigns = await secondAdapter.refreshCampaigns();
 
     expect(campaigns.map((campaign) => campaign.id)).toEqual(["a"]);
     expect(events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("dashboard"))).toBe(true);
 
     dashboardFails = false;
-    expect((await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
+    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
   });
 
   it("does not retain dashboard campaigns when the dashboard genuinely returns none", async () => {
@@ -1570,17 +1812,17 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
     const discoveryState = new TwitchDiscoveryState();
-    const firstAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
 
     expect((await firstAdapter.refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["campaign"]);
     dashboardIds = [];
-    const secondAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const secondAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
     const campaigns = await secondAdapter.refreshCampaigns();
 
     expect(campaigns).toEqual([]);
 
     dashboardFails = true;
-    const thirdAdapter = new TwitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const thirdAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
     const failedCampaigns = await thirdAdapter.refreshCampaigns();
 
     expect(failedCampaigns).toEqual([]);
@@ -1605,11 +1847,11 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
 
-    expect((await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
       .map((campaign) => campaign.id)).toEqual(["retained"]);
     refresh = 2;
 
-    const campaigns = await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
 
     expect(campaigns).toEqual([]);
   });
@@ -1638,17 +1880,17 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
 
-    expect((await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
       .map((campaign) => campaign.id)).toEqual(["retained"]);
     refresh = 2;
     fallbackInventoryFails = true;
 
-    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
       .resolves.toEqual([]);
 
     fallbackInventoryFails = false;
     dashboardFails = true;
-    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
       .resolves.toEqual([]);
   });
 
@@ -1666,7 +1908,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await expect(new TwitchAdapter(fetcher).refreshCampaigns()).rejects.toThrow(SafeFetchError);
+    await expect(twitchAdapter(fetcher).refreshCampaigns()).rejects.toThrow(SafeFetchError);
   });
 
   it("does not reuse discovery retained for another authenticated Twitch user", async () => {
@@ -1687,12 +1929,12 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
 
-    expect((await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
       .map((campaign) => campaign.id)).toEqual(["user-a-campaign"]);
     userId = "user-b";
     dashboardFails = true;
 
-    const campaigns = await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
 
     expect(campaigns).toEqual([]);
   });
@@ -1712,12 +1954,12 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
 
-    expect((await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
       .map((campaign) => campaign.id)).toEqual(["shared-campaign-id"]);
     userId = "user-b";
     detailsFail = true;
 
-    const campaigns = await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
 
     expect(campaigns).toEqual([]);
   });
@@ -1740,7 +1982,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher).refreshCampaigns();
 
     expect(campaigns).toHaveLength(1);
     expect(campaigns[0]).toMatchObject({ id: "ended", status: "expired", eligibility: "expired" });
@@ -1761,14 +2003,14 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
 
-    expect((await new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
       .map((campaign) => campaign.id)).toEqual(["campaign"]);
     detailResponse = "missing";
-    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
       .resolves.toEqual([]);
     detailResponse = "failure";
 
-    await expect(new TwitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
       .resolves.toEqual([]);
   });
 
@@ -1842,7 +2084,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher).refreshCampaigns();
 
     expect(campaigns.find((campaign) => campaign.id === "active")).toMatchObject({ status: "active", eligibility: "eligible" });
     expect(campaigns.find((campaign) => campaign.id === "ended")).toMatchObject({ status: "expired", eligibility: "expired" });
@@ -1899,7 +2141,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher).refreshCampaigns();
 
     const ended = campaigns.find((campaign) => campaign.id === "ended");
     expect(ended).toMatchObject({ status: "active", eligibility: "eligible" });
@@ -1947,7 +2189,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher).refreshCampaigns();
 
     expect(campaigns[0]).toMatchObject({
       id: "campaign",
@@ -1991,7 +2233,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher).refreshCampaigns();
 
     expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Fallback Campaign", eligibility: "eligible" });
   });
@@ -2039,7 +2281,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher).refreshCampaigns();
 
     expect(campaigns[0]).toMatchObject({
       id: "future",
@@ -2073,7 +2315,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected op ${op}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     await expect(adapter.claimChannelPoints({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }))
       .resolves.toBe(true);
@@ -2109,7 +2351,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher).refreshCampaigns();
 
     expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Array Campaign", eligibility: "eligible" });
   });
@@ -2149,7 +2391,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher).refreshCampaigns();
 
     expect(inventoryAttempts).toBe(2);
     expect(campaigns[0]).toMatchObject({ id: "campaign", name: "Inline Campaign", eligibility: "eligible" });
@@ -2166,7 +2408,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await expect(new TwitchAdapter(fetcher).refreshCampaigns()).rejects.toThrow("permission denied");
+    await expect(twitchAdapter(fetcher).refreshCampaigns()).rejects.toThrow("permission denied");
     expect(inventoryAttempts).toBe(1);
   });
 
@@ -2195,7 +2437,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await expect(new TwitchAdapter(fetcher).claimChannelPoints({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }))
+    await expect(twitchAdapter(fetcher).claimChannelPoints({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }))
       .resolves.toBe(true);
     expect(contextAttempts).toBe(2);
   });
@@ -2216,7 +2458,11 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const campaigns = await new TwitchAdapter(fetcher).refreshCampaigns();
+    // Explicit v1 override: the recommended/automatic profile resolves to
+    // inventory v2, but this test exercises v1's hash/fallback/parser pairing.
+    const campaigns = await twitchAdapter(fetcher, undefined, undefined, {
+      compatibility: { ...TWITCH_COMPAT, inventory: "twitch-inventory-v1" },
+    }).refreshCampaigns();
 
     expect(inventoryBodies).toHaveLength(2);
     expect(inventoryBodies[0]).toMatchObject({
@@ -2255,7 +2501,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    const adapter = new TwitchAdapter(
+    const adapter = twitchAdapter(
       fetcher,
       undefined,
       undefined,
@@ -2278,7 +2524,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${operation(init)}`);
     });
 
-    await expect(new TwitchAdapter(fetcher).refreshCampaigns())
+    await expect(twitchAdapter(fetcher).refreshCampaigns())
       .rejects.toMatchObject({
         failure: { kind: "authentication_rejected", status: 401 },
       });
@@ -2293,13 +2539,13 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await expect(new TwitchAdapter(fetcher).refreshCampaigns())
+    await expect(twitchAdapter(fetcher).refreshCampaigns())
       .rejects.toThrow("Twitch did not return a logged-in current user; open twitch.tv and confirm you are signed in");
   });
 
   it("reports unusable array-wrapped Twitch GQL responses as empty", async () => {
     for (const empty of [[], [null]] as const) {
-      const adapter = new TwitchAdapter(jsonFetcher((_url, init) => {
+      const adapter = twitchAdapter(jsonFetcher((_url, init) => {
         if (operation(init) === "ChannelPointsContext") return empty;
         throw new Error(`Unexpected op ${operation(init)}`);
       }));
@@ -2310,7 +2556,7 @@ describe("TwitchAdapter", () => {
   });
 
   it("surfaces the page fetcher's __twitchGqlError diagnostic envelope", async () => {
-    const adapter = new TwitchAdapter(jsonFetcher((_url, init) => {
+    const adapter = twitchAdapter(jsonFetcher((_url, init) => {
       if (operation(init) === "Inventory") {
         return { __twitchGqlError: "returned an unusable response; status=200; body=null" };
       }
@@ -2322,7 +2568,7 @@ describe("TwitchAdapter", () => {
   });
 
   it("reports null Twitch GQL responses with the operation name", async () => {
-    const adapter = new TwitchAdapter(jsonFetcher((_url, init) => {
+    const adapter = twitchAdapter(jsonFetcher((_url, init) => {
       if (operation(init) === "ChannelPointsContext") return null;
       throw new Error(`Unexpected op ${operation(init)}`);
     }));
@@ -2342,7 +2588,7 @@ describe("TwitchAdapter", () => {
       expect(init?.credentials).toBe("omit");
       return { data: { user: { displayName: "Creator", stream: { viewersCount: 789, game: { id: "game", name: "Game" } } } } };
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
@@ -2366,7 +2612,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected op ${op}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator", isAclMatch: true },
@@ -2390,7 +2636,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected op ${op}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
@@ -2412,7 +2658,7 @@ describe("TwitchAdapter", () => {
       if (op === "DropsHighlightService_AvailableDrops") throw new Error("availability unavailable");
       throw new Error(`Unexpected op ${op}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
@@ -2435,7 +2681,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected op ${op}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
@@ -2463,7 +2709,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected op ${op}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
@@ -2488,7 +2734,7 @@ describe("TwitchAdapter", () => {
         }
         throw new Error(`Unexpected op ${op}`);
       });
-      const adapter = new TwitchAdapter(fetcher);
+      const adapter = twitchAdapter(fetcher);
       const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
 
       await expect(adapter.checkChannel(candidate, {
@@ -2543,7 +2789,7 @@ describe("TwitchAdapter", () => {
         },
       };
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     const candidates = await adapter.listCandidateChannels({
       id: "campaign",
@@ -2573,7 +2819,7 @@ describe("TwitchAdapter", () => {
       operations.push(operation(init));
       return { data: { channel: { viewerDropCampaigns: [{ id: "campaign" }] } } };
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
     const candidate = {
       platform: "twitch" as const,
       username: "directory-winner",
@@ -2624,7 +2870,7 @@ describe("TwitchAdapter", () => {
       });
     });
 
-    const selection = await new TwitchAdapter(fetcher, undefined, undefined, {}, (event) => {
+    const selection = await twitchAdapter(fetcher, undefined, undefined, {}, (event) => {
       events.push(event);
     }).selectCandidateChannel?.(
       candidates,
@@ -2653,7 +2899,7 @@ describe("TwitchAdapter", () => {
       return [{ data: { user: { stream: null } } }];
     });
 
-    const selection = await new TwitchAdapter(fetcher, undefined, undefined, {}, (event) => {
+    const selection = await twitchAdapter(fetcher, undefined, undefined, {}, (event) => {
       events.push(event);
     }).selectCandidateChannel?.([{
       platform: "twitch",
@@ -2694,7 +2940,7 @@ describe("TwitchAdapter", () => {
       return { data: { channel: { viewerDropCampaigns: [] } } };
     });
 
-    await new TwitchAdapter(fetcher).selectCandidateChannel?.(
+    await twitchAdapter(fetcher).selectCandidateChannel?.(
       candidates,
       { id: "campaign", categoryId: "game" } as DropCampaign,
     );
@@ -2740,7 +2986,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected operation ${String(body.operationName)}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     const selection = await adapter.selectCandidateChannel?.(
       candidates,
@@ -2784,7 +3030,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected operation ${String(body.operationName)}`);
     });
-    const adapter = new TwitchAdapter(fetcher, undefined, undefined, {}, (event) => {
+    const adapter = twitchAdapter(fetcher, undefined, undefined, {}, (event) => {
       if (event.category === "diagnostic") diagnostics.push(event.message);
     });
 
@@ -2836,7 +3082,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected operation ${String(body.operationName)}`);
     });
 
-    const selection = await new TwitchAdapter(fetcher).selectCandidateChannel?.(
+    const selection = await twitchAdapter(fetcher).selectCandidateChannel?.(
       candidates,
       { id: "campaign", categoryId: "game" } as DropCampaign,
     );
@@ -2857,7 +3103,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
@@ -2880,7 +3126,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
@@ -2902,7 +3148,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     await expect(adapter.checkChannel(
       { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
@@ -2942,7 +3188,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected op ${op}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     const progress = await adapter.refreshCampaigns({
       platform: "twitch",
@@ -2967,7 +3213,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${operation(init)}`);
     });
     const ensureIntegrity = vi.fn(async () => true);
-    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const adapter = twitchAdapter(fetcher, ensureIntegrity);
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
 
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
@@ -2980,7 +3226,7 @@ describe("TwitchAdapter", () => {
       throw new Error("should not fetch without a claim id");
     });
     const ensureIntegrity = vi.fn(async () => true);
-    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const adapter = twitchAdapter(fetcher, ensureIntegrity);
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" } as DropReward;
 
     expect(adapter.isClaimReady(reward)).toBe(false);
@@ -2997,7 +3243,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${operation(init)}`);
     });
     const ensureIntegrity = vi.fn(async () => true);
-    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const adapter = twitchAdapter(fetcher, ensureIntegrity);
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
 
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).rejects.toThrow(/status=INELIGIBLE/);
@@ -3016,7 +3262,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${operation(init)}`);
     });
     const ensureIntegrity = vi.fn(async () => true);
-    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const adapter = twitchAdapter(fetcher, ensureIntegrity);
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
 
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
@@ -3034,7 +3280,7 @@ describe("TwitchAdapter", () => {
     });
     // No token can be captured (e.g. logged out / no tab can be opened).
     const ensureIntegrity = vi.fn(async () => false);
-    const adapter = new TwitchAdapter(fetcher, ensureIntegrity);
+    const adapter = twitchAdapter(fetcher, ensureIntegrity);
     const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
 
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward))
@@ -3072,7 +3318,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected op ${op}`);
     });
-    const adapter = new TwitchAdapter(fetcher);
+    const adapter = twitchAdapter(fetcher);
 
     const progress = await adapter.refreshCampaigns({
       platform: "twitch",
@@ -3107,7 +3353,7 @@ describe("TwitchAdapter", () => {
       };
     });
 
-    await expect(new TwitchAdapter(fetcher).searchCategories("fort")).resolves.toEqual([
+    await expect(twitchAdapter(fetcher).searchCategories("fort")).resolves.toEqual([
       { id: "33214", name: "Fortnite", imageUrl: "https://art/fortnite-144x192.jpg" },
     ]);
   });
@@ -3118,7 +3364,7 @@ describe("TwitchAdapter client identity", () => {
 
   it("sends an injected non-web Client-ID + matching User-Agent on GQL requests", async () => {
     let captured: RequestInit | undefined;
-    const adapter = new TwitchAdapter(
+    const adapter = twitchAdapter(
       jsonFetcher((_url, init) => { captured = init; return emptyCategories; }),
       undefined,
       undefined,
@@ -3132,7 +3378,7 @@ describe("TwitchAdapter client identity", () => {
 
   it("defaults to the web Client-ID and omits the User-Agent (extension behavior)", async () => {
     let captured: RequestInit | undefined;
-    await new TwitchAdapter(jsonFetcher((_url, init) => { captured = init; return emptyCategories; })).searchCategories("rust");
+    await twitchAdapter(jsonFetcher((_url, init) => { captured = init; return emptyCategories; })).searchCategories("rust");
     const headers = captured?.headers as Record<string, string>;
     expect(headers["Client-ID"]).toBe("kimne78kx3ncx6brgo4mv6wki5h1ko");
     expect(headers["User-Agent"]).toBeUndefined();
@@ -3187,7 +3433,7 @@ describe("TwitchAdapter integrity recovery", () => {
       return attempts === 1 ? INTEGRITY_REJECTION : { data: { currentUser: { id: "u" } } };
     });
 
-    await new TwitchAdapter(fetcher, ensureIntegrity, undefined, { currentIntegrity }).checkAuthHealth();
+    await twitchAdapter(fetcher, ensureIntegrity, undefined, { currentIntegrity }).checkAuthHealth();
 
     expect(sent[0]).toBe("token-1");
     expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
@@ -3210,7 +3456,7 @@ describe("TwitchAdapter integrity recovery", () => {
       return { data: { currentUser: { id: "u" } } };
     });
 
-    await new TwitchAdapter(fetcher, undefined, undefined, { currentIntegrity }).checkAuthHealth();
+    await twitchAdapter(fetcher, undefined, undefined, { currentIntegrity }).checkAuthHealth();
 
     expect(seen?.get("client-integrity")).toBe("bound-token");
     expect(seen?.get("x-device-id")).toBe("bound-device");
@@ -3235,7 +3481,7 @@ describe("TwitchAdapter integrity recovery", () => {
         const ensureIntegrity = integrityCallback();
         const { fetcher, attempts } = rejectFirst(target, discoveryPayload);
 
-        const campaigns = await new TwitchAdapter(fetcher, ensureIntegrity).refreshCampaigns();
+        const campaigns = await twitchAdapter(fetcher, ensureIntegrity).refreshCampaigns();
 
         expect(campaigns.map((campaign) => campaign.id)).toEqual(["campaign"]);
         expect(ensureIntegrity).toHaveBeenCalledOnce();
@@ -3252,7 +3498,7 @@ describe("TwitchAdapter integrity recovery", () => {
       const ensureIntegrity = integrityCallback();
       const { fetcher } = rejectFirst("ViewerDropsDashboard", discoveryPayload);
 
-      const campaigns = await new TwitchAdapter(
+      const campaigns = await twitchAdapter(
         fetcher,
         ensureIntegrity,
         undefined,
@@ -3281,7 +3527,7 @@ describe("TwitchAdapter integrity recovery", () => {
         throw new Error(`Unexpected op ${op}`);
       });
 
-      await new TwitchAdapter(fetcher, ensureIntegrity, undefined, {}, (event) => events.push(event))
+      await twitchAdapter(fetcher, ensureIntegrity, undefined, {}, (event) => events.push(event))
         .refreshCampaigns();
 
       // Discovery makes two dashboard requests when both lists come back empty
@@ -3312,7 +3558,7 @@ describe("TwitchAdapter integrity recovery", () => {
         throw new Error(`Unexpected op ${op}`);
       });
 
-      await new TwitchAdapter(fetcher, ensureIntegrity).refreshCampaigns();
+      await twitchAdapter(fetcher, ensureIntegrity).refreshCampaigns();
 
       // Two dashboard requests, each bounded to exactly one refresh and one
       // retry — the second rejection is never refreshed or replayed again.
@@ -3333,7 +3579,7 @@ describe("TwitchAdapter integrity recovery", () => {
         throw new Error(`Unexpected op ${op}`);
       });
 
-      await new TwitchAdapter(fetcher, ensureIntegrity).refreshCampaigns();
+      await twitchAdapter(fetcher, ensureIntegrity).refreshCampaigns();
 
       // Both dashboard requests fail generically: no refresh, and no replay of
       // either request.
@@ -3353,7 +3599,7 @@ describe("TwitchAdapter integrity recovery", () => {
         },
       }));
 
-      const candidates = await new TwitchAdapter(fetcher, ensureIntegrity)
+      const candidates = await twitchAdapter(fetcher, ensureIntegrity)
         .listCandidateChannels({ id: "campaign", slug: "game-slug" } as DropCampaign);
 
       expect(candidates.map((candidate) => candidate.username)).toEqual(["creator"]);
@@ -3377,7 +3623,7 @@ describe("TwitchAdapter integrity recovery", () => {
         throw new Error(`Unexpected op ${op}`);
       });
 
-      const check = await new TwitchAdapter(fetcher, ensureIntegrity).checkChannel(
+      const check = await twitchAdapter(fetcher, ensureIntegrity).checkChannel(
         { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
         { campaign: { id: "campaign", categoryId: "game" } as DropCampaign },
       );
@@ -3404,7 +3650,7 @@ describe("TwitchAdapter integrity recovery", () => {
           }
           throw new Error(`Unexpected op ${op}`);
         });
-        const progressed = await new TwitchAdapter(fetcher, ensureIntegrity).refreshCampaigns({
+        const progressed = await twitchAdapter(fetcher, ensureIntegrity).refreshCampaigns({
           platform: "twitch",
           status: "watching",
           offlineChecks: 0,
@@ -3426,7 +3672,7 @@ describe("TwitchAdapter integrity recovery", () => {
         data: { currentUser: { id: "user-id" } },
       }));
 
-      const health = await new TwitchAdapter(fetcher, ensureIntegrity).checkAuthHealth();
+      const health = await twitchAdapter(fetcher, ensureIntegrity).checkAuthHealth();
 
       expect(health.status).toBe("healthy");
       expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
@@ -3452,7 +3698,7 @@ describe("TwitchAdapter integrity recovery", () => {
         return INTEGRITY_REJECTION;
       });
 
-      await run(new TwitchAdapter(fetcher, ensureIntegrity)).catch(() => undefined);
+      await run(twitchAdapter(fetcher, ensureIntegrity)).catch(() => undefined);
 
       expect(captured?.credentials).toBe("omit");
       expect(ensureIntegrity).not.toHaveBeenCalled();
@@ -3477,7 +3723,7 @@ describe("TwitchAdapter integrity recovery", () => {
         data: { claimDropRewards: { status: "ELIGIBLE_FOR_ALL" } },
       }));
 
-      await expect(new TwitchAdapter(fetcher, ensureIntegrity)
+      await expect(twitchAdapter(fetcher, ensureIntegrity)
         .claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
 
       expect(attempts.get("DropsPage_ClaimDropRewards")).toBe(2);
@@ -3504,7 +3750,7 @@ describe("TwitchAdapter integrity recovery", () => {
         throw new Error(`Unexpected op ${op}`);
       });
 
-      await expect(new TwitchAdapter(fetcher, ensureIntegrity).claimChannelPoints({
+      await expect(twitchAdapter(fetcher, ensureIntegrity).claimChannelPoints({
         platform: "twitch",
         username: "creator",
         url: "https://www.twitch.tv/creator",
@@ -3528,7 +3774,7 @@ describe("TwitchAdapter integrity recovery", () => {
         throw new Error(`Unexpected op ${op}`);
       });
 
-      await expect(new TwitchAdapter(fetcher, ensureIntegrity).claimChannelPoints({
+      await expect(twitchAdapter(fetcher, ensureIntegrity).claimChannelPoints({
         platform: "twitch",
         username: "creator",
         url: "https://www.twitch.tv/creator",
@@ -3561,7 +3807,7 @@ describe("TwitchAdapter integrity recovery", () => {
         throw new Error(`Unexpected op ${op}`);
       });
 
-      await expect(new TwitchAdapter(fetcher, ensureIntegrity).claimChannelPoints({
+      await expect(twitchAdapter(fetcher, ensureIntegrity).claimChannelPoints({
         platform: "twitch",
         username: "creator",
         url: "https://www.twitch.tv/creator",

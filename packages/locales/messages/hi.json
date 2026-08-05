@@ -62,17 +62,23 @@
   "settingsSearchNoResults": {
     "message": "कोई सेटिंग “$1” से मेल नहीं खाती।"
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "प्लेटफ़ॉर्म और श्रेणियाँ/गेम"
+  },
+  "settingsPlatformSettings": {
+    "message": "$1 सेटिंग्स"
+  },
   "settingsShowAdvancedTitle": {
     "message": "उन्नत सेटिंग्स दिखाएँ"
   },
-  "settingsSectionGeneral": {
-    "message": "सामान्य"
+  "settingsSectionJumpNavLabel": {
+    "message": "अनुभाग पर जाएँ"
   },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
+  "settingsSectionAdvancedActions": {
+    "message": "उन्नत कार्रवाइयाँ"
   },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Lurkloot सेटिंग्स आयात, निर्यात या रीसेट करें।"
   },
   "activityTitle": {
     "message": "गतिविधि"
@@ -138,7 +144,7 @@
     "message": "फ़ार्मिंग"
   },
   "waitingEligibleStream": {
-    "message": "योग्य स्ट्रीम की प्रतीक्षा"
+    "message": "इस अभियान के लिए वर्तमान में कोई योग्य लाइव स्ट्रीम उपलब्ध नहीं है"
   },
   "watchingPausedHint": {
     "message": "देखना रुका है। Drops फ़ार्मिंग फिर शुरू करने के लिए टॉगल करें।"
@@ -179,14 +185,38 @@
   "tipExcludedCampaigns": {
     "message": "गलती से कैंपेन हटाया? उसे Drops सेटिंग्स से वापस लाएँ।"
   },
+  "tipTranslations": {
+    "message": "अनुवादों का रखरखाव AI द्वारा स्वचालित रूप से किया जाता है। उन्हें बेहतर बनाने में GitHub पर मदद करें।"
+  },
+  "tipTranslationsAction": {
+    "message": "अनुवाद गाइड पढ़ें"
+  },
   "noCampaigns": {
     "message": "अभी कोई अभियान नहीं मिला।"
+  },
+  "campaignSearchPlaceholder": {
+    "message": "अभियान खोजें…"
+  },
+  "campaignSearchNoResults": {
+    "message": "कोई अभियान “$1” से मेल नहीं खाता।"
+  },
+  "closeSearch": {
+    "message": "खोज बंद करें"
+  },
+  "search": {
+    "message": "खोजें"
   },
   "noActivity": {
     "message": "अभी कोई गतिविधि रिकॉर्ड नहीं हुई। जाँच चलाने के लिए रीफ़्रेश दबाएँ।"
   },
   "noDiagnostics": {
     "message": "अभी कोई डायग्नोस्टिक रिकॉर्ड नहीं हुआ। एक्सटेंशन के काम करते ही ये दिखेंगे।"
+  },
+  "searchDiagnostics": {
+    "message": "डायग्नोस्टिक खोजें"
+  },
+  "noDiagnosticsMatch": {
+    "message": "\"$1\" से मेल खाने वाला कोई डायग्नोस्टिक नहीं है।"
   },
   "platformActivity": {
     "message": "$1 गतिविधि"
@@ -330,16 +360,19 @@
     "message": "चैनल जोड़ें"
   },
   "idleWatchlistChannel": {
-    "message": "वॉचलिस्ट में"
+    "message": "ऑफ़लाइन"
   },
   "live": {
     "message": "लाइव"
+  },
+  "viewerCount": {
+    "message": "$1 दर्शक"
   },
   "settingsGeneralTitle": {
     "message": "सामान्य सेटिंग्स"
   },
   "settingsGeneralDescription": {
-    "message": "Twitch और Kick पर लागू।"
+    "message": "भाषा, स्टार्टअप और पॉप-अप व्यवहार।"
   },
   "settingsGroupAppearance": {
     "message": "रूप और व्यवहार"
@@ -360,7 +393,7 @@
     "message": "सूचनाएँ"
   },
   "notificationsDescription": {
-    "message": "सभी सक्षम प्लेटफ़ॉर्म पर लागू।"
+    "message": "रिवॉर्ड तैयार होने या अभियान समाप्त होने पर अलर्ट।"
   },
   "settingsGroupNotifications": {
     "message": "सूचनाएँ"
@@ -381,7 +414,7 @@
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "साझा कैंपेन फ़ार्मिंग व्यवहार।"
+    "message": "क्लेम करना, पात्रता, प्राथमिकताएँ और अभियान दृश्यता।"
   },
   "settingsGroupDrops": {
     "message": "Drops"
@@ -418,6 +451,12 @@
   },
   "idleWatchlistFallbackOnlyDescription": {
     "message": "कोई योग्य drop उपलब्ध होते ही निष्क्रिय वॉचलिस्ट चैनल छोड़ देता है। बंद होने पर, चैनल के ऑफ़लाइन होने तक उसे देखता रहता है।"
+  },
+  "preferKnownChannelsTitle": {
+    "message": "फ़ॉलो किए गए और निष्क्रिय वॉचलिस्ट चैनलों को प्राथमिकता दें"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "जब कोई drop कई चैनलों पर उपलब्ध हो, तो किसी अनजान चैनल के बजाय ऐसा चैनल चुनता है जिसे आप फ़ॉलो करते हैं या जो आपकी निष्क्रिय वॉचलिस्ट में है।"
   },
   "platformSettingsTitle": {
     "message": "प्लेटफ़ॉर्म सेटिंग्स"
@@ -601,6 +640,9 @@
   },
   "hasActiveDrops": {
     "message": "सक्रिय drops हैं"
+  },
+  "otherCategories": {
+    "message": "अन्य श्रेणियाँ"
   },
   "searchCategories": {
     "message": "$1 श्रेणियाँ खोजें"
@@ -787,6 +829,33 @@
   },
   "cliExportButton": {
     "message": "क्रेडेंशियल निर्यात करें"
+  },
+  "settingsExportTitle": {
+    "message": "सेटिंग्स आयात/निर्यात करें"
+  },
+  "settingsExportHint": {
+    "message": "अपनी सेटिंग्स को एक फ़ाइल में सहेजें, या उन्हें किसी अन्य ब्राउज़र पर लोड करें। इसमें कभी भी आपका Twitch या Kick लॉगिन शामिल नहीं होता।"
+  },
+  "settingsExportButton": {
+    "message": "सेटिंग्स निर्यात करें"
+  },
+  "settingsImportButton": {
+    "message": "सेटिंग्स आयात करें"
+  },
+  "settingsImportConfirm": {
+    "message": "यह आपकी वर्तमान सेटिंग्स को चयनित फ़ाइल की सेटिंग्स से बदल देगा। जारी रखें?"
+  },
+  "settingsImportCancel": {
+    "message": "रद्द करें"
+  },
+  "settingsImportConfirmButton": {
+    "message": "फ़ाइल चुनें और आयात करें"
+  },
+  "settingsImportFailed": {
+    "message": "वह फ़ाइल एक मान्य Lurkloot सेटिंग्स निर्यात नहीं है।"
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot आपकी सेटिंग्स निर्यात नहीं कर सका। फिर से कोशिश करें।"
   },
   "factoryResetTitle": {
     "message": "Lurkloot रीसेट करें"
@@ -990,7 +1059,7 @@
     "message": "संगतता"
   },
   "compatibilitySectionDescription": {
-    "message": "Lurkloot हर प्लेटफ़ॉर्म से कैसे संवाद करता है। स्वचालित मोड बंडल की गई प्रोफ़ाइल का पालन करता है।"
+    "message": "इन्हें केवल तब बदलें जब Twitch या Kick काम न करे; ये प्लेटफ़ॉर्म समस्याओं का समाधान करने में मदद कर सकते हैं।"
   },
   "compatibilityComponentProfile": {
     "message": "प्रोफ़ाइल"

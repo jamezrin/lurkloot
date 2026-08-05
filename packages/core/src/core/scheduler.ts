@@ -12,8 +12,15 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
-import { campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
-import { isSubscriptionReward, isWatchReward, reconcileCampaignAfterClaims, rewardFeasibility } from "@lurkloot/shared/rewards";
+import { campaignFarmable, campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
+import {
+  canClaimReward,
+  isRewardAvailableToEarn,
+  isRewardDeadlineFeasible,
+  isSubscriptionReward,
+  reconcileCampaignAfterClaims,
+  rewardFeasibility,
+} from "@lurkloot/shared/rewards";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, syncManagedTabBreakers, type SchedulerManagedPageContexts } from "./tabs";
@@ -22,6 +29,7 @@ import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
 import { isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
+import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -46,7 +54,7 @@ function activeReward(campaign: DropCampaign, settings: EngineSettings): DropRew
   const earnable = campaign.rewards.filter((reward) =>
     reward.preconditionsMet !== false
     && isRewardAvailableToEarn(reward)
-    && isRewardDeadlineFeasible(campaign, reward, settings));
+    && isRewardDeadlineFeasible(campaign, reward, settings.skipUnfinishableRewards, settings.deadlineSafetyMarginMinutes));
   return earnable.find((reward) => reward.status === "in_progress")
     ?? earnable.find((reward) => reward.status === "locked");
 }
@@ -68,34 +76,16 @@ function chooseTablessWatch(
 }
 
 function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
-  if (campaign.status !== "active") return false;
-  if (hasCampaignEnded(campaign)) return false;
-  if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
-  if (settings.excludedCampaignIds.includes(campaign.id)) return false;
-  // Farming eligibility: the two flags farmUnlinkedCampaigns and
-  // farmSubscriptionCampaigns gate whether unlinked or subscription-gated
-  // campaigns are farmed. The display-only dropsListFilter is never consulted
-  // here, so hiding finished campaigns in the popup never stops farming.
-  if (!campaignPassesFarmingEligibility(campaign, settings.farmingEligibility)) return false;
-  // Category filter: when "Farm all categories" is off for this platform, only
-  // campaigns whose category is on the list are farmable (an empty list then
-  // farms nothing).
-  const platformSettings = settings.platform[campaign.platform];
-  if (!platformSettings.farmAllCategories && categoryListIndex(campaign, platformSettings.categories) === -1) return false;
-  // Twitch cannot earn drops until the account is linked, so an unlinked Twitch
-  // campaign is skipped. Kick DOES accrue watch progress before linking (the
-  // link is only required to claim), so we keep farming unlinked Kick campaigns
-  // and surface the claim-time "link your account" guidance instead.
-  if (campaign.platform !== "kick" && campaign.accountLinked === false) return false;
-  // "Priority list only" farms exclusively the campaigns the user explicitly
-  // reordered (campaignPriorities). Category curation is owned by the separate
-  // per-platform "Farm all categories" filter above.
+  // campaignFarmable is the single shared definition of "is this campaign
+  // farmable" (shared with the popup's isCampaignVisible, so display and
+  // farming never drift apart). "Priority list only" is the one farming-
+  // strategy layer on top of it: it farms exclusively the campaigns the user
+  // explicitly reordered (campaignPriorities), which is deliberately NOT part
+  // of campaignFarmable — a deprioritized campaign must stay farmable-shaped
+  // for display so the user can still add it to the list.
+  if (!campaignFarmable(campaign, settings)) return false;
   if (settings.priorityMode === "priority_list_only" && !isInPriorityList(campaign, settings)) return false;
-  return campaign.rewards.some((reward) =>
-    reward.status !== "claimed"
-    && reward.preconditionsMet !== false
-    && isRewardRelevantNow(reward)
-    && (canClaimReward(reward) || isRewardDeadlineFeasible(campaign, reward, settings)));
+  return true;
 }
 
 // Reason codes that mean the watch stopped accruing for an explainable reason
@@ -199,11 +189,26 @@ function categoryPriorityScore(campaign: DropCampaign, settings: EngineSettings)
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
+// Ranks candidates the user has a relationship with above anonymous directory
+// channels: an explicit Idle Watchlist entry first, then a followed channel.
+// Purely a tie-break among channels that already qualify for the campaign, so it
+// never changes *what* is farmed, only *where* it is farmed.
+function channelPreferenceScore(
+  candidate: ChannelCandidate,
+  idleWatchlist: ReadonlySet<string>,
+  followed: ReadonlySet<string>,
+): number {
+  const username = candidate.username.toLowerCase();
+  if (idleWatchlist.has(username)) return 0;
+  if (followed.has(username)) return 1;
+  return 2;
+}
+
 export async function chooseCampaignDecision(
   platform: Platform,
   campaigns: DropCampaign[],
   settings: EngineSettings,
-  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel">,
+  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">,
   signal?: AbortSignal,
   reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
 ): Promise<WatchDecision> {
@@ -214,6 +219,30 @@ export async function chooseCampaignDecision(
   let campaignsChecked = 0;
   let candidatesChecked = 0;
   const generalCandidatesByCategory = new Map<string, ChannelCandidate[]>();
+  const idleWatchlist = settings.preferKnownChannels
+    ? new Set(settings.platform[platform].idleWatchlistChannels
+      .map((username) => username.trim().toLowerCase())
+      .filter(Boolean))
+    : new Set<string>();
+  // Resolved at most once per decision (campaigns are looped, and the follow list
+  // does not change between them) and only when a candidate list is long enough
+  // for the preference to matter. A platform without the capability, or a failed
+  // lookup, degrades to no preference rather than losing the tick. When the
+  // setting is off, the adapter method is never called at all — not just
+  // ignored — so a user who disables it pays no extra request for it.
+  let followedChannels: ReadonlySet<string> | undefined;
+  const resolveFollowedChannels = async (): Promise<ReadonlySet<string>> => {
+    if (followedChannels) return followedChannels;
+    followedChannels = new Set<string>();
+    if (!settings.preferKnownChannels || !adapter.listFollowedChannels) return followedChannels;
+    try {
+      const logins = await adapter.listFollowedChannels({ signal });
+      followedChannels = new Set(logins.map((login) => login.trim().toLowerCase()).filter(Boolean));
+    } catch (error) {
+      if (signal?.aborted) throw error;
+    }
+    return followedChannels;
+  };
   const finish = (decision: WatchDecision): WatchDecision => {
     reportMetrics?.({ campaignsChecked, candidatesChecked });
     return decision;
@@ -238,7 +267,7 @@ export async function chooseCampaignDecision(
         generalCandidatesByCategory.set(reusableDirectoryKey, listedCandidates);
       }
     }
-    const candidates = [...new Map(
+    const deduplicated = [...new Map(
       listedCandidates
         .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
         .map((candidate) => ({
@@ -248,9 +277,20 @@ export async function chooseCampaignDecision(
           categoryName: campaign.gameName ?? candidate.categoryName,
         }))
         .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
-    ).values()]
+    ).values()];
+    // Only worth asking the platform who the user follows when more than one
+    // candidate could win the campaign.
+    const followed = deduplicated.length > 1
+      ? await resolveFollowedChannels()
+      : followedChannels ?? new Set<string>();
+    const candidates = deduplicated
       .sort((left, right) => {
+        // ACL stays the strongest key: for an ACL-restricted campaign a followed
+        // channel outside the allow list cannot earn the drop at all.
         if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
+        const preference = channelPreferenceScore(left, idleWatchlist, followed)
+          - channelPreferenceScore(right, idleWatchlist, followed);
+        if (preference !== 0) return preference;
         return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
       });
 
@@ -349,7 +389,7 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
     && !campaign.rewards.some((reward) =>
       reward.preconditionsMet !== false
       && isRewardAvailableToEarn(reward)
-      && isRewardDeadlineFeasible(campaign, reward, settings)))) {
+      && isRewardDeadlineFeasible(campaign, reward, settings.skipUnfinishableRewards, settings.deadlineSafetyMarginMinutes)))) {
     return "Available rewards cannot be completed before their deadline";
   }
   return "No eligible campaigns";
@@ -872,6 +912,8 @@ export async function runSchedulerTick(
                 campaignName: event.campaignName,
                 rewardId: event.rewardId,
                 rewardName: event.rewardName,
+                ...(event.rewardImageUrl ? { rewardImageUrl: event.rewardImageUrl } : {}),
+                ...(event.campaignUrl ? { campaignUrl: event.campaignUrl } : {}),
                 method: "automatic",
               },
             });
@@ -1136,8 +1178,7 @@ export async function runSchedulerTick(
 function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolean {
   const manualWatch = state.manualWatch?.[platform];
   if (!manualWatch?.active) return false;
-  const checkedAt = Date.parse(manualWatch.checkedAt);
-  return !Number.isNaN(checkedAt) && Date.now() - checkedAt <= MANUAL_WATCH_TTL_MS;
+  return !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
 }
 
 function hasIdleWatchlistChannels(settings: EngineSettings, platform: Platform): boolean {
@@ -1172,6 +1213,8 @@ type ClaimReadyRewardEvent = {
   campaignName: string;
   rewardId: string;
   rewardName: string;
+  rewardImageUrl?: string;
+  campaignUrl?: string;
 } | {
   level: "info" | "warn" | "error";
   message: string;
@@ -1219,6 +1262,8 @@ async function claimReadyRewards(
               campaignName: campaign.name,
               rewardId: reward.id,
               rewardName: reward.name,
+              ...(reward.imageUrl ? { rewardImageUrl: reward.imageUrl } : {}),
+              ...(campaign.url ? { campaignUrl: campaign.url } : {}),
             });
           } else {
             events.push({
@@ -1275,38 +1320,11 @@ function preserveClaimedRewards(
   });
 }
 
-function isRewardRelevantNow(reward: DropReward): boolean {
-  return canClaimReward(reward) || isRewardAvailableToEarn(reward);
-}
-
-function isRewardDeadlineFeasible(campaign: DropCampaign, reward: DropReward, settings: EngineSettings): boolean {
-  return rewardFeasibility(
-    campaign,
-    reward,
-    settings.skipUnfinishableRewards,
-    settings.deadlineSafetyMarginMinutes,
-  ).kind !== "insufficient_time";
-}
-
 function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): string {
-  return campaigns.map((campaign) => `${campaign.id}:${campaign.status}:${campaign.rewards.map((reward) => `${reward.id}:${reward.status}`).join(",")}`).join("|");
-}
-
-function isRewardAvailableToEarn(reward: DropReward): boolean {
-  if (!isWatchReward(reward)) return false;
-  const now = Date.now();
-  const startsAt = reward.availableFrom ? Date.parse(reward.availableFrom) : undefined;
-  const endsAt = reward.availableUntil ? Date.parse(reward.availableUntil) : undefined;
-  if (startsAt != null && !Number.isNaN(startsAt) && now < startsAt) return false;
-  if (endsAt != null && !Number.isNaN(endsAt) && now >= endsAt) return false;
-  return reward.status !== "claimed" && reward.status !== "claimable";
-}
-
-function canClaimReward(reward: DropReward): boolean {
-  if (reward.status !== "claimable") return false;
-  if (!reward.claimUntil) return true;
-  const claimUntil = Date.parse(reward.claimUntil);
-  return Number.isNaN(claimUntil) || Date.now() < claimUntil;
+  return campaigns
+    .map((campaign) => `${campaign.id}:${campaign.status}:${campaign.rewards.map((reward) => `${reward.id}:${reward.status}`).sort().join(",")}`)
+    .sort()
+    .join("|");
 }
 
 async function evaluatePreferredCurrentWatch(
@@ -1462,8 +1480,7 @@ export function isPlaybackTelemetryHealthy(telemetry: Pick<PlaybackTelemetry, "v
 function isPlaybackHealthy(session: WatchSession): boolean {
   const playback = session.playback;
   if (!playback) return false;
-  const checkedAt = Date.parse(playback.checkedAt);
-  if (!Number.isNaN(checkedAt) && Date.now() - checkedAt > 2 * 60 * 1000) return false;
+  if (isTimestampStale(playback.checkedAt, PLAYBACK_TELEMETRY_MAX_AGE_MS, Date.now())) return false;
   return isPlaybackTelemetryHealthy(playback);
 }
 

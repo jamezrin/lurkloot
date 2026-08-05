@@ -62,17 +62,23 @@
   "settingsSearchNoResults": {
     "message": "“$1” ile ilgili ayar bulunamadı."
   },
+  "settingsPlatformSettingsTitle": {
+    "message": "Platform ve kategoriler/oyunlar"
+  },
+  "settingsPlatformSettings": {
+    "message": "$1 ayarları"
+  },
   "settingsShowAdvancedTitle": {
     "message": "Gelişmiş ayarlar"
   },
-  "settingsSectionGeneral": {
-    "message": "Genel"
+  "settingsSectionJumpNavLabel": {
+    "message": "Bölüme git"
   },
-  "settingsSectionTwitch": {
-    "message": "Twitch"
+  "settingsSectionAdvancedActions": {
+    "message": "Gelişmiş işlemler"
   },
-  "settingsSectionKick": {
-    "message": "Kick"
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Lurkloot ayarlarını içe aktarın, dışa aktarın veya sıfırlayın."
   },
   "activityTitle": {
     "message": "Geçmiş"
@@ -138,7 +144,7 @@
     "message": "Toplanıyor"
   },
   "waitingEligibleStream": {
-    "message": "Uygun yayın bekleniyor"
+    "message": "Bu kampanya için şu anda uygun canlı yayın yok"
   },
   "watchingPausedHint": {
     "message": "İzleme duraklatıldı. Devam etmek için tekrar başlatın."
@@ -179,14 +185,38 @@
   "tipExcludedCampaigns": {
     "message": "Geri getirmek istediğiniz kampanyaları Drops ayarlarından düzenleyebilirsiniz."
   },
+  "tipTranslations": {
+    "message": "Çeviriler yapay zekâ ile otomatik olarak güncel tutulur. GitHub'da iyileştirmeye yardımcı olun."
+  },
+  "tipTranslationsAction": {
+    "message": "Çeviri rehberini okuyun"
+  },
   "noCampaigns": {
     "message": "Aktif kampanya yok."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "Kampanyalarda ara…"
+  },
+  "campaignSearchNoResults": {
+    "message": "“$1” ile ilgili kampanya bulunamadı."
+  },
+  "closeSearch": {
+    "message": "Aramayı kapat"
+  },
+  "search": {
+    "message": "Ara"
   },
   "noActivity": {
     "message": "Henüz işlem kaydı yok."
   },
   "noDiagnostics": {
     "message": "Henüz teknik kayıt yok. Uzantı çalıştıkça görünür."
+  },
+  "searchDiagnostics": {
+    "message": "Teknik kayıtları ara"
+  },
+  "noDiagnosticsMatch": {
+    "message": "\"$1\" ile eşleşen teknik kayıt yok."
   },
   "platformActivity": {
     "message": "$1 geçmişi"
@@ -330,16 +360,19 @@
     "message": "Kanal ekle"
   },
   "idleWatchlistChannel": {
-    "message": "Listede"
+    "message": "Çevrim dışı"
   },
   "live": {
     "message": "CANLI"
+  },
+  "viewerCount": {
+    "message": "$1 izleyici"
   },
   "settingsGeneralTitle": {
     "message": "Genel Ayarlar"
   },
   "settingsGeneralDescription": {
-    "message": "Hem Twitch hem de Kick için geçerlidir."
+    "message": "Dil, başlangıç ve açılır pencere davranışı."
   },
   "settingsGroupAppearance": {
     "message": "Görünüm ve Davranış"
@@ -360,7 +393,7 @@
     "message": "Bildirimler"
   },
   "notificationsDescription": {
-    "message": "Tüm platformlar için bildirim ayarları."
+    "message": "Ödüller hazır olduğunda veya kampanyalar bittiğinde uyarılar."
   },
   "settingsGroupNotifications": {
     "message": "Bildirimler"
@@ -381,7 +414,7 @@
     "message": "Drop Ayarları"
   },
   "dropsSettingsDescription": {
-    "message": "Genel drop toplama kuralları."
+    "message": "Talep etme, uygunluk, öncelikler ve kampanya görünürlüğü."
   },
   "settingsGroupDrops": {
     "message": "Droplar"
@@ -418,6 +451,12 @@
   },
   "idleWatchlistFallbackOnlyDescription": {
     "message": "Yeni bir drop çıktığında yedek kanaldan hemen ayrılır."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "Takip edilen ve yedek kanalları tercih et"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Bir drop birden fazla kanalda mevcut olduğunda, tanımadığınız bir kanal yerine takip ettiğiniz veya yedek kanallarınızdan birini seçer."
   },
   "platformSettingsTitle": {
     "message": "Platform Ayarları"
@@ -601,6 +640,9 @@
   },
   "hasActiveDrops": {
     "message": "Aktif droplar var"
+  },
+  "otherCategories": {
+    "message": "Diğer kategoriler"
   },
   "searchCategories": {
     "message": "$1 kategorilerinde ara"
@@ -787,6 +829,33 @@
   },
   "cliExportButton": {
     "message": "Giriş bilgilerini indir"
+  },
+  "settingsExportTitle": {
+    "message": "Ayarları içe/dışa aktar"
+  },
+  "settingsExportHint": {
+    "message": "Ayarlarınızı bir dosyaya kaydedin veya başka bir tarayıcıya yükleyin. Twitch veya Kick giriş bilgilerinizi asla içermez."
+  },
+  "settingsExportButton": {
+    "message": "Ayarları dışa aktar"
+  },
+  "settingsImportButton": {
+    "message": "Ayarları içe aktar"
+  },
+  "settingsImportConfirm": {
+    "message": "Bu, mevcut ayarlarınızı seçilen dosyadaki ayarlarla değiştirecek. Devam edilsin mi?"
+  },
+  "settingsImportCancel": {
+    "message": "İptal"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Dosya seç ve içe aktar"
+  },
+  "settingsImportFailed": {
+    "message": "Bu dosya geçerli bir Lurkloot ayar dışa aktarımı değil."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot ayarlarınızı dışa aktaramadı. Tekrar deneyin."
   },
   "factoryResetTitle": {
     "message": "Lurkloot'u Sıfırla"
@@ -990,7 +1059,7 @@
     "message": "Uyumluluk"
   },
   "compatibilitySectionDescription": {
-    "message": "Platform protokol ayarları."
+    "message": "Yalnızca Twitch veya Kick çalışmıyorsa değiştirin; platform sorunlarını aşmaya yardımcı olabilir."
   },
   "compatibilityComponentProfile": {
     "message": "Profil"

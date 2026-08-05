@@ -3,7 +3,8 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import { KickWafBlockedError } from "../../core/tabs";
 import { authHealthFromError } from "../../core/fetchError";
-import { diagnostic, ignoreEvent, unavailableWatchTabPort, type AdapterOperationOptions, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { StaleWhileRevalidateCache } from "../../core/staleCache";
+import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher, type WebSocketFactory } from "./watch";
 import type { ResolvedCompatibility } from "../../compatibility/types";
@@ -17,12 +18,30 @@ export { createKickClaimCapability } from "./claim/factory";
 export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
 export { KickClaimState } from "./claim/v2";
 
+// The follow list only breaks ties between eligible channels, so a stale minute
+// costs nothing while a fresh read on every tick would be a wasted request.
+const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
+
+// Cross-tick cache for listFollowedChannels. A field on KickAdapter itself would
+// not do: every host reconstructs KickAdapter fresh each scheduler tick (see
+// TwitchDiscoveryState for the same constraint on the Twitch side), so only
+// state injected from outside the adapter survives to the next tick. Only one
+// field today, but this is the deliberate injection point for any future
+// cross-tick Kick state (mirroring TwitchDiscoveryState) — resist collapsing it
+// back into a bare StaleWhileRevalidateCache passed around directly.
+export class KickDiscoveryState {
+  readonly followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
+}
+
 export interface KickAdapterOptions {
   // Resolved metadata is injected by the host and fixed for this adapter's
   // lifetime. Settings changes construct a fresh adapter rather than switching
-  // claim behavior after a request failure.
-  compatibility?: ResolvedCompatibility["kick"];
+  // claim behavior after a request failure. Required: resolveCompatibility()
+  // is the only thing that may decide which capability an adapter gets — no
+  // construction site restates a default.
+  compatibility: ResolvedCompatibility["kick"];
   claimState?: KickClaimState;
+  discoveryState?: KickDiscoveryState;
 }
 
 interface KickLivestreamsResponse {
@@ -61,6 +80,22 @@ interface KickClaimResponse {
 interface KickChallengesResponse {
   data?: KickChallenge[];
 }
+
+// A single item from GET kick.com/api/v1/user/livestreams — the account's live
+// followed channels only, not the full follow list. Shape confirmed against the
+// Kick mobile app's own client (references/kcik-tv-app ChannelApiService.
+// getFollowingLiveStreamsV1 / LiveStreamItem); anonymous requests get a clean
+// 401 rather than Kick's ambiguous `200 {}`, so a schema mismatch here surfaces
+// as a parse producing no candidates rather than a silent wrong answer.
+interface KickFollowedLiveStream {
+  channel?: { slug?: string; username?: string };
+}
+
+// Kick's v1 endpoints are inconsistent about wrapping (see KickLivestreamsResponse
+// above): accept a bare array or one wrapped in `data`, so an envelope change here
+// degrades to "no preference" rather than being silently indistinguishable from
+// "this account follows nobody live".
+type KickFollowedLiveStreamsResponse = KickFollowedLiveStream[] | { data?: KickFollowedLiveStream[] };
 
 interface KickIdentityResponse {
   id?: string | number;
@@ -188,6 +223,7 @@ export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
   readonly compatibility?: ResolvedCompatibility["kick"];
   private readonly claimCapability: KickClaimCapability;
+  private readonly discoveryState: KickDiscoveryState;
 
   async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
@@ -254,19 +290,26 @@ export class KickAdapter implements PlatformAdapter {
 
   constructor(
     private readonly fetcher: PageFetcher,
-    // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
-    private readonly watchTabPort: WatchTabPort = unavailableWatchTabPort,
-    // Optional factory for the tabless viewer WebSocket. The extension leaves it
-    // unset (the watcher uses the platform WebSocket from the service worker); a
+    // Tab-based watch is browser-bound, so it is injected (see WatchTabPort). No
+    // default: a required options.compatibility below would follow an optional
+    // parameter, which TypeScript rejects (a required parameter cannot follow an
+    // optional one), so this and webSocketFactory lost their defaults too. emit
+    // moved after options (instead of before) so it could keep its default.
+    private readonly watchTabPort: WatchTabPort,
+    // Factory for the tabless viewer WebSocket. The extension passes undefined
+    // (the watcher uses the platform WebSocket from the service worker); a
     // headless runtime injects one that rides its impersonated session so the
     // handshake clears Kick's WAF.
-    private readonly webSocketFactory?: WebSocketFactory,
+    private readonly webSocketFactory: WebSocketFactory | undefined,
+    // No default: options.compatibility is required, so every construction
+    // site must resolve it via resolveCompatibility() rather than get one implied.
+    options: KickAdapterOptions,
     private readonly emit: EventEmitter = ignoreEvent,
-    options: KickAdapterOptions = {},
   ) {
     this.compatibility = options.compatibility;
+    this.discoveryState = options.discoveryState ?? new KickDiscoveryState();
     this.claimCapability = createKickClaimCapability(
-      options.compatibility?.claim ?? "kick-claim-v2",
+      options.compatibility.claim,
       options.claimState,
     );
   }
@@ -345,6 +388,65 @@ export class KickAdapter implements PlatformAdapter {
     url.searchParams.set("searched_word", trimmed);
     const data = await this.fetcher.fetchJson<unknown>(url.toString(), undefined, this.emit);
     return parseKickCategories(data);
+  }
+
+  // Live channels the signed-in account follows, so the scheduler can send a
+  // campaign's watch time to someone the user actually watches. A single
+  // request that Kick itself already filters to live channels, rather than
+  // paginating the full follow list and filtering client-side. A signed-out
+  // session or a failing lookup answers with an empty list: the preference is a
+  // nicety, never a reason to lose a farming tick.
+  //
+  // Caching lives on discoveryState, not on `this`: every host reconstructs
+  // KickAdapter fresh each scheduler tick, so a per-instance cache would never
+  // survive to the next tick and this would hit the network every time —
+  // exactly the tick latency this cache exists to avoid. A cached value (even a
+  // stale one) is served immediately and refreshed in the background, never
+  // blocking the caller; only the very first call ever (nothing cached yet)
+  // blocks once, so the first campaign decision after startup can still prefer
+  // a followed channel instead of being stuck on a stranger for the rest of the
+  // session (shouldKeepWatching never switches mid-session for the same
+  // campaign).
+  async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
+    const cache = this.discoveryState.followedChannels;
+    const cached = cache.get();
+    if (cached) {
+      if (cache.isStale()) void cache.refreshOnce(() => this.fetchFollowedChannels());
+      return cached;
+    }
+    await cache.refreshOnce(() => this.fetchFollowedChannels(signal));
+    return cache.get() ?? [];
+  }
+
+  // Never rejects: it is shared via StaleWhileRevalidateCache.refreshOnce, so a
+  // rejection would propagate to any unrelated overlapping caller, including
+  // one whose own abort signal was never involved. On failure this resolves to
+  // an empty list instead — the tick that owns `signal` still notices its own
+  // cancellation through the scheduler's other throwIfAborted() checks moments
+  // later.
+  private async fetchFollowedChannels(signal?: AbortSignal): Promise<string[]> {
+    try {
+      // Never passed the calling tick's signal when refreshing a stale cache in
+      // the background (see listFollowedChannels): that fetch must outlive the
+      // tick that triggered it, not be cancelled when the tick ends.
+      const response = await this.fetcher.fetchJson<KickFollowedLiveStreamsResponse>(
+        "https://kick.com/api/v1/user/livestreams",
+        { signal },
+        this.emit,
+      );
+      const streams = Array.isArray(response) ? response : response?.data ?? [];
+      return streams
+        .map((stream) => (stream.channel?.slug ?? stream.channel?.username)?.toLowerCase())
+        .filter((username): username is string => Boolean(username));
+    } catch (error) {
+      diagnostic(
+        this.emit,
+        "debug",
+        `Kick followed-channel lookup failed (${error instanceof Error ? error.message : String(error)}); channel preference falls back to viewer count`,
+        "kick",
+      );
+      return [];
+    }
   }
 
   async listCandidateChannels(

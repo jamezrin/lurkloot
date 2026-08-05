@@ -1,5 +1,6 @@
 import initCycleTLS, { type CycleTLSClient, type CycleTLSWebSocketResponse } from "cycletls";
-import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { KickWafBlockedError, needsKickSessionBearer, safeKickFailure } from "@lurkloot/core/tabs";
+import { SafeFetchError } from "@lurkloot/core/fetchError";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/kick/watch";
 import type { PlatformCredentials } from "../authStore";
@@ -7,9 +8,11 @@ import { CHROME_HTTP2, CHROME_JA3, CHROME_UA, hasHeader, headersToObject } from 
 
 export type { CycleTLSClient } from "cycletls";
 
-// Hosts whose endpoints replay the session_token cookie as a Bearer (mirrors the
-// engine's KICK_AUTH_HOSTS); kick.com/api/v2/* is public and needs no auth.
-const KICK_AUTH_HOSTS = ["web.kick.com", "websockets.kick.com"];
+// wss:, not just https:, because the viewer WebSocket (websockets.kick.com)
+// goes through this same header builder — see createCycleKickWebSocketFactory.
+// This is the only Kick transport that needs the widened protocol set: the
+// engine's own callers of needsKickSessionBearer never reach wss.
+const KICK_BEARER_PROTOCOLS = ["https:", "wss:"];
 
 export function initCycle(): Promise<CycleTLSClient> {
   return initCycleTLS();
@@ -20,7 +23,7 @@ export function kickHeaders(url: string, init: RequestInit | undefined, creds: P
   headers.Origin ??= "https://kick.com";
   headers.Referer ??= "https://kick.com/";
   const sessionToken = creds.kick?.sessionToken;
-  if (sessionToken && KICK_AUTH_HOSTS.some((host) => url.includes(host)) && !hasHeader(headers, "authorization")) {
+  if (sessionToken && needsKickSessionBearer(url, { protocols: KICK_BEARER_PROTOCOLS }) && !hasHeader(headers, "authorization")) {
     headers.authorization = `Bearer ${decodeURIComponent(sessionToken)}`;
   }
   return headers;
@@ -45,11 +48,24 @@ export function createCycleKickFetcher(cycleTLS: CycleTLSClient, creds: Platform
         body: typeof init?.body === "string" ? init.body : undefined,
       }, method);
 
-      if (response.status === 403) {
-        throw new KickWafBlockedError(`HTTP 403 from ${new URL(url).host} (Cloudflare blocked the impersonated request)`);
-      }
       if (response.status >= 400) {
-        throw new Error(`HTTP ${response.status} from ${new URL(url).host}`);
+        // Mirrors fetchKickInBackgroundWith's classification so checkAuthHealth sees the
+        // same failure kinds (WAF challenge vs. rejected credentials) over this transport
+        // as it does over the extension's page-context fetcher. safeKickFailure only
+        // recognizes Cloudflare's block by matching Kick's JSON error envelope; against
+        // this impersonated session a 401/403 is just as likely to come back as an HTML
+        // challenge page (see tabs.ts's own "likely a challenge page" handling), which
+        // would otherwise silently fall through to "authentication_rejected" and could
+        // suspend farming on what was actually a WAF block, not a bad session token.
+        const text = typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
+        const isJsonBody = (typeof response.data === "object" && response.data !== null) || safeJsonParse(text) !== undefined;
+        if (!isJsonBody && (response.status === 401 || response.status === 403)) {
+          throw new KickWafBlockedError(`HTTP ${response.status} from ${new URL(url).host} — non-JSON body (likely a Cloudflare challenge page)`);
+        }
+        const failure = safeKickFailure(response.status, text);
+        throw failure.kind === "security_policy_blocked"
+          ? new KickWafBlockedError(failure)
+          : new SafeFetchError(failure);
       }
 
       const data = response.data;

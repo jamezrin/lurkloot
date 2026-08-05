@@ -23,7 +23,7 @@ import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { WatchTabPort } from "@lurkloot/core/adapter";
-import { createKickFetcher, KickAdapter, KickClaimState } from "@lurkloot/core/kick";
+import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
@@ -48,6 +48,7 @@ const reportEvents = createActivityEventReporter({
   append: appendActivityEvents,
 });
 const kickClaimState = new KickClaimState();
+const kickDiscoveryState = new KickDiscoveryState();
 const twitchDiscoveryState = new TwitchDiscoveryState();
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const checkCredentialAvailability = createCredentialAvailabilityProvider({
@@ -121,8 +122,8 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
       }),
       watchTabPort,
       undefined,
+      { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
       emit,
-      { compatibility: resolution.compatibility.kick, claimState: kickClaimState },
     );
   return { adapter, ...resolution };
 }

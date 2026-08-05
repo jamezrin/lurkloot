@@ -2,10 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { DiagnosticEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
 import { buildMinuteWatchedEvent, buildSpadeInput, gzipBase64 } from "@lurkloot/core/twitch/watch";
-import { createTwitchGqlTransport, TwitchAdapter } from "@lurkloot/core/twitch";
-import { createKickFetcher, KickAdapter } from "@lurkloot/core/kick";
+import { createTwitchGqlTransport } from "@lurkloot/core/twitch";
+import { createKickFetcher } from "@lurkloot/core/kick";
 import { KickWatcher, type WebSocketLike } from "@lurkloot/core/kick/watch";
 import { PendingWatcherDiagnostics } from "@lurkloot/core/tablessWatch";
+import { kickAdapter, twitchAdapter } from "./helpers/adapters";
+import { testCompatibility } from "./helpers/compatibility";
+
+const TWITCH_COMPAT = testCompatibility().twitch;
 
 async function gunzipBase64(b64: string): Promise<string> {
   const binary = atob(b64);
@@ -114,7 +118,7 @@ describe("kick viewer watcher", () => {
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } };
       throw new Error(`unexpected url ${url}`);
     });
-    const adapter = new KickAdapter(
+    const adapter = kickAdapter(
       createKickFetcher({ background, pageFetch: async () => { throw new Error("page fallback not expected"); } }),
       undefined,
       () => socket,
@@ -236,7 +240,7 @@ describe("kick viewer watcher", () => {
 
   it("does not strand an expected close diagnostic after intentional stop", async () => {
     const socket = new AsyncCloseSocket();
-    const adapter = new KickAdapter(
+    const adapter = kickAdapter(
       {
         fetchJson: vi.fn(async (url: string) => {
           if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as never;
@@ -271,7 +275,7 @@ describe("kick viewer watcher", () => {
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as never;
       throw new Error(`unexpected url ${url}`);
     });
-    const adapter = new KickAdapter(
+    const adapter = kickAdapter(
       { fetchJson },
       undefined,
       () => sockets.shift()!,
@@ -456,7 +460,7 @@ describe("adapter-created twitch watcher diagnostics", () => {
     });
     const transport = createTwitchGqlTransport(
       { fetchJson: fetchJson as never },
-      { clientId: "neutral-client", userAgent: "neutral-agent" },
+      { clientId: "neutral-client", userAgent: "neutral-agent", compatibility: TWITCH_COMPAT },
     );
 
     await transport("StreamInfo", "hash", { channel: "creator" }, "query StreamInfo { user { id } }", "omit", (event) => {
@@ -481,11 +485,14 @@ describe("adapter-created twitch watcher diagnostics", () => {
       if (operationName === "SendEvents") return { data: { sendSpadeEvents: { statusCode: 204 } } };
       throw new Error(`unexpected operation ${operationName}`);
     });
-    const adapter = new TwitchAdapter(
+    // GQL-v1 heartbeat: it sends minute-watched via the SendEvents GQL mutation
+    // mocked below, unlike the recommended Spade profile (a separate page-fetch
+    // transport this fixture does not wire up).
+    const adapter = twitchAdapter(
       { fetchJson: fetchJson as never },
       undefined,
       undefined,
-      undefined,
+      { compatibility: { ...TWITCH_COMPAT, heartbeat: "twitch-heartbeat-gql-v1" } },
       (event) => creationEvents.push(event as DiagnosticEvent),
     );
     const watcher = adapter.createTablessWatcher?.();
@@ -523,7 +530,15 @@ describe("adapter-created twitch watcher diagnostics", () => {
       throw new Error(`unexpected operation ${operationName}`);
     });
     const ensureIntegrity = vi.fn(async (request?: { forceRefresh?: boolean }) => request?.forceRefresh === true);
-    const adapter = new TwitchAdapter({ fetchJson: fetchJson as never }, ensureIntegrity);
+    // GQL-v1 heartbeat: it sends minute-watched via the SendEvents GQL mutation
+    // mocked below, unlike the recommended Spade profile (a separate page-fetch
+    // transport this fixture does not wire up).
+    const adapter = twitchAdapter(
+      { fetchJson: fetchJson as never },
+      ensureIntegrity,
+      undefined,
+      { compatibility: { ...TWITCH_COMPAT, heartbeat: "twitch-heartbeat-gql-v1" } },
+    );
     const watcher = adapter.createTablessWatcher?.();
 
     // No userId in the context, so the watcher must resolve it itself.
