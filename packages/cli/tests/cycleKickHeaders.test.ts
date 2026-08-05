@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { KICK_BEARER_NEAR_MISS_CASES, KICK_BEARER_POSITIVE_CASES } from "@lurkloot/core/kickBearerCases";
 import { kickHeaders } from "../src/transport/cycle";
 import type { PlatformCredentials } from "../src/authStore";
 
@@ -8,34 +9,22 @@ const creds: PlatformCredentials = {
 };
 
 describe("kickHeaders", () => {
-  it("attaches the session token to web.kick.com and websockets.kick.com", () => {
-    expect(kickHeaders("https://web.kick.com/api/v1/drops/campaigns", undefined, creds).authorization)
-      .toBe("Bearer sess 789");
+  it.each(KICK_BEARER_POSITIVE_CASES)("attaches the session token to %s", (_case, url) => {
+    expect(kickHeaders(url, undefined, creds).authorization).toBe("Bearer sess 789");
+  });
+
+  // This transport is the one copy that reaches Kick over wss, not just https —
+  // the viewer WebSocket goes through this same header builder (see
+  // createCycleKickWebSocketFactory in ../src/transport/cycle.ts).
+  it("attaches the session token to websockets.kick.com over wss", () => {
     expect(kickHeaders("wss://websockets.kick.com/viewer", undefined, creds).authorization)
       .toBe("Bearer sess 789");
   });
 
-  it("attaches the session token to the bare kick.com identity and followed-live endpoints", () => {
-    expect(kickHeaders("https://kick.com/api/v1/user", undefined, creds).authorization)
-      .toBe("Bearer sess 789");
-    expect(kickHeaders("https://kick.com/api/v1/user/livestreams", undefined, creds).authorization)
-      .toBe("Bearer sess 789");
-  });
-
-  it("does not attach the session token to the public kick.com channel API", () => {
-    expect(kickHeaders("https://kick.com/api/v2/channels/someone", undefined, creds).authorization)
-      .toBeUndefined();
-  });
-
-  // Every URL here is a near-miss for a genuinely authenticated endpoint: a
-  // look-alike host, an unintended subpath, or a plaintext downgrade of an
-  // endpoint that *does* receive the token over https/wss. None may receive it.
-  it.each([
-    ["look-alike host mentioning a Kick host", "https://evil.example/?r=web.kick.com"],
-    ["look-alike host suffixing a Kick host", "https://web.kick.com.evil.example/api/v1/user"],
-    ["subpath of the identity endpoint", "https://kick.com/api/v1/user/profile"],
-    ["plaintext downgrade of an authenticated endpoint", "http://web.kick.com/api/v1/drops/progress"],
-  ])("never attaches the session token to a %s", (_case, url) => {
+  // Every case here is shared with tabs.test.ts (needsKickSessionBearer) and
+  // pageFetchJson's own test, so all three copies of the predicate are pinned to
+  // the same expectations. See packages/core/src/core/kickBearerCases.ts.
+  it.each(KICK_BEARER_NEAR_MISS_CASES)("never attaches the session token to a %s", (_case, url) => {
     expect(kickHeaders(url, undefined, creds).authorization).toBeUndefined();
   });
 

@@ -10,6 +10,7 @@
     "./tablessWatch": "./src/core/tablessWatch.ts",
     "./twitchIntegrity": "./src/core/twitchIntegrity.ts",
     "./tabs": "./src/core/tabs.ts",
+    "./kickBearerCases": "./src/core/kickBearerCases.ts",
     "./defaults": "./src/core/defaults.ts",
     "./authHealth": "./src/core/authHealth.ts",
     "./activityDiagnostics": "./src/core/activityDiagnostics.ts",
