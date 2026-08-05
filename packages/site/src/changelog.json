@@ -1,5 +1,47 @@
 [
   {
+    "version": "1.11.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Added settings import/export in both the popup and the CLI, so you can back up your configuration to a portable file and restore it later. Exported files never include credentials or session data."
+      },
+      {
+        "kind": "new",
+        "text": "When a drop is available on more than one channel, Lurkloot now prefers a channel you follow or have in your Idle Watchlist over an anonymous higher-viewer channel, on both Twitch and Kick. This can be turned off in Settings."
+      },
+      {
+        "kind": "new",
+        "text": "Added a search box to the Drops list to filter campaigns by title, category, or reward, and added search to the Diagnostics view to filter its full history."
+      },
+      {
+        "kind": "improved",
+        "text": "Reworked the popup layout: Drops and Idle Watchlist are now independent, collapsible sections with compact rows and drag-and-drop ordering, each platform gets its own tab with its own automation toggle, and Settings was reorganized with a sticky search/jump-nav bar."
+      },
+      {
+        "kind": "improved",
+        "text": "The category picker in Settings is now a single searchable dropdown instead of an always-expanded chip grid, grouping your active-drop categories separately from search results."
+      },
+      {
+        "kind": "improved",
+        "text": "The activity log now renders each event as a rich timeline card, including reward artwork and a link to the campaign it belongs to."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed a rare stall where a blocked or slow Twitch heartbeat request could hang indefinitely and hold up that platform's farming until the network gave up on its own."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed spurious diagnostics and unnecessary rechecking caused by Twitch returning the same campaign inventory in a different order on every check."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed farming staying paused, or playback health reading as fine for longer than it should, when your system clock jumps backward."
+      }
+    ],
+    "date": "2026-08-05"
+  },
+  {
     "version": "1.10.1",
     "changes": [
       {
