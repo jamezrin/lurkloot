@@ -251,6 +251,17 @@ describe("subscription drop popup views", () => {
     expect(markup).not.toContain("&lt;1m");
   });
 
+  it("shows campaign watch time when a non-watch reward is next", () => {
+    const source = campaign("mixed", [
+      reward({ id: "subscribe", name: "Subscriber Cape", requirement: "subscription", requiredSubs: 2 }),
+      reward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60 }),
+    ]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
+
+    expect(markup).toContain("1h");
+    expect(markup.match(/Progress unavailable/g)).toHaveLength(1);
+  });
+
   it("shows unknown remaining work after mixed campaign watch minutes are complete", () => {
     const source = campaign("mixed", [
       reward({

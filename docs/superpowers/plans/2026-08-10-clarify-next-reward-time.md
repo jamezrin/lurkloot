@@ -48,11 +48,11 @@ Expected: FAIL because `nextRewardRemaining` is absent and the rendered next-rew
 
 - [ ] **Step 3: Extend the view model and update the UI**
 
-Add `nextRewardRemaining?: number` to `CampaignStats`. In `campaignStats()`, after selecting `nextReward`, calculate the value only when `nextReward.requirement === "watch"`:
+Add `nextRewardRemaining?: number` to `CampaignStats`. In `campaignStats()`, preserve the actual incomplete reward separately from the display fallback and calculate the value only when `nextIncompleteReward.requirement === "watch"`:
 
 ```ts
-const nextRewardRemaining = nextReward?.requirement === "watch"
-  ? Math.max(nextReward.requiredMinutes * (1 - (nextReward.progress ?? 0) / 100), 0)
+const nextRewardRemaining = nextIncompleteReward?.requirement === "watch"
+  ? Math.max(nextIncompleteReward.requiredMinutes * (1 - (nextIncompleteReward.progress ?? 0) / 100), 0)
   : undefined;
 ```
 
@@ -94,3 +94,7 @@ Expected: all tests, workspace typechecks, script checks, and the site build pas
 git add packages/popup-ui/src/types.ts packages/popup-ui/src/viewModels.ts packages/popup-ui/src/drops.tsx packages/locales/messages packages/extension/tests/subscriptionDropsView.test.ts
 git commit -m "fix(popup): clarify next reward remaining time"
 ```
+
+## As built
+
+The shipped `campaignStats()` implementation uses `nextIncompleteReward` to calculate `nextRewardRemaining`, while `nextReward` retains the final-reward display fallback. This preserves `undefined` when no incomplete watch reward exists, including a completed but unclaimed reward, as covered by `subscriptionDropsView.test.ts`.

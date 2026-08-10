@@ -360,7 +360,7 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
                       label={t("campaignLeft")}
                       value={stats.complete
                         ? t("done")
-                        : stats.nextReward?.requirement === "watch"
+                        : campaign.hasWatchRewards && stats.remaining > 0
                           ? formatMinutes(stats.remaining)
                           : t("subscriptionProgressUnknown")}
                     />
