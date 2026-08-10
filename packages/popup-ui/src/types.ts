@@ -68,6 +68,7 @@ export type CampaignStats = {
   completed: number;
   totalRewards: number;
   nextReward?: RewardView;
+  nextRewardRemaining?: number;
   complete: boolean;
 };
 

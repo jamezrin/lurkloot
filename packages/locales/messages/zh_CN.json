@@ -323,6 +323,9 @@
   "left": {
     "message": "剩余"
   },
+  "campaignLeft": {
+    "message": "活动剩余"
+  },
   "done": {
     "message": "完成"
   },

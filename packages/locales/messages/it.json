@@ -323,6 +323,9 @@
   "left": {
     "message": "Rimasto"
   },
+  "campaignLeft": {
+    "message": "Campagna rimanente"
+  },
   "done": {
     "message": "Fatto"
   },
