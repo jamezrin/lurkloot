@@ -350,7 +350,7 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
                           ? <div className="mt-0.5 truncate text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>{t("complete")}</div>
                           : <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">{t("nextReward", stats.nextReward?.name ?? "")}</div>}
                       </div>
-                      {!stats.complete && stats.nextReward?.requirement === "watch" ? <div className="shrink-0 text-right text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.nextRewardRemaining ?? 0)} {t("left").toLowerCase()}</div> : null}
+                      {!stats.complete && stats.nextRewardRemaining != null ? <div className="shrink-0 text-right text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.nextRewardRemaining)} {t("left").toLowerCase()}</div> : null}
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-1.5">

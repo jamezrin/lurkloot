@@ -189,6 +189,17 @@ describe("subscription drop popup views", () => {
     expect(campaignStats(view)).toMatchObject({ nextRewardRemaining: 45 });
   });
 
+  it("does not show remaining time for a completed but unclaimed watch reward", () => {
+    const source = campaign("claimable-watch", [
+      reward({ id: "reward-60", name: "60 minute reward", requirement: "watch", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" }),
+    ]);
+    const view = campaignViewFromCampaign(source, 0, idleSession, false);
+    const stats = campaignStats(view);
+
+    expect(stats.nextRewardRemaining).toBeUndefined();
+    expect(renderDrops([expandedView(view)])).not.toContain("&lt;1m left");
+  });
+
   it("models action-only campaigns without watch progress", () => {
     const source = campaign("action-only", [
       reward({ id: "purchase", name: "Purchase", requirement: "action", isWatchBased: false }),
