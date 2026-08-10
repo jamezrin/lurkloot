@@ -29,9 +29,11 @@ const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 // A cadence configured longer than this still misses every time — same as
 // before — but the default (and every shorter cadence) now actually hits.
 const CHANNEL_CAMPAIGN_CACHE_TTL_MS = 2 * 60_000;
-// FIFO bound, not LRU: a hot campaign's channels get re-checked and re-written
-// every hit anyway, so eviction order barely matters in practice, and FIFO is
-// one Map without a second recency structure.
+// FIFO bound, not LRU: a cache hit returns immediately without touching this
+// map, so a hot channel's insertion order never refreshes and it can still be
+// evicted before a colder one. Accepted trade-off: FIFO is one Map without a
+// second recency structure, and re-fetching an evicted-but-still-hot channel
+// costs one extra request, not a correctness problem.
 const CHANNEL_CAMPAIGN_CACHE_MAX_ENTRIES = 128;
 // The follow list only breaks ties between eligible channels, so a stale minute
 // costs nothing while a fresh read on every tick would be a wasted request.
@@ -385,10 +387,25 @@ export type ChannelAvailabilityLookup =
   | { status: "expired" }
   | { status: "miss" };
 
+// An opaque snapshot of "which identity was current when this availability
+// request started." Captured before the request begins and replayed at write
+// time, so a request that outlives an identity switch can be told apart from
+// one that started under the identity still current when it finishes. userId
+// alone cannot do this: switching A -> B -> A leaves userId matching again
+// even though every cache entry from the A -> B window must stay discarded,
+// which is what generation is for.
+export interface TwitchAvailabilityRequestIdentity {
+  userId: string | undefined;
+  generation: number;
+}
+
 export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
   private authenticatedUserId?: string;
+  // Starts at 0 so a request captured before any identity is known (userId
+  // undefined) still matches the initial state — see availabilityRequestIdentity.
+  private availabilityGeneration = 0;
   private retainedDashboard?: CachedDashboardCampaigns;
   // The extension reconstructs TwitchAdapter fresh every tick, so this lives
   // here (state injected from outside the adapter) rather than on the adapter
@@ -403,11 +420,11 @@ export class TwitchDiscoveryState {
   // count of 0 would be ambiguous between "nothing to invalidate" and "no
   // switch happened at all", where a boolean only ever means the latter.
   setAuthenticatedUser(userId: string): boolean {
-    const identityChanged = Boolean(this.authenticatedUserId && this.authenticatedUserId !== userId);
+    const previousUserId = this.authenticatedUserId;
+    const identityChanged = Boolean(previousUserId && previousUserId !== userId);
     if (identityChanged) {
       this.retainedDashboard = undefined;
       this.campaignDetailsByDropId.clear();
-      this.availableCampaignsByChannel.clear();
       // Follows are per-account, so the previous user's list must not survive
       // the switch. Replaced rather than cleared in place because a refresh may
       // already be in flight for the old account: clearing would let that
@@ -416,8 +433,26 @@ export class TwitchDiscoveryState {
       // nothing reads any more.
       this.followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
     }
+    // Bumped on any identity value change, including the initial transition
+    // from no known identity to a known user — unlike identityChanged above,
+    // which only reports a true switch (for the diagnostic below). An
+    // in-flight availability request captured the prior generation and must
+    // never write into the cache once this moves past it, so a stale request
+    // that would otherwise never have "changed" the identity (going from
+    // unknown to known) still gets invalidated.
+    if (previousUserId !== userId) {
+      this.availabilityGeneration += 1;
+      this.availableCampaignsByChannel.clear();
+    }
     this.authenticatedUserId = userId;
     return identityChanged;
+  }
+
+  // Snapshot to capture before starting an asynchronous availability request
+  // and replay at write time via rememberChannelAvailability, so a request
+  // that outlives an identity switch cannot repopulate the shared cache.
+  availabilityRequestIdentity(): TwitchAvailabilityRequestIdentity {
+    return { userId: this.authenticatedUserId, generation: this.availabilityGeneration };
   }
 
   rememberDashboardCampaignIds(campaignIds: string[]): void {
@@ -477,7 +512,24 @@ export class TwitchDiscoveryState {
     return { status: "hit", campaignIds: cached.campaignIds };
   }
 
-  rememberChannelAvailability(channelId: string, campaignIds: ReadonlySet<string>): void {
+  // Returns whether the write actually happened, so the guard's verdict is
+  // observable instead of silently dropping the entry. A request whose
+  // captured identity no longer matches the current one (the authenticated
+  // user changed, or the same user re-authenticated after an intervening
+  // switch — see the generation comment on setAuthenticatedUser) must not
+  // repopulate shared cache state, even though it still finishes and answers
+  // its own caller.
+  rememberChannelAvailability(
+    channelId: string,
+    campaignIds: ReadonlySet<string>,
+    requestIdentity: TwitchAvailabilityRequestIdentity,
+  ): boolean {
+    if (
+      requestIdentity.userId !== this.authenticatedUserId
+      || requestIdentity.generation !== this.availabilityGeneration
+    ) {
+      return false;
+    }
     if (
       !this.availableCampaignsByChannel.has(channelId)
       && this.availableCampaignsByChannel.size >= CHANNEL_CAMPAIGN_CACHE_MAX_ENTRIES
@@ -489,6 +541,7 @@ export class TwitchDiscoveryState {
       campaignIds: new Set(campaignIds),
       expiresAt: Date.now() + CHANNEL_CAMPAIGN_CACHE_TTL_MS,
     });
+    return true;
   }
 }
 
@@ -1345,6 +1398,10 @@ export class TwitchAdapter implements PlatformAdapter {
         ),
       );
     };
+    // Captured once for the whole chunk, before the request starts — every
+    // entry in this batch answers as of the same moment (see
+    // TwitchAvailabilityRequestIdentity).
+    const requestIdentity = this.discoveryState.availabilityRequestIdentity();
     const integrity = this.options.currentIntegrity?.();
     let raw: unknown;
     try {
@@ -1394,16 +1451,13 @@ export class TwitchAdapter implements PlatformAdapter {
     let singleFallbacks = 0;
     for (const [index, candidate] of candidates.entries()) {
       const response = normalizeTwitchGqlResponse<TwitchAvailableDropsData>(responses[index]);
-      const campaigns = response?.data?.channel?.viewerDropCampaigns;
-      if (!Array.isArray(campaigns) || response?.errors?.length || response?.error) {
+      const campaignIds = parseAvailableDropCampaigns(response, candidate.channelId);
+      if (!campaignIds) {
         singleFallbacks += 1;
         await fallback(candidate);
         continue;
       }
-      const campaignIds = new Set(
-        campaigns.map((campaign) => campaign.id).filter((id): id is string => Boolean(id)),
-      );
-      this.discoveryState.rememberChannelAvailability(candidate.channelId, campaignIds);
+      this.discoveryState.rememberChannelAvailability(candidate.channelId, campaignIds, requestIdentity);
       matches.set(candidate.channelId, campaignIds.has(campaignId));
     }
     return { matches, singleFallbacks };
@@ -1571,6 +1625,10 @@ export class TwitchAdapter implements PlatformAdapter {
       return lookup.campaignIds.has(campaignId);
     }
 
+    // Captured before the request starts: a concurrent identity switch that
+    // finishes first must make the write below a no-op, not a stale cache
+    // entry (see TwitchAvailabilityRequestIdentity).
+    const requestIdentity = this.discoveryState.availabilityRequestIdentity();
     try {
       if (metrics) metrics.checks += 1;
       const response = await this.gqlWithIntegrityRetry<TwitchAvailableDropsData>(
@@ -1582,16 +1640,13 @@ export class TwitchAdapter implements PlatformAdapter {
         this.emit,
         signal,
       );
-      const campaigns = response.data?.channel?.viewerDropCampaigns;
-      if (!Array.isArray(campaigns)) {
+      const campaignIds = parseAvailableDropCampaigns(response, channelId);
+      if (!campaignIds) {
         diagnostic(this.emit, "debug", `Twitch did not return available campaign data for ${channelLogin}; using live/category validation`, "twitch");
         return undefined;
       }
 
-      const campaignIds = new Set(
-        campaigns.map((campaign) => campaign.id).filter((id): id is string => Boolean(id)),
-      );
-      this.discoveryState.rememberChannelAvailability(channelId, campaignIds);
+      this.discoveryState.rememberChannelAvailability(channelId, campaignIds, requestIdentity);
       return campaignIds.has(campaignId);
     } catch (error) {
       signal?.throwIfAborted();
@@ -2099,6 +2154,33 @@ function normalizeTwitchGqlResponse<T>(value: unknown): TwitchGqlResponse<T> | n
     return value.length === 1 ? (value[0] as TwitchGqlResponse<T> | null) : null;
   }
   return value as TwitchGqlResponse<T> | null;
+}
+
+// The one place that decides whether an AvailableDrops response is trustworthy
+// enough to cache, shared by both the batch and single-channel paths so the
+// rule cannot drift between them. Twitch's response says nothing about which
+// channel it answers for beyond `channel.id`, so a response is only usable
+// when that id is present and matches the channel this specific request asked
+// about — otherwise a mismatched or reordered batch entry could silently
+// cache one channel's availability under another channel's id. Returns
+// undefined (never an empty set) for anything ambiguous, so the caller falls
+// back to live/category validation instead of caching a false negative.
+function parseAvailableDropCampaigns(
+  response: TwitchGqlResponse<TwitchAvailableDropsData> | null,
+  expectedChannelId: string,
+): Set<string> | undefined {
+  if (!response) return undefined;
+  if (response.error || (response.message && response.data === undefined) || response.errors?.length) {
+    return undefined;
+  }
+  const channel = response.data?.channel;
+  if (!channel?.id || channel.id !== expectedChannelId) return undefined;
+  if (!Array.isArray(channel.viewerDropCampaigns)) return undefined;
+  return new Set(
+    channel.viewerDropCampaigns
+      .map((campaign) => campaign.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
 }
 
 function isTransientGqlError(message: string | undefined): boolean {
