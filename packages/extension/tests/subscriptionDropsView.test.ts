@@ -42,12 +42,15 @@ function campaign(id: string, rewards: DropReward[]): DropCampaign {
 
 const testMessages: Record<string, string> = {
   actionRequired: "Action required",
+  campaignLeft: "Campaign left",
   earned: "Earned",
   excluded: "Excluded",
   excludeFromFarming: "Exclude from farming",
   farmingLabel: "Farming",
   insufficientTimeRemaining: "Insufficient time remaining",
+  left: "Left",
   notEarnableByWatching: "Not earnable by watching",
+  nextReward: "Next: $1",
   qualifyingSubscriptionsRequired: "Requires $1 qualifying subscriptions",
   subscribedRefresh: "I've subscribed — refresh status",
   subscriptionProgressUnknown: "Progress unavailable",
@@ -157,6 +160,33 @@ describe("subscription drop popup views", () => {
       totalRewards: 2,
       complete: false,
     });
+  });
+
+  it("separates next-reward time from total campaign time", () => {
+    const source = campaign("sequential", [
+      reward({ id: "reward-30", name: "30 minute reward", requirement: "watch", requiredMinutes: 30 }),
+      reward({ id: "reward-60", name: "60 minute reward", requirement: "watch", requiredMinutes: 60 }),
+      reward({ id: "reward-120", name: "120 minute reward", requirement: "watch", requiredMinutes: 120 }),
+      reward({ id: "reward-240", name: "240 minute reward", requirement: "watch", requiredMinutes: 240 }),
+    ]);
+    const view = campaignViewFromCampaign(source, 0, idleSession, false);
+
+    expect(campaignStats(view)).toMatchObject({ remaining: 450, nextRewardRemaining: 30 });
+
+    const markup = renderDrops([expandedView(view)]);
+    expect(markup).toContain("30m left");
+    expect(markup).toContain("7h 30m");
+    expect(markup).toContain("Campaign left");
+    expect(markup).not.toContain(">left<");
+  });
+
+  it("calculates remaining time for an in-progress next watch reward", () => {
+    const source = campaign("in-progress", [
+      reward({ id: "reward-60", name: "60 minute reward", requirement: "watch", requiredMinutes: 60, watchedMinutes: 15, status: "in_progress" }),
+    ]);
+    const view = campaignViewFromCampaign(source, 0, idleSession, false);
+
+    expect(campaignStats(view)).toMatchObject({ nextRewardRemaining: 45 });
   });
 
   it("models action-only campaigns without watch progress", () => {

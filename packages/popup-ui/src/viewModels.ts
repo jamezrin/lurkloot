@@ -100,8 +100,11 @@ export function campaignStats(campaign: CampaignView): CampaignStats {
   const progress = totalRequired ? Math.min(100, (totalFarmed / totalRequired) * 100) : undefined;
   const completed = campaign.rewards.filter(rewardComplete).length;
   const nextReward = campaign.rewards.find((reward) => !rewardComplete(reward)) ?? campaign.rewards.at(-1);
+  const nextRewardRemaining = nextReward?.requirement === "watch"
+    ? Math.max(nextReward.requiredMinutes * (1 - (nextReward.progress ?? 0) / 100), 0)
+    : undefined;
   const complete = campaign.rewards.length > 0 && campaign.rewards.every((reward) => reward.obtained);
-  return { kind, totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, complete };
+  return { kind, totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, nextRewardRemaining, complete };
 }
 
 function rewardComplete(reward: RewardView): boolean {

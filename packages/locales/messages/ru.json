@@ -323,6 +323,9 @@
   "left": {
     "message": "Осталось"
   },
+  "campaignLeft": {
+    "message": "Осталось в кампании"
+  },
   "done": {
     "message": "Готово"
   },

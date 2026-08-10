@@ -323,6 +323,9 @@
   "left": {
     "message": "المتبقي"
   },
+  "campaignLeft": {
+    "message": "المتبقي للحملة"
+  },
   "done": {
     "message": "تم"
   },
