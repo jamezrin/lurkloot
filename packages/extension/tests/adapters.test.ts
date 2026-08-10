@@ -2747,7 +2747,16 @@ describe("TwitchAdapter", () => {
         .resolves.toMatchObject({ campaignMatches: false });
       expect(availabilityCalls).toBe(1);
 
+      // Past the old 60s TTL but inside the current 2-minute one: this is the
+      // exact boundary #338 was filed over — a selection ~60s after the
+      // previous one must still hit, not refetch.
       vi.advanceTimersByTime(60_001);
+      await adapter.checkChannel(candidate, {
+        campaign: { id: "available", categoryId: "game" } as DropCampaign,
+      });
+      expect(availabilityCalls).toBe(1);
+
+      vi.advanceTimersByTime(60_000);
       await adapter.checkChannel(candidate, {
         campaign: { id: "available", categoryId: "game" } as DropCampaign,
       });
@@ -2755,6 +2764,194 @@ describe("TwitchAdapter", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("shares Twitch campaign availability across adapter instances via discoveryState", async () => {
+    // TwitchAdapter is reconstructed fresh every scheduler tick, so without
+    // this the availability cache would refetch AvailableDrops for the same
+    // channel on every tick — the defect #338 was filed over.
+    let availabilityCalls = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "StreamInfo") {
+        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+      }
+      if (op === "DropsHighlightService_AvailableDrops") {
+        availabilityCalls += 1;
+        return { data: { channel: { viewerDropCampaigns: [{ id: "campaign" }] } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
+    const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
+
+    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    await expect(firstTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
+
+    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    await expect(secondTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
+
+    expect(availabilityCalls).toBe(1);
+  });
+
+  it("drops the campaign availability cache when the authenticated user changes", async () => {
+    // Availability results are per-account, same as follows — a cache
+    // populated under one user must never answer for the next one.
+    let availabilityCalls = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "StreamInfo") {
+        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+      }
+      if (op === "DropsHighlightService_AvailableDrops") {
+        availabilityCalls += 1;
+        return { data: { channel: { viewerDropCampaigns: [{ id: "campaign" }] } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
+    const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
+
+    discoveryState.setAuthenticatedUser("user-1");
+    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    await expect(firstTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
+
+    discoveryState.setAuthenticatedUser("user-2");
+    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    await expect(secondTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
+
+    expect(availabilityCalls).toBe(2);
+  });
+
+  it("logs a diagnostic and clears discovery caches when the authenticated Twitch identity changes", async () => {
+    const events: EngineEvent[] = [];
+    const emit = (event: EngineEvent) => events.push(event);
+    const discoveryState = new TwitchDiscoveryState();
+    const fetcherFor = (userId: string): PageFetcher => jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) {
+        return body.map((entry) =>
+          twitchCampaignDetails(String((entry.variables as { dropID?: string }).dropID)));
+      }
+      if (body.operationName === "Inventory") return twitchInventory(["campaign"], userId);
+      return twitchDashboard(["campaign"], userId);
+    });
+
+    await twitchAdapter(fetcherFor("user-1"), undefined, undefined, { discoveryState }, emit).refreshCampaigns();
+    expect(events.some((event) =>
+      event.category === "diagnostic" && event.message.includes("identity changed"))).toBe(false);
+
+    events.length = 0;
+    await twitchAdapter(fetcherFor("user-2"), undefined, undefined, { discoveryState }, emit).refreshCampaigns();
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      message: "Twitch authenticated identity changed; discovery caches cleared",
+    }));
+  });
+
+  it("bounds the campaign availability cache to a fixed number of channels (FIFO)", () => {
+    const discoveryState = new TwitchDiscoveryState();
+    for (let index = 0; index < 128; index += 1) {
+      discoveryState.rememberChannelAvailability(`channel-${index}`, new Set(["campaign"]));
+    }
+    expect(discoveryState.cachedChannelAvailability("channel-0")).toEqual({
+      status: "hit",
+      campaignIds: new Set(["campaign"]),
+    });
+
+    // Pushes the cache past its bound; the oldest entry must be evicted, not
+    // an arbitrary or most-recent one.
+    discoveryState.rememberChannelAvailability("channel-128", new Set(["campaign"]));
+
+    expect(discoveryState.cachedChannelAvailability("channel-0")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-128")).toEqual({
+      status: "hit",
+      campaignIds: new Set(["campaign"]),
+    });
+  });
+
+  it("reports availability cache hits, misses, and expirations in the selection diagnostic", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-07-13T12:00:00.000Z"));
+      const candidate = {
+        platform: "twitch" as const,
+        username: "directory-winner",
+        url: "https://www.twitch.tv/directory-winner",
+        channelId: "winner-id",
+        categoryId: "game",
+        live: true,
+        isAclMatch: false,
+      };
+      const fetcher = jsonFetcher(() => ({ data: { channel: { viewerDropCampaigns: [{ id: "campaign" }] } } }));
+      const discoveryState = new TwitchDiscoveryState();
+      const events: EngineEvent[] = [];
+      const emit = (event: EngineEvent) => events.push(event);
+      const campaign = { id: "campaign", name: "Campaign", categoryId: "game" } as DropCampaign;
+
+      // First selection: a genuine miss, establishes the cache entry.
+      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit)
+        .selectCandidateChannel?.([candidate], campaign);
+      expect(events).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        message: expect.stringContaining("0 availability cache hits, 1 availability cache misses, 0 availability cache expirations"),
+      }));
+      events.length = 0;
+
+      // Second selection, ~60s later (a fresh adapter, as a real tick would
+      // be): the entry is still within TTL, so it must report as a hit.
+      vi.advanceTimersByTime(60_001);
+      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit)
+        .selectCandidateChannel?.([candidate], campaign);
+      expect(events).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        message: expect.stringContaining("1 availability cache hits, 0 availability cache misses, 0 availability cache expirations"),
+      }));
+      events.length = 0;
+
+      // Third selection, past the TTL: an expiration, not a fresh miss.
+      vi.advanceTimersByTime(60_000);
+      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit)
+        .selectCandidateChannel?.([candidate], campaign);
+      expect(events).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        message: expect.stringContaining("0 availability cache hits, 0 availability cache misses, 1 availability cache expirations"),
+      }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not cache a failed or malformed Twitch campaign availability response", async () => {
+    // A transport failure or a malformed payload must not poison the cache
+    // with an authoritative negative — the next lookup has to hit the network
+    // again rather than silently serving "not available" from a bad response.
+    let availabilityCalls = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "StreamInfo") {
+        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+      }
+      if (op === "DropsHighlightService_AvailableDrops") {
+        availabilityCalls += 1;
+        if (availabilityCalls === 1) throw new Error("availability unavailable");
+        return { data: { channel: { viewerDropCampaigns: [{ id: "campaign" }] } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
+    const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
+
+    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    await expect(firstTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: undefined });
+
+    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    await expect(secondTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
+
+    expect(availabilityCalls).toBe(2);
   });
 
   it("lists Twitch drop-enabled streams through the slug directory query", async () => {
