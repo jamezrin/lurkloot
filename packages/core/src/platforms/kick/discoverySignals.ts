@@ -14,7 +14,7 @@ const RECONNECT_MAX_MS = 30_000;
 const WEBSOCKET_OPEN = 1;
 
 export interface KickDiscoverySignalDeps {
-  createWebSocket?: WebSocketFactory;
+  createWebSocket: WebSocketFactory;
   scheduleReconnect?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   cancelReconnect?: (timer: ReturnType<typeof setTimeout>) => void;
 }
@@ -34,8 +34,8 @@ export class KickDiscoverySignalController implements DiscoverySignalController 
   private readonly diagnostics = new PendingDiscoverySignalDiagnostics();
   private readonly intentionallyClosedSockets = new WeakSet<WebSocketLike>();
 
-  constructor(deps: KickDiscoverySignalDeps = {}) {
-    this.createWebSocket = deps.createWebSocket ?? ((url) => new WebSocket(url) as unknown as WebSocketLike);
+  constructor(deps: KickDiscoverySignalDeps) {
+    this.createWebSocket = deps.createWebSocket;
     this.scheduleReconnect = deps.scheduleReconnect ?? ((callback, delayMs) => setTimeout(callback, delayMs));
     this.cancelReconnect = deps.cancelReconnect ?? ((timer) => clearTimeout(timer));
   }

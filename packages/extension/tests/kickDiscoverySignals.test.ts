@@ -3,6 +3,11 @@ import type { ChannelCandidate } from "@lurkloot/shared/models";
 import { KickDiscoverySignalController } from "@lurkloot/core/kick/discoverySignals";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
 
+if (false) {
+  // @ts-expect-error Core observers require their host to provide the WebSocket transport.
+  void new KickDiscoverySignalController();
+}
+
 class FakeSocket implements WebSocketLike {
   readyState = 1;
   sent: string[] = [];
