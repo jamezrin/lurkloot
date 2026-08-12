@@ -22,6 +22,7 @@ import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
+import type { DiscoverySignalController } from "../core/discoverySignals";
 import { applyPlatformAuthHealth } from "../core/authHealth";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
 import { mergePlatformState } from "./platformState";
@@ -75,6 +76,7 @@ export type TickTrigger =
   | "critical_failure_dismissed"
   | "tabless_fallback"
   | "claim_handoff"
+  | "discovery_signal"
   | "unknown";
 type TickDiagnosticContext = Required<Pick<
   DiagnosticEvent,
@@ -405,6 +407,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // ticks (the WebSocket-based Kick watcher in particular must not be recreated
   // each tick). Reconciled against the scheduler's per-platform session state.
   const tablessWatchers = new Map<Platform, TablessWatchController>();
+  const discoverySignalControllers = new Map<Platform, DiscoverySignalController>();
+  const discoverySignalPlatformBlocked: Record<Platform, boolean> = {
+    twitch: false,
+    kick: false,
+  };
   const waitingClaimRewardIds: Record<Platform, Set<string>> = {
     twitch: new Set<string>(),
     kick: new Set<string>(),
@@ -416,6 +423,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   let integrityRefreshAbort: AbortController | undefined;
   let integrityLifecycleGeneration = 0;
   let integrityLifecycleOpen = true;
+  let discoverySignalLifecycleOpen = true;
   let controllerShutdown = false;
   let installedTwitchIntegrity: TwitchIntegrity | undefined;
   let persistedIntegrityToken: string | undefined;
@@ -1319,6 +1327,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           platform: failure.platform,
           data: { reason: "platform_error", detail: failure.message },
         });
+        await stopDiscoverySignalController(failure.platform, emit);
       }
       await persistAndReport(
         state,
@@ -1400,6 +1409,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   };
   // Chain of detached ticks, drained by settleBackgroundWork().
   let backgroundWork: Promise<unknown> = Promise.resolve();
+  const discoverySignalRefreshRunning: Record<Platform, boolean> = {
+    twitch: false,
+    kick: false,
+  };
+  const discoverySignalRefreshPending: Record<Platform, boolean> = {
+    twitch: false,
+    kick: false,
+  };
   const activeTicks = new Set<AbortController>();
   const activePlatformTicks: Record<Platform, number> = {
     twitch: 0,
@@ -1559,6 +1576,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await applyAdFocusForState(result.state, emit, schedulerPlatforms);
         signal.throwIfAborted();
         await reconcileTablessWatchers(result.state, settings, adapters, emit, schedulerPlatforms);
+        signal.throwIfAborted();
+        await reconcileDiscoverySignalControllers(result.state, settings, adapters, emit, schedulerPlatforms);
         signal.throwIfAborted();
         nextState = result.state;
         if (settings.criticalFailurePromptEnabled) {
@@ -1764,6 +1783,139 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     for (const event of watcher.drainEvents()) emit(event);
   }
 
+  function drainDiscoverySignalEvents(
+    controller: DiscoverySignalController,
+    emit: EventEmitter,
+  ): void {
+    for (const event of controller.drainEvents()) emit(event);
+  }
+
+  async function stopDiscoverySignalController(
+    platform: Platform,
+    emit: EventEmitter,
+  ): Promise<void> {
+    discoverySignalRefreshPending[platform] = false;
+    const controller = discoverySignalControllers.get(platform);
+    if (!controller) return;
+    // Delete before awaiting host cleanup so a callback captured by an obsolete
+    // controller cannot enqueue work while its socket/timer teardown finishes.
+    discoverySignalControllers.delete(platform);
+    drainDiscoverySignalEvents(controller, emit);
+    try {
+      await controller.stop();
+    } catch (error) {
+      emitHostCallbackError(emit, platform, error, "Could not stop the discovery signal observer");
+    } finally {
+      drainDiscoverySignalEvents(controller, emit);
+    }
+  }
+
+  async function stopDiscoverySignalControllers(
+    platforms: readonly Platform[],
+    emit: EventEmitter,
+  ): Promise<void> {
+    await Promise.all(platforms.map((platform) =>
+      stopDiscoverySignalController(platform, emit)));
+  }
+
+  async function stopDiscoverySignalControllersAndReport(
+    platforms: readonly Platform[],
+  ): Promise<void> {
+    await withEventCollector(async (emit, events) => {
+      await stopDiscoverySignalControllers(platforms, emit);
+      await reportBestEffort(events);
+    });
+  }
+
+  function stopDiscoverySignalControllersInBackground(
+    platforms: readonly Platform[],
+  ): void {
+    for (const platform of platforms) discoverySignalRefreshPending[platform] = false;
+    const run = stopDiscoverySignalControllersAndReport(platforms).catch((error) => {
+      const platform = platforms.length === 1 ? platforms[0] : undefined;
+      diagnosticEvent(
+        "warn",
+        `Discovery signal observer cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+        platform,
+      );
+    });
+    backgroundWork = backgroundWork.then(() => run, () => run);
+  }
+
+  async function reconcileDiscoverySignalControllers(
+    state: SchedulerState,
+    settings: EngineSettings,
+    adapters: Record<Platform, PlatformAdapter>,
+    emit: EventEmitter,
+    platforms?: Platform[],
+  ): Promise<void> {
+    const targets = platforms ?? PLATFORMS;
+    for (const platform of targets) {
+      const session = state.sessions[platform];
+      const adapter = adapters[platform];
+      const factory = adapter.createDiscoverySignalController;
+      const wanted = discoverySignalLifecycleOpen
+        && !discoverySignalPlatformBlocked[platform]
+        && settings.platform[platform].enabled
+        && state.authHealth[platform].status === "healthy"
+        && session.status === "watching"
+        && Boolean(session.channel)
+        && Boolean(factory);
+      const existing = discoverySignalControllers.get(platform);
+
+      if (!wanted || !session.channel || !factory) {
+        if (existing) await stopDiscoverySignalController(platform, emit);
+        continue;
+      }
+
+      let controller = existing;
+      if (!controller) {
+        try {
+          controller = factory();
+          discoverySignalControllers.set(platform, controller);
+        } catch (error) {
+          emitHostCallbackError(emit, platform, error, "Could not create the discovery signal observer");
+          continue;
+        }
+      }
+
+      drainDiscoverySignalEvents(controller, emit);
+      try {
+        await controller.start(
+          { platform, channel: session.channel },
+          () => {
+            if (discoverySignalControllers.get(platform) !== controller) return;
+            queueDiscoverySignalRefresh(platform);
+          },
+        );
+      } catch (error) {
+        emitHostCallbackError(emit, platform, error, "Could not start the discovery signal observer");
+      } finally {
+        drainDiscoverySignalEvents(controller, emit);
+      }
+
+      // Reset/shutdown/disable cleanup can race a host controller whose start()
+      // awaits transport setup. Teardown wins, and the just-finished obsolete
+      // start must not retain its callback or transport.
+      if (
+        discoverySignalControllers.get(platform) !== controller
+        || !discoverySignalLifecycleOpen
+        || controllerShutdown
+      ) {
+        if (discoverySignalControllers.get(platform) === controller) {
+          discoverySignalControllers.delete(platform);
+        }
+        try {
+          await controller.stop();
+        } catch (error) {
+          emitHostCallbackError(emit, platform, error, "Could not stop the discovery signal observer");
+        } finally {
+          drainDiscoverySignalEvents(controller, emit);
+        }
+      }
+    }
+  }
+
   // Fired by the 1-minute watch alarm. Runs one heartbeat per active tabless
   // watcher and records its health on the session, falling back to a real tab
   // (by re-running the scheduler) when a heartbeat keeps failing.
@@ -1904,17 +2056,23 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   function shutdown(): void {
     controllerShutdown = true;
+    discoverySignalLifecycleOpen = false;
+    for (const platform of PLATFORMS) discoverySignalRefreshPending[platform] = false;
     twitchSettingsTransitionGeneration += 1;
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     abortClaimHandoffs();
+    stopDiscoverySignalControllersInBackground(PLATFORMS);
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
+    discoverySignalLifecycleOpen = false;
+    for (const platform of PLATFORMS) discoverySignalRefreshPending[platform] = false;
     twitchSettingsTransitionGeneration += 1;
     abortActiveTicks("Host reset");
     closeTwitchIntegrityLifecycle("Host reset");
+    await stopDiscoverySignalControllersAndReport(PLATFORMS);
     await clearTwitchIntegrityAlarmBestEffort();
     abortClaimHandoffs();
     await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
@@ -2020,6 +2178,59 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } finally {
       if (claimHandoffs.get(platform) === abort) claimHandoffs.delete(platform);
     }
+  }
+
+  function queueDiscoverySignalRefresh(platform: Platform): void {
+    if (
+      controllerShutdown
+      || !discoverySignalLifecycleOpen
+      || discoverySignalPlatformBlocked[platform]
+    ) return;
+    discoverySignalRefreshPending[platform] = true;
+    if (discoverySignalRefreshRunning[platform]) return;
+    // Reserve synchronously. A burst in the async setup window must see the
+    // running loop and collapse into its one pending boolean.
+    discoverySignalRefreshRunning[platform] = true;
+
+    const run = (async () => {
+      try {
+        while (
+          discoverySignalRefreshPending[platform]
+          && !controllerShutdown
+          && discoverySignalLifecycleOpen
+          && !discoverySignalPlatformBlocked[platform]
+        ) {
+          discoverySignalRefreshPending[platform] = false;
+          const settings = await deps.loadSettings();
+          if (!settings.platform[platform].enabled) {
+            discoverySignalRefreshPending[platform] = false;
+            break;
+          }
+          await tickAndHandOff([platform], "discovery_signal");
+        }
+      } finally {
+        discoverySignalRefreshRunning[platform] = false;
+        if (
+          controllerShutdown
+          || !discoverySignalLifecycleOpen
+          || discoverySignalPlatformBlocked[platform]
+        ) {
+          discoverySignalRefreshPending[platform] = false;
+        } else if (discoverySignalRefreshPending[platform]) {
+          // Covers a signal arriving after the loop's last condition check but
+          // before the running reservation is released.
+          queueDiscoverySignalRefresh(platform);
+        }
+      }
+    })().catch((error) => {
+      diagnosticEvent(
+        "warn",
+        `Discovery signal refresh failed: ${error instanceof Error ? error.message : String(error)}`,
+        platform,
+      );
+    });
+
+    backgroundWork = backgroundWork.then(() => run, () => run);
   }
 
   // Runs a tick without holding the caller open for it. A user action gets its
@@ -2462,6 +2673,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           }
         }
         throw error;
+      }
+      discoverySignalPlatformBlocked[message.platform] = !message.enabled;
+      if (!message.enabled) {
+        await stopDiscoverySignalControllersAndReport([message.platform]);
       }
       if (message.platform === "twitch") {
         if (!twitchTransitionIsCurrent()) return snapshot();
