@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DiagnosticEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
+import { PendingDiscoverySignalDiagnostics } from "@lurkloot/core/discoverySignals";
 import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
 import { buildMinuteWatchedEvent, buildSpadeInput, gzipBase64 } from "@lurkloot/core/twitch/watch";
@@ -19,6 +20,31 @@ const discoveryContractFixture = (
 ): Promise<void> => controller.start(target, () => undefined);
 
 void discoveryContractFixture;
+
+describe("discovery signal diagnostics", () => {
+  it("retains the newest 250 pending diagnostics", () => {
+    const diagnostics = new PendingDiscoverySignalDiagnostics();
+    for (let index = 0; index < 260; index += 1) {
+      diagnostics.push({ category: "diagnostic", platform: "kick", level: "debug", message: `signal-${index}` });
+    }
+
+    const drained = diagnostics.drain();
+
+    expect(drained).toHaveLength(250);
+    expect(drained[0]?.message).toBe("signal-10");
+    expect(drained.at(-1)?.message).toBe("signal-259");
+  });
+
+  it("empties pending diagnostics when drained", () => {
+    const diagnostics = new PendingDiscoverySignalDiagnostics();
+    diagnostics.push({ category: "diagnostic", platform: "kick", level: "debug", message: "signal" });
+
+    expect(diagnostics.drain()).toEqual([
+      { category: "diagnostic", platform: "kick", level: "debug", message: "signal" },
+    ]);
+    expect(diagnostics.drain()).toEqual([]);
+  });
+});
 
 async function gunzipBase64(b64: string): Promise<string> {
   const binary = atob(b64);
