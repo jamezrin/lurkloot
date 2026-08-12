@@ -26,6 +26,10 @@ function campaign(rewards: DropReward[], patch: Partial<DropCampaign> = {}): Dro
   };
 }
 
+function kickCampaign(rewards: DropReward[], patch: Partial<DropCampaign> = {}): DropCampaign {
+  return campaign(rewards, { ...patch, platform: "kick" });
+}
+
 describe("reward deadline feasibility", () => {
   it("allows exact equality and accounts for existing progress plus margin", () => {
     const drop = reward({ availableUntil: "2026-07-19T12:35:00.000Z" });
@@ -70,5 +74,92 @@ describe("reward deadline feasibility", () => {
     const subscription = reward({ requirement: "subscription", requiredMinutes: 0, requiredSubs: 1, availableUntil: "2020-01-01T00:00:00.000Z" });
     expect(rewardFeasibility(campaign([claimed]), claimed, true, 5, now)).toEqual({ kind: "not_applicable" });
     expect(rewardFeasibility(campaign([subscription]), subscription, true, 5, now)).toEqual({ kind: "not_applicable" });
+  });
+
+  it("admits a Kick exact-fit reward observed ten seconds after launch", () => {
+    const launchedAt = Date.parse("2026-08-12T12:00:00.000Z");
+    const drop = reward({
+      requiredMinutes: 2,
+      watchedMinutes: 0,
+      availableFrom: "2026-08-12T12:00:00.000Z",
+      availableUntil: "2026-08-12T12:02:00.000Z",
+    });
+
+    expect(rewardFeasibility(kickCampaign([drop]), drop, true, 5, launchedAt + 10_000).kind).toBe("feasible");
+  });
+
+  it("admits timestamp rounding within five seconds", () => {
+    const launchedAt = Date.parse("2026-08-12T12:00:00.000Z");
+    const drop = reward({
+      requiredMinutes: 2,
+      watchedMinutes: 0,
+      availableFrom: "2026-08-12T12:00:00.000Z",
+      availableUntil: "2026-08-12T12:02:04.999Z",
+    });
+
+    expect(rewardFeasibility(kickCampaign([drop]), drop, true, 5, launchedAt + 10_000).kind).toBe("feasible");
+  });
+
+  it("rejects an exact-fit reward observed more than fifteen seconds after launch", () => {
+    const launchedAt = Date.parse("2026-08-12T12:00:00.000Z");
+    const drop = reward({
+      requiredMinutes: 2,
+      watchedMinutes: 0,
+      availableFrom: "2026-08-12T12:00:00.000Z",
+      availableUntil: "2026-08-12T12:02:00.000Z",
+    });
+
+    expect(rewardFeasibility(kickCampaign([drop]), drop, true, 5, launchedAt + 15_001).kind).toBe("insufficient_time");
+  });
+
+  it("rejects a raw deficit larger than elapsed launch time", () => {
+    const launchedAt = Date.parse("2026-08-12T12:00:00.000Z");
+    const drop = reward({
+      requiredMinutes: 2,
+      watchedMinutes: 0,
+      availableFrom: "2026-08-12T12:00:00.000Z",
+      availableUntil: "2026-08-12T12:01:55.000Z",
+    });
+
+    expect(rewardFeasibility(kickCampaign([drop]), drop, true, 5, launchedAt + 10_000).kind).toBe("insufficient_time");
+  });
+
+  it("keeps the configured margin for a Kick reward whose window is not exact-fit", () => {
+    const launchedAt = Date.parse("2026-08-12T12:00:00.000Z");
+    const drop = reward({
+      requiredMinutes: 2,
+      watchedMinutes: 0,
+      availableFrom: "2026-08-12T12:00:00.000Z",
+      availableUntil: "2026-08-12T12:03:00.000Z",
+    });
+
+    expect(rewardFeasibility(kickCampaign([drop]), drop, true, 5, launchedAt + 10_000)).toMatchObject({
+      kind: "insufficient_time",
+      marginMinutes: 5,
+    });
+  });
+
+  it("does not apply the launch allowance to Twitch", () => {
+    const launchedAt = Date.parse("2026-08-12T12:00:00.000Z");
+    const drop = reward({
+      requiredMinutes: 2,
+      watchedMinutes: 0,
+      availableFrom: "2026-08-12T12:00:00.000Z",
+      availableUntil: "2026-08-12T12:02:00.000Z",
+    });
+
+    expect(rewardFeasibility(campaign([drop]), drop, true, 5, launchedAt + 10_000).kind).toBe("insufficient_time");
+  });
+
+  it("keeps skipUnfinishableRewards disabled behavior unchanged", () => {
+    const launchedAt = Date.parse("2026-08-12T12:00:00.000Z");
+    const drop = reward({
+      requiredMinutes: 2,
+      watchedMinutes: 0,
+      availableFrom: "2026-08-12T12:00:00.000Z",
+      availableUntil: "2026-08-12T12:02:00.000Z",
+    });
+
+    expect(rewardFeasibility(kickCampaign([drop]), drop, false, 42, launchedAt + 10_000)).toEqual({ kind: "disabled" });
   });
 });
