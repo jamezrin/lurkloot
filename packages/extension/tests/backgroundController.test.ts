@@ -6825,6 +6825,52 @@ describe("discovery signal lifecycle", () => {
     expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
   });
 
+  it("restarts the Kick observer after a host reset", async () => {
+    const env = harness(kickOnlySettings());
+    await startKickDiscoverySession(env);
+
+    await env.controller.prepareForHostReset();
+    await env.controller.tick(["kick"], "manual_tick");
+
+    expect(env.discoverySignalController.stops).toBe(1);
+    expect(env.discoverySignalController.starts).toHaveLength(2);
+    expect(env.discoverySignalController.targetKey).toBe("42");
+  });
+
+  it("restores Kick discovery during the first tabless heartbeat after a service-worker restart", async () => {
+    const env = harness(kickOnlySettings(true));
+    const watcher = {
+      platform: "kick" as const,
+      channelUrl: undefined as string | undefined,
+      start: vi.fn(async (candidate: ChannelCandidate) => {
+        watcher.channelUrl = candidate.url;
+      }),
+      tick: vi.fn(async () => ({ ok: true, live: true })),
+      drainEvents: () => [],
+      stop: vi.fn(async () => {
+        watcher.channelUrl = undefined;
+      }),
+    } satisfies TablessWatchController;
+    env.kick.supportsTabless = true;
+    env.kick.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    env.state.authHealth.kick = { status: "healthy" };
+    env.state.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("kick", { categoryId: "42" }),
+      campaignId: "kick-campaign",
+      rewardId: "reward",
+    };
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(env.discoverySignalController.starts).toEqual([
+      expect.objectContaining({ channel: expect.objectContaining({ categoryId: "42" }) }),
+    ]);
+  });
+
   it("does not make discovery failure count as a watch-heartbeat failure", async () => {
     const env = harness(kickOnlySettings(true));
     configureKickDiscoverySession(env);

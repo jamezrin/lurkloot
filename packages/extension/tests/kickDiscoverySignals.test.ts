@@ -86,6 +86,15 @@ const kickChannel = (categoryId: string): ChannelCandidate => ({
   categoryId,
 });
 
+const confirmSubscription = (socket: FakeSocket, categoryId = "42"): void => {
+  socket.message({ event: "pusher:connection_established", data: "{}" });
+  socket.message({
+    event: "pusher_internal:subscription_succeeded",
+    channel: `drops_category_${categoryId}`,
+    data: "{}",
+  });
+};
+
 describe("Kick discovery signals", () => {
   it("exposes a Kick discovery observer through the adapter", () => {
     const fetcher = { fetchJson: async <T,>(): Promise<T> => ({}) as T };
@@ -133,6 +142,10 @@ describe("Kick discovery signals", () => {
     const controller = new KickDiscoverySignalController({ createWebSocket: () => socket });
     await controller.start({ platform: "kick", channel: kickChannel("42") }, onSignal);
 
+    socket.message({ event: "drops_campaign_started", channel: "drops_category_42", data: JSON.stringify("too-early") });
+    expect(onSignal).not.toHaveBeenCalled();
+
+    confirmSubscription(socket);
     socket.message({ event: "drops_campaign_started", channel: "drops_category_42", data: JSON.stringify("campaign-7") });
 
     expect(onSignal).toHaveBeenCalledOnce();
@@ -144,6 +157,7 @@ describe("Kick discovery signals", () => {
     const controller = new KickDiscoverySignalController({ createWebSocket: () => socket });
     await controller.start({ platform: "kick", channel: kickChannel("42") }, onSignal);
 
+    confirmSubscription(socket);
     socket.message({ event: "drops_campaign_started", channel: "drops_category_42", data: "123" });
 
     expect(onSignal).toHaveBeenCalledOnce();
@@ -158,6 +172,7 @@ describe("Kick discovery signals", () => {
     await controller.start({ platform: "kick", channel: kickChannel("42") }, firstSignal);
     await controller.start({ platform: "kick", channel: kickChannel(" 42 ") }, nextSignal);
 
+    confirmSubscription(socket);
     socket.message({ event: "drops_campaign_started", channel: "drops_category_42", data: JSON.stringify("campaign-7") });
 
     expect(firstSignal).not.toHaveBeenCalled();
@@ -476,6 +491,7 @@ describe("Kick discovery signals", () => {
     await controller.start({ platform: "kick", channel: kickChannel("42") }, () => {
       throw new Error(`callback-${callbackIndex}`);
     });
+    confirmSubscription(socket);
 
     for (callbackIndex = 0; callbackIndex < 260; callbackIndex += 1) {
       socket.message({

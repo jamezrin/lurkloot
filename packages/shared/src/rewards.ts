@@ -41,8 +41,7 @@ function isKickExactFitLaunch(
   const elapsedSinceLaunch = now - startsAt;
   if (elapsedSinceLaunch < 0 || elapsedSinceLaunch > EXACT_FIT_LAUNCH_ALLOWANCE_MS) return false;
 
-  const startupAllowance = Math.min(elapsedSinceLaunch, EXACT_FIT_LAUNCH_ALLOWANCE_MS);
-  return remainingMilliseconds - availableMilliseconds <= startupAllowance;
+  return remainingMilliseconds - availableMilliseconds <= elapsedSinceLaunch;
 }
 
 export function rewardFeasibility(

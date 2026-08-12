@@ -88,6 +88,18 @@ describe("reward deadline feasibility", () => {
     expect(rewardFeasibility(kickCampaign([drop]), drop, true, 5, launchedAt + 10_000).kind).toBe("feasible");
   });
 
+  it("rejects a Kick exact-fit reward observed before launch", () => {
+    const launchedAt = Date.parse("2026-08-12T12:00:00.000Z");
+    const drop = reward({
+      requiredMinutes: 2,
+      watchedMinutes: 0,
+      availableFrom: "2026-08-12T12:00:00.000Z",
+      availableUntil: "2026-08-12T12:02:00.000Z",
+    });
+
+    expect(rewardFeasibility(kickCampaign([drop]), drop, true, 5, launchedAt - 1).kind).toBe("insufficient_time");
+  });
+
   it("admits timestamp rounding within five seconds", () => {
     const launchedAt = Date.parse("2026-08-12T12:00:00.000Z");
     const drop = reward({

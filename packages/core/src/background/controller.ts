@@ -1984,10 +1984,18 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       // fire on a ~1-minute cadence). reconcileTablessWatchers only calls
       // watcher.start() on a fresh start/channel switch and never re-acquires the
       // lock, so holding it here is safe (no reentrancy).
+      const adapters = createSelectedAdapters(settings, emit, [platform]);
       await reconcileTablessWatchers(
         nextState,
         settings,
-        createSelectedAdapters(settings, emit, [platform]),
+        adapters,
+        emit,
+        [platform],
+      );
+      await reconcileDiscoverySignalControllers(
+        nextState,
+        settings,
+        adapters,
         emit,
         [platform],
       );
@@ -2134,6 +2142,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       lastPersistedTwitchEnabled = undefined;
       await reportBestEffort(events);
     })));
+    if (!controllerShutdown) discoverySignalLifecycleOpen = true;
   }
 
   // Bounded post-claim handoff (see docs/superpowers/specs/2026-07-19-twitch-claim-handoff-design.md).
@@ -2285,9 +2294,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             discoverySignalRefreshPending[platform] = undefined;
             break;
           }
-          if (!discoverySignalRefreshAllowed(platform, current)) continue;
           await tickAndHandOff([platform], "discovery_signal");
-          if (!discoverySignalRefreshAllowed(platform, current)) continue;
         }
       } finally {
         discoverySignalRefreshRunning[platform] = false;

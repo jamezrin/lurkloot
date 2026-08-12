@@ -205,7 +205,11 @@ export class KickDiscoverySignalController implements DiscoverySignalController 
       return;
     }
 
-    if (frame.event !== CAMPAIGN_STARTED_EVENT || frame.channel !== this.currentChannelName()) return;
+    if (
+      this.subscribedSocket !== ws
+      || frame.event !== CAMPAIGN_STARTED_EVENT
+      || frame.channel !== this.currentChannelName()
+    ) return;
     const data = decodePusherData(frame.data);
     if (!data.ok || !isCampaignId(data.value)) {
       this.log("debug", "Ignored malformed Kick discovery frame");
