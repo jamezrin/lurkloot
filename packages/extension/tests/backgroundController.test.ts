@@ -67,6 +67,7 @@ class FakeDiscoverySignalController implements DiscoverySignalController {
   starts: DiscoverySignalTarget[] = [];
   stops = 0;
   private onSignal?: () => void;
+  private readonly capturedSignals: Array<() => void> = [];
   private readonly events: DiagnosticEvent[] = [];
 
   constructor(platform: Platform) {
@@ -77,10 +78,15 @@ class FakeDiscoverySignalController implements DiscoverySignalController {
     this.starts.push(target);
     this.targetKey = target.channel.categoryId;
     this.onSignal = onSignal;
+    this.capturedSignals.push(onSignal);
   }
 
   emitSignal(): void {
     this.onSignal?.();
+  }
+
+  emitCapturedSignal(index = 0): void {
+    this.capturedSignals[index]?.();
   }
 
   pushDiagnostic(message: string): void {
@@ -6584,6 +6590,79 @@ describe("discovery signal lifecycle", () => {
     expect(env.state.authHealth.kick.status).toBe("unavailable");
     expect(env.discoverySignalController.stops).toBe(1);
     expect(env.discoverySignalController.targetKey).toBeUndefined();
+  });
+
+  it("direct auth checks stop the observer and drop pending signal work when health becomes unhealthy", async () => {
+    const env = harness(kickOnlySettings());
+    await startKickDiscoverySession(env);
+    const activeRefresh = deferred<DropCampaign[]>();
+    vi.mocked(env.kick.refreshCampaigns)
+      .mockClear()
+      .mockImplementationOnce(() => activeRefresh.promise);
+
+    env.discoverySignalController.emitSignal();
+    await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+    vi.mocked(env.kick.checkAuthHealth).mockClear().mockResolvedValue({
+      status: "invalid_credentials",
+      checkedAt: "2026-08-12T12:00:00.000Z",
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    });
+    env.discoverySignalController.emitSignal();
+    const checking = env.controller.checkAuthHealth("kick");
+
+    activeRefresh.resolve([campaign("kick")]);
+    await checking;
+    await env.controller.settleBackgroundWork();
+
+    expect(env.state.authHealth.kick.status).toBe("invalid_credentials");
+    expect(env.discoverySignalController.stops).toBe(1);
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    vi.mocked(env.kick.checkAuthHealth).mockClear();
+    env.discoverySignalController.emitCapturedSignal();
+    await env.controller.settleBackgroundWork();
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("invalidating auth stops the observer while health is checking", async () => {
+    const env = harness(kickOnlySettings());
+    await startKickDiscoverySession(env);
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    vi.mocked(env.kick.checkAuthHealth).mockClear();
+
+    await env.controller.invalidateAuthHealth("kick");
+
+    expect(env.state.authHealth.kick.status).toBe("checking");
+    expect(env.discoverySignalController.stops).toBe(1);
+    expect(env.discoverySignalController.targetKey).toBeUndefined();
+    env.discoverySignalController.emitCapturedSignal();
+    await env.controller.settleBackgroundWork();
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("stops the observer when removing its active managed watch tab", async () => {
+    const env = harness(kickOnlySettings());
+    await startKickDiscoverySession(env);
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    vi.mocked(env.kick.checkAuthHealth).mockClear();
+
+    await env.controller.handleTabRemoved(20);
+
+    expect(env.state.sessions.kick).toMatchObject({
+      status: "paused",
+      reasonCode: "manual_tab_close",
+    });
+    expect(env.discoverySignalController.stops).toBe(1);
+    expect(env.discoverySignalController.targetKey).toBeUndefined();
+    env.discoverySignalController.emitCapturedSignal();
+    await env.controller.settleBackgroundWork();
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
   });
 
   it("updates the observer when the watched channel category changes", async () => {

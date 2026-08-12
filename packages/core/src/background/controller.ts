@@ -1203,6 +1203,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (transition.event) emit(transition.event);
         await saveOperationalStateDirect(transition.state);
       });
+      if (health.status !== "healthy") {
+        await stopDiscoverySignalController(platform, emit);
+      }
       await reportBestEffort(tickContext
         ? correlateTickDiagnostics(events, tickContext)
         : events);
@@ -1417,6 +1420,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     twitch: false,
     kick: false,
   };
+  const discoverySignalAuthRefreshes: Record<Platform, number> = {
+    twitch: 0,
+    kick: 0,
+  };
   const activeTicks = new Set<AbortController>();
   const activePlatformTicks: Record<Platform, number> = {
     twitch: 0,
@@ -1619,7 +1626,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function checkAuthHealth(platform: Platform): Promise<void> {
-    await refreshAuthHealth([platform]);
+    discoverySignalRefreshPending[platform] = false;
+    discoverySignalAuthRefreshes[platform] += 1;
+    try {
+      await refreshAuthHealth([platform]);
+    } finally {
+      discoverySignalAuthRefreshes[platform] -= 1;
+    }
   }
 
   async function invalidateAuthHealth(platform: Platform): Promise<void> {
@@ -1632,7 +1645,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const state = await deps.loadState();
       const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
       if (transition.event) emit(transition.event);
-      await persistAndReport(transition.state, events);
+      await saveOperationalState(transition.state);
+      await stopDiscoverySignalController(platform, emit);
+      await reportBestEffort(events);
     }));
   }
 
@@ -1693,6 +1708,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           };
         }
         nextState = { ...nextState, sessions, managedWatchTabs, manualClosePause };
+        await stopDiscoverySignalControllers(closedManagedPlatforms, emit);
       }
 
       if (nextState !== state || events.length > 0) await persistAndReport(nextState, events);
@@ -2185,6 +2201,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       controllerShutdown
       || !discoverySignalLifecycleOpen
       || discoverySignalPlatformBlocked[platform]
+      || discoverySignalAuthRefreshes[platform] > 0
     ) return;
     discoverySignalRefreshPending[platform] = true;
     if (discoverySignalRefreshRunning[platform]) return;
@@ -2199,6 +2216,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           && !controllerShutdown
           && discoverySignalLifecycleOpen
           && !discoverySignalPlatformBlocked[platform]
+          && discoverySignalAuthRefreshes[platform] === 0
         ) {
           discoverySignalRefreshPending[platform] = false;
           const settings = await deps.loadSettings();
@@ -2214,6 +2232,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           controllerShutdown
           || !discoverySignalLifecycleOpen
           || discoverySignalPlatformBlocked[platform]
+          || discoverySignalAuthRefreshes[platform] > 0
         ) {
           discoverySignalRefreshPending[platform] = false;
         } else if (discoverySignalRefreshPending[platform]) {
