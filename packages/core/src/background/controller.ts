@@ -1626,29 +1626,33 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function checkAuthHealth(platform: Platform): Promise<void> {
-    discoverySignalRefreshPending[platform] = false;
-    discoverySignalAuthRefreshes[platform] += 1;
+    const releaseDiscoverySignalAuthRefresh = reserveDiscoverySignalAuthRefresh(platform);
     try {
       await refreshAuthHealth([platform]);
     } finally {
-      discoverySignalAuthRefreshes[platform] -= 1;
+      releaseDiscoverySignalAuthRefresh();
     }
   }
 
   async function invalidateAuthHealth(platform: Platform): Promise<void> {
-    const generations = await beginAuthRefresh([platform]);
-    const generation = generations[platform];
-    const settings = await deps.loadSettings();
-    if (!settings.platform[platform].enabled) return;
-    await withStateLock(() => withEventCollector(async (emit, events) => {
-      if (generation === undefined || authRefreshGeneration[platform] !== generation) return;
-      const state = await deps.loadState();
-      const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
-      if (transition.event) emit(transition.event);
-      await saveOperationalState(transition.state);
-      await stopDiscoverySignalController(platform, emit);
-      await reportBestEffort(events);
-    }));
+    const releaseDiscoverySignalAuthRefresh = reserveDiscoverySignalAuthRefresh(platform);
+    try {
+      const generations = await beginAuthRefresh([platform]);
+      const generation = generations[platform];
+      const settings = await deps.loadSettings();
+      if (!settings.platform[platform].enabled) return;
+      await withStateLock(() => withEventCollector(async (emit, events) => {
+        if (generation === undefined || authRefreshGeneration[platform] !== generation) return;
+        const state = await deps.loadState();
+        const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
+        if (transition.event) emit(transition.event);
+        await saveOperationalState(transition.state);
+        await stopDiscoverySignalController(platform, emit);
+        await reportBestEffort(events);
+      }));
+    } finally {
+      releaseDiscoverySignalAuthRefresh();
+    }
   }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
@@ -2196,13 +2200,30 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  function discoverySignalRefreshAllowed(platform: Platform): boolean {
+    return !controllerShutdown
+      && discoverySignalLifecycleOpen
+      && !discoverySignalPlatformBlocked[platform]
+      && discoverySignalAuthRefreshes[platform] === 0
+      && discoverySignalControllers.has(platform);
+  }
+
+  function reserveDiscoverySignalAuthRefresh(platform: Platform): () => void {
+    // Credential observation calls invalidate/check without awaiting the pair.
+    // Close signal admission synchronously so no callback or paused refresh loop
+    // can launch obsolete platform work before the first state-lock await lands.
+    discoverySignalRefreshPending[platform] = false;
+    discoverySignalAuthRefreshes[platform] += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      discoverySignalAuthRefreshes[platform] -= 1;
+    };
+  }
+
   function queueDiscoverySignalRefresh(platform: Platform): void {
-    if (
-      controllerShutdown
-      || !discoverySignalLifecycleOpen
-      || discoverySignalPlatformBlocked[platform]
-      || discoverySignalAuthRefreshes[platform] > 0
-    ) return;
+    if (!discoverySignalRefreshAllowed(platform)) return;
     discoverySignalRefreshPending[platform] = true;
     if (discoverySignalRefreshRunning[platform]) return;
     // Reserve synchronously. A burst in the async setup window must see the
@@ -2213,14 +2234,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       try {
         while (
           discoverySignalRefreshPending[platform]
-          && !controllerShutdown
-          && discoverySignalLifecycleOpen
-          && !discoverySignalPlatformBlocked[platform]
-          && discoverySignalAuthRefreshes[platform] === 0
+          && discoverySignalRefreshAllowed(platform)
         ) {
           discoverySignalRefreshPending[platform] = false;
           const settings = await deps.loadSettings();
+          if (!discoverySignalRefreshAllowed(platform)) {
+            discoverySignalRefreshPending[platform] = false;
+            break;
+          }
           if (!settings.platform[platform].enabled) {
+            discoverySignalRefreshPending[platform] = false;
+            break;
+          }
+          if (!discoverySignalRefreshAllowed(platform)) {
             discoverySignalRefreshPending[platform] = false;
             break;
           }
@@ -2228,12 +2254,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         }
       } finally {
         discoverySignalRefreshRunning[platform] = false;
-        if (
-          controllerShutdown
-          || !discoverySignalLifecycleOpen
-          || discoverySignalPlatformBlocked[platform]
-          || discoverySignalAuthRefreshes[platform] > 0
-        ) {
+        if (!discoverySignalRefreshAllowed(platform)) {
           discoverySignalRefreshPending[platform] = false;
         } else if (discoverySignalRefreshPending[platform]) {
           // Covers a signal arriving after the loop's last condition check but

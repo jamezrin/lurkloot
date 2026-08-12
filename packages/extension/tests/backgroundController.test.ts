@@ -6645,6 +6645,53 @@ describe("discovery signal lifecycle", () => {
     expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
   });
 
+  it("blocks signal admission before auth invalidation acquires the platform lock", async () => {
+    const env = harness(kickOnlySettings());
+    await startKickDiscoverySession(env);
+    const activeRefresh = deferred<DropCampaign[]>();
+    vi.mocked(env.kick.refreshCampaigns)
+      .mockClear()
+      .mockImplementationOnce(() => activeRefresh.promise);
+    vi.mocked(env.kick.checkAuthHealth).mockClear();
+
+    const ticking = env.controller.tick(["kick"], "manual_tick");
+    await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+    const invalidating = env.controller.invalidateAuthHealth("kick");
+    env.discoverySignalController.emitSignal();
+
+    activeRefresh.resolve([campaign("kick")]);
+    await Promise.all([ticking, invalidating]);
+    await env.controller.settleBackgroundWork();
+
+    expect(env.state.authHealth.kick.status).toBe("checking");
+    expect(env.discoverySignalController.stops).toBe(1);
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
+  });
+
+  it("rechecks signal admission after loading settings and before launching a tick", async () => {
+    const env = harness(kickOnlySettings());
+    await startKickDiscoverySession(env);
+    const settingsRead = deferred<ExtensionSettings>();
+    env.deps.loadSettings.mockClear();
+    env.deps.loadSettings.mockImplementationOnce(() => settingsRead.promise);
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    vi.mocked(env.kick.checkAuthHealth).mockClear();
+
+    env.discoverySignalController.emitSignal();
+    await vi.waitFor(() => expect(env.deps.loadSettings).toHaveBeenCalledOnce());
+    await env.controller.invalidateAuthHealth("kick");
+
+    settingsRead.resolve(env.settings);
+    await env.controller.settleBackgroundWork();
+
+    expect(env.state.authHealth.kick.status).toBe("checking");
+    expect(env.discoverySignalController.stops).toBe(1);
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
+  });
+
   it("stops the observer when removing its active managed watch tab", async () => {
     const env = harness(kickOnlySettings());
     await startKickDiscoverySession(env);
