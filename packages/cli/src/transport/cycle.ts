@@ -2,7 +2,7 @@ import initCycleTLS, { type CycleTLSClient, type CycleTLSWebSocketResponse } fro
 import { KickWafBlockedError, needsKickSessionBearer, safeKickFailure } from "@lurkloot/core/tabs";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import type { PageFetcher } from "@lurkloot/core/adapter";
-import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/kick/watch";
+import type { WebSocketFactory, WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
 import type { PlatformCredentials } from "../authStore";
 import { CHROME_HTTP2, CHROME_JA3, CHROME_UA, hasHeader, headersToObject } from "./common";
 
@@ -169,7 +169,7 @@ class CycleWebSocket implements WebSocketLike {
   readyState = 0; // CONNECTING
   private socket?: CycleTLSWebSocketResponse;
   private readonly sendQueue: string[] = [];
-  private readonly listeners: Record<string, Array<(event: unknown) => void>> = {
+  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> = {
     open: [], message: [], close: [], error: [],
   };
 
@@ -200,11 +200,11 @@ class CycleWebSocket implements WebSocketLike {
     if (this.socket) void this.socket.close();
   }
 
-  addEventListener(type: "open" | "message" | "close" | "error", listener: (event: unknown) => void): void {
+  addEventListener(type: "open" | "message" | "close" | "error", listener: (event: WebSocketMessageEventLike) => void): void {
     this.listeners[type].push(listener);
   }
 
   private emit(type: string, event: unknown): void {
-    for (const listener of this.listeners[type] ?? []) listener(event);
+    for (const listener of this.listeners[type] ?? []) listener(event as WebSocketMessageEventLike);
   }
 }

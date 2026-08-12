@@ -1,15 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DiagnosticEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
+import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
+import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
 import { buildMinuteWatchedEvent, buildSpadeInput, gzipBase64 } from "@lurkloot/core/twitch/watch";
 import { createTwitchGqlTransport } from "@lurkloot/core/twitch";
 import { createKickFetcher } from "@lurkloot/core/kick";
-import { KickWatcher, type WebSocketLike } from "@lurkloot/core/kick/watch";
+import { KickWatcher } from "@lurkloot/core/kick/watch";
 import { PendingWatcherDiagnostics } from "@lurkloot/core/tablessWatch";
 import { kickAdapter, twitchAdapter } from "./helpers/adapters";
 import { testCompatibility } from "./helpers/compatibility";
 
 const TWITCH_COMPAT = testCompatibility().twitch;
+
+const discoveryContractFixture = (
+  controller: DiscoverySignalController,
+  target: DiscoverySignalTarget,
+): Promise<void> => controller.start(target, () => undefined);
+
+void discoveryContractFixture;
 
 async function gunzipBase64(b64: string): Promise<string> {
   const binary = atob(b64);
@@ -73,7 +82,7 @@ describe("twitch minute-watched payload", () => {
 class FakeSocket implements WebSocketLike {
   readyState = 1;
   sent: string[] = [];
-  private readonly listeners: Record<string, Array<(event: unknown) => void>> = {};
+  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> = {};
 
   send(data: string): void {
     this.sent.push(data);
@@ -83,7 +92,7 @@ class FakeSocket implements WebSocketLike {
     this.readyState = 3;
   }
 
-  addEventListener(type: "open" | "message" | "close" | "error", listener: (event: unknown) => void): void {
+  addEventListener(type: "open" | "message" | "close" | "error", listener: (event: WebSocketMessageEventLike) => void): void {
     (this.listeners[type] ??= []).push(listener);
   }
 

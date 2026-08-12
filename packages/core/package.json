@@ -8,6 +8,8 @@
     ".": "./src/index.ts",
     "./scheduler": "./src/core/scheduler.ts",
     "./tablessWatch": "./src/core/tablessWatch.ts",
+    "./webSocket": "./src/core/webSocket.ts",
+    "./discoverySignals": "./src/core/discoverySignals.ts",
     "./twitchIntegrity": "./src/core/twitchIntegrity.ts",
     "./tabs": "./src/core/tabs.ts",
     "./kickBearerCases": "./src/core/kickBearerCases.ts",

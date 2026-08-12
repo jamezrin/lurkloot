@@ -2,7 +2,7 @@ import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { PageFetcher, PlatformAdapter, WatchTabPort } from "@lurkloot/core/adapter";
-import type { WebSocketFactory } from "@lurkloot/core/kick/watch";
+import type { WebSocketFactory } from "@lurkloot/core/webSocket";
 import { KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost } from "@lurkloot/core/twitch/heartbeat";
