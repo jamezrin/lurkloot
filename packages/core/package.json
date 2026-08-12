@@ -26,6 +26,7 @@
     "./twitch/watch": "./src/platforms/twitch/watch.ts",
     "./twitch/heartbeat": "./src/platforms/twitch/heartbeat/index.ts",
     "./kick": "./src/platforms/kick/index.ts",
+    "./kick/discoverySignals": "./src/platforms/kick/discoverySignals.ts",
     "./kick/parser": "./src/platforms/kick/parser.ts",
     "./kick/watch": "./src/platforms/kick/watch.ts",
     "./controller": "./src/background/controller.ts",
