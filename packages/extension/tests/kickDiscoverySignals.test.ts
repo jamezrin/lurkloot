@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
 import { KickDiscoverySignalController } from "@lurkloot/core/kick/discoverySignals";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
+import { kickAdapter } from "./helpers/adapters";
 
 if (false) {
   // @ts-expect-error Core observers require their host to provide the WebSocket transport.
@@ -65,6 +66,21 @@ const kickChannel = (categoryId: string): ChannelCandidate => ({
 });
 
 describe("Kick discovery signals", () => {
+  it("exposes a Kick discovery observer through the adapter", () => {
+    const fetcher = { fetchJson: async <T,>(): Promise<T> => ({}) as T };
+    const adapter = kickAdapter(
+      fetcher,
+      undefined,
+      () => new FakeSocket(),
+    );
+
+    const observer = adapter.createDiscoverySignalController?.();
+
+    expect(observer).toBeInstanceOf(KickDiscoverySignalController);
+    expect(observer?.platform).toBe("kick");
+    expect(kickAdapter(fetcher).createDiscoverySignalController).toBeUndefined();
+  });
+
   it("opens the Pusher connection and subscribes once for the normalized category", async () => {
     const socket = new FakeSocket();
     const createWebSocket = vi.fn(() => socket);

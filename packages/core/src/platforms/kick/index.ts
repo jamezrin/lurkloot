@@ -1,6 +1,7 @@
 import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
+import type { DiscoverySignalController } from "../../core/discoverySignals";
 import { KickWafBlockedError } from "../../core/tabs";
 import { authHealthFromError } from "../../core/fetchError";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
@@ -8,6 +9,7 @@ import type { WebSocketFactory } from "../../core/webSocket";
 import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
+import { KickDiscoverySignalController } from "./discoverySignals";
 import type { ResolvedCompatibility } from "../../compatibility/types";
 import { createKickClaimCapability } from "./claim/factory";
 import type { KickClaimCapability } from "./claim/types";
@@ -225,6 +227,7 @@ export class KickAdapter implements PlatformAdapter {
   readonly compatibility?: ResolvedCompatibility["kick"];
   private readonly claimCapability: KickClaimCapability;
   private readonly discoveryState: KickDiscoveryState;
+  readonly createDiscoverySignalController?: () => DiscoverySignalController;
 
   async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
@@ -309,6 +312,10 @@ export class KickAdapter implements PlatformAdapter {
   ) {
     this.compatibility = options.compatibility;
     this.discoveryState = options.discoveryState ?? new KickDiscoveryState();
+    if (this.webSocketFactory) {
+      const createWebSocket = this.webSocketFactory;
+      this.createDiscoverySignalController = () => new KickDiscoverySignalController({ createWebSocket });
+    }
     this.claimCapability = createKickClaimCapability(
       options.compatibility.claim,
       options.claimState,
