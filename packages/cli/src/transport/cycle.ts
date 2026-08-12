@@ -168,6 +168,8 @@ class CycleWebSocket implements WebSocketLike {
   // Mirrors the DOM WebSocket readyState constants the watcher reads.
   readyState = 0; // CONNECTING
   private socket?: CycleTLSWebSocketResponse;
+  private closed = false;
+  private closeEmitted = false;
   private readonly sendQueue: string[] = [];
   private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> = {
     open: [], message: [], close: [], error: [],
@@ -176,28 +178,42 @@ class CycleWebSocket implements WebSocketLike {
   constructor(cycleTLS: CycleTLSClient, url: string, headers: Record<string, string>) {
     cycleTLS.ws(url, { ja3: CHROME_JA3, http2Fingerprint: CHROME_HTTP2, userAgent: CHROME_UA, headers })
       .then((socket) => {
+        if (this.closed) {
+          void socket.close();
+          return;
+        }
         this.socket = socket;
         this.readyState = 1; // OPEN
         socket.onMessage((message) => {
           const data = typeof message.data === "string" ? message.data : message.data.toString();
           this.emit("message", { data });
         });
-        socket.onClose((code, reason) => { this.readyState = 3; this.emit("close", { code, reason }); });
+        socket.onClose((code, reason) => this.finishClose(code, reason));
         socket.onError((error) => this.emit("error", error));
         for (const data of this.sendQueue.splice(0)) void socket.send(data);
         this.emit("open", {});
       })
-      .catch((error) => { this.readyState = 3; this.emit("error", error); });
+      .catch((error) => {
+        if (this.closed) return;
+        this.emit("error", error);
+        this.finishClose(1006, "");
+      });
   }
 
   send(data: string): void {
+    if (this.closed) return;
     if (this.socket) void this.socket.send(data);
     else this.sendQueue.push(data);
   }
 
   close(): void {
+    if (this.closed) return;
+    this.closed = true;
     this.readyState = 3; // CLOSED
-    if (this.socket) void this.socket.close();
+    this.sendQueue.length = 0;
+    const socket = this.socket;
+    this.socket = undefined;
+    if (socket) void socket.close();
   }
 
   addEventListener(type: "open" | "message" | "close" | "error", listener: (event: WebSocketMessageEventLike) => void): void {
@@ -206,5 +222,15 @@ class CycleWebSocket implements WebSocketLike {
 
   private emit(type: string, event: unknown): void {
     for (const listener of this.listeners[type] ?? []) listener(event as WebSocketMessageEventLike);
+  }
+
+  private finishClose(code: number, reason: string): void {
+    if (this.closeEmitted) return;
+    this.closed = true;
+    this.closeEmitted = true;
+    this.readyState = 3;
+    this.socket = undefined;
+    this.sendQueue.length = 0;
+    this.emit("close", { code, reason });
   }
 }

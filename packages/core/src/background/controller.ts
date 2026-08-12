@@ -1483,6 +1483,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } finally {
       activeTicks.delete(abort);
       activePlatformTicks[platform] -= 1;
+      if (activePlatformTicks[platform] === 0) startPendingDiscoverySignalRefresh(platform);
       diagnosticEvent(
         "debug",
         `Tick #${tickContext.platformTickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`,
@@ -2251,7 +2252,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     };
     if (!discoverySignalRefreshAllowed(platform, request)) return;
     discoverySignalRefreshPending[platform] = request;
-    if (discoverySignalRefreshRunning[platform]) return;
+    startPendingDiscoverySignalRefresh(platform);
+  }
+
+  function startPendingDiscoverySignalRefresh(platform: Platform): void {
+    if (discoverySignalRefreshRunning[platform] || activePlatformTicks[platform] > 0) return;
+    const queued = discoverySignalRefreshPending[platform];
+    if (!queued) return;
+    if (!discoverySignalRefreshAllowed(platform, queued)) {
+      discoverySignalRefreshPending[platform] = undefined;
+      return;
+    }
     // Reserve synchronously. A burst in the async setup window must see the
     // running loop and collapse into its one pending request.
     discoverySignalRefreshRunning[platform] = true;
@@ -2280,14 +2291,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         }
       } finally {
         discoverySignalRefreshRunning[platform] = false;
-        const pending = discoverySignalRefreshPending[platform];
-        if (pending && discoverySignalRefreshAllowed(platform, pending)) {
-          // Covers a signal arriving after the loop's last condition check but
-          // before the running reservation is released.
-          queueDiscoverySignalRefresh(platform, pending.controller);
-        } else if (pending) {
-          discoverySignalRefreshPending[platform] = undefined;
-        }
+        // Covers a signal arriving after the loop's last condition check but
+        // before the running reservation is released.
+        startPendingDiscoverySignalRefresh(platform);
       }
     })().catch((error) => {
       diagnosticEvent(

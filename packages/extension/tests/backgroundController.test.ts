@@ -6965,6 +6965,62 @@ describe("discovery signal refresh scheduling", () => {
     expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(2);
   });
 
+  it("coalesces bursts before and after an ordinary Kick tick fetch into one non-overlapping follow-up", async () => {
+    const env = await startedEnv();
+    const ordinaryAuth = deferred<void>();
+    const ordinaryRefresh = deferred<DropCampaign[]>();
+    let authCalls = 0;
+    let activeAuthProbes = 0;
+    let maximumActiveAuthProbes = 0;
+    vi.mocked(env.kick.checkAuthHealth)
+      .mockClear()
+      .mockImplementation(async () => {
+        authCalls += 1;
+        activeAuthProbes += 1;
+        maximumActiveAuthProbes = Math.max(maximumActiveAuthProbes, activeAuthProbes);
+        try {
+          if (authCalls === 1) await ordinaryAuth.promise;
+          return { status: "healthy", checkedAt: "2026-08-12T12:00:00.000Z" };
+        } finally {
+          activeAuthProbes -= 1;
+        }
+      });
+    vi.mocked(env.kick.refreshCampaigns)
+      .mockClear()
+      .mockImplementationOnce(() => ordinaryRefresh.promise)
+      .mockResolvedValue([campaign("kick")]);
+
+    const ticking = env.controller.tick(["kick"], "manual_tick");
+    try {
+      await vi.waitFor(() => expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce());
+      env.discoverySignalController.emitSignal();
+      env.discoverySignalController.emitSignal();
+      env.discoverySignalController.emitSignal();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+
+      ordinaryAuth.resolve();
+      await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+      env.discoverySignalController.emitSignal();
+      env.discoverySignalController.emitSignal();
+      env.discoverySignalController.emitSignal();
+      ordinaryRefresh.resolve([campaign("kick")]);
+
+      await ticking;
+      await env.controller.settleBackgroundWork();
+
+      expect(env.kick.checkAuthHealth).toHaveBeenCalledTimes(2);
+      expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(2);
+      expect(maximumActiveAuthProbes).toBe(1);
+    } finally {
+      ordinaryAuth.resolve();
+      ordinaryRefresh.resolve([campaign("kick")]);
+      await Promise.allSettled([ticking]);
+      await env.controller.settleBackgroundWork();
+    }
+  });
+
   it("keeps Twitch refresh calls unchanged by a Kick signal", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     vi.mocked(env.kick.listCandidateChannels).mockResolvedValue([

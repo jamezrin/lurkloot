@@ -1,5 +1,7 @@
 export interface WebSocketMessageEventLike {
   data?: unknown;
+  code?: number;
+  reason?: string;
 }
 
 export interface WebSocketLike {

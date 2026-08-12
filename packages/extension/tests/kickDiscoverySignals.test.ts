@@ -58,6 +58,27 @@ const reconnectScheduler = () => {
   return { scheduled, scheduleReconnect };
 };
 
+interface ScheduledKeepAlive {
+  callback: () => void;
+  delayMs: number;
+  timer: ReturnType<typeof setTimeout>;
+  cancelled: boolean;
+}
+
+const keepAliveScheduler = () => {
+  const scheduled: ScheduledKeepAlive[] = [];
+  const scheduleKeepAlive = (callback: () => void, delayMs: number): ReturnType<typeof setTimeout> => {
+    const timer = { id: scheduled.length } as unknown as ReturnType<typeof setTimeout>;
+    scheduled.push({ callback, delayMs, timer, cancelled: false });
+    return timer;
+  };
+  const cancelKeepAlive = (timer: ReturnType<typeof setTimeout>): void => {
+    const entry = scheduled.find((candidate) => candidate.timer === timer);
+    if (entry) entry.cancelled = true;
+  };
+  return { scheduled, scheduleKeepAlive, cancelKeepAlive };
+};
+
 const kickChannel = (categoryId: string): ChannelCandidate => ({
   platform: "kick",
   username: "creator",
@@ -200,6 +221,105 @@ describe("Kick discovery signals", () => {
     expect(onSignal).not.toHaveBeenCalled();
   });
 
+  it("sends client Pusher pings every 20 seconds after subscription and continues after pong", async () => {
+    const socket = new FakeSocket();
+    const keepAlive = keepAliveScheduler();
+    const controller = new KickDiscoverySignalController({
+      createWebSocket: () => socket,
+      scheduleKeepAlive: keepAlive.scheduleKeepAlive,
+      cancelKeepAlive: keepAlive.cancelKeepAlive,
+    });
+    await controller.start({ platform: "kick", channel: kickChannel("42") }, () => undefined);
+
+    socket.message({ event: "pusher:connection_established", data: "{}" });
+    expect(keepAlive.scheduled).toEqual([]);
+    socket.message({ event: "pusher_internal:subscription_succeeded", channel: "drops_category_42", data: "{}" });
+    expect(keepAlive.scheduled[0]?.delayMs).toBe(20_000);
+
+    keepAlive.scheduled[0]!.callback();
+    expect(socket.sent.at(-1)).toBe(JSON.stringify({ event: "pusher:ping", data: {} }));
+    expect(keepAlive.scheduled[1]?.delayMs).toBe(10_000);
+
+    socket.message({ event: "pusher:pong", data: "{}" });
+    expect(keepAlive.scheduled[1]?.cancelled).toBe(true);
+    expect(keepAlive.scheduled[2]?.delayMs).toBe(20_000);
+
+    keepAlive.scheduled[2]!.callback();
+    expect(socket.sent.filter((frame) => frame === JSON.stringify({ event: "pusher:ping", data: {} })))
+      .toHaveLength(2);
+  });
+
+  it("closes and reconnects once when a client Pusher ping receives no pong", async () => {
+    const timedOutSocket = new FakeSocket();
+    const sockets = [timedOutSocket, new FakeSocket()];
+    const keepAlive = keepAliveScheduler();
+    const reconnect = reconnectScheduler();
+    const controller = new KickDiscoverySignalController({
+      createWebSocket: () => sockets.shift()!,
+      scheduleKeepAlive: keepAlive.scheduleKeepAlive,
+      cancelKeepAlive: keepAlive.cancelKeepAlive,
+      scheduleReconnect: reconnect.scheduleReconnect,
+    });
+    await controller.start({ platform: "kick", channel: kickChannel("42") }, () => undefined);
+    timedOutSocket.message({ event: "pusher:connection_established", data: "{}" });
+    timedOutSocket.message({ event: "pusher_internal:subscription_succeeded", channel: "drops_category_42", data: "{}" });
+
+    keepAlive.scheduled[0]!.callback();
+    keepAlive.scheduled[1]!.callback();
+
+    expect(timedOutSocket.closed).toBe(true);
+    expect(reconnect.scheduled).toHaveLength(1);
+    timedOutSocket.emit("close", { code: 1006 });
+    expect(reconnect.scheduled).toHaveLength(1);
+
+    reconnect.scheduled[0]!.callback();
+    expect(sockets).toEqual([]);
+  });
+
+  it("cancels keepalive timers on close, category replacement, and stop", async () => {
+    const closedSocket = new FakeSocket();
+    const firstSocket = new FakeSocket();
+    const secondSocket = new FakeSocket();
+    const sockets = [closedSocket, firstSocket, secondSocket];
+    const keepAlive = keepAliveScheduler();
+    const reconnect = reconnectScheduler();
+    const controller = new KickDiscoverySignalController({
+      createWebSocket: () => sockets.shift()!,
+      scheduleKeepAlive: keepAlive.scheduleKeepAlive,
+      cancelKeepAlive: keepAlive.cancelKeepAlive,
+      scheduleReconnect: reconnect.scheduleReconnect,
+    });
+    await controller.start({ platform: "kick", channel: kickChannel("41") }, () => undefined);
+    closedSocket.message({ event: "pusher:connection_established", data: "{}" });
+    closedSocket.message({ event: "pusher_internal:subscription_succeeded", channel: "drops_category_41", data: "{}" });
+    const closedTimer = keepAlive.scheduled[0]!;
+
+    closedSocket.emit("close", { code: 1006 });
+    expect(closedTimer.cancelled).toBe(true);
+    closedTimer.callback();
+    expect(closedSocket.sent).not.toContain(JSON.stringify({ event: "pusher:ping", data: {} }));
+    reconnect.scheduled[0]!.callback();
+
+    firstSocket.message({ event: "pusher:connection_established", data: "{}" });
+    firstSocket.message({ event: "pusher_internal:subscription_succeeded", channel: "drops_category_41", data: "{}" });
+    const replacedTimer = keepAlive.scheduled.at(-1)!;
+
+    await controller.start({ platform: "kick", channel: kickChannel("42") }, () => undefined);
+    expect(replacedTimer.cancelled).toBe(true);
+    replacedTimer.callback();
+    expect(firstSocket.sent).not.toContain(JSON.stringify({ event: "pusher:ping", data: {} }));
+
+    secondSocket.message({ event: "pusher:connection_established", data: "{}" });
+    secondSocket.message({ event: "pusher_internal:subscription_succeeded", channel: "drops_category_42", data: "{}" });
+    keepAlive.scheduled.at(-1)!.callback();
+    const stoppedTimer = keepAlive.scheduled.at(-1)!;
+    await controller.stop();
+
+    expect(stoppedTimer.cancelled).toBe(true);
+    stoppedTimer.callback();
+    expect(reconnect.scheduled).toHaveLength(1);
+  });
+
   it("reconnects after an unexpected close and resubscribes to the current category", async () => {
     const sockets: FakeSocket[] = [];
     const { scheduled, scheduleReconnect } = reconnectScheduler();
@@ -275,6 +395,53 @@ describe("Kick discovery signals", () => {
     }));
   });
 
+  it.each([
+    { code: 3999, reconnects: true },
+    { code: 4000, reconnects: false },
+    { code: 4099, reconnects: false },
+    { code: 4100, reconnects: true },
+  ])("handles Pusher close code $code with reconnect=$reconnects", async ({ code, reconnects }) => {
+    const socket = new FakeSocket();
+    const reconnect = reconnectScheduler();
+    const controller = new KickDiscoverySignalController({
+      createWebSocket: () => socket,
+      scheduleReconnect: reconnect.scheduleReconnect,
+    });
+    await controller.start({ platform: "kick", channel: kickChannel("42") }, () => undefined);
+
+    socket.emit("close", { code, reason: "protocol decision" });
+
+    expect(reconnect.scheduled).toHaveLength(reconnects ? 1 : 0);
+    if (!reconnects) {
+      expect(controller.drainEvents()).toContainEqual(expect.objectContaining({
+        level: "warn",
+        platform: "kick",
+        message: expect.stringMatching(new RegExp(`terminal Pusher close code ${code}`)),
+      }));
+    }
+  });
+
+  it("logs subscription, accepted-signal, and payload-free malformed-frame diagnostics", async () => {
+    const socket = new FakeSocket();
+    const onSignal = vi.fn();
+    const controller = new KickDiscoverySignalController({ createWebSocket: () => socket });
+    await controller.start({ platform: "kick", channel: kickChannel("42") }, onSignal);
+
+    socket.message({ event: "pusher:connection_established", data: "{}" });
+    socket.message({ event: "pusher_internal:subscription_succeeded", channel: "drops_category_42", data: "{}" });
+    socket.message("malformed secret payload");
+    socket.message({ event: "drops_campaign_started", channel: "drops_category_42", data: JSON.stringify("campaign-secret") });
+
+    const events = controller.drainEvents();
+    expect(onSignal).toHaveBeenCalledOnce();
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "debug", message: expect.stringMatching(/subscribed.*category 42/i) }),
+      expect.objectContaining({ level: "debug", message: expect.stringMatching(/accepted.*campaign-start.*category 42/i) }),
+      expect.objectContaining({ level: "debug", message: expect.stringMatching(/malformed.*frame/i) }),
+    ]));
+    expect(JSON.stringify(events)).not.toContain("secret");
+  });
+
   it("stops and logs debug diagnostics for invalid targets", async () => {
     const socket = new FakeSocket();
     const createWebSocket = vi.fn(() => socket);
@@ -320,8 +487,10 @@ describe("Kick discovery signals", () => {
 
     const events = controller.drainEvents();
     expect(events).toHaveLength(250);
-    expect(events.every((event) => event.level === "warn" && event.platform === "kick")).toBe(true);
-    expect(events[0]?.message).toBe("Kick discovery signal callback failed: callback-10");
-    expect(events.at(-1)?.message).toBe("Kick discovery signal callback failed: callback-259");
+    const warnings = events.filter((event) => event.level === "warn");
+    expect(events.every((event) => event.platform === "kick")).toBe(true);
+    expect(warnings).toHaveLength(125);
+    expect(warnings[0]?.message).toBe("Kick discovery signal callback failed: callback-135");
+    expect(warnings.at(-1)?.message).toBe("Kick discovery signal callback failed: callback-259");
   });
 });
