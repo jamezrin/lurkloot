@@ -6692,6 +6692,77 @@ describe("discovery signal lifecycle", () => {
     expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
   });
 
+  it("does not reopen a paused signal loop after a healthy direct auth check", async () => {
+    const env = harness(kickOnlySettings());
+    await startKickDiscoverySession(env);
+    const settingsRead = deferred<ExtensionSettings>();
+    env.deps.loadSettings.mockClear();
+    env.deps.loadSettings.mockImplementationOnce(() => settingsRead.promise);
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    vi.mocked(env.kick.checkAuthHealth).mockClear();
+
+    env.discoverySignalController.emitSignal();
+    await vi.waitFor(() => expect(env.deps.loadSettings).toHaveBeenCalledOnce());
+    await env.controller.checkAuthHealth("kick");
+    expect(env.state.authHealth.kick.status).toBe("healthy");
+    expect(env.discoverySignalController.stops).toBe(0);
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    vi.mocked(env.kick.checkAuthHealth).mockClear();
+
+    settingsRead.resolve(env.settings);
+    await env.controller.settleBackgroundWork();
+
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
+
+    env.discoverySignalController.emitSignal();
+    await env.controller.settleBackgroundWork();
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
+  });
+
+  it("does not transfer a paused signal loop to a restarted observer lifecycle", async () => {
+    const env = harness(kickOnlySettings());
+    await startKickDiscoverySession(env);
+    const settingsRead = deferred<ExtensionSettings>();
+    env.deps.loadSettings.mockClear();
+    env.deps.loadSettings.mockImplementationOnce(() => settingsRead.promise);
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    vi.mocked(env.kick.checkAuthHealth).mockClear();
+
+    env.discoverySignalController.emitSignal();
+    await vi.waitFor(() => expect(env.deps.loadSettings).toHaveBeenCalledOnce());
+    vi.mocked(env.kick.checkAuthHealth).mockResolvedValue({
+      status: "invalid_credentials",
+      checkedAt: "2026-08-12T12:00:00.000Z",
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    });
+    await env.controller.tick(["kick"], "manual_tick");
+    expect(env.discoverySignalController.stops).toBe(1);
+
+    vi.mocked(env.kick.checkAuthHealth).mockResolvedValue({
+      status: "healthy",
+      checkedAt: "2026-08-12T12:01:00.000Z",
+    });
+    await env.controller.tick(["kick"], "manual_tick");
+    expect(env.discoverySignalController.starts).toHaveLength(2);
+    expect(env.discoverySignalController.targetKey).toBe("42");
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    vi.mocked(env.kick.checkAuthHealth).mockClear();
+
+    settingsRead.resolve(env.settings);
+    await env.controller.settleBackgroundWork();
+
+    expect(env.kick.checkAuthHealth).not.toHaveBeenCalled();
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
+
+    env.discoverySignalController.emitSignal();
+    await env.controller.settleBackgroundWork();
+    expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
+  });
+
   it("stops the observer when removing its active managed watch tab", async () => {
     const env = harness(kickOnlySettings());
     await startKickDiscoverySession(env);
