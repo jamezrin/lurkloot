@@ -1,5 +1,6 @@
 import type { ChannelCandidate } from "@lurkloot/shared/models";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
+import type { WebSocketFactory, WebSocketLike } from "../../core/webSocket";
 import type { PageFetcher } from "../adapter";
 
 // Tabless Kick farming: a viewer WebSocket that advances drop timers with no
@@ -23,17 +24,6 @@ interface KickChannelTargets {
   isLive: boolean;
   categoryId?: string;
 }
-
-// Minimal surface of the WebSocket we use, so a fake can be injected in tests
-// and so non-browser runtimes do not need the DOM lib.
-export interface WebSocketLike {
-  send(data: string): void;
-  close(): void;
-  readyState: number;
-  addEventListener(type: "open" | "message" | "close" | "error", listener: (event: unknown) => void): void;
-}
-
-export type WebSocketFactory = (url: string) => WebSocketLike;
 
 export interface KickWatcherDeps {
   fetcher: PageFetcher;
