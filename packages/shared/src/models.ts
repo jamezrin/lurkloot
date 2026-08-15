@@ -271,6 +271,10 @@ export interface PlatformSettings {
 // platform, so the type never advertises a knob the platform ignores.
 export interface TwitchPlatformSettings extends PlatformSettings {
   autoClaimChannelPoints: boolean;
+  // Advanced: require DropsHighlightService_AvailableDrops to list a campaign
+  // before farming it on a channel. Off by default — see #400 and
+  // TwitchAdapterOptions.strictCampaignAvailability.
+  strictCampaignAvailability: boolean;
 }
 
 export interface KickPlatformSettings extends PlatformSettings {

@@ -104,6 +104,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
       {
         compatibility: resolution.compatibility.twitch,
         discoveryState: twitchDiscoveryState,
+        strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
         currentIntegrity: currentValidTwitchIntegrity,
         heartbeatIdentity: "web",
         heartbeatFetchText: twitchHeartbeatFetchText,

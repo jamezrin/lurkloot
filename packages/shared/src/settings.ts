@@ -39,6 +39,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       farmAllCategories: true,
       categories: [],
       autoClaimChannelPoints: true,
+      strictCampaignAvailability: false,
     },
     kick: {
       enabled: false,
@@ -142,6 +143,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         farmAllCategories: booleanOr(platform?.twitch?.farmAllCategories, DEFAULT_ENGINE_SETTINGS.platform.twitch.farmAllCategories),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
         autoClaimChannelPoints: booleanOr(platform?.twitch?.autoClaimChannelPoints, DEFAULT_ENGINE_SETTINGS.platform.twitch.autoClaimChannelPoints),
+        strictCampaignAvailability: booleanOr(platform?.twitch?.strictCampaignAvailability, DEFAULT_ENGINE_SETTINGS.platform.twitch.strictCampaignAvailability),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),

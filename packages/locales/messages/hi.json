@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "इस प्लेटफ़ॉर्म पर फ़ार्म करते समय चैनल-पॉइंट बोनस अपने आप क्लेम करें।"
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "सख्त अभियान उपलब्धता"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "किसी अभियान को केवल उन चैनलों पर फ़ार्म करें जिनके लिए Twitch उसे सूचीबद्ध करता है। Twitch अक्सर फ़ार्म करने योग्य अभियान छोड़ देता है, जिससे कुछ ड्रॉप्स अनफ़ार्म रह सकते हैं।"
+  },
   "autoClaimChallengesTitle": {
     "message": "दैनिक चैलेंज अपने आप क्लेम करें"
   },

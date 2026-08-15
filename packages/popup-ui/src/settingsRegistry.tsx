@@ -423,31 +423,63 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       },
     ];
 
+    // Twitch's advanced group also carries a farming toggle, so it is named for
+    // what it is rather than "Compatibility", and exists whether or not a
+    // compatibility registry was supplied. Kick has no such toggle and keeps a
+    // compatibility-only group. Each section still gets exactly one advanced
+    // group, and neither holds a lone entry in the popup, which always supplies
+    // a registry.
+    const advancedEntries: SettingsEntryDef[] = platform === "twitch"
+      ? [{
+        id: "twitch.advanced.strictCampaignAvailability",
+        titleKey: "strictCampaignAvailabilityTitle",
+        descriptionKey: "strictCampaignAvailabilityDescription",
+        render: () => (
+          <SettingRow
+            title={t("strictCampaignAvailabilityTitle")}
+            description={t("strictCampaignAvailabilityDescription")}
+            checked={settings.platform.twitch.strictCampaignAvailability}
+            onChange={(value) => void onSettingsChange({ platform: { twitch: { strictCampaignAvailability: value } } })}
+          />
+        ),
+      }]
+      : [];
+
     if (ctx.compatibilityRegistry && ctx.compatibilityResolution) {
       const compatibilityRegistry = ctx.compatibilityRegistry;
       const compatibilityResolution = ctx.compatibilityResolution;
-      groups.push({
-        id: `${platform}.compatibility`,
-        titleKey: "settingsGroupCompatibility",
-        description: t("compatibilitySectionDescription"),
-        advanced: true,
-        entries: [
-          {
-            id: `${platform}.compatibility.rows`,
-            titleKey: "compatibilitySectionTitle",
-            descriptionKey: "compatibilitySectionDescription",
-            render: () => (
-              <PlatformCompatibilitySettings
-                platform={platform}
-                settings={settings.compatibility}
-                registry={compatibilityRegistry}
-                resolution={compatibilityResolution}
-                onChange={(patch) => void onSettingsChange(patch)}
-              />
-            ),
-          },
-        ],
+      advancedEntries.push({
+        id: `${platform}.compatibility.rows`,
+        titleKey: "compatibilitySectionTitle",
+        descriptionKey: "compatibilitySectionDescription",
+        render: () => (
+          <PlatformCompatibilitySettings
+            platform={platform}
+            settings={settings.compatibility}
+            registry={compatibilityRegistry}
+            resolution={compatibilityResolution}
+            onChange={(patch) => void onSettingsChange(patch)}
+          />
+        ),
       });
+    }
+
+    if (advancedEntries.length > 0) {
+      groups.push(platform === "twitch"
+        ? {
+          id: "twitch.advanced",
+          titleKey: "settingsGroupAdvanced",
+          description: t("advancedDescription"),
+          advanced: true,
+          entries: advancedEntries,
+        }
+        : {
+          id: `${platform}.compatibility`,
+          titleKey: "settingsGroupCompatibility",
+          description: t("compatibilitySectionDescription"),
+          advanced: true,
+          entries: advancedEntries,
+        });
     }
 
     return { id: platform, iconNode, rows: [claimEntry], groups };

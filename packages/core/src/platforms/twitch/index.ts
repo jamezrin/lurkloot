@@ -67,6 +67,14 @@ export interface TwitchAdapterOptions {
   heartbeatFetchText?: TwitchHeartbeatFetchText;
   heartbeatPost?: TwitchHeartbeatPost;
   discoveryState?: TwitchDiscoveryState;
+  // Opt-in exact validation of a campaign against DropsHighlightService_
+  // AvailableDrops before a channel may be watched. Off by default: Twitch's
+  // own GameDirectory DROPS_ENABLED filter and the campaign ACL are the
+  // authoritative discovery sources, and AvailableDrops routinely omits a
+  // campaign that is in fact farmable on the channel — which rejected every
+  // candidate and left drops unfarmed (#400). When off, live/category
+  // validation alone decides, matching TwitchDropsMiner's default.
+  strictCampaignAvailability?: boolean;
   // Supplies the integrity bundle each request should carry. The transport
   // attaches it itself rather than letting the fetcher pick one up from a global,
   // so the token a rejection reports is provably the token that was sent: the
@@ -1291,7 +1299,9 @@ export class TwitchAdapter implements PlatformAdapter {
       const target = streamCandidates[index];
       if (target) checks[target.index] = check;
     });
-    const availabilityResult = campaign
+    // Without strict validation the matches map stays empty, so every candidate
+    // reads `undefined` below and passes on live/category evidence alone.
+    const availabilityResult = campaign && this.options.strictCampaignAvailability
       ? await this.batchCampaignAvailability(
           checks.flatMap((check) =>
             check?.live && check.categoryMatches && check.candidate.channelId && check.candidate.broadcastId
@@ -1317,11 +1327,12 @@ export class TwitchAdapter implements PlatformAdapter {
 
     let checked = 0;
     let winnerFallbacks = 0;
+    let strictRejections = 0;
     const reportSelectionFinished = () => {
       diagnostic(
         this.emit,
         "debug",
-        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${availabilityResult.cacheMisses} availability cache misses, ${availabilityResult.cacheExpirations} availability cache expirations, ${availabilityResult.broadcastInvalidations} availability broadcast invalidations, ${availabilityResult.progressOverrides} progress-confirmed availability overrides, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
+        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${this.options.strictCampaignAvailability ? "strict campaign availability" : "trusted discovery sources"}, ${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${availabilityResult.cacheMisses} availability cache misses, ${availabilityResult.cacheExpirations} availability cache expirations, ${availabilityResult.broadcastInvalidations} availability broadcast invalidations, ${availabilityResult.progressOverrides} progress-confirmed availability overrides, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks, ${strictRejections} candidates rejected by strict availability)`,
         "twitch",
       );
     };
@@ -1340,7 +1351,10 @@ export class TwitchAdapter implements PlatformAdapter {
       } else if (campaign && check.candidate.channelId) {
         campaignMatches = availabilityResult.matches.get(check.candidate.channelId);
       }
-      if (campaignMatches === false) continue;
+      if (campaignMatches === false) {
+        strictRejections += 1;
+        continue;
+      }
       reportSelectionFinished();
       return {
         checked: candidates.length,
@@ -1681,7 +1695,11 @@ export class TwitchAdapter implements PlatformAdapter {
       const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
       const categoryMatches = !expectedCategoryId || actualCategoryId === expectedCategoryId;
       const broadcastId = stream?.id;
+      // Gated on strict validation for the same reason as selectCandidateChannel:
+      // this path also re-verifies the channel already being watched, so an
+      // un-gated negative would stop farming mid-session (#400).
       const campaignMatches = stream && categoryMatches && campaign && channelId && broadcastId
+        && this.options.strictCampaignAvailability
         ? await this.checkCampaignAvailability(channelId, broadcastId, campaign.id, channel.username, signal)
         : undefined;
       return {

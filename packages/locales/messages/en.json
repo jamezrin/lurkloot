@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Claim channel-point bonuses while farming this platform."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Strict campaign availability"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Only farm a campaign on channels Twitch lists it for. Twitch often omits farmable campaigns, so this can leave drops unfarmed."
+  },
   "autoClaimChallengesTitle": {
     "message": "Auto-claim daily challenges"
   },

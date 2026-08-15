@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Beansprucht Kanalpunkt-Boni automatisch, während diese Plattform gefarmt wird."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Strikte Kampagnenverfügbarkeit"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Farme eine Kampagne nur auf Kanälen, für die Twitch sie auflistet. Twitch lässt farmbare Kampagnen oft aus, wodurch Drops ungefarmt bleiben können."
+  },
   "autoClaimChallengesTitle": {
     "message": "Tägliche Challenges automatisch beanspruchen"
   },
