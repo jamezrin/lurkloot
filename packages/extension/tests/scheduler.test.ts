@@ -1243,6 +1243,48 @@ describe("scheduler tick", () => {
     expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("campaigns eligible"))).toEqual([]);
   });
 
+  it("reports aggregate and active campaign rejection reasons only when the snapshot changes", async () => {
+    const rejected = [
+      campaign("linked-required", { accountLinked: false }),
+      campaign("finished", { status: "completed", rewards: [{ ...reward("claimed"), id: "done" }] }),
+      campaign("farmable"),
+    ];
+    const twitch = adapter("twitch", rejected, [channel("creator")]);
+    const tickSettings = settings({ platform: { twitch: { enabled: true }, kick: { enabled: false } } });
+    const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+    const campaignEvaluationFingerprints = {};
+
+    const first = await runSchedulerTick(baseState, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
+    const aggregate = first.events.find((event) => event.category === "diagnostic" && event.message.startsWith("Campaign farming evaluation:"));
+    const details = first.events.filter((event) => event.category === "diagnostic" && event.message.startsWith("Campaign rejected:"));
+
+    expect(aggregate).toMatchObject({
+      platform: "twitch",
+      message: "Campaign farming evaluation: 3 discovered, 1 farmable, 1 completed, 1 Twitch account linking required",
+    });
+    expect(details).toEqual([
+      expect.objectContaining({
+        platform: "twitch",
+        message: "Campaign rejected: linked-required (linked-required), reason=twitch_link_required",
+      }),
+    ]);
+
+    const second = await runSchedulerTick(first.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
+    expect(second.events.filter((event) => event.category === "diagnostic" && (
+      event.message.startsWith("Campaign farming evaluation:")
+      || event.message.startsWith("Campaign rejected:")
+    ))).toEqual([]);
+
+    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce([
+      ...rejected.slice(0, 2),
+      campaign("farmable", { accountLinked: false }),
+    ]);
+    const third = await runSchedulerTick(second.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
+    expect(third.events).toContainEqual(expect.objectContaining({
+      message: "Campaign farming evaluation: 3 discovered, 1 completed, 2 Twitch account linking required",
+    }));
+  });
+
   it("does not emit inventory diagnostics when campaigns and rewards are reordered", async () => {
     const first = [
       campaign("first", {

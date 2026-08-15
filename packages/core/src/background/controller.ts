@@ -407,6 +407,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // ticks (the WebSocket-based Kick watcher in particular must not be recreated
   // each tick). Reconciled against the scheduler's per-platform session state.
   const tablessWatchers = new Map<Platform, TablessWatchController>();
+  const campaignEvaluationFingerprints: Partial<Record<Platform, string>> = {};
   const discoverySignalControllers = new Map<Platform, DiscoverySignalController>();
   const discoverySignalPlatformBlocked: Record<Platform, boolean> = {
     twitch: false,
@@ -1583,6 +1584,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
           emit: claimObservingEmit,
           signal,
+          campaignEvaluationFingerprints,
         });
         signal.throwIfAborted();
         const lifecycleEvents = farmingLifecycleEvents(state, result.state);

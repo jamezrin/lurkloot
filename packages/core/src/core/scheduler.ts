@@ -12,6 +12,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
+import { evaluateCampaignFarming, type CampaignFarmingEvaluation, type CampaignFarmingRejectionCode } from "@lurkloot/shared/campaignFarming";
 import { campaignFarmable, campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import {
   canClaimReward,
@@ -522,6 +523,88 @@ export interface SchedulerTickOptions {
   waitingClaimRewardIds?: Partial<Record<Platform, Set<string>>>;
   emit?: EventEmitter;
   signal?: AbortSignal;
+  // Mutable, instance-owned diagnostic cache. The background controller keeps
+  // it in memory so unchanged minute ticks stay quiet, while a worker restart
+  // naturally emits a fresh snapshot for the next exported diagnostic log.
+  campaignEvaluationFingerprints?: Partial<Record<Platform, string>>;
+}
+
+const CAMPAIGN_REJECTION_LABELS: Record<CampaignFarmingRejectionCode, string> = {
+  excluded: "excluded",
+  upcoming: "upcoming",
+  expired: "expired",
+  completed: "completed",
+  unlinked_campaigns_disabled: "unlinked campaigns disabled",
+  twitch_link_required: "Twitch account linking required",
+  subscription_campaigns_disabled: "subscription campaigns disabled",
+  category_filtered: "category filtered",
+  priority_not_selected: "not in priority list",
+  no_rewards: "no rewards",
+  no_unclaimed_rewards: "no unclaimed rewards",
+  reward_prerequisites_unmet: "reward prerequisites unmet",
+  reward_not_started: "reward not started",
+  reward_window_ended: "reward window ended",
+  insufficient_time: "insufficient time",
+  subscription_required: "subscription required",
+  action_required: "action required",
+  no_farmable_reward: "no currently farmable reward",
+};
+
+function campaignEvaluationFingerprint(
+  evaluations: ReadonlyArray<{ campaign: DropCampaign; evaluation: CampaignFarmingEvaluation }>,
+): string {
+  return evaluations
+    .map(({ campaign, evaluation }) => evaluation.farmable
+      ? `${campaign.id}:farmable`
+      : [campaign.id, evaluation.code, evaluation.rewardId, evaluation.deadline, evaluation.remainingMinutes, evaluation.availableMinutes, evaluation.marginMinutes].join(":"))
+    .sort()
+    .join("|");
+}
+
+function emitCampaignEvaluationDiagnostics(
+  emit: EventEmitter,
+  platform: Platform,
+  campaigns: readonly DropCampaign[],
+  settings: EngineSettings,
+  fingerprints: Partial<Record<Platform, string>> | undefined,
+): void {
+  const evaluations = campaigns.map((campaign) => ({
+    campaign,
+    evaluation: evaluateCampaignFarming(campaign, settings, { includePriorityMode: true }),
+  }));
+  const fingerprint = campaignEvaluationFingerprint(evaluations);
+  if (fingerprints?.[platform] === fingerprint) return;
+  if (fingerprints) fingerprints[platform] = fingerprint;
+
+  const counts = new Map<"farmable" | CampaignFarmingRejectionCode, number>();
+  for (const { evaluation } of evaluations) {
+    const key = evaluation.farmable ? "farmable" : evaluation.code;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const parts = [`${campaigns.length} discovered`];
+  const farmable = counts.get("farmable") ?? 0;
+  if (farmable > 0) parts.push(`${farmable} farmable`);
+  for (const [code, label] of Object.entries(CAMPAIGN_REJECTION_LABELS) as Array<[CampaignFarmingRejectionCode, string]>) {
+    const count = counts.get(code) ?? 0;
+    if (count > 0) parts.push(`${count} ${label}`);
+  }
+  emitDiagnostic(emit, platform, "debug", `Campaign farming evaluation: ${parts.join(", ")}`);
+
+  for (const { campaign, evaluation } of evaluations) {
+    if (evaluation.farmable || ["upcoming", "expired", "completed"].includes(evaluation.code)) continue;
+    const reward = evaluation.rewardId
+      ? `, reward=${evaluation.rewardName ?? evaluation.rewardId} (${evaluation.rewardId})`
+      : "";
+    const deadline = evaluation.deadline
+      ? `, deadline=${evaluation.deadline}, remaining=${evaluation.remainingMinutes}m, available=${evaluation.availableMinutes}m, margin=${evaluation.marginMinutes}m`
+      : "";
+    emitDiagnostic(
+      emit,
+      platform,
+      "debug",
+      `Campaign rejected: ${campaign.name} (${campaign.id}), reason=${evaluation.code}${reward}${deadline}`,
+    );
+  }
 }
 
 export async function runSchedulerTick(
@@ -820,6 +903,13 @@ export async function runSchedulerTick(
       }
       if (!discoveryFailed) {
         nextState.campaigns[platform] = campaigns;
+        emitCampaignEvaluationDiagnostics(
+          emit,
+          platform,
+          campaigns,
+          settings,
+          options.campaignEvaluationFingerprints,
+        );
         // The accrual arm. Fresh progress data is in hand, so record the active
         // reward's watched minutes and compare them with the last observation.
         //
