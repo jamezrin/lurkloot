@@ -168,6 +168,12 @@ jobs:
       - name: Promote the candidate prerelease to the stable release
         run: |
           node scripts/release/cli.mjs notes --version "$VERSION" --out notes.md
+          {
+            echo
+            echo "## Install the Chrome zip"
+            echo
+            echo "To load this pre-release in Chrome from the zip, see [Installing a pre-release build]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/docs/install-prerelease.md)."
+          } >> notes.md
           node scripts/release/cli.mjs promote-release --pr "$RELEASE_PR" --version "$VERSION" --notes notes.md
       - uses: docker/login-action@v4
         with:
