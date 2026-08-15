@@ -1047,6 +1047,106 @@ describe("scheduler tick", () => {
     campaigns: { twitch: [], kick: [] },
   };
 
+  function realtimeCampaigns(): [DropCampaign, DropCampaign] {
+    const ordinary = campaign("ordinary", {
+      endsAt: "2026-08-12T13:00:00.000Z",
+      rewards: [{
+        ...reward("in_progress"),
+        id: "ordinary-reward",
+        requiredMinutes: 60,
+        watchedMinutes: 20,
+      }],
+    });
+    const flash = campaign("flash", {
+      endsAt: "2026-08-12T12:02:00.000Z",
+      rewards: [{
+        ...reward("in_progress"),
+        id: "flash-reward",
+        requiredMinutes: 1,
+        watchedMinutes: 0,
+      }],
+    });
+    return [ordinary, flash];
+  }
+
+  it("ending_soonest selects an eligible newly refreshed flash campaign", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime("2026-08-12T12:00:00.000Z");
+    try {
+      const [ordinary, flash] = realtimeCampaigns();
+      const twitch = adapter("twitch", [ordinary, flash], [channel("creator")]);
+
+      const result = await runSchedulerTick(
+        baseState,
+        settings({
+          priorityMode: "ending_soonest",
+          deadlineSafetyMarginMinutes: 0,
+          platform: { twitch: { enabled: true }, kick: { enabled: false } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+        { platforms: ["twitch"] },
+      );
+
+      expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
+      expect(result.state.sessions.twitch).toMatchObject({
+        status: "watching",
+        campaignId: "flash",
+        rewardId: "flash-reward",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("explicit campaign priority can keep an ordinary campaign ahead of a flash campaign", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime("2026-08-12T12:00:00.000Z");
+    try {
+      const [ordinary, flash] = realtimeCampaigns();
+      const watchedChannel = channel("creator");
+      const twitch = adapter("twitch", [ordinary, flash], [watchedChannel]);
+      const existingState: SchedulerState = {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            offlineChecks: 0,
+            channel: watchedChannel,
+            campaignId: "ordinary",
+            rewardId: "ordinary-reward",
+            tabId: 42,
+            tabManagedByExtension: true,
+            watchMode: "tab",
+          },
+        },
+        campaigns: { ...baseState.campaigns, twitch: [ordinary] },
+      };
+
+      const result = await runSchedulerTick(
+        existingState,
+        settings({
+          priorityMode: "ending_soonest",
+          campaignPriorities: { ordinary: 10 },
+          deadlineSafetyMarginMinutes: 0,
+          platform: { twitch: { enabled: true }, kick: { enabled: false } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+        { platforms: ["twitch"] },
+      );
+
+      expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
+      expect(result.state.sessions.twitch).toMatchObject({
+        status: "watching",
+        campaignId: "ordinary",
+        rewardId: "ordinary-reward",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each([
     ["checking", undefined],
     ["missing_credentials", "credentials_missing"],

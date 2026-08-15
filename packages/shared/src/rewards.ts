@@ -19,8 +19,33 @@ export type RewardFeasibility =
   | { kind: "feasible"; deadline: string; remainingMinutes: number; availableMilliseconds: number; marginMinutes: number }
   | { kind: "insufficient_time"; deadline: string; remainingMinutes: number; availableMilliseconds: number; marginMinutes: number };
 
+export const EXACT_FIT_WINDOW_TOLERANCE_MS = 5_000;
+export const EXACT_FIT_LAUNCH_ALLOWANCE_MS = 15_000;
+
+function isKickExactFitLaunch(
+  campaign: Pick<DropCampaign, "platform">,
+  reward: DropReward,
+  now: number,
+  availableMilliseconds: number,
+  remainingMilliseconds: number,
+): boolean {
+  if (campaign.platform !== "kick" || !reward.availableFrom || !reward.availableUntil) return false;
+  const startsAt = Date.parse(reward.availableFrom);
+  const endsAt = Date.parse(reward.availableUntil);
+  if (Number.isNaN(startsAt) || Number.isNaN(endsAt)) return false;
+
+  const fullWindow = endsAt - startsAt;
+  const fullRequirement = reward.requiredMinutes * 60_000;
+  if (Math.abs(fullWindow - fullRequirement) > EXACT_FIT_WINDOW_TOLERANCE_MS) return false;
+
+  const elapsedSinceLaunch = now - startsAt;
+  if (elapsedSinceLaunch < 0 || elapsedSinceLaunch > EXACT_FIT_LAUNCH_ALLOWANCE_MS) return false;
+
+  return remainingMilliseconds - availableMilliseconds <= elapsedSinceLaunch;
+}
+
 export function rewardFeasibility(
-  campaign: Pick<DropCampaign, "endsAt">,
+  campaign: Pick<DropCampaign, "endsAt" | "platform">,
   reward: DropReward,
   enabled: boolean,
   marginMinutes: number,
@@ -43,8 +68,12 @@ export function rewardFeasibility(
 
   const remainingMinutes = Math.max(0, reward.requiredMinutes - reward.watchedMinutes);
   const availableMilliseconds = earliest.timestamp - now;
-  const requiredMilliseconds = (remainingMinutes + marginMinutes) * 60_000;
-  const kind = availableMilliseconds >= requiredMilliseconds ? "feasible" : "insufficient_time";
+  const remainingMilliseconds = remainingMinutes * 60_000;
+  const requiredMilliseconds = remainingMilliseconds + marginMinutes * 60_000;
+  const kind = availableMilliseconds >= requiredMilliseconds
+    || isKickExactFitLaunch(campaign, reward, now, availableMilliseconds, remainingMilliseconds)
+    ? "feasible"
+    : "insufficient_time";
   return {
     kind,
     deadline: earliest.deadline,
@@ -78,7 +107,7 @@ export function isRewardRelevantNow(reward: DropReward, now = Date.now()): boole
 }
 
 export function isRewardDeadlineFeasible(
-  campaign: Pick<DropCampaign, "endsAt">,
+  campaign: Pick<DropCampaign, "endsAt" | "platform">,
   reward: DropReward,
   enabled: boolean,
   marginMinutes: number,
