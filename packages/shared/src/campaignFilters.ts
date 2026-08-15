@@ -68,7 +68,7 @@ export function campaignPassesFarmingEligibility(
 // scheduler, so "should the engine spend a tick on this reward" has one
 // definition instead of drifting between the two.
 export function isRewardFarmableNow(
-  campaign: Pick<DropCampaign, "endsAt">,
+  campaign: Pick<DropCampaign, "endsAt" | "platform">,
   reward: DropReward,
   settings: Pick<EngineSettings, "skipUnfinishableRewards" | "deadlineSafetyMarginMinutes">,
 ): boolean {

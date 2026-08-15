@@ -13,6 +13,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import type { ResolvedCompatibility } from "../compatibility/types";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TablessWatchController } from "../core/tablessWatch";
+import type { DiscoverySignalController } from "../core/discoverySignals";
 
 export const ignoreEvent: EventEmitter = () => {};
 
@@ -88,6 +89,7 @@ export interface PlatformAdapter {
   // the automatic fallback when heartbeats stop earning.
   supportsTabless?: boolean;
   createTablessWatcher?(): TablessWatchController;
+  createDiscoverySignalController?(): DiscoverySignalController;
   // Whether a bounded post-claim refresh is worthwhile on this platform. Twitch
   // only reveals the next reward in a campaign chain on a subsequent inventory
   // read, so re-polling recovers watch time the fixed alarm would otherwise
