@@ -2795,6 +2795,89 @@ describe("TwitchAdapter", () => {
     expect(availabilityCalls).toBe(1);
   });
 
+  it("recovers a contradictory Twitch availability negative after material progress", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-08-15T15:00:00.000Z"));
+      let availabilityCalls = 0;
+      const discoveryState = new TwitchDiscoveryState();
+      discoveryState.setAuthenticatedUser("user-id");
+      const fetcher = jsonFetcher((_url, init) => {
+        const op = operation(init);
+        if (op === "StreamInfo" || op === "VideoPlayerStreamInfoOverlayChannel") {
+          return {
+            data: {
+              user: {
+                id: "channel-id",
+                stream: { id: "broadcast-a", game: { id: "game" } },
+              },
+            },
+          };
+        }
+        if (op === "DropsHighlightService_AvailableDrops") {
+          availabilityCalls += 1;
+          return { data: { channel: { id: "channel-id", viewerDropCampaigns: [] } } };
+        }
+        if (op === "Inventory") {
+          return {
+            data: {
+              currentUser: {
+                id: "user-id",
+                inventory: {
+                  dropCampaignsInProgress: [{
+                    id: "campaign-a",
+                    timeBasedDrops: [{
+                      id: "drop-a",
+                      requiredMinutesWatched: 60,
+                      self: { currentMinutesWatched: 10, isClaimed: false },
+                    }],
+                  }],
+                },
+              },
+            },
+          };
+        }
+        if (op === "ViewerDropsDashboard") return twitchDashboard([], "user-id");
+        if (op === "DropCurrentSessionContext") {
+          return {
+            data: {
+              currentUser: {
+                dropCurrentSession: { dropID: "drop-a", currentMinutesWatched: 11 },
+              },
+            },
+          };
+        }
+        throw new Error(`Unexpected op ${op}`);
+      });
+      const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
+      const campaign = { id: "campaign-a", categoryId: "game" } as DropCampaign;
+
+      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+        .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: false });
+      expect(availabilityCalls).toBe(1);
+
+      const progress = await twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+        .refreshCampaigns({
+          platform: "twitch",
+          status: "watching",
+          offlineChecks: 0,
+          channel: candidate,
+        });
+      expect(progress[0]?.rewards[0]?.watchedMinutes).toBe(11);
+
+      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+        .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
+      expect(availabilityCalls).toBe(1);
+
+      vi.advanceTimersByTime(5 * 60_000 + 1);
+      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+        .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: false });
+      expect(availabilityCalls).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("refetches single-channel availability when the channel starts a new broadcast", async () => {
     let broadcastId = "broadcast-a";
     let availabilityCalls = 0;
