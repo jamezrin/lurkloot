@@ -30,6 +30,7 @@ const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 // before — but the default (and every shorter cadence) now actually hits.
 const POSITIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS = 2 * 60_000;
 const NEGATIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS = 30_000;
+const PROGRESS_CONFIRMED_AVAILABILITY_TTL_MS = 5 * 60_000;
 // FIFO bound, not LRU: a cache hit returns immediately without touching this
 // map, so a hot channel's insertion order never refreshes and it can still be
 // evicted before a colder one. Accepted trade-off: FIFO is one Map without a
@@ -353,6 +354,12 @@ interface CachedAvailableCampaigns {
   expiresAt: number;
 }
 
+interface ProgressConfirmedAvailability {
+  channelId: string;
+  campaignId: string;
+  expiresAt: number;
+}
+
 type TwitchAvailabilityCandidate = {
   channelId: string;
   channelLogin: string;
@@ -413,6 +420,7 @@ export interface TwitchAvailabilityRequestIdentity {
 export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
+  private readonly progressConfirmedAvailabilityByPair = new Map<string, ProgressConfirmedAvailability>();
   private authenticatedUserId?: string;
   // Starts at 0 so a request captured before any identity is known (userId
   // undefined) still matches the initial state — see availabilityRequestIdentity.
@@ -454,6 +462,7 @@ export class TwitchDiscoveryState {
     if (previousUserId !== userId) {
       this.availabilityGeneration += 1;
       this.availableCampaignsByChannel.clear();
+      this.progressConfirmedAvailabilityByPair.clear();
     }
     this.authenticatedUserId = userId;
     return identityChanged;
@@ -560,6 +569,45 @@ export class TwitchDiscoveryState {
         ? POSITIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS
         : NEGATIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS),
     });
+    return true;
+  }
+
+  hasProgressConfirmedAvailability(channelId: string, campaignId: string): boolean {
+    const key = `${channelId}:${campaignId}`;
+    const confirmed = this.progressConfirmedAvailabilityByPair.get(key);
+    if (!confirmed) return false;
+    if (confirmed.expiresAt <= Date.now()) {
+      this.progressConfirmedAvailabilityByPair.delete(key);
+      return false;
+    }
+    return true;
+  }
+
+  rememberProgressConfirmedAvailability(
+    channelId: string,
+    campaignId: string,
+    requestIdentity: TwitchAvailabilityRequestIdentity,
+  ): boolean {
+    if (
+      requestIdentity.userId !== this.authenticatedUserId
+      || requestIdentity.generation !== this.availabilityGeneration
+    ) {
+      return false;
+    }
+    const key = `${channelId}:${campaignId}`;
+    if (
+      !this.progressConfirmedAvailabilityByPair.has(key)
+      && this.progressConfirmedAvailabilityByPair.size >= CHANNEL_CAMPAIGN_CACHE_MAX_ENTRIES
+    ) {
+      const oldest = this.progressConfirmedAvailabilityByPair.keys().next().value;
+      if (oldest !== undefined) this.progressConfirmedAvailabilityByPair.delete(oldest);
+    }
+    this.progressConfirmedAvailabilityByPair.set(key, {
+      channelId,
+      campaignId,
+      expiresAt: Date.now() + PROGRESS_CONFIRMED_AVAILABILITY_TTL_MS,
+    });
+    this.availableCampaignsByChannel.get(channelId)?.campaignIds.add(campaignId);
     return true;
   }
 }
@@ -1260,6 +1308,7 @@ export class TwitchAdapter implements PlatformAdapter {
           cacheMisses: 0,
           cacheExpirations: 0,
           broadcastInvalidations: 0,
+          progressOverrides: 0,
         };
 
     let checked = 0;
@@ -1268,7 +1317,7 @@ export class TwitchAdapter implements PlatformAdapter {
       diagnostic(
         this.emit,
         "debug",
-        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${availabilityResult.cacheMisses} availability cache misses, ${availabilityResult.cacheExpirations} availability cache expirations, ${availabilityResult.broadcastInvalidations} availability broadcast invalidations, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
+        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${availabilityResult.cacheMisses} availability cache misses, ${availabilityResult.cacheExpirations} availability cache expirations, ${availabilityResult.broadcastInvalidations} availability broadcast invalidations, ${availabilityResult.progressOverrides} progress-confirmed availability overrides, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
         "twitch",
       );
     };
@@ -1313,6 +1362,7 @@ export class TwitchAdapter implements PlatformAdapter {
     cacheMisses: number;
     cacheExpirations: number;
     broadcastInvalidations: number;
+    progressOverrides: number;
   }> {
     const matches = new Map<string, boolean | undefined>();
     const uncached: TwitchAvailabilityCandidate[] = [];
@@ -1320,8 +1370,14 @@ export class TwitchAdapter implements PlatformAdapter {
     let cacheMisses = 0;
     let cacheExpirations = 0;
     let broadcastInvalidations = 0;
+    let progressOverrides = 0;
     for (const candidate of candidates) {
       if (matches.has(candidate.channelId)) continue;
+      if (this.discoveryState.hasProgressConfirmedAvailability(candidate.channelId, campaignId)) {
+        progressOverrides += 1;
+        matches.set(candidate.channelId, true);
+        continue;
+      }
       const lookup = this.discoveryState.cachedChannelAvailability(candidate.channelId, candidate.broadcastId);
       if (lookup.status === "hit") {
         cacheHits += 1;
@@ -1359,6 +1415,7 @@ export class TwitchAdapter implements PlatformAdapter {
         cacheMisses,
         cacheExpirations,
         broadcastInvalidations,
+        progressOverrides,
       };
     }
     const chunks = Array.from(
@@ -1401,6 +1458,7 @@ export class TwitchAdapter implements PlatformAdapter {
       cacheMisses,
       cacheExpirations,
       broadcastInvalidations,
+      progressOverrides,
     };
   }
 
@@ -1655,6 +1713,7 @@ export class TwitchAdapter implements PlatformAdapter {
     signal?: AbortSignal,
     metrics?: { checks: number; cacheHits: number },
   ): Promise<boolean | undefined> {
+    if (this.discoveryState.hasProgressConfirmedAvailability(channelId, campaignId)) return true;
     const lookup = this.discoveryState.cachedChannelAvailability(channelId, broadcastId);
     if (lookup.status === "hit") {
       if (metrics) metrics.cacheHits += 1;
@@ -1912,6 +1971,9 @@ export class TwitchAdapter implements PlatformAdapter {
       const channelId = streamInfo.data?.user?.id;
       if (!channelId) return campaigns;
 
+      // Captured immediately before this request so progress from a session
+      // that outlives an account switch cannot become availability evidence.
+      const requestIdentity = this.discoveryState.availabilityRequestIdentity();
       const current = await this.gqlWithIntegrityRetry<TwitchCurrentDropData>(
         "DropCurrentSessionContext",
         TWITCH_QUERIES.currentDropHash,
@@ -1924,6 +1986,44 @@ export class TwitchAdapter implements PlatformAdapter {
       const drop = current.data?.currentUser?.dropCurrentSession;
       if (!drop?.dropID || drop.currentMinutesWatched == null) return campaigns;
       const currentMinutesWatched = drop.currentMinutesWatched;
+      const matchingCampaigns = campaigns.filter((campaign) =>
+        campaign.rewards.some((reward) => reward.id === drop.dropID)
+      );
+      const matchingCampaign = matchingCampaigns.length === 1 ? matchingCampaigns[0] : undefined;
+      const previousReward = matchingCampaign?.rewards.find((reward) => reward.id === drop.dropID);
+      if (
+        matchingCampaign
+        && previousReward
+        && currentMinutesWatched > previousReward.watchedMinutes
+      ) {
+        const wasProgressConfirmed = this.discoveryState.hasProgressConfirmedAvailability(
+          channelId,
+          matchingCampaign.id,
+        );
+        const broadcastId = streamInfo.data?.user?.stream?.id;
+        const availability = broadcastId
+          ? this.discoveryState.cachedChannelAvailability(channelId, broadcastId)
+          : { status: "miss" as const };
+        const overridesNegativeAvailability = availability.status === "hit"
+          && !availability.campaignIds.has(matchingCampaign.id);
+        const wrote = this.discoveryState.rememberProgressConfirmedAvailability(
+          channelId,
+          matchingCampaign.id,
+          requestIdentity,
+        );
+        if (
+          wrote
+          && !wasProgressConfirmed
+          && overridesNegativeAvailability
+        ) {
+          diagnostic(
+            this.emit,
+            "debug",
+            `Twitch current-session progress confirmed campaign ${matchingCampaign.id} for ${channel.username} despite a negative availability snapshot`,
+            "twitch",
+          );
+        }
+      }
 
       return campaigns.map((campaign) => ({
         ...campaign,
