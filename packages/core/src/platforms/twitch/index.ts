@@ -893,7 +893,7 @@ export class TwitchAdapter implements PlatformAdapter {
     }
     const parsedDetails = parseTwitchCampaigns(detailedCampaigns as Parameters<typeof parseTwitchCampaigns>[0]);
     const mergedDetails = mergeTwitchCampaignProgress(parsedDetails, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
-    const detailedIds = new Set(mergedDetails.map((campaign) => campaign.id));
+    const detailedIds = new Set(mergedDetails.map((campaign) => campaign?.id));
     // The Inventory payload omits campaign/reward end dates, so an ended
     // campaign that still has in-progress drops parses as "active". The
     // dashboard is the authoritative signal for what is still running: if it
@@ -2178,7 +2178,7 @@ function parseAvailableDropCampaigns(
   if (!Array.isArray(channel.viewerDropCampaigns)) return undefined;
   return new Set(
     channel.viewerDropCampaigns
-      .map((campaign) => campaign.id)
+      .map((campaign) => campaign?.id)
       .filter((id): id is string => typeof id === "string" && id.length > 0),
   );
 }

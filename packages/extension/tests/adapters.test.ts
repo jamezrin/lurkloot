@@ -3054,6 +3054,24 @@ describe("TwitchAdapter", () => {
     expect(availabilityCalls).toBe(2);
   });
 
+  it("ignores a null entry inside viewerDropCampaigns instead of throwing", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "StreamInfo") {
+        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+      }
+      if (op === "DropsHighlightService_AvailableDrops") {
+        return { data: { channel: { id: "channel-id", viewerDropCampaigns: [null, { id: "campaign" }] } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+    const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
+    const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
+
+    await expect(twitchAdapter(fetcher).checkChannel(candidate, { campaign }))
+      .resolves.toMatchObject({ campaignMatches: true });
+  });
+
   it("applies the same channel-id validation to the batched availability response path as the single path", async () => {
     const candidates = [
       {
@@ -3108,6 +3126,46 @@ describe("TwitchAdapter", () => {
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
+  });
+
+  it("ignores a null entry inside a batched viewerDropCampaigns response instead of throwing", async () => {
+    // Unlike the single path, the batch path's per-candidate parsing loop has
+    // no surrounding try/catch — a throw here would crash the whole selection
+    // instead of just falling back for this one candidate. Two candidates are
+    // required to actually exercise the chunked batch request: a single
+    // candidate takes a different, single-request short circuit.
+    const candidates = [
+      {
+        platform: "twitch" as const,
+        username: "directory-a",
+        url: "https://www.twitch.tv/directory-a",
+        channelId: "channel-a",
+        categoryId: "game",
+        live: true,
+        isAclMatch: false,
+      },
+      {
+        platform: "twitch" as const,
+        username: "directory-b",
+        url: "https://www.twitch.tv/directory-b",
+        channelId: "channel-b",
+        categoryId: "game",
+        live: true,
+        isAclMatch: false,
+      },
+    ];
+    const fetcher = jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Array<Record<string, unknown>>;
+      return body.map((entry) => {
+        const channelId = String((entry.variables as { channelID?: string }).channelID);
+        return { data: { channel: { id: channelId, viewerDropCampaigns: [null, { id: "campaign" }] } } };
+      });
+    });
+    const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
+
+    const selection = await twitchAdapter(fetcher).selectCandidateChannel?.(candidates, campaign);
+
+    expect(selection?.channel?.username).toBe("directory-a");
   });
 
   it("treats a batched availability response carrying a GraphQL errors envelope as ambiguous, even with a matching id and campaigns", async () => {
