@@ -87,6 +87,35 @@ function renderDrops(campaigns: CampaignView[], refreshing = false): string {
 }
 
 describe("subscription drop popup views", () => {
+  it("carries the shared campaign rejection into the popup view model", () => {
+    const source = campaign("unlinked", [reward({ requiredMinutes: 60, requirement: "watch", isWatchBased: true })]);
+    source.accountLinked = false;
+    const currentSettings = mergeSettings(undefined);
+
+    const view = campaignViewFromCampaign(source, 0, idleSession, false, {
+      skipUnfinishableRewards: currentSettings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: currentSettings.deadlineSafetyMarginMinutes,
+      settings: currentSettings,
+    });
+
+    expect(view.farmingRejection).toEqual({ farmable: false, code: "twitch_link_required" });
+  });
+
+  it("suppresses a stale rejection explanation while the campaign is actively farming", () => {
+    const view = campaignViewFromCampaign(campaign("active", [reward({
+      requiredMinutes: 60,
+      requirement: "watch",
+      isWatchBased: true,
+    })]), 0, idleSession, false);
+    const markup = renderDrops([expandedView({
+      ...view,
+      farmingRejection: { farmable: false, code: "no_farmable_reward" },
+    })]);
+
+    expect(markup).not.toContain("campaignRejectionNoFarmableReward");
+    expect(markup).not.toContain("data-farming-rejection-indicator");
+  });
+
   it("marks and explains watch rewards with insufficient time", () => {
     const source = {
       ...campaign("timed", [reward({ requirement: "watch", requiredMinutes: 60, watchedMinutes: 30, status: "in_progress" })]),

@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DropCampaign, WatchSession } from "@lurkloot/shared/models";
+import { mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
 import { DropsPanel, initialExpandedIds } from "../../popup-ui/src/drops";
 import type { PopupAdapter } from "../../popup-ui/src/types";
@@ -41,7 +42,7 @@ function sourceCampaign(url?: string): DropCampaign {
   };
 }
 
-function mount(url?: string) {
+function mount(url?: string, source = sourceCampaign(url), viewOptions?: Parameters<typeof campaignViewFromCampaign>[4]) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -54,7 +55,7 @@ function mount(url?: string) {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const openLink = vi.fn();
   const adapter = { openLink } as unknown as PopupAdapter;
-  const campaign = campaignViewFromCampaign(sourceCampaign(url), 0, idleSession, false);
+  const campaign = campaignViewFromCampaign(source, 0, idleSession, false, viewOptions);
   const container = document.getElementById("app")!;
 
   act(() => {
@@ -97,6 +98,34 @@ describe("drops search controls", () => {
 
     const searchButton = container.querySelector<HTMLButtonElement>("button[aria-label='Search']");
     expect(searchButton).not.toBeNull();
+  });
+});
+
+describe("campaign farming rejection presentation", () => {
+  it("shows a collapsed warning and an expanded explanation for a rejected campaign", () => {
+    const source: DropCampaign = {
+      ...sourceCampaign(),
+      platform: "twitch",
+      accountLinked: false,
+      rewards: [{
+        id: "watch",
+        name: "Watch reward",
+        requiredMinutes: 60,
+        watchedMinutes: 0,
+        status: "locked",
+        requirement: "watch",
+        isWatchBased: true,
+      }],
+    };
+    const currentSettings = mergeSettings(undefined);
+    const { container } = mount(undefined, source, {
+      skipUnfinishableRewards: currentSettings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: currentSettings.deadlineSafetyMarginMinutes,
+      settings: currentSettings,
+    });
+
+    expect(container.querySelector("[data-farming-rejection-indicator]")).not.toBeNull();
+    expect(container.textContent).toContain("campaignRejectionTwitchLinkRequired");
   });
 });
 

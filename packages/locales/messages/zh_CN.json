@@ -587,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "剩余时间不足"
   },
+  "campaignRejectionExcluded": { "message": "此活动已被排除，不会自动获取。" },
+  "campaignRejectionUpcoming": { "message": "此活动尚未开始。" },
+  "campaignRejectionExpired": { "message": "此活动已结束。" },
+  "campaignRejectionCompleted": { "message": "此活动的所有奖励均已完成。" },
+  "campaignRejectionUnlinkedDisabled": { "message": "未关联账户时获取活动奖励的功能已关闭。" },
+  "campaignRejectionTwitchLinkRequired": { "message": "此 Twitch 活动要求关联账户。" },
+  "campaignRejectionSubscriptionDisabled": { "message": "订阅活动的自动获取功能已关闭。" },
+  "campaignRejectionCategoryFiltered": { "message": "此活动不符合所选分类。" },
+  "campaignRejectionPriorityNotSelected": { "message": "此活动不在优先列表中。" },
+  "campaignRejectionNoRewards": { "message": "此活动没有可自动获取的奖励。" },
+  "campaignRejectionNoUnclaimedRewards": { "message": "此活动没有未领取的奖励。" },
+  "campaignRejectionPrerequisites": { "message": "$1 正在等待前置奖励或条件。" },
+  "campaignRejectionRewardNotStarted": { "message": "$1 尚未开放。" },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 已不可用。" },
+  "campaignRejectionInsufficientTime": { "message": "$1 无法在截止时间前完成。" },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 需要符合条件的订阅。" },
+  "campaignRejectionActionRequired": { "message": "$1 需要观看以外的操作。" },
+  "campaignRejectionNoFarmableReward": { "message": "此活动目前没有可自动获取的奖励。" },
   "automationSectionTitle": {
     "message": "自动化"
   },
@@ -669,7 +687,7 @@
     "message": "刷取无需关联账号的活动"
   },
   "farmUnlinkedDescription": {
-    "message": "关闭后，将跳过需要关联账号的活动。关联前 Kick 仍会累积观看时长。"
+    "message": "关闭后，将跳过需要关联账号的活动。开启后，平台规则仍可能要求关联账号。"
   },
   "farmSubscriptionTitle": {
     "message": "刷取需要订阅的活动"

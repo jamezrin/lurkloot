@@ -573,6 +573,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     {
       skipUnfinishableRewards: settings.skipUnfinishableRewards,
       deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
     },
   ));
   const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform], t);

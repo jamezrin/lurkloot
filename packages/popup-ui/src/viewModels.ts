@@ -8,6 +8,7 @@ import {
   rewardFeasibility,
 } from "@lurkloot/shared/rewards";
 import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaignFilters";
+import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 export {
   campaignFilterCategories,
   isCampaignExpired,
@@ -117,8 +118,11 @@ export function campaignViewFromCampaign(
   index: number,
   session: WatchSession,
   excluded: boolean,
-  feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number },
+  feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number; settings?: ExtensionSettings },
 ): CampaignView {
+  const farmingEvaluation = feasibility?.settings
+    ? evaluateCampaignFarming(campaign, feasibility.settings, { includePriorityMode: true, now: feasibility.now })
+    : undefined;
   return {
     id: campaign.id,
     gameId: gameId(campaign),
@@ -168,6 +172,7 @@ export function campaignViewFromCampaign(
     }),
     hasWatchRewards: campaignHasWatchRewards(campaign),
     hasSubscriptionRewards: campaignHasSubscriptionRewards(campaign),
+    farmingRejection: farmingEvaluation && !farmingEvaluation.farmable ? farmingEvaluation : undefined,
   };
 }
 

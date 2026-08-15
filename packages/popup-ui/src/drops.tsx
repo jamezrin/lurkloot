@@ -200,6 +200,10 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
   const metaPointerX = useRef(0);
   const stats = campaignStats(campaign);
   const isFarming = Boolean(campaign.farmingChannel);
+  const farmingRejection = isFarming ? undefined : campaign.farmingRejection;
+  const farmingRejectionMessage = farmingRejection
+    ? t(campaignRejectionMessageKey(farmingRejection.code), farmingRejection.rewardName)
+    : undefined;
   const emphasized = isFarming || (!anyFarming && index === 0);
   const channelLabel = campaign.channels.length === 0 ? t("allChannels") : t("channelCount", String(campaign.channels.length));
   const timingLabel = campaign.status === "upcoming"
@@ -300,6 +304,17 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
               )}
               {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
               {campaign.excluded && campaign.hasWatchRewards ? <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill> : null}
+              {farmingRejectionMessage ? (
+                <span
+                  data-farming-rejection-indicator
+                  role="img"
+                  aria-label={farmingRejectionMessage}
+                  title={farmingRejectionMessage}
+                  className="inline-flex shrink-0 text-amber-500 dark:text-amber-400"
+                >
+                  <AlertTriangle size={11} />
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
@@ -315,6 +330,12 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
         {expanded && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
             <div className="space-y-2.5 p-2.5">
+              {farmingRejectionMessage ? (
+                <div className="flex items-start gap-1.5 rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                  <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                  <span>{farmingRejectionMessage}</span>
+                </div>
+              ) : null}
               {stats.kind === "subscription" ? (
                 <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
                   <div className="flex items-start justify-between gap-2">
@@ -538,6 +559,30 @@ function campaignLifecyclePill(lifecycle: CampaignLifecycleState | undefined, t:
   if (lifecycle === "expired") return { icon: AlertTriangle, label: t("expiredPill"), tone: "danger" };
   if (lifecycle === "finished") return { icon: Check, label: t("finishedPill"), tone: "outline" };
   return undefined;
+}
+
+function campaignRejectionMessageKey(code: NonNullable<CampaignView["farmingRejection"]>["code"]): string {
+  const keys: Record<NonNullable<CampaignView["farmingRejection"]>["code"], string> = {
+    excluded: "campaignRejectionExcluded",
+    upcoming: "campaignRejectionUpcoming",
+    expired: "campaignRejectionExpired",
+    completed: "campaignRejectionCompleted",
+    unlinked_campaigns_disabled: "campaignRejectionUnlinkedDisabled",
+    twitch_link_required: "campaignRejectionTwitchLinkRequired",
+    subscription_campaigns_disabled: "campaignRejectionSubscriptionDisabled",
+    category_filtered: "campaignRejectionCategoryFiltered",
+    priority_not_selected: "campaignRejectionPriorityNotSelected",
+    no_rewards: "campaignRejectionNoRewards",
+    no_unclaimed_rewards: "campaignRejectionNoUnclaimedRewards",
+    reward_prerequisites_unmet: "campaignRejectionPrerequisites",
+    reward_not_started: "campaignRejectionRewardNotStarted",
+    reward_window_ended: "campaignRejectionRewardWindowEnded",
+    insufficient_time: "campaignRejectionInsufficientTime",
+    subscription_required: "campaignRejectionSubscriptionRequired",
+    action_required: "campaignRejectionActionRequired",
+    no_farmable_reward: "campaignRejectionNoFarmableReward",
+  };
+  return keys[code];
 }
 
 function RewardTile({ reward }: { reward: RewardView }) {

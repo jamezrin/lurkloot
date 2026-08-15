@@ -587,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "Insufficient time remaining"
   },
+  "campaignRejectionExcluded": { "message": "This campaign is excluded from farming." },
+  "campaignRejectionUpcoming": { "message": "This campaign has not started yet." },
+  "campaignRejectionExpired": { "message": "This campaign has ended." },
+  "campaignRejectionCompleted": { "message": "All rewards in this campaign are complete." },
+  "campaignRejectionUnlinkedDisabled": { "message": "Farming campaigns without a linked account is disabled." },
+  "campaignRejectionTwitchLinkRequired": { "message": "Account linking is required for this Twitch campaign." },
+  "campaignRejectionSubscriptionDisabled": { "message": "Farming subscription campaigns is disabled." },
+  "campaignRejectionCategoryFiltered": { "message": "This campaign does not match the selected categories." },
+  "campaignRejectionPriorityNotSelected": { "message": "This campaign is not in the priority list." },
+  "campaignRejectionNoRewards": { "message": "This campaign has no farmable rewards." },
+  "campaignRejectionNoUnclaimedRewards": { "message": "This campaign has no unclaimed rewards." },
+  "campaignRejectionPrerequisites": { "message": "$1 is waiting for an earlier reward or requirement." },
+  "campaignRejectionRewardNotStarted": { "message": "$1 is not available yet." },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 is no longer available." },
+  "campaignRejectionInsufficientTime": { "message": "$1 cannot be completed before its deadline." },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 requires a qualifying subscription." },
+  "campaignRejectionActionRequired": { "message": "$1 requires an action other than watching." },
+  "campaignRejectionNoFarmableReward": { "message": "No reward in this campaign can currently be farmed." },
   "automationSectionTitle": {
     "message": "Automation"
   },
@@ -669,7 +687,7 @@
     "message": "Farm campaigns without a linked account"
   },
   "farmUnlinkedDescription": {
-    "message": "When off, campaigns that need you to link your account are skipped. Kick still earns watch time before linking."
+    "message": "When off, campaigns that need you to link your account are skipped. Platform requirements can still require linking when this is on."
   },
   "farmSubscriptionTitle": {
     "message": "Farm campaigns that require a subscription"

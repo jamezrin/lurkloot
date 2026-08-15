@@ -587,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "الوقت المتبقي غير كافٍ"
   },
+  "campaignRejectionExcluded": { "message": "هذه الحملة مستبعدة من الجمع التلقائي." },
+  "campaignRejectionUpcoming": { "message": "هذه الحملة لم تبدأ بعد." },
+  "campaignRejectionExpired": { "message": "انتهت هذه الحملة." },
+  "campaignRejectionCompleted": { "message": "اكتملت جميع مكافآت هذه الحملة." },
+  "campaignRejectionUnlinkedDisabled": { "message": "جمع الحملات دون حساب مرتبط معطّل." },
+  "campaignRejectionTwitchLinkRequired": { "message": "تتطلب حملة Twitch هذه ربط حساب." },
+  "campaignRejectionSubscriptionDisabled": { "message": "جمع حملات الاشتراك معطّل." },
+  "campaignRejectionCategoryFiltered": { "message": "هذه الحملة لا تطابق الفئات المحددة." },
+  "campaignRejectionPriorityNotSelected": { "message": "هذه الحملة ليست في قائمة الأولوية." },
+  "campaignRejectionNoRewards": { "message": "لا تحتوي هذه الحملة على مكافآت قابلة للجمع." },
+  "campaignRejectionNoUnclaimedRewards": { "message": "لا تحتوي هذه الحملة على مكافآت غير مستلمة." },
+  "campaignRejectionPrerequisites": { "message": "$1 بانتظار مكافأة أو شرط سابق." },
+  "campaignRejectionRewardNotStarted": { "message": "$1 غير متاحة بعد." },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 لم تعد متاحة." },
+  "campaignRejectionInsufficientTime": { "message": "لا يمكن إكمال $1 قبل الموعد النهائي." },
+  "campaignRejectionSubscriptionRequired": { "message": "تتطلب $1 اشتراكًا مؤهلًا." },
+  "campaignRejectionActionRequired": { "message": "تتطلب $1 إجراءً غير المشاهدة." },
+  "campaignRejectionNoFarmableReward": { "message": "لا يمكن جمع أي مكافأة من هذه الحملة حاليًا." },
   "automationSectionTitle": {
     "message": "الأتمتة"
   },
@@ -669,7 +687,7 @@
     "message": "فارم الحملات بدون حساب مرتبط"
   },
   "farmUnlinkedDescription": {
-    "message": "عند الإيقاف، تُتخطى الحملات التي تتطلب ربط حسابك. لا يزال Kick يجمع وقت المشاهدة قبل الربط."
+    "message": "عند الإيقاف، تُتخطى الحملات التي تتطلب ربط الحساب. قد تظل متطلبات المنصة تفرض الربط عند التشغيل."
   },
   "farmSubscriptionTitle": {
     "message": "فارم الحملات التي تتطلب اشتراكًا"

@@ -587,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "पर्याप्त समय शेष नहीं"
   },
+  "campaignRejectionExcluded": { "message": "इस कैंपेन को फ़ार्मिंग से बाहर रखा गया है।" },
+  "campaignRejectionUpcoming": { "message": "यह कैंपेन अभी शुरू नहीं हुआ है।" },
+  "campaignRejectionExpired": { "message": "यह कैंपेन समाप्त हो गया है।" },
+  "campaignRejectionCompleted": { "message": "इस कैंपेन के सभी रिवॉर्ड पूरे हो चुके हैं।" },
+  "campaignRejectionUnlinkedDisabled": { "message": "लिंक किए खाते के बिना कैंपेन फ़ार्मिंग बंद है।" },
+  "campaignRejectionTwitchLinkRequired": { "message": "इस Twitch कैंपेन के लिए खाता लिंक करना आवश्यक है।" },
+  "campaignRejectionSubscriptionDisabled": { "message": "सब्सक्रिप्शन कैंपेन फ़ार्मिंग बंद है।" },
+  "campaignRejectionCategoryFiltered": { "message": "यह कैंपेन चुनी गई कैटेगरी से मेल नहीं खाता।" },
+  "campaignRejectionPriorityNotSelected": { "message": "यह कैंपेन प्राथमिकता सूची में नहीं है।" },
+  "campaignRejectionNoRewards": { "message": "इस कैंपेन में फ़ार्म करने योग्य रिवॉर्ड नहीं हैं।" },
+  "campaignRejectionNoUnclaimedRewards": { "message": "इस कैंपेन में बिना क्लेम किए रिवॉर्ड नहीं हैं।" },
+  "campaignRejectionPrerequisites": { "message": "$1 पहले के रिवॉर्ड या आवश्यकता की प्रतीक्षा कर रहा है।" },
+  "campaignRejectionRewardNotStarted": { "message": "$1 अभी उपलब्ध नहीं है।" },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 अब उपलब्ध नहीं है।" },
+  "campaignRejectionInsufficientTime": { "message": "$1 समय सीमा से पहले पूरा नहीं हो सकता।" },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 के लिए योग्य सब्सक्रिप्शन चाहिए।" },
+  "campaignRejectionActionRequired": { "message": "$1 के लिए देखने के अलावा दूसरी कार्रवाई चाहिए।" },
+  "campaignRejectionNoFarmableReward": { "message": "इस कैंपेन का कोई रिवॉर्ड अभी फ़ार्म नहीं किया जा सकता।" },
   "automationSectionTitle": {
     "message": "ऑटोमेशन"
   },
@@ -669,7 +687,7 @@
     "message": "बिना लिंक किए गए खाते वाले कैंपेन फ़ार्म करें"
   },
   "farmUnlinkedDescription": {
-    "message": "बंद होने पर, जिन कैंपेन के लिए आपका खाता लिंक करना ज़रूरी है, उन्हें छोड़ दिया जाता है। Kick लिंक करने से पहले भी वॉच टाइम जोड़ता रहता है।"
+    "message": "बंद होने पर, खाता लिंक करने वाले कैंपेन छोड़ दिए जाते हैं। चालू होने पर भी प्लेटफ़ॉर्म के नियम लिंक करना आवश्यक बना सकते हैं।"
   },
   "farmSubscriptionTitle": {
     "message": "सब्सक्रिप्शन वाले कैंपेन फ़ार्म करें"

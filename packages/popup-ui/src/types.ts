@@ -1,6 +1,7 @@
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale } from "@lurkloot/shared/models";
 import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
+import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
 export interface CompatibilityOptionMetadata {
@@ -97,6 +98,7 @@ export type CampaignView = {
   rewards: RewardView[];
   hasWatchRewards: boolean;
   hasSubscriptionRewards: boolean;
+  farmingRejection?: Extract<CampaignFarmingEvaluation, { farmable: false }>;
 };
 
 export type TFunction = (key: string, substitutions?: string | string[]) => string;
