@@ -2929,6 +2929,34 @@ describe("TwitchAdapter", () => {
     });
   });
 
+  it("promotes a progress-confirmed negative availability snapshot to the positive TTL", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-08-15T15:00:00Z"));
+      const discoveryState = new TwitchDiscoveryState();
+      const identity = discoveryState.availabilityRequestIdentity();
+      discoveryState.rememberChannelAvailability("channel-a", "broadcast-a", new Set(), identity);
+      discoveryState.rememberProgressConfirmedAvailability("channel-a", "campaign-a", identity);
+
+      vi.advanceTimersByTime(30_001);
+      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({
+        status: "hit",
+        campaignIds: new Set(["campaign-a"]),
+      });
+
+      vi.advanceTimersByTime(89_998);
+      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({
+        status: "hit",
+        campaignIds: new Set(["campaign-a"]),
+      });
+
+      vi.advanceTimersByTime(1);
+      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({ status: "expired" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("expires progress-confirmed availability after five minutes", () => {
     vi.useFakeTimers();
     try {

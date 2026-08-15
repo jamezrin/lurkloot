@@ -607,7 +607,11 @@ export class TwitchDiscoveryState {
       campaignId,
       expiresAt: Date.now() + PROGRESS_CONFIRMED_AVAILABILITY_TTL_MS,
     });
-    this.availableCampaignsByChannel.get(channelId)?.campaignIds.add(campaignId);
+    const cachedAvailability = this.availableCampaignsByChannel.get(channelId);
+    if (cachedAvailability && !cachedAvailability.campaignIds.has(campaignId)) {
+      cachedAvailability.campaignIds.add(campaignId);
+      cachedAvailability.expiresAt = Date.now() + POSITIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS;
+    }
     return true;
   }
 }
