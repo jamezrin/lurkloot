@@ -583,7 +583,7 @@ function emitCampaignEvaluationDiagnostics(
   }
   const parts = [`${campaigns.length} discovered`];
   const farmable = counts.get("farmable") ?? 0;
-  if (farmable > 0) parts.push(`${farmable} farmable`);
+  parts.push(`${farmable} farmable`);
   for (const [code, label] of Object.entries(CAMPAIGN_REJECTION_LABELS) as Array<[CampaignFarmingRejectionCode, string]>) {
     const count = counts.get(code) ?? 0;
     if (count > 0) parts.push(`${count} ${label}`);

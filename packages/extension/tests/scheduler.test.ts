@@ -1281,7 +1281,7 @@ describe("scheduler tick", () => {
     ]);
     const third = await runSchedulerTick(second.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
     expect(third.events).toContainEqual(expect.objectContaining({
-      message: "Campaign farming evaluation: 3 discovered, 1 completed, 2 Twitch account linking required",
+      message: "Campaign farming evaluation: 3 discovered, 0 farmable, 1 completed, 2 Twitch account linking required",
     }));
   });
 

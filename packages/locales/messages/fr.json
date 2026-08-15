@@ -587,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "Temps restant insuffisant"
   },
+  "campaignRejectionExcluded": { "message": "Cette campagne est exclue du farming." },
+  "campaignRejectionUpcoming": { "message": "Cette campagne n'a pas encore commencé." },
+  "campaignRejectionExpired": { "message": "Cette campagne est terminée." },
+  "campaignRejectionCompleted": { "message": "Toutes les récompenses de cette campagne sont terminées." },
+  "campaignRejectionUnlinkedDisabled": { "message": "Le farming des campagnes sans compte lié est désactivé." },
+  "campaignRejectionTwitchLinkRequired": { "message": "Cette campagne Twitch nécessite de lier un compte." },
+  "campaignRejectionSubscriptionDisabled": { "message": "Le farming des campagnes d'abonnement est désactivé." },
+  "campaignRejectionCategoryFiltered": { "message": "Cette campagne ne correspond pas aux catégories sélectionnées." },
+  "campaignRejectionPriorityNotSelected": { "message": "Cette campagne n'est pas dans la liste prioritaire." },
+  "campaignRejectionNoRewards": { "message": "Cette campagne n'a aucune récompense à farmer." },
+  "campaignRejectionNoUnclaimedRewards": { "message": "Cette campagne n'a aucune récompense non réclamée." },
+  "campaignRejectionPrerequisites": { "message": "$1 attend une récompense ou condition préalable." },
+  "campaignRejectionRewardNotStarted": { "message": "$1 n'est pas encore disponible." },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 n'est plus disponible." },
+  "campaignRejectionInsufficientTime": { "message": "$1 ne peut pas être terminée avant son échéance." },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 nécessite un abonnement éligible." },
+  "campaignRejectionActionRequired": { "message": "$1 nécessite une action autre que regarder." },
+  "campaignRejectionNoFarmableReward": { "message": "Aucune récompense de cette campagne ne peut être farmée actuellement." },
   "automationSectionTitle": {
     "message": "Automatisation"
   },
@@ -669,7 +687,7 @@
     "message": "Farmer les campagnes sans compte lié"
   },
   "farmUnlinkedDescription": {
-    "message": "Si désactivé, les campagnes nécessitant de lier votre compte sont ignorées. Kick accumule quand même du temps de visionnage avant la liaison."
+    "message": "Si désactivé, les campagnes nécessitant de lier votre compte sont ignorées. La plateforme peut toujours imposer la liaison lorsque l'option est activée."
   },
   "farmSubscriptionTitle": {
     "message": "Farmer les campagnes nécessitant un abonnement"

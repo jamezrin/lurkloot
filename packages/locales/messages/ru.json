@@ -587,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "Недостаточно оставшегося времени"
   },
+  "campaignRejectionExcluded": { "message": "Эта кампания исключена из фарминга." },
+  "campaignRejectionUpcoming": { "message": "Эта кампания ещё не началась." },
+  "campaignRejectionExpired": { "message": "Эта кампания завершилась." },
+  "campaignRejectionCompleted": { "message": "Все награды этой кампании получены." },
+  "campaignRejectionUnlinkedDisabled": { "message": "Фарминг без привязанной учётной записи отключён." },
+  "campaignRejectionTwitchLinkRequired": { "message": "Для этой кампании Twitch требуется привязка учётной записи." },
+  "campaignRejectionSubscriptionDisabled": { "message": "Фарминг кампаний с подпиской отключён." },
+  "campaignRejectionCategoryFiltered": { "message": "Эта кампания не соответствует выбранным категориям." },
+  "campaignRejectionPriorityNotSelected": { "message": "Этой кампании нет в списке приоритетов." },
+  "campaignRejectionNoRewards": { "message": "В этой кампании нет доступных для фарминга наград." },
+  "campaignRejectionNoUnclaimedRewards": { "message": "В этой кампании нет неполученных наград." },
+  "campaignRejectionPrerequisites": { "message": "$1 ожидает предыдущую награду или условие." },
+  "campaignRejectionRewardNotStarted": { "message": "$1 пока недоступна." },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 больше недоступна." },
+  "campaignRejectionInsufficientTime": { "message": "$1 нельзя завершить до окончания срока." },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 требует подходящую подписку." },
+  "campaignRejectionActionRequired": { "message": "$1 требует действие помимо просмотра." },
+  "campaignRejectionNoFarmableReward": { "message": "Сейчас ни одну награду этой кампании нельзя фармить." },
   "automationSectionTitle": {
     "message": "Автоматизация"
   },
@@ -669,7 +687,7 @@
     "message": "Фармить кампании без привязанного аккаунта"
   },
   "farmUnlinkedDescription": {
-    "message": "Когда выключено, кампании, требующие привязки аккаунта, пропускаются. Kick всё равно накапливает время просмотра до привязки."
+    "message": "Когда выключено, кампании, требующие привязки аккаунта, пропускаются. Требования платформы могут всё равно требовать привязку, когда настройка включена."
   },
   "farmSubscriptionTitle": {
     "message": "Фармить кампании, требующие подписки"

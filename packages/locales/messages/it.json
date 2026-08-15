@@ -587,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "Tempo rimanente insufficiente"
   },
+  "campaignRejectionExcluded": { "message": "Questa campagna è esclusa dal farming." },
+  "campaignRejectionUpcoming": { "message": "Questa campagna non è ancora iniziata." },
+  "campaignRejectionExpired": { "message": "Questa campagna è terminata." },
+  "campaignRejectionCompleted": { "message": "Tutte le ricompense di questa campagna sono complete." },
+  "campaignRejectionUnlinkedDisabled": { "message": "Il farming senza un account collegato è disattivato." },
+  "campaignRejectionTwitchLinkRequired": { "message": "Questa campagna Twitch richiede di collegare un account." },
+  "campaignRejectionSubscriptionDisabled": { "message": "Il farming delle campagne con abbonamento è disattivato." },
+  "campaignRejectionCategoryFiltered": { "message": "Questa campagna non corrisponde alle categorie selezionate." },
+  "campaignRejectionPriorityNotSelected": { "message": "Questa campagna non è nella lista delle priorità." },
+  "campaignRejectionNoRewards": { "message": "Questa campagna non ha ricompense farmabili." },
+  "campaignRejectionNoUnclaimedRewards": { "message": "Questa campagna non ha ricompense da riscattare." },
+  "campaignRejectionPrerequisites": { "message": "$1 attende una ricompensa o un requisito precedente." },
+  "campaignRejectionRewardNotStarted": { "message": "$1 non è ancora disponibile." },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 non è più disponibile." },
+  "campaignRejectionInsufficientTime": { "message": "$1 non può essere completata prima della scadenza." },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 richiede un abbonamento valido." },
+  "campaignRejectionActionRequired": { "message": "$1 richiede un'azione diversa dalla visione." },
+  "campaignRejectionNoFarmableReward": { "message": "Nessuna ricompensa di questa campagna può essere farmata ora." },
   "automationSectionTitle": {
     "message": "Automazione"
   },
@@ -669,7 +687,7 @@
     "message": "Farma campagne senza account collegato"
   },
   "farmUnlinkedDescription": {
-    "message": "Se disattivato, le campagne che richiedono di collegare il tuo account vengono saltate. Kick accumula comunque tempo di visione prima del collegamento."
+    "message": "Se disattivato, le campagne che richiedono un account collegato vengono saltate. La piattaforma può comunque richiedere il collegamento quando è attivo."
   },
   "farmSubscriptionTitle": {
     "message": "Farma campagne che richiedono un abbonamento"
