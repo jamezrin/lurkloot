@@ -2604,7 +2604,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game", name: "Game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game", name: "Game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         expect(requestBody(init).variables).toEqual({ channelID: "channel-id" });
@@ -2629,7 +2629,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         return { data: { channel: { id: "channel-id", viewerDropCampaigns: [{ id: "other" }] } } };
@@ -2653,7 +2653,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") throw new Error("availability unavailable");
       throw new Error(`Unexpected op ${op}`);
@@ -2674,7 +2674,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         return { data: { channel: { id: "channel-id" } } };
@@ -2698,7 +2698,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         availabilityAttempts += 1;
@@ -2726,7 +2726,7 @@ describe("TwitchAdapter", () => {
       const fetcher = jsonFetcher((_url, init) => {
         const op = operation(init);
         if (op === "StreamInfo") {
-          return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+          return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
         }
         if (op === "DropsHighlightService_AvailableDrops") {
           availabilityCalls += 1;
@@ -2774,7 +2774,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         availabilityCalls += 1;
@@ -2795,6 +2795,123 @@ describe("TwitchAdapter", () => {
     expect(availabilityCalls).toBe(1);
   });
 
+  it("recovers a contradictory Twitch availability negative after material progress", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-08-15T15:00:00.000Z"));
+      let availabilityCalls = 0;
+      const discoveryState = new TwitchDiscoveryState();
+      discoveryState.setAuthenticatedUser("user-id");
+      const fetcher = jsonFetcher((_url, init) => {
+        const op = operation(init);
+        if (op === "StreamInfo" || op === "VideoPlayerStreamInfoOverlayChannel") {
+          return {
+            data: {
+              user: {
+                id: "channel-id",
+                stream: { id: "broadcast-a", game: { id: "game" } },
+              },
+            },
+          };
+        }
+        if (op === "DropsHighlightService_AvailableDrops") {
+          availabilityCalls += 1;
+          return { data: { channel: { id: "channel-id", viewerDropCampaigns: [] } } };
+        }
+        if (op === "Inventory") {
+          return {
+            data: {
+              currentUser: {
+                id: "user-id",
+                inventory: {
+                  dropCampaignsInProgress: [{
+                    id: "campaign-a",
+                    timeBasedDrops: [{
+                      id: "drop-a",
+                      requiredMinutesWatched: 60,
+                      self: { currentMinutesWatched: 10, isClaimed: false },
+                    }],
+                  }],
+                },
+              },
+            },
+          };
+        }
+        if (op === "ViewerDropsDashboard") return twitchDashboard([], "user-id");
+        if (op === "DropCurrentSessionContext") {
+          return {
+            data: {
+              currentUser: {
+                dropCurrentSession: { dropID: "drop-a", currentMinutesWatched: 11 },
+              },
+            },
+          };
+        }
+        throw new Error(`Unexpected op ${op}`);
+      });
+      const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
+      const campaign = { id: "campaign-a", categoryId: "game" } as DropCampaign;
+
+      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+        .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: false });
+      expect(availabilityCalls).toBe(1);
+
+      const progress = await twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+        .refreshCampaigns({
+          platform: "twitch",
+          status: "watching",
+          offlineChecks: 0,
+          channel: candidate,
+        });
+      expect(progress[0]?.rewards[0]?.watchedMinutes).toBe(11);
+
+      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+        .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
+      expect(availabilityCalls).toBe(1);
+
+      vi.advanceTimersByTime(5 * 60_000 + 1);
+      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+        .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: false });
+      expect(availabilityCalls).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("refetches single-channel availability when the channel starts a new broadcast", async () => {
+    let broadcastId = "broadcast-a";
+    let availabilityCalls = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "StreamInfo") {
+        return { data: { user: { id: "channel-id", stream: { id: broadcastId, game: { id: "game" } } } } };
+      }
+      if (op === "DropsHighlightService_AvailableDrops") {
+        availabilityCalls += 1;
+        return {
+          data: {
+            channel: {
+              id: "channel-id",
+              viewerDropCampaigns: availabilityCalls === 1 ? [] : [{ id: "campaign" }],
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
+    const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
+
+    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+      .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: false });
+    broadcastId = "broadcast-b";
+    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+      .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
+
+    expect(availabilityCalls).toBe(2);
+  });
+
   it("drops the campaign availability cache when the authenticated user changes", async () => {
     // Availability results are per-account, same as follows — a cache
     // populated under one user must never answer for the next one.
@@ -2802,7 +2919,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         availabilityCalls += 1;
@@ -2857,22 +2974,171 @@ describe("TwitchAdapter", () => {
     // this one must keep working safely under the initial generation.
     const requestIdentity = discoveryState.availabilityRequestIdentity();
     for (let index = 0; index < 128; index += 1) {
-      discoveryState.rememberChannelAvailability(`channel-${index}`, new Set(["campaign"]), requestIdentity);
+      discoveryState.rememberChannelAvailability(`channel-${index}`, `broadcast-${index}`, new Set(["campaign"]), requestIdentity);
     }
-    expect(discoveryState.cachedChannelAvailability("channel-0")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-0", "broadcast-0")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
 
     // Pushes the cache past its bound; the oldest entry must be evicted, not
     // an arbitrary or most-recent one.
-    discoveryState.rememberChannelAvailability("channel-128", new Set(["campaign"]), requestIdentity);
+    discoveryState.rememberChannelAvailability("channel-128", "broadcast-128", new Set(["campaign"]), requestIdentity);
 
-    expect(discoveryState.cachedChannelAvailability("channel-0")).toEqual({ status: "miss" });
-    expect(discoveryState.cachedChannelAvailability("channel-128")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-0", "broadcast-0")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-128", "broadcast-128")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
+  });
+
+  it("limits progress-confirmed availability to the exact channel and campaign", () => {
+    const discoveryState = new TwitchDiscoveryState();
+    const identity = discoveryState.availabilityRequestIdentity();
+
+    discoveryState.rememberChannelAvailability("channel-a", "broadcast-a", new Set(), identity);
+    expect(discoveryState.rememberProgressConfirmedAvailability(
+      "channel-a",
+      "campaign-a",
+      identity,
+    )).toBe(true);
+
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-a", "campaign-a")).toBe(true);
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-a", "campaign-b")).toBe(false);
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-b", "campaign-a")).toBe(false);
+    expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({
+      status: "hit",
+      campaignIds: new Set(["campaign-a"]),
+    });
+  });
+
+  it("promotes a progress-confirmed negative availability snapshot to the positive TTL", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-08-15T15:00:00Z"));
+      const discoveryState = new TwitchDiscoveryState();
+      const identity = discoveryState.availabilityRequestIdentity();
+      discoveryState.rememberChannelAvailability("channel-a", "broadcast-a", new Set(), identity);
+      discoveryState.rememberProgressConfirmedAvailability("channel-a", "campaign-a", identity);
+
+      vi.advanceTimersByTime(30_001);
+      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({
+        status: "hit",
+        campaignIds: new Set(["campaign-a"]),
+      });
+
+      vi.advanceTimersByTime(89_998);
+      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({
+        status: "hit",
+        campaignIds: new Set(["campaign-a"]),
+      });
+
+      vi.advanceTimersByTime(1);
+      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({ status: "expired" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("expires progress-confirmed availability after five minutes", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-08-15T15:00:00Z"));
+      const discoveryState = new TwitchDiscoveryState();
+      const identity = discoveryState.availabilityRequestIdentity();
+
+      discoveryState.rememberProgressConfirmedAvailability("channel-a", "campaign-a", identity);
+      vi.advanceTimersByTime(5 * 60_000 - 1);
+      expect(discoveryState.hasProgressConfirmedAvailability("channel-a", "campaign-a")).toBe(true);
+
+      vi.advanceTimersByTime(1);
+      expect(discoveryState.hasProgressConfirmedAvailability("channel-a", "campaign-a")).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("bounds progress-confirmed availability to 128 pairs in FIFO order", () => {
+    const discoveryState = new TwitchDiscoveryState();
+    const identity = discoveryState.availabilityRequestIdentity();
+    for (let index = 0; index < 128; index += 1) {
+      discoveryState.rememberProgressConfirmedAvailability(`channel-${index}`, "campaign", identity);
+    }
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-0", "campaign")).toBe(true);
+
+    discoveryState.rememberProgressConfirmedAvailability("channel-128", "campaign", identity);
+
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-0", "campaign")).toBe(false);
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-128", "campaign")).toBe(true);
+  });
+
+  it("clears progress-confirmed availability when the authenticated user changes", () => {
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.setAuthenticatedUser("user-a");
+    discoveryState.rememberProgressConfirmedAvailability(
+      "channel-a",
+      "campaign-a",
+      discoveryState.availabilityRequestIdentity(),
+    );
+
+    discoveryState.setAuthenticatedUser("user-b");
+
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-a", "campaign-a")).toBe(false);
+  });
+
+  it("rejects progress-confirmed availability captured before an A -> B -> A identity round trip", () => {
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.setAuthenticatedUser("user-a");
+    const staleIdentity = discoveryState.availabilityRequestIdentity();
+
+    discoveryState.setAuthenticatedUser("user-b");
+    discoveryState.setAuthenticatedUser("user-a");
+
+    expect(discoveryState.rememberProgressConfirmedAvailability(
+      "channel-a",
+      "campaign-a",
+      staleIdentity,
+    )).toBe(false);
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-a", "campaign-a")).toBe(false);
+  });
+
+  it("invalidates a cached channel availability snapshot when the broadcast changes", () => {
+    const discoveryState = new TwitchDiscoveryState();
+    const identity = discoveryState.availabilityRequestIdentity();
+
+    discoveryState.rememberChannelAvailability(
+      "channel-id",
+      "broadcast-a",
+      new Set<string>(),
+      identity,
+    );
+
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-a"))
+      .toEqual({ status: "hit", campaignIds: new Set() });
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-b"))
+      .toEqual({ status: "broadcast_changed" });
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-a"))
+      .toEqual({ status: "miss" });
+  });
+
+  it("expires negative availability before positive availability", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-08-15T15:00:00Z"));
+      const discoveryState = new TwitchDiscoveryState();
+      const identity = discoveryState.availabilityRequestIdentity();
+
+      discoveryState.rememberChannelAvailability("negative", "broadcast-n", new Set(), identity);
+      discoveryState.rememberChannelAvailability("positive", "broadcast-p", new Set(["campaign"]), identity);
+      vi.advanceTimersByTime(30_001);
+
+      expect(discoveryState.cachedChannelAvailability("negative", "broadcast-n"))
+        .toEqual({ status: "expired" });
+      expect(discoveryState.cachedChannelAvailability("positive", "broadcast-p"))
+        .toEqual({ status: "hit", campaignIds: new Set(["campaign"]) });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("reports availability cache hits, misses, and expirations in the selection diagnostic", async () => {
@@ -2884,6 +3150,7 @@ describe("TwitchAdapter", () => {
         username: "directory-winner",
         url: "https://www.twitch.tv/directory-winner",
         channelId: "winner-id",
+        broadcastId: "winner-broadcast",
         categoryId: "game",
         live: true,
         isAclMatch: false,
@@ -2927,6 +3194,197 @@ describe("TwitchAdapter", () => {
     }
   });
 
+  it("uses a progress-confirmed override for single-channel availability", async () => {
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.rememberProgressConfirmedAvailability(
+      "channel-a",
+      "campaign-a",
+      discoveryState.availabilityRequestIdentity(),
+    );
+    let availabilityCalls = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "StreamInfo") {
+        return { data: { user: { id: "channel-a", stream: { id: "broadcast-a", game: { id: "game" } } } } };
+      }
+      if (op === "DropsHighlightService_AvailableDrops") {
+        availabilityCalls += 1;
+        return { data: { channel: { id: "channel-a", viewerDropCampaigns: [] } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(
+      { platform: "twitch", username: "channel-a", url: "https://www.twitch.tv/channel-a" },
+      { campaign: { id: "campaign-a", categoryId: "game" } as DropCampaign },
+    )).resolves.toMatchObject({ campaignMatches: true });
+
+    expect(availabilityCalls).toBe(0);
+  });
+
+  it("uses a progress-confirmed override in batch selection", async () => {
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.rememberProgressConfirmedAvailability(
+      "channel-a",
+      "campaign-a",
+      discoveryState.availabilityRequestIdentity(),
+    );
+    const availabilityChannels: string[] = [];
+    const events: EngineEvent[] = [];
+    const fetcher = jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+      const requests = Array.isArray(body) ? body : [body];
+      availabilityChannels.push(...requests.map((request) => String((request.variables as { channelID?: string }).channelID)));
+      const response = (request: Record<string, unknown>) => ({
+        data: {
+          channel: {
+            id: String((request.variables as { channelID?: string }).channelID),
+            viewerDropCampaigns: [],
+          },
+        },
+      });
+      return Array.isArray(body) ? requests.map(response) : response(body);
+    });
+    const candidates = [
+      {
+        platform: "twitch" as const,
+        username: "channel-a",
+        url: "https://www.twitch.tv/channel-a",
+        channelId: "channel-a",
+        broadcastId: "broadcast-a",
+        categoryId: "game",
+        live: true,
+        isAclMatch: false,
+      },
+      {
+        platform: "twitch" as const,
+        username: "channel-b",
+        url: "https://www.twitch.tv/channel-b",
+        channelId: "channel-b",
+        broadcastId: "broadcast-b",
+        categoryId: "game",
+        live: true,
+        isAclMatch: false,
+      },
+    ];
+
+    const selection = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => {
+      events.push(event);
+    }).selectCandidateChannel?.(candidates, { id: "campaign-a", name: "Campaign", categoryId: "game" } as DropCampaign);
+
+    expect(selection?.channel?.username).toBe("channel-a");
+    expect(availabilityChannels).toEqual(["channel-b"]);
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      message: expect.stringContaining("1 progress-confirmed availability overrides"),
+    }));
+  });
+
+  it("does not use a progress-confirmed override for an unrelated campaign or channel", async () => {
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.rememberProgressConfirmedAvailability(
+      "channel-a",
+      "campaign-a",
+      discoveryState.availabilityRequestIdentity(),
+    );
+    const availabilityChannels: string[] = [];
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "StreamInfo") {
+        const channel = String((requestBody(init).variables as { channel?: string }).channel);
+        return {
+          data: {
+            user: {
+              id: channel,
+              stream: { id: `broadcast-${channel}`, game: { id: "game" } },
+            },
+          },
+        };
+      }
+      if (op === "DropsHighlightService_AvailableDrops") {
+        const channelId = String((requestBody(init).variables as { channelID?: string }).channelID);
+        availabilityChannels.push(channelId);
+        return { data: { channel: { id: channelId, viewerDropCampaigns: [] } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(
+      { platform: "twitch", username: "channel-a", url: "https://www.twitch.tv/channel-a" },
+      { campaign: { id: "campaign-b", categoryId: "game" } as DropCampaign },
+    )).resolves.toMatchObject({ campaignMatches: false });
+    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(
+      { platform: "twitch", username: "channel-b", url: "https://www.twitch.tv/channel-b" },
+      { campaign: { id: "campaign-a", categoryId: "game" } as DropCampaign },
+    )).resolves.toMatchObject({ campaignMatches: false });
+
+    expect(availabilityChannels).toEqual(["channel-a", "channel-b"]);
+  });
+
+  it("refetches batch availability after a trusted directory candidate starts a new broadcast", async () => {
+    const discoveryState = new TwitchDiscoveryState();
+    discoveryState.rememberChannelAvailability(
+      "channel-a",
+      "broadcast-a",
+      new Set(),
+      discoveryState.availabilityRequestIdentity(),
+    );
+    const candidates = [
+      {
+        platform: "twitch" as const,
+        username: "directory-a",
+        url: "https://www.twitch.tv/directory-a",
+        channelId: "channel-a",
+        broadcastId: "broadcast-a-next",
+        categoryId: "game",
+        live: true,
+        isAclMatch: false,
+      },
+      {
+        platform: "twitch" as const,
+        username: "directory-b",
+        url: "https://www.twitch.tv/directory-b",
+        channelId: "channel-b",
+        broadcastId: "broadcast-b",
+        categoryId: "game",
+        live: true,
+        isAclMatch: false,
+      },
+    ];
+    const batchRequests: string[][] = [];
+    const events: EngineEvent[] = [];
+    const fetcher = jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Array<Record<string, unknown>>;
+      expect(Array.isArray(body)).toBe(true);
+      batchRequests.push(body.map((entry) => String((entry.variables as { channelID?: string }).channelID)));
+      return body.map((entry) => {
+        const channelId = String((entry.variables as { channelID?: string }).channelID);
+        return {
+          data: {
+            channel: {
+              id: channelId,
+              viewerDropCampaigns: channelId === "channel-b" ? [{ id: "campaign" }] : [],
+            },
+          },
+        };
+      });
+    });
+
+    const selection = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => {
+      events.push(event);
+    }).selectCandidateChannel?.(
+      candidates,
+      { id: "campaign", name: "Campaign", categoryId: "game" } as DropCampaign,
+    );
+
+    expect(selection?.channel?.username).toBe("directory-b");
+    expect(batchRequests).toEqual([["channel-a", "channel-b"]]);
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      message: expect.stringContaining("1 availability broadcast invalidations"),
+    }));
+  });
+
   it("does not cache a failed or malformed Twitch campaign availability response", async () => {
     // A transport failure or a malformed payload must not poison the cache
     // with an authoritative negative — the next lookup has to hit the network
@@ -2935,7 +3393,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         availabilityCalls += 1;
@@ -2962,7 +3420,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         availabilityCalls += 1;
@@ -2985,7 +3443,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         availabilityCalls += 1;
@@ -3003,7 +3461,7 @@ describe("TwitchAdapter", () => {
     await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign });
 
     expect(availabilityCalls).toBe(2);
-    expect(discoveryState.cachedChannelAvailability("channel-id")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id")).toEqual({ status: "miss" });
   });
 
   it("treats a missing availability response channel id as ambiguous and never caches it", async () => {
@@ -3011,7 +3469,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         availabilityCalls += 1;
@@ -3035,7 +3493,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         availabilityCalls += 1;
@@ -3058,7 +3516,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         return { data: { channel: { id: "channel-id", viewerDropCampaigns: [null, { id: "campaign" }] } } };
@@ -3079,6 +3537,7 @@ describe("TwitchAdapter", () => {
         username: "directory-a",
         url: "https://www.twitch.tv/directory-a",
         channelId: "channel-a",
+        broadcastId: "broadcast-a",
         categoryId: "game",
         live: true,
         isAclMatch: false,
@@ -3088,6 +3547,7 @@ describe("TwitchAdapter", () => {
         username: "directory-b",
         url: "https://www.twitch.tv/directory-b",
         channelId: "channel-b",
+        broadcastId: "broadcast-b",
         categoryId: "game",
         live: true,
         isAclMatch: false,
@@ -3121,8 +3581,8 @@ describe("TwitchAdapter", () => {
     // so the selection still lands on the first (unconfirmed) candidate.
     expect(selection?.channel?.username).toBe("directory-a");
     expect(singleFallbackCalls).toBe(1);
-    expect(discoveryState.cachedChannelAvailability("channel-a")).toEqual({ status: "miss" });
-    expect(discoveryState.cachedChannelAvailability("channel-b")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-b", "broadcast-b")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
@@ -3140,6 +3600,7 @@ describe("TwitchAdapter", () => {
         username: "directory-a",
         url: "https://www.twitch.tv/directory-a",
         channelId: "channel-a",
+        broadcastId: "broadcast-a",
         categoryId: "game",
         live: true,
         isAclMatch: false,
@@ -3149,6 +3610,7 @@ describe("TwitchAdapter", () => {
         username: "directory-b",
         url: "https://www.twitch.tv/directory-b",
         channelId: "channel-b",
+        broadcastId: "broadcast-b",
         categoryId: "game",
         live: true,
         isAclMatch: false,
@@ -3178,6 +3640,7 @@ describe("TwitchAdapter", () => {
         username: "directory-a",
         url: "https://www.twitch.tv/directory-a",
         channelId: "channel-a",
+        broadcastId: "broadcast-a",
         categoryId: "game",
         live: true,
         isAclMatch: false,
@@ -3187,6 +3650,7 @@ describe("TwitchAdapter", () => {
         username: "directory-b",
         url: "https://www.twitch.tv/directory-b",
         channelId: "channel-b",
+        broadcastId: "broadcast-b",
         categoryId: "game",
         live: true,
         isAclMatch: false,
@@ -3225,8 +3689,8 @@ describe("TwitchAdapter", () => {
     // had been ignored, this response would have cached directly and the
     // fallback would never have been called.
     expect(singleFallbackCalls).toBe(1);
-    expect(discoveryState.cachedChannelAvailability("channel-a")).toEqual({ status: "miss" });
-    expect(discoveryState.cachedChannelAvailability("channel-b")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-b", "broadcast-b")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
@@ -3248,7 +3712,7 @@ describe("TwitchAdapter", () => {
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       if (op === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropsHighlightService_AvailableDrops") {
         availabilityCalls += 1;
@@ -3279,7 +3743,7 @@ describe("TwitchAdapter", () => {
     // Request A still answers its own caller correctly...
     await expect(pendingA).resolves.toMatchObject({ campaignMatches: true });
     // ...but must not have repopulated the shared cache under user-b.
-    expect(discoveryState.cachedChannelAvailability("channel-id")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id")).toEqual({ status: "miss" });
 
     // A fresh request under user-b reaches the network and populates the cache.
     await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
@@ -3304,17 +3768,19 @@ describe("TwitchAdapter", () => {
 
     expect(discoveryState.rememberChannelAvailability(
       "channel-id",
+      "broadcast-id",
       new Set(["campaign"]),
       staleIdentity,
     )).toBe(false);
-    expect(discoveryState.cachedChannelAvailability("channel-id")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id")).toEqual({ status: "miss" });
 
     expect(discoveryState.rememberChannelAvailability(
       "channel-id",
+      "broadcast-id",
       new Set(["campaign"]),
       discoveryState.availabilityRequestIdentity(),
     )).toBe(true);
-    expect(discoveryState.cachedChannelAvailability("channel-id")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
@@ -3338,6 +3804,7 @@ describe("TwitchAdapter", () => {
             streams: {
               edges: [{
                 node: {
+                  id: "broadcast-id",
                   title: "FNCS",
                   viewersCount: 34513,
                   broadcaster: {
@@ -3373,6 +3840,7 @@ describe("TwitchAdapter", () => {
       title: "FNCS",
       campaignId: "campaign",
       categoryId: "33214",
+      broadcastId: "broadcast-id",
     });
   });
 
@@ -3388,6 +3856,7 @@ describe("TwitchAdapter", () => {
       username: "directory-winner",
       url: "https://www.twitch.tv/directory-winner",
       channelId: "winner-id",
+      broadcastId: "winner-broadcast",
       categoryId: "game",
       live: true,
       isAclMatch: false,
@@ -3402,12 +3871,50 @@ describe("TwitchAdapter", () => {
     expect(operations).toEqual(["DropsHighlightService_AvailableDrops"]);
   });
 
+  it("revalidates a trusted directory candidate without a broadcast id before checking availability", async () => {
+    const operations: string[] = [];
+    const fetcher = jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) {
+        operations.push(String(body[0]?.operationName));
+        return [{
+          data: {
+            user: {
+              id: "winner-id",
+              stream: { id: "winner-broadcast", game: { id: "game" } },
+            },
+          },
+        }];
+      }
+      operations.push(String(body.operationName));
+      return { data: { channel: { id: "winner-id", viewerDropCampaigns: [{ id: "campaign" }] } } };
+    });
+    const candidate = {
+      platform: "twitch" as const,
+      username: "directory-winner",
+      url: "https://www.twitch.tv/directory-winner",
+      channelId: "winner-id",
+      categoryId: "game",
+      live: true,
+      isAclMatch: false,
+    };
+
+    const selection = await twitchAdapter(fetcher).selectCandidateChannel?.(
+      [candidate],
+      { id: "campaign", categoryId: "game" } as DropCampaign,
+    );
+
+    expect(selection?.channel?.username).toBe("directory-winner");
+    expect(operations).toEqual(["StreamInfo", "DropsHighlightService_AvailableDrops"]);
+  });
+
   it("batches campaign availability checks for trusted directory candidates", async () => {
     const candidates = Array.from({ length: 24 }, (_, index) => ({
       platform: "twitch" as const,
       username: `directory-${index}`,
       url: `https://www.twitch.tv/directory-${index}`,
       channelId: `channel-${index}`,
+      broadcastId: `broadcast-${index}`,
       categoryId: "game",
       live: true,
       isAclMatch: false,
@@ -3485,6 +3992,7 @@ describe("TwitchAdapter", () => {
       username: `directory-${index}`,
       url: `https://www.twitch.tv/directory-${index}`,
       channelId: `channel-${index}`,
+      broadcastId: `broadcast-${index}`,
       categoryId: "game",
       live: true,
       isAclMatch: false,
@@ -3747,7 +4255,7 @@ describe("TwitchAdapter", () => {
         };
       }
       if (op === "VideoPlayerStreamInfoOverlayChannel") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropCurrentSessionContext") {
         return { data: { currentUser: { dropCurrentSession: { dropID: "drop", currentMinutesWatched: 42 } } } };
@@ -3768,6 +4276,148 @@ describe("TwitchAdapter", () => {
       status: "in_progress",
       isCurrentReward: true,
     });
+  });
+
+  it("records material current-session progress as availability evidence", async () => {
+    const discoveryState = new TwitchDiscoveryState();
+    const events: EngineEvent[] = [];
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        return {
+          data: {
+            currentUser: {
+              id: "user-id",
+              inventory: {
+                dropCampaignsInProgress: [{
+                  id: "campaign",
+                  timeBasedDrops: [{
+                    id: "drop",
+                    requiredMinutesWatched: 60,
+                    self: { currentMinutesWatched: 10, isClaimed: false },
+                  }],
+                }],
+              },
+            },
+          },
+        };
+      }
+      if (op === "VideoPlayerStreamInfoOverlayChannel") {
+        discoveryState.rememberChannelAvailability(
+          "channel-id",
+          "broadcast-id",
+          new Set(),
+          discoveryState.availabilityRequestIdentity(),
+        );
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
+      }
+      if (op === "DropCurrentSessionContext") {
+        return { data: { currentUser: { dropCurrentSession: { dropID: "drop", currentMinutesWatched: 11 } } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => {
+      events.push(event);
+    }).refreshCampaigns({
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      channel: { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+    });
+
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-id", "campaign")).toBe(true);
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      level: "debug",
+      message: "Twitch current-session progress confirmed campaign campaign for creator despite a negative availability snapshot",
+    }));
+  });
+
+  it("does not record unchanged current-session progress as availability evidence", async () => {
+    const discoveryState = new TwitchDiscoveryState();
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        return {
+          data: {
+            currentUser: {
+              inventory: {
+                dropCampaignsInProgress: [{
+                  id: "campaign",
+                  timeBasedDrops: [{
+                    id: "drop",
+                    requiredMinutesWatched: 60,
+                    self: { currentMinutesWatched: 10, isClaimed: false },
+                  }],
+                }],
+              },
+            },
+          },
+        };
+      }
+      if (op === "VideoPlayerStreamInfoOverlayChannel") {
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
+      }
+      if (op === "DropCurrentSessionContext") {
+        return { data: { currentUser: { dropCurrentSession: { dropID: "drop", currentMinutesWatched: 10 } } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns({
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      channel: { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+    });
+
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-id", "campaign")).toBe(false);
+  });
+
+  it.each([
+    ["zero", []],
+    ["two", ["campaign-a", "campaign-b"]],
+  ])("does not record an ambiguous current-session drop that occurs in %s campaigns", async (_occurrences, campaignIds) => {
+    const discoveryState = new TwitchDiscoveryState();
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      if (op === "Inventory") {
+        return {
+          data: {
+            currentUser: {
+              inventory: {
+                dropCampaignsInProgress: campaignIds.map((id) => ({
+                  id,
+                  timeBasedDrops: [{
+                    id: "drop",
+                    requiredMinutesWatched: 60,
+                    self: { currentMinutesWatched: 10, isClaimed: false },
+                  }],
+                })),
+              },
+            },
+          },
+        };
+      }
+      if (op === "VideoPlayerStreamInfoOverlayChannel") {
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
+      }
+      if (op === "DropCurrentSessionContext") {
+        return { data: { currentUser: { dropCurrentSession: { dropID: "drop", currentMinutesWatched: 11 } } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns({
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      channel: { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+    });
+
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-id", "campaign-a")).toBe(false);
+    expect(discoveryState.hasProgressConfirmedAvailability("channel-id", "campaign-b")).toBe(false);
   });
 
   it("claims a Twitch reward with the real drop-instance id", async () => {
@@ -3877,7 +4527,7 @@ describe("TwitchAdapter", () => {
       }
       if (op === "ViewerDropsDashboard") return twitchDashboard([]);
       if (op === "VideoPlayerStreamInfoOverlayChannel") {
-        return { data: { user: { id: "channel-id", stream: { game: { id: "game" } } } } };
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game" } } } } };
       }
       if (op === "DropCurrentSessionContext") {
         return { data: { currentUser: { dropCurrentSession: { dropID: "drop", currentMinutesWatched: 60 } } } };
