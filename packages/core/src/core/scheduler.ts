@@ -556,7 +556,7 @@ function campaignEvaluationFingerprint(
   return evaluations
     .map(({ campaign, evaluation }) => evaluation.farmable
       ? `${campaign.id}:farmable`
-      : [campaign.id, evaluation.code, evaluation.rewardId, evaluation.deadline, evaluation.remainingMinutes, evaluation.availableMinutes, evaluation.marginMinutes].join(":"))
+      : [campaign.id, evaluation.code, evaluation.rewardId, evaluation.deadline, evaluation.remainingMinutes, evaluation.marginMinutes].join(":"))
     .sort()
     .join("|");
 }

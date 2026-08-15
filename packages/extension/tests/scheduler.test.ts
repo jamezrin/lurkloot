@@ -1285,6 +1285,35 @@ describe("scheduler tick", () => {
     }));
   });
 
+  it("does not repeat insufficient-time diagnostics as available time decreases", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime("2026-08-15T12:00:00.000Z");
+    try {
+      const timed = campaign("timed", { endsAt: "2026-08-15T12:44:00.000Z" });
+      const twitch = adapter("twitch", [timed], [channel("creator")]);
+      const tickSettings = settings({
+        deadlineSafetyMarginMinutes: 5,
+        platform: { twitch: { enabled: true }, kick: { enabled: false } },
+      });
+      const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+      const campaignEvaluationFingerprints = {};
+
+      const first = await runSchedulerTick(baseState, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
+      expect(first.events).toContainEqual(expect.objectContaining({
+        message: expect.stringContaining("reason=insufficient_time"),
+      }));
+
+      vi.setSystemTime("2026-08-15T12:01:00.000Z");
+      const second = await runSchedulerTick(first.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
+      expect(second.events.filter((event) => event.category === "diagnostic" && (
+        event.message.startsWith("Campaign farming evaluation:")
+        || event.message.startsWith("Campaign rejected:")
+      ))).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not emit inventory diagnostics when campaigns and rewards are reordered", async () => {
     const first = [
       campaign("first", {
