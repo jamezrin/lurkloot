@@ -106,7 +106,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // Request to jump to a campaign in the drops list (expand + scroll). The seq
   // counter lets repeated clicks on the same campaign re-trigger the effect.
   const [campaignFocus, setCampaignFocus] = useState<{ id: string; seq: number } | null>(null);
-  const watchlistRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const snapshotRequestGenerationRef = useRef(0);
@@ -196,17 +195,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     if (preview || !adapter.getPendingChangelogVersion) return;
     void adapter.getPendingChangelogVersion().then(setPendingChangelogVersion);
   }, [adapter, preview]);
-
-  // The Idle Watchlist lives below the campaigns now, so the store screenshot
-  // that is *about* the watchlist starts the campaign cards collapsed and scrolls
-  // down to the section.
-  const watchlistScreenshot = false;
-  const snapshotReady = snapshot != null;
-  useEffect(() => {
-    if (!watchlistScreenshot || !snapshotReady) return undefined;
-    const frame = requestAnimationFrame(() => watchlistRef.current?.scrollIntoView({ block: "start" }));
-    return () => cancelAnimationFrame(frame);
-  }, [snapshotReady, watchlistScreenshot]);
 
   useEffect(() => {
     if (!activityOpen || preview || clearingActivity) return;
@@ -783,7 +771,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     gameMap={gameMap}
                     focus={campaignFocus}
                     refreshing={refreshing}
-                    startCollapsed={watchlistScreenshot}
                     onRefreshCampaign={() => refreshNow()}
                     onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) }, { tickAfterSave: true })}
                     onToggleExclude={(id) => {
@@ -794,29 +781,27 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     }}
                   />
                 )}
-                <div ref={watchlistRef}>
-                  {/* Keyed by platform so the add field's own text cannot survive
-                      a platform switch either. */}
-                  <IdleWatchlistPanel
-                    key={platform}
-                    platform={platform}
-                    streamers={idleWatchlist}
-                    expanded={watchlistExpanded}
-                    adding={watchlistAdding}
-                    onExpandedChange={(next) => { setWatchlistExpanded(next); if (!next) setWatchlistAdding(false); }}
-                    onAddingChange={setWatchlistAdding}
-                    onChange={(ordered) => updateSettings(
-                      {
-                        platform: {
-                          [platform]: {
-                            idleWatchlistChannels: ordered.map((streamer) => streamer.id),
-                          },
+                {/* Keyed by platform so the add field's own text cannot survive
+                    a platform switch either. */}
+                <IdleWatchlistPanel
+                  key={platform}
+                  platform={platform}
+                  streamers={idleWatchlist}
+                  expanded={watchlistExpanded}
+                  adding={watchlistAdding}
+                  onExpandedChange={(next) => { setWatchlistExpanded(next); if (!next) setWatchlistAdding(false); }}
+                  onAddingChange={setWatchlistAdding}
+                  onChange={(ordered) => updateSettings(
+                    {
+                      platform: {
+                        [platform]: {
+                          idleWatchlistChannels: ordered.map((streamer) => streamer.id),
                         },
                       },
-                      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
-                    )}
-                  />
-                </div>
+                    },
+                    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                  )}
+                />
               </motion.div>
             )}
           </AnimatePresence>

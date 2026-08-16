@@ -177,7 +177,7 @@ export function StoreScreenshot({
             translate={translate}
             showSubcopy={false}
           />
-          <div className="absolute inset-inline-[7%] bottom-[14%] z-10 flex gap-7">
+          <div className="absolute start-[7%] end-[7%] bottom-[14%] z-10 flex gap-7">
             <StepItem
               number="01"
               title={translate("screenshotEasyInstallTitle")}

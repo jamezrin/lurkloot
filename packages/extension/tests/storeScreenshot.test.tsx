@@ -92,6 +92,13 @@ describe("store screenshot cameras", () => {
     expect(container.textContent).toContain("Pin it");
     expect(container.textContent).toContain("Enable a platform");
     expect(container.textContent).toContain("Profit");
+
+    const stepsRow = container.querySelector('[data-layout="steps"] div.absolute.flex.gap-7');
+    expect(stepsRow).not.toBeNull();
+    const className = stepsRow?.getAttribute("class") ?? "";
+    expect(className).not.toContain("inset-inline-[7%]");
+    expect(className).toMatch(/\bstart-\[7%\]/);
+    expect(className).toMatch(/\bend-\[7%\]/);
   });
 
   it("places the live popup inside hero and settings cameras", async () => {
