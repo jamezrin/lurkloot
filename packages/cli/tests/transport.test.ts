@@ -210,6 +210,56 @@ describe("createTransport", () => {
     await handle.dispose();
   });
 
+  // The Twitch adapter reads strict campaign availability from engine settings,
+  // so a construction site that stops forwarding it silently reverts every CLI
+  // run to rejecting candidates on AvailableDrops (#400). Asserted through
+  // behaviour rather than the private option: what matters is whether the
+  // request goes out.
+  describe.each([
+    { strictCampaignAvailability: false, expected: [] as string[] },
+    { strictCampaignAvailability: true, expected: ["DropsHighlightService_AvailableDrops"] },
+  ])("forwards strictCampaignAvailability=$strictCampaignAvailability to the Twitch adapter", ({ strictCampaignAvailability, expected }) => {
+    it("matches the availability requests the setting implies", async () => {
+      const operations: string[] = [];
+      vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+        const operation = twitchOperation(init);
+        operations.push(operation);
+        if (operation === "DropsHighlightService_AvailableDrops") {
+          return twitchResponse({
+            data: { channel: { id: "channel-id", viewerDropCampaigns: [{ id: "campaign" }] } },
+          });
+        }
+        throw new Error(`Unexpected Twitch operation ${operation}`);
+      }));
+      const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+      const settings = {
+        ...DEFAULT_ENGINE_SETTINGS,
+        platform: {
+          ...DEFAULT_ENGINE_SETTINGS.platform,
+          twitch: { ...DEFAULT_ENGINE_SETTINGS.platform.twitch, strictCampaignAvailability },
+        },
+      };
+
+      const selection = await handle.createAdapters(() => {}, settings).adapters.twitch.selectCandidateChannel?.(
+        [{
+          platform: "twitch",
+          username: "directory-one",
+          url: "https://www.twitch.tv/directory-one",
+          channelId: "channel-id",
+          broadcastId: "broadcast-id",
+          categoryId: "game",
+          live: true,
+          isAclMatch: false,
+        }],
+        { id: "campaign", name: "Campaign", categoryId: "game" } as DropCampaign,
+      );
+
+      expect(selection?.channel?.username).toBe("directory-one");
+      expect(operations).toEqual(expected);
+      await handle.dispose();
+    });
+  });
+
   // impersonate and browser are exercised by impersonate.test.ts / browser.test.ts
   // (with cycletls/Playwright handled there, so no real subprocess spawns here).
 });
