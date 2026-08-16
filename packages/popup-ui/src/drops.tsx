@@ -389,18 +389,13 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
                   </div>
                 </>
               )}
-              {/* A historical campaign is listed from the drops dashboard
-                  alone, without the detail fetch that carries rewards, so the
-                  strip would otherwise render as an empty shell. */}
-              {campaign.rewards.length > 0 ? (
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} style={{ color: "var(--accent-text)" }} /> {t("rewards")}</span>
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{t("inCampaignOrder")}</span>
-                  </div>
-                  <RewardCarousel rewards={campaign.rewards} />
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} style={{ color: "var(--accent-text)" }} /> {t("rewards")}</span>
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{t("inCampaignOrder")}</span>
                 </div>
-              ) : null}
+                <RewardCarousel rewards={campaign.rewards} />
+              </div>
               {claimGuidance ? (
                 <div className="rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
                   <div className="flex items-center gap-1.5 text-[11px] font-medium">
