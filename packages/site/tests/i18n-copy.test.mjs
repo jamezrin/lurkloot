@@ -16,6 +16,11 @@ import { collectStringLeaves } from "../src/i18n/strings.ts";
 
 test("english copy includes hero, faq, and changelog chrome", () => {
   assert.match(JSON.stringify(englishCopy), /Farm Twitch/);
+  assert.match(englishCopy.hero.title, /Farm Twitch &amp; Kick drops<br \/>/);
+  assert.equal(englishCopy.meta.tagline, "Farm Twitch & Kick drops on autopilot.");
+  assert.match(englishCopy.footer.tagline, /Farm Twitch & Kick drops/);
+  assert.doesNotMatch(englishCopy.meta.tagline, /&amp;/);
+  assert.doesNotMatch(englishCopy.footer.tagline, /&amp;/);
   assert.equal(englishCopy.faq.items.length, 9);
   assert.equal(englishCopy.changelog.title, "Changelog");
   assert.equal(englishCopy.changelog.kind.new, "New");

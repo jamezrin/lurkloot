@@ -6,7 +6,7 @@ export const englishCopy = {
   },
   hero: {
     eyebrow: "Lurkloot",
-    title: 'Farm Twitch & Kick drops<br /><span class="grad-text">on autopilot.</span>',
+    title: 'Farm Twitch &amp; Kick drops<br /><span class="grad-text">on autopilot.</span>',
     sub: "It watches the right channels, switches as campaigns end, and auto-claims every reward — in your browser or headless on a server. You just collect.",
     addToBrowser: "Add to your browser — free",
     runHeadless: "Run it headless",
