@@ -1,12 +1,13 @@
+import { englishCopy } from "./copy/en.ts";
+
 // Shared, single-source-of-truth content for the landing page.
 
 export const SITE = {
   name: "Lurkloot",
-  tagline: "Farm Twitch & Kick drops on autopilot.",
+  tagline: englishCopy.meta.tagline,
   // Used for canonical/OG absolute URLs. Mirrors astro.config `site`.
   url: "https://lurkloot.jamezrin.com",
-  description:
-    "Lurkloot is a free, open-source farmer for Twitch and Kick drops that runs through your own logged-in session. Use it as a browser extension, or run it headless with the prebuilt Docker image — lightweight tabless mode, auto-claim, smart channel switching, and a private, no-password design. Works with Rust, Valorant, and any drops campaign.",
+  description: englishCopy.meta.description,
   // SEO keyword spread — woven into copy, not stuffed.
   keywords: [
     "farm twitch drops",

@@ -1,4 +1,4 @@
-import changelogData from "./changelog.json";
+import changelogData from "./changelog.json" with { type: "json" };
 
 export type ChangeKind = "new" | "improved" | "fixed";
 
