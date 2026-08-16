@@ -1055,11 +1055,23 @@
   "copyActivityLog": {
     "message": "Копировать журнал"
   },
+  "copyLoadedActivityLog": {
+    "message": "Копировать загруженное"
+  },
   "copyActivityLogCopied": {
     "message": "Скопировано событий: $1"
   },
   "copyActivityLogFailed": {
     "message": "Не удалось скопировать журнал. Попробуйте ещё раз."
+  },
+  "exportAllDiagnostics": {
+    "message": "Экспортировать всё"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "Экспортировано событий: $1"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Не удалось экспортировать журнал. Попробуйте снова."
   },
   "activityViewTab": {
     "message": "Активность"

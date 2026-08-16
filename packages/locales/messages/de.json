@@ -1055,11 +1055,23 @@
   "copyActivityLog": {
     "message": "Protokoll kopieren"
   },
+  "copyLoadedActivityLog": {
+    "message": "Geladene kopieren"
+  },
   "copyActivityLogCopied": {
     "message": "$1 Ereignisse kopiert"
   },
   "copyActivityLogFailed": {
     "message": "Das Protokoll konnte nicht kopiert werden. Bitte erneut versuchen."
+  },
+  "exportAllDiagnostics": {
+    "message": "Alle exportieren"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 Ereignisse exportiert"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Protokoll konnte nicht exportiert werden. Bitte erneut versuchen."
   },
   "activityViewTab": {
     "message": "Aktivität"

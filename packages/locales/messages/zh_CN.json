@@ -1055,11 +1055,23 @@
   "copyActivityLog": {
     "message": "复制日志"
   },
+  "copyLoadedActivityLog": {
+    "message": "复制已加载"
+  },
   "copyActivityLogCopied": {
     "message": "已复制 $1 条事件"
   },
   "copyActivityLogFailed": {
     "message": "无法复制日志，请重试。"
+  },
+  "exportAllDiagnostics": {
+    "message": "全部导出"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "已导出 $1 条"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "无法导出日志。请重试。"
   },
   "activityViewTab": {
     "message": "活动"

@@ -1055,11 +1055,23 @@
   "copyActivityLog": {
     "message": "Copia registro"
   },
+  "copyLoadedActivityLog": {
+    "message": "Copia caricati"
+  },
   "copyActivityLogCopied": {
     "message": "$1 eventi copiati"
   },
   "copyActivityLogFailed": {
     "message": "Impossibile copiare il registro. Riprova."
+  },
+  "exportAllDiagnostics": {
+    "message": "Esporta tutto"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 eventi esportati"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Impossibile esportare il registro. Riprova."
   },
   "activityViewTab": {
     "message": "Attività"

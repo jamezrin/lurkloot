@@ -1055,11 +1055,23 @@
   "copyActivityLog": {
     "message": "Copy log"
   },
+  "copyLoadedActivityLog": {
+    "message": "Copy loaded"
+  },
   "copyActivityLogCopied": {
     "message": "Copied $1 events"
   },
   "copyActivityLogFailed": {
     "message": "Could not copy the log. Try again."
+  },
+  "exportAllDiagnostics": {
+    "message": "Export all"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "Exported $1 events"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Could not export the log. Try again."
   },
   "activityViewTab": {
     "message": "Activity"
