@@ -90,47 +90,67 @@ export const DROPS_LIST_FILTERS: Array<{
   { key: "showSubscription", label: "subscriptionCampaigns", lockedBy: "farmSubscriptionCampaigns" },
 ];
 
-const TWITCH_GRADIENT =
-  "radial-gradient(circle_at_22%_24%,rgba(145,71,255,0.34),transparent_32%),radial-gradient(circle_at_78%_78%,rgba(83,252,24,0.18),transparent_28%)";
-const KICK_GRADIENT =
-  "radial-gradient(circle_at_22%_24%,rgba(83,252,24,0.30),transparent_32%),radial-gradient(circle_at_78%_78%,rgba(145,71,255,0.20),transparent_28%)";
+const HERO_GLOW =
+  "radial-gradient(ellipse at 12% 115%, rgba(145,71,255,0.40), transparent 44%), radial-gradient(ellipse at 94% 0%, rgba(83,252,24,0.18), transparent 38%)";
+const EXTRAS_GLOW =
+  "radial-gradient(ellipse at 88% 18%, rgba(83,252,24,0.14), transparent 38%), radial-gradient(ellipse at 8% 90%, rgba(145,71,255,0.28), transparent 44%)";
+const EASY_GLOW =
+  "radial-gradient(ellipse at 12% 90%, rgba(145,71,255,0.28), transparent 44%), radial-gradient(ellipse at 90% 10%, rgba(83,252,24,0.14), transparent 36%)";
+const SETTINGS_GLOW =
+  "radial-gradient(ellipse at 24% 90%, rgba(145,71,255,0.28), transparent 42%)";
+const UPDATED_GLOW =
+  "radial-gradient(ellipse at 18% 110%, rgba(145,71,255,0.36), transparent 46%), radial-gradient(ellipse at 92% 8%, rgba(83,252,24,0.16), transparent 38%)";
+
+const drops: ScreenshotVariant = {
+  layout: "hero",
+  platform: "twitch",
+  view: "drops",
+  glow: HERO_GLOW,
+  eyebrowKey: "screenshotHeroEyebrow",
+  headlineKey: "screenshotHeroHeadline",
+  subcopyKey: "screenshotHeroSubcopy",
+};
+const extras: ScreenshotVariant = {
+  layout: "extras",
+  glow: EXTRAS_GLOW,
+  eyebrowKey: "screenshotExtrasEyebrow",
+  headlineKey: "screenshotExtrasHeadline",
+  subcopyKey: "screenshotExtrasSubcopy",
+};
+const easy: ScreenshotVariant = {
+  layout: "steps",
+  glow: EASY_GLOW,
+  eyebrowKey: "screenshotEasyEyebrow",
+  headlineKey: "screenshotEasyHeadline",
+  subcopyKey: "screenshotEasyHeadline",
+};
+const settings: ScreenshotVariant = {
+  layout: "settings",
+  platform: "twitch",
+  view: "settings",
+  glow: SETTINGS_GLOW,
+  eyebrowKey: "screenshotSettingsEyebrow",
+  headlineKey: "screenshotSettingsHeadline",
+  subcopyKey: "screenshotSettingsSubcopy",
+};
+const updated: ScreenshotVariant = {
+  layout: "updated",
+  glow: UPDATED_GLOW,
+  eyebrowKey: "screenshotUpdatedEyebrow",
+  headlineKey: "screenshotUpdatedHeadline",
+  subcopyKey: "screenshotUpdatedSubcopy",
+};
 
 export const SCREENSHOT_VARIANTS: Record<string, ScreenshotVariant> = {
-  "twitch-drops": {
-    platform: "twitch",
-    view: "drops",
-    accentGradient: TWITCH_GRADIENT,
-    headlineKey: "screenshotTwitchHeadline",
-    subcopyKey: "screenshotTwitchSubcopy",
-  },
-  "kick-drops": {
-    platform: "kick",
-    view: "drops",
-    accentGradient: KICK_GRADIENT,
-    headlineKey: "screenshotKickHeadline",
-    subcopyKey: "screenshotKickSubcopy",
-  },
-  "idle-watchlist": {
-    platform: "twitch",
-    view: "idleWatchlist",
-    accentGradient: TWITCH_GRADIENT,
-    headlineKey: "screenshotIdleWatchlistHeadline",
-    subcopyKey: "screenshotIdleWatchlistSubcopy",
-  },
-  settings: {
-    platform: "twitch",
-    view: "settings",
-    accentGradient: TWITCH_GRADIENT,
-    headlineKey: "screenshotSettingsHeadline",
-    subcopyKey: "screenshotSettingsSubcopy",
-  },
-  activity: {
-    platform: "twitch",
-    view: "activity",
-    accentGradient: TWITCH_GRADIENT,
-    headlineKey: "screenshotActivityHeadline",
-    subcopyKey: "screenshotActivitySubcopy",
-  },
+  drops,
+  extras,
+  easy,
+  settings,
+  updated,
+  "twitch-drops": drops,
+  "kick-drops": drops,
+  "idle-watchlist": extras,
+  activity: updated,
 };
 
 export const PROMO_GRADIENT =

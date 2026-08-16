@@ -30,6 +30,7 @@ import type {
   ScreenshotVariant,
   TFunction,
 } from "./types";
+import { variantShowsPopup } from "./types";
 import {
   campaignViewFromCampaign,
   channelViewFromSession,
@@ -65,7 +66,7 @@ import { automationPresentation, type AutomationPresentation } from "./automatio
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
-  return SCREENSHOT_VARIANTS[id ?? "twitch-drops"] ?? SCREENSHOT_VARIANTS["twitch-drops"];
+  return SCREENSHOT_VARIANTS[id ?? "drops"] ?? SCREENSHOT_VARIANTS.drops;
 }
 
 function isPlatform(value: unknown): value is Platform {
@@ -74,18 +75,22 @@ function isPlatform(value: unknown): value is Platform {
 
 export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initialState?: PopupInitialState }): React.ReactElement {
   const preview = initialState?.preview ?? false;
-  const initialVariant = initialState?.variant ?? screenshotVariant("twitch-drops");
+  const initialVariant = initialState?.variant ?? screenshotVariant("drops");
   const [snapshot, setSnapshot] = useState<RuntimeSnapshot | null>(null);
   const [overrideCatalog, setOverrideCatalog] = useState<MessageCatalog | undefined>();
   const [fallbackCatalog, setFallbackCatalog] = useState<MessageCatalog | undefined>();
-  const [platform, setPlatform] = useState<Platform>(preview ? initialVariant.platform : "twitch");
+  const [platform, setPlatform] = useState<Platform>(
+    preview && variantShowsPopup(initialVariant) ? initialVariant.platform : "twitch",
+  );
   // Drops and the Idle Watchlist share one view; the watchlist folds away under
   // the campaigns until asked for (or until a screenshot variant wants it).
-  const [watchlistExpanded, setWatchlistExpanded] = useState(preview && initialVariant.view === "idleWatchlist");
+  const [watchlistExpanded, setWatchlistExpanded] = useState(false);
   const [watchlistAdding, setWatchlistAdding] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(preview && initialVariant.view === "settings");
+  const [settingsOpen, setSettingsOpen] = useState(
+    preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings",
+  );
   const [settingsOpenGeneration, setSettingsOpenGeneration] = useState(0);
-  const [activityOpen, setActivityOpen] = useState(preview && initialVariant.view === "activity");
+  const [activityOpen, setActivityOpen] = useState(false);
   const [activityStream, setActivityStream] = useState<ActivityStream>(createActivityStream);
   const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>(createActivityStream);
   const [reportEvents, setReportEvents] = useState<ActivityHistoryRecord[]>([]);
@@ -172,18 +177,20 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return { ...nextSnapshot, settings };
   }
 
+  const previewPlatform = variantShowsPopup(initialVariant) ? initialVariant.platform : "twitch";
+
   useEffect(() => {
     void Promise.all([
       adapter.send<RuntimeSnapshot>({ type: "getSnapshot" }),
       preview
-        ? Promise.resolve({ [SELECTED_PLATFORM_KEY]: initialVariant.platform })
+        ? Promise.resolve({ [SELECTED_PLATFORM_KEY]: previewPlatform })
         : adapter.getStorage(SELECTED_PLATFORM_KEY),
     ]).then(([nextSnapshot, stored]) => {
       const savedPlatform = stored[SELECTED_PLATFORM_KEY];
       if (isPlatform(savedPlatform)) setPlatform(savedPlatform);
       setSnapshot(snapshotWithMergedSettings(nextSnapshot));
     });
-  }, [adapter, initialVariant.platform, preview]);
+  }, [adapter, previewPlatform, preview]);
 
   useEffect(() => {
     if (preview || !adapter.getPendingChangelogVersion) return;
@@ -193,7 +200,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // The Idle Watchlist lives below the campaigns now, so the store screenshot
   // that is *about* the watchlist starts the campaign cards collapsed and scrolls
   // down to the section.
-  const watchlistScreenshot = preview && initialVariant.view === "idleWatchlist";
+  const watchlistScreenshot = false;
   const snapshotReady = snapshot != null;
   useEffect(() => {
     if (!watchlistScreenshot || !snapshotReady) return undefined;

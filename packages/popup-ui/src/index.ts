@@ -24,3 +24,5 @@ export {
 } from "./activity.logic";
 export type { ActivityCard, ActivityCardIcon, ActivityCardTone } from "./activity.logic";
 export type { PopupAdapter, PopupInitialState, ScreenshotVariant } from "./types";
+export { variantShowsPopup } from "./types";
+export { SCREENSHOT_VARIANTS } from "./constants";
