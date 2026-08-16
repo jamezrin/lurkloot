@@ -52,6 +52,9 @@ function mount(options: {
   omitClipboard?: boolean;
   activityEvents?: ActivityHistoryRecord[];
   diagnosticEvents?: ActivityHistoryRecord[];
+  onExportAll?: () => Promise<number | undefined>;
+  searchQuery?: string;
+  searchingDiagnostics?: boolean;
 }) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
@@ -78,8 +81,12 @@ function mount(options: {
           noActivity: "No activity recorded yet.",
           noDiagnostics: "No diagnostics recorded yet.",
           copyActivityLog: "Copy log",
+          copyLoadedActivityLog: "Copy loaded",
           copyActivityLogCopied: `Copied ${String(substitutions)} events`,
           copyActivityLogFailed: "Could not copy the log. Try again.",
+          exportAllDiagnostics: "Export all",
+          exportAllDiagnosticsDone: `Exported ${String(substitutions)} events`,
+          exportAllDiagnosticsFailed: "Could not export the log. Try again.",
         })[key] ?? `${key}${substitutions ? "" : ""}`,
         dir: "ltr",
         locale: "en",
@@ -98,10 +105,13 @@ function mount(options: {
             clearing={false}
             version="1.9.0"
             locale="en"
+            searchQuery={options.searchQuery}
+            searchingDiagnostics={options.searchingDiagnostics}
             onShowDiagnosticsChange={onShowDiagnosticsChange}
             onLoadMore={() => undefined}
             onClear={() => undefined}
             writeClipboard={options.omitClipboard ? undefined : writeClipboard}
+            onExportAll={options.onExportAll}
           />
         </PopupRuntimeContext.Provider>
       </I18nContext.Provider>,
@@ -113,7 +123,11 @@ function mount(options: {
 
 const copyButton = (container: Element) =>
   [...container.querySelectorAll<HTMLButtonElement>("button")]
-    .find((button) => button.textContent?.includes("Copy log") || button.textContent?.includes("Copied"));
+    .find((button) => button.textContent?.includes("Copy log") || button.textContent?.includes("Copy loaded") || button.textContent?.includes("Copied"));
+
+const exportButton = (container: Element) =>
+  [...container.querySelectorAll<HTMLButtonElement>("button")]
+    .find((button) => button.textContent?.includes("Export all") || button.textContent?.includes("Exported"));
 
 describe("activity log view", () => {
   it("shows only activity entries while the activity view is selected", () => {
@@ -257,6 +271,67 @@ describe("activity log view", () => {
     const { container } = mount({ showDiagnostics: false, omitClipboard: true });
 
     expect(copyButton(container)).toBeUndefined();
+  });
+
+  it("relabels copy and offers export all only in diagnostics", () => {
+    const activity = mount({ showDiagnostics: false, onExportAll: vi.fn(async () => 0) });
+    expect(copyButton(activity.container)?.textContent).toContain("Copy log");
+    expect(exportButton(activity.container)).toBeUndefined();
+
+    act(() => root?.unmount());
+    const diagnostics = mount({ showDiagnostics: true, onExportAll: vi.fn(async () => 0) });
+    expect(copyButton(diagnostics.container)?.textContent).toContain("Copy loaded");
+    expect(exportButton(diagnostics.container)?.textContent).toContain("Export all");
+  });
+
+  it("hides export all when the host cannot download a file", () => {
+    const { container } = mount({ showDiagnostics: true });
+    expect(exportButton(container)).toBeUndefined();
+  });
+
+  it("keeps export all enabled when search has no matches", () => {
+    const { container } = mount({
+      showDiagnostics: true,
+      diagnosticEvents: [],
+      searchQuery: "timeout",
+      searchingDiagnostics: true,
+      onExportAll: vi.fn(async () => 0),
+    });
+    expect(exportButton(container)?.disabled).toBe(false);
+  });
+
+  it("exports through onExportAll and confirms the count", async () => {
+    const onExportAll = vi.fn(async () => 12);
+    const { container } = mount({ showDiagnostics: true, onExportAll });
+
+    await act(async () => { exportButton(container)?.click(); });
+
+    expect(onExportAll).toHaveBeenCalledOnce();
+    expect(exportButton(container)?.textContent).toContain("Exported 12 events");
+  });
+
+  it("reports a failed export instead of confirming", async () => {
+    const { container } = mount({
+      showDiagnostics: true,
+      onExportAll: vi.fn(async () => { throw new Error("nope"); }),
+    });
+
+    await act(async () => { exportButton(container)?.click(); });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Could not export the log. Try again.");
+    expect(exportButton(container)?.textContent).toContain("Export all");
+  });
+
+  it("treats an undefined export result as a stale no-op", async () => {
+    const { container } = mount({
+      showDiagnostics: true,
+      onExportAll: vi.fn(async () => undefined),
+    });
+
+    await act(async () => { exportButton(container)?.click(); });
+
+    expect(exportButton(container)?.textContent).toContain("Export all");
+    expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 
   it("renders a reward card with its image, method chip, and labelled campaign action", () => {

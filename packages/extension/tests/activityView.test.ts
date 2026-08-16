@@ -8,11 +8,13 @@ import {
   beginActivityMutation,
   buildActivityCard,
   buildActivityExport,
+  buildDiagnosticsExportFilename,
   createActivityMutationSequence,
   createActivityRequestScope,
   createActivityStream,
   formatActivityEvent,
   isActivityRequestCurrent,
+  isDiagnosticsExportCurrent,
   isLatestActivityMutation,
   mergeActivityPages,
 } from "@lurkloot/popup-ui";
@@ -330,6 +332,21 @@ describe("activity view model", () => {
     )).toBe(false);
   });
 
+  it("does not treat a previous platform's diagnostics export as current", () => {
+    expect(isDiagnosticsExportCurrent(
+      { generation: 1, platform: "kick" },
+      { generation: 1, platform: "twitch" },
+    )).toBe(false);
+    expect(isDiagnosticsExportCurrent(
+      { generation: 1, platform: "kick" },
+      { generation: 2, platform: "kick" },
+    )).toBe(false);
+    expect(isDiagnosticsExportCurrent(
+      { generation: 2, platform: "kick" },
+      { generation: 2, platform: "kick" },
+    )).toBe(true);
+  });
+
   it("rejects an older refresh response after a newer refresh was issued", () => {
     const sequence = createActivityMutationSequence();
     const scope = createActivityRequestScope("twitch");
@@ -463,5 +480,30 @@ describe("activity export", () => {
     expect(text).toContain("Lurkloot diagnostics log");
     expect(text).toContain("events: 0");
     expect(text.trimEnd().endsWith("(no events)")).toBe(true);
+  });
+
+  it("adds coverage: full only when requested", () => {
+    const events = [{
+      id: "a",
+      at: "2026-07-14T11:00:00.000Z",
+      category: "diagnostic" as const,
+      level: "info" as const,
+      message: "first",
+    }];
+    const copied = buildActivityExport({ ...exportInput, diagnostics: true, events }, t);
+    const full = buildActivityExport({ ...exportInput, diagnostics: true, coverage: "full", events }, t);
+    const empty = buildActivityExport({ ...exportInput, diagnostics: true, coverage: "full", events: [] }, t);
+
+    expect(copied).not.toContain("coverage:");
+    expect(full.split("\n\n")[0].split("\n")).toContain("coverage: full");
+    expect(full).toContain("2026-07-14T11:00:00.000Z [info] first");
+    expect(empty).toContain("coverage: full");
+    expect(empty).toContain("events: 0");
+    expect(empty.trimEnd().endsWith("(no events)")).toBe(true);
+  });
+
+  it("builds a windows-safe diagnostics log filename", () => {
+    expect(buildDiagnosticsExportFilename("twitch", new Date("2026-08-16T14:33:27.000Z")))
+      .toBe("lurkloot-diagnostics-twitch-20260816T143327Z.log");
   });
 });

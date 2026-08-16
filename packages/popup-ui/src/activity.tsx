@@ -4,6 +4,7 @@ import {
   Check,
   Clipboard,
   Clock3,
+  Download,
   ExternalLink,
   Gift,
   MonitorDown,
@@ -55,6 +56,7 @@ export function ActivityLog({
   onLoadMore,
   onClear,
   writeClipboard,
+  onExportAll,
 }: {
   activityEvents: ActivityHistoryRecord[];
   diagnosticEvents: ActivityHistoryRecord[];
@@ -78,6 +80,7 @@ export function ActivityLog({
   // Omitted by hosts without a clipboard (the site demo), which hides the copy
   // control rather than offering a button that can only fail.
   writeClipboard?(text: string): Promise<boolean>;
+  onExportAll?(): Promise<number | undefined>;
 }): React.ReactElement {
   const t = useT();
   const forPlatform = useMemo(
@@ -98,12 +101,17 @@ export function ActivityLog({
   const errorCount = visible.filter((event) => event.level === "error").length;
   const [copied, setCopied] = useState<number | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [exported, setExported] = useState<number | null>(null);
+  const [exportFailed, setExportFailed] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Confirmation is transient, and it must not survive a switch between the two
   // views: "Copied 42 events" next to a different list is a lie.
   useEffect(() => {
     setCopied(null);
     setCopyFailed(false);
+    setExported(null);
+    setExportFailed(false);
   }, [showDiagnostics, platform]);
 
   useEffect(() => {
@@ -111,6 +119,12 @@ export function ActivityLog({
     const timer = setTimeout(() => setCopied(null), COPY_FEEDBACK_MS);
     return () => clearTimeout(timer);
   }, [copied]);
+
+  useEffect(() => {
+    if (exported === null) return;
+    const timer = setTimeout(() => setExported(null), COPY_FEEDBACK_MS);
+    return () => clearTimeout(timer);
+  }, [exported]);
 
   async function copyVisible(): Promise<void> {
     if (!writeClipboard) return;
@@ -128,6 +142,22 @@ export function ActivityLog({
     const ok = await writeClipboard(text);
     setCopyFailed(!ok);
     setCopied(ok ? visible.length : null);
+  }
+
+  async function exportAll(): Promise<void> {
+    if (!onExportAll || exporting) return;
+    setExporting(true);
+    setExportFailed(false);
+    setCopied(null);
+    try {
+      const count = await onExportAll();
+      setExported(count ?? null);
+    } catch {
+      setExportFailed(true);
+      setExported(null);
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -171,7 +201,18 @@ export function ActivityLog({
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold transition disabled:opacity-50 ${copied === null ? "border-zinc-200 text-zinc-400 dark:border-zinc-700" : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"}`}
           >
             {copied === null ? <Clipboard size={10} /> : <Check size={10} />}
-            {copied === null ? t("copyActivityLog") : t("copyActivityLogCopied", String(copied))}
+            {copied === null ? t(showDiagnostics ? "copyLoadedActivityLog" : "copyActivityLog") : t("copyActivityLogCopied", String(copied))}
+          </button>
+        ) : null}
+        {showDiagnostics && onExportAll ? (
+          <button
+            type="button"
+            onClick={() => void exportAll()}
+            disabled={exporting}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold transition disabled:opacity-50 ${exported === null ? "border-zinc-200 text-zinc-400 dark:border-zinc-700" : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"}`}
+          >
+            {exported === null ? <Download size={10} /> : <Check size={10} />}
+            {exported === null ? t("exportAllDiagnostics") : t("exportAllDiagnosticsDone", String(exported))}
           </button>
         ) : null}
         <button
@@ -188,6 +229,9 @@ export function ActivityLog({
       ) : null}
       {copyFailed ? (
         <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("copyActivityLogFailed")}</p>
+      ) : null}
+      {exportFailed ? (
+        <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("exportAllDiagnosticsFailed")}</p>
       ) : null}
       {showDiagnostics ? (
         <SearchBox compact value={searchQuery} onChange={onSearchQueryChange} placeholder={t("searchDiagnostics")} />

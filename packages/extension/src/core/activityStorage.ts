@@ -1,4 +1,5 @@
 import type { ActivityPage, ActivityQuery } from "@lurkloot/shared/messages";
+import type { Platform } from "@lurkloot/shared/models";
 import type {
   ActivityHistoryRecord,
   EngineEvent,
@@ -65,6 +66,7 @@ export interface ActivityRepository {
   append(events: readonly EngineEvent[]): Promise<void>;
   importLegacy(events: readonly StoredLegacyEvent[]): Promise<void>;
   load(query: ActivityQuery): Promise<ActivityPage>;
+  exportDiagnostics(platform: Platform): Promise<ActivityHistoryRecord[]>;
   clear(): Promise<void>;
   prune(): Promise<void>;
   count(category: EventCategory): Promise<number>;
@@ -234,6 +236,32 @@ class IndexedDbActivityRepository implements ActivityRepository {
     };
   }
 
+  async exportDiagnostics(platform: Platform): Promise<ActivityHistoryRecord[]> {
+    const database = await this.open();
+    const transaction = database.transaction(EVENT_STORE, "readonly");
+    const index = transaction.objectStore(EVENT_STORE).index(CATEGORY_INDEX);
+    const cutoff = new Date(Date.now() - retentionMs("diagnostic")).toISOString();
+    const range = IDBKeyRange.bound(["diagnostic", cutoff, ""], ["diagnostic", []]);
+    const request = index.openCursor(range, "prev");
+    const events: ActivityHistoryRecord[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      request.onerror = () => reject(request.error ?? new Error("Could not export diagnostics"));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+          resolve();
+          return;
+        }
+        const event = cursor.value as ActivityHistoryRecord;
+        if (!event.platform || event.platform === platform) events.push(event);
+        cursor.continue();
+      };
+    });
+    await transactionDone(transaction);
+    return events;
+  }
+
   async clear(): Promise<void> {
     const database = await this.open();
     const transaction = database.transaction([EVENT_STORE, META_STORE], "readwrite");
@@ -359,6 +387,10 @@ export function importLegacyActivityEvents(events: readonly StoredLegacyEvent[])
 
 export function loadActivityEvents(query: ActivityQuery): Promise<ActivityPage> {
   return repository.load(query);
+}
+
+export function exportDiagnosticsEvents(platform: Platform): Promise<ActivityHistoryRecord[]> {
+  return repository.exportDiagnostics(platform);
 }
 
 export function clearActivityEvents(): Promise<void> {

@@ -1055,11 +1055,23 @@
   "copyActivityLog": {
     "message": "Günlüğü kopyala"
   },
+  "copyLoadedActivityLog": {
+    "message": "Yüklenenleri kopyala"
+  },
   "copyActivityLogCopied": {
     "message": "$1 olay kopyalandı"
   },
   "copyActivityLogFailed": {
     "message": "Günlük kopyalanamadı. Tekrar deneyin."
+  },
+  "exportAllDiagnostics": {
+    "message": "Tümünü dışa aktar"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 olay dışa aktarıldı"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Günlük dışa aktarılamadı. Yeniden deneyin."
   },
   "activityViewTab": {
     "message": "Geçmiş"

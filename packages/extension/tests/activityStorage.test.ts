@@ -320,6 +320,54 @@ describe("activity repository", () => {
     expect([...first.events, ...second.events].some((event) => event.message === "KICK connection from Twitch")).toBe(false);
   });
 
+  it("exports every retained diagnostic for a platform without the page cap or search filter", async () => {
+    await repository.append([
+      ...Array.from({ length: 101 }, (_, index) => ({
+        category: "diagnostic" as const,
+        level: "debug" as const,
+        platform: "kick" as const,
+        message: `kick-${String(index).padStart(3, "0")}`,
+        emittedAt: new Date(NOW.getTime() - index * 1_000).toISOString(),
+      })),
+      {
+        category: "diagnostic",
+        level: "info",
+        platform: "twitch",
+        message: "twitch-only",
+        emittedAt: NOW.toISOString(),
+      },
+      {
+        category: "diagnostic",
+        level: "error",
+        message: "global",
+        emittedAt: new Date(NOW.getTime() + 1_000).toISOString(),
+      },
+    ]);
+
+    const page = await repository.load({ category: "diagnostic", platform: "kick", limit: 100 });
+    const searched = await repository.load({ category: "diagnostic", platform: "kick", query: "global" });
+    const exported = await repository.exportDiagnostics("kick");
+
+    expect(page.events).toHaveLength(100);
+    expect(page.nextCursor).toBeDefined();
+    expect(searched.events.map((event) => event.message)).toEqual(["global"]);
+    expect(exported.map((event) => event.message)).toEqual([
+      "global",
+      ...Array.from({ length: 101 }, (_, index) => `kick-${String(index).padStart(3, "0")}`),
+    ]);
+    expect(exported.some((event) => event.message === "twitch-only")).toBe(false);
+  });
+
+  it("omits diagnostics past the seven-day cutoff from a full export", async () => {
+    const eightDaysAgo = new Date(NOW.getTime() - 8 * DAY_MS).toISOString();
+    await repository.importLegacy([
+      { id: "old", at: eightDaysAgo, category: "diagnostic", level: "info", message: "expired", legacy: true },
+      { id: "current", at: NOW.toISOString(), category: "diagnostic", level: "info", platform: "kick", message: "current", legacy: true },
+    ]);
+
+    expect((await repository.exportDiagnostics("kick")).map((event) => event.message)).toEqual(["current"]);
+  });
+
   it("matches English diagnostic text independently of the browser locale", async () => {
     expect("KICK".toLocaleLowerCase("tr")).not.toBe("kick".toLocaleLowerCase("tr"));
     const originalToLocaleLowerCase = String.prototype.toLocaleLowerCase;

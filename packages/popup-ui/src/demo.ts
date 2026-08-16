@@ -1,10 +1,10 @@
-import type { ActivityPage, CategorySearchResult, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { ActivityPage, CategorySearchResult, DiagnosticsExport, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { DropCampaign, SupportedLocale } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import type { PopupAdapter } from "./types";
 import { openHttpsLink } from "./links";
 
-function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackControl | CategorySearchResult | ActivityPage | undefined {
+function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackControl | CategorySearchResult | ActivityPage | DiagnosticsExport | undefined {
   switch (message.type) {
     case "getSnapshot":
     case "tickNow":
@@ -56,6 +56,8 @@ function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackC
       return demoSnapshot();
     case "getActivity":
       return { events: [], nextCursor: undefined };
+    case "exportDiagnostics":
+      return { events: [] };
     case "getPlaybackControl":
       return { managed: true, keepVideosUnmuted: true };
   }

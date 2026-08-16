@@ -20,7 +20,7 @@ function tsFiles(dir: string): string[] {
 }
 
 const FORBIDDEN = /\b(?:import|require)\b[^\n]*["'](wxt(?:\/[^"']*)?|webextension-polyfill)["']/;
-const HISTORY_API = /\b(?:ActivityPage|getActivity|clearActivity|activityStorage)\b/;
+const HISTORY_API = /\b(?:ActivityPage|DiagnosticsExport|getActivity|exportDiagnostics|clearActivity|activityStorage)\b/;
 const FULL_RUNTIME_MESSAGE = /\bRuntimeMessage\b/;
 const BROWSER_COOKIE_API = /\b(?:browser|chrome)\.cookies\b/;
 const EXTENSION_IMPORT = /\b(?:import|require)\b[^\n]*["'][^"']*packages\/extension|\b(?:import|require)\b[^\n]*["'][^"']*extension\/src/;

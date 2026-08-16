@@ -1055,11 +1055,23 @@
   "copyActivityLog": {
     "message": "Copier le journal"
   },
+  "copyLoadedActivityLog": {
+    "message": "Copier la page"
+  },
   "copyActivityLogCopied": {
     "message": "$1 événements copiés"
   },
   "copyActivityLogFailed": {
     "message": "Impossible de copier le journal. Réessayez."
+  },
+  "exportAllDiagnostics": {
+    "message": "Tout exporter"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 événements exportés"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Impossible d'exporter le journal. Réessayez."
   },
   "activityViewTab": {
     "message": "Activité"

@@ -1055,11 +1055,23 @@
   "copyActivityLog": {
     "message": "نسخ السجل"
   },
+  "copyLoadedActivityLog": {
+    "message": "نسخ المحمّل"
+  },
   "copyActivityLogCopied": {
     "message": "تم نسخ $1 حدثًا"
   },
   "copyActivityLogFailed": {
     "message": "تعذّر نسخ السجل. حاول مرة أخرى."
+  },
+  "exportAllDiagnostics": {
+    "message": "تصدير الكل"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "تم تصدير $1 من الإدخالات"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "تعذر تصدير السجل. حاول مرة أخرى."
   },
   "activityViewTab": {
     "message": "النشاط"

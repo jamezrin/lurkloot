@@ -1055,11 +1055,23 @@
   "copyActivityLog": {
     "message": "लॉग कॉपी करें"
   },
+  "copyLoadedActivityLog": {
+    "message": "लोड की गई कॉपी करें"
+  },
   "copyActivityLogCopied": {
     "message": "$1 इवेंट कॉपी किए गए"
   },
   "copyActivityLogFailed": {
     "message": "लॉग कॉपी नहीं हो सका। फिर से कोशिश करें।"
+  },
+  "exportAllDiagnostics": {
+    "message": "सभी निर्यात करें"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 इवेंट निर्यात किए गए"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "लॉग निर्यात नहीं हो सका। फिर से कोशिश करें."
   },
   "activityViewTab": {
     "message": "गतिविधि"

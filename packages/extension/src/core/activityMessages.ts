@@ -1,8 +1,10 @@
-import type { EngineEvent } from "@lurkloot/shared/events";
-import type { ActivityPage, ActivityQuery, CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
+import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
+import type { Platform } from "@lurkloot/shared/models";
+import type { ActivityPage, ActivityQuery, CoreRuntimeMessage, DiagnosticsExport, RuntimeMessage } from "@lurkloot/shared/messages";
 
 interface ActivityMessageRepository {
   load(query: ActivityQuery): Promise<ActivityPage>;
+  exportDiagnostics(platform: Platform): Promise<ActivityHistoryRecord[]>;
   clear(): Promise<void>;
 }
 
@@ -23,10 +25,13 @@ interface RuntimeMessageDispatcherDeps {
 }
 
 export function createActivityMessageHandler(repository: ActivityMessageRepository) {
-  return async (message: RuntimeMessage): Promise<ActivityPage | void | undefined> => {
+  return async (message: RuntimeMessage): Promise<ActivityPage | DiagnosticsExport | void | undefined> => {
     if (message.type === "getActivity") {
       const { type: _type, ...query } = message;
       return repository.load(query);
+    }
+    if (message.type === "exportDiagnostics") {
+      return { events: await repository.exportDiagnostics(message.platform) };
     }
     if (message.type === "clearActivity") {
       await repository.clear();
@@ -55,7 +60,7 @@ export function createRuntimeMessageDispatcher(deps: RuntimeMessageDispatcherDep
   return (message: RuntimeMessage, sender?: RuntimeMessageSender): Promise<unknown> => {
     if (message.type === "exportCliCredentials") return deps.exportCliCredentials();
     if (message.type === "resetExtension") return deps.resetExtension();
-    if (message.type === "getActivity" || message.type === "clearActivity") {
+    if (message.type === "getActivity" || message.type === "exportDiagnostics" || message.type === "clearActivity") {
       return deps.handleActivityMessage(message);
     }
     return deps.handleCoreMessage(message, sender);
