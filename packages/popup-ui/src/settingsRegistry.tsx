@@ -439,7 +439,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             title={t("strictCampaignAvailabilityTitle")}
             description={t("strictCampaignAvailabilityDescription")}
             checked={settings.platform.twitch.strictCampaignAvailability}
-            onChange={(value) => void onSettingsChange({ platform: { twitch: { strictCampaignAvailability: value } } })}
+            onChange={(value) => void platformPatch("twitch", { strictCampaignAvailability: value })}
           />
         ),
       }]

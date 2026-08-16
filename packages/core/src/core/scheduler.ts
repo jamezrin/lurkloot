@@ -283,18 +283,22 @@ export async function chooseCampaignDecision(
         }))
         .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
     ).values()];
-    // Drop the channels that just stalled, unless that would leave this campaign
-    // with nothing: a stalled channel still beats no channel.
-    const preferred = skipChannels?.size
-      ? deduplicated.filter((candidate) => !skipChannels.has(candidate.username.toLowerCase()))
+    // Channels that just stalled go last rather than being dropped. Validation
+    // below can reject every other candidate — all offline, wrong category — and
+    // a stalled channel still beats no channel, so they stay reachable as a last
+    // resort instead of costing the campaign the whole tick.
+    const skipped = skipChannels?.size
+      ? deduplicated.filter((candidate) => skipChannels.has(candidate.username.toLowerCase()))
+      : [];
+    const preferred = skipped.length > 0
+      ? deduplicated.filter((candidate) => !skipChannels?.has(candidate.username.toLowerCase()))
       : deduplicated;
-    const eligible = preferred.length > 0 ? preferred : deduplicated;
     // Only worth asking the platform who the user follows when more than one
     // candidate could win the campaign.
-    const followed = eligible.length > 1
+    const followed = deduplicated.length > 1
       ? await resolveFollowedChannels()
       : followedChannels ?? new Set<string>();
-    const candidates = eligible
+    const rank = (list: ChannelCandidate[]) => list
       .sort((left, right) => {
         // ACL stays the strongest key: for an ACL-restricted campaign a followed
         // channel outside the allow list cannot earn the drop at all.
@@ -305,9 +309,15 @@ export async function chooseCampaignDecision(
         return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
       });
 
-    const channel = await firstValidCandidate(candidates, campaign, adapter, signal, () => {
+    const countCheck = () => {
       candidatesChecked += 1;
-    });
+    };
+    // Stalled channels are only validated once everything else has failed, so
+    // the common case still costs exactly one selection pass.
+    const channel = await firstValidCandidate(rank(preferred), campaign, adapter, signal, countCheck)
+      ?? (skipped.length > 0
+        ? await firstValidCandidate(rank(skipped), campaign, adapter, signal, countCheck)
+        : undefined);
     if (channel) {
       return finish({
         platform,

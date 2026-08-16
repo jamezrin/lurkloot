@@ -2321,6 +2321,38 @@ describe("scheduler tick", () => {
       expect(result.state.sessions.twitch.channel?.username).toBe("fresh");
     });
 
+    // Skipping is a demotion, not an exclusion. If every other candidate fails
+    // validation the stalled channel has to be reachable, or rotating costs the
+    // campaign the whole tick.
+    it("falls back to the stalled channel when the alternative is invalid", async () => {
+      const twitch = adapter("twitch", [campaign("drops")], [channel("old"), channel("broken")]);
+      vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+        live: candidate.username !== "broken",
+        categoryMatches: true,
+        candidate,
+      }));
+      // No selectCandidateChannel, so firstValidCandidate validates one by one.
+      twitch.selectCandidateChannel = undefined;
+
+      const result = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: watching({ noProgressChecks: 2, lastWatchedMinutes: 20 }),
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(result.state.sessions.twitch.channel?.username).toBe("old");
+    });
+
     // Rotating to nothing would be worse than a slow channel, so the skip is
     // advisory: the stalled channel stays when it is the only one that can run
     // the campaign.
