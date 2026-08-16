@@ -1,5 +1,5 @@
-import type { LanguageOverride, SupportedLocale } from "./models";
-import { SUPPORTED_LOCALES } from "./settings";
+import type { LanguageOverride, SupportedLocale } from "./models.ts";
+import { SUPPORTED_LOCALES } from "./settings.ts";
 
 export type MessageCatalog = Record<string, { message: string }>;
 
