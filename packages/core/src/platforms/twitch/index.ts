@@ -1574,11 +1574,28 @@ export class TwitchAdapter implements PlatformAdapter {
     } catch (error) {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      for (const candidate of candidates) await fallback(candidate);
+      const message = error instanceof Error ? error.message : String(error);
+      for (const [index, candidate] of candidates.entries()) {
+        diagnostic(
+          this.emit,
+          "debug",
+          availableDropsEvidence(null, candidate, campaignId, `batch request index ${index} of ${candidates.length}`, `batch request failed: ${message}`),
+          "twitch",
+        );
+        await fallback(candidate);
+      }
       return { matches, singleFallbacks: candidates.length };
     }
     if (twitchPageFetchError(raw)) {
-      for (const candidate of candidates) await fallback(candidate);
+      for (const [index, candidate] of candidates.entries()) {
+        diagnostic(
+          this.emit,
+          "debug",
+          availableDropsEvidence(null, candidate, campaignId, `batch request index ${index} of ${candidates.length}`, "batch request rejected by the page fetch transport"),
+          "twitch",
+        );
+        await fallback(candidate);
+      }
       return { matches, singleFallbacks: candidates.length };
     }
     const responses = Array.isArray(raw) ? raw : candidates.length === 1 ? [raw] : [];
@@ -1815,6 +1832,12 @@ export class TwitchAdapter implements PlatformAdapter {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
+      diagnostic(
+        this.emit,
+        "debug",
+        availableDropsEvidence(null, { channelId, channelLogin, broadcastId }, campaignId, "single response", `single request failed: ${message}`),
+        "twitch",
+      );
       diagnostic(this.emit, "debug", `Could not confirm available Twitch campaigns for ${channelLogin}; using live/category validation: ${message}`, "twitch");
       return undefined;
     }
@@ -2453,6 +2476,11 @@ function availableDropsEvidence(
   requested: { channelId: string; channelLogin: string; broadcastId: string },
   campaignId: string,
   source: string,
+  // Set when the request never produced a response at all (transport throw or a
+  // page-fetch rejection). Without it those candidates would leave no comparable
+  // record, which is the gap that makes a batch failure indistinguishable from a
+  // campaign Twitch genuinely does not list.
+  failure?: string,
 ): string {
   const channel = response?.data?.channel;
   const returnedIds = Array.isArray(channel?.viewerDropCampaigns)
@@ -2461,6 +2489,7 @@ function availableDropsEvidence(
       .filter((id): id is string => typeof id === "string" && id.length > 0)
     : undefined;
   const errors = [
+    failure,
     response?.error,
     response?.message,
     ...(response?.errors ?? []).map((error) => error.message),

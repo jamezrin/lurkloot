@@ -302,6 +302,31 @@ describe("strict availability comparison evidence", () => {
       .toContain("returned viewerDropCampaigns=some-other-campaign");
   });
 
+  // A thrown request produces no response at all, so without an explicit
+  // failure record these candidates would be indistinguishable from a campaign
+  // Twitch genuinely does not list.
+  it("records a thrown batch request against every candidate in it", async () => {
+    const messages = await evidence((operationName, entry) => {
+      if (operationName === "DropsHighlightService_AvailableDrops") {
+        throw new Error("network unreachable");
+      }
+      return respondWithOmittedCampaign(operationName, entry);
+    });
+
+    expect(messages.length).toBeGreaterThanOrEqual(2);
+    for (const username of ["directory-one", "directory-two"]) {
+      const message = messages.find((entry) => entry.includes(`requested channel ${username}`));
+      expect(message).toContain(`id=${username}-id`);
+      expect(message).toContain(`broadcast=${username}-broadcast`);
+      expect(message).toContain("matching campaign campaign");
+      expect(message).toContain("network unreachable");
+      // No response came back, so the campaign list must read as absent rather
+      // than as an authoritative empty one.
+      expect(message).toContain("returned viewerDropCampaigns=absent");
+      expect(message).toContain("returned channel.id=none");
+    }
+  });
+
   it("carries no credential material", async () => {
     const messages = await evidence(respondWithOmittedCampaign);
 
