@@ -22,6 +22,8 @@ export type ActivityRequestScope = {
   query: string;
 };
 
+export type DiagnosticsExportRequest = { generation: number; platform: Platform };
+
 export type ActivityCardIcon =
   | "gift"
   | "play"
@@ -105,6 +107,24 @@ export function isActivityRequestCurrent(
   return request.generation === current.generation
     && request.platform === current.platform
     && request.query === current.query;
+}
+
+export function createDiagnosticsExportRequest(platform: Platform): DiagnosticsExportRequest {
+  return { generation: 0, platform };
+}
+
+export function beginDiagnosticsExport(
+  current: DiagnosticsExportRequest,
+  platform: Platform,
+): DiagnosticsExportRequest {
+  return { generation: current.generation + 1, platform };
+}
+
+export function isDiagnosticsExportCurrent(
+  request: DiagnosticsExportRequest,
+  current: DiagnosticsExportRequest,
+): boolean {
+  return request.generation === current.generation && request.platform === current.platform;
 }
 
 export function applyActivityPageForRequest(

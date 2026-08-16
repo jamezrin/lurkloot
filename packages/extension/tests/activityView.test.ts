@@ -14,6 +14,7 @@ import {
   createActivityStream,
   formatActivityEvent,
   isActivityRequestCurrent,
+  isDiagnosticsExportCurrent,
   isLatestActivityMutation,
   mergeActivityPages,
 } from "@lurkloot/popup-ui";
@@ -329,6 +330,21 @@ describe("activity view model", () => {
       { generation: 2, platform: "kick", query: "timeout" },
       { generation: 2, platform: "kick", query: "retry" },
     )).toBe(false);
+  });
+
+  it("does not treat a previous platform's diagnostics export as current", () => {
+    expect(isDiagnosticsExportCurrent(
+      { generation: 1, platform: "kick" },
+      { generation: 1, platform: "twitch" },
+    )).toBe(false);
+    expect(isDiagnosticsExportCurrent(
+      { generation: 1, platform: "kick" },
+      { generation: 2, platform: "kick" },
+    )).toBe(false);
+    expect(isDiagnosticsExportCurrent(
+      { generation: 2, platform: "kick" },
+      { generation: 2, platform: "kick" },
+    )).toBe(true);
   });
 
   it("rejects an older refresh response after a newer refresh was issued", () => {

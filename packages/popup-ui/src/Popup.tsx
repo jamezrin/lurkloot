@@ -7,7 +7,7 @@ import {
   RotateCcw,
   Settings as SettingsIcon,
 } from "lucide-react";
-import type { ActivityPage, CategorySearchResult, CliCredentialBlob, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { ActivityPage, CategorySearchResult, CliCredentialBlob, DiagnosticsExport, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
@@ -46,10 +46,15 @@ import {
   advanceActivityRequestScope,
   applyActivityMutationForRequest,
   beginActivityMutation,
+  beginDiagnosticsExport,
+  buildActivityExport,
+  buildDiagnosticsExportFilename,
   createActivityMutationSequence,
   createActivityRequestScope,
   createActivityStream,
+  createDiagnosticsExportRequest,
   isActivityRequestCurrent,
+  isDiagnosticsExportCurrent,
   type ActivityRequestScope,
   type ActivityStream,
 } from "./activity.logic";
@@ -106,6 +111,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const snapshotRequestGenerationRef = useRef(0);
   const activityRequestScopeRef = useRef(createActivityRequestScope(platform));
+  const diagnosticsExportRequestRef = useRef(createDiagnosticsExportRequest(platform));
   const activityMutationSequenceRef = useRef(createActivityMutationSequence());
   const diagnosticMutationSequenceRef = useRef(createActivityMutationSequence());
   const activityClearInFlightRef = useRef(false);
@@ -402,7 +408,13 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }, [adapter, preview]);
 
   function selectPlatform(nextPlatform: Platform): void {
-    if (nextPlatform !== activityRequestScopeRef.current.platform) invalidateActivityRequests(nextPlatform, "");
+    if (nextPlatform !== activityRequestScopeRef.current.platform) {
+      invalidateActivityRequests(nextPlatform, "");
+      diagnosticsExportRequestRef.current = beginDiagnosticsExport(
+        diagnosticsExportRequestRef.current,
+        nextPlatform,
+      );
+    }
     setDiagnosticSearchQuery("");
     setPlatform(nextPlatform);
     // The watchlist add form belongs to the platform it was opened on: leaving
@@ -412,7 +424,13 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }
 
   function closeActivityView(): void {
-    if (activityOpen) invalidateActivityRequests(platform, "");
+    if (activityOpen) {
+      invalidateActivityRequests(platform, "");
+      diagnosticsExportRequestRef.current = beginDiagnosticsExport(
+        diagnosticsExportRequestRef.current,
+        platform,
+      );
+    }
     setClearActivityArmed(false);
     setClearActivityFailed(false);
     setDiagnosticSearchQuery("");
@@ -423,10 +441,39 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   function handleShowDiagnosticsChange(nextShowDiagnostics: boolean): void {
     if (showDiagnostics && !nextShowDiagnostics) {
       invalidateActivityRequests(platform, "");
+      diagnosticsExportRequestRef.current = beginDiagnosticsExport(
+        diagnosticsExportRequestRef.current,
+        platform,
+      );
       setDiagnosticSearchQuery("");
       setDiagnosticStream(createActivityStream());
     }
     setShowDiagnostics(nextShowDiagnostics);
+  }
+
+  async function exportDiagnosticsLog(): Promise<number | undefined> {
+    const downloadFile = adapter.downloadFile;
+    if (!downloadFile) return undefined;
+    const request = beginDiagnosticsExport(diagnosticsExportRequestRef.current, platform);
+    diagnosticsExportRequestRef.current = request;
+    const exportedAt = new Date();
+    const result = await adapter.send<DiagnosticsExport>({ type: "exportDiagnostics", platform: request.platform });
+    if (!isDiagnosticsExportCurrent(request, diagnosticsExportRequestRef.current)) return undefined;
+    downloadFile(
+      buildDiagnosticsExportFilename(request.platform, exportedAt),
+      buildActivityExport({
+        events: result.events,
+        platform: request.platform,
+        diagnostics: true,
+        coverage: "full",
+        version: adapter.version,
+        userAgent: typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+        locale,
+        at: exportedAt.toISOString(),
+      }, t),
+      "text/plain",
+    );
+    return result.events.length;
   }
 
   async function updateSettings(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
@@ -726,6 +773,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   onLoadMore={loadMoreActivity}
                   onClear={clearActivityHistory}
                   writeClipboard={adapter.writeClipboard}
+                  onExportAll={adapter.downloadFile ? exportDiagnosticsLog : undefined}
                 />
               </motion.div>
             ) : (

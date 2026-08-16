@@ -12,16 +12,19 @@ export {
   applyActivityPage,
   applyActivityPageForRequest,
   beginActivityMutation,
+  beginDiagnosticsExport,
   buildActivityCard,
   buildActivityExport,
   buildDiagnosticsExportFilename,
   createActivityMutationSequence,
   createActivityRequestScope,
   createActivityStream,
+  createDiagnosticsExportRequest,
   formatActivityEvent,
   isActivityRequestCurrent,
+  isDiagnosticsExportCurrent,
   isLatestActivityMutation,
   mergeActivityPages,
 } from "./activity.logic";
-export type { ActivityCard, ActivityCardIcon, ActivityCardTone } from "./activity.logic";
+export type { ActivityCard, ActivityCardIcon, ActivityCardTone, DiagnosticsExportRequest } from "./activity.logic";
 export type { PopupAdapter, PopupInitialState, ScreenshotVariant } from "./types";
