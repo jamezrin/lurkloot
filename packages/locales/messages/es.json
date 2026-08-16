@@ -749,35 +749,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 no tiene drops elegibles para farmear."
   },
-  "screenshotTwitchHeadline": {
-    "message": "Drops de Twitch y Kick, gestionados desde un popup."
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot farmea campañas elegibles mediante tu sesión normal del navegador con pestañas visibles y silenciadas."
+  "screenshotHeroHeadline": {
+    "message": "Farmea drops mientras haces cualquier otra cosa."
   },
-  "screenshotKickHeadline": {
-    "message": "Ahora también farmea drops de Kick."
+  "screenshotHeroSubcopy": {
+    "message": "Reclamo automático desde tu sesión ya iniciada. Sin contraseñas."
   },
-  "screenshotKickSubcopy": {
-    "message": "La misma automatización, comprobaciones de elegibilidad y auto-reclamo que usas en Twitch, ahora para recompensas de creadores en Kick."
+  "screenshotExtrasEyebrow": {
+    "message": "Más que campañas"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "Una lista de visualización inactiva alternativa mantiene las ganancias."
+  "screenshotExtrasHeadline": {
+    "message": "Más que drops."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "Cuando no hay drops activos, Lurkloot ve tus canales favoritos para que tu tiempo conectado no se desperdicie."
+  "screenshotExtrasSubcopy": {
+    "message": "Puntos de canal y desafíos de Kick, también reclamados por ti. Una lista de visualización inactiva cuando no queda nada que farmear."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Puntos de canal"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · también reclamados por ti"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Desafíos diarios"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · también reclamados por ti"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Lista de visualización inactiva"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Ve a tus streamers entre campañas"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Fácil de usar"
+  },
+  "screenshotEasyHeadline": {
+    "message": "Así de fácil."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Instala"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Sin cuenta."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Fíjalo"
+  },
+  "screenshotEasyPinSub": {
+    "message": "El popup, a un clic."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Activa una plataforma"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick, o ambas."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "A farmear"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "Tú haces otras cosas."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Tus reglas"
   },
   "screenshotSettingsHeadline": {
-    "message": "Ajusta cada detalle a tu setup."
+    "message": "Farmea exactamente como quieras."
   },
   "screenshotSettingsSubcopy": {
-    "message": "Automatización por plataforma, auto-reclamo, pestañas silenciadas, prioridad de juegos y modo experimental sin pestaña de bajo consumo."
+    "message": "Prioridades, juegos, modo sin pestaña, reclamo automático — por plataforma."
   },
-  "screenshotActivityHeadline": {
-    "message": "Mira exactamente qué está haciendo."
+  "screenshotUpdatedEyebrow": {
+    "message": "Código abierto"
   },
-  "screenshotActivitySubcopy": {
-    "message": "Un registro de actividad transparente muestra cada comprobación, cambio y reclamo, con detalle de diagnóstico cuando lo necesites."
+  "screenshotUpdatedHeadline": {
+    "message": "Completo. Siempre al día."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Lanzamientos frecuentes cuando Twitch y Kick cambian, y abierto a ideas y mejoras."
   },
   "autoClaimReady": {
     "message": "Reclama automáticamente"

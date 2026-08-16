@@ -749,35 +749,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 没有可刷取的合格掉宝。"
   },
-  "screenshotTwitchHeadline": {
-    "message": "在一个弹窗中管理 Twitch 与 Kick 掉宝。"
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot 通过正常浏览器会话和可见静音标签页刷取符合条件的活动。"
+  "screenshotHeroHeadline": {
+    "message": "一边做别的，一边挂机刷 drops。"
   },
-  "screenshotKickHeadline": {
-    "message": "现在也能刷 Kick 掉宝。"
+  "screenshotHeroSubcopy": {
+    "message": "用你已登录的会话自动领取。不用密码。"
   },
-  "screenshotKickSubcopy": {
-    "message": "你在 Twitch 依赖的自动化、资格检查和自动领取，现在也覆盖 Kick 创作者奖励。"
+  "screenshotExtrasEyebrow": {
+    "message": "不止活动"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "备用空闲观看列表让你持续获得收益。"
+  "screenshotExtrasHeadline": {
+    "message": "不只是 drops。"
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "没有活动掉宝时，Lurkloot 会观看你喜欢的频道，让在线时间不浪费。"
+  "screenshotExtrasSubcopy": {
+    "message": "频道点数和 Kick 每日挑战也会帮你领。没有可刷的 drops 时，用闲置观看列表。"
+  },
+  "screenshotExtrasPointsName": {
+    "message": "频道点数"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · 也会帮你领取"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "每日挑战"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · 也会帮你领取"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "闲置观看列表"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "活动间隙帮你看选定的主播"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "上手很简单"
+  },
+  "screenshotEasyHeadline": {
+    "message": "就这么简单。"
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "安装"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome 网上应用店。不用账号。"
+  },
+  "screenshotEasyPinTitle": {
+    "message": "固定图标"
+  },
+  "screenshotEasyPinSub": {
+    "message": "弹窗一键打开。"
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "开启平台"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch、Kick，或两个都开。"
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "开始挂机"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "它刷，你做别的。"
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "你的规则"
   },
   "screenshotSettingsHeadline": {
-    "message": "按你的环境调整每个细节。"
+    "message": "按你的方式挂机。"
   },
   "screenshotSettingsSubcopy": {
-    "message": "按平台自动化、自动领取、静音标签页、游戏优先级和实验性无标签低资源模式。"
+    "message": "优先级、游戏、无标签页模式、自动领取 — 按平台设置。"
   },
-  "screenshotActivityHeadline": {
-    "message": "清楚查看它正在做什么。"
+  "screenshotUpdatedEyebrow": {
+    "message": "开源"
   },
-  "screenshotActivitySubcopy": {
-    "message": "透明的活动日志显示每次检查、切换和领取，还可按需查看诊断详情。"
+  "screenshotUpdatedHeadline": {
+    "message": "功能完整。持续更新。"
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Twitch 和 Kick 一变就跟进发版，也欢迎想法和改进。"
   },
   "autoClaimReady": {
     "message": "自动领取就绪"

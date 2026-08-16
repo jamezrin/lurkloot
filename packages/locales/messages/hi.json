@@ -749,35 +749,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 पर फ़ार्म करने योग्य drops नहीं हैं。"
   },
-  "screenshotTwitchHeadline": {
-    "message": "Twitch और Kick drops, एक popup से प्रबंधित।"
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot सामान्य ब्राउज़र सत्र और दिखने वाले म्यूट टैब से योग्य कैंपेन फ़ार्म करता है।"
+  "screenshotHeroHeadline": {
+    "message": "कुछ और करते रहो, drops खुद फार्म हों।"
   },
-  "screenshotKickHeadline": {
-    "message": "अब Kick drops भी फ़ार्म करता है।"
+  "screenshotHeroSubcopy": {
+    "message": "जिस सेशन में तुम पहले से लॉग इन हो, वहीं से ऑटो-क्लेम। पासवर्ड नहीं।"
   },
-  "screenshotKickSubcopy": {
-    "message": "Twitch वाली automation, eligibility checks और auto-claim अब Kick creator rewards के लिए भी।"
+  "screenshotExtrasEyebrow": {
+    "message": "कैंपेन से आगे"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "बैकअप निष्क्रिय वॉचलिस्ट आपको कमाई जारी रखने देती है।"
+  "screenshotExtrasHeadline": {
+    "message": "सिर्फ़ drops नहीं।"
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "जब कोई active drops नहीं होते, Lurkloot आपके पसंदीदा चैनल देखता है ताकि ऑनलाइन समय बेकार न जाए।"
+  "screenshotExtrasSubcopy": {
+    "message": "चैनल पॉइंट्स और Kick चैलेंज भी तुम्हारे लिए क्लेम। जब फार्म करने को कुछ न हो, idle watchlist।"
+  },
+  "screenshotExtrasPointsName": {
+    "message": "चैनल पॉइंट्स"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · तुम्हारे लिए भी क्लेम"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "डेली चैलेंज"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · तुम्हारे लिए भी क्लेम"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "आइडल वॉचलिस्ट"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "कैंपेन के बीच तुम्हारे स्ट्रीमर देखे जाते हैं"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "आसान"
+  },
+  "screenshotEasyHeadline": {
+    "message": "इतना आसान।"
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "इंस्टॉल"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. कोई अकाउंट नहीं."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "पिन करो"
+  },
+  "screenshotEasyPinSub": {
+    "message": "पॉपअप एक क्लिक पर।"
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "प्लेटफ़ॉर्म चालू करो"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick, या दोनों."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "फार्म शुरू"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "यह फार्म करे, तुम और काम करो।"
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "तुम्हारे नियम"
   },
   "screenshotSettingsHeadline": {
-    "message": "अपने setup के लिए हर विवरण सेट करें।"
+    "message": "जैसा चाहो वैसा फार्म।"
   },
   "screenshotSettingsSubcopy": {
-    "message": "प्रति-प्लेटफ़ॉर्म automation, auto-claim, म्यूट टैब, game priority और experimental tabless low-resource mode."
+    "message": "प्राथमिकता, गेम, टैबलेस मोड, ऑटो-क्लेम — हर प्लेटफ़ॉर्म पर।"
   },
-  "screenshotActivityHeadline": {
-    "message": "ठीक-ठीक देखें यह क्या कर रहा है।"
+  "screenshotUpdatedEyebrow": {
+    "message": "ओपन सोर्स"
   },
-  "screenshotActivitySubcopy": {
-    "message": "पारदर्शी गतिविधि लॉग हर check, switch और claim दिखाता है, और ज़रूरत पड़ने पर diagnostic विवरण भी।"
+  "screenshotUpdatedHeadline": {
+    "message": "फीचर भरा। हमेशा अपडेट।"
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Twitch और Kick बदलें तो रिलीज़ आती रहें — और सुझाव खुले हैं।"
   },
   "autoClaimReady": {
     "message": "ऑटो-क्लेम तैयार"

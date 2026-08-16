@@ -749,35 +749,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 não tem drops elegíveis para farmar."
   },
-  "screenshotTwitchHeadline": {
-    "message": "Drops da Twitch e Kick gerenciados em um popup."
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot farma campanhas elegíveis pela sua sessão normal do navegador com abas visíveis silenciadas."
+  "screenshotHeroHeadline": {
+    "message": "Farme drops enquanto faz qualquer outra coisa."
   },
-  "screenshotKickHeadline": {
-    "message": "Agora também farma drops da Kick."
+  "screenshotHeroSubcopy": {
+    "message": "Resgate automático na sessão em que você já está logado. Sem senhas."
   },
-  "screenshotKickSubcopy": {
-    "message": "A mesma automação, verificação de elegibilidade e auto-resgate da Twitch, agora para recompensas de criadores na Kick."
+  "screenshotExtrasEyebrow": {
+    "message": "Além das campanhas"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "Uma lista de visualização ociosa alternativa mantém seus ganhos."
+  "screenshotExtrasHeadline": {
+    "message": "Mais do que drops."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "Quando não há drops ativos, Lurkloot assiste seus canais favoritos para seu tempo online render."
+  "screenshotExtrasSubcopy": {
+    "message": "Pontos de canal e desafios da Kick, também resgatados para você. Uma lista ociosa quando não resta nada para farmar."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Pontos de canal"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · também resgatados para você"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Desafios diários"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · também resgatados para você"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Lista ociosa"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Assiste seus streamers entre campanhas"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Fácil de usar"
+  },
+  "screenshotEasyHeadline": {
+    "message": "Tão fácil."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Instale"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Sem conta."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Fixe"
+  },
+  "screenshotEasyPinSub": {
+    "message": "O popup a um clique."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Ative uma plataforma"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick, ou as duas."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "A farmar"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "Você faz outras coisas."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Suas regras"
   },
   "screenshotSettingsHeadline": {
-    "message": "Ajuste cada detalhe ao seu setup."
+    "message": "Farme exatamente do seu jeito."
   },
   "screenshotSettingsSubcopy": {
-    "message": "Automação por plataforma, auto-resgate, abas silenciadas, prioridade de jogos e modo experimental sem aba de baixo consumo."
+    "message": "Prioridades, jogos, modo sem aba, resgate automático — por plataforma."
   },
-  "screenshotActivityHeadline": {
-    "message": "Veja exatamente o que ele está fazendo."
+  "screenshotUpdatedEyebrow": {
+    "message": "Código aberto"
   },
-  "screenshotActivitySubcopy": {
-    "message": "Um log de atividade transparente mostra cada verificação, troca e resgate, com detalhes de diagnóstico quando você quiser."
+  "screenshotUpdatedHeadline": {
+    "message": "Completo. Sempre atualizado."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Lançamentos frequentes quando Twitch e Kick mudam — e aberto a ideias e melhorias."
   },
   "autoClaimReady": {
     "message": "Auto-resgate pronto"

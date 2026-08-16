@@ -244,6 +244,8 @@ describe("i18n", () => {
       "siteAttributionShort",
       // "Diagnostics" is spelled the same in French.
       "diagnosticsViewTab",
+      // Brand-only store screenshot eyebrow.
+      "screenshotHeroEyebrow",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {
