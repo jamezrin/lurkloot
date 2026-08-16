@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { EngineEvent } from "@lurkloot/shared/events";
+import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
 import {
   createActivityEventReporter,
   createActivityMessageHandler,
@@ -36,7 +36,9 @@ describe("activity message routing", () => {
   });
 
   it("exports diagnostics through the extension repository", async () => {
-    const events = [{ id: "d1", at: "2026-08-16T00:00:00.000Z", category: "diagnostic", level: "info", message: "hello" }];
+    const events: ActivityHistoryRecord[] = [
+      { id: "d1", at: "2026-08-16T00:00:00.000Z", category: "diagnostic", level: "info", message: "hello" },
+    ];
     const exportDiagnostics = vi.fn(async () => events);
     const handler = createActivityMessageHandler({
       load: vi.fn(),
