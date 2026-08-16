@@ -29,6 +29,7 @@ const canonicalPath = (() => {
   return pageHref("en", sitePath);
 })();
 const canonical = new URL(canonicalPath, Astro.site).href.replace(/\/$/, "");
+const ogUrl = new URL(Astro.url.pathname, Astro.site).href.replace(/\/$/, "");
 const ogImage = `${SITE.url}/og.png`;
 // Base-aware prefix for static files in /public (works at "/" or a sub-path).
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -81,7 +82,7 @@ const faqLd = {
     <meta property="og:site_name" content={SITE.name} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
+    <meta property="og:url" content={ogUrl} />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />

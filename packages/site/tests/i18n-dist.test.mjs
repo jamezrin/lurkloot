@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
+import changelogData from "../src/changelog.json" with { type: "json" };
 import { EXTERNAL_URLS } from "../src/consts.ts";
 
 const dist = new URL("../dist/", import.meta.url);
@@ -36,8 +37,22 @@ test("Spanish changelog is noindexed and canonicalizes to English", async () => 
   const html = await readFile(new URL("es/changelog/index.html", dist), "utf8");
   assert.match(html, /<html lang="es" dir="ltr"/);
   assert.match(html, /rel="canonical" href="https:\/\/lurkloot\.jamezrin\.com\/changelog"/);
+  assert.match(html, /property="og:url" content="https:\/\/lurkloot\.jamezrin\.com\/es\/changelog"/);
   assert.match(html, /name="robots" content="noindex, nofollow"/);
   assert.doesNotMatch(html, /"@type":"FAQPage"/);
+
+  const latestDated = changelogData
+    .map((entry) => entry.date)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  assert.ok(latestDated, "expected at least one dated changelog entry");
+  const esDate = new Intl.DateTimeFormat("es", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(`${latestDated}T00:00:00Z`));
+  assert.match(html, new RegExp(esDate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
 test("Arabic home is RTL", async () => {

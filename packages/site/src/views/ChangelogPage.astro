@@ -6,7 +6,7 @@ import LanguageSwitcher from "../components/LanguageSwitcher.astro";
 import { LINKS } from "../consts";
 import type { ChangelogEntry } from "../changelog";
 import type { SiteCopy } from "../copy/types.ts";
-import { pageHref } from "../i18n/locale.ts";
+import { htmlLang, pageHref } from "../i18n/locale.ts";
 import logo from "../assets/logo-ring.svg";
 
 interface Props {
@@ -17,7 +17,7 @@ interface Props {
 
 const { locale, copy, entries } = Astro.props;
 
-const dateFmt = new Intl.DateTimeFormat("en-US", {
+const dateFmt = new Intl.DateTimeFormat(htmlLang(locale), {
   year: "numeric",
   month: "long",
   day: "numeric",
