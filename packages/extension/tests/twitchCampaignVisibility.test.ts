@@ -100,7 +100,11 @@ const EMPTY_INVENTORY = {
 // long-lived service worker does. Campaign details are derived from the same
 // scripted entries so status and linkage stay consistent between the two
 // queries, as they are on Twitch.
-function discoverer(refreshes: Array<DashboardEntry[] | Error>, detailRequests: string[] = []) {
+function discoverer(
+  refreshes: Array<DashboardEntry[] | Error>,
+  detailRequests: string[] = [],
+  { failDetailsFor = [] }: { failDetailsFor?: string[] } = {},
+) {
   let refresh = -1;
   const discoveryState = new TwitchDiscoveryState();
   const current = () => refreshes[Math.min(refresh, refreshes.length - 1)];
@@ -117,6 +121,7 @@ function discoverer(refreshes: Array<DashboardEntry[] | Error>, detailRequests: 
       if (operationName === "DropCampaignDetails") {
         const dropID = String((operation.variables as { dropID?: string } | undefined)?.dropID);
         detailRequests.push(dropID);
+        if (failDetailsFor.includes(dropID)) throw new Error(`details unavailable for ${dropID}`);
         // A retained id can outlive the refresh that produced it, so fall back
         // to the last scripted state that described this campaign.
         const entry = (scripted instanceof Error ? undefined : scripted.find((item) => item.id === dropID))
@@ -222,6 +227,19 @@ describe("twitch campaign visibility (#400)", () => {
     ]]).next();
 
     expect(campaigns.map((campaign) => campaign.id)).toEqual(["running"]);
+  });
+
+  // A campaign the dashboard still calls ACTIVE reaches the historical path
+  // only because its detail fetch failed. Marking that expired would retire a
+  // farmable campaign from the list and from scheduling over a transient error.
+  it("never reports an active campaign as expired when its details fail", async () => {
+    const campaigns = await discoverer(
+      [[{ id: "running", status: "ACTIVE" }]],
+      [],
+      { failDetailsFor: ["running"] },
+    ).next();
+
+    expect(campaigns.find((campaign) => campaign.id === "running")?.status).not.toBe("expired");
   });
 
   it("does not duplicate a campaign that details already covered", async () => {

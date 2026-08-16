@@ -2329,15 +2329,15 @@ function historicalDashboardCampaigns(
     if (!id || coveredIds.has(id) || !entry.name) continue;
     const endsAt = entry.endAt;
     const startsAt = entry.startAt;
-    // Trust the dates over the status string when both are present: a campaign
-    // can still read ACTIVE moments after its end date passes.
-    const status: DropCampaign["status"] = endsAt && Date.parse(endsAt) < now
-      ? "expired"
-      : startsAt && Date.parse(startsAt) > now
-        ? "upcoming"
-        : entry.status?.toUpperCase() === "UPCOMING"
-          ? "upcoming"
-          : "expired";
+    // Only synthesise a campaign this is positively sure is over. A campaign
+    // the dashboard still calls ACTIVE reaches this point when its detail fetch
+    // failed, and defaulting that to "expired" would retire a farmable campaign
+    // from both the list and scheduling over a transient error — worse than the
+    // one-refresh absence it replaces.
+    const ended = Boolean(endsAt && Date.parse(endsAt) < now);
+    const closed = ["EXPIRED", "ARCHIVED", "CLOSED", "DELETED"].includes(entry.status?.toUpperCase() ?? "");
+    if (!ended && !closed) continue;
+    const status: DropCampaign["status"] = "expired";
     const allowedChannels = (entry.allow?.channels ?? [])
       .map((channel) => channel?.login ?? channel?.name)
       .filter((value): value is string => Boolean(value))
@@ -2357,10 +2357,8 @@ function historicalDashboardCampaigns(
       rewards: [],
       allowedChannels: allowedChannels.length > 0 ? allowedChannels : undefined,
       accountLinked: entry.self?.isAccountConnected !== false,
-      eligibility: status === "upcoming" ? "upcoming" : "expired",
-      eligibilityReason: status === "upcoming"
-        ? "Campaign has not started yet"
-        : "Campaign has ended",
+      eligibility: "expired",
+      eligibilityReason: "Campaign has ended",
     });
   }
   return campaigns;
