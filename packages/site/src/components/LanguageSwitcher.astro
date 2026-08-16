@@ -1,0 +1,48 @@
+---
+import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
+import type { SupportedLocale } from "@lurkloot/shared/models";
+import { pageHref, parseLocaleFromPathname, type SitePath } from "../i18n/locale.ts";
+
+interface Props { locale: SupportedLocale; }
+const { locale } = Astro.props;
+const { path } = parseLocaleFromPathname(Astro.url.pathname);
+const target: SitePath = path === "/changelog" ? "/changelog" : "/";
+const options = LOCALE_OPTIONS.filter((option) => option.value !== "browser");
+---
+<nav class="lang" aria-label="Language">
+  <ul>
+    {options.map((option) => (
+      <li>
+        <a
+          href={pageHref(option.value as SupportedLocale, target)}
+          hreflang={option.value.replace("_", "-")}
+          aria-current={option.value === locale ? "page" : undefined}
+        >{option.nativeName}</a>
+      </li>
+    ))}
+  </ul>
+</nav>
+
+<style>
+  .lang {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.02em;
+  }
+  .lang ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .lang a {
+    color: var(--muted);
+    transition: color 0.2s var(--ease);
+  }
+  .lang a:hover,
+  .lang a[aria-current="page"] {
+    color: var(--lime);
+  }
+</style>

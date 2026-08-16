@@ -1,31 +1,34 @@
 ---
 import { LINKS } from "../consts";
+import type { SiteCopy } from "../copy/types.ts";
 import BrowserPills from "./BrowserPills.astro";
+
+interface Props {
+  copy: SiteCopy;
+}
+const { copy } = Astro.props;
 ---
 
 <section class="cta act">
   <div class="wrap cta__inner reveal-slow">
     <div class="cta__glow" aria-hidden="true"></div>
-    <p class="eyebrow">Ready when you are</p>
-    <h2>Stop watching.<br />Start <span class="grad-text">collecting</span>.</h2>
+    <p class="eyebrow">{copy.cta.eyebrow}</p>
+    <h2 set:html={copy.cta.title} />
     <p class="cta__lede">
-      Free, and running in under a minute. Install once and let your drops pile up while
-      you do literally anything else.
+      {copy.cta.lede}
     </p>
     <div class="cta__btns">
       <a class="btn btn--primary btn--lg" href={LINKS.chrome} target="_blank" rel="noopener">
-        Add to your browser — free
+        {copy.cta.addToBrowser}
       </a>
     </div>
-    <div class="cta__pills"><BrowserPills /></div>
+    <div class="cta__pills"><BrowserPills label={copy.pills.label} /></div>
     <ul class="cta__assure">
-      <li>No .exe, no download — just an extension</li>
-      <li>Open source — audit every line</li>
-      <li>Or run it headless via Docker</li>
-      <li>Windows · macOS · Linux · ChromeOS</li>
-      <li>Updated for every Twitch &amp; Kick change</li>
+      {copy.cta.assure.map((item) => (
+        <li>{item}</li>
+      ))}
     </ul>
-    <p class="cta__fine">No account · No password · No tracking</p>
+    <p class="cta__fine">{copy.cta.fine}</p>
   </div>
 </section>
 

@@ -2,7 +2,9 @@
 import { marked } from "marked";
 import Base from "../layouts/Base.astro";
 import Footer from "../components/Footer.astro";
+import LanguageSwitcher from "../components/LanguageSwitcher.astro";
 import { LINKS } from "../consts";
+import { englishCopy } from "../copy/en.ts";
 import logo from "../assets/logo-ring.svg";
 // Single source of truth: the same policy shipped with the extension + store.
 // Inlined at build via Vite ?raw so it doesn't depend on runtime file paths
@@ -11,11 +13,13 @@ import source from "../../../../privacy-policy.md?raw";
 // Drop the leading H1 (we render our own page title) and convert to HTML.
 const body = source.replace(/^#\s.*\n/, "");
 const html = marked.parse(body, { gfm: true, breaks: false });
+const copy = englishCopy;
 ---
 
 <Base
-  title="Privacy Policy — Lurkloot"
-  description="Lurkloot does not collect, transmit, sell, or share user data. Everything stays on your device. Read the full privacy policy."
+  title={copy.privacyPage.pageTitle}
+  description={copy.privacyPage.pageDescription}
+  locale="en"
 >
   <header class="legalnav">
     <div class="wrap legalnav__inner">
@@ -23,22 +27,25 @@ const html = marked.parse(body, { gfm: true, breaks: false });
         <img src={logo.src} width="28" height="28" alt="" />
         <span>Lurkloot</span>
       </a>
-      <a class="btn btn--primary legalnav__cta" href={LINKS.chrome} target="_blank" rel="noopener">
-        Add to browser
-      </a>
+      <div class="legalnav__actions">
+        <LanguageSwitcher locale="en" />
+        <a class="btn btn--primary legalnav__cta" href={LINKS.chrome} target="_blank" rel="noopener">
+          {copy.privacyPage.addToBrowser}
+        </a>
+      </div>
     </div>
   </header>
 
   <main class="legal">
     <div class="wrap legal__wrap">
-      <p class="eyebrow">Legal</p>
-      <h1>Privacy Policy</h1>
+      <p class="eyebrow">{copy.privacyPage.eyebrow}</p>
+      <h1>{copy.privacyPage.title}</h1>
       <article class="prose" set:html={html}></article>
-      <p class="legal__back"><a href="/">← Back to home</a></p>
+      <p class="legal__back"><a href="/">{copy.privacyPage.back}</a></p>
     </div>
   </main>
 
-  <Footer />
+  <Footer copy={copy} locale="en" />
 </Base>
 
 <style>
@@ -54,8 +61,10 @@ const html = marked.parse(body, { gfm: true, breaks: false });
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 64px;
+    min-height: 64px;
     gap: 1.5rem;
+    padding-block: 0.6rem;
+    flex-wrap: wrap;
   }
   .legalnav__brand {
     display: inline-flex;
@@ -66,6 +75,13 @@ const html = marked.parse(body, { gfm: true, breaks: false });
     letter-spacing: -0.02em;
   }
   .legalnav__brand img { border-radius: 8px; }
+  .legalnav__actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
   .legalnav__cta { padding: 0.55em 1.05em; font-size: 0.88rem; }
 
   .legal {

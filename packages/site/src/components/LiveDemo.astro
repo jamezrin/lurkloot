@@ -1,24 +1,30 @@
 ---
+import type { SupportedLocale } from "@lurkloot/shared/models";
+import type { SiteCopy } from "../copy/types.ts";
 import PopupDemo from "../popup-ui/PopupDemo.tsx";
+
+interface Props {
+  copy: SiteCopy;
+  locale: SupportedLocale;
+}
+const { copy, locale } = Astro.props;
 ---
 
 <section id="demo" class="demo act">
   <div class="wrap">
     <div class="demo__head">
-      <p class="eyebrow reveal">See it first</p>
-      <h2 class="reveal-slow">This is how the<br />extension looks.</h2>
+      <p class="eyebrow reveal">{copy.demo.eyebrow}</p>
+      <h2 class="reveal-slow" set:html={copy.demo.title} />
       <p class="reveal">
-        An interactive — but non-functional — demo of the actual popup, running on mock
-        data. Switch Twitch/Kick, open Settings, reorder campaigns, flip toggles. Nothing
-        here is really farming; it's just exactly the UI you get after installing.
+        {copy.demo.deck}
       </p>
     </div>
 
     <div class="demo__stage">
       <div class="demo__glow" aria-hidden="true"></div>
       <div class="demo__screen arrive">
-        <span class="demo__pill"><span class="dot"></span> interactive demo · mock data</span>
-        <PopupDemo client:visible />
+        <span class="demo__pill"><span class="dot"></span> {copy.demo.pill}</span>
+        <PopupDemo client:visible locale={locale} />
       </div>
     </div>
   </div>

@@ -1,34 +1,31 @@
 ---
 import { Image } from "astro:assets";
+import type { SiteCopy } from "../copy/types.ts";
 import pepega from "../assets/memes/pepega.webp";
 import gigachad from "../assets/memes/gigachad.webp";
 
-// Main features as cinematic alternating beats (text + a stylized visual that
-// parallaxes). Followed by a compact "and more" row for breadth.
-const more = [
-  { t: "Idle Watchlist fallback", d: "Up to 20 selected channels keep you earning when no eligible drops are available." },
-  { t: "Game & category filters", d: "Farm everything, or pin just the games you care about." },
-  { t: "Reward notifications", d: "Get pinged the moment a drop is claimable — or when you're all done." },
-  { t: "Ten languages", d: "Fully localized UI. English or Spanish? You've got more options too." },
-];
+interface Props {
+  copy: SiteCopy;
+}
+const { copy } = Astro.props;
+const beats = copy.features.beats;
+const more = copy.features.more;
 ---
 
 <section id="features" class="feat act">
   <div class="wrap">
     <div class="feat__head">
-      <p class="eyebrow reveal">Under the hood</p>
-      <h2 class="reveal-slow">More than a tab<br />that watches a stream.</h2>
+      <p class="eyebrow reveal">{copy.features.eyebrow}</p>
+      <h2 class="reveal-slow" set:html={copy.features.title} />
     </div>
 
     <!-- Beat 1 — tabless -->
     <div class="beat">
       <div class="beat__copy reveal">
-        <span class="kicker">Default · low-resource</span>
-        <h3>Sips, doesn't chug.</h3>
+        <span class="kicker">{beats[0].kicker}</span>
+        <h3>{beats[0].title}</h3>
         <p>
-          Instead of pinning a video tab and burning bandwidth, it keeps your watch time
-          counting quietly in the background. Drops tick up while your machine stays cool —
-          and if progress ever stalls, it falls back to a muted tab so you never miss out.
+          {beats[0].body}
         </p>
       </div>
       <div class="beat__lift reveal">
@@ -36,16 +33,16 @@ const more = [
           <figure class="meme meme--bad">
             <div class="meme__pic"><Image src={pepega} alt="Pepega" widths={[128, 256]} sizes="160px" /></div>
             <figcaption>
-              <span class="meme__who">Without Lurkloot</span>
-              <span class="meme__tag">manual and annoying grind</span>
+              <span class="meme__who">{copy.features.meme.withoutWho}</span>
+              <span class="meme__tag">{copy.features.meme.withoutTag}</span>
             </figcaption>
           </figure>
-          <span class="meme__vs" aria-hidden="true">vs</span>
+          <span class="meme__vs" aria-hidden="true">{copy.features.meme.vs}</span>
           <figure class="meme meme--good">
             <div class="meme__pic"><Image src={gigachad} alt="Gigachad" widths={[320, 660]} sizes="240px" /></div>
             <figcaption>
-              <span class="meme__who">With Lurkloot</span>
-              <span class="meme__tag">fully automatic and efficient</span>
+              <span class="meme__who">{copy.features.meme.withWho}</span>
+              <span class="meme__tag">{copy.features.meme.withTag}</span>
             </figcaption>
           </figure>
         </div>
@@ -55,26 +52,25 @@ const more = [
     <!-- Beat 2 — scheduling -->
     <div class="beat">
       <div class="beat__copy reveal">
-        <span class="kicker">Smart scheduler</span>
-        <h3>Farms the right thing first.</h3>
+        <span class="kicker">{beats[1].kicker}</span>
+        <h3>{beats[1].title}</h3>
         <p>
-          It tracks the exact channel dropping what you want and re-routes the instant a
-          campaign ends. Drag to set your own order, or pick a strategy and let it decide.
+          {beats[1].body}
         </p>
       </div>
       <div class="beat__lift reveal">
         <div class="beat__viz beat__viz--sched" data-tilt>
           <div class="sched-strats">
-            <span class="schip">Ending soonest</span>
-            <span class="schip">Lowest availability</span>
-            <span class="schip schip--on">Priority list</span>
+            <span class="schip">{copy.features.scheduler.chips[0]}</span>
+            <span class="schip">{copy.features.scheduler.chips[1]}</span>
+            <span class="schip schip--on">{copy.features.scheduler.chips[2]}</span>
           </div>
           <ol class="sched-list">
-            <li class="srow"><i>⠿</i><b>1</b>Rust<em class="now">farming now</em></li>
-            <li class="srow"><i>⠿</i><b>2</b>VALORANT<em>up next</em></li>
-            <li class="srow"><i>⠿</i><b>3</b>Fortnite<em>idle fallback</em></li>
+            <li class="srow"><i>⠿</i><b>1</b>Rust<em class="now">{copy.features.scheduler.farmingNow}</em></li>
+            <li class="srow"><i>⠿</i><b>2</b>VALORANT<em>{copy.features.scheduler.upNext}</em></li>
+            <li class="srow"><i>⠿</i><b>3</b>Fortnite<em>{copy.features.scheduler.idleFallback}</em></li>
           </ol>
-          <div class="sched-hint">⠿ drag to reorder</div>
+          <div class="sched-hint">{copy.features.scheduler.dragHint}</div>
         </div>
       </div>
     </div>
@@ -82,19 +78,17 @@ const more = [
     <!-- Beat 3 — auto-claim -->
     <div class="beat">
       <div class="beat__copy reveal">
-        <span class="kicker">Hands-off rewards</span>
-        <h3>Claimed the instant it unlocks.</h3>
+        <span class="kicker">{beats[2].kicker}</span>
+        <h3>{beats[2].title}</h3>
         <p>
-          Every drop is claimed for you automatically — along with Twitch channel points
-          and Kick's daily challenge cards, each on by default and switchable per platform.
-          You just open your inventory and find it already there.
+          {beats[2].body}
         </p>
       </div>
       <div class="beat__lift reveal">
         <div class="beat__viz beat__viz--claims" data-tilt>
-          <div class="claim"><span class="dot"></span> Signal Booster <em>claimed ✓</em></div>
-          <div class="claim"><span class="dot"></span> Marathon Crate <em>claimed ✓</em></div>
-          <div class="claim claim--pending"><span></span> Arena Skin <em>2h 16m</em></div>
+          <div class="claim"><span class="dot"></span> {copy.features.claims[0].name} <em>{copy.features.claims[0].status}</em></div>
+          <div class="claim"><span class="dot"></span> {copy.features.claims[1].name} <em>{copy.features.claims[1].status}</em></div>
+          <div class="claim claim--pending"><span></span> {copy.features.claims[2].name} <em>{copy.features.claims[2].status}</em></div>
         </div>
       </div>
     </div>
@@ -102,18 +96,17 @@ const more = [
     <!-- Beat 4 — activity -->
     <div class="beat">
       <div class="beat__copy reveal">
-        <span class="kicker">Total transparency</span>
-        <h3>Always know what it's doing.</h3>
+        <span class="kicker">{beats[3].kicker}</span>
+        <h3>{beats[3].title}</h3>
         <p>
-          A real-time log records every decision — channel switches, claims, skips,
-          retries — with diagnostic detail on demand. It's never a black box.
+          {beats[3].body}
         </p>
       </div>
       <div class="beat__lift reveal">
         <div class="beat__viz beat__viz--log" data-tilt>
-          <div class="logline"><i>14:02</i><b>INFO</b> Switched to RivalsPilot · Rust drops live</div>
-          <div class="logline"><i>14:09</i><b class="ok">CLAIM</b> Reward unlocked &amp; claimed</div>
-          <div class="logline"><i>14:18</i><b>INFO</b> Campaign ended · re-routing</div>
+          <div class="logline"><i>{copy.features.log[0].time}</i><b>{copy.features.log[0].level}</b> {copy.features.log[0].text}</div>
+          <div class="logline"><i>{copy.features.log[1].time}</i><b class="ok">{copy.features.log[1].level}</b> {copy.features.log[1].text}</div>
+          <div class="logline"><i>{copy.features.log[2].time}</i><b>{copy.features.log[2].level}</b> {copy.features.log[2].text}</div>
         </div>
       </div>
     </div>

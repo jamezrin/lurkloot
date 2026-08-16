@@ -7,3 +7,33 @@
 
 *.svg
   Cache-Control: public, max-age=604800
+
+/es/*
+  X-Robots-Tag: noindex, nofollow
+
+/fr/*
+  X-Robots-Tag: noindex, nofollow
+
+/it/*
+  X-Robots-Tag: noindex, nofollow
+
+/ru/*
+  X-Robots-Tag: noindex, nofollow
+
+/de/*
+  X-Robots-Tag: noindex, nofollow
+
+/zh-cn/*
+  X-Robots-Tag: noindex, nofollow
+
+/hi/*
+  X-Robots-Tag: noindex, nofollow
+
+/pt-br/*
+  X-Robots-Tag: noindex, nofollow
+
+/ar/*
+  X-Robots-Tag: noindex, nofollow
+
+/tr/*
+  X-Robots-Tag: noindex, nofollow

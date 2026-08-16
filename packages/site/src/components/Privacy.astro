@@ -1,27 +1,25 @@
 ---
-const guarantees = [
-  { t: "No password, ever", d: "It uses the session you're already logged into. Your credentials are never requested." },
-  { t: "Nothing leaves your device", d: "No exported cookies or tokens, no remote servers, no analytics harvesting your activity." },
-  { t: "No middleman servers", d: "It talks to Twitch and Kick straight from your browser — nothing is routed through anyone else." },
-  { t: "No tracking or telemetry", d: "Your viewing activity stays on your machine — it's never collected, profiled, or sold." },
-  { t: "Open source", d: "Every line is public. Read it, build it yourself, and verify it does exactly what it says — no trust required.", wide: true },
-];
+import type { SiteCopy } from "../copy/types.ts";
+
+interface Props {
+  copy: SiteCopy;
+}
+const { copy } = Astro.props;
+const guarantees = copy.privacyHome.guarantees;
 ---
 
 <section id="privacy" class="priv act">
   <div class="wrap priv__inner">
     <div class="priv__head">
-      <p class="eyebrow reveal">Private by design</p>
-      <h2 class="reveal-slow">Your account<br />stays yours.</h2>
+      <p class="eyebrow reveal">{copy.privacyHome.eyebrow}</p>
+      <h2 class="reveal-slow" set:html={copy.privacyHome.title} />
       <p class="reveal">
-        Other farmers ask you to hand over tokens or run on someone else's server.
-        This does neither — a local-only, fully open-source tool that never sees a
-        password and never phones home.
+        {copy.privacyHome.deck}
       </p>
     </div>
     <ul class="priv__list">
       {guarantees.map((g) => (
-        <li class:list={["reveal", { wide: g.wide }]}>
+        <li class:list={["reveal", { wide: "wide" in g && Boolean(g.wide) }]}>
           <span class="priv__mark">✓</span>
           <div>
             <strong>{g.t}</strong>

@@ -1,19 +1,34 @@
 ---
 import "../styles/global.css";
+import type { SupportedLocale } from "@lurkloot/shared/models";
 import { EXTERNAL_URLS, SITE } from "../consts";
 import { faqItems } from "../faq";
+import { htmlDir, htmlLang, pageHref, parseLocaleFromPathname, type SitePath } from "../i18n/locale.ts";
 
 interface Props {
   title?: string;
   description?: string;
+  locale?: SupportedLocale;
+  includeJsonLd?: boolean;
 }
 
 const {
   title = `${SITE.name} — ${SITE.tagline}`,
   description = SITE.description,
+  locale = "en",
+  includeJsonLd = false,
 } = Astro.props;
 
-const canonical = new URL(Astro.url.pathname, Astro.site).href.replace(/\/$/, "");
+const bcp47 = htmlLang(locale);
+const dir = htmlDir(locale);
+
+const canonicalPath = (() => {
+  if (locale === "en") return Astro.url.pathname;
+  const { path } = parseLocaleFromPathname(Astro.url.pathname);
+  const sitePath: SitePath = path === "/changelog" ? "/changelog" : "/";
+  return pageHref("en", sitePath);
+})();
+const canonical = new URL(canonicalPath, Astro.site).href.replace(/\/$/, "");
 const ogImage = `${SITE.url}/og.png`;
 // Base-aware prefix for static files in /public (works at "/" or a sub-path).
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -45,7 +60,7 @@ const faqLd = {
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={bcp47} dir={dir}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -55,6 +70,7 @@ const faqLd = {
     <meta name="author" content="jamezrin" />
     <meta name="theme-color" content="#060609" />
     <meta name="color-scheme" content="dark" />
+    {locale !== "en" && <meta name="robots" content="noindex, nofollow" />}
     <link rel="canonical" href={canonical} />
 
     <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
@@ -78,8 +94,8 @@ const faqLd = {
 
     <link rel="sitemap" href={`${base}/sitemap-index.xml`} />
 
-    <script type="application/ld+json" set:html={JSON.stringify(softwareLd)} is:inline />
-    <script type="application/ld+json" set:html={JSON.stringify(faqLd)} is:inline />
+    {includeJsonLd && <script type="application/ld+json" set:html={JSON.stringify(softwareLd)} is:inline />}
+    {includeJsonLd && <script type="application/ld+json" set:html={JSON.stringify(faqLd)} is:inline />}
   </head>
   <body>
     <slot />

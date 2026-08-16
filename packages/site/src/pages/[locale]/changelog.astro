@@ -1,0 +1,15 @@
+---
+import ChangelogPage from "../../views/ChangelogPage.astro";
+import { prefixToLocale, prefixedLocales, localeToPrefix } from "../../i18n/locale.ts";
+import { loadChangelog, loadSiteCopy } from "../../i18n/siteStrings.ts";
+
+export function getStaticPaths() {
+  return prefixedLocales().map((locale) => ({ params: { locale: localeToPrefix(locale) } }));
+}
+
+const locale = prefixToLocale(Astro.params.locale ?? "");
+if (!locale || locale === "en") throw new Error("Invalid locale prefix");
+const copy = await loadSiteCopy(locale);
+const entries = await loadChangelog(locale);
+---
+<ChangelogPage locale={locale} copy={copy} entries={entries} />

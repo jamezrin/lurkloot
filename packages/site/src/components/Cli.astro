@@ -1,36 +1,21 @@
 ---
 import { LINKS, DOCKER_IMAGE } from "../consts";
+import type { SiteCopy } from "../copy/types.ts";
 
-// Same engine as the extension, no browser — these are the real commands from the
-// CLI README/Dockerfile, just pointed at the prebuilt GHCR image.
-const points = [
-  {
-    t: "The same engine as the extension",
-    d: "It runs @lurkloot/core directly — no faked browser globals, no headless Chrome. Identical farming logic.",
-  },
-  {
-    t: "No browser at all",
-    d: "Both platforms farm over plain HTTP, with a real Chrome TLS fingerprint to reach Kick. Twitch and Kick, no tab.",
-  },
-  {
-    t: "Prebuilt, multi-arch image",
-    d: "Pull it from GHCR for amd64 and arm64 — nothing to build. Perfect for a server, a NAS, or a Raspberry Pi.",
-  },
-  {
-    t: "Device-login for both",
-    d: "Authorize Twitch and Kick from any device with a code. No password, no cookie export, ever.",
-  },
-];
+interface Props {
+  copy: SiteCopy;
+}
+const { copy } = Astro.props;
+const points = copy.cli.points;
 ---
 
 <section id="cli" class="cli act">
   <div class="wrap">
     <div class="cli__head">
-      <p class="eyebrow reveal">No browser required</p>
-      <h2 class="reveal-slow">Prefer the terminal?<br />Run it on a <span class="grad-text">server</span>.</h2>
+      <p class="eyebrow reveal">{copy.cli.eyebrow}</p>
+      <h2 class="reveal-slow" set:html={copy.cli.title} />
       <p class="reveal">
-        The exact same farming engine, headless. No browser, no video tab — drop it on a
-        box you already keep running and let your drops pile up 24/7.
+        {copy.cli.deck}
       </p>
     </div>
 
@@ -38,16 +23,16 @@ const points = [
       <div class="cli__term reveal" data-lenis-prevent>
         <div class="cli__bar" aria-hidden="true">
           <span></span><span></span><span></span>
-          <em>lurkloot — docker</em>
+          <em>{copy.cli.bar}</em>
         </div>
-        <pre class="cli__code"><code><span class="c"># config.json is created with sensible defaults</span>
+        <pre class="cli__code"><code><span class="c">{copy.cli.comments[0]}</span>
 <span class="p">docker</span> run --rm -it -v <span class="s">"$PWD/data:/data"</span> \
   <span class="i">{DOCKER_IMAGE}</span> auth twitch device-login
 
 <span class="p">docker</span> run --rm -it -v <span class="s">"$PWD/data:/data"</span> \
   <span class="i">{DOCKER_IMAGE}</span> auth kick device-login
 
-<span class="c"># then leave the farming loop running</span>
+<span class="c">{copy.cli.comments[1]}</span>
 <span class="p">docker</span> run -d --name lurkloot --restart unless-stopped \
   -v <span class="s">"$PWD/data:/data"</span> <span class="i">{DOCKER_IMAGE}</span></code></pre>
       </div>
@@ -66,13 +51,13 @@ const points = [
         </ul>
         <div class="cli__btns reveal">
           <a class="btn btn--ghost" href={LINKS.github} target="_blank" rel="noopener">
-            View on GitHub
+            {copy.cli.github}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M7 17 17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </a>
           <a class="btn btn--ghost" href={LINKS.cli} target="_blank" rel="noopener">
-            Read the CLI docs
+            {copy.cli.docs}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M7 17 17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round" />
             </svg>

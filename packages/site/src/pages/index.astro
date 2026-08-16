@@ -1,34 +1,7 @@
 ---
-// Section order tells the story: hook (Hero, Why), show (How, the popup demo),
-// depth (Features, then the headless CLI that runs the same engine), proof
-// (Coverage: platforms + games), trust (Privacy, FAQ), close (CTA with the
-// objection-buster strip).
-import Base from "../layouts/Base.astro";
-import Hero from "../components/Hero.astro";
-import Manifesto from "../components/Manifesto.astro";
-import HowItWorks from "../components/HowItWorks.astro";
-import LiveDemo from "../components/LiveDemo.astro";
-import Features from "../components/Features.astro";
-import Cli from "../components/Cli.astro";
-import Coverage from "../components/Coverage.astro";
-import Privacy from "../components/Privacy.astro";
-import Faq from "../components/Faq.astro";
-import Cta from "../components/Cta.astro";
-import Footer from "../components/Footer.astro";
----
+import HomePage from "../views/HomePage.astro";
+import { loadSiteCopy } from "../i18n/siteStrings.ts";
 
-<Base>
-  <main>
-    <Hero />
-    <Manifesto />
-    <HowItWorks />
-    <LiveDemo />
-    <Features />
-    <Cli />
-    <Coverage />
-    <Privacy />
-    <Faq />
-    <Cta />
-  </main>
-  <Footer />
-</Base>
+const copy = await loadSiteCopy("en");
+---
+<HomePage locale="en" copy={copy} />

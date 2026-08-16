@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Popup, createDemoPopupAdapter, screenshotVariant } from "@lurkloot/popup-ui";
+import type { SupportedLocale } from "@lurkloot/shared/models";
 import popupCss from "@lurkloot/popup-ui/styles.css?inline";
 import rootManifest from "../../../../package.json";
 
@@ -31,7 +32,7 @@ function registerTailwindProperties(sheet: CSSStyleSheet | null) {
   }
 }
 
-export default function PopupDemo() {
+export default function PopupDemo({ locale = "en" }: { locale?: SupportedLocale }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<Root | null>(null);
 
@@ -53,11 +54,11 @@ export default function PopupDemo() {
     // contained, no portal/event-retargeting caveats.
     const root = createRoot(mount);
     rootRef.current = root;
-    const adapter = createDemoPopupAdapter({ locale: "en", version: rootManifest.version });
+    const adapter = createDemoPopupAdapter({ locale, version: rootManifest.version });
     root.render(
       <Popup
         adapter={adapter}
-        initialState={{ preview: true, locale: "en", variant: screenshotVariant("twitch-drops") }}
+        initialState={{ preview: true, locale, variant: screenshotVariant("twitch-drops") }}
       />,
     );
 
@@ -66,7 +67,7 @@ export default function PopupDemo() {
       // Defer so StrictMode's dev double-invoke doesn't unmount mid-render.
       queueMicrotask(() => root.unmount());
     };
-  }, []);
+  }, [locale]);
 
   return (
     <div

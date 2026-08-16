@@ -1,0 +1,45 @@
+---
+import type { SupportedLocale } from "@lurkloot/shared/models";
+import Base from "../layouts/Base.astro";
+import Hero from "../components/Hero.astro";
+import Manifesto from "../components/Manifesto.astro";
+import HowItWorks from "../components/HowItWorks.astro";
+import LiveDemo from "../components/LiveDemo.astro";
+import Features from "../components/Features.astro";
+import Cli from "../components/Cli.astro";
+import Coverage from "../components/Coverage.astro";
+import Privacy from "../components/Privacy.astro";
+import Faq from "../components/Faq.astro";
+import Cta from "../components/Cta.astro";
+import Footer from "../components/Footer.astro";
+import { SITE } from "../consts.ts";
+import type { SiteCopy } from "../copy/types.ts";
+
+interface Props {
+  locale: SupportedLocale;
+  copy: SiteCopy;
+}
+
+const { locale, copy } = Astro.props;
+---
+
+<Base
+  title={`${SITE.name} — ${copy.meta.tagline}`}
+  description={copy.meta.description}
+  locale={locale}
+  includeJsonLd={locale === "en"}
+>
+  <main>
+    <Hero copy={copy} />
+    <Manifesto copy={copy} />
+    <HowItWorks copy={copy} />
+    <LiveDemo copy={copy} locale={locale} />
+    <Features copy={copy} />
+    <Cli copy={copy} />
+    <Coverage copy={copy} />
+    <Privacy copy={copy} />
+    <Faq copy={copy} />
+    <Cta copy={copy} />
+  </main>
+  <Footer copy={copy} locale={locale} />
+</Base>

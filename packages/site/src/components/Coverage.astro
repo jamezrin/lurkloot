@@ -3,21 +3,25 @@
 // and the proof (revolving 3D wall of box art). Merges the old Platforms and
 // Games sections, which repeated each other's copy.
 import { Image } from "astro:assets";
+import type { SiteCopy } from "../copy/types.ts";
+
+interface Props {
+  copy: SiteCopy;
+}
+const { copy } = Astro.props;
 
 const platforms = [
   {
     key: "twitch",
     name: "Twitch",
-    blurb:
-      "It finds the Twitch drops you can earn, keeps you on a channel that's actually dropping them, and claims every reward for you — channel points included.",
-    points: ["Finds every drop you can earn", "Always on a dropping channel", "Claims drops + channel points"],
+    blurb: copy.coverage.twitch.blurb,
+    points: copy.coverage.twitch.points,
   },
   {
     key: "kick",
     name: "Kick",
-    blurb:
-      "Full Kick drops support, right in your browser. It follows live campaigns, picks the right channel for the reward you want, and claims it the moment it unlocks — daily challenge cards included.",
-    points: ["Follows live Kick campaigns", "Picks the right channel for you", "Claims drops + daily challenges"],
+    blurb: copy.coverage.kick.blurb,
+    points: copy.coverage.kick.points,
   },
 ];
 
@@ -71,12 +75,9 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
 <section id="coverage" class="cov act">
   <div class="wrap">
     <div class="cov__head">
-      <p class="eyebrow reveal">Coverage</p>
-      <h2 class="reveal-slow">Two platforms.<br />Every drop campaign.</h2>
-      <p class="reveal">
-        Wherever a campaign runs, it's already on it — watching a channel that
-        <b>actually counts</b> toward your drop. No hunting, no guesswork.
-      </p>
+      <p class="eyebrow reveal">{copy.coverage.eyebrow}</p>
+      <h2 class="reveal-slow" set:html={copy.coverage.title} />
+      <p class="reveal" set:html={copy.coverage.deck} />
     </div>
 
     <div class="cov__grid">
@@ -86,7 +87,7 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
           <div class="cov__top">
             <span class={`cov__badge cov__badge--${p.key}`}>{p.name[0]}</span>
             <h3>{p.name}</h3>
-            <span class="cov__status"><span class="dot"></span> supported</span>
+            <span class="cov__status"><span class="dot"></span> {copy.coverage.supported}</span>
           </div>
           <p>{p.blurb}</p>
           <ul>
@@ -99,10 +100,7 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
   </div>
 
   <div class="wrap">
-    <p class="cov__games-lede reveal">
-      <span class="grad-text">Any game, any campaign.</span> If a drop exists,
-      it gets farmed the moment it goes live — these are just a few of them.
-    </p>
+    <p class="cov__games-lede reveal" set:html={copy.coverage.gamesLede} />
   </div>
 
   <!-- Desktop: a revolving 3D carousel of box art. -->
@@ -111,7 +109,7 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
       <div class="ring3d">
         {games.map((g, i) => (
           <figure class="gcard gcard--ring" style={`--ra:${(i * RING_STEP).toFixed(2)}deg`}>
-            <Image src={g.img} alt={`${g.name} — Twitch drops supported`} widths={[180, 320]} sizes="180px" loading="lazy" />
+            <Image src={g.img} alt={`${g.name} — ${copy.coverage.imageAltSuffix}`} widths={[180, 320]} sizes="180px" loading="lazy" />
             <figcaption>{g.name}</figcaption>
           </figure>
         ))}
@@ -123,7 +121,7 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
     <div class="marq__track">
       {loopA.map((g) => (
         <figure class="gcard">
-          <Image src={g.img} alt={`${g.name} — Twitch drops supported`} widths={[150, 260]} sizes="150px" loading="lazy" />
+          <Image src={g.img} alt={`${g.name} — ${copy.coverage.imageAltSuffix}`} widths={[150, 260]} sizes="150px" loading="lazy" />
           <figcaption>{g.name}</figcaption>
         </figure>
       ))}
@@ -133,7 +131,7 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
     <div class="marq__track">
       {loopB.map((g) => (
         <figure class="gcard">
-          <Image src={g.img} alt={`${g.name} — Twitch drops supported`} widths={[150, 260]} sizes="150px" loading="lazy" />
+          <Image src={g.img} alt={`${g.name} — ${copy.coverage.imageAltSuffix}`} widths={[150, 260]} sizes="150px" loading="lazy" />
           <figcaption>{g.name}</figcaption>
         </figure>
       ))}

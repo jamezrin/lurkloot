@@ -1,17 +1,22 @@
 ---
-import { faqItems } from "../faq";
+import type { SiteCopy } from "../copy/types.ts";
+
+interface Props {
+  copy: SiteCopy;
+}
+const { copy } = Astro.props;
 ---
 
 <section id="faq" class="faq act">
   <div class="wrap faq__inner">
     <div class="faq__head">
-      <p class="eyebrow reveal">Answers</p>
-      <h2 class="reveal-slow">Good to know.</h2>
-      <p class="reveal">Everything people want to know before installing.</p>
+      <p class="eyebrow reveal">{copy.faq.eyebrow}</p>
+      <h2 class="reveal-slow">{copy.faq.title}</h2>
+      <p class="reveal">{copy.faq.deck}</p>
     </div>
 
     <div class="faq__list reveal">
-      {faqItems.map((item, i) => (
+      {copy.faq.items.map((item, i) => (
         <details class="faq__item" open={i === 0}>
           <summary>
             <span>{item.q}</span>

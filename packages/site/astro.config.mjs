@@ -4,6 +4,7 @@ import { defineConfig } from "astro/config";
 import sitemap from "@astrojs/sitemap";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
+import { localeToPrefix, prefixedLocales } from "./src/i18n/locale.ts";
 
 const deploymentChannel = process.env.SITE_DEPLOYMENT_CHANNEL ?? "production";
 
@@ -37,7 +38,19 @@ export default defineConfig({
   trailingSlash: "ignore",
   integrations: [
     react(),
-    ...(deploymentChannel === "production" ? [sitemap()] : []),
+    ...(deploymentChannel === "production"
+      ? [
+        sitemap({
+          filter(page) {
+            const path = new URL(page).pathname;
+            return !prefixedLocales().some((locale) => {
+              const prefix = localeToPrefix(locale);
+              return path === `/${prefix}` || path.startsWith(`/${prefix}/`);
+            });
+          },
+        }),
+      ]
+      : []),
     deploymentFiles,
   ],
   build: {
