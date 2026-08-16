@@ -168,6 +168,55 @@ describe("i18n", () => {
     }
   });
 
+  it("defines the reworked store-screenshot copy in English", () => {
+    const english = {
+      screenshotHeroEyebrow: "Twitch + Kick",
+      screenshotHeroHeadline: "Farm drops while you do anything else.",
+      screenshotHeroSubcopy: "Auto-claim from your own logged-in session. No passwords.",
+      screenshotExtrasEyebrow: "Beyond campaigns",
+      screenshotExtrasHeadline: "More than drops.",
+      screenshotExtrasSubcopy: "Channel points and Kick challenges, also claimed for you. An idle watchlist when nothing is left to farm.",
+      screenshotExtrasPointsName: "Channel points",
+      screenshotExtrasPointsMeta: "Twitch · also claimed for you",
+      screenshotExtrasChallengesName: "Daily challenges",
+      screenshotExtrasChallengesMeta: "Kick · also claimed for you",
+      screenshotExtrasWatchlistName: "Idle watchlist",
+      screenshotExtrasWatchlistMeta: "Watches your streamers between campaigns",
+      screenshotEasyEyebrow: "Easy to use",
+      screenshotEasyHeadline: "That easy.",
+      screenshotEasyInstallTitle: "Install",
+      screenshotEasyInstallSub: "Chrome Web Store. No account.",
+      screenshotEasyPinTitle: "Pin it",
+      screenshotEasyPinSub: "Keep the popup one click away.",
+      screenshotEasyEnableTitle: "Enable a platform",
+      screenshotEasyEnableSub: "Twitch, Kick, or both.",
+      screenshotEasyProfitTitle: "Profit",
+      screenshotEasyProfitSub: "It farms. You do other things.",
+      screenshotSettingsEyebrow: "Your rules",
+      screenshotSettingsHeadline: "Farm exactly how you want.",
+      screenshotSettingsSubcopy: "Priorities, games, tabless mode, auto-claim — per platform.",
+      screenshotUpdatedEyebrow: "Open source",
+      screenshotUpdatedHeadline: "Featureful. Always updated.",
+      screenshotUpdatedSubcopy: "Frequent releases as Twitch and Kick change — and open to ideas and improvements.",
+    };
+    const catalog = readCatalog("en");
+    for (const [key, message] of Object.entries(english)) {
+      expect(catalog[key]?.message, key).toBe(message);
+    }
+    for (const stale of [
+      "screenshotTwitchHeadline",
+      "screenshotTwitchSubcopy",
+      "screenshotKickHeadline",
+      "screenshotKickSubcopy",
+      "screenshotIdleWatchlistHeadline",
+      "screenshotIdleWatchlistSubcopy",
+      "screenshotActivityHeadline",
+      "screenshotActivitySubcopy",
+    ]) {
+      expect(catalog[stale], stale).toBeUndefined();
+    }
+  });
+
   it("does not leave non-English catalogs as English except product/common terms", () => {
     const english = readCatalog("en");
     const allowedSameAsEnglish = new Set([
