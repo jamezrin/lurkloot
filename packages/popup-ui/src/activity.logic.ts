@@ -357,6 +357,7 @@ export interface ActivityExportInput {
   userAgent: string;
   locale: string;
   at: string;
+  coverage?: "full";
 }
 
 // Plain text, not markup: this is pasted into email, Discord and issue bodies,
@@ -373,6 +374,7 @@ export function buildActivityExport(input: ActivityExportInput, t: TFunction): s
     `exported: ${input.at}`,
     `browser: ${input.userAgent}`,
     `events: ${input.events.length}`,
+    ...(input.coverage === "full" ? ["coverage: full"] : []),
   ].join("\n");
 
   // Oldest first: a log is read top-down when you are reconstructing what
@@ -385,6 +387,11 @@ export function buildActivityExport(input: ActivityExportInput, t: TFunction): s
       .join("\n");
 
   return `${header}\n\n${body}\n`;
+}
+
+export function buildDiagnosticsExportFilename(platform: Platform, at: Date): string {
+  const stamp = at.toISOString().replaceAll("-", "").replaceAll(":", "").replace(/\.\d{3}Z$/, "Z");
+  return `lurkloot-diagnostics-${platform}-${stamp}.log`;
 }
 
 export function mergeActivityPages(

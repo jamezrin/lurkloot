@@ -14,6 +14,7 @@ export {
   beginActivityMutation,
   buildActivityCard,
   buildActivityExport,
+  buildDiagnosticsExportFilename,
   createActivityMutationSequence,
   createActivityRequestScope,
   createActivityStream,
