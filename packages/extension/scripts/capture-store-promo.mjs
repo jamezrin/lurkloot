@@ -132,7 +132,7 @@ try {
       // no raw key is left on screen so the tile never freezes mid-translation.
       await page.waitForFunction(() => {
         const text = document.body.innerText ?? "";
-        return text.length > 0 && !/\b(promoTagline|screenshotTwitchHeadline|extensionName|extensionDescription|autoClaimReady)\b/.test(text);
+        return text.length > 0 && !/\b(promoTagline|screenshotHeroHeadline|extensionName|extensionDescription|autoClaimReady)\b/.test(text);
       });
       await page.screenshot({ path: outputPath, clip: { x: 0, y: 0, width: format.width, height: format.height } });
       await flattenToOpaque(outputPath);

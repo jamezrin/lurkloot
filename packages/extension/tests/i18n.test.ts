@@ -140,6 +140,15 @@ describe("i18n", () => {
     }
   });
 
+  it("captures the five reworked screenshot stems", () => {
+    const source = readFileSync(join(dirname(import.meta.dirname), "scripts/capture-store-screenshot.mjs"), "utf8");
+    for (const stem of ["01-drops", "02-extras", "03-easy", "04-settings", "05-updated"]) {
+      expect(source).toContain(stem);
+    }
+    expect(source).not.toContain("01-twitch-drops");
+    expect(source).not.toContain("05-activity");
+  });
+
   it("defines subscription drop states with matching placeholders in every catalog", () => {
     const englishMessages = {
       subscriptionRequired: "Subscription required",

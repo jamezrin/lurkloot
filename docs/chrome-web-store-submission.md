@@ -19,7 +19,7 @@ The store's default locale is `en` (manifest `default_locale`). Fill the main li
 | Summary (≤132) | English **Short** in `store-descriptions.md` |
 | Description | English **Detailed** in `store-descriptions.md` |
 | Category | Productivity |
-| Screenshots (1280×800) | `packages/extension/artifacts/store-screenshots/en/` (5 PNGs, numbered for order) |
+| Screenshots (1280×800) | `packages/extension/artifacts/store-screenshots/en/` (5 PNGs, numbered for order: `01-drops`, `02-extras`, `03-easy`, `04-settings`, `05-updated`) |
 | Small promo tile 440×280 | `artifacts/store-promo/en/lurkloot-promo-small-440x280.png` (optional) |
 | Marquee 1400×560 | `artifacts/store-promo/en/lurkloot-promo-marquee-1400x560.png` (optional) |
 | Icon 128×128 | from the built package |

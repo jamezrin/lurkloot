@@ -12,11 +12,11 @@ const candidates = ["popup.html", "popup/index.html"];
 // (see SCREENSHOT_VARIANTS / SCREENSHOT_LOCALE in entrypoints/popup/main.tsx).
 // Numeric file prefixes preserve the upload order in the store listing.
 const variants = [
-  { id: "twitch-drops", file: "01-twitch-drops" },
-  { id: "kick-drops", file: "02-kick-drops" },
-  { id: "idle-watchlist", file: "03-idle-watchlist" },
-  { id: "settings", file: "04-settings" },
-  { id: "activity", file: "05-activity" },
+  { id: "drops", file: "01-drops", popup: true },
+  { id: "extras", file: "02-extras", popup: false },
+  { id: "easy", file: "03-easy", popup: false },
+  { id: "settings", file: "04-settings", popup: true },
+  { id: "updated", file: "05-updated", popup: false },
 ];
 
 // One screenshot set per store locale. The ids match the _locales/<id> folders
@@ -122,13 +122,9 @@ try {
     for (const variant of variants) {
       const outputPath = join(localeDir, `lurkloot-${variant.file}-1280x800.png`);
       await page.goto(`${origin}${popupPath}?screenshot=store&variant=${variant.id}&locale=${locale}`, { waitUntil: "networkidle" });
-      // The header logo only renders after the snapshot loads (the loading
-      // placeholder shows just "Loading"), and is present in every view/platform —
-      // wait on it so Kick and non-Drops variants capture fully-rendered content.
-      await page.waitForSelector('header img[alt="Lurkloot"]');
-      // The marketing headline starts as the raw i18n key until the locale
-      // catalog loads; wait until it has been replaced with real copy so the
-      // capture never freezes a half-translated overlay.
+      if (variant.popup) {
+        await page.waitForSelector('header img[alt="Lurkloot"]');
+      }
       await page.waitForFunction(() => {
         const heading = document.querySelector("h1");
         return Boolean(heading?.textContent) && !heading.textContent.startsWith("screenshot");
