@@ -1016,6 +1016,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "प्लेबैक जाँच विफल हुई"
   },
+  "activityReasonNoProgress": {
+    "message": "चैनल ने कोई ड्रॉप प्रगति अर्जित नहीं की"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "अधिक प्राथमिकता वाला इनाम चुना गया"
   },

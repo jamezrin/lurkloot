@@ -128,6 +128,12 @@ export interface WatchSession {
   lastCheckedAt?: string;
   offlineChecks: number;
   playbackChecks?: number;
+  // Consecutive verification windows in which a healthy, category-matching watch
+  // accrued no additional minutes, plus the reading they are compared against.
+  // Trusting a discovery source means nothing else rejects such a channel, so
+  // this is what rotates off one that never pays out (#400).
+  noProgressChecks?: number;
+  lastWatchedMinutes?: number;
   errorChecks?: number;
   retryAfter?: string;
   status: "idle" | "starting" | "watching" | "paused" | "error";
@@ -166,6 +172,7 @@ export type WatchReasonCode =
   | "channel_offline"
   | "channel_mismatch"
   | "watch_unhealthy"
+  | "no_progress"
   | "higher_priority_reward"
   | "higher_priority_idle_watchlist"
   | "keeping_current_watch"

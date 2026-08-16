@@ -1016,6 +1016,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "İzleme kontrolü başarısız"
   },
+  "activityReasonNoProgress": {
+    "message": "kanal hiç drop ilerlemesi kazandırmadı"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "Daha yüksek öncelikli drop geldi"
   },

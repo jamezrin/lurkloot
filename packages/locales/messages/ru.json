@@ -1016,6 +1016,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "проверка воспроизведения не пройдена"
   },
+  "activityReasonNoProgress": {
+    "message": "канал не приносил прогресса дропов"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "выбрана награда с более высоким приоритетом"
   },

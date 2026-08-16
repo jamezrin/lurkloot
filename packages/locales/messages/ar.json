@@ -1016,6 +1016,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "فشل فحص التشغيل"
   },
+  "activityReasonNoProgress": {
+    "message": "لم تحقق القناة أي تقدم في الدروبس"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "تم الانتقال إلى مكافأة ذات أولوية أعلى"
   },

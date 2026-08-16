@@ -1016,6 +1016,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "the watch health check failed"
   },
+  "activityReasonNoProgress": {
+    "message": "the channel earned no drop progress"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "a higher-priority reward took over"
   },

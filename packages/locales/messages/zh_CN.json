@@ -1016,6 +1016,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "播放健康检查失败"
   },
+  "activityReasonNoProgress": {
+    "message": "该频道没有获得掉宝进度"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "已切换到更高优先级的奖励"
   },

@@ -1016,6 +1016,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "die Wiedergabeprüfung ist fehlgeschlagen"
   },
+  "activityReasonNoProgress": {
+    "message": "der Kanal erzielte keinen Drop-Fortschritt"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "eine höher priorisierte Belohnung wurde übernommen"
   },

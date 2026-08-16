@@ -1016,6 +1016,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "il controllo della riproduzione non è riuscito"
   },
+  "activityReasonNoProgress": {
+    "message": "il canale non ha generato progressi sui drop"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "è subentrata una ricompensa con priorità maggiore"
   },

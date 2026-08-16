@@ -1137,6 +1137,10 @@ export async function runSchedulerTick(
         const useTabless = chooseTablessWatch(previous, settings, adapter, sameChannel);
         session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
         session.playbackChecks = useTabless ? 0 : shouldKeep.playbackChecks;
+        // Both reset when the watch moves, so a fresh channel never inherits the
+        // previous one's stall count or its minutes baseline.
+        session.noProgressChecks = shouldKeep.keep && sameChannel ? shouldKeep.noProgressChecks ?? 0 : 0;
+        session.lastWatchedMinutes = shouldKeep.keep && sameChannel ? shouldKeep.lastWatchedMinutes : undefined;
 
         if (useTabless) {
           // Tabless: no video tab. Close any tab we previously opened for this
@@ -1458,7 +1462,7 @@ async function shouldKeepWatching(
   settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "checkChannel">,
   signal?: AbortSignal,
-): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string; reasonCode: WatchReasonCode; channel?: ChannelCandidate }> {
+): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; noProgressChecks?: number; lastWatchedMinutes?: number; reason: string; reasonCode: WatchReasonCode; channel?: ChannelCandidate }> {
   if (!previous.channel || previous.status !== "watching") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session", reasonCode: "no_existing_session" };
   }
@@ -1550,14 +1554,59 @@ async function shouldKeepWatching(
     };
   }
 
+  // Checked after playback health so an unhealthy tab reports watch_unhealthy
+  // rather than being misread as a channel that does not pay out.
+  //
+  // Trusting Twitch's discovery sources means no availability check rejects a
+  // channel any more, so without this a healthy stream that never accrues a
+  // minute would be watched forever (#400). Ticks are at least a minute apart
+  // (pollIntervalMinutes has a floor of 1) and watched minutes have one-minute
+  // granularity, so consecutive equal readings are real stalls, not sampling
+  // artefacts.
+  const progress = watchProgress(campaigns, previous);
+  const noProgressChecks = progress.observable
+    ? progress.advanced ? 0 : (previous.noProgressChecks ?? 0) + 1
+    // Subscription-only rewards and adapters that cannot read progress must
+    // never rotate on this path, so the counter is carried forward untouched.
+    : previous.noProgressChecks ?? 0;
+  if (progress.observable && noProgressChecks >= settings.offlineRetryLimit) {
+    return {
+      keep: false,
+      offlineChecks,
+      playbackChecks,
+      noProgressChecks,
+      lastWatchedMinutes: progress.watchedMinutes,
+      reason: `Channel accrued no drop progress across ${noProgressChecks} checks`,
+      reasonCode: "no_progress",
+    };
+  }
+
   return {
     keep: true,
     offlineChecks,
     playbackChecks,
+    noProgressChecks,
+    lastWatchedMinutes: progress.watchedMinutes ?? previous.lastWatchedMinutes,
     channel: channelFromCheck(previous.channel, check),
     reason: "Keeping current watch tab",
     reasonCode: "keeping_current_watch",
   };
+}
+
+// Whether the session's active watch reward accrued since the last check.
+// `observable` is false when there is no active watch reward or the platform
+// could not read its minutes — the only safe reading is "no evidence", never
+// "no progress".
+function watchProgress(
+  campaigns: readonly DropCampaign[],
+  previous: WatchSession,
+): { observable: boolean; advanced: boolean; watchedMinutes?: number } {
+  const reward = activeRewardFor(campaigns, previous);
+  const watchedMinutes = reward?.isWatchBased === false ? undefined : reward?.watchedMinutes;
+  if (watchedMinutes === undefined) return { observable: false, advanced: false };
+  const previousMinutes = previous.lastWatchedMinutes;
+  if (previousMinutes === undefined) return { observable: false, advanced: false, watchedMinutes };
+  return { observable: true, advanced: watchedMinutes > previousMinutes, watchedMinutes };
 }
 
 // Playing — muted or not — is what indicates farming is working. The browser
