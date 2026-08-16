@@ -42,6 +42,62 @@ test("ScoutTranslator posts one batched chat request with a high max_tokens", as
   assert.equal(SCOUT_MODEL, "@cf/meta/llama-4-scout-17b-16e-instruct");
 });
 
+test("retries a locale batch once after an HTTP error", async () => {
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    if (calls === 1) return new Response("unavailable", { status: 503 });
+    return new Response(JSON.stringify({
+      success: true,
+      result: { response: JSON.stringify([{ id: "aa", text: "Hola" }]) },
+    }), { status: 200 });
+  };
+  const translator = new ScoutTranslator({
+    accountId: "acct",
+    apiToken: "test-token",
+    fetchImpl,
+  });
+  const out = await translator.translate({ locale: "es", items: [{ id: "aa", text: "Hello" }] });
+  assert.deepEqual(out, [{ id: "aa", text: "Hola" }]);
+  assert.equal(calls, 2);
+});
+
+test("splits a multi-item batch when well-formed JSON is missing ids", async () => {
+  const requested = [];
+  const fetchImpl = async (_url, init) => {
+    const body = JSON.parse(String(init.body));
+    const items = JSON.parse(body.messages[1].content);
+    requested.push(items.map((item) => item.id));
+    if (items.length > 1) {
+      return new Response(JSON.stringify({
+        success: true,
+        result: { response: JSON.stringify([{ id: items[0].id, text: `${items[0].text} ES` }]) },
+      }), { status: 200 });
+    }
+    return new Response(JSON.stringify({
+      success: true,
+      result: { response: JSON.stringify(items.map((item) => ({ id: item.id, text: `${item.text} ES` }))) },
+    }), { status: 200 });
+  };
+  const translator = new ScoutTranslator({
+    accountId: "acct",
+    apiToken: "test-token",
+    fetchImpl,
+  });
+  const out = await translator.translate({
+    locale: "es",
+    items: [
+      { id: "aa", text: "Hello" },
+      { id: "bb", text: "World" },
+    ],
+  });
+  assert.deepEqual(out, [
+    { id: "aa", text: "Hello ES" },
+    { id: "bb", text: "World ES" },
+  ]);
+  assert.deepEqual(requested, [["aa", "bb"], ["aa"], ["bb"]]);
+});
+
 test("translateAll writes only cache misses and resolveLeaves falls back to English", async () => {
   const dir = await mkdtemp(join(tmpdir(), "lurkloot-i18n-"));
   try {

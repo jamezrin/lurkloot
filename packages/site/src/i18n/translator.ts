@@ -37,6 +37,13 @@ function stripMarkdownFence(value: string): string {
   return match?.[1] ?? trimmed;
 }
 
+class MissingTranslationIdsError extends Error {
+  constructor(missingIds: string[]) {
+    super(`Scout translation response is missing ids: ${missingIds.join(", ")}`);
+    this.name = "MissingTranslationIdsError";
+  }
+}
+
 function parseTranslationItems(value: string): TranslationItem[] {
   const parsed: unknown = JSON.parse(stripMarkdownFence(value));
   if (!Array.isArray(parsed)) {
@@ -52,6 +59,15 @@ function parseTranslationItems(value: string): TranslationItem[] {
     throw new Error("Scout translation response contains an invalid item");
   }
   return parsed;
+}
+
+function isRetryableScoutRequestError(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith("Scout translation request failed");
+}
+
+function shouldSplitBatch(error: unknown, itemCount: number): boolean {
+  if (itemCount <= 1) return false;
+  return error instanceof SyntaxError || error instanceof MissingTranslationIdsError;
 }
 
 export class ScoutTranslator implements Translator {
@@ -74,7 +90,7 @@ export class ScoutTranslator implements Translator {
     try {
       return await this.translateBatch(input);
     } catch (error) {
-      if (!(error instanceof SyntaxError) || input.items.length === 1) throw error;
+      if (!shouldSplitBatch(error, input.items.length)) throw error;
       const midpoint = Math.ceil(input.items.length / 2);
       const left = await this.translate({ locale: input.locale, items: input.items.slice(0, midpoint) });
       const right = await this.translate({ locale: input.locale, items: input.items.slice(midpoint) });
@@ -86,6 +102,32 @@ export class ScoutTranslator implements Translator {
     locale: Exclude<SupportedLocale, "en">;
     items: TranslationItem[];
   }): Promise<TranslationItem[]> {
+    const body = await this.requestScout(input);
+    const translations = parseTranslationItems(body.result?.response as string);
+    const returnedIds = new Set(translations.map((item) => item.id));
+    const missingIds = input.items.filter((item) => !returnedIds.has(item.id)).map((item) => item.id);
+    if (missingIds.length > 0) {
+      throw new MissingTranslationIdsError(missingIds);
+    }
+    return translations;
+  }
+
+  private async requestScout(input: {
+    locale: Exclude<SupportedLocale, "en">;
+    items: TranslationItem[];
+  }): Promise<ScoutResponse> {
+    try {
+      return await this.requestScoutOnce(input);
+    } catch (error) {
+      if (!isRetryableScoutRequestError(error)) throw error;
+      return await this.requestScoutOnce(input);
+    }
+  }
+
+  private async requestScoutOnce(input: {
+    locale: Exclude<SupportedLocale, "en">;
+    items: TranslationItem[];
+  }): Promise<ScoutResponse> {
     const response = await this.fetchImpl(
       `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/ai/run/${SCOUT_MODEL}`,
       {
@@ -115,13 +157,6 @@ export class ScoutTranslator implements Translator {
     if (typeof body.result?.response !== "string") {
       throw new Error("Scout translation response is missing result.response");
     }
-
-    const translations = parseTranslationItems(body.result.response);
-    const returnedIds = new Set(translations.map((item) => item.id));
-    const missingIds = input.items.filter((item) => !returnedIds.has(item.id)).map((item) => item.id);
-    if (missingIds.length > 0) {
-      throw new Error(`Scout translation response is missing ids: ${missingIds.join(", ")}`);
-    }
-    return translations;
+    return body;
   }
 }
