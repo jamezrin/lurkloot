@@ -1,9 +1,103 @@
 import React, { useEffect, useState } from "react";
+import { Gem, Gift, ListVideo, type LucideIcon } from "lucide-react";
 import type { SupportedLocale } from "@lurkloot/shared/models";
 import { DEFAULT_LOCALE, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import { PROMO_GRADIENT } from "./constants";
 import type { ScreenshotVariant } from "./types";
+import { variantShowsPopup } from "./types";
+
+function useScreenshotCatalog(locale: SupportedLocale | undefined): (key: string) => string {
+  const [catalog, setCatalog] = useState<MessageCatalog | undefined>(undefined);
+  const [fallback, setFallback] = useState<MessageCatalog | undefined>(undefined);
+  useEffect(() => {
+    void loadCatalog(locale ?? DEFAULT_LOCALE).then(setCatalog);
+    void loadCatalog(DEFAULT_LOCALE).then(setFallback);
+  }, [locale]);
+  return (key: string) => translateFromCatalogs(key, undefined, catalog, fallback ?? catalog ?? {});
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }): React.ReactElement {
+  return (
+    <p className="mb-4 text-[13px] font-semibold uppercase tracking-[0.14em] bg-linear-to-r from-[#c4a7ff] to-[#b7ff6a] bg-clip-text text-transparent">
+      {children}
+    </p>
+  );
+}
+
+function CopyBlock({
+  eyebrowKey,
+  headlineKey,
+  subcopyKey,
+  translate,
+  showSubcopy = true,
+  className,
+}: {
+  eyebrowKey: string;
+  headlineKey: string;
+  subcopyKey: string;
+  translate: (key: string) => string;
+  showSubcopy?: boolean;
+  className?: string;
+}): React.ReactElement {
+  return (
+    <div className={className}>
+      <Eyebrow>{translate(eyebrowKey)}</Eyebrow>
+      <h1 className="font-display text-[56px] font-bold leading-[0.98] tracking-normal text-[#ecedf5]">
+        {translate(headlineKey)}
+      </h1>
+      {showSubcopy ? (
+        <p className="mt-5 max-w-[520px] text-[20px] leading-snug text-[#9c9db4]">
+          {translate(subcopyKey)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function PopupFrame({ children, className }: { children: React.ReactNode; className?: string }): React.ReactElement {
+  return (
+    <div className={`h-[600px] w-[400px] shrink-0 overflow-hidden ${className ?? ""}`}>
+      {children}
+    </div>
+  );
+}
+
+function ExtrasCard({
+  icon: Icon,
+  name,
+  meta,
+}: {
+  icon: LucideIcon;
+  name: string;
+  meta: string;
+}): React.ReactElement {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-white/8 bg-white/[0.03] p-5 backdrop-blur-sm">
+      <Icon size={22} className="mb-4 text-[#c4a7ff]" strokeWidth={1.75} />
+      <div className="text-[17px] font-semibold text-[#ecedf5]">{name}</div>
+      <div className="mt-1.5 text-[13px] leading-snug text-[#9c9db4]">{meta}</div>
+    </div>
+  );
+}
+
+function StepItem({
+  number,
+  title,
+  sub,
+}: {
+  number: string;
+  title: string;
+  sub: string;
+}): React.ReactElement {
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="font-display text-[32px] font-bold leading-none text-[#c4a7ff]/80">{number}</div>
+      <div className="mt-3 text-[18px] font-semibold text-[#ecedf5]">{title}</div>
+      <div className="mt-1.5 text-[14px] leading-snug text-[#9c9db4]">{sub}</div>
+    </div>
+  );
+}
 
 export function StoreScreenshot({
   variant,
@@ -11,41 +105,129 @@ export function StoreScreenshot({
   locale = DEFAULT_LOCALE,
 }: {
   variant: ScreenshotVariant;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   locale?: SupportedLocale;
 }): React.ReactElement {
-  const [catalog, setCatalog] = useState<MessageCatalog | undefined>(undefined);
-  const [fallback, setFallback] = useState<MessageCatalog | undefined>(undefined);
-  useEffect(() => {
-    void loadCatalog(locale).then(setCatalog);
-    void loadCatalog(DEFAULT_LOCALE).then(setFallback);
-  }, [locale]);
-  const translate = (key: string) => translateFromCatalogs(key, undefined, catalog, fallback ?? catalog ?? {});
+  const translate = useScreenshotCatalog(locale);
+  const dir = isRtlLocale(locale) ? "rtl" : "ltr";
+  const rtl = dir === "rtl";
+  const popup = variantShowsPopup(variant) ? children : null;
+
   return (
     <div
-      data-platform={variant.platform}
-      className="grid h-[800px] w-[1280px] grid-cols-[1fr_460px] overflow-hidden bg-zinc-950 text-white"
+      dir={dir}
+      data-layout={variant.layout}
+      className="relative h-[800px] w-[1280px] overflow-hidden bg-[#060609] text-[#ecedf5]"
     >
-      <section className="relative flex min-w-0 flex-col justify-center px-20">
-        <div className="pointer-events-none absolute inset-0" style={{ background: variant.accentGradient.replace(/_/g, " ") }} />
-        <div className="relative max-w-[590px]">
-          <img src="/logo-ring.svg" alt="" width={76} height={76} className="mb-8 h-[76px] w-[76px]" />
-          <h1 className="font-display text-[62px] font-bold leading-[0.96] tracking-normal text-white">
-            {translate(variant.headlineKey)}
-          </h1>
-          <p className="mt-6 max-w-[520px] text-[22px] leading-snug text-zinc-300">
-            {translate(variant.subcopyKey)}
-          </p>
-          <div className="mt-9">
-            <PromoPills translate={translate} />
+      <div className="pointer-events-none absolute inset-0" style={{ background: variant.glow }} />
+
+      {variant.layout === "hero" ? (
+        <>
+          <CopyBlock
+            className="absolute start-[7%] bottom-[12%] end-[40%] z-10"
+            eyebrowKey={variant.eyebrowKey}
+            headlineKey={variant.headlineKey}
+            subcopyKey={variant.subcopyKey}
+            translate={translate}
+          />
+          {popup ? (
+            <div className={`absolute end-[7%] top-[9%] z-20 origin-center ${rtl ? "rotate-[2deg]" : "rotate-[-2deg]"}`}>
+              <PopupFrame>{popup}</PopupFrame>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+
+      {variant.layout === "extras" ? (
+        <>
+          <CopyBlock
+            className="absolute start-[7%] top-[12%] end-[40%] z-10"
+            eyebrowKey={variant.eyebrowKey}
+            headlineKey={variant.headlineKey}
+            subcopyKey={variant.subcopyKey}
+            translate={translate}
+          />
+          <div className="absolute start-[7%] bottom-[12%] end-[7%] z-10 flex gap-3">
+            <ExtrasCard
+              icon={Gem}
+              name={translate("screenshotExtrasPointsName")}
+              meta={translate("screenshotExtrasPointsMeta")}
+            />
+            <ExtrasCard
+              icon={Gift}
+              name={translate("screenshotExtrasChallengesName")}
+              meta={translate("screenshotExtrasChallengesMeta")}
+            />
+            <ExtrasCard
+              icon={ListVideo}
+              name={translate("screenshotExtrasWatchlistName")}
+              meta={translate("screenshotExtrasWatchlistMeta")}
+            />
           </div>
-        </div>
-      </section>
-      <section className="relative flex items-center justify-start">
-        <div className="rounded-[28px] bg-white/10 p-5 shadow-2xl shadow-black/50 ring-1 ring-white/12">
-          {children}
-        </div>
-      </section>
+        </>
+      ) : null}
+
+      {variant.layout === "steps" ? (
+        <>
+          <CopyBlock
+            className="absolute start-[7%] top-[12%] end-[40%] z-10"
+            eyebrowKey={variant.eyebrowKey}
+            headlineKey={variant.headlineKey}
+            subcopyKey={variant.subcopyKey}
+            translate={translate}
+            showSubcopy={false}
+          />
+          <div className="absolute inset-inline-[7%] bottom-[14%] z-10 flex gap-7">
+            <StepItem
+              number="01"
+              title={translate("screenshotEasyInstallTitle")}
+              sub={translate("screenshotEasyInstallSub")}
+            />
+            <StepItem
+              number="02"
+              title={translate("screenshotEasyPinTitle")}
+              sub={translate("screenshotEasyPinSub")}
+            />
+            <StepItem
+              number="03"
+              title={translate("screenshotEasyEnableTitle")}
+              sub={translate("screenshotEasyEnableSub")}
+            />
+            <StepItem
+              number="04"
+              title={translate("screenshotEasyProfitTitle")}
+              sub={translate("screenshotEasyProfitSub")}
+            />
+          </div>
+        </>
+      ) : null}
+
+      {variant.layout === "settings" ? (
+        <>
+          {popup ? (
+            <div className="absolute start-[5%] top-[8%] z-20">
+              <PopupFrame>{popup}</PopupFrame>
+            </div>
+          ) : null}
+          <CopyBlock
+            className="absolute start-[42%] end-[7%] top-[18%] z-10"
+            eyebrowKey={variant.eyebrowKey}
+            headlineKey={variant.headlineKey}
+            subcopyKey={variant.subcopyKey}
+            translate={translate}
+          />
+        </>
+      ) : null}
+
+      {variant.layout === "updated" ? (
+        <CopyBlock
+          className="absolute start-[8%] end-[18%] bottom-[14%] max-w-[640px] z-10"
+          eyebrowKey={variant.eyebrowKey}
+          headlineKey={variant.headlineKey}
+          subcopyKey={variant.subcopyKey}
+          translate={translate}
+        />
+      ) : null}
     </div>
   );
 }
@@ -94,13 +276,7 @@ export function PromoTile({
   format: "small" | "marquee";
   locale?: SupportedLocale;
 }): React.ReactElement {
-  const [catalog, setCatalog] = useState<MessageCatalog | undefined>(undefined);
-  const [fallback, setFallback] = useState<MessageCatalog | undefined>(undefined);
-  useEffect(() => {
-    void loadCatalog(locale).then(setCatalog);
-    void loadCatalog(DEFAULT_LOCALE).then(setFallback);
-  }, [locale]);
-  const translate = (key: string) => translateFromCatalogs(key, undefined, catalog, fallback ?? catalog ?? {});
+  const translate = useScreenshotCatalog(locale);
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
 
   if (format === "small") {
@@ -140,7 +316,7 @@ export function PromoTile({
           </span>
         </div>
         <h1 className="font-display max-w-[660px] text-[56px] font-bold leading-[0.98] tracking-normal text-white">
-          {translate("screenshotTwitchHeadline")}
+          {translate("screenshotHeroHeadline")}
         </h1>
         <p className="mt-6 max-w-[560px] text-[21px] leading-snug text-zinc-300">
           {translate("extensionDescription")}
