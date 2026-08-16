@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Автоматически получает бонусы баллов канала во время фарма на этой платформе."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Строгая проверка доступности кампаний"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Фармить кампанию только на каналах, для которых её показывает Twitch. Twitch часто не указывает доступные кампании, поэтому часть дропов может остаться нефармленной."
+  },
   "autoClaimChallengesTitle": {
     "message": "Автополучение ежедневных испытаний"
   },
@@ -1009,6 +1015,9 @@
   },
   "activityReasonWatchUnhealthy": {
     "message": "проверка воспроизведения не пройдена"
+  },
+  "activityReasonNoProgress": {
+    "message": "канал не приносил прогресса дропов"
   },
   "activityReasonHigherPriorityReward": {
     "message": "выбрана награда с более высоким приоритетом"

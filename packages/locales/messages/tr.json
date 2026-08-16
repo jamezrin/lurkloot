@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Yayın izlerken biriken kanal puanı bonuslarını otomatik toplar."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Katı kampanya uygunluğu"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Bir kampanyayı yalnızca Twitch'in onu listelediği kanallarda farmla. Twitch farmlanabilir kampanyaları sıkça atlar, bu yüzden bazı droplar farmlanmadan kalabilir."
+  },
   "autoClaimChallengesTitle": {
     "message": "Günlük görevleri otomatik al"
   },
@@ -1009,6 +1015,9 @@
   },
   "activityReasonWatchUnhealthy": {
     "message": "İzleme kontrolü başarısız"
+  },
+  "activityReasonNoProgress": {
+    "message": "kanal hiç drop ilerlemesi kazandırmadı"
   },
   "activityReasonHigherPriorityReward": {
     "message": "Daha yüksek öncelikli drop geldi"

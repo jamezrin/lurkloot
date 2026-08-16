@@ -3,7 +3,7 @@ import * as controllerModule from "@lurkloot/core/controller";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { EventEmitter } from "@lurkloot/shared/events";
-import type { ExtensionSettings, Platform } from "@lurkloot/shared/models";
+import type { DropCampaign, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -118,6 +118,59 @@ describe("background integrity alarm wiring", () => {
     expect(controller.tickAndHandOff).toHaveBeenNthCalledWith(2, ["kick"], "alarm");
     expect(controller.tickAndHandOff).toHaveBeenCalledTimes(2);
     expect(controller.runWatchHeartbeat).not.toHaveBeenCalled();
+  });
+
+  // The Twitch adapter reads strict campaign availability from settings, so a
+  // construction site that stops forwarding it silently reverts every install
+  // to rejecting candidates on AvailableDrops (#400). Asserted through
+  // behaviour rather than the private option: what matters is whether the
+  // request goes out.
+  it.each([
+    { strictCampaignAvailability: false, expected: [] as string[] },
+    { strictCampaignAvailability: true, expected: ["DropsHighlightService_AvailableDrops"] },
+  ])("forwards strictCampaignAvailability=$strictCampaignAvailability to the Twitch adapter", async ({ strictCampaignAvailability, expected }) => {
+    let deps: BackgroundAdapterDependencies | undefined;
+    createBackgroundController.mockImplementation((nextDeps) => {
+      deps = nextDeps;
+      return {};
+    });
+    const operations: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      const operation = JSON.parse(String(init?.body)).operationName as string;
+      operations.push(operation);
+      return new Response(
+        JSON.stringify({ data: { channel: { id: "channel-id", viewerDropCampaigns: [{ id: "campaign" }] } } }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }));
+    vi.stubGlobal("defineBackground", vi.fn());
+
+    await import("../entrypoints/background");
+
+    const settings: ExtensionSettings = {
+      ...DEFAULT_SETTINGS,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, strictCampaignAvailability },
+      },
+    };
+    const adapter = deps?.createAdapter?.("twitch", () => undefined, settings).adapter;
+    const selection = await adapter?.selectCandidateChannel?.(
+      [{
+        platform: "twitch",
+        username: "directory-one",
+        url: "https://www.twitch.tv/directory-one",
+        channelId: "channel-id",
+        broadcastId: "broadcast-id",
+        categoryId: "game",
+        live: true,
+        isAclMatch: false,
+      }],
+      { id: "campaign", name: "Campaign", categoryId: "game" } as DropCampaign,
+    );
+
+    expect(selection?.channel?.username).toBe("directory-one");
+    expect(operations).toEqual(expected);
   });
 
   it("injects the extension WebSocket into the Kick discovery observer", async () => {

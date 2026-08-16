@@ -2269,6 +2269,173 @@ describe("scheduler tick", () => {
     });
   });
 
+  // #400: trusting Twitch's discovery sources removed the only check that ever
+  // rejected a live, category-matching channel, so a healthy stream that never
+  // pays out would otherwise be watched forever.
+  describe("stalled progress rotation", () => {
+    const watching = (patch: Partial<SchedulerState["sessions"]["twitch"]> = {}) => ({
+      platform: "twitch" as const,
+      status: "watching" as const,
+      channel: channel("old"),
+      campaignId: "drops",
+      rewardId: "reward-in_progress",
+      offlineChecks: 0,
+      tabId: 7,
+      ...patch,
+    });
+
+    const tick = async (session: Partial<SchedulerState["sessions"]["twitch"]>, campaigns: DropCampaign[]) => {
+      const twitch = adapter("twitch", campaigns, [channel("old"), channel("fresh")]);
+      vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+        live: true,
+        categoryMatches: true,
+        candidate,
+      }));
+      return runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: watching(session),
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+    };
+
+    it("rotates away once a healthy channel stalls for the retry limit", async () => {
+      const result = await tick(
+        { noProgressChecks: 2, lastWatchedMinutes: 20 },
+        [campaign("drops")],
+      );
+
+      expect(result.state.sessions.twitch.reasonCode).toBe("no_progress");
+      // Stopping the old session is not rotation: the tick has to land on a
+      // different channel, or the stalled one is simply reselected and its
+      // counter reset, looping forever.
+      expect(result.state.sessions.twitch.channel?.username).toBe("fresh");
+    });
+
+    // Skipping is a demotion, not an exclusion. If every other candidate fails
+    // validation the stalled channel has to be reachable, or rotating costs the
+    // campaign the whole tick.
+    it("falls back to the stalled channel when the alternative is invalid", async () => {
+      const twitch = adapter("twitch", [campaign("drops")], [channel("old"), channel("broken")]);
+      vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+        live: candidate.username !== "broken",
+        categoryMatches: true,
+        candidate,
+      }));
+      // No selectCandidateChannel, so firstValidCandidate validates one by one.
+      twitch.selectCandidateChannel = undefined;
+
+      const result = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: watching({ noProgressChecks: 2, lastWatchedMinutes: 20 }),
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(result.state.sessions.twitch.channel?.username).toBe("old");
+    });
+
+    // Rotating to nothing would be worse than a slow channel, so the skip is
+    // advisory: the stalled channel stays when it is the only one that can run
+    // the campaign.
+    it("keeps the stalled channel when it is the only candidate", async () => {
+      const twitch = adapter("twitch", [campaign("drops")], [channel("old")]);
+      vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+        live: true,
+        categoryMatches: true,
+        candidate,
+      }));
+
+      const result = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: watching({ noProgressChecks: 2, lastWatchedMinutes: 20 }),
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(result.state.sessions.twitch.channel?.username).toBe("old");
+    });
+
+    it("keeps a stalling channel until the limit is reached", async () => {
+      const result = await tick(
+        { noProgressChecks: 1, lastWatchedMinutes: 20 },
+        [campaign("drops")],
+      );
+
+      expect(result.state.sessions.twitch.reasonCode).not.toBe("no_progress");
+      expect(result.state.sessions.twitch.noProgressChecks).toBe(2);
+    });
+
+    it("resets the counter when the channel accrues a minute", async () => {
+      const result = await tick(
+        { noProgressChecks: 2, lastWatchedMinutes: 19 },
+        [campaign("drops")],
+      );
+
+      expect(result.state.sessions.twitch.reasonCode).not.toBe("no_progress");
+      expect(result.state.sessions.twitch.noProgressChecks).toBe(0);
+      expect(result.state.sessions.twitch.lastWatchedMinutes).toBe(20);
+    });
+
+    // Without a prior reading there is nothing to compare, so the first check on
+    // a new channel seeds the baseline instead of counting as a stall.
+    it("seeds the baseline without counting a stall", async () => {
+      const result = await tick({}, [campaign("drops")]);
+
+      expect(result.state.sessions.twitch.noProgressChecks).toBe(0);
+      expect(result.state.sessions.twitch.lastWatchedMinutes).toBe(20);
+    });
+
+    // A reward whose progress the platform cannot report must never rotate:
+    // "no evidence" is not "no progress".
+    it("never rotates a reward whose progress is unreadable", async () => {
+      const subscriptionCampaign = campaign("drops", {
+        rewards: [{
+          id: "reward-in_progress",
+          name: "Reward",
+          requiredMinutes: 60,
+          watchedMinutes: 20,
+          status: "in_progress",
+          isWatchBased: false,
+        }],
+      });
+
+      const result = await tick(
+        { noProgressChecks: 2, lastWatchedMinutes: 20 },
+        [subscriptionCampaign],
+      );
+
+      expect(result.state.sessions.twitch.reasonCode).not.toBe("no_progress");
+    });
+  });
+
   it("reloads the watch tab after repeated playback failures", async () => {
     const old = channel("old");
     const twitch = adapter("twitch", [campaign("drops")], [old]);

@@ -83,6 +83,7 @@ export function createCliAdapters(
           ...identity,
           compatibility: resolution.compatibility.twitch,
           discoveryState: twitchDiscoveryState,
+          strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
           heartbeatIdentity: twitchIdentity,
           ...deps.twitchHeartbeat(identity),
         },

@@ -67,6 +67,14 @@ export interface TwitchAdapterOptions {
   heartbeatFetchText?: TwitchHeartbeatFetchText;
   heartbeatPost?: TwitchHeartbeatPost;
   discoveryState?: TwitchDiscoveryState;
+  // Opt-in exact validation of a campaign against DropsHighlightService_
+  // AvailableDrops before a channel may be watched. Off by default: Twitch's
+  // own GameDirectory DROPS_ENABLED filter and the campaign ACL are the
+  // authoritative discovery sources, and AvailableDrops routinely omits a
+  // campaign that is in fact farmable on the channel — which rejected every
+  // candidate and left drops unfarmed (#400). When off, live/category
+  // validation alone decides, matching TwitchDropsMiner's default.
+  strictCampaignAvailability?: boolean;
   // Supplies the integrity bundle each request should carry. The transport
   // attaches it itself rather than letting the fetcher pick one up from a global,
   // so the token a rejection reports is provably the token that was sent: the
@@ -1291,7 +1299,9 @@ export class TwitchAdapter implements PlatformAdapter {
       const target = streamCandidates[index];
       if (target) checks[target.index] = check;
     });
-    const availabilityResult = campaign
+    // Without strict validation the matches map stays empty, so every candidate
+    // reads `undefined` below and passes on live/category evidence alone.
+    const availabilityResult = campaign && this.options.strictCampaignAvailability
       ? await this.batchCampaignAvailability(
           checks.flatMap((check) =>
             check?.live && check.categoryMatches && check.candidate.channelId && check.candidate.broadcastId
@@ -1317,11 +1327,12 @@ export class TwitchAdapter implements PlatformAdapter {
 
     let checked = 0;
     let winnerFallbacks = 0;
+    let strictRejections = 0;
     const reportSelectionFinished = () => {
       diagnostic(
         this.emit,
         "debug",
-        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${availabilityResult.cacheMisses} availability cache misses, ${availabilityResult.cacheExpirations} availability cache expirations, ${availabilityResult.broadcastInvalidations} availability broadcast invalidations, ${availabilityResult.progressOverrides} progress-confirmed availability overrides, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks)`,
+        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${this.options.strictCampaignAvailability ? "strict campaign availability" : "trusted discovery sources"}, ${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${availabilityResult.cacheMisses} availability cache misses, ${availabilityResult.cacheExpirations} availability cache expirations, ${availabilityResult.broadcastInvalidations} availability broadcast invalidations, ${availabilityResult.progressOverrides} progress-confirmed availability overrides, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks, ${strictRejections} candidates rejected by strict availability)`,
         "twitch",
       );
     };
@@ -1340,7 +1351,10 @@ export class TwitchAdapter implements PlatformAdapter {
       } else if (campaign && check.candidate.channelId) {
         campaignMatches = availabilityResult.matches.get(check.candidate.channelId);
       }
-      if (campaignMatches === false) continue;
+      if (campaignMatches === false) {
+        strictRejections += 1;
+        continue;
+      }
       reportSelectionFinished();
       return {
         checked: candidates.length,
@@ -1531,17 +1545,40 @@ export class TwitchAdapter implements PlatformAdapter {
     } catch (error) {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      for (const candidate of candidates) await fallback(candidate);
+      const message = error instanceof Error ? error.message : String(error);
+      for (const [index, candidate] of candidates.entries()) {
+        diagnostic(
+          this.emit,
+          "debug",
+          availableDropsEvidence(null, candidate, campaignId, `batch request index ${index} of ${candidates.length}`, `batch request failed: ${message}`),
+          "twitch",
+        );
+        await fallback(candidate);
+      }
       return { matches, singleFallbacks: candidates.length };
     }
     if (twitchPageFetchError(raw)) {
-      for (const candidate of candidates) await fallback(candidate);
+      for (const [index, candidate] of candidates.entries()) {
+        diagnostic(
+          this.emit,
+          "debug",
+          availableDropsEvidence(null, candidate, campaignId, `batch request index ${index} of ${candidates.length}`, "batch request rejected by the page fetch transport"),
+          "twitch",
+        );
+        await fallback(candidate);
+      }
       return { matches, singleFallbacks: candidates.length };
     }
     const responses = Array.isArray(raw) ? raw : candidates.length === 1 ? [raw] : [];
     let singleFallbacks = 0;
     for (const [index, candidate] of candidates.entries()) {
       const response = normalizeTwitchGqlResponse<TwitchAvailableDropsData>(responses[index]);
+      diagnostic(
+        this.emit,
+        "debug",
+        availableDropsEvidence(response, candidate, campaignId, `batch response index ${index} of ${candidates.length}`),
+        "twitch",
+      );
       const campaignIds = parseAvailableDropCampaigns(response, candidate.channelId);
       if (!campaignIds) {
         singleFallbacks += 1;
@@ -1681,7 +1718,11 @@ export class TwitchAdapter implements PlatformAdapter {
       const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
       const categoryMatches = !expectedCategoryId || actualCategoryId === expectedCategoryId;
       const broadcastId = stream?.id;
+      // Gated on strict validation for the same reason as selectCandidateChannel:
+      // this path also re-verifies the channel already being watched, so an
+      // un-gated negative would stop farming mid-session (#400).
       const campaignMatches = stream && categoryMatches && campaign && channelId && broadcastId
+        && this.options.strictCampaignAvailability
         ? await this.checkCampaignAvailability(channelId, broadcastId, campaign.id, channel.username, signal)
         : undefined;
       return {
@@ -1739,6 +1780,12 @@ export class TwitchAdapter implements PlatformAdapter {
         this.emit,
         signal,
       );
+      diagnostic(
+        this.emit,
+        "debug",
+        availableDropsEvidence(response, { channelId, channelLogin, broadcastId }, campaignId, "single response"),
+        "twitch",
+      );
       const campaignIds = parseAvailableDropCampaigns(response, channelId);
       if (!campaignIds) {
         diagnostic(this.emit, "debug", `Twitch did not return available campaign data for ${channelLogin}; using live/category validation`, "twitch");
@@ -1756,6 +1803,12 @@ export class TwitchAdapter implements PlatformAdapter {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
+      diagnostic(
+        this.emit,
+        "debug",
+        availableDropsEvidence(null, { channelId, channelLogin, broadcastId }, campaignId, "single response", `single request failed: ${message}`),
+        "twitch",
+      );
       diagnostic(this.emit, "debug", `Could not confirm available Twitch campaigns for ${channelLogin}; using live/category validation: ${message}`, "twitch");
       return undefined;
     }
@@ -2326,6 +2379,45 @@ function parseAvailableDropCampaigns(
       .map((campaign) => campaign?.id)
       .filter((id): id is string => typeof id === "string" && id.length > 0),
   );
+}
+
+// Credential-free evidence for comparing a batched AvailableDrops response with
+// its single-channel equivalent (#400 acceptance criterion 10). Everything here
+// is a public identifier or a GQL error string — never headers, cookies, the
+// integrity token, or session/device ids. Emitted only on the strict path,
+// which is the only caller of these queries, and at debug level so it stays
+// behind the diagnostic-logging setting.
+function availableDropsEvidence(
+  response: TwitchGqlResponse<TwitchAvailableDropsData> | null,
+  requested: { channelId: string; channelLogin: string; broadcastId: string },
+  campaignId: string,
+  source: string,
+  // Set when the request never produced a response at all (transport throw or a
+  // page-fetch rejection). Without it those candidates would leave no comparable
+  // record, which is the gap that makes a batch failure indistinguishable from a
+  // campaign Twitch genuinely does not list.
+  failure?: string,
+): string {
+  const channel = response?.data?.channel;
+  const returnedIds = Array.isArray(channel?.viewerDropCampaigns)
+    ? channel.viewerDropCampaigns
+      .map((campaign) => campaign?.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0)
+    : undefined;
+  const errors = [
+    failure,
+    response?.error,
+    response?.message,
+    ...(response?.errors ?? []).map((error) => error.message),
+  ].filter((message): message is string => Boolean(message));
+  return [
+    `Twitch AvailableDrops evidence (${source})`,
+    `requested channel ${requested.channelLogin} id=${requested.channelId} broadcast=${requested.broadcastId}`,
+    `matching campaign ${campaignId}`,
+    `returned channel.id=${channel?.id ?? "none"}`,
+    `returned viewerDropCampaigns=${returnedIds ? (returnedIds.length > 0 ? returnedIds.join(",") : "empty") : "absent"}`,
+    `errors=${errors.length > 0 ? errors.join("; ") : "none"}`,
+  ].join("; ");
 }
 
 function isTransientGqlError(message: string | undefined): boolean {

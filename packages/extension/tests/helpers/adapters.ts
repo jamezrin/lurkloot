@@ -26,7 +26,10 @@ export function twitchAdapter(
     fetcher,
     ensureIntegrity ?? (async () => false),
     watchTabPort ?? unavailableWatchTabPort,
-    { compatibility: TWITCH_COMPAT, ...options },
+    // Strict availability is off in production (#400) but on here: these
+    // fixtures were written against exact AvailableDrops validation and still
+    // cover it. Tests for the default path pass `false` explicitly.
+    { compatibility: TWITCH_COMPAT, strictCampaignAvailability: true, ...options },
     emit ?? ignoreEvent,
   );
 }

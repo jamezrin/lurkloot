@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Riscatta automaticamente i bonus in punti canale durante il farming su questa piattaforma."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Disponibilità rigorosa delle campagne"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Farma una campagna solo sui canali per cui Twitch la elenca. Twitch spesso omette campagne farmabili, quindi alcuni drop potrebbero non essere farmati."
+  },
   "autoClaimChallengesTitle": {
     "message": "Riscatto automatico delle sfide giornaliere"
   },
@@ -1009,6 +1015,9 @@
   },
   "activityReasonWatchUnhealthy": {
     "message": "il controllo della riproduzione non è riuscito"
+  },
+  "activityReasonNoProgress": {
+    "message": "il canale non ha generato progressi sui drop"
   },
   "activityReasonHigherPriorityReward": {
     "message": "è subentrata una ricompensa con priorità maggiore"

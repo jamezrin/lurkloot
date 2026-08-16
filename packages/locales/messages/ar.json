@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "استلم مكافآت نقاط القناة تلقائيًا أثناء الفارم على هذه المنصة."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "توفر الحملات الصارم"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "احصد الحملة فقط على القنوات التي تعرضها تويتش لها. غالبًا ما تغفل تويتش حملات قابلة للحصد، لذا قد تبقى بعض الدروبس دون حصد."
+  },
   "autoClaimChallengesTitle": {
     "message": "استلام التحديات اليومية تلقائيًا"
   },
@@ -1009,6 +1015,9 @@
   },
   "activityReasonWatchUnhealthy": {
     "message": "فشل فحص التشغيل"
+  },
+  "activityReasonNoProgress": {
+    "message": "لم تحقق القناة أي تقدم في الدروبس"
   },
   "activityReasonHigherPriorityReward": {
     "message": "تم الانتقال إلى مكافأة ذات أولوية أعلى"

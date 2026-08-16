@@ -135,6 +135,7 @@ const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   channel_offline: true,
   channel_mismatch: true,
   watch_unhealthy: true,
+  no_progress: true,
   higher_priority_reward: true,
   higher_priority_idle_watchlist: true,
   watch_requirement_completed: true,

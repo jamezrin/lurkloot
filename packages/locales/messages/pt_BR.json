@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Resgata automaticamente os bônus de pontos de canal enquanto farma nesta plataforma."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Disponibilidade estrita de campanhas"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Farme uma campanha apenas nos canais para os quais a Twitch a lista. A Twitch costuma omitir campanhas farmáveis, o que pode deixar drops sem farmar."
+  },
   "autoClaimChallengesTitle": {
     "message": "Resgatar desafios diários automaticamente"
   },
@@ -1009,6 +1015,9 @@
   },
   "activityReasonWatchUnhealthy": {
     "message": "a verificação da reprodução falhou"
+  },
+  "activityReasonNoProgress": {
+    "message": "o canal não gerou progresso de drops"
   },
   "activityReasonHigherPriorityReward": {
     "message": "uma recompensa de maior prioridade assumiu"

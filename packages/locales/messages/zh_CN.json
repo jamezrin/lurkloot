@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "在该平台刷取时自动领取频道积分奖励。"
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "严格的活动可用性"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "仅在 Twitch 列出该活动的频道上刷取。Twitch 经常遗漏可刷取的活动，因此可能导致部分掉宝未被刷取。"
+  },
   "autoClaimChallengesTitle": {
     "message": "自动领取每日挑战"
   },
@@ -1009,6 +1015,9 @@
   },
   "activityReasonWatchUnhealthy": {
     "message": "播放健康检查失败"
+  },
+  "activityReasonNoProgress": {
+    "message": "该频道没有获得掉宝进度"
   },
   "activityReasonHigherPriorityReward": {
     "message": "已切换到更高优先级的奖励"

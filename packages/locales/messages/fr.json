@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Réclame automatiquement les bonus de points de chaîne lors du farm sur cette plateforme."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Disponibilité stricte des campagnes"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Ne farmer une campagne que sur les chaînes pour lesquelles Twitch l'affiche. Twitch omet souvent des campagnes farmables, ce qui peut laisser des drops non farmés."
+  },
   "autoClaimChallengesTitle": {
     "message": "Réclamer automatiquement les défis quotidiens"
   },
@@ -1009,6 +1015,9 @@
   },
   "activityReasonWatchUnhealthy": {
     "message": "le contrôle de lecture a échoué"
+  },
+  "activityReasonNoProgress": {
+    "message": "la chaîne n'a généré aucune progression de drops"
   },
   "activityReasonHigherPriorityReward": {
     "message": "une récompense prioritaire a pris le relais"
