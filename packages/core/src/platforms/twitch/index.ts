@@ -1585,6 +1585,12 @@ export class TwitchAdapter implements PlatformAdapter {
     let singleFallbacks = 0;
     for (const [index, candidate] of candidates.entries()) {
       const response = normalizeTwitchGqlResponse<TwitchAvailableDropsData>(responses[index]);
+      diagnostic(
+        this.emit,
+        "debug",
+        availableDropsEvidence(response, candidate, campaignId, `batch response index ${index} of ${candidates.length}`),
+        "twitch",
+      );
       const campaignIds = parseAvailableDropCampaigns(response, candidate.channelId);
       if (!campaignIds) {
         singleFallbacks += 1;
@@ -1785,6 +1791,12 @@ export class TwitchAdapter implements PlatformAdapter {
         undefined,
         this.emit,
         signal,
+      );
+      diagnostic(
+        this.emit,
+        "debug",
+        availableDropsEvidence(response, { channelId, channelLogin, broadcastId }, campaignId, "single response"),
+        "twitch",
       );
       const campaignIds = parseAvailableDropCampaigns(response, channelId);
       if (!campaignIds) {
@@ -2428,6 +2440,39 @@ function parseAvailableDropCampaigns(
       .map((campaign) => campaign?.id)
       .filter((id): id is string => typeof id === "string" && id.length > 0),
   );
+}
+
+// Credential-free evidence for comparing a batched AvailableDrops response with
+// its single-channel equivalent (#400 acceptance criterion 10). Everything here
+// is a public identifier or a GQL error string — never headers, cookies, the
+// integrity token, or session/device ids. Emitted only on the strict path,
+// which is the only caller of these queries, and at debug level so it stays
+// behind the diagnostic-logging setting.
+function availableDropsEvidence(
+  response: TwitchGqlResponse<TwitchAvailableDropsData> | null,
+  requested: { channelId: string; channelLogin: string; broadcastId: string },
+  campaignId: string,
+  source: string,
+): string {
+  const channel = response?.data?.channel;
+  const returnedIds = Array.isArray(channel?.viewerDropCampaigns)
+    ? channel.viewerDropCampaigns
+      .map((campaign) => campaign?.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0)
+    : undefined;
+  const errors = [
+    response?.error,
+    response?.message,
+    ...(response?.errors ?? []).map((error) => error.message),
+  ].filter((message): message is string => Boolean(message));
+  return [
+    `Twitch AvailableDrops evidence (${source})`,
+    `requested channel ${requested.channelLogin} id=${requested.channelId} broadcast=${requested.broadcastId}`,
+    `matching campaign ${campaignId}`,
+    `returned channel.id=${channel?.id ?? "none"}`,
+    `returned viewerDropCampaigns=${returnedIds ? (returnedIds.length > 0 ? returnedIds.join(",") : "empty") : "absent"}`,
+    `errors=${errors.length > 0 ? errors.join("; ") : "none"}`,
+  ].join("; ");
 }
 
 function isTransientGqlError(message: string | undefined): boolean {

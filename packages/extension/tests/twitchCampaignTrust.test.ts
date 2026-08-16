@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import type { DropCampaign, EngineSettings } from "@lurkloot/shared/models";
+import type { EngineEvent } from "@lurkloot/shared/events";
 import { applySettingsPatch, DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings } from "@lurkloot/shared/settings";
 import { twitchAdapter } from "./helpers/adapters";
 
@@ -239,6 +240,77 @@ describe("twitch campaign availability trust (#400)", () => {
 
     expect(selection?.channel?.username).toBe("directory-one");
     expect(operations).not.toContain("DropsHighlightService_AvailableDrops");
+  });
+});
+
+// #400 acceptance criterion 10: the diagnostics alone must let a batched
+// response be compared with its single-channel equivalent, without ever
+// carrying a credential.
+describe("strict availability comparison evidence", () => {
+  // Two candidates so the adapter actually batches: the batch index is only
+  // meaningful, and only exercised, when more than one response comes back in
+  // one request.
+  const evidence = async (respond: (operationName: string, entry: Record<string, unknown>) => unknown) => {
+    const events: EngineEvent[] = [];
+    await twitchAdapter(
+      recordingFetcher([], respond),
+      undefined,
+      undefined,
+      { strictCampaignAvailability: true },
+      (event) => events.push(event),
+    ).selectCandidateChannel?.(
+      [directoryCandidate("directory-one"), directoryCandidate("directory-two")],
+      CAMPAIGN,
+    );
+    return events
+      .map((event) => (event.category === "diagnostic" ? event.message : ""))
+      .filter((message) => message.includes("AvailableDrops evidence"));
+  };
+
+  it("records the identifiers needed to compare a batch response", async () => {
+    const [message] = await evidence(respondWithOmittedCampaign);
+
+    expect(message).toContain("batch response index 0");
+    expect(message).toContain("requested channel directory-one");
+    expect(message).toContain("id=directory-one-id");
+    expect(message).toContain("broadcast=directory-one-broadcast");
+    expect(message).toContain("matching campaign campaign");
+    expect(message).toContain("returned channel.id=directory-one-id");
+    // The omission that stalled farming has to be visible as an omission.
+    expect(message).toContain("returned viewerDropCampaigns=some-other-campaign");
+    expect(message).toContain("errors=none");
+  });
+
+  // A per-entry failure inside an otherwise good batch is the case that is
+  // impossible to diagnose without the evidence line: the response is present
+  // but carries no campaign list.
+  it("records a GQL error instead of reporting an empty campaign list", async () => {
+    const messages = await evidence((operationName, entry) => {
+      if (operationName === "DropsHighlightService_AvailableDrops") {
+        const channelID = String((entry.variables as { channelID?: string }).channelID);
+        if (channelID === "directory-two-id") return { errors: [{ message: "service error" }] };
+        return { data: { channel: { id: channelID, viewerDropCampaigns: [{ id: "some-other-campaign" }] } } };
+      }
+      return respondWithOmittedCampaign(operationName, entry);
+    });
+
+    const failed = messages.find((message) => message.includes("directory-two"));
+    expect(failed).toContain("returned viewerDropCampaigns=absent");
+    expect(failed).toContain("errors=service error");
+    // The healthy sibling in the same batch still reports its own list.
+    expect(messages.find((message) => message.includes("directory-one")))
+      .toContain("returned viewerDropCampaigns=some-other-campaign");
+  });
+
+  it("carries no credential material", async () => {
+    const messages = await evidence(respondWithOmittedCampaign);
+
+    expect(messages.length).toBeGreaterThan(0);
+    for (const message of messages) {
+      for (const secret of ["authorization", "oauth", "cookie", "client-integrity", "x-device-id", "client-session-id"]) {
+        expect(message.toLowerCase()).not.toContain(secret);
+      }
+    }
   });
 });
 
