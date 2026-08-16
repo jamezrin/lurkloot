@@ -149,9 +149,10 @@ There are exactly two environments:
 | `preview` | none | `CRX_PRIVATE_KEY`; candidate signing, candidate GHCR, preview site |
 | `production` | `jamezrin` | CWS credentials and sync App credentials; all stable publication |
 
-Repository secrets used from both channels remain `CLOUDFLARE_API_TOKEN`,
-`CLOUDFLARE_ACCOUNT_ID`, and `WORKERS_AI_API_TOKEN`. The Workers AI token requires Workers AI
-Edit permission and is used only by the site-deploy build job to generate translations; it must
+Repository secrets used from both channels remain `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`. `WORKERS_AI_API_TOKEN` is a repository secret used only by trusted
+production site builds to generate translations; candidate and pull-request builds do not
+receive it and fall back to English. The token requires Workers AI Edit permission and must
 not be the Pages deploy token. Variables are `CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID`.
 
 Move `CRX_PRIVATE_KEY` to `preview` and `CWS_SERVICE_ACCOUNT_JSON` to `production` when their

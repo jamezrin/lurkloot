@@ -25,9 +25,9 @@ Generate translated marketing and changelog copy from the repository root with:
 pnpm --filter @lurkloot/site translate
 ```
 
-Translations are hash-cached in `packages/site/.i18n-cache`. Trusted site-deploy builds restore and
-fill that cache before building. Pull-request builds do not receive translation credentials, so a
-cold cache intentionally produces an English-only build.
+Translations are hash-cached in `packages/site/.i18n-cache`. Trusted production site builds restore
+and fill that cache before building. Pull-request and candidate builds do not receive translation
+credentials, so a cold cache intentionally produces an English-only build.
 
 ## Interactive popup demo (shared with the extension)
 
