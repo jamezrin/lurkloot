@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { applyStringLeaves, collectStringLeaves } from "../src/i18n/strings.ts";
-import { readCache, writeCache } from "../src/i18n/cache.ts";
+import { cachePath, readCache, writeCache } from "../src/i18n/cache.ts";
 
 test("flattens and rebuilds nested copy leaves in order", () => {
   const tree = { a: "Hello", b: { c: "World", d: ["X", "Y"] } };
@@ -16,6 +16,16 @@ test("flattens and rebuilds nested copy leaves in order", () => {
 
 test("applyStringLeaves throws when the leaf count drifts", () => {
   assert.throws(() => applyStringLeaves({ a: "A" }, ["A", "B"]));
+});
+
+test("treats corrupt locale cache JSON as empty", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "lurkloot-i18n-"));
+  try {
+    await writeFile(cachePath(dir, "es"), "not json{{{", "utf8");
+    assert.deepEqual(await readCache(dir, "es"), {});
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test("round-trips a locale cache directory", async () => {
