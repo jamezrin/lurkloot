@@ -17,18 +17,41 @@ interface DashboardEntry {
   id: string;
   status: string;
   isAccountConnected?: boolean;
+  // Mimics the inline fallback query, which selects only id/status/self.
+  bare?: boolean;
 }
 
+// Twitch's persisted ViewerDropsDashboard returns the campaign name, game and
+// window alongside the id and status.
 function dashboard(entries: DashboardEntry[], userId = "user-id"): unknown {
+  const now = Date.now();
   return {
     data: {
       currentUser: {
         id: userId,
         login: "viewer",
-        dropCampaigns: entries.map(({ id, status, isAccountConnected = true }) => ({
-          id,
-          status,
-          self: { isAccountConnected },
+        dropCampaigns: entries.map((entry) => ({
+          id: entry.id,
+          status: entry.status,
+          self: { isAccountConnected: entry.isAccountConnected ?? true },
+          ...(entry.bare ? {} : {
+            name: `Campaign ${entry.id}`,
+            game: { id: "game", slug: "game-slug", displayName: "Game" },
+            ...(entry.status === "EXPIRED"
+              ? {
+                startAt: new Date(now - 2 * HOUR_MS).toISOString(),
+                endAt: new Date(now - HOUR_MS).toISOString(),
+              }
+              : entry.status === "UPCOMING"
+                ? {
+                  startAt: new Date(now + HOUR_MS).toISOString(),
+                  endAt: new Date(now + 2 * HOUR_MS).toISOString(),
+                }
+                : {
+                  startAt: new Date(now - HOUR_MS).toISOString(),
+                  endAt: new Date(now + HOUR_MS).toISOString(),
+                }),
+          }),
         })),
       },
     },
@@ -77,7 +100,7 @@ const EMPTY_INVENTORY = {
 // long-lived service worker does. Campaign details are derived from the same
 // scripted entries so status and linkage stay consistent between the two
 // queries, as they are on Twitch.
-function discoverer(refreshes: Array<DashboardEntry[] | Error>) {
+function discoverer(refreshes: Array<DashboardEntry[] | Error>, detailRequests: string[] = []) {
   let refresh = -1;
   const discoveryState = new TwitchDiscoveryState();
   const current = () => refreshes[Math.min(refresh, refreshes.length - 1)];
@@ -93,6 +116,7 @@ function discoverer(refreshes: Array<DashboardEntry[] | Error>) {
       }
       if (operationName === "DropCampaignDetails") {
         const dropID = String((operation.variables as { dropID?: string } | undefined)?.dropID);
+        detailRequests.push(dropID);
         // A retained id can outlive the refresh that produced it, so fall back
         // to the last scripted state that described this campaign.
         const entry = (scripted instanceof Error ? undefined : scripted.find((item) => item.id === dropID))
@@ -166,6 +190,46 @@ describe("twitch campaign visibility (#400)", () => {
     expect((await discovery.next()).map((campaign) => campaign.id)).toEqual(["retained"]);
     // The next success is authoritative, so the stale campaign is gone.
     expect((await discovery.next()).map((campaign) => campaign.id)).toEqual(["replacement"]);
+  });
+
+  // Historical campaigns are listed from the dashboard payload alone. The
+  // Drops-list filters decide whether they are shown; discovery only has to
+  // stop dropping them.
+  it("surfaces an expired campaign from the dashboard without fetching its details", async () => {
+    const detailRequests: string[] = [];
+    const campaigns = await discoverer(
+      [[
+        { id: "running", status: "ACTIVE" },
+        { id: "over", status: "EXPIRED", isAccountConnected: false },
+      ]],
+      detailRequests,
+    ).next();
+
+    const expired = campaigns.find((campaign) => campaign.id === "over");
+    expect(expired?.status).toBe("expired");
+    expect(expired?.name).toBe("Campaign over");
+    expect(expired?.gameName).toBe("Game");
+    // The detail fetch stays scoped to farmable campaigns, so an account with
+    // hundreds of historical campaigns costs no extra requests.
+    expect(detailRequests).toEqual(["running"]);
+  });
+
+  it("leaves an expired campaign out when the dashboard payload carries no detail", async () => {
+    // The inline fallback query selects only id/status, so nothing can be shown.
+    const campaigns = await discoverer([[
+      { id: "running", status: "ACTIVE" },
+      { id: "bare", status: "EXPIRED", bare: true },
+    ]]).next();
+
+    expect(campaigns.map((campaign) => campaign.id)).toEqual(["running"]);
+  });
+
+  it("does not duplicate a campaign that details already covered", async () => {
+    const campaigns = await discoverer([[
+      { id: "running", status: "ACTIVE" },
+    ]]).next();
+
+    expect(campaigns.filter((campaign) => campaign.id === "running")).toHaveLength(1);
   });
 
   // A restarted service worker builds a fresh TwitchDiscoveryState, which must

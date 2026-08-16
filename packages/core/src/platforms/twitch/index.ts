@@ -264,14 +264,33 @@ function isCredentialRejection(message: string | undefined): boolean {
   return message != null && /unauthenticated|unauthorized|(?:the )?oauth token (?:(?:is|was) )?invalid|invalid oauth token|token (?:has )?expired/i.test(message);
 }
 
+// Twitch's persisted ViewerDropsDashboard returns more than the ids and status
+// discovery needs: name, game, and the campaign window come back too. Those are
+// modelled as optional because our inline fallback query (TWITCH_INLINE_QUERIES)
+// deliberately does not select them — widening that query would risk a
+// "Cannot query field" against a drifted live schema on the one path that
+// exists to survive drift. Where they are present they are enough to show a
+// campaign the detail fetch deliberately skips; where they are absent nothing
+// extra is shown.
+interface TwitchDashboardCampaign {
+  id?: string;
+  status?: string;
+  self?: { isAccountConnected?: boolean };
+  name?: string;
+  startAt?: string;
+  endAt?: string;
+  game?: { id?: string; displayName?: string; slug?: string; boxArtURL?: string };
+  allow?: { channels?: Array<{ name?: string; login?: string } | null> | null };
+}
+
 interface TwitchDashboardData {
   currentUser?: {
     id?: string;
     login?: string;
     inventory?: {
-      dropCampaigns?: Array<{ id?: string; status?: string; self?: { isAccountConnected?: boolean } }>;
+      dropCampaigns?: TwitchDashboardCampaign[];
     };
-    dropCampaigns?: Array<{ id?: string; status?: string; self?: { isAccountConnected?: boolean } }>;
+    dropCampaigns?: TwitchDashboardCampaign[];
   };
 }
 
@@ -905,12 +924,21 @@ export class TwitchAdapter implements PlatformAdapter {
         : [];
     const dashboardResponded = dashboardResult.ok && dashboardCampaigns.length > 0;
 
+    // Historical campaigns come from the dashboard we just read, so they are
+    // only offered when that read succeeded; a retained id list carries no
+    // detail to display.
+    const historical = dashboardResult.ok
+      ? (coveredIds: ReadonlySet<string>) =>
+        historicalDashboardCampaigns(dashboardCampaigns, coveredIds, Date.now())
+      : () => [];
+
     if (discoverableCampaignIds.length === 0) {
-      return reconcileInventoryCampaignStatuses(
+      const reconciled = reconcileInventoryCampaignStatuses(
         inventoryCampaigns,
         new Set(discoverableCampaignIds),
         dashboardResponded,
       );
+      return [...reconciled, ...historical(new Set(reconciled.map((campaign) => campaign.id)))];
     }
 
     const detailsStartedAt = Date.now();
@@ -968,7 +996,7 @@ export class TwitchAdapter implements PlatformAdapter {
       if (retained) detailedCampaigns.push(retained);
     });
     if (detailedCampaigns.length === 0) {
-      return inventoryCampaigns;
+      return [...inventoryCampaigns, ...historical(new Set(inventoryCampaigns.map((campaign) => campaign.id)))];
     }
     const parsedDetails = parseTwitchCampaigns(detailedCampaigns as Parameters<typeof parseTwitchCampaigns>[0]);
     const mergedDetails = mergeTwitchCampaignProgress(parsedDetails, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
@@ -985,7 +1013,8 @@ export class TwitchAdapter implements PlatformAdapter {
       activeDashboardIds,
       dashboardResponded,
     );
-    return [...mergedDetails, ...inventoryOnly];
+    const farmable = [...mergedDetails, ...inventoryOnly];
+    return [...farmable, ...historical(new Set(farmable.map((campaign) => campaign.id)))];
   }
 
   async refreshCampaigns(
@@ -2278,6 +2307,63 @@ function twitchDashboardCampaigns(dashboard: TwitchGqlResponse<TwitchDashboardDa
   return dashboard.data?.currentUser?.dropCampaigns
     ?? dashboard.data?.currentUser?.inventory?.dropCampaigns
     ?? [];
+}
+
+// Campaigns the dashboard lists but discovery deliberately does not fetch
+// details for — expired and closed ones. Visibility is a display concern, so
+// these enter the model and the Drops-list filters decide whether they show;
+// farmability is unaffected, since an expired campaign is never farmable.
+//
+// Synthesised from the dashboard entry alone, so this costs no extra requests
+// even when an account carries hundreds of historical campaigns. Entries whose
+// payload lacks a name are skipped: without one there is nothing meaningful to
+// display, which is also what makes this a no-op on the inline fallback query.
+function historicalDashboardCampaigns(
+  dashboardCampaigns: readonly TwitchDashboardCampaign[],
+  coveredIds: ReadonlySet<string>,
+  now: number,
+): DropCampaign[] {
+  const campaigns: DropCampaign[] = [];
+  for (const entry of dashboardCampaigns) {
+    const id = entry.id;
+    if (!id || coveredIds.has(id) || !entry.name) continue;
+    const endsAt = entry.endAt;
+    const startsAt = entry.startAt;
+    // Trust the dates over the status string when both are present: a campaign
+    // can still read ACTIVE moments after its end date passes.
+    const status: DropCampaign["status"] = endsAt && Date.parse(endsAt) < now
+      ? "expired"
+      : startsAt && Date.parse(startsAt) > now
+        ? "upcoming"
+        : entry.status?.toUpperCase() === "UPCOMING"
+          ? "upcoming"
+          : "expired";
+    const allowedChannels = (entry.allow?.channels ?? [])
+      .map((channel) => channel?.login ?? channel?.name)
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase());
+    campaigns.push({
+      id,
+      platform: "twitch",
+      name: entry.name,
+      slug: entry.game?.slug,
+      gameName: entry.game?.displayName,
+      gameImageUrl: entry.game?.boxArtURL,
+      categoryId: entry.game?.id,
+      startsAt,
+      endsAt,
+      status,
+      // The detail fetch that would carry rewards is intentionally skipped.
+      rewards: [],
+      allowedChannels: allowedChannels.length > 0 ? allowedChannels : undefined,
+      accountLinked: entry.self?.isAccountConnected !== false,
+      eligibility: status === "upcoming" ? "upcoming" : "expired",
+      eligibilityReason: status === "upcoming"
+        ? "Campaign has not started yet"
+        : "Campaign has ended",
+    });
+  }
+  return campaigns;
 }
 
 function twitchCurrentUserId(value: unknown): string | undefined {
