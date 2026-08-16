@@ -48,6 +48,9 @@ lerna-debug.log*
 .temp/
 .tmp/
 
+# Site machine-translation cache (hash → string; regenerated at site-deploy)
+packages/site/.i18n-cache/
+
 # Environment / secrets
 .env
 .env.*
