@@ -2315,6 +2315,40 @@ describe("scheduler tick", () => {
       );
 
       expect(result.state.sessions.twitch.reasonCode).toBe("no_progress");
+      // Stopping the old session is not rotation: the tick has to land on a
+      // different channel, or the stalled one is simply reselected and its
+      // counter reset, looping forever.
+      expect(result.state.sessions.twitch.channel?.username).toBe("fresh");
+    });
+
+    // Rotating to nothing would be worse than a slow channel, so the skip is
+    // advisory: the stalled channel stays when it is the only one that can run
+    // the campaign.
+    it("keeps the stalled channel when it is the only candidate", async () => {
+      const twitch = adapter("twitch", [campaign("drops")], [channel("old")]);
+      vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+        live: true,
+        categoryMatches: true,
+        candidate,
+      }));
+
+      const result = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: watching({ noProgressChecks: 2, lastWatchedMinutes: 20 }),
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(result.state.sessions.twitch.channel?.username).toBe("old");
     });
 
     it("keeps a stalling channel until the limit is reached", async () => {

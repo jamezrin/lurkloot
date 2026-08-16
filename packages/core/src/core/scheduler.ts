@@ -212,6 +212,10 @@ export async function chooseCampaignDecision(
   adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">,
   signal?: AbortSignal,
   reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
+  // Lowercased usernames to pass over this tick because they just failed to earn
+  // progress. Advisory, not an exclusion: a campaign whose only candidate is
+  // skipped keeps it, since rotating to nothing is worse than a slow channel.
+  skipChannels?: ReadonlySet<string>,
 ): Promise<WatchDecision> {
   const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
   const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
@@ -279,12 +283,18 @@ export async function chooseCampaignDecision(
         }))
         .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
     ).values()];
+    // Drop the channels that just stalled, unless that would leave this campaign
+    // with nothing: a stalled channel still beats no channel.
+    const preferred = skipChannels?.size
+      ? deduplicated.filter((candidate) => !skipChannels.has(candidate.username.toLowerCase()))
+      : deduplicated;
+    const eligible = preferred.length > 0 ? preferred : deduplicated;
     // Only worth asking the platform who the user follows when more than one
     // candidate could win the campaign.
-    const followed = deduplicated.length > 1
+    const followed = eligible.length > 1
       ? await resolveFollowedChannels()
       : followedChannels ?? new Set<string>();
-    const candidates = deduplicated
+    const candidates = eligible
       .sort((left, right) => {
         // ACL stays the strongest key: for an ACL-restricted campaign a followed
         // channel outside the allow list cannot earn the drop at all.
@@ -1034,6 +1044,12 @@ export async function runSchedulerTick(
         );
       } else {
         let selectionMetrics = { campaignsChecked: 0, candidatesChecked: 0 };
+        // Reselecting the channel that just stalled would reset its counter and
+        // loop forever, so this tick passes over it when anything else can run
+        // the campaign (#400).
+        const stalled = currentWatch?.keep.reasonCode === "no_progress" && previous.channel
+          ? new Set([previous.channel.username.toLowerCase()])
+          : undefined;
         decision = await chooseCampaignDecision(
           platform,
           campaigns,
@@ -1043,6 +1059,7 @@ export async function runSchedulerTick(
           (metrics) => {
             selectionMetrics = metrics;
           },
+          stalled,
         );
         emitDiagnostic(
           emit,
