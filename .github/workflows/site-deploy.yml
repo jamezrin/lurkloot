@@ -24,6 +24,8 @@ on:
         required: true
       CLOUDFLARE_ACCOUNT_ID:
         required: true
+      WORKERS_AI_API_TOKEN:
+        required: true
 
 permissions:
   contents: read
@@ -53,6 +55,8 @@ jobs:
       - uses: ./.github/actions/build-site
         with:
           channel: ${{ inputs.channel }}
+          workers_ai_token: ${{ secrets.WORKERS_AI_API_TOKEN }}
+          account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - uses: actions/upload-artifact@v7
         with:
           name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}

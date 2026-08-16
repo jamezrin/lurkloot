@@ -4,6 +4,14 @@ inputs:
   channel:
     description: Site deployment channel
     required: true
+  workers_ai_token:
+    description: Cloudflare Workers AI token (never the Pages deploy token)
+    required: false
+    default: ""
+  account_id:
+    description: Cloudflare account id for Workers AI
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -16,6 +24,19 @@ runs:
         cache: pnpm
     - shell: bash
       run: pnpm install --frozen-lockfile
+    - uses: actions/cache@v4
+      if: inputs.workers_ai_token != ''
+      with:
+        path: packages/site/.i18n-cache
+        key: site-i18n-v1-${{ runner.os }}-${{ github.sha }}
+        restore-keys: |
+          site-i18n-v1-${{ runner.os }}-
+    - shell: bash
+      if: inputs.workers_ai_token != '' && inputs.account_id != ''
+      env:
+        WORKERS_AI_API_TOKEN: ${{ inputs.workers_ai_token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.account_id }}
+      run: pnpm --filter @lurkloot/site translate
     - shell: bash
       env:
         SITE_DEPLOYMENT_CHANNEL: ${{ inputs.channel }}

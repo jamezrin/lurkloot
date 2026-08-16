@@ -14,6 +14,21 @@ pnpm build      # outputs to site/dist
 pnpm preview    # serve the production build
 ```
 
+## Localized routes
+
+English pages use root routes such as `/` and `/changelog`. Translated pages use a locale prefix,
+for example `/es/` and `/es/changelog`.
+
+Generate translated marketing and changelog copy from the repository root with:
+
+```bash
+pnpm --filter @lurkloot/site translate
+```
+
+Translations are hash-cached in `packages/site/.i18n-cache`. Trusted site-deploy builds restore and
+fill that cache before building. Pull-request builds do not receive translation credentials, so a
+cold cache intentionally produces an English-only build.
+
 ## Interactive popup demo (shared with the extension)
 
 The "Try it yourself" section imports the shared popup React package

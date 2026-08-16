@@ -108,6 +108,8 @@ jobs:
       - uses: ./.github/actions/build-site
         with:
           channel: production
+          workers_ai_token: ${{ secrets.WORKERS_AI_API_TOKEN }}
+          account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - uses: actions/upload-artifact@v7
         with:
           name: stable-site-${{ github.run_id }}-${{ github.run_attempt }}

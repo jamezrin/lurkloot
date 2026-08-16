@@ -2,6 +2,15 @@
 
 Lurkloot's translations are maintained automatically with AI. Native speakers are welcome to improve wording, clarity, and accuracy through pull requests.
 
+## Website
+
+Marketing and changelog strings are machine-translated separately from the extension and popup
+catalogs. Website translations live under `packages/site` and are hash-cached in
+`packages/site/.i18n-cache`.
+
+Do not send website copy pull requests against `packages/locales/messages`; those JSON catalogs
+only provide extension and popup translations.
+
 ## Improve an existing translation
 
 1. Find the locale file in `packages/locales/messages/` that you want to improve. Each file is a JSON message catalog; for example, `es.json` contains Spanish copy.
