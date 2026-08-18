@@ -819,6 +819,36 @@ describe("background controller", () => {
       setTwitchIntegrity(undefined);
     });
 
+    it("keeps a user-tab capture from satisfying a managed refresh wait", async () => {
+      const browser = {
+        tabs: {
+          get: vi.fn(),
+          update: vi.fn(async () => undefined),
+          remove: vi.fn(async () => undefined),
+          query: vi.fn(async () => []),
+          create: vi.fn(async () => ({ id: 42 })),
+        },
+      } satisfies BrowserTabApi;
+      const rejected = integrityBundle({ integrity: "controller-rejected-token" });
+      const replacement = integrityBundle({ integrity: "controller-user-token" });
+      const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
+      await env.controller.settleBackgroundWork();
+      setTwitchIntegrity(rejected, { sourceTabId: 7 });
+
+      const pending = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        50,
+        undefined,
+        { forceRefresh: true, rejectedToken: rejected.integrity },
+      );
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+
+      await env.controller.captureTwitchIntegrity(integrityHeaders(replacement), 7);
+
+      await expect(pending).resolves.toBe(false);
+    });
+
     it("acquires integrity before Twitch auth and scheduler work", async () => {
       const order: string[] = [];
       const env = harness(undefined, {
