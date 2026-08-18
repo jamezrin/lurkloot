@@ -47,7 +47,7 @@ pnpm screenshot:store:upload -- --locales ar tr
 
 `screenshot:store:sync` regenerates all screenshot assets and then starts the dashboard uploader for all supported locales. `screenshot:store:upload` skips generation and uploads existing assets. Its optional `--locales` argument accepts repository locale codes for targeted retries.
 
-The uploader requires `CWS_EXTENSION_ID` and accepts `CWS_PUBLISHER_ID` when the dashboard URL needs the publisher path, matching existing release automation. Neither value is secret. Missing configuration is reported before browser launch.
+The uploader requires `CWS_EXTENSION_ID` and `CWS_PUBLISHER_ID`, matching existing release automation. Neither value is secret. Missing configuration is reported before browser launch.
 
 ## Screenshot Manifest and Validation
 

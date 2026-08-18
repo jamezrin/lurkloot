@@ -11,6 +11,18 @@ function required(value, name) {
   return value;
 }
 
+function validateExtensionId(value) {
+  required(value, "CWS_EXTENSION_ID");
+  if (!/^[a-p]{32}$/.test(value)) throw new Error("CWS_EXTENSION_ID must be a 32-character Chrome extension ID");
+}
+
+function validatePublisherId(value) {
+  required(value, "CWS_PUBLISHER_ID");
+  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value)) {
+    throw new Error("CWS_PUBLISHER_ID must be the UUID from the Developer Dashboard URL");
+  }
+}
+
 async function defaultLaunchBrowser(env) {
   return chromium.launch({
     channel: env.CWS_BROWSER_CHANNEL ?? "chrome",
@@ -23,7 +35,6 @@ function defaultCreateDashboard({ page, env, output }) {
     page,
     extensionId: env.CWS_EXTENSION_ID,
     publisherId: env.CWS_PUBLISHER_ID,
-    baseUrl: env.CWS_DASHBOARD_URL,
     output,
   });
 }
@@ -35,7 +46,7 @@ async function waitForInspection(browser, output) {
 }
 
 export async function main(args = process.argv.slice(2), env = process.env, dependencies = {}) {
-  required(env.CWS_EXTENSION_ID, "CWS_EXTENSION_ID");
+  validateExtensionId(env.CWS_EXTENSION_ID);
   const locales = parseRequestedLocales(args);
   const validateFiles = dependencies.validateFiles ?? validateStoreScreenshotFiles;
   const output = dependencies.output ?? console.log;
@@ -44,9 +55,7 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
   const imageCount = [...filesByLocale.values()].reduce((total, files) => total + files.length, 0);
   output(`Validated ${imageCount} screenshots for ${locales.length} ${locales.length === 1 ? "locale" : "locales"}.`);
   if (args.includes("--validate-only")) return;
-  if (!env.CWS_PUBLISHER_ID && !env.CWS_DASHBOARD_URL) {
-    throw new Error("CWS_PUBLISHER_ID is required unless CWS_DASHBOARD_URL is provided");
-  }
+  validatePublisherId(env.CWS_PUBLISHER_ID);
 
   const launchBrowser = dependencies.launchBrowser ?? (() => defaultLaunchBrowser(env));
   const createDashboard = dependencies.createDashboard ?? defaultCreateDashboard;

@@ -99,7 +99,8 @@ A run interrupted between deletion and upload may leave four screenshots in one 
 locale-filtered run repairs that state before replacing the full ordered set. The operation is safe
 to repeat.
 
-Validate the files and configuration without opening Chrome or changing the dashboard:
+Validate the screenshot files and extension ID without opening Chrome or changing the dashboard
+(`CWS_PUBLISHER_ID` is only checked for a live upload):
 
 ```bash
 pnpm screenshot:store:upload -- --locales en --validate-only
