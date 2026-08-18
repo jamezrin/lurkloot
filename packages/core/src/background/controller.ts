@@ -774,7 +774,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     let isNew = false;
     await withEventCollector(async (emit, events) => {
       isNew = integrity.integrity !== installedTwitchIntegrity?.integrity;
-      installTwitchIntegrity(integrity, isNew, emit, tabId);
+      const sourceTabId = tabId != null && tabId >= 0 ? tabId : undefined;
+      installTwitchIntegrity(integrity, isNew, emit, sourceTabId);
       await reportBestEffort(events);
     });
     // Persistence still takes the lock: persistedIntegrityToken is read and
