@@ -178,6 +178,19 @@ describe("store screenshot upload CLI", () => {
     expect(output.join("\n")).toMatch(/validated 1 screenshot.*1 locale/i);
   });
 
+  it("requires a publisher path or explicit dashboard URL before browser launch", async () => {
+    let launches = 0;
+    const files = new Map([["en", [{ variant: { file: "01-drops" }, path: "/one.png" }]]]);
+
+    await expect(main(["--locales", "en"], { CWS_EXTENSION_ID: "extension" }, {
+      validateFiles: async () => files,
+      launchBrowser: async () => { launches += 1; throw new Error("must not launch"); },
+      output: () => {},
+    })).rejects.toThrow(/CWS_PUBLISHER_ID.*CWS_DASHBOARD_URL/i);
+
+    expect(launches).toBe(0);
+  });
+
   it("creates a non-persistent context and closes it after a complete draft save", async () => {
     const contextOptions: unknown[] = [];
     let browserClosed = false;
@@ -205,7 +218,7 @@ describe("store screenshot upload CLI", () => {
       async close() { browserClosed = true; },
     };
 
-    await main(["--locales", "en"], { CWS_EXTENSION_ID: "extension" }, {
+    await main(["--locales", "en"], { CWS_EXTENSION_ID: "extension", CWS_DASHBOARD_URL: "https://example.test/dashboard" }, {
       validateFiles: async () => files,
       launchBrowser: async () => fakeBrowser,
       createDashboard: () => dashboard,

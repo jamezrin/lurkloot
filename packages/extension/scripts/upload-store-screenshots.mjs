@@ -44,6 +44,9 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
   const imageCount = [...filesByLocale.values()].reduce((total, files) => total + files.length, 0);
   output(`Validated ${imageCount} screenshots for ${locales.length} ${locales.length === 1 ? "locale" : "locales"}.`);
   if (args.includes("--validate-only")) return;
+  if (!env.CWS_PUBLISHER_ID && !env.CWS_DASHBOARD_URL) {
+    throw new Error("CWS_PUBLISHER_ID is required unless CWS_DASHBOARD_URL is provided");
+  }
 
   const launchBrowser = dependencies.launchBrowser ?? (() => defaultLaunchBrowser(env));
   const createDashboard = dependencies.createDashboard ?? defaultCreateDashboard;
