@@ -3,7 +3,7 @@ async function phase(locale, variant, name, action) {
     return await action();
   } catch (error) {
     const target = variant ? `${locale}/${variant}` : locale;
-    throw new Error(`Store screenshot upload failed for ${target} during ${name}: ${error.message}`, { cause: error });
+    throw new Error(`Store screenshot upload failed for ${target} during ${name}: ${error.message}. Retry with: pnpm screenshot:store:upload -- --locales ${locale}`, { cause: error });
   }
 }
 
@@ -19,7 +19,7 @@ export async function replaceLocaleScreenshots({ locale, files, dashboard, onPro
     count = 5;
   }
   if (count !== 5) {
-    throw new Error(`Store screenshot upload failed for ${locale} during pre-replacement count: expected 4 or 5 screenshots, found ${count}`);
+    throw new Error(`Store screenshot upload failed for ${locale} during pre-replacement count: expected 4 or 5 screenshots, found ${count}. Retry with: pnpm screenshot:store:upload -- --locales ${locale}`);
   }
 
   for (const file of files) {

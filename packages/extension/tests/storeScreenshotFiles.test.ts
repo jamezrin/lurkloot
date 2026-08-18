@@ -59,9 +59,14 @@ describe("store screenshot manifest", () => {
       "en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr",
     ]);
     expect(parseRequestedLocales(["--locales", "ar", "tr"])).toEqual(["ar", "tr"]);
+    expect(parseRequestedLocales(["--", "--locales", "ar", "tr", "--validate-only"])).toEqual(["ar", "tr"]);
+    expect(parseRequestedLocales(["--validate-only"])).toEqual([
+      "en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr",
+    ]);
     expect(() => parseRequestedLocales(["--locales", "ar", "ar"])).toThrow(/duplicate locale ar/i);
     expect(() => parseRequestedLocales(["--locales", "xx"])).toThrow(/unknown locale xx/i);
     expect(() => parseRequestedLocales(["--locales"])).toThrow(/requires at least one locale/i);
+    expect(() => parseRequestedLocales(["--locale", "en"])).toThrow(/unknown option --locale/i);
   });
 });
 

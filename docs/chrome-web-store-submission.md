@@ -67,3 +67,45 @@ pnpm promo:store                 # artifacts/store-promo/<locale>/
 
 Pass locale codes to limit, e.g. `pnpm screenshot:store es ar tr`. Turkish promo tiles are under
 `artifacts/store-promo/tr/`.
+
+## Replacing localized screenshots automatically
+
+The public Chrome Web Store API cannot update listing screenshots. The local operator command below
+uses a visible, isolated Chrome session to replace all 55 screenshots through the Developer
+Dashboard and save the listing draft:
+
+```bash
+export CWS_EXTENSION_ID=aobaackpofkghaejdnnmpmeaiaoibhdn
+export CWS_PUBLISHER_ID=<publisher-id-from-the-dashboard>
+pnpm screenshot:store:sync
+```
+
+The command regenerates and validates the images before opening Chrome. Sign in to Google and
+complete 2FA in the opened browser; automation resumes on its own, replaces the five screenshots for
+each of the 11 locales in numbered order, and saves each locale. The browser context is fresh for
+every run and its authentication state is not saved.
+
+This workflow deliberately stops at a saved draft. It has no operation that submits the item for
+review or publishes it. Use the normal release flow when the draft should be submitted.
+
+To upload already-generated files or retry selected locales after an interruption:
+
+```bash
+pnpm screenshot:store:upload
+pnpm screenshot:store:upload -- --locales ar tr
+```
+
+A run interrupted between deletion and upload may leave four screenshots in one locale. The next
+locale-filtered run repairs that state before replacing the full ordered set. The operation is safe
+to repeat.
+
+Validate the files and configuration without opening Chrome or changing the dashboard:
+
+```bash
+pnpm screenshot:store:upload -- --locales en --validate-only
+```
+
+Dashboard automation depends on Google's unsupported UI rather than a stable API. It uses accessible
+labels and fails closed if an expected control is missing or ambiguous. If failure occurs after a
+change, it leaves Chrome open for inspection and reports the exact locale and recovery command; no
+listing submission is attempted.

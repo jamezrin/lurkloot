@@ -113,7 +113,7 @@ describe("store screenshot replacement", () => {
     dashboard.failUploadAt = 3;
 
     await expect(replaceLocaleScreenshots({ locale: "ar", files: desiredFiles, dashboard }))
-      .rejects.toThrow(/ar.*03-new.*upload.*network upload failed/i);
+      .rejects.toThrow(/ar.*03-new.*upload.*network upload failed.*retry.*--locales ar/i);
     expect(dashboard.savedLocales).toEqual([]);
     expect(dashboard.images).toHaveLength(4);
   });
