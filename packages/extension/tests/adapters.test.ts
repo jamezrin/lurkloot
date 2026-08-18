@@ -3106,6 +3106,7 @@ describe("TwitchAdapter", () => {
       const discoveryState = new TwitchDiscoveryState();
       const identity = discoveryState.availabilityRequestIdentity();
       discoveryState.rememberChannelAvailability("channel-a", "broadcast-a", new Set(), identity);
+      vi.advanceTimersByTime(20_000);
       discoveryState.rememberProgressConfirmedAvailability("channel-a", "campaign-a", identity);
 
       vi.advanceTimersByTime(30_001);
