@@ -375,7 +375,7 @@ interface TwitchAvailableDropsData {
 interface CachedAvailableCampaigns {
   broadcastId: string;
   campaignIds: Set<string>;
-  expiresAt: number;
+  fetchedAt: number;
 }
 
 interface ProgressConfirmedAvailability {
@@ -546,15 +546,26 @@ export class TwitchDiscoveryState {
   // Lives here rather than on TwitchAdapter so it survives the per-tick
   // adapter reconstruction (see the class comment on followedChannels above)
   // — without that, the cache is structurally incapable of ever hitting.
-  cachedChannelAvailability(channelId: string, broadcastId: string): ChannelAvailabilityLookup {
+  cachedChannelAvailability(
+    channelId: string,
+    broadcastId: string,
+    campaignId: string,
+  ): ChannelAvailabilityLookup {
     const cached = this.availableCampaignsByChannel.get(channelId);
     if (!cached) return { status: "miss" };
     if (cached.broadcastId !== broadcastId) {
       this.availableCampaignsByChannel.delete(channelId);
       return { status: "broadcast_changed" };
     }
-    if (cached.expiresAt <= Date.now()) {
-      this.availableCampaignsByChannel.delete(channelId);
+    const now = Date.now();
+    const isPositive = cached.campaignIds.has(campaignId);
+    const ttl = isPositive
+      ? POSITIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS
+      : NEGATIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS;
+    if (cached.fetchedAt + ttl <= now) {
+      if (cached.fetchedAt + POSITIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS <= now) {
+        this.availableCampaignsByChannel.delete(channelId);
+      }
       return { status: "expired" };
     }
     return { status: "hit", campaignIds: cached.campaignIds };
@@ -589,9 +600,7 @@ export class TwitchDiscoveryState {
     this.availableCampaignsByChannel.set(channelId, {
       broadcastId,
       campaignIds: new Set(campaignIds),
-      expiresAt: Date.now() + (campaignIds.size > 0
-        ? POSITIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS
-        : NEGATIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS),
+      fetchedAt: Date.now(),
     });
     return true;
   }
@@ -634,7 +643,7 @@ export class TwitchDiscoveryState {
     const cachedAvailability = this.availableCampaignsByChannel.get(channelId);
     if (cachedAvailability && !cachedAvailability.campaignIds.has(campaignId)) {
       cachedAvailability.campaignIds.add(campaignId);
-      cachedAvailability.expiresAt = Date.now() + POSITIVE_CHANNEL_CAMPAIGN_CACHE_TTL_MS;
+      cachedAvailability.fetchedAt = Date.now();
     }
     return true;
   }
@@ -1416,7 +1425,7 @@ export class TwitchAdapter implements PlatformAdapter {
         matches.set(candidate.channelId, true);
         continue;
       }
-      const lookup = this.discoveryState.cachedChannelAvailability(candidate.channelId, candidate.broadcastId);
+      const lookup = this.discoveryState.cachedChannelAvailability(candidate.channelId, candidate.broadcastId, campaignId);
       if (lookup.status === "hit") {
         cacheHits += 1;
         matches.set(candidate.channelId, lookup.campaignIds.has(campaignId));
@@ -1430,9 +1439,10 @@ export class TwitchAdapter implements PlatformAdapter {
     if (uncached.length === 1) {
       const candidate = uncached[0];
       // checkCampaignAvailability does not get to classify this lookup itself:
-      // the loop above already read (and, if expired, deleted) this entry, so
-      // a second read here would see a plain miss even for the expired case —
-      // the classification above is the only correct one available.
+      // the loop above already read this entry, so a second read here would
+      // either repeat an expired negative lookup while retained or see a plain
+      // miss after the whole snapshot expires — the classification above is
+      // the only correct one available.
       const metrics = { checks: 0, cacheHits: 0 };
       matches.set(
         candidate.channelId,
@@ -1779,7 +1789,7 @@ export class TwitchAdapter implements PlatformAdapter {
     metrics?: { checks: number; cacheHits: number },
   ): Promise<boolean | undefined> {
     if (this.discoveryState.hasProgressConfirmedAvailability(channelId, campaignId)) return true;
-    const lookup = this.discoveryState.cachedChannelAvailability(channelId, broadcastId);
+    const lookup = this.discoveryState.cachedChannelAvailability(channelId, broadcastId, campaignId);
     if (lookup.status === "hit") {
       if (metrics) metrics.cacheHits += 1;
       return lookup.campaignIds.has(campaignId);
@@ -2077,7 +2087,7 @@ export class TwitchAdapter implements PlatformAdapter {
         );
         const broadcastId = streamInfo.data?.user?.stream?.id;
         const availability = broadcastId
-          ? this.discoveryState.cachedChannelAvailability(channelId, broadcastId)
+          ? this.discoveryState.cachedChannelAvailability(channelId, broadcastId, matchingCampaign.id)
           : { status: "miss" as const };
         const overridesNegativeAvailability = availability.status === "hit"
           && !availability.campaignIds.has(matchingCampaign.id);
