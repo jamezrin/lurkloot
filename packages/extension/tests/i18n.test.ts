@@ -3,6 +3,8 @@ import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { effectiveLocale, isRtlLocale, LOCALE_OPTIONS, normalizeBrowserLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+// @ts-expect-error The capture manifest is an executable JavaScript module.
+import { STORE_SCREENSHOT_LOCALES, STORE_SCREENSHOT_VARIANTS } from "../scripts/store-screenshot-config.mjs";
 
 // Catalogs live in the single-source @lurkloot/locales package as <locale>.json.
 const messagesDir = dirname(createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"));
@@ -126,27 +128,15 @@ describe("i18n", () => {
   });
 
   it("captures store artwork for every catalog locale", () => {
-    const extensionRoot = dirname(import.meta.dirname);
-    const captureScripts = [
-      join(extensionRoot, "scripts/capture-store-screenshot.mjs"),
-      join(extensionRoot, "scripts/capture-store-promo.mjs"),
-    ];
-
-    for (const script of captureScripts) {
-      const source = readFileSync(script, "utf8");
-      for (const locale of localeCodes()) {
-        expect(source, `${script}:${locale}`).toContain(`"${locale}"`);
-      }
-    }
+    expect(STORE_SCREENSHOT_LOCALES.map(({ code }: { code: string }) => code).sort()).toEqual(localeCodes().sort());
+    const promoSource = readFileSync(join(dirname(import.meta.dirname), "scripts/capture-store-promo.mjs"), "utf8");
+    for (const locale of localeCodes()) expect(promoSource).toContain(`"${locale}"`);
   });
 
   it("captures the five reworked screenshot stems", () => {
-    const source = readFileSync(join(dirname(import.meta.dirname), "scripts/capture-store-screenshot.mjs"), "utf8");
-    for (const stem of ["01-drops", "02-extras", "03-easy", "04-settings", "05-updated"]) {
-      expect(source).toContain(stem);
-    }
-    expect(source).not.toContain("01-twitch-drops");
-    expect(source).not.toContain("05-activity");
+    expect(STORE_SCREENSHOT_VARIANTS.map(({ file }: { file: string }) => file)).toEqual([
+      "01-drops", "02-extras", "03-easy", "04-settings", "05-updated",
+    ]);
   });
 
   it("defines subscription drop states with matching placeholders in every catalog", () => {

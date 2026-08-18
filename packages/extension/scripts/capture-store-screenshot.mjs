@@ -3,6 +3,7 @@ import { mkdir, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import { chromium } from "playwright";
+import { STORE_SCREENSHOT_LOCALES, STORE_SCREENSHOT_VARIANTS, validateLocaleCodes } from "./store-screenshot-config.mjs";
 
 const root = resolve(".output/chrome-mv3");
 const outputDir = resolve("artifacts/store-screenshots");
@@ -11,23 +12,14 @@ const candidates = ["popup.html", "popup/index.html"];
 // Each variant is rendered via ?screenshot=store&variant=<id>&locale=<code>
 // (see SCREENSHOT_VARIANTS / SCREENSHOT_LOCALE in entrypoints/popup/main.tsx).
 // Numeric file prefixes preserve the upload order in the store listing.
-const variants = [
-  { id: "drops", file: "01-drops", popup: true },
-  { id: "extras", file: "02-extras", popup: false },
-  { id: "easy", file: "03-easy", popup: false },
-  { id: "settings", file: "04-settings", popup: true },
-  { id: "updated", file: "05-updated", popup: false },
-];
+const variants = STORE_SCREENSHOT_VARIANTS;
 
 // One screenshot set per store locale. The ids match the _locales/<id> folders
 // bundled in the build. A subset can be captured by passing locale codes as CLI
 // args, e.g. `node scripts/capture-store-screenshot.mjs es pt_BR`.
-const ALL_LOCALES = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
+const ALL_LOCALES = STORE_SCREENSHOT_LOCALES.map(({ code }) => code);
 const requested = process.argv.slice(2);
-const locales = requested.length > 0 ? requested.filter((code) => ALL_LOCALES.includes(code)) : ALL_LOCALES;
-if (locales.length === 0) {
-  throw new Error(`No known locales in: ${requested.join(", ")}. Known: ${ALL_LOCALES.join(", ")}`);
-}
+const locales = requested.length > 0 ? validateLocaleCodes(requested) : ALL_LOCALES;
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
