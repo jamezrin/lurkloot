@@ -1448,6 +1448,17 @@ function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): stri
     .join("|");
 }
 
+function hasHigherExplicitCampaignPriority(
+  candidate: DropCampaign,
+  current: DropCampaign,
+  settings: EngineSettings,
+): boolean {
+  const candidatePriority = settings.campaignPriorities[candidate.id];
+  if (candidatePriority == null) return false;
+  const currentPriority = settings.campaignPriorities[current.id];
+  return currentPriority == null || candidatePriority > currentPriority;
+}
+
 async function evaluatePreferredCurrentWatch(
   previous: WatchSession,
   campaigns: readonly DropCampaign[],
@@ -1465,17 +1476,35 @@ async function evaluatePreferredCurrentWatch(
     campaigns.filter((campaign) => isEligible(campaign, settings)),
     settings,
   ).find((campaign) => activeReward(campaign, settings));
-  const preferredReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
-  if (preferredCampaign?.id !== previous.campaignId || preferredReward?.id !== previous.rewardId) {
-    return undefined;
+  let retainedCampaign = preferredCampaign;
+  let retainedReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
+  if (retainedCampaign?.id !== previous.campaignId || retainedReward?.id !== previous.rewardId) {
+    // Automatic ranking chooses the next reward to start; it must not discard
+    // progress already earned on a healthy, still-eligible reward. An explicit
+    // user priority remains an intentional override.
+    const currentCampaign = campaigns.find((campaign) => campaign.id === previous.campaignId);
+    const currentReward = currentCampaign?.rewards.find((reward) => reward.id === previous.rewardId);
+    const currentActiveReward = currentCampaign && isEligible(currentCampaign, settings)
+      ? activeReward(currentCampaign, settings)
+      : undefined;
+    const shouldRetainProgress = currentCampaign != null
+      && currentReward?.status === "in_progress"
+      && currentActiveReward?.id === currentReward.id
+      && (preferredCampaign == null
+        || !hasHigherExplicitCampaignPriority(preferredCampaign, currentCampaign, settings));
+    if (!shouldRetainProgress) return undefined;
+    retainedCampaign = currentCampaign;
+    retainedReward = currentReward;
   }
   const decision: WatchDecision = {
     platform: previous.platform,
     action: "watch",
-    campaign: preferredCampaign,
-    reward: preferredReward,
+    campaign: retainedCampaign,
+    reward: retainedReward,
     channel: previous.channel,
-    reason: "Current campaign remains highest priority",
+    reason: retainedCampaign?.id === preferredCampaign?.id
+      ? "Current campaign remains highest priority"
+      : "Current reward is already in progress",
     reasonCode: "keeping_current_watch",
   };
   const keep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);
