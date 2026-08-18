@@ -1234,5 +1234,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "farming tab closed"
+  },
+  "automationPausedManualWatch": {
+    "message": "Manual watching"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Farming is paused while you’re watching a stream yourself. Pause it, close it, or switch away from that tab to resume automatically on the next check."
   }
 }

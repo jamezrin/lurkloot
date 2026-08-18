@@ -1234,5 +1234,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "挂机标签页已关闭"
+  },
+  "automationPausedManualWatch": {
+    "message": "手动观看"
+  },
+  "manualWatchPauseDetail": {
+    "message": "你亲自观看直播期间，挂机已暂停。暂停直播、关闭直播，或切换离开此标签页后，挂机会在下一次检查时自动恢复。"
   }
 }

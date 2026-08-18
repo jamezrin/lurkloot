@@ -1234,5 +1234,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "farm sekmesi kapatıldı"
+  },
+  "automationPausedManualWatch": {
+    "message": "Manuel izleme"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Bir yayını kendiniz izlerken farm duraklatılır. Bir sonraki kontrolde farmın otomatik olarak devam etmesi için yayını duraklatın, kapatın veya bu sekmeden başka bir yere geçin."
   }
 }

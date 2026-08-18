@@ -122,6 +122,25 @@ describe("automation authentication presentation", () => {
     });
   });
 
+  it("surfaces manual watching as a non-operational pause without an action", () => {
+    const result = automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: session("paused", "Manual watch detected", "manual_watch"),
+    });
+
+    expect(result).toMatchObject({
+      state: "paused",
+      badgeKey: "automationPausedManualWatch",
+      detailKey: "manualWatchPauseDetail",
+      tone: "warning",
+      operational: false,
+    });
+    expect(result.action).toBeUndefined();
+  });
+
   it("keeps the manual-close pause visible even while authentication is degraded", () => {
     expect(automationPresentation({
       platform: "twitch",
