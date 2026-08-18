@@ -3513,7 +3513,7 @@ describe("background controller", () => {
           return {
             data: [{
               campaign_id: "kick-campaign",
-              progress_units: 1,
+              progress_units: 2,
               ...(affirmativelyLinked ? { user_app_connected: true } : {}),
             }],
           };

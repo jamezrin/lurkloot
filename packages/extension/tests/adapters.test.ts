@@ -707,7 +707,7 @@ describe("KickAdapter", () => {
     await expect(adapter.claimReward(ambiguous[0], ambiguous[0].rewards[0])).resolves.toBe(false);
     expect(claimPosts).toBe(1);
 
-    progress = { data: [{ campaign_id: "campaign", user_app_connected: true, progress_units: 1 }] };
+    progress = { data: [{ campaign_id: "campaign", user_app_connected: true, progress_units: 2 }] };
     const linked = await adapter.refreshCampaigns();
     expect(linked[0].accountLinked).toBe(true);
     expect(linked[0].claimGuidance).toBeUndefined();
@@ -753,7 +753,7 @@ describe("KickAdapter", () => {
     } as DropCampaign;
 
     await adapter.claimReward(campaign, campaign.rewards[0]);
-    progress = [{ campaign_id: "campaign", user_app_connected: true, progress_units: 1 }];
+    progress = [{ campaign_id: "campaign", user_app_connected: true, progress_units: 2 }];
     const refreshed = await adapter.refreshCampaigns();
     await adapter.claimReward(refreshed[0], refreshed[0].rewards[0]);
 

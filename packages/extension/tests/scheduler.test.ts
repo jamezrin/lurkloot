@@ -1776,6 +1776,68 @@ describe("scheduler tick", () => {
     }));
   });
 
+  it.each(["ending_soonest", "lowest_availability"] as const)(
+    "keeps an in-progress Kick reward when %s ranks a new campaign first",
+    async (priorityMode) => {
+      const currentChannel = channel("current", {
+        platform: "kick",
+        url: "https://kick.com/current",
+      });
+      const current = campaign("current", {
+        platform: "kick",
+        endsAt: "2099-02-01T00:00:00.000Z",
+        allowedChannels: ["current", "other"],
+      });
+      const replacement = campaign("replacement", {
+        platform: "kick",
+        endsAt: "2099-01-01T00:00:00.000Z",
+        allowedChannels: ["replacement"],
+        rewards: [{ ...reward("locked"), id: "replacement-reward" }],
+      });
+      const kick = adapter(
+        "kick",
+        [current, replacement],
+        [channel("replacement", { platform: "kick", url: "https://kick.com/replacement" })],
+      );
+
+      const result = await runSchedulerTick(
+        {
+          ...baseState,
+          sessions: {
+            ...baseState.sessions,
+            kick: {
+              platform: "kick",
+              status: "watching",
+              channel: currentChannel,
+              campaignId: "current",
+              rewardId: "reward-in_progress",
+              offlineChecks: 0,
+              playbackChecks: 0,
+              watchMode: "tabless",
+            },
+          },
+        },
+        settings({
+          priorityMode,
+          platform: {
+            twitch: { enabled: false, idleWatchlistChannels: [] },
+            kick: { enabled: true, idleWatchlistChannels: [] },
+          },
+        }),
+        { twitch: adapter("twitch", [], []), kick },
+        { platforms: ["kick"] },
+      );
+
+      expect(kick.listCandidateChannels).not.toHaveBeenCalled();
+      expect(result.state.sessions.kick).toMatchObject({
+        status: "watching",
+        campaignId: "current",
+        rewardId: "reward-in_progress",
+        reasonCode: "keeping_current_watch",
+      });
+    },
+  );
+
   it("bypasses current-watch retention when a higher-priority campaign is available", async () => {
     const current = channel("current");
     const replacement = channel("replacement");
