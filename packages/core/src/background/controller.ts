@@ -456,9 +456,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       - integrityRefreshJitter(integrity.integrity);
   }
 
-  function installTwitchIntegrity(integrity: TwitchIntegrity, isNew = false, emit?: EventEmitter): void {
+  function installTwitchIntegrity(
+    integrity: TwitchIntegrity,
+    isNew = false,
+    emit?: EventEmitter,
+    sourceTabId?: number,
+  ): void {
     installedTwitchIntegrity = integrity;
-    setTwitchIntegrity(integrity, { isNew }, emit);
+    setTwitchIntegrity(integrity, { isNew, sourceTabId }, emit);
   }
 
   function currentInstalledTwitchIntegrity(): TwitchIntegrity | undefined {
@@ -744,7 +749,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Client-Integrity header, so integrityFromHeaders returns undefined (and we
   // ignore) our own background fetch and anonymous queries.
   // `tabId` is optional so hosts that cannot attribute a request to a tab still
-  // capture tokens; it only feeds page-context boot instrumentation.
+  // capture tokens; when present it also lets a managed refresh distinguish its
+  // own replacement from a concurrent user-tab replay.
   async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined, tabId?: number): Promise<void> {
     // Noted before the integrity filter: an anonymous GQL request carries no
     // Client-Integrity header but still proves the SPA has booted.
@@ -768,7 +774,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     let isNew = false;
     await withEventCollector(async (emit, events) => {
       isNew = integrity.integrity !== installedTwitchIntegrity?.integrity;
-      installTwitchIntegrity(integrity, isNew, emit);
+      const sourceTabId = tabId != null && tabId >= 0 ? tabId : undefined;
+      installTwitchIntegrity(integrity, isNew, emit, sourceTabId);
       await reportBestEffort(events);
     });
     // Persistence still takes the lock: persistedIntegrityToken is read and

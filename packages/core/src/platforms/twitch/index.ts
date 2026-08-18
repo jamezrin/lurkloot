@@ -260,6 +260,22 @@ function sentIntegrityToken(error: unknown): string | undefined {
   return error instanceof TwitchGqlFailure ? error.sentIntegrityToken : undefined;
 }
 
+async function refreshIntegrityForRetry(
+  ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean>,
+  rejectedToken: string | undefined,
+  signal?: AbortSignal,
+): Promise<{ refreshed: boolean; integrity: TwitchIntegrity | undefined }> {
+  let integrity: TwitchIntegrity | undefined;
+  const refreshed = await ensureIntegrity({
+    forceRefresh: true,
+    reason: "rejection_recovery",
+    rejectedToken,
+    onIntegrityCaptured: (value) => { integrity = value; },
+    signal,
+  });
+  return { refreshed, integrity };
+}
+
 function isCredentialRejection(message: string | undefined): boolean {
   return message != null && /unauthenticated|unauthorized|(?:the )?oauth token (?:(?:is|was) )?invalid|invalid oauth token|token (?:has )?expired/i.test(message);
 }
@@ -632,6 +648,9 @@ export type TwitchGqlTransport = <T>(
   credentials?: RequestCredentials,
   emit?: EventEmitter,
   signal?: AbortSignal,
+  // Optional one-attempt bundle pin used by integrity recovery. When absent,
+  // the transport reads the current global capture as before.
+  integrityOverride?: TwitchIntegrity,
 ) => Promise<TwitchGqlResponse<T>>;
 
 // Reporter-neutral transport: it captures only the request transport and
@@ -651,6 +670,7 @@ export function createTwitchGqlTransport(
     credentials?: RequestCredentials,
     emit: EventEmitter = ignoreEvent,
     signal?: AbortSignal,
+    integrityOverride?: TwitchIntegrity,
   ): Promise<TwitchGqlResponse<T>> => {
     // Read once per attempt and reused for both the headers and the failure
     // stamp, so the two can never disagree.
@@ -696,7 +716,7 @@ export function createTwitchGqlTransport(
     } satisfies RequestInit);
     const fetchOnce = async (queryText?: string): Promise<TwitchGqlResponse<T> | null> => {
       // Anonymous queries deliberately carry no identity at all.
-      sentIntegrity = credentials === "omit" ? undefined : options.currentIntegrity?.();
+      sentIntegrity = credentials === "omit" ? undefined : integrityOverride ?? options.currentIntegrity?.();
       const request = buildRequest(queryText);
       let raw: unknown;
       try {
@@ -1909,18 +1929,13 @@ export class TwitchAdapter implements PlatformAdapter {
       // only a forced refresh replaces it. Retry exactly once; a second failure
       // propagates.
       const rejectedToken = sentIntegrityToken(error);
-      const refreshed = await this.ensureIntegrity({
-        forceRefresh: true,
-        reason: "rejection_recovery",
-        rejectedToken,
-        signal,
-      });
-      if (refreshed) return await this.runClaim(reward, signal);
+      const retry = await refreshIntegrityForRetry(this.ensureIntegrity, rejectedToken, signal);
+      if (retry.refreshed) return await this.runClaim(reward, signal, retry.integrity);
       throw new Error(`Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`);
     }
   }
 
-  private async runClaim(reward: DropReward, signal?: AbortSignal): Promise<boolean> {
+  private async runClaim(reward: DropReward, signal?: AbortSignal, integrityOverride?: TwitchIntegrity): Promise<boolean> {
     const result = await this.gql<{ claimDropRewards?: { status?: string } }>(
       "DropsPage_ClaimDropRewards",
       TWITCH_QUERIES.claimHash,
@@ -1929,6 +1944,7 @@ export class TwitchAdapter implements PlatformAdapter {
       undefined,
       this.emit,
       signal,
+      integrityOverride,
     );
     const status = result.data?.claimDropRewards?.status;
     if (status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED") return true;
@@ -1965,17 +1981,18 @@ export class TwitchAdapter implements PlatformAdapter {
       if (!isIntegrityRejection(error)) throw error;
       diagnostic(this.emit, "warn", `Channel-points claim for ${channel.username} was rejected for integrity; refreshing the token and retrying once`, "twitch");
       const rejectedToken = sentIntegrityToken(error);
-      if (!await this.ensureIntegrity({
-        forceRefresh: true,
-        reason: "rejection_recovery",
-        rejectedToken,
-        signal,
-      })) throw error;
-      return await this.runChannelPointsClaim(claimId, channelId, signal);
+      const retry = await refreshIntegrityForRetry(this.ensureIntegrity, rejectedToken, signal);
+      if (!retry.refreshed) throw error;
+      return await this.runChannelPointsClaim(claimId, channelId, signal, retry.integrity);
     }
   }
 
-  private async runChannelPointsClaim(claimId: string, channelId: string, signal?: AbortSignal): Promise<boolean> {
+  private async runChannelPointsClaim(
+    claimId: string,
+    channelId: string,
+    signal?: AbortSignal,
+    integrityOverride?: TwitchIntegrity,
+  ): Promise<boolean> {
     const result = await this.gql<{ claimCommunityPoints?: { status?: string } }>(
       "ClaimCommunityPoints",
       TWITCH_QUERIES.claimCommunityPointsHash,
@@ -1984,6 +2001,7 @@ export class TwitchAdapter implements PlatformAdapter {
       undefined,
       this.emit,
       signal,
+      integrityOverride,
     );
     return result.data?.claimCommunityPoints?.status !== "CLAIM_NOT_AVAILABLE";
   }
@@ -2113,8 +2131,11 @@ export class TwitchAdapter implements PlatformAdapter {
     credentials?: RequestCredentials,
     emit: EventEmitter = this.emit,
     signal?: AbortSignal,
+    integrityOverride?: TwitchIntegrity,
   ): Promise<TwitchGqlResponse<T>> {
-    return this.gqlTransport(operationName, sha256Hash, variables, query, credentials, emit, signal);
+    return integrityOverride
+      ? this.gqlTransport(operationName, sha256Hash, variables, query, credentials, emit, signal, integrityOverride)
+      : this.gqlTransport(operationName, sha256Hash, variables, query, credentials, emit, signal);
   }
 
   // Twitch can reject an authenticated request for Client-Integrity while the
@@ -2143,13 +2164,9 @@ export class TwitchAdapter implements PlatformAdapter {
       // sent. Re-reading it here would race a concurrent capture and could
       // report a token this request never used.
       const rejectedToken = sentIntegrityToken(error);
-      if (!await this.ensureIntegrity({
-        forceRefresh: true,
-        reason: "rejection_recovery",
-        rejectedToken,
-        signal,
-      })) throw error;
-      return this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
+      const retry = await refreshIntegrityForRetry(this.ensureIntegrity, rejectedToken, signal);
+      if (!retry.refreshed) throw error;
+      return this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal, retry.integrity);
     }
   }
 
@@ -2282,7 +2299,16 @@ class TwitchWatcher implements TablessWatchController {
 
   private async resolveUserId(): Promise<string | undefined> {
     if (this.viewerUserId) return this.viewerUserId;
-    const currentUser = () => this.gql<{ currentUser?: { id?: string } }>("CurrentUser", "", {}, CURRENT_USER_QUERY, undefined, this.diagnostics.emit);
+    const currentUser = (integrityOverride?: TwitchIntegrity) => this.gql<{ currentUser?: { id?: string } }>(
+      "CurrentUser",
+      "",
+      {},
+      CURRENT_USER_QUERY,
+      undefined,
+      this.diagnostics.emit,
+      undefined,
+      integrityOverride,
+    );
     try {
       let response;
       try {
@@ -2292,12 +2318,9 @@ class TwitchWatcher implements TablessWatchController {
         // adapter's safe authenticated reads.
         if (!isIntegrityRejection(error)) throw error;
         this.log("debug", "Twitch viewer id lookup was rejected for integrity; refreshing the token and retrying once");
-        if (!await this.ensureIntegrity({
-          forceRefresh: true,
-          reason: "rejection_recovery",
-          rejectedToken: sentIntegrityToken(error),
-        })) throw error;
-        response = await currentUser();
+        const retry = await refreshIntegrityForRetry(this.ensureIntegrity, sentIntegrityToken(error));
+        if (!retry.refreshed) throw error;
+        response = await currentUser(retry.integrity);
       }
       this.viewerUserId = response.data?.currentUser?.id;
     } catch (error) {
