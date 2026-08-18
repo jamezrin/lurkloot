@@ -1234,5 +1234,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "scheda di farming chiusa"
+  },
+  "automationPausedManualWatch": {
+    "message": "Visione manuale"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Il farming è in pausa mentre guardi una diretta per conto tuo. Mettila in pausa, chiudila o passa a un'altra scheda per riprendere automaticamente il farming al prossimo controllo."
   }
 }

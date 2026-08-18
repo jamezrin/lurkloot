@@ -1234,5 +1234,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "फ़ार्मिंग टैब बंद"
+  },
+  "automationPausedManualWatch": {
+    "message": "मैन्युअल देखना"
+  },
+  "manualWatchPauseDetail": {
+    "message": "आपके खुद कोई स्ट्रीम देखने के दौरान फ़ार्मिंग रुकी हुई है। अगली जाँच पर फ़ार्मिंग अपने आप फिर शुरू करने के लिए उसे रोकें, बंद करें या उस टैब से हट जाएँ।"
   }
 }

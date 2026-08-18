@@ -68,6 +68,9 @@ export function automationPresentation({
       if (session?.status === "starting") {
         return presentation("starting", "automationStarting", "startingAutomation");
       }
+      if (session?.status === "paused" && session?.reasonCode === "manual_watch") {
+        return presentation("paused", "automationPausedManualWatch", "manualWatchPauseDetail", "warning");
+      }
       if (
         session?.status === "paused"
         || session?.reasonCode === "automation_disabled"

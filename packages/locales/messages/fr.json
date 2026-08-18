@@ -1234,5 +1234,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "onglet de farming fermé"
+  },
+  "automationPausedManualWatch": {
+    "message": "Visionnage manuel"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Le farming est en pause pendant que vous regardez vous-même un stream. Mettez-le en pause, fermez-le ou quittez cet onglet pour que le farming reprenne automatiquement lors de la prochaine vérification."
   }
 }
