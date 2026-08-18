@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Réclame automatiquement les bonus de points de chaîne lors du farm sur cette plateforme."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Disponibilité stricte des campagnes"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Ne farmer une campagne que sur les chaînes pour lesquelles Twitch l'affiche. Twitch omet souvent des campagnes farmables, ce qui peut laisser des drops non farmés."
+  },
   "autoClaimChallengesTitle": {
     "message": "Réclamer automatiquement les défis quotidiens"
   },
@@ -1064,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "le contrôle de lecture a échoué"
   },
+  "activityReasonNoProgress": {
+    "message": "la chaîne n'a généré aucune progression de drops"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "une récompense prioritaire a pris le relais"
   },
@@ -1100,11 +1109,23 @@
   "copyActivityLog": {
     "message": "Copier le journal"
   },
+  "copyLoadedActivityLog": {
+    "message": "Copier la page"
+  },
   "copyActivityLogCopied": {
     "message": "$1 événements copiés"
   },
   "copyActivityLogFailed": {
     "message": "Impossible de copier le journal. Réessayez."
+  },
+  "exportAllDiagnostics": {
+    "message": "Tout exporter"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 événements exportés"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Impossible d'exporter le journal. Réessayez."
   },
   "activityViewTab": {
     "message": "Activité"
@@ -1267,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "onglet de farming fermé"
+  },
+  "automationPausedManualWatch": {
+    "message": "Visionnage manuel"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Le farming est en pause pendant que vous regardez vous-même un stream. Mettez-le en pause, fermez-le ou quittez cet onglet pour que le farming reprenne automatiquement lors de la prochaine vérification."
   }
 }

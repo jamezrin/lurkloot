@@ -117,7 +117,11 @@ export function defaultConfigJsonc(): string {
         // Used when farmAllCategories is false.
         "categories": ${json(twitch.categories)},
         // Claim channel-point bonuses while farming this platform.
-        "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)}
+        "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},
+        // Advanced: only farm a campaign on channels Twitch's AvailableDrops
+        // query lists it for. Twitch often omits farmable campaigns there, so
+        // enabling this can leave drops unfarmed.
+        "strictCampaignAvailability": ${json(twitch.strictCampaignAvailability)}
       },
       "kick": {
         "enabled": ${json(kick.enabled)},

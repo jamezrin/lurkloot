@@ -65,6 +65,14 @@ export function createExtensionPopupAdapter(): PopupAdapter {
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     },
+    downloadFile: (filename, contents, mimeType = "text/plain") => {
+      const url = URL.createObjectURL(new Blob([contents], { type: mimeType }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    },
     importSettings: () => new Promise<unknown | null>((resolve, reject) => {
       const input = document.createElement("input");
       input.type = "file";

@@ -13,6 +13,7 @@ export type FarmingStopReason =
   | "channel_offline"
   | "channel_mismatch"
   | "watch_unhealthy"
+  | "no_progress"
   | "higher_priority_reward"
   | "higher_priority_idle_watchlist"
   | "watch_requirement_completed"

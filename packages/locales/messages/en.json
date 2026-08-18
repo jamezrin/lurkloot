@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Claim channel-point bonuses while farming this platform."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Strict campaign availability"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Only farm a campaign on channels Twitch lists it for. Twitch often omits farmable campaigns, so this can leave drops unfarmed."
+  },
   "autoClaimChallengesTitle": {
     "message": "Auto-claim daily challenges"
   },
@@ -1064,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "the watch health check failed"
   },
+  "activityReasonNoProgress": {
+    "message": "the channel earned no drop progress"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "a higher-priority reward took over"
   },
@@ -1100,11 +1109,23 @@
   "copyActivityLog": {
     "message": "Copy log"
   },
+  "copyLoadedActivityLog": {
+    "message": "Copy loaded"
+  },
   "copyActivityLogCopied": {
     "message": "Copied $1 events"
   },
   "copyActivityLogFailed": {
     "message": "Could not copy the log. Try again."
+  },
+  "exportAllDiagnostics": {
+    "message": "Export all"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "Exported $1 events"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Could not export the log. Try again."
   },
   "activityViewTab": {
     "message": "Activity"
@@ -1267,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "farming tab closed"
+  },
+  "automationPausedManualWatch": {
+    "message": "Manual watching"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Farming is paused while you’re watching a stream yourself. Pause it, close it, or switch away from that tab to resume automatically on the next check."
   }
 }

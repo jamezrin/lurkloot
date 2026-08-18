@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "इस प्लेटफ़ॉर्म पर फ़ार्म करते समय चैनल-पॉइंट बोनस अपने आप क्लेम करें।"
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "सख्त अभियान उपलब्धता"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "किसी अभियान को केवल उन चैनलों पर फ़ार्म करें जिनके लिए Twitch उसे सूचीबद्ध करता है। Twitch अक्सर फ़ार्म करने योग्य अभियान छोड़ देता है, जिससे कुछ ड्रॉप्स अनफ़ार्म रह सकते हैं।"
+  },
   "autoClaimChallengesTitle": {
     "message": "दैनिक चैलेंज अपने आप क्लेम करें"
   },
@@ -1064,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "प्लेबैक जाँच विफल हुई"
   },
+  "activityReasonNoProgress": {
+    "message": "चैनल ने कोई ड्रॉप प्रगति अर्जित नहीं की"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "अधिक प्राथमिकता वाला इनाम चुना गया"
   },
@@ -1100,11 +1109,23 @@
   "copyActivityLog": {
     "message": "लॉग कॉपी करें"
   },
+  "copyLoadedActivityLog": {
+    "message": "लोड की गई कॉपी करें"
+  },
   "copyActivityLogCopied": {
     "message": "$1 इवेंट कॉपी किए गए"
   },
   "copyActivityLogFailed": {
     "message": "लॉग कॉपी नहीं हो सका। फिर से कोशिश करें।"
+  },
+  "exportAllDiagnostics": {
+    "message": "सभी निर्यात करें"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 इवेंट निर्यात किए गए"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "लॉग निर्यात नहीं हो सका। फिर से कोशिश करें."
   },
   "activityViewTab": {
     "message": "गतिविधि"
@@ -1267,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "फ़ार्मिंग टैब बंद"
+  },
+  "automationPausedManualWatch": {
+    "message": "मैन्युअल देखना"
+  },
+  "manualWatchPauseDetail": {
+    "message": "आपके खुद कोई स्ट्रीम देखने के दौरान फ़ार्मिंग रुकी हुई है। अगली जाँच पर फ़ार्मिंग अपने आप फिर शुरू करने के लिए उसे रोकें, बंद करें या उस टैब से हट जाएँ।"
   }
 }

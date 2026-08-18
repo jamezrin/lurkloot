@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/tabs";
+import type { TwitchIntegrityRequest } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { EngineEvent } from "@lurkloot/shared/events";
@@ -706,7 +707,7 @@ describe("KickAdapter", () => {
     await expect(adapter.claimReward(ambiguous[0], ambiguous[0].rewards[0])).resolves.toBe(false);
     expect(claimPosts).toBe(1);
 
-    progress = { data: [{ campaign_id: "campaign", user_app_connected: true, progress_units: 1 }] };
+    progress = { data: [{ campaign_id: "campaign", user_app_connected: true, progress_units: 2 }] };
     const linked = await adapter.refreshCampaigns();
     expect(linked[0].accountLinked).toBe(true);
     expect(linked[0].claimGuidance).toBeUndefined();
@@ -752,7 +753,7 @@ describe("KickAdapter", () => {
     } as DropCampaign;
 
     await adapter.claimReward(campaign, campaign.rewards[0]);
-    progress = [{ campaign_id: "campaign", user_app_connected: true, progress_units: 1 }];
+    progress = [{ campaign_id: "campaign", user_app_connected: true, progress_units: 2 }];
     const refreshed = await adapter.refreshCampaigns();
     await adapter.claimReward(refreshed[0], refreshed[0].rewards[0]);
 
@@ -2795,6 +2796,92 @@ describe("TwitchAdapter", () => {
     expect(availabilityCalls).toBe(1);
   });
 
+  it("expires strict Twitch availability relative to the requested campaign", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-08-15T15:00:00.000Z"));
+      const availabilityCalls = new Map<string, number>();
+      const fetcher = jsonFetcher((_url, init) => {
+        const op = operation(init);
+        if (op === "StreamInfo") {
+          const channel = String((requestBody(init).variables as { channel?: string }).channel);
+          const channelId = channel === "positive" ? "positive-channel" : channel === "empty" ? "empty-channel" : "mixed-channel";
+          return {
+            data: {
+              user: {
+                id: channelId,
+                stream: { id: `${channelId}-broadcast`, game: { id: "game" } },
+              },
+            },
+          };
+        }
+        if (op === "DropsHighlightService_AvailableDrops") {
+          const channelId = String((requestBody(init).variables as { channelID?: string }).channelID);
+          availabilityCalls.set(channelId, (availabilityCalls.get(channelId) ?? 0) + 1);
+          return {
+            data: {
+              channel: {
+                id: channelId,
+                viewerDropCampaigns: channelId === "empty-channel" ? [] : [{ id: "campaign-b" }],
+              },
+            },
+          };
+        }
+        throw new Error(`Unexpected op ${op}`);
+      });
+      const discoveryState = new TwitchDiscoveryState();
+      const adapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+      const mixedCandidate = { platform: "twitch", username: "mixed", url: "https://www.twitch.tv/mixed" } as const;
+      const positiveCandidate = { platform: "twitch", username: "positive", url: "https://www.twitch.tv/positive" } as const;
+      const emptyCandidate = { platform: "twitch", username: "empty", url: "https://www.twitch.tv/empty" } as const;
+      const campaignA = { id: "campaign-a", categoryId: "game" } as DropCampaign;
+      const campaignB = { id: "campaign-b", categoryId: "game" } as DropCampaign;
+
+      await expect(adapter.checkChannel(mixedCandidate, { campaign: campaignA }))
+        .resolves.toMatchObject({ campaignMatches: false });
+      expect(availabilityCalls.get("mixed-channel")).toBe(1);
+
+      await expect(adapter.checkChannel(mixedCandidate, { campaign: campaignA }))
+        .resolves.toMatchObject({ campaignMatches: false });
+      expect(availabilityCalls.get("mixed-channel")).toBe(1);
+
+      vi.advanceTimersByTime(30_001);
+      await expect(adapter.checkChannel(mixedCandidate, { campaign: campaignB }))
+        .resolves.toMatchObject({ campaignMatches: true });
+      expect(availabilityCalls.get("mixed-channel")).toBe(1);
+
+      await expect(adapter.checkChannel(mixedCandidate, { campaign: campaignA }))
+        .resolves.toMatchObject({ campaignMatches: false });
+      expect(availabilityCalls.get("mixed-channel")).toBe(2);
+
+      await expect(adapter.checkChannel(positiveCandidate, { campaign: campaignB }))
+        .resolves.toMatchObject({ campaignMatches: true });
+      expect(availabilityCalls.get("positive-channel")).toBe(1);
+      vi.advanceTimersByTime(2 * 60_000 - 1);
+      await expect(adapter.checkChannel(positiveCandidate, { campaign: campaignB }))
+        .resolves.toMatchObject({ campaignMatches: true });
+      expect(availabilityCalls.get("positive-channel")).toBe(1);
+      vi.advanceTimersByTime(1);
+      await expect(adapter.checkChannel(positiveCandidate, { campaign: campaignB }))
+        .resolves.toMatchObject({ campaignMatches: true });
+      expect(availabilityCalls.get("positive-channel")).toBe(2);
+
+      await expect(adapter.checkChannel(emptyCandidate, { campaign: campaignA }))
+        .resolves.toMatchObject({ campaignMatches: false });
+      expect(availabilityCalls.get("empty-channel")).toBe(1);
+      vi.advanceTimersByTime(30_000 - 1);
+      await expect(adapter.checkChannel(emptyCandidate, { campaign: campaignA }))
+        .resolves.toMatchObject({ campaignMatches: false });
+      expect(availabilityCalls.get("empty-channel")).toBe(1);
+      vi.advanceTimersByTime(1);
+      await expect(adapter.checkChannel(emptyCandidate, { campaign: campaignA }))
+        .resolves.toMatchObject({ campaignMatches: false });
+      expect(availabilityCalls.get("empty-channel")).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("recovers a contradictory Twitch availability negative after material progress", async () => {
     vi.useFakeTimers();
     try {
@@ -2976,7 +3063,7 @@ describe("TwitchAdapter", () => {
     for (let index = 0; index < 128; index += 1) {
       discoveryState.rememberChannelAvailability(`channel-${index}`, `broadcast-${index}`, new Set(["campaign"]), requestIdentity);
     }
-    expect(discoveryState.cachedChannelAvailability("channel-0", "broadcast-0")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-0", "broadcast-0", "campaign")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
@@ -2985,8 +3072,8 @@ describe("TwitchAdapter", () => {
     // an arbitrary or most-recent one.
     discoveryState.rememberChannelAvailability("channel-128", "broadcast-128", new Set(["campaign"]), requestIdentity);
 
-    expect(discoveryState.cachedChannelAvailability("channel-0", "broadcast-0")).toEqual({ status: "miss" });
-    expect(discoveryState.cachedChannelAvailability("channel-128", "broadcast-128")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-0", "broadcast-0", "campaign")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-128", "broadcast-128", "campaign")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
@@ -3006,7 +3093,7 @@ describe("TwitchAdapter", () => {
     expect(discoveryState.hasProgressConfirmedAvailability("channel-a", "campaign-a")).toBe(true);
     expect(discoveryState.hasProgressConfirmedAvailability("channel-a", "campaign-b")).toBe(false);
     expect(discoveryState.hasProgressConfirmedAvailability("channel-b", "campaign-a")).toBe(false);
-    expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a", "campaign-a")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign-a"]),
     });
@@ -3019,22 +3106,23 @@ describe("TwitchAdapter", () => {
       const discoveryState = new TwitchDiscoveryState();
       const identity = discoveryState.availabilityRequestIdentity();
       discoveryState.rememberChannelAvailability("channel-a", "broadcast-a", new Set(), identity);
+      vi.advanceTimersByTime(20_000);
       discoveryState.rememberProgressConfirmedAvailability("channel-a", "campaign-a", identity);
 
       vi.advanceTimersByTime(30_001);
-      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({
+      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a", "campaign-a")).toEqual({
         status: "hit",
         campaignIds: new Set(["campaign-a"]),
       });
 
       vi.advanceTimersByTime(89_998);
-      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({
+      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a", "campaign-a")).toEqual({
         status: "hit",
         campaignIds: new Set(["campaign-a"]),
       });
 
       vi.advanceTimersByTime(1);
-      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({ status: "expired" });
+      expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a", "campaign-a")).toEqual({ status: "expired" });
     } finally {
       vi.useRealTimers();
     }
@@ -3113,11 +3201,11 @@ describe("TwitchAdapter", () => {
       identity,
     );
 
-    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-a"))
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-a", "campaign-a"))
       .toEqual({ status: "hit", campaignIds: new Set() });
-    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-b"))
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-b", "campaign-a"))
       .toEqual({ status: "broadcast_changed" });
-    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-a"))
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-a", "campaign-a"))
       .toEqual({ status: "miss" });
   });
 
@@ -3132,9 +3220,9 @@ describe("TwitchAdapter", () => {
       discoveryState.rememberChannelAvailability("positive", "broadcast-p", new Set(["campaign"]), identity);
       vi.advanceTimersByTime(30_001);
 
-      expect(discoveryState.cachedChannelAvailability("negative", "broadcast-n"))
+      expect(discoveryState.cachedChannelAvailability("negative", "broadcast-n", "campaign"))
         .toEqual({ status: "expired" });
-      expect(discoveryState.cachedChannelAvailability("positive", "broadcast-p"))
+      expect(discoveryState.cachedChannelAvailability("positive", "broadcast-p", "campaign"))
         .toEqual({ status: "hit", campaignIds: new Set(["campaign"]) });
     } finally {
       vi.useRealTimers();
@@ -3461,7 +3549,7 @@ describe("TwitchAdapter", () => {
     await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign });
 
     expect(availabilityCalls).toBe(2);
-    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id", "campaign")).toEqual({ status: "miss" });
   });
 
   it("treats a missing availability response channel id as ambiguous and never caches it", async () => {
@@ -3581,8 +3669,8 @@ describe("TwitchAdapter", () => {
     // so the selection still lands on the first (unconfirmed) candidate.
     expect(selection?.channel?.username).toBe("directory-a");
     expect(singleFallbackCalls).toBe(1);
-    expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({ status: "miss" });
-    expect(discoveryState.cachedChannelAvailability("channel-b", "broadcast-b")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a", "campaign")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-b", "broadcast-b", "campaign")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
@@ -3689,8 +3777,8 @@ describe("TwitchAdapter", () => {
     // had been ignored, this response would have cached directly and the
     // fallback would never have been called.
     expect(singleFallbackCalls).toBe(1);
-    expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a")).toEqual({ status: "miss" });
-    expect(discoveryState.cachedChannelAvailability("channel-b", "broadcast-b")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-a", "broadcast-a", "campaign")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-b", "broadcast-b", "campaign")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
@@ -3743,7 +3831,7 @@ describe("TwitchAdapter", () => {
     // Request A still answers its own caller correctly...
     await expect(pendingA).resolves.toMatchObject({ campaignMatches: true });
     // ...but must not have repopulated the shared cache under user-b.
-    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id", "campaign")).toEqual({ status: "miss" });
 
     // A fresh request under user-b reaches the network and populates the cache.
     await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
@@ -3772,7 +3860,7 @@ describe("TwitchAdapter", () => {
       new Set(["campaign"]),
       staleIdentity,
     )).toBe(false);
-    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id")).toEqual({ status: "miss" });
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id", "campaign")).toEqual({ status: "miss" });
 
     expect(discoveryState.rememberChannelAvailability(
       "channel-id",
@@ -3780,7 +3868,7 @@ describe("TwitchAdapter", () => {
       new Set(["campaign"]),
       discoveryState.availabilityRequestIdentity(),
     )).toBe(true);
-    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id")).toEqual({
+    expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id", "campaign")).toEqual({
       status: "hit",
       campaignIds: new Set(["campaign"]),
     });
@@ -4659,6 +4747,46 @@ describe("TwitchAdapter integrity recovery", () => {
     }));
   });
 
+  it("pins the managed replacement for the immediate retry when the global capture is replayed", async () => {
+    const rejected = {
+      integrity: "rejected-token",
+      deviceId: "rejected-device",
+      clientSessionId: "rejected-session",
+      expiresAt: Date.now() + 60_000,
+    };
+    const replacement = {
+      integrity: "replacement-token",
+      deviceId: "replacement-device",
+      clientSessionId: "replacement-session",
+      expiresAt: Date.now() + 60_000,
+    };
+    const sent: string[] = [];
+    const ensureIntegrity = vi.fn(async (request?: TwitchIntegrityRequest) => {
+      if (request?.forceRefresh) {
+        // A concurrent user tab replays the rejected bundle into the ordinary
+        // global slot after the helper capture; only the callback's exact
+        // bundle is safe for this immediate retry.
+        request.onIntegrityCaptured?.(replacement);
+      }
+      return true;
+    });
+    let attempts = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const headers = new Headers(init?.headers as HeadersInit);
+      sent.push(headers.get("client-integrity") ?? "");
+      attempts += 1;
+      return attempts === 1
+        ? INTEGRITY_REJECTION
+        : { data: { currentUser: { id: "u" } } };
+    });
+
+    await expect(twitchAdapter(fetcher, ensureIntegrity, undefined, {
+      currentIntegrity: () => rejected,
+    }).checkAuthHealth()).resolves.toMatchObject({ status: "healthy" });
+
+    expect(sent).toEqual([rejected.integrity, replacement.integrity]);
+  });
+
   it("sends the integrity trio together so the replayed token stays bound to its identity", async () => {
     const currentIntegrity = () => ({
       integrity: "bound-token",
@@ -4950,6 +5078,7 @@ describe("TwitchAdapter integrity recovery", () => {
           forceRefresh: true,
           reason: "rejection_recovery",
           rejectedToken: undefined,
+          onIntegrityCaptured: expect.any(Function),
           signal: undefined,
         }],
       ]);
@@ -5003,6 +5132,7 @@ describe("TwitchAdapter integrity recovery", () => {
           forceRefresh: true,
           reason: "rejection_recovery",
           rejectedToken: undefined,
+          onIntegrityCaptured: expect.any(Function),
           signal: undefined,
         }],
       ]);

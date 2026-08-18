@@ -156,6 +156,9 @@ export interface PopupAdapter {
   // worked. Hosts that omit it (the site demo) make the critical-failure panel
   // fall back to a selectable textarea instead of pretending the copy succeeded.
   writeClipboard?(text: string): Promise<boolean>;
+  // Optional: download a text file from the popup. The live extension implements
+  // it with a Blob URL; hosts that omit it (the site demo) hide Export all.
+  downloadFile?(filename: string, contents: string, mimeType?: string): void;
   resetExtension?(): Promise<RuntimeSnapshot>;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   resolveCompatibility?(settings: CompatibilitySettings): PopupCompatibilityResolution;

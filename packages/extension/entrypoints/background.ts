@@ -28,7 +28,7 @@ import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } fr
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
-import { appendActivityEvents, clearActivityEvents, loadActivityEvents } from "../src/core/activityStorage";
+import { appendActivityEvents, clearActivityEvents, exportDiagnosticsEvents, loadActivityEvents } from "../src/core/activityStorage";
 import {
   createActivityEventReporter,
   createActivityMessageHandler,
@@ -42,6 +42,7 @@ const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
 const handleActivityMessage = createActivityMessageHandler({
   load: loadActivityEvents,
+  exportDiagnostics: exportDiagnosticsEvents,
   clear: clearActivityEvents,
 });
 const reportEvents = createActivityEventReporter({
@@ -104,6 +105,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
       {
         compatibility: resolution.compatibility.twitch,
         discoveryState: twitchDiscoveryState,
+        strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
         currentIntegrity: currentValidTwitchIntegrity,
         heartbeatIdentity: "web",
         heartbeatFetchText: twitchHeartbeatFetchText,

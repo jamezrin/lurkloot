@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Yayın izlerken biriken kanal puanı bonuslarını otomatik toplar."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Katı kampanya uygunluğu"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Bir kampanyayı yalnızca Twitch'in onu listelediği kanallarda farmla. Twitch farmlanabilir kampanyaları sıkça atlar, bu yüzden bazı droplar farmlanmadan kalabilir."
+  },
   "autoClaimChallengesTitle": {
     "message": "Günlük görevleri otomatik al"
   },
@@ -1064,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "İzleme kontrolü başarısız"
   },
+  "activityReasonNoProgress": {
+    "message": "kanal hiç drop ilerlemesi kazandırmadı"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "Daha yüksek öncelikli drop geldi"
   },
@@ -1100,11 +1109,23 @@
   "copyActivityLog": {
     "message": "Günlüğü kopyala"
   },
+  "copyLoadedActivityLog": {
+    "message": "Yüklenenleri kopyala"
+  },
   "copyActivityLogCopied": {
     "message": "$1 olay kopyalandı"
   },
   "copyActivityLogFailed": {
     "message": "Günlük kopyalanamadı. Tekrar deneyin."
+  },
+  "exportAllDiagnostics": {
+    "message": "Tümünü dışa aktar"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 olay dışa aktarıldı"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Günlük dışa aktarılamadı. Yeniden deneyin."
   },
   "activityViewTab": {
     "message": "Geçmiş"
@@ -1267,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "farm sekmesi kapatıldı"
+  },
+  "automationPausedManualWatch": {
+    "message": "Manuel izleme"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Bir yayını kendiniz izlerken farm duraklatılır. Bir sonraki kontrolde farmın otomatik olarak devam etmesi için yayını duraklatın, kapatın veya bu sekmeden başka bir yere geçin."
   }
 }

@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "استلم مكافآت نقاط القناة تلقائيًا أثناء الفارم على هذه المنصة."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "توفر الحملات الصارم"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "احصد الحملة فقط على القنوات التي تعرضها تويتش لها. غالبًا ما تغفل تويتش حملات قابلة للحصد، لذا قد تبقى بعض الدروبس دون حصد."
+  },
   "autoClaimChallengesTitle": {
     "message": "استلام التحديات اليومية تلقائيًا"
   },
@@ -1064,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "فشل فحص التشغيل"
   },
+  "activityReasonNoProgress": {
+    "message": "لم تحقق القناة أي تقدم في الدروبس"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "تم الانتقال إلى مكافأة ذات أولوية أعلى"
   },
@@ -1100,11 +1109,23 @@
   "copyActivityLog": {
     "message": "نسخ السجل"
   },
+  "copyLoadedActivityLog": {
+    "message": "نسخ المحمّل"
+  },
   "copyActivityLogCopied": {
     "message": "تم نسخ $1 حدثًا"
   },
   "copyActivityLogFailed": {
     "message": "تعذّر نسخ السجل. حاول مرة أخرى."
+  },
+  "exportAllDiagnostics": {
+    "message": "تصدير الكل"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "تم تصدير $1 من الإدخالات"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "تعذر تصدير السجل. حاول مرة أخرى."
   },
   "activityViewTab": {
     "message": "النشاط"
@@ -1267,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "أُغلقت علامة تبويب الزراعة"
+  },
+  "automationPausedManualWatch": {
+    "message": "المشاهدة اليدوية"
+  },
+  "manualWatchPauseDetail": {
+    "message": "تم إيقاف الزراعة مؤقتًا أثناء مشاهدتك لبث مباشر بنفسك. أوقفه مؤقتًا أو أغلقه أو انتقل بعيدًا عن علامة التبويب هذه لاستئناف الزراعة تلقائيًا عند الفحص التالي."
   }
 }

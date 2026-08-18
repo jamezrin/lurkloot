@@ -56,7 +56,6 @@ describe("settings registry", () => {
     "kick.categories",
     "twitch.channels",
     "kick.channels",
-    "twitch.compatibility",
     "kick.compatibility",
   ];
 
@@ -85,9 +84,11 @@ describe("settings registry", () => {
 
   it("marks exactly one advanced group per section", () => {
     const advanced = registry().flatMap((section) => section.groups.filter((group) => group.advanced).map((group) => group.id));
+    // Twitch's advanced group also holds a farming toggle, so it is named for
+    // that rather than "Compatibility"; Kick has only compatibility rows.
     expect(advanced).toEqual([
       "general.advanced",
-      "twitch.compatibility",
+      "twitch.advanced",
       "kick.compatibility",
     ]);
   });
@@ -103,6 +104,12 @@ describe("settings registry", () => {
     const groups = withoutCompatibility.flatMap((section) => section.groups.map((group) => group.id));
     expect(groups).not.toContain("twitch.compatibility");
     expect(groups).not.toContain("kick.compatibility");
+    // Twitch's advanced group survives without a registry because it also holds
+    // the strict-availability toggle, but the compatibility rows are gone.
+    const entries = allEntryIds(withoutCompatibility);
+    expect(entries).not.toContain("twitch.compatibility.rows");
+    expect(entries).not.toContain("kick.compatibility.rows");
+    expect(entries).toContain("twitch.advanced.strictCampaignAvailability");
   });
 
   // A flat list of every entry id, in tree order. This is the real risk for a
@@ -142,6 +149,7 @@ describe("settings registry", () => {
         "twitch.autoClaimChannelPoints",
         "twitch.categories.farmAll",
         "twitch.channels.excluded",
+        "twitch.advanced.strictCampaignAvailability",
         "twitch.compatibility.rows",
         "kick.autoClaimChallenges",
         "kick.categories.farmAll",

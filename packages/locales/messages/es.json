@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Reclama automáticamente las bonificaciones de puntos de canal mientras se farmea esta plataforma."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Disponibilidad estricta de campañas"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Farmea una campaña solo en los canales para los que Twitch la muestra. Twitch suele omitir campañas farmeables, así que esto puede dejar recompensas sin farmear."
+  },
   "autoClaimChallengesTitle": {
     "message": "Auto-reclamar desafíos diarios"
   },
@@ -1064,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "falló la comprobación de reproducción"
   },
+  "activityReasonNoProgress": {
+    "message": "el canal no generó progreso de drops"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "se priorizó una recompensa más importante"
   },
@@ -1100,11 +1109,23 @@
   "copyActivityLog": {
     "message": "Copiar registro"
   },
+  "copyLoadedActivityLog": {
+    "message": "Copiar cargados"
+  },
   "copyActivityLogCopied": {
     "message": "$1 eventos copiados"
   },
   "copyActivityLogFailed": {
     "message": "No se pudo copiar el registro. Inténtalo de nuevo."
+  },
+  "exportAllDiagnostics": {
+    "message": "Exportar todo"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 eventos exportados"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "No se pudo exportar el registro. Inténtalo de nuevo."
   },
   "activityViewTab": {
     "message": "Actividad"
@@ -1267,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "pestaña de farmeo cerrada"
+  },
+  "automationPausedManualWatch": {
+    "message": "Visualización manual"
+  },
+  "manualWatchPauseDetail": {
+    "message": "El farmeo está pausado mientras ves un stream por tu cuenta. Paúsalo, ciérralo o cambia a otra pestaña para que el farmeo se reanude automáticamente en la próxima comprobación."
   }
 }

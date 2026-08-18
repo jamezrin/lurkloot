@@ -71,6 +71,7 @@ export type TickTrigger =
   | "automation_toggle"
   | "platform_toggle"
   | "settings_saved"
+  | "manual_watch"
   | "manual_resume"
   | "manual_tick"
   | "critical_failure_dismissed"
@@ -135,6 +136,7 @@ const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   channel_offline: true,
   channel_mismatch: true,
   watch_unhealthy: true,
+  no_progress: true,
   higher_priority_reward: true,
   higher_priority_idle_watchlist: true,
   watch_requirement_completed: true,
@@ -455,9 +457,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       - integrityRefreshJitter(integrity.integrity);
   }
 
-  function installTwitchIntegrity(integrity: TwitchIntegrity, isNew = false, emit?: EventEmitter): void {
+  function installTwitchIntegrity(
+    integrity: TwitchIntegrity,
+    isNew = false,
+    emit?: EventEmitter,
+    sourceTabId?: number,
+  ): void {
     installedTwitchIntegrity = integrity;
-    setTwitchIntegrity(integrity, { isNew }, emit);
+    setTwitchIntegrity(integrity, { isNew, sourceTabId }, emit);
   }
 
   function currentInstalledTwitchIntegrity(): TwitchIntegrity | undefined {
@@ -743,7 +750,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Client-Integrity header, so integrityFromHeaders returns undefined (and we
   // ignore) our own background fetch and anonymous queries.
   // `tabId` is optional so hosts that cannot attribute a request to a tab still
-  // capture tokens; it only feeds page-context boot instrumentation.
+  // capture tokens; when present it also lets a managed refresh distinguish its
+  // own replacement from a concurrent user-tab replay.
   async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined, tabId?: number): Promise<void> {
     // Noted before the integrity filter: an anonymous GQL request carries no
     // Client-Integrity header but still proves the SPA has booted.
@@ -767,7 +775,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     let isNew = false;
     await withEventCollector(async (emit, events) => {
       isNew = integrity.integrity !== installedTwitchIntegrity?.integrity;
-      installTwitchIntegrity(integrity, isNew, emit);
+      const sourceTabId = tabId != null && tabId >= 0 ? tabId : undefined;
+      installTwitchIntegrity(integrity, isNew, emit, sourceTabId);
       await reportBestEffort(events);
     });
     // Persistence still takes the lock: persistedIntegrityToken is read and
@@ -2461,6 +2470,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId?: number,
   ): Promise<void> {
+    let manualWatchStarted = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const session = state.sessions[message.platform];
@@ -2471,9 +2481,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       if (!isManagedWatchTab) {
         if (senderTabId != null) {
+          const manualWatch = recordManualWatchTelemetry(state, settings, message, senderTabId);
+          manualWatchStarted = manualWatch.started;
           await persistPlatformAndReport(
             message.platform,
-            recordManualWatchTelemetry(state, settings, message, senderTabId),
+            manualWatch.state,
             events,
           );
         }
@@ -2519,6 +2531,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await reportBestEffort(events);
       }
     }), [message.platform]);
+    if (manualWatchStarted) tickInBackground([message.platform], "manual_watch");
   }
 
   function recordManualWatchTelemetry(
@@ -2526,17 +2539,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     settings: EngineSettings,
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
-  ): SchedulerState {
+  ): { state: SchedulerState; started: boolean } {
     const manualWatch = { ...state.manualWatch };
     if (!settings.pauseOnManualWatch) {
       delete manualWatch[message.platform];
-      return { ...state, manualWatch };
+      return { state: { ...state, manualWatch }, started: false };
     }
 
     const active = message.telemetry.playingVideoCount > 0 && !message.telemetry.documentHidden;
     const previous = manualWatch[message.platform];
     const recentPrevious = previous?.active && !isTimestampStale(previous.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
-    if (!active && previous?.tabId !== senderTabId && recentPrevious) return state;
+    if (!active && previous?.tabId !== senderTabId && recentPrevious) {
+      return { state, started: false };
+    }
 
     manualWatch[message.platform] = {
       platform: message.platform,
@@ -2544,7 +2559,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       checkedAt: new Date().toISOString(),
       active,
     };
-    return { ...state, manualWatch };
+    return {
+      state: { ...state, manualWatch },
+      started: active && !recentPrevious,
+    };
   }
 
   async function applyAdFocusForState(

@@ -819,6 +819,66 @@ describe("background controller", () => {
       setTwitchIntegrity(undefined);
     });
 
+    it("keeps a user-tab capture from satisfying a managed refresh wait", async () => {
+      const browser = {
+        tabs: {
+          get: vi.fn(),
+          update: vi.fn(async () => undefined),
+          remove: vi.fn(async () => undefined),
+          query: vi.fn(async () => []),
+          create: vi.fn(async () => ({ id: 42 })),
+        },
+      } satisfies BrowserTabApi;
+      const rejected = integrityBundle({ integrity: "controller-rejected-token" });
+      const replacement = integrityBundle({ integrity: "controller-user-token" });
+      const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
+      await env.controller.settleBackgroundWork();
+      setTwitchIntegrity(rejected, { sourceTabId: 7 });
+
+      const pending = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        50,
+        undefined,
+        { forceRefresh: true, rejectedToken: rejected.integrity },
+      );
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+
+      await env.controller.captureTwitchIntegrity(integrityHeaders(replacement), 7);
+
+      await expect(pending).resolves.toBe(false);
+    });
+
+    it("treats negative tab ids as unattributed integrity captures", async () => {
+      const browser = {
+        tabs: {
+          get: vi.fn(),
+          update: vi.fn(async () => undefined),
+          remove: vi.fn(async () => undefined),
+          query: vi.fn(async () => []),
+          create: vi.fn(async () => ({ id: 42 })),
+        },
+      } satisfies BrowserTabApi;
+      const rejected = integrityBundle({ integrity: "controller-rejected-token" });
+      const replacement = integrityBundle({ integrity: "controller-unattributed-token" });
+      const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
+      await env.controller.settleBackgroundWork();
+      setTwitchIntegrity(rejected, { sourceTabId: 7 });
+
+      const pending = ensureTwitchIntegrityWithBrowser(
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        50,
+        undefined,
+        { forceRefresh: true, rejectedToken: rejected.integrity },
+      );
+      await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+
+      await env.controller.captureTwitchIntegrity(integrityHeaders(replacement), -1);
+
+      await expect(pending).resolves.toBe(true);
+    });
+
     it("acquires integrity before Twitch auth and scheduler work", async () => {
       const order: string[] = [];
       const env = harness(undefined, {
@@ -3453,7 +3513,7 @@ describe("background controller", () => {
           return {
             data: [{
               campaign_id: "kick-campaign",
-              progress_units: 1,
+              progress_units: 2,
               ...(affirmativelyLinked ? { user_app_connected: true } : {}),
             }],
           };
@@ -4707,9 +4767,10 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.playbackChecks).toBe(0);
   });
 
-  it("records visible playback in a non-managed tab as manual watch activity", async () => {
+  it("pauses Twitch immediately when visible playback starts in a non-managed tab", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.tick();
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
 
     await env.controller.handleMessage({
       type: "playbackTelemetry",
@@ -4729,7 +4790,58 @@ describe("background controller", () => {
       tabId: 999,
       active: true,
     });
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "paused",
+      reasonCode: "manual_watch",
+      channel: undefined,
+    });
+    expect(env.state.sessions.kick.status).toBe("watching");
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.state.sessions.twitch.playback).toBeUndefined();
+  });
+
+  it("runs only one immediate tick while the same manual playback stays active", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    await env.controller.tick(["twitch"]);
+    env.reportEvents.mockClear();
+    const telemetry = {
+      videoCount: 1,
+      mutedVideoCount: 0,
+      unmutedVideoCount: 1,
+      playingVideoCount: 1,
+      blockedPlaybackCount: 0,
+      documentHidden: false,
+    };
+
+    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999 } });
+    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999 } });
+
+    const immediateTickStarts = allDiagnostics(env).filter((event) =>
+      event.message.includes("started (trigger=manual_watch"));
+    expect(immediateTickStarts).toHaveLength(1);
+  });
+
+  it("does not tick when non-managed Twitch playback is inactive", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    await env.controller.tick(["twitch"]);
+    env.reportEvents.mockClear();
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 0,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    }, { tab: { id: 999 } });
+
+    expect(env.state.sessions.twitch.status).toBe("watching");
+    expect(allDiagnostics(env).some((event) =>
+      event.message.includes("started (trigger=manual_watch"))).toBe(false);
   });
 
   it("clears manual watch activity when the source tab is closed", async () => {
@@ -5016,7 +5128,12 @@ describe("background controller", () => {
       tabId: 10,
       active: true,
     });
-    expect(env.deps.applyAdFocus).not.toHaveBeenCalled();
+    expect(env.deps.applyAdFocus).not.toHaveBeenCalledWith(
+      "twitch",
+      10,
+      true,
+      expect.any(Function),
+    );
   });
 
   it("re-applies ad focus from playback state on each scheduler tick", async () => {

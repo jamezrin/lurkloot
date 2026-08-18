@@ -623,6 +623,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Beansprucht Kanalpunkt-Boni automatisch, während diese Plattform gefarmt wird."
   },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Strikte Kampagnenverfügbarkeit"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Farme eine Kampagne nur auf Kanälen, für die Twitch sie auflistet. Twitch lässt farmbare Kampagnen oft aus, wodurch Drops ungefarmt bleiben können."
+  },
   "autoClaimChallengesTitle": {
     "message": "Tägliche Challenges automatisch beanspruchen"
   },
@@ -1064,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "die Wiedergabeprüfung ist fehlgeschlagen"
   },
+  "activityReasonNoProgress": {
+    "message": "der Kanal erzielte keinen Drop-Fortschritt"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "eine höher priorisierte Belohnung wurde übernommen"
   },
@@ -1100,11 +1109,23 @@
   "copyActivityLog": {
     "message": "Protokoll kopieren"
   },
+  "copyLoadedActivityLog": {
+    "message": "Geladene kopieren"
+  },
   "copyActivityLogCopied": {
     "message": "$1 Ereignisse kopiert"
   },
   "copyActivityLogFailed": {
     "message": "Das Protokoll konnte nicht kopiert werden. Bitte erneut versuchen."
+  },
+  "exportAllDiagnostics": {
+    "message": "Alle exportieren"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 Ereignisse exportiert"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Protokoll konnte nicht exportiert werden. Bitte erneut versuchen."
   },
   "activityViewTab": {
     "message": "Aktivität"
@@ -1267,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "Farming-Tab geschlossen"
+  },
+  "automationPausedManualWatch": {
+    "message": "Manuelles Schauen"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Das Farmen ist pausiert, während du selbst einen Stream ansiehst. Pausiere ihn, schließe ihn oder wechsle von diesem Tab weg, damit das Farmen beim nächsten Check automatisch fortgesetzt wird."
   }
 }
