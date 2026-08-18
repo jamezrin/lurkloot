@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/tabs";
+import type { TwitchIntegrityRequest } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { EngineEvent } from "@lurkloot/shared/events";
@@ -4659,6 +4660,46 @@ describe("TwitchAdapter integrity recovery", () => {
     }));
   });
 
+  it("pins the managed replacement for the immediate retry when the global capture is replayed", async () => {
+    const rejected = {
+      integrity: "rejected-token",
+      deviceId: "rejected-device",
+      clientSessionId: "rejected-session",
+      expiresAt: Date.now() + 60_000,
+    };
+    const replacement = {
+      integrity: "replacement-token",
+      deviceId: "replacement-device",
+      clientSessionId: "replacement-session",
+      expiresAt: Date.now() + 60_000,
+    };
+    const sent: string[] = [];
+    const ensureIntegrity = vi.fn(async (request?: TwitchIntegrityRequest) => {
+      if (request?.forceRefresh) {
+        // A concurrent user tab replays the rejected bundle into the ordinary
+        // global slot after the helper capture; only the callback's exact
+        // bundle is safe for this immediate retry.
+        request.onIntegrityCaptured?.(replacement);
+      }
+      return true;
+    });
+    let attempts = 0;
+    const fetcher = jsonFetcher((_url, init) => {
+      const headers = new Headers(init?.headers as HeadersInit);
+      sent.push(headers.get("client-integrity") ?? "");
+      attempts += 1;
+      return attempts === 1
+        ? INTEGRITY_REJECTION
+        : { data: { currentUser: { id: "u" } } };
+    });
+
+    await expect(twitchAdapter(fetcher, ensureIntegrity, undefined, {
+      currentIntegrity: () => rejected,
+    }).checkAuthHealth()).resolves.toMatchObject({ status: "healthy" });
+
+    expect(sent).toEqual([rejected.integrity, replacement.integrity]);
+  });
+
   it("sends the integrity trio together so the replayed token stays bound to its identity", async () => {
     const currentIntegrity = () => ({
       integrity: "bound-token",
@@ -4950,6 +4991,7 @@ describe("TwitchAdapter integrity recovery", () => {
           forceRefresh: true,
           reason: "rejection_recovery",
           rejectedToken: undefined,
+          onIntegrityCaptured: expect.any(Function),
           signal: undefined,
         }],
       ]);
@@ -5003,6 +5045,7 @@ describe("TwitchAdapter integrity recovery", () => {
           forceRefresh: true,
           reason: "rejection_recovery",
           rejectedToken: undefined,
+          onIntegrityCaptured: expect.any(Function),
           signal: undefined,
         }],
       ]);
