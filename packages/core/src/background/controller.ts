@@ -71,6 +71,7 @@ export type TickTrigger =
   | "automation_toggle"
   | "platform_toggle"
   | "settings_saved"
+  | "manual_watch"
   | "manual_resume"
   | "manual_tick"
   | "critical_failure_dismissed"
@@ -2469,6 +2470,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId?: number,
   ): Promise<void> {
+    let manualWatchStarted = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const session = state.sessions[message.platform];
@@ -2479,9 +2481,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       if (!isManagedWatchTab) {
         if (senderTabId != null) {
+          const manualWatch = recordManualWatchTelemetry(state, settings, message, senderTabId);
+          manualWatchStarted = manualWatch.started;
           await persistPlatformAndReport(
             message.platform,
-            recordManualWatchTelemetry(state, settings, message, senderTabId),
+            manualWatch.state,
             events,
           );
         }
@@ -2527,6 +2531,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await reportBestEffort(events);
       }
     }), [message.platform]);
+    if (manualWatchStarted) tickInBackground([message.platform], "manual_watch");
   }
 
   function recordManualWatchTelemetry(
@@ -2534,17 +2539,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     settings: EngineSettings,
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
-  ): SchedulerState {
+  ): { state: SchedulerState; started: boolean } {
     const manualWatch = { ...state.manualWatch };
     if (!settings.pauseOnManualWatch) {
       delete manualWatch[message.platform];
-      return { ...state, manualWatch };
+      return { state: { ...state, manualWatch }, started: false };
     }
 
     const active = message.telemetry.playingVideoCount > 0 && !message.telemetry.documentHidden;
     const previous = manualWatch[message.platform];
     const recentPrevious = previous?.active && !isTimestampStale(previous.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
-    if (!active && previous?.tabId !== senderTabId && recentPrevious) return state;
+    if (!active && previous?.tabId !== senderTabId && recentPrevious) {
+      return { state, started: false };
+    }
 
     manualWatch[message.platform] = {
       platform: message.platform,
@@ -2552,7 +2559,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       checkedAt: new Date().toISOString(),
       active,
     };
-    return { ...state, manualWatch };
+    return {
+      state: { ...state, manualWatch },
+      started: active && !recentPrevious,
+    };
   }
 
   async function applyAdFocusForState(

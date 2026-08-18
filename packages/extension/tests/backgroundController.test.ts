@@ -4767,9 +4767,10 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.playbackChecks).toBe(0);
   });
 
-  it("records visible playback in a non-managed tab as manual watch activity", async () => {
+  it("pauses Twitch immediately when visible playback starts in a non-managed tab", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.tick();
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
 
     await env.controller.handleMessage({
       type: "playbackTelemetry",
@@ -4789,7 +4790,58 @@ describe("background controller", () => {
       tabId: 999,
       active: true,
     });
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "paused",
+      reasonCode: "manual_watch",
+      channel: undefined,
+    });
+    expect(env.state.sessions.kick.status).toBe("watching");
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.state.sessions.twitch.playback).toBeUndefined();
+  });
+
+  it("runs only one immediate tick while the same manual playback stays active", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    await env.controller.tick(["twitch"]);
+    env.reportEvents.mockClear();
+    const telemetry = {
+      videoCount: 1,
+      mutedVideoCount: 0,
+      unmutedVideoCount: 1,
+      playingVideoCount: 1,
+      blockedPlaybackCount: 0,
+      documentHidden: false,
+    };
+
+    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999 } });
+    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999 } });
+
+    const immediateTickStarts = allDiagnostics(env).filter((event) =>
+      event.message.includes("started (trigger=manual_watch"));
+    expect(immediateTickStarts).toHaveLength(1);
+  });
+
+  it("does not tick when non-managed Twitch playback is inactive", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    await env.controller.tick(["twitch"]);
+    env.reportEvents.mockClear();
+
+    await env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 0,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+      },
+    }, { tab: { id: 999 } });
+
+    expect(env.state.sessions.twitch.status).toBe("watching");
+    expect(allDiagnostics(env).some((event) =>
+      event.message.includes("started (trigger=manual_watch"))).toBe(false);
   });
 
   it("clears manual watch activity when the source tab is closed", async () => {
@@ -5076,7 +5128,12 @@ describe("background controller", () => {
       tabId: 10,
       active: true,
     });
-    expect(env.deps.applyAdFocus).not.toHaveBeenCalled();
+    expect(env.deps.applyAdFocus).not.toHaveBeenCalledWith(
+      "twitch",
+      10,
+      true,
+      expect.any(Function),
+    );
   });
 
   it("re-applies ad focus from playback state on each scheduler tick", async () => {
