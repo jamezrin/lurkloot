@@ -1,5 +1,63 @@
 [
   {
+    "version": "1.12.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Lurkloot now picks up Kick flash drops the moment they are announced instead of waiting for the next check, so short-lived campaigns no longer lose farming time before they are even discovered. This works in both the extension and the CLI, and needs no new permissions."
+      },
+      {
+        "kind": "new",
+        "text": "Campaigns that are discovered but not farmed now explain why. Each skipped campaign shows a short warning on its card in the Drops list, with the full reason when expanded — for example a missing account link, a required subscription, or a category you have not selected — and the same reasons are summarised in Diagnostics."
+      },
+      {
+        "kind": "new",
+        "text": "Added “Export all” to Diagnostics, which downloads the complete retained history for the selected platform as a file instead of only the entries currently loaded on screen. The existing copy button stays available and is now labelled “Copy loaded”."
+      },
+      {
+        "kind": "new",
+        "text": "Added a “Strict campaign availability” advanced setting for Twitch, off by default. When on, Lurkloot only farms a campaign on channels Twitch explicitly lists it for."
+      },
+      {
+        "kind": "improved",
+        "text": "Twitch campaigns you have not started yet now appear in the Drops list, instead of only showing up once you had progress or a live channel. The Drops-list filters decide what stays visible."
+      },
+      {
+        "kind": "improved",
+        "text": "Twitch channel selection now reuses what it already learned about a channel across consecutive checks instead of asking Twitch again every time, which cuts a large number of repeated requests on accounts with many active campaigns."
+      },
+      {
+        "kind": "improved",
+        "text": "When farming pauses because you are watching a stream yourself, the popup now says so and explains that farming resumes automatically once you pause, close, or switch away from that tab, instead of telling you to turn automation back on."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed Twitch farming nothing at all on many accounts. Lurkloot re-checked every candidate channel against a Twitch endpoint that routinely omits campaigns that are in fact farmable, so hundreds of channels could be checked and every one rejected. That check is now opt-in via the new “Strict campaign availability” setting."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed Lurkloot getting stuck on a stale “not available” answer for a Twitch channel — it now rechecks when a channel starts a new broadcast, retries a negative result after 30 seconds, keeps results scoped per campaign rather than per channel, and trusts real watch-time progress when Twitch contradicts itself."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed Kick drop durations and progress being read as minutes when Kick reports them in 30-second units, which made short drops look twice as long as they are. In-progress Kick rewards also keep farming instead of being preempted when a newer campaign ranks higher, unless you prioritise another campaign yourself."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed a Twitch tab opening and closing repeatedly after an anti-bot verification token was refreshed. Another open Twitch tab could replace the fresh token with the rejected one before the retry ran, so the retry failed and the cycle started again."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed the popup still showing an active farming session for up to a minute after you started watching a Twitch stream yourself. Farming now pauses as soon as your playback is detected."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed the time shown next to the next reward being the campaign's whole remaining total, which made a 30-minute reward look like it needed the sum of every reward before it. The campaign-wide total is still shown, now labelled “Campaign left”."
+      }
+    ],
+    "date": "2026-08-19"
+  },
+  {
     "version": "1.11.0",
     "changes": [
       {
