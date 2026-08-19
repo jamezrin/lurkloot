@@ -25,8 +25,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # The store screenshot dashboard tests drive a real Chromium against local
-      # HTML fixtures, and the runner ships no Playwright browsers.
-      - run: pnpm --filter @lurkloot/extension exec playwright install --with-deps chromium
+      # HTML fixtures, and the runner ships no Playwright browsers. Do not add
+      # --with-deps: the runner image already carries every Chromium system
+      # library, so it only pulls CJK font packages that these DOM-assertion
+      # tests never render, at the cost of a 1-8 minute apt fetch.
+      - run: pnpm --filter @lurkloot/extension exec playwright install chromium
       - run: pnpm release:check
       - run: pnpm check
 
