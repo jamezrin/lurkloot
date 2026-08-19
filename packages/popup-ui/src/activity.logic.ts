@@ -22,6 +22,8 @@ export type ActivityRequestScope = {
   query: string;
 };
 
+export type DiagnosticsExportRequest = { generation: number; platform: Platform };
+
 export type ActivityCardIcon =
   | "gift"
   | "play"
@@ -107,6 +109,24 @@ export function isActivityRequestCurrent(
     && request.query === current.query;
 }
 
+export function createDiagnosticsExportRequest(platform: Platform): DiagnosticsExportRequest {
+  return { generation: 0, platform };
+}
+
+export function beginDiagnosticsExport(
+  current: DiagnosticsExportRequest,
+  platform: Platform,
+): DiagnosticsExportRequest {
+  return { generation: current.generation + 1, platform };
+}
+
+export function isDiagnosticsExportCurrent(
+  request: DiagnosticsExportRequest,
+  current: DiagnosticsExportRequest,
+): boolean {
+  return request.generation === current.generation && request.platform === current.platform;
+}
+
 export function applyActivityPageForRequest(
   current: ActivityStream,
   page: ActivityPage,
@@ -145,6 +165,7 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
     case "channel_offline": return t("activityReasonChannelOffline");
     case "channel_mismatch": return t("activityReasonChannelMismatch");
     case "watch_unhealthy": return t("activityReasonWatchUnhealthy");
+    case "no_progress": return t("activityReasonNoProgress");
     case "higher_priority_reward": return t("activityReasonHigherPriorityReward");
     case "higher_priority_idle_watchlist": return t("activityReasonHigherPriorityIdleWatchlist");
     case "watch_requirement_completed": return t("activityReasonWatchRequirementCompleted");
@@ -356,6 +377,7 @@ export interface ActivityExportInput {
   userAgent: string;
   locale: string;
   at: string;
+  coverage?: "full";
 }
 
 // Plain text, not markup: this is pasted into email, Discord and issue bodies,
@@ -372,6 +394,7 @@ export function buildActivityExport(input: ActivityExportInput, t: TFunction): s
     `exported: ${input.at}`,
     `browser: ${input.userAgent}`,
     `events: ${input.events.length}`,
+    ...(input.coverage === "full" ? ["coverage: full"] : []),
   ].join("\n");
 
   // Oldest first: a log is read top-down when you are reconstructing what
@@ -384,6 +407,11 @@ export function buildActivityExport(input: ActivityExportInput, t: TFunction): s
       .join("\n");
 
   return `${header}\n\n${body}\n`;
+}
+
+export function buildDiagnosticsExportFilename(platform: Platform, at: Date): string {
+  const stamp = at.toISOString().replaceAll("-", "").replaceAll(":", "").replace(/\.\d{3}Z$/, "Z");
+  return `lurkloot-diagnostics-${platform}-${stamp}.log`;
 }
 
 export function mergeActivityPages(

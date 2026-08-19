@@ -7,6 +7,7 @@ import {
   applyAdFocusWithBrowser,
   cancelTwitchIntegrityAcquisition,
   currentManagedPageContextTabs,
+  currentValidTwitchIntegrity,
   currentTwitchIntegrityWaiterCount,
   ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
@@ -1391,6 +1392,7 @@ describe("twitch integrity refresh", () => {
       setTwitchIntegrity(rejected, { isNew: true });
       await expect(ordinary).resolves.toBe(true);
       await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(currentTwitchIntegrityWaiterCount()).toBeGreaterThan(0));
       expect(forcedSettled).toBe(false);
       expect(browser.tabs.create).toHaveBeenCalledWith({
         url: "https://www.twitch.tv/drops/inventory",
@@ -1822,6 +1824,80 @@ describe("twitch integrity refresh", () => {
         );
 
         expect(ok).toBe(false);
+      });
+
+      it("does not reopen helper tabs when a concurrent user tab replays the rejected token", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 32 });
+        setTwitchIntegrity(rejected(), { sourceTabId: 7 });
+        let capturedIntegrity: string | undefined;
+
+        const pending = ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          undefined,
+          {
+            forceRefresh: true,
+            rejectedToken: rejected().integrity,
+            onIntegrityCaptured: (value) => { capturedIntegrity = value.integrity; },
+          },
+        );
+        await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+
+        // Lurkloot's helper tab mints the replacement and wakes the waiter,
+        // but another already-open Twitch tab can immediately issue GQL with
+        // the old bundle before the awaiting retry gets its next microtask.
+        setTwitchIntegrity(replacement(), { isNew: true, sourceTabId: 32 });
+        setTwitchIntegrity(rejected(), { isNew: true, sourceTabId: 7 });
+
+        await expect(pending).resolves.toBe(true);
+
+        expect(browser.tabs.create).toHaveBeenCalledTimes(1);
+        expect(browser.tabs.remove).toHaveBeenCalledTimes(1);
+        expect(capturedIntegrity).toBe(replacement().integrity);
+        // Ordinary capture remains last-writer-wins; the pinned callback above
+        // is what protects the immediate retry from this user-tab replay.
+        expect(currentValidTwitchIntegrity()?.integrity).toBe(rejected().integrity);
+      });
+
+      it("does not let a user-tab capture satisfy a managed helper wait", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 33 });
+        setTwitchIntegrity(rejected(), { sourceTabId: 7 });
+
+        const pending = ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          50,
+          undefined,
+          { forceRefresh: true, rejectedToken: rejected().integrity },
+        );
+        await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+
+        setTwitchIntegrity(replacement(), { isNew: true, sourceTabId: 7 });
+
+        await expect(pending).resolves.toBe(false);
+        expect(browser.tabs.create).toHaveBeenCalledOnce();
+      });
+
+      it("does not reuse a prior capture when a helper tab id is recycled", async () => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 34 });
+        setTwitchIntegrity(replacement(), { sourceTabId: 34 });
+        setTwitchIntegrity(rejected(), { sourceTabId: 7 });
+
+        const pending = ensureTwitchIntegrityWithBrowser(
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          50,
+          undefined,
+          { forceRefresh: true, rejectedToken: rejected().integrity },
+        );
+        await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
+
+        await expect(pending).resolves.toBe(false);
+        expect(browser.tabs.create).toHaveBeenCalledOnce();
       });
 
       it("creates a fresh inactive page context instead of reusing a user-owned tab", async () => {

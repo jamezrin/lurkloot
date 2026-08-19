@@ -89,7 +89,7 @@ describe("Kick parsers", () => {
     expect(merged[0].rewards[0].status).toBe("in_progress");
   });
 
-  it("uses the campaign-level progress_units counter for tiered Kick rewards", () => {
+  it("converts campaign-level Kick progress units into minutes for tiered rewards", () => {
     // Mirrors the live /api/v1/drops/progress shape: one cumulative counter,
     // tiered rewards sharing it, no per-reward minutes or claim_id.
     const campaigns = parseKickCampaigns({
@@ -119,10 +119,13 @@ describe("Kick parsers", () => {
     });
 
     expect(merged[0].accountLinked).toBe(true);
-    // Cumulative 150 min: first tier (120) complete and claimed, second (240) partway.
-    expect(merged[0].rewards[0].watchedMinutes).toBe(120);
+    // Kick units are 30-second intervals: 150 units is 75 minutes. The first
+    // 60-minute tier is complete and claimed; the 120-minute tier is partway.
+    expect(merged[0].rewards[0].requiredMinutes).toBe(60);
+    expect(merged[0].rewards[0].watchedMinutes).toBe(60);
     expect(merged[0].rewards[0].status).toBe("claimed");
-    expect(merged[0].rewards[1].watchedMinutes).toBe(150);
+    expect(merged[0].rewards[1].requiredMinutes).toBe(120);
+    expect(merged[0].rewards[1].watchedMinutes).toBe(75);
     expect(merged[0].rewards[1].status).toBe("in_progress");
   });
 
@@ -258,7 +261,7 @@ describe("Kick parsers", () => {
     expect(merged[0].rewards[0].status).toBe("in_progress");
   });
 
-  it("reads Kick reward durations from required_units", () => {
+  it("converts Kick reward duration units into minutes", () => {
     const campaigns = parseKickCampaigns({
       data: [{
         id: "campaign",
@@ -267,7 +270,54 @@ describe("Kick parsers", () => {
       }],
     });
 
-    expect(campaigns[0].rewards[0].requiredMinutes).toBe(90);
+    expect(campaigns[0].rewards[0].requiredMinutes).toBe(45);
+  });
+
+  it("derives fractional Kick progress from the normalized requirement", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: "campaign",
+        status: "active",
+        rewards: [{ id: "reward", required_units: 4 }],
+      }],
+    });
+
+    const merged = mergeKickProgress(campaigns, {
+      data: [{
+        id: "campaign",
+        rewards: [{ id: "reward", progress: 0.25, required_units: 4 }],
+      }],
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      requiredMinutes: 2,
+      watchedMinutes: 0.5,
+      status: "in_progress",
+    });
+  });
+
+  it("keeps explicit Kick minute fields in minutes", () => {
+    const campaigns = parseKickCampaigns({
+      data: [{
+        id: "campaign",
+        status: "active",
+        rewards: [{ id: "reward", required_minutes: 4 }],
+      }],
+    });
+
+    const merged = mergeKickProgress(campaigns, {
+      data: [{
+        id: "campaign",
+        progress: 0.25,
+        rewards: [{ id: "reward", progress: 0.25 }],
+      }],
+    });
+
+    expect(merged[0].rewards[0]).toMatchObject({
+      requiredMinutes: 4,
+      watchedMinutes: 1,
+      status: "in_progress",
+    });
   });
 
   it("marks zero-duration Kick rewards as non-watch rewards", () => {

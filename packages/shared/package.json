@@ -8,6 +8,7 @@
     "./models": "./src/models.ts",
     "./categories": "./src/categories.ts",
     "./campaignFilters": "./src/campaignFilters.ts",
+    "./campaignFarming": "./src/campaignFarming.ts",
     "./messages": "./src/messages.ts",
     "./settings": "./src/settings.ts",
     "./settingsSchema": "./src/settingsSchema.ts",

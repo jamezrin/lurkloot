@@ -23,11 +23,12 @@ import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { WatchTabPort } from "@lurkloot/core/adapter";
+import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
 import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
-import { appendActivityEvents, clearActivityEvents, loadActivityEvents } from "../src/core/activityStorage";
+import { appendActivityEvents, clearActivityEvents, exportDiagnosticsEvents, loadActivityEvents } from "../src/core/activityStorage";
 import {
   createActivityEventReporter,
   createActivityMessageHandler,
@@ -41,6 +42,7 @@ const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
 const handleActivityMessage = createActivityMessageHandler({
   load: loadActivityEvents,
+  exportDiagnostics: exportDiagnosticsEvents,
   clear: clearActivityEvents,
 });
 const reportEvents = createActivityEventReporter({
@@ -51,6 +53,7 @@ const kickClaimState = new KickClaimState();
 const kickDiscoveryState = new KickDiscoveryState();
 const twitchDiscoveryState = new TwitchDiscoveryState();
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
+const createBrowserWebSocket: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
 const checkCredentialAvailability = createCredentialAvailabilityProvider({
   get: (details) => browser.cookies.get(details),
 });
@@ -102,6 +105,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
       {
         compatibility: resolution.compatibility.twitch,
         discoveryState: twitchDiscoveryState,
+        strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
         currentIntegrity: currentValidTwitchIntegrity,
         heartbeatIdentity: "web",
         heartbeatFetchText: twitchHeartbeatFetchText,
@@ -121,7 +125,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
         onPageFallback: (host, operationEmit) => recordManagedPageContextFallback(host, operationEmit),
       }),
       watchTabPort,
-      undefined,
+      createBrowserWebSocket,
       { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
       emit,
     );

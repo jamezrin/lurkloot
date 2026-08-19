@@ -1047,6 +1047,106 @@ describe("scheduler tick", () => {
     campaigns: { twitch: [], kick: [] },
   };
 
+  function realtimeCampaigns(): [DropCampaign, DropCampaign] {
+    const ordinary = campaign("ordinary", {
+      endsAt: "2026-08-12T13:00:00.000Z",
+      rewards: [{
+        ...reward("in_progress"),
+        id: "ordinary-reward",
+        requiredMinutes: 60,
+        watchedMinutes: 20,
+      }],
+    });
+    const flash = campaign("flash", {
+      endsAt: "2026-08-12T12:02:00.000Z",
+      rewards: [{
+        ...reward("in_progress"),
+        id: "flash-reward",
+        requiredMinutes: 1,
+        watchedMinutes: 0,
+      }],
+    });
+    return [ordinary, flash];
+  }
+
+  it("ending_soonest selects an eligible newly refreshed flash campaign", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime("2026-08-12T12:00:00.000Z");
+    try {
+      const [ordinary, flash] = realtimeCampaigns();
+      const twitch = adapter("twitch", [ordinary, flash], [channel("creator")]);
+
+      const result = await runSchedulerTick(
+        baseState,
+        settings({
+          priorityMode: "ending_soonest",
+          deadlineSafetyMarginMinutes: 0,
+          platform: { twitch: { enabled: true }, kick: { enabled: false } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+        { platforms: ["twitch"] },
+      );
+
+      expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
+      expect(result.state.sessions.twitch).toMatchObject({
+        status: "watching",
+        campaignId: "flash",
+        rewardId: "flash-reward",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("explicit campaign priority can keep an ordinary campaign ahead of a flash campaign", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime("2026-08-12T12:00:00.000Z");
+    try {
+      const [ordinary, flash] = realtimeCampaigns();
+      const watchedChannel = channel("creator");
+      const twitch = adapter("twitch", [ordinary, flash], [watchedChannel]);
+      const existingState: SchedulerState = {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            offlineChecks: 0,
+            channel: watchedChannel,
+            campaignId: "ordinary",
+            rewardId: "ordinary-reward",
+            tabId: 42,
+            tabManagedByExtension: true,
+            watchMode: "tab",
+          },
+        },
+        campaigns: { ...baseState.campaigns, twitch: [ordinary] },
+      };
+
+      const result = await runSchedulerTick(
+        existingState,
+        settings({
+          priorityMode: "ending_soonest",
+          campaignPriorities: { ordinary: 10 },
+          deadlineSafetyMarginMinutes: 0,
+          platform: { twitch: { enabled: true }, kick: { enabled: false } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+        { platforms: ["twitch"] },
+      );
+
+      expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
+      expect(result.state.sessions.twitch).toMatchObject({
+        status: "watching",
+        campaignId: "ordinary",
+        rewardId: "ordinary-reward",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each([
     ["checking", undefined],
     ["missing_credentials", "credentials_missing"],
@@ -1141,6 +1241,77 @@ describe("scheduler tick", () => {
 
     expect(second.events.filter((event) => event.category === "diagnostic" && event.message.startsWith("Campaign decision:"))).toEqual([]);
     expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("campaigns eligible"))).toEqual([]);
+  });
+
+  it("reports aggregate and active campaign rejection reasons only when the snapshot changes", async () => {
+    const rejected = [
+      campaign("linked-required", { accountLinked: false }),
+      campaign("finished", { status: "completed", rewards: [{ ...reward("claimed"), id: "done" }] }),
+      campaign("farmable"),
+    ];
+    const twitch = adapter("twitch", rejected, [channel("creator")]);
+    const tickSettings = settings({ platform: { twitch: { enabled: true }, kick: { enabled: false } } });
+    const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+    const campaignEvaluationFingerprints = {};
+
+    const first = await runSchedulerTick(baseState, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
+    const aggregate = first.events.find((event) => event.category === "diagnostic" && event.message.startsWith("Campaign farming evaluation:"));
+    const details = first.events.filter((event) => event.category === "diagnostic" && event.message.startsWith("Campaign rejected:"));
+
+    expect(aggregate).toMatchObject({
+      platform: "twitch",
+      message: "Campaign farming evaluation: 3 discovered, 1 farmable, 1 completed, 1 Twitch account linking required",
+    });
+    expect(details).toEqual([
+      expect.objectContaining({
+        platform: "twitch",
+        message: "Campaign rejected: linked-required (linked-required), reason=twitch_link_required",
+      }),
+    ]);
+
+    const second = await runSchedulerTick(first.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
+    expect(second.events.filter((event) => event.category === "diagnostic" && (
+      event.message.startsWith("Campaign farming evaluation:")
+      || event.message.startsWith("Campaign rejected:")
+    ))).toEqual([]);
+
+    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce([
+      ...rejected.slice(0, 2),
+      campaign("farmable", { accountLinked: false }),
+    ]);
+    const third = await runSchedulerTick(second.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
+    expect(third.events).toContainEqual(expect.objectContaining({
+      message: "Campaign farming evaluation: 3 discovered, 0 farmable, 1 completed, 2 Twitch account linking required",
+    }));
+  });
+
+  it("does not repeat insufficient-time diagnostics as available time decreases", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime("2026-08-15T12:00:00.000Z");
+    try {
+      const timed = campaign("timed", { endsAt: "2026-08-15T12:44:00.000Z" });
+      const twitch = adapter("twitch", [timed], [channel("creator")]);
+      const tickSettings = settings({
+        deadlineSafetyMarginMinutes: 5,
+        platform: { twitch: { enabled: true }, kick: { enabled: false } },
+      });
+      const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+      const campaignEvaluationFingerprints = {};
+
+      const first = await runSchedulerTick(baseState, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
+      expect(first.events).toContainEqual(expect.objectContaining({
+        message: expect.stringContaining("reason=insufficient_time"),
+      }));
+
+      vi.setSystemTime("2026-08-15T12:01:00.000Z");
+      const second = await runSchedulerTick(first.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
+      expect(second.events.filter((event) => event.category === "diagnostic" && (
+        event.message.startsWith("Campaign farming evaluation:")
+        || event.message.startsWith("Campaign rejected:")
+      ))).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not emit inventory diagnostics when campaigns and rewards are reordered", async () => {
@@ -1604,6 +1775,68 @@ describe("scheduler tick", () => {
       message: expect.stringMatching(/^Campaign selection fast path retained current watch in \d+ms \(1 candidate checked\)$/),
     }));
   });
+
+  it.each(["ending_soonest", "lowest_availability"] as const)(
+    "keeps an in-progress Kick reward when %s ranks a new campaign first",
+    async (priorityMode) => {
+      const currentChannel = channel("current", {
+        platform: "kick",
+        url: "https://kick.com/current",
+      });
+      const current = campaign("current", {
+        platform: "kick",
+        endsAt: "2099-02-01T00:00:00.000Z",
+        allowedChannels: ["current", "other"],
+      });
+      const replacement = campaign("replacement", {
+        platform: "kick",
+        endsAt: "2099-01-01T00:00:00.000Z",
+        allowedChannels: ["replacement"],
+        rewards: [{ ...reward("locked"), id: "replacement-reward" }],
+      });
+      const kick = adapter(
+        "kick",
+        [current, replacement],
+        [channel("replacement", { platform: "kick", url: "https://kick.com/replacement" })],
+      );
+
+      const result = await runSchedulerTick(
+        {
+          ...baseState,
+          sessions: {
+            ...baseState.sessions,
+            kick: {
+              platform: "kick",
+              status: "watching",
+              channel: currentChannel,
+              campaignId: "current",
+              rewardId: "reward-in_progress",
+              offlineChecks: 0,
+              playbackChecks: 0,
+              watchMode: "tabless",
+            },
+          },
+        },
+        settings({
+          priorityMode,
+          platform: {
+            twitch: { enabled: false, idleWatchlistChannels: [] },
+            kick: { enabled: true, idleWatchlistChannels: [] },
+          },
+        }),
+        { twitch: adapter("twitch", [], []), kick },
+        { platforms: ["kick"] },
+      );
+
+      expect(kick.listCandidateChannels).not.toHaveBeenCalled();
+      expect(result.state.sessions.kick).toMatchObject({
+        status: "watching",
+        campaignId: "current",
+        rewardId: "reward-in_progress",
+        reasonCode: "keeping_current_watch",
+      });
+    },
+  );
 
   it("bypasses current-watch retention when a higher-priority campaign is available", async () => {
     const current = channel("current");
@@ -2095,6 +2328,173 @@ describe("scheduler tick", () => {
       categoryName: "Updated game",
       viewerCount: 1234,
       title: "Updated title",
+    });
+  });
+
+  // #400: trusting Twitch's discovery sources removed the only check that ever
+  // rejected a live, category-matching channel, so a healthy stream that never
+  // pays out would otherwise be watched forever.
+  describe("stalled progress rotation", () => {
+    const watching = (patch: Partial<SchedulerState["sessions"]["twitch"]> = {}) => ({
+      platform: "twitch" as const,
+      status: "watching" as const,
+      channel: channel("old"),
+      campaignId: "drops",
+      rewardId: "reward-in_progress",
+      offlineChecks: 0,
+      tabId: 7,
+      ...patch,
+    });
+
+    const tick = async (session: Partial<SchedulerState["sessions"]["twitch"]>, campaigns: DropCampaign[]) => {
+      const twitch = adapter("twitch", campaigns, [channel("old"), channel("fresh")]);
+      vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+        live: true,
+        categoryMatches: true,
+        candidate,
+      }));
+      return runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: watching(session),
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+    };
+
+    it("rotates away once a healthy channel stalls for the retry limit", async () => {
+      const result = await tick(
+        { noProgressChecks: 2, lastWatchedMinutes: 20 },
+        [campaign("drops")],
+      );
+
+      expect(result.state.sessions.twitch.reasonCode).toBe("no_progress");
+      // Stopping the old session is not rotation: the tick has to land on a
+      // different channel, or the stalled one is simply reselected and its
+      // counter reset, looping forever.
+      expect(result.state.sessions.twitch.channel?.username).toBe("fresh");
+    });
+
+    // Skipping is a demotion, not an exclusion. If every other candidate fails
+    // validation the stalled channel has to be reachable, or rotating costs the
+    // campaign the whole tick.
+    it("falls back to the stalled channel when the alternative is invalid", async () => {
+      const twitch = adapter("twitch", [campaign("drops")], [channel("old"), channel("broken")]);
+      vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+        live: candidate.username !== "broken",
+        categoryMatches: true,
+        candidate,
+      }));
+      // No selectCandidateChannel, so firstValidCandidate validates one by one.
+      twitch.selectCandidateChannel = undefined;
+
+      const result = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: watching({ noProgressChecks: 2, lastWatchedMinutes: 20 }),
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(result.state.sessions.twitch.channel?.username).toBe("old");
+    });
+
+    // Rotating to nothing would be worse than a slow channel, so the skip is
+    // advisory: the stalled channel stays when it is the only one that can run
+    // the campaign.
+    it("keeps the stalled channel when it is the only candidate", async () => {
+      const twitch = adapter("twitch", [campaign("drops")], [channel("old")]);
+      vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+        live: true,
+        categoryMatches: true,
+        candidate,
+      }));
+
+      const result = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: watching({ noProgressChecks: 2, lastWatchedMinutes: 20 }),
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(result.state.sessions.twitch.channel?.username).toBe("old");
+    });
+
+    it("keeps a stalling channel until the limit is reached", async () => {
+      const result = await tick(
+        { noProgressChecks: 1, lastWatchedMinutes: 20 },
+        [campaign("drops")],
+      );
+
+      expect(result.state.sessions.twitch.reasonCode).not.toBe("no_progress");
+      expect(result.state.sessions.twitch.noProgressChecks).toBe(2);
+    });
+
+    it("resets the counter when the channel accrues a minute", async () => {
+      const result = await tick(
+        { noProgressChecks: 2, lastWatchedMinutes: 19 },
+        [campaign("drops")],
+      );
+
+      expect(result.state.sessions.twitch.reasonCode).not.toBe("no_progress");
+      expect(result.state.sessions.twitch.noProgressChecks).toBe(0);
+      expect(result.state.sessions.twitch.lastWatchedMinutes).toBe(20);
+    });
+
+    // Without a prior reading there is nothing to compare, so the first check on
+    // a new channel seeds the baseline instead of counting as a stall.
+    it("seeds the baseline without counting a stall", async () => {
+      const result = await tick({}, [campaign("drops")]);
+
+      expect(result.state.sessions.twitch.noProgressChecks).toBe(0);
+      expect(result.state.sessions.twitch.lastWatchedMinutes).toBe(20);
+    });
+
+    // A reward whose progress the platform cannot report must never rotate:
+    // "no evidence" is not "no progress".
+    it("never rotates a reward whose progress is unreadable", async () => {
+      const subscriptionCampaign = campaign("drops", {
+        rewards: [{
+          id: "reward-in_progress",
+          name: "Reward",
+          requiredMinutes: 60,
+          watchedMinutes: 20,
+          status: "in_progress",
+          isWatchBased: false,
+        }],
+      });
+
+      const result = await tick(
+        { noProgressChecks: 2, lastWatchedMinutes: 20 },
+        [subscriptionCampaign],
+      );
+
+      expect(result.state.sessions.twitch.reasonCode).not.toBe("no_progress");
     });
   });
 

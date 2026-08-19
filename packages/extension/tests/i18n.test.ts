@@ -3,6 +3,8 @@ import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { effectiveLocale, isRtlLocale, LOCALE_OPTIONS, normalizeBrowserLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+// @ts-expect-error The capture manifest is an executable JavaScript module.
+import { STORE_SCREENSHOT_LOCALES, STORE_SCREENSHOT_VARIANTS } from "../scripts/store-screenshot-config.mjs";
 
 // Catalogs live in the single-source @lurkloot/locales package as <locale>.json.
 const messagesDir = dirname(createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"));
@@ -126,18 +128,15 @@ describe("i18n", () => {
   });
 
   it("captures store artwork for every catalog locale", () => {
-    const extensionRoot = dirname(import.meta.dirname);
-    const captureScripts = [
-      join(extensionRoot, "scripts/capture-store-screenshot.mjs"),
-      join(extensionRoot, "scripts/capture-store-promo.mjs"),
-    ];
+    expect(STORE_SCREENSHOT_LOCALES.map(({ code }: { code: string }) => code).sort()).toEqual(localeCodes().sort());
+    const promoSource = readFileSync(join(dirname(import.meta.dirname), "scripts/capture-store-promo.mjs"), "utf8");
+    for (const locale of localeCodes()) expect(promoSource).toContain(`"${locale}"`);
+  });
 
-    for (const script of captureScripts) {
-      const source = readFileSync(script, "utf8");
-      for (const locale of localeCodes()) {
-        expect(source, `${script}:${locale}`).toContain(`"${locale}"`);
-      }
-    }
+  it("captures the five reworked screenshot stems", () => {
+    expect(STORE_SCREENSHOT_VARIANTS.map(({ file }: { file: string }) => file)).toEqual([
+      "01-drops", "02-extras", "03-easy", "04-settings", "05-updated",
+    ]);
   });
 
   it("defines subscription drop states with matching placeholders in every catalog", () => {
@@ -168,6 +167,55 @@ describe("i18n", () => {
     }
   });
 
+  it("defines the reworked store-screenshot copy in English", () => {
+    const english = {
+      screenshotHeroEyebrow: "Twitch + Kick",
+      screenshotHeroHeadline: "Farm drops while you do anything else.",
+      screenshotHeroSubcopy: "Auto-claim from your own logged-in session. No passwords.",
+      screenshotExtrasEyebrow: "Beyond campaigns",
+      screenshotExtrasHeadline: "More than drops.",
+      screenshotExtrasSubcopy: "Channel points and Kick challenges, also claimed for you. An idle watchlist when nothing is left to farm.",
+      screenshotExtrasPointsName: "Channel points",
+      screenshotExtrasPointsMeta: "Twitch · also claimed for you",
+      screenshotExtrasChallengesName: "Daily challenges",
+      screenshotExtrasChallengesMeta: "Kick · also claimed for you",
+      screenshotExtrasWatchlistName: "Idle watchlist",
+      screenshotExtrasWatchlistMeta: "Watches your streamers between campaigns",
+      screenshotEasyEyebrow: "Easy to use",
+      screenshotEasyHeadline: "That easy.",
+      screenshotEasyInstallTitle: "Install",
+      screenshotEasyInstallSub: "Chrome Web Store. No account.",
+      screenshotEasyPinTitle: "Pin it",
+      screenshotEasyPinSub: "Keep the popup one click away.",
+      screenshotEasyEnableTitle: "Enable a platform",
+      screenshotEasyEnableSub: "Twitch, Kick, or both.",
+      screenshotEasyProfitTitle: "Profit",
+      screenshotEasyProfitSub: "It farms. You do other things.",
+      screenshotSettingsEyebrow: "Your rules",
+      screenshotSettingsHeadline: "Farm exactly how you want.",
+      screenshotSettingsSubcopy: "Priorities, games, tabless mode, auto-claim — per platform.",
+      screenshotUpdatedEyebrow: "Open source",
+      screenshotUpdatedHeadline: "Featureful. Always updated.",
+      screenshotUpdatedSubcopy: "Frequent releases as Twitch and Kick change — and open to ideas and improvements.",
+    };
+    const catalog = readCatalog("en");
+    for (const [key, message] of Object.entries(english)) {
+      expect(catalog[key]?.message, key).toBe(message);
+    }
+    for (const stale of [
+      "screenshotTwitchHeadline",
+      "screenshotTwitchSubcopy",
+      "screenshotKickHeadline",
+      "screenshotKickSubcopy",
+      "screenshotIdleWatchlistHeadline",
+      "screenshotIdleWatchlistSubcopy",
+      "screenshotActivityHeadline",
+      "screenshotActivitySubcopy",
+    ]) {
+      expect(catalog[stale], stale).toBeUndefined();
+    }
+  });
+
   it("does not leave non-English catalogs as English except product/common terms", () => {
     const english = readCatalog("en");
     const allowedSameAsEnglish = new Set([
@@ -195,6 +243,8 @@ describe("i18n", () => {
       "siteAttributionShort",
       // "Diagnostics" is spelled the same in French.
       "diagnosticsViewTab",
+      // Brand-only store screenshot eyebrow.
+      "screenshotHeroEyebrow",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

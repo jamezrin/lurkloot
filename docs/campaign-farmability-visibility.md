@@ -1,8 +1,9 @@
-# Farmability & Visibility — `packages/shared/src/campaignFilters.ts`
+# Farmability & Visibility — shared campaign evaluation
 
 Two questions, one shared foundation.
 
-- `campaignFarmable` answers **"will the engine actually watch this?"**
+- `evaluateCampaignFarming` answers **"will the engine actually watch this, and if not, why?"**
+- `campaignFarmable` is the boolean compatibility wrapper around that evaluation.
 - `isCampaignVisible` answers **"does it show in the popup's Drops list?"**
 
 Both are built from the same `campaignEligibleClass` check, so a campaign the
@@ -34,8 +35,17 @@ flowchart TD
     I -- yes --> Y1["TRUE — engine farms it"]
 ```
 
-`campaignFarmable` = `campaignEligibleClass` (section 2) + that last
-reward-timing gate.
+`evaluateCampaignFarming` applies these gates and returns either
+`{ farmable: true }` or one stable rejection code plus relevant context such
+as the blocked reward and deadline. `campaignFarmable` delegates to it and
+returns only the boolean result.
+
+The scheduler aggregates these results after each refresh (including an
+explicit `0 farmable` count) and emits per-campaign diagnostics for active
+rejections. A fingerprint suppresses identical snapshots until campaign data
+or settings change. The popup evaluates the same campaign with priority mode
+included, showing a compact warning on collapsed cards and the localized full
+reason when expanded.
 
 ## 2. Is it in a farmable class at all? — `campaignEligibleClass`
 
@@ -83,6 +93,7 @@ flowchart TD
 
 | function | answers | used by |
 |---|---|---|
+| `evaluateCampaignFarming` | can it be farmed now; if not, what stable rejection code and context explain why? | scheduler diagnostics, popup view model, `campaignFarmable` |
 | `campaignEligibleClass` | could this campaign's class ever be farmed, ignoring reward timing? | `campaignFarmable`, `isCampaignVisible` |
 | `campaignFarmable` | eligible class, and a reward is farmable right this moment | `isEligible` (scheduler) |
 | `isCampaignVisible` | should the Drops list render this campaign? | the popup (`Popup.tsx`) |
@@ -102,4 +113,4 @@ flowchart TD
   overrides it.
 
 ---
-*Source: `packages/shared/src/campaignFilters.ts`, `packages/shared/src/rewards.ts`*
+*Source: `packages/shared/src/campaignFarming.ts`, `packages/shared/src/campaignFilters.ts`, `packages/shared/src/rewards.ts`*

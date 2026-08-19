@@ -22,6 +22,7 @@ import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
+import type { DiscoverySignalController } from "../core/discoverySignals";
 import { applyPlatformAuthHealth } from "../core/authHealth";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
 import { mergePlatformState } from "./platformState";
@@ -70,11 +71,13 @@ export type TickTrigger =
   | "automation_toggle"
   | "platform_toggle"
   | "settings_saved"
+  | "manual_watch"
   | "manual_resume"
   | "manual_tick"
   | "critical_failure_dismissed"
   | "tabless_fallback"
   | "claim_handoff"
+  | "discovery_signal"
   | "unknown";
 type TickDiagnosticContext = Required<Pick<
   DiagnosticEvent,
@@ -133,6 +136,7 @@ const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   channel_offline: true,
   channel_mismatch: true,
   watch_unhealthy: true,
+  no_progress: true,
   higher_priority_reward: true,
   higher_priority_idle_watchlist: true,
   watch_requirement_completed: true,
@@ -405,6 +409,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // ticks (the WebSocket-based Kick watcher in particular must not be recreated
   // each tick). Reconciled against the scheduler's per-platform session state.
   const tablessWatchers = new Map<Platform, TablessWatchController>();
+  const campaignEvaluationFingerprints: Partial<Record<Platform, string>> = {};
+  const discoverySignalControllers = new Map<Platform, DiscoverySignalController>();
+  const discoverySignalPlatformBlocked: Record<Platform, boolean> = {
+    twitch: false,
+    kick: false,
+  };
   const waitingClaimRewardIds: Record<Platform, Set<string>> = {
     twitch: new Set<string>(),
     kick: new Set<string>(),
@@ -416,6 +426,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   let integrityRefreshAbort: AbortController | undefined;
   let integrityLifecycleGeneration = 0;
   let integrityLifecycleOpen = true;
+  let discoverySignalLifecycleOpen = true;
   let controllerShutdown = false;
   let installedTwitchIntegrity: TwitchIntegrity | undefined;
   let persistedIntegrityToken: string | undefined;
@@ -446,9 +457,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       - integrityRefreshJitter(integrity.integrity);
   }
 
-  function installTwitchIntegrity(integrity: TwitchIntegrity, isNew = false, emit?: EventEmitter): void {
+  function installTwitchIntegrity(
+    integrity: TwitchIntegrity,
+    isNew = false,
+    emit?: EventEmitter,
+    sourceTabId?: number,
+  ): void {
     installedTwitchIntegrity = integrity;
-    setTwitchIntegrity(integrity, { isNew }, emit);
+    setTwitchIntegrity(integrity, { isNew, sourceTabId }, emit);
   }
 
   function currentInstalledTwitchIntegrity(): TwitchIntegrity | undefined {
@@ -734,7 +750,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Client-Integrity header, so integrityFromHeaders returns undefined (and we
   // ignore) our own background fetch and anonymous queries.
   // `tabId` is optional so hosts that cannot attribute a request to a tab still
-  // capture tokens; it only feeds page-context boot instrumentation.
+  // capture tokens; when present it also lets a managed refresh distinguish its
+  // own replacement from a concurrent user-tab replay.
   async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined, tabId?: number): Promise<void> {
     // Noted before the integrity filter: an anonymous GQL request carries no
     // Client-Integrity header but still proves the SPA has booted.
@@ -758,7 +775,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     let isNew = false;
     await withEventCollector(async (emit, events) => {
       isNew = integrity.integrity !== installedTwitchIntegrity?.integrity;
-      installTwitchIntegrity(integrity, isNew, emit);
+      const sourceTabId = tabId != null && tabId >= 0 ? tabId : undefined;
+      installTwitchIntegrity(integrity, isNew, emit, sourceTabId);
       await reportBestEffort(events);
     });
     // Persistence still takes the lock: persistedIntegrityToken is read and
@@ -1195,6 +1213,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (transition.event) emit(transition.event);
         await saveOperationalStateDirect(transition.state);
       });
+      if (health.status !== "healthy") {
+        await stopDiscoverySignalController(platform, emit);
+      }
       await reportBestEffort(tickContext
         ? correlateTickDiagnostics(events, tickContext)
         : events);
@@ -1319,6 +1340,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           platform: failure.platform,
           data: { reason: "platform_error", detail: failure.message },
         });
+        await stopDiscoverySignalController(failure.platform, emit);
       }
       await persistAndReport(
         state,
@@ -1400,6 +1422,26 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   };
   // Chain of detached ticks, drained by settleBackgroundWork().
   let backgroundWork: Promise<unknown> = Promise.resolve();
+  const discoverySignalRefreshRunning: Record<Platform, boolean> = {
+    twitch: false,
+    kick: false,
+  };
+  type DiscoverySignalRefreshRequest = {
+    controller: DiscoverySignalController;
+    generation: number;
+  };
+  const discoverySignalRefreshPending: Record<Platform, DiscoverySignalRefreshRequest | undefined> = {
+    twitch: undefined,
+    kick: undefined,
+  };
+  const discoverySignalAuthRefreshes: Record<Platform, number> = {
+    twitch: 0,
+    kick: 0,
+  };
+  const discoverySignalAdmissionGeneration: Record<Platform, number> = {
+    twitch: 0,
+    kick: 0,
+  };
   const activeTicks = new Set<AbortController>();
   const activePlatformTicks: Record<Platform, number> = {
     twitch: 0,
@@ -1451,6 +1493,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } finally {
       activeTicks.delete(abort);
       activePlatformTicks[platform] -= 1;
+      if (activePlatformTicks[platform] === 0) startPendingDiscoverySignalRefresh(platform);
       diagnosticEvent(
         "debug",
         `Tick #${tickContext.platformTickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`,
@@ -1550,6 +1593,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
           emit: claimObservingEmit,
           signal,
+          campaignEvaluationFingerprints,
         });
         signal.throwIfAborted();
         const lifecycleEvents = farmingLifecycleEvents(state, result.state);
@@ -1559,6 +1603,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await applyAdFocusForState(result.state, emit, schedulerPlatforms);
         signal.throwIfAborted();
         await reconcileTablessWatchers(result.state, settings, adapters, emit, schedulerPlatforms);
+        signal.throwIfAborted();
+        await reconcileDiscoverySignalControllers(result.state, settings, adapters, emit, schedulerPlatforms);
         signal.throwIfAborted();
         nextState = result.state;
         if (settings.criticalFailurePromptEnabled) {
@@ -1600,21 +1646,33 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function checkAuthHealth(platform: Platform): Promise<void> {
-    await refreshAuthHealth([platform]);
+    const releaseDiscoverySignalAuthRefresh = reserveDiscoverySignalAuthRefresh(platform);
+    try {
+      await refreshAuthHealth([platform]);
+    } finally {
+      releaseDiscoverySignalAuthRefresh();
+    }
   }
 
   async function invalidateAuthHealth(platform: Platform): Promise<void> {
-    const generations = await beginAuthRefresh([platform]);
-    const generation = generations[platform];
-    const settings = await deps.loadSettings();
-    if (!settings.platform[platform].enabled) return;
-    await withStateLock(() => withEventCollector(async (emit, events) => {
-      if (generation === undefined || authRefreshGeneration[platform] !== generation) return;
-      const state = await deps.loadState();
-      const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
-      if (transition.event) emit(transition.event);
-      await persistAndReport(transition.state, events);
-    }));
+    const releaseDiscoverySignalAuthRefresh = reserveDiscoverySignalAuthRefresh(platform);
+    try {
+      const generations = await beginAuthRefresh([platform]);
+      const generation = generations[platform];
+      const settings = await deps.loadSettings();
+      if (!settings.platform[platform].enabled) return;
+      await withStateLock(() => withEventCollector(async (emit, events) => {
+        if (generation === undefined || authRefreshGeneration[platform] !== generation) return;
+        const state = await deps.loadState();
+        const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
+        if (transition.event) emit(transition.event);
+        await saveOperationalState(transition.state);
+        await stopDiscoverySignalController(platform, emit);
+        await reportBestEffort(events);
+      }));
+    } finally {
+      releaseDiscoverySignalAuthRefresh();
+    }
   }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
@@ -1674,6 +1732,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           };
         }
         nextState = { ...nextState, sessions, managedWatchTabs, manualClosePause };
+        await stopDiscoverySignalControllers(closedManagedPlatforms, emit);
       }
 
       if (nextState !== state || events.length > 0) await persistAndReport(nextState, events);
@@ -1764,6 +1823,141 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     for (const event of watcher.drainEvents()) emit(event);
   }
 
+  function drainDiscoverySignalEvents(
+    controller: DiscoverySignalController,
+    emit: EventEmitter,
+  ): void {
+    for (const event of controller.drainEvents()) emit(event);
+  }
+
+  async function stopDiscoverySignalController(
+    platform: Platform,
+    emit: EventEmitter,
+  ): Promise<void> {
+    invalidateDiscoverySignalAdmission(platform);
+    const controller = discoverySignalControllers.get(platform);
+    if (!controller) return;
+    // Delete before awaiting host cleanup so a callback captured by an obsolete
+    // controller cannot enqueue work while its socket/timer teardown finishes.
+    discoverySignalControllers.delete(platform);
+    drainDiscoverySignalEvents(controller, emit);
+    try {
+      await controller.stop();
+    } catch (error) {
+      emitHostCallbackError(emit, platform, error, "Could not stop the discovery signal observer");
+    } finally {
+      drainDiscoverySignalEvents(controller, emit);
+    }
+  }
+
+  async function stopDiscoverySignalControllers(
+    platforms: readonly Platform[],
+    emit: EventEmitter,
+  ): Promise<void> {
+    await Promise.all(platforms.map((platform) =>
+      stopDiscoverySignalController(platform, emit)));
+  }
+
+  async function stopDiscoverySignalControllersAndReport(
+    platforms: readonly Platform[],
+  ): Promise<void> {
+    await withEventCollector(async (emit, events) => {
+      await stopDiscoverySignalControllers(platforms, emit);
+      await reportBestEffort(events);
+    });
+  }
+
+  function stopDiscoverySignalControllersInBackground(
+    platforms: readonly Platform[],
+  ): void {
+    for (const platform of platforms) invalidateDiscoverySignalAdmission(platform);
+    const run = stopDiscoverySignalControllersAndReport(platforms).catch((error) => {
+      const platform = platforms.length === 1 ? platforms[0] : undefined;
+      diagnosticEvent(
+        "warn",
+        `Discovery signal observer cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+        platform,
+      );
+    });
+    backgroundWork = backgroundWork.then(() => run, () => run);
+  }
+
+  async function reconcileDiscoverySignalControllers(
+    state: SchedulerState,
+    settings: EngineSettings,
+    adapters: Record<Platform, PlatformAdapter>,
+    emit: EventEmitter,
+    platforms?: Platform[],
+  ): Promise<void> {
+    const targets = platforms ?? PLATFORMS;
+    for (const platform of targets) {
+      const session = state.sessions[platform];
+      const adapter = adapters[platform];
+      const factory = adapter.createDiscoverySignalController;
+      const wanted = discoverySignalLifecycleOpen
+        && !discoverySignalPlatformBlocked[platform]
+        && settings.platform[platform].enabled
+        && state.authHealth[platform].status === "healthy"
+        && session.status === "watching"
+        && Boolean(session.channel)
+        && Boolean(factory);
+      const existing = discoverySignalControllers.get(platform);
+
+      if (!wanted || !session.channel || !factory) {
+        if (existing) await stopDiscoverySignalController(platform, emit);
+        continue;
+      }
+
+      let controller = existing;
+      if (!controller) {
+        try {
+          controller = factory();
+          invalidateDiscoverySignalAdmission(platform);
+          discoverySignalControllers.set(platform, controller);
+        } catch (error) {
+          emitHostCallbackError(emit, platform, error, "Could not create the discovery signal observer");
+          continue;
+        }
+      }
+
+      drainDiscoverySignalEvents(controller, emit);
+      try {
+        await controller.start(
+          { platform, channel: session.channel },
+          () => {
+            if (discoverySignalControllers.get(platform) !== controller) return;
+            queueDiscoverySignalRefresh(platform, controller);
+          },
+        );
+      } catch (error) {
+        emitHostCallbackError(emit, platform, error, "Could not start the discovery signal observer");
+      } finally {
+        drainDiscoverySignalEvents(controller, emit);
+      }
+
+      // Reset/shutdown/disable cleanup can race a host controller whose start()
+      // awaits transport setup. Teardown wins, and the just-finished obsolete
+      // start must not retain its callback or transport.
+      if (
+        discoverySignalControllers.get(platform) !== controller
+        || !discoverySignalLifecycleOpen
+        || controllerShutdown
+      ) {
+        if (discoverySignalControllers.get(platform) === controller) {
+          invalidateDiscoverySignalAdmission(platform);
+          discoverySignalControllers.delete(platform);
+        }
+        try {
+          await controller.stop();
+        } catch (error) {
+          emitHostCallbackError(emit, platform, error, "Could not stop the discovery signal observer");
+        } finally {
+          drainDiscoverySignalEvents(controller, emit);
+        }
+      }
+    }
+  }
+
   // Fired by the 1-minute watch alarm. Runs one heartbeat per active tabless
   // watcher and records its health on the session, falling back to a real tab
   // (by re-running the scheduler) when a heartbeat keeps failing.
@@ -1801,10 +1995,18 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       // fire on a ~1-minute cadence). reconcileTablessWatchers only calls
       // watcher.start() on a fresh start/channel switch and never re-acquires the
       // lock, so holding it here is safe (no reentrancy).
+      const adapters = createSelectedAdapters(settings, emit, [platform]);
       await reconcileTablessWatchers(
         nextState,
         settings,
-        createSelectedAdapters(settings, emit, [platform]),
+        adapters,
+        emit,
+        [platform],
+      );
+      await reconcileDiscoverySignalControllers(
+        nextState,
+        settings,
+        adapters,
         emit,
         [platform],
       );
@@ -1904,17 +2106,23 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   function shutdown(): void {
     controllerShutdown = true;
+    discoverySignalLifecycleOpen = false;
+    for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
     twitchSettingsTransitionGeneration += 1;
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     abortClaimHandoffs();
+    stopDiscoverySignalControllersInBackground(PLATFORMS);
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
+    discoverySignalLifecycleOpen = false;
+    for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
     twitchSettingsTransitionGeneration += 1;
     abortActiveTicks("Host reset");
     closeTwitchIntegrityLifecycle("Host reset");
+    await stopDiscoverySignalControllersAndReport(PLATFORMS);
     await clearTwitchIntegrityAlarmBestEffort();
     abortClaimHandoffs();
     await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
@@ -1945,6 +2153,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       lastPersistedTwitchEnabled = undefined;
       await reportBestEffort(events);
     })));
+    if (!controllerShutdown) discoverySignalLifecycleOpen = true;
   }
 
   // Bounded post-claim handoff (see docs/superpowers/specs/2026-07-19-twitch-claim-handoff-design.md).
@@ -2020,6 +2229,99 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } finally {
       if (claimHandoffs.get(platform) === abort) claimHandoffs.delete(platform);
     }
+  }
+
+  function invalidateDiscoverySignalAdmission(platform: Platform): void {
+    discoverySignalRefreshPending[platform] = undefined;
+    discoverySignalAdmissionGeneration[platform] += 1;
+  }
+
+  function discoverySignalRefreshAllowed(
+    platform: Platform,
+    request: DiscoverySignalRefreshRequest,
+  ): boolean {
+    return !controllerShutdown
+      && discoverySignalLifecycleOpen
+      && !discoverySignalPlatformBlocked[platform]
+      && discoverySignalAuthRefreshes[platform] === 0
+      && discoverySignalAdmissionGeneration[platform] === request.generation
+      && discoverySignalControllers.get(platform) === request.controller;
+  }
+
+  function reserveDiscoverySignalAuthRefresh(platform: Platform): () => void {
+    // Credential observation calls invalidate/check without awaiting the pair.
+    // Close signal admission synchronously so no callback or paused refresh loop
+    // can launch obsolete platform work before the first state-lock await lands.
+    invalidateDiscoverySignalAdmission(platform);
+    discoverySignalAuthRefreshes[platform] += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      discoverySignalAuthRefreshes[platform] -= 1;
+    };
+  }
+
+  function queueDiscoverySignalRefresh(
+    platform: Platform,
+    controller: DiscoverySignalController,
+  ): void {
+    const request: DiscoverySignalRefreshRequest = {
+      controller,
+      generation: discoverySignalAdmissionGeneration[platform],
+    };
+    if (!discoverySignalRefreshAllowed(platform, request)) return;
+    discoverySignalRefreshPending[platform] = request;
+    startPendingDiscoverySignalRefresh(platform);
+  }
+
+  function startPendingDiscoverySignalRefresh(platform: Platform): void {
+    if (discoverySignalRefreshRunning[platform] || activePlatformTicks[platform] > 0) return;
+    const queued = discoverySignalRefreshPending[platform];
+    if (!queued) return;
+    if (!discoverySignalRefreshAllowed(platform, queued)) {
+      discoverySignalRefreshPending[platform] = undefined;
+      return;
+    }
+    // Reserve synchronously. A burst in the async setup window must see the
+    // running loop and collapse into its one pending request.
+    discoverySignalRefreshRunning[platform] = true;
+
+    const run = (async () => {
+      try {
+        while (discoverySignalRefreshPending[platform]) {
+          const current = discoverySignalRefreshPending[platform];
+          if (!current) break;
+          if (!discoverySignalRefreshAllowed(platform, current)) {
+            if (discoverySignalRefreshPending[platform] === current) {
+              discoverySignalRefreshPending[platform] = undefined;
+            }
+            continue;
+          }
+          discoverySignalRefreshPending[platform] = undefined;
+          const settings = await deps.loadSettings();
+          if (!discoverySignalRefreshAllowed(platform, current)) continue;
+          if (!settings.platform[platform].enabled) {
+            discoverySignalRefreshPending[platform] = undefined;
+            break;
+          }
+          await tickAndHandOff([platform], "discovery_signal");
+        }
+      } finally {
+        discoverySignalRefreshRunning[platform] = false;
+        // Covers a signal arriving after the loop's last condition check but
+        // before the running reservation is released.
+        startPendingDiscoverySignalRefresh(platform);
+      }
+    })().catch((error) => {
+      diagnosticEvent(
+        "warn",
+        `Discovery signal refresh failed: ${error instanceof Error ? error.message : String(error)}`,
+        platform,
+      );
+    });
+
+    backgroundWork = backgroundWork.then(() => run, () => run);
   }
 
   // Runs a tick without holding the caller open for it. A user action gets its
@@ -2168,6 +2470,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId?: number,
   ): Promise<void> {
+    let manualWatchStarted = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const session = state.sessions[message.platform];
@@ -2178,9 +2481,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       if (!isManagedWatchTab) {
         if (senderTabId != null) {
+          const manualWatch = recordManualWatchTelemetry(state, settings, message, senderTabId);
+          manualWatchStarted = manualWatch.started;
           await persistPlatformAndReport(
             message.platform,
-            recordManualWatchTelemetry(state, settings, message, senderTabId),
+            manualWatch.state,
             events,
           );
         }
@@ -2226,6 +2531,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await reportBestEffort(events);
       }
     }), [message.platform]);
+    if (manualWatchStarted) tickInBackground([message.platform], "manual_watch");
   }
 
   function recordManualWatchTelemetry(
@@ -2233,17 +2539,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     settings: EngineSettings,
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
-  ): SchedulerState {
+  ): { state: SchedulerState; started: boolean } {
     const manualWatch = { ...state.manualWatch };
     if (!settings.pauseOnManualWatch) {
       delete manualWatch[message.platform];
-      return { ...state, manualWatch };
+      return { state: { ...state, manualWatch }, started: false };
     }
 
     const active = message.telemetry.playingVideoCount > 0 && !message.telemetry.documentHidden;
     const previous = manualWatch[message.platform];
     const recentPrevious = previous?.active && !isTimestampStale(previous.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
-    if (!active && previous?.tabId !== senderTabId && recentPrevious) return state;
+    if (!active && previous?.tabId !== senderTabId && recentPrevious) {
+      return { state, started: false };
+    }
 
     manualWatch[message.platform] = {
       platform: message.platform,
@@ -2251,7 +2559,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       checkedAt: new Date().toISOString(),
       active,
     };
-    return { ...state, manualWatch };
+    return {
+      state: { ...state, manualWatch },
+      started: active && !recentPrevious,
+    };
   }
 
   async function applyAdFocusForState(
@@ -2462,6 +2773,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           }
         }
         throw error;
+      }
+      discoverySignalPlatformBlocked[message.platform] = !message.enabled;
+      if (!message.enabled) {
+        await stopDiscoverySignalControllersAndReport([message.platform]);
       }
       if (message.platform === "twitch") {
         if (!twitchTransitionIsCurrent()) return snapshot();

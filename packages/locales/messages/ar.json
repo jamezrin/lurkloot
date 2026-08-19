@@ -323,6 +323,9 @@
   "left": {
     "message": "المتبقي"
   },
+  "campaignLeft": {
+    "message": "المتبقي للحملة"
+  },
   "done": {
     "message": "تم"
   },
@@ -584,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "الوقت المتبقي غير كافٍ"
   },
+  "campaignRejectionExcluded": { "message": "هذه الحملة مستبعدة من الجمع التلقائي." },
+  "campaignRejectionUpcoming": { "message": "هذه الحملة لم تبدأ بعد." },
+  "campaignRejectionExpired": { "message": "انتهت هذه الحملة." },
+  "campaignRejectionCompleted": { "message": "اكتملت جميع مكافآت هذه الحملة." },
+  "campaignRejectionUnlinkedDisabled": { "message": "جمع الحملات دون حساب مرتبط معطّل." },
+  "campaignRejectionTwitchLinkRequired": { "message": "تتطلب حملة Twitch هذه ربط حساب." },
+  "campaignRejectionSubscriptionDisabled": { "message": "جمع حملات الاشتراك معطّل." },
+  "campaignRejectionCategoryFiltered": { "message": "هذه الحملة لا تطابق الفئات المحددة." },
+  "campaignRejectionPriorityNotSelected": { "message": "هذه الحملة ليست في قائمة الأولوية." },
+  "campaignRejectionNoRewards": { "message": "لا تحتوي هذه الحملة على مكافآت قابلة للجمع." },
+  "campaignRejectionNoUnclaimedRewards": { "message": "لا تحتوي هذه الحملة على مكافآت غير مستلمة." },
+  "campaignRejectionPrerequisites": { "message": "$1 بانتظار مكافأة أو شرط سابق." },
+  "campaignRejectionRewardNotStarted": { "message": "$1 غير متاحة بعد." },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 لم تعد متاحة." },
+  "campaignRejectionInsufficientTime": { "message": "لا يمكن إكمال $1 قبل الموعد النهائي." },
+  "campaignRejectionSubscriptionRequired": { "message": "تتطلب $1 اشتراكًا مؤهلًا." },
+  "campaignRejectionActionRequired": { "message": "تتطلب $1 إجراءً غير المشاهدة." },
+  "campaignRejectionNoFarmableReward": { "message": "لا يمكن جمع أي مكافأة من هذه الحملة حاليًا." },
   "automationSectionTitle": {
     "message": "الأتمتة"
   },
@@ -601,6 +622,12 @@
   },
   "autoClaimChannelPointsDescription": {
     "message": "استلم مكافآت نقاط القناة تلقائيًا أثناء الفارم على هذه المنصة."
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "توفر الحملات الصارم"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "احصد الحملة فقط على القنوات التي تعرضها تويتش لها. غالبًا ما تغفل تويتش حملات قابلة للحصد، لذا قد تبقى بعض الدروبس دون حصد."
   },
   "autoClaimChallengesTitle": {
     "message": "استلام التحديات اليومية تلقائيًا"
@@ -666,7 +693,7 @@
     "message": "فارم الحملات بدون حساب مرتبط"
   },
   "farmUnlinkedDescription": {
-    "message": "عند الإيقاف، تُتخطى الحملات التي تتطلب ربط حسابك. لا يزال Kick يجمع وقت المشاهدة قبل الربط."
+    "message": "عند الإيقاف، تُتخطى الحملات التي تتطلب ربط الحساب. قد تظل متطلبات المنصة تفرض الربط عند التشغيل."
   },
   "farmSubscriptionTitle": {
     "message": "فارم الحملات التي تتطلب اشتراكًا"
@@ -728,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "لا توجد Drops مؤهلة للفارم على $1."
   },
-  "screenshotTwitchHeadline": {
-    "message": "إدارة Drops على Twitch وKick من نافذة واحدة."
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "يفارم Lurkloot الحملات المؤهلة عبر جلسة متصفحك العادية مع تبويبات مرئية مكتومة."
+  "screenshotHeroHeadline": {
+    "message": "فارم الدروبس وأنت مشغول بشيء آخر."
   },
-  "screenshotKickHeadline": {
-    "message": "يفارم Drops على Kick الآن أيضًا."
+  "screenshotHeroSubcopy": {
+    "message": "مطالبة تلقائية من جلستك المسجّلة. بلا كلمات مرور."
   },
-  "screenshotKickSubcopy": {
-    "message": "نفس الأتمتة وفحوصات الأهلية والاستلام التلقائي على Twitch، الآن لمكافآت منشئي Kick."
+  "screenshotExtrasEyebrow": {
+    "message": "أكثر من الحملات"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "تحافظ قائمة المشاهدة الخاملة الاحتياطية على استمرار الكسب."
+  "screenshotExtrasHeadline": {
+    "message": "أكثر من دروبس."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "عند عدم وجود Drops نشطة، يشاهد Lurkloot قنواتك المفضلة حتى لا يضيع وقتك المتصل."
+  "screenshotExtrasSubcopy": {
+    "message": "نقاط القناة وتحديات Kick تُطالب أيضاً لأجلك. قائمة مشاهدة خاملة عندما لا يبقى شيء للفارم."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "نقاط القناة"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · تُطالب أيضاً لأجلك"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "التحديات اليومية"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · تُطالب أيضاً لأجلك"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "قائمة المشاهدة الخاملة"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "تشاهد ستريمرك بين الحملات"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "سهل الاستخدام"
+  },
+  "screenshotEasyHeadline": {
+    "message": "بهذه السهولة."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "ثبّت"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. بلا حساب."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "ثبّت الأيقونة"
+  },
+  "screenshotEasyPinSub": {
+    "message": "النافذة المنبثقة بنقرة."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "فعّل منصة"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch أو Kick أو كلاهما."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "والفارم يبدأ"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "هو يفارم، وأنت تعمل شيئاً آخر."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "قواعدك"
   },
   "screenshotSettingsHeadline": {
-    "message": "اضبط كل تفصيل حسب إعدادك."
+    "message": "فارم كما تريد."
   },
   "screenshotSettingsSubcopy": {
-    "message": "أتمتة لكل منصة، استلام تلقائي، تبويبات مكتومة، أولوية الألعاب، ووضع تجريبي منخفض الموارد بدون تبويب."
+    "message": "أولويات، ألعاب، وضع بلا تبويب، مطالبة تلقائية — لكل منصة."
   },
-  "screenshotActivityHeadline": {
-    "message": "شاهد بالضبط ما يفعله."
+  "screenshotUpdatedEyebrow": {
+    "message": "مفتوح المصدر"
   },
-  "screenshotActivitySubcopy": {
-    "message": "يعرض سجل نشاط شفاف كل فحص وتبديل واستلام، مع تفاصيل تشخيصية عند الحاجة."
+  "screenshotUpdatedHeadline": {
+    "message": "غني بالميزات. محدَّث دائماً."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "إصدارات متكررة كلما تغيّر Twitch وKick — ومفتوح للأفكار والتحسينات."
   },
   "autoClaimReady": {
     "message": "الاستلام التلقائي جاهز"
@@ -989,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "فشل فحص التشغيل"
   },
+  "activityReasonNoProgress": {
+    "message": "لم تحقق القناة أي تقدم في الدروبس"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "تم الانتقال إلى مكافأة ذات أولوية أعلى"
   },
@@ -1025,11 +1109,23 @@
   "copyActivityLog": {
     "message": "نسخ السجل"
   },
+  "copyLoadedActivityLog": {
+    "message": "نسخ المحمّل"
+  },
   "copyActivityLogCopied": {
     "message": "تم نسخ $1 حدثًا"
   },
   "copyActivityLogFailed": {
     "message": "تعذّر نسخ السجل. حاول مرة أخرى."
+  },
+  "exportAllDiagnostics": {
+    "message": "تصدير الكل"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "تم تصدير $1 من الإدخالات"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "تعذر تصدير السجل. حاول مرة أخرى."
   },
   "activityViewTab": {
     "message": "النشاط"
@@ -1192,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "أُغلقت علامة تبويب الزراعة"
+  },
+  "automationPausedManualWatch": {
+    "message": "المشاهدة اليدوية"
+  },
+  "manualWatchPauseDetail": {
+    "message": "تم إيقاف الزراعة مؤقتًا أثناء مشاهدتك لبث مباشر بنفسك. أوقفه مؤقتًا أو أغلقه أو انتقل بعيدًا عن علامة التبويب هذه لاستئناف الزراعة تلقائيًا عند الفحص التالي."
   }
 }

@@ -1,6 +1,7 @@
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale } from "@lurkloot/shared/models";
 import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
+import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
 export interface CompatibilityOptionMetadata {
@@ -68,6 +69,7 @@ export type CampaignStats = {
   completed: number;
   totalRewards: number;
   nextReward?: RewardView;
+  nextRewardRemaining?: number;
   complete: boolean;
 };
 
@@ -96,19 +98,35 @@ export type CampaignView = {
   rewards: RewardView[];
   hasWatchRewards: boolean;
   hasSubscriptionRewards: boolean;
+  farmingRejection?: Extract<CampaignFarmingEvaluation, { farmable: false }>;
 };
 
 export type TFunction = (key: string, substitutions?: string | string[]) => string;
 
-export type ScreenshotView = "drops" | "idleWatchlist" | "settings" | "activity";
+export type ScreenshotLayout = "hero" | "extras" | "steps" | "settings" | "updated";
 
-export type ScreenshotVariant = {
-  platform: Platform;
-  view: ScreenshotView;
-  accentGradient: string;
+type ScreenshotCopy = {
+  glow: string;
+  eyebrowKey: string;
   headlineKey: string;
   subcopyKey: string;
 };
+
+export type ScreenshotPopupVariant = ScreenshotCopy & {
+  layout: "hero" | "settings";
+  platform: Platform;
+  view: "drops" | "settings";
+};
+
+export type ScreenshotMarketingVariant = ScreenshotCopy & {
+  layout: "extras" | "steps" | "updated";
+};
+
+export type ScreenshotVariant = ScreenshotPopupVariant | ScreenshotMarketingVariant;
+
+export function variantShowsPopup(variant: ScreenshotVariant): variant is ScreenshotPopupVariant {
+  return variant.layout === "hero" || variant.layout === "settings";
+}
 
 export interface PopupAdapter {
   version: string;
@@ -138,6 +156,9 @@ export interface PopupAdapter {
   // worked. Hosts that omit it (the site demo) make the critical-failure panel
   // fall back to a selectable textarea instead of pretending the copy succeeded.
   writeClipboard?(text: string): Promise<boolean>;
+  // Optional: download a text file from the popup. The live extension implements
+  // it with a Blob URL; hosts that omit it (the site demo) hide Export all.
+  downloadFile?(filename: string, contents: string, mimeType?: string): void;
   resetExtension?(): Promise<RuntimeSnapshot>;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   resolveCompatibility?(settings: CompatibilitySettings): PopupCompatibilityResolution;

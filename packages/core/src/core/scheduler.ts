@@ -12,6 +12,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { categoryListIndex } from "@lurkloot/shared/categories";
+import { evaluateCampaignFarming, type CampaignFarmingEvaluation, type CampaignFarmingRejectionCode } from "@lurkloot/shared/campaignFarming";
 import { campaignFarmable, campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import {
   canClaimReward,
@@ -211,6 +212,10 @@ export async function chooseCampaignDecision(
   adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">,
   signal?: AbortSignal,
   reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
+  // Lowercased usernames to pass over this tick because they just failed to earn
+  // progress. Advisory, not an exclusion: a campaign whose only candidate is
+  // skipped keeps it, since rotating to nothing is worse than a slow channel.
+  skipChannels?: ReadonlySet<string>,
 ): Promise<WatchDecision> {
   const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
   const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
@@ -278,12 +283,22 @@ export async function chooseCampaignDecision(
         }))
         .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
     ).values()];
+    // Channels that just stalled go last rather than being dropped. Validation
+    // below can reject every other candidate — all offline, wrong category — and
+    // a stalled channel still beats no channel, so they stay reachable as a last
+    // resort instead of costing the campaign the whole tick.
+    const skipped = skipChannels?.size
+      ? deduplicated.filter((candidate) => skipChannels.has(candidate.username.toLowerCase()))
+      : [];
+    const preferred = skipped.length > 0
+      ? deduplicated.filter((candidate) => !skipChannels?.has(candidate.username.toLowerCase()))
+      : deduplicated;
     // Only worth asking the platform who the user follows when more than one
     // candidate could win the campaign.
     const followed = deduplicated.length > 1
       ? await resolveFollowedChannels()
       : followedChannels ?? new Set<string>();
-    const candidates = deduplicated
+    const rank = (list: ChannelCandidate[]) => list
       .sort((left, right) => {
         // ACL stays the strongest key: for an ACL-restricted campaign a followed
         // channel outside the allow list cannot earn the drop at all.
@@ -294,9 +309,15 @@ export async function chooseCampaignDecision(
         return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
       });
 
-    const channel = await firstValidCandidate(candidates, campaign, adapter, signal, () => {
+    const countCheck = () => {
       candidatesChecked += 1;
-    });
+    };
+    // Stalled channels are only validated once everything else has failed, so
+    // the common case still costs exactly one selection pass.
+    const channel = await firstValidCandidate(rank(preferred), campaign, adapter, signal, countCheck)
+      ?? (skipped.length > 0
+        ? await firstValidCandidate(rank(skipped), campaign, adapter, signal, countCheck)
+        : undefined);
     if (channel) {
       return finish({
         platform,
@@ -522,6 +543,88 @@ export interface SchedulerTickOptions {
   waitingClaimRewardIds?: Partial<Record<Platform, Set<string>>>;
   emit?: EventEmitter;
   signal?: AbortSignal;
+  // Mutable, instance-owned diagnostic cache. The background controller keeps
+  // it in memory so unchanged minute ticks stay quiet, while a worker restart
+  // naturally emits a fresh snapshot for the next exported diagnostic log.
+  campaignEvaluationFingerprints?: Partial<Record<Platform, string>>;
+}
+
+const CAMPAIGN_REJECTION_LABELS: Record<CampaignFarmingRejectionCode, string> = {
+  excluded: "excluded",
+  upcoming: "upcoming",
+  expired: "expired",
+  completed: "completed",
+  unlinked_campaigns_disabled: "unlinked campaigns disabled",
+  twitch_link_required: "Twitch account linking required",
+  subscription_campaigns_disabled: "subscription campaigns disabled",
+  category_filtered: "category filtered",
+  priority_not_selected: "not in priority list",
+  no_rewards: "no rewards",
+  no_unclaimed_rewards: "no unclaimed rewards",
+  reward_prerequisites_unmet: "reward prerequisites unmet",
+  reward_not_started: "reward not started",
+  reward_window_ended: "reward window ended",
+  insufficient_time: "insufficient time",
+  subscription_required: "subscription required",
+  action_required: "action required",
+  no_farmable_reward: "no currently farmable reward",
+};
+
+function campaignEvaluationFingerprint(
+  evaluations: ReadonlyArray<{ campaign: DropCampaign; evaluation: CampaignFarmingEvaluation }>,
+): string {
+  return evaluations
+    .map(({ campaign, evaluation }) => evaluation.farmable
+      ? `${campaign.id}:farmable`
+      : [campaign.id, evaluation.code, evaluation.rewardId, evaluation.deadline, evaluation.remainingMinutes, evaluation.marginMinutes].join(":"))
+    .sort()
+    .join("|");
+}
+
+function emitCampaignEvaluationDiagnostics(
+  emit: EventEmitter,
+  platform: Platform,
+  campaigns: readonly DropCampaign[],
+  settings: EngineSettings,
+  fingerprints: Partial<Record<Platform, string>> | undefined,
+): void {
+  const evaluations = campaigns.map((campaign) => ({
+    campaign,
+    evaluation: evaluateCampaignFarming(campaign, settings, { includePriorityMode: true }),
+  }));
+  const fingerprint = campaignEvaluationFingerprint(evaluations);
+  if (fingerprints?.[platform] === fingerprint) return;
+  if (fingerprints) fingerprints[platform] = fingerprint;
+
+  const counts = new Map<"farmable" | CampaignFarmingRejectionCode, number>();
+  for (const { evaluation } of evaluations) {
+    const key = evaluation.farmable ? "farmable" : evaluation.code;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const parts = [`${campaigns.length} discovered`];
+  const farmable = counts.get("farmable") ?? 0;
+  parts.push(`${farmable} farmable`);
+  for (const [code, label] of Object.entries(CAMPAIGN_REJECTION_LABELS) as Array<[CampaignFarmingRejectionCode, string]>) {
+    const count = counts.get(code) ?? 0;
+    if (count > 0) parts.push(`${count} ${label}`);
+  }
+  emitDiagnostic(emit, platform, "debug", `Campaign farming evaluation: ${parts.join(", ")}`);
+
+  for (const { campaign, evaluation } of evaluations) {
+    if (evaluation.farmable || ["upcoming", "expired", "completed"].includes(evaluation.code)) continue;
+    const reward = evaluation.rewardId
+      ? `, reward=${evaluation.rewardName ?? evaluation.rewardId} (${evaluation.rewardId})`
+      : "";
+    const deadline = evaluation.deadline
+      ? `, deadline=${evaluation.deadline}, remaining=${evaluation.remainingMinutes}m, available=${evaluation.availableMinutes}m, margin=${evaluation.marginMinutes}m`
+      : "";
+    emitDiagnostic(
+      emit,
+      platform,
+      "debug",
+      `Campaign rejected: ${campaign.name} (${campaign.id}), reason=${evaluation.code}${reward}${deadline}`,
+    );
+  }
 }
 
 export async function runSchedulerTick(
@@ -820,6 +923,13 @@ export async function runSchedulerTick(
       }
       if (!discoveryFailed) {
         nextState.campaigns[platform] = campaigns;
+        emitCampaignEvaluationDiagnostics(
+          emit,
+          platform,
+          campaigns,
+          settings,
+          options.campaignEvaluationFingerprints,
+        );
         // The accrual arm. Fresh progress data is in hand, so record the active
         // reward's watched minutes and compare them with the last observation.
         //
@@ -944,6 +1054,12 @@ export async function runSchedulerTick(
         );
       } else {
         let selectionMetrics = { campaignsChecked: 0, candidatesChecked: 0 };
+        // Reselecting the channel that just stalled would reset its counter and
+        // loop forever, so this tick passes over it when anything else can run
+        // the campaign (#400).
+        const stalled = currentWatch?.keep.reasonCode === "no_progress" && previous.channel
+          ? new Set([previous.channel.username.toLowerCase()])
+          : undefined;
         decision = await chooseCampaignDecision(
           platform,
           campaigns,
@@ -953,6 +1069,7 @@ export async function runSchedulerTick(
           (metrics) => {
             selectionMetrics = metrics;
           },
+          stalled,
         );
         emitDiagnostic(
           emit,
@@ -1047,6 +1164,10 @@ export async function runSchedulerTick(
         const useTabless = chooseTablessWatch(previous, settings, adapter, sameChannel);
         session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
         session.playbackChecks = useTabless ? 0 : shouldKeep.playbackChecks;
+        // Both reset when the watch moves, so a fresh channel never inherits the
+        // previous one's stall count or its minutes baseline.
+        session.noProgressChecks = shouldKeep.keep && sameChannel ? shouldKeep.noProgressChecks ?? 0 : 0;
+        session.lastWatchedMinutes = shouldKeep.keep && sameChannel ? shouldKeep.lastWatchedMinutes : undefined;
 
         if (useTabless) {
           // Tabless: no video tab. Close any tab we previously opened for this
@@ -1327,6 +1448,17 @@ function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): stri
     .join("|");
 }
 
+function hasHigherExplicitCampaignPriority(
+  candidate: DropCampaign,
+  current: DropCampaign,
+  settings: EngineSettings,
+): boolean {
+  const candidatePriority = settings.campaignPriorities[candidate.id];
+  if (candidatePriority == null) return false;
+  const currentPriority = settings.campaignPriorities[current.id];
+  return currentPriority == null || candidatePriority > currentPriority;
+}
+
 async function evaluatePreferredCurrentWatch(
   previous: WatchSession,
   campaigns: readonly DropCampaign[],
@@ -1344,17 +1476,35 @@ async function evaluatePreferredCurrentWatch(
     campaigns.filter((campaign) => isEligible(campaign, settings)),
     settings,
   ).find((campaign) => activeReward(campaign, settings));
-  const preferredReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
-  if (preferredCampaign?.id !== previous.campaignId || preferredReward?.id !== previous.rewardId) {
-    return undefined;
+  let retainedCampaign = preferredCampaign;
+  let retainedReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
+  if (retainedCampaign?.id !== previous.campaignId || retainedReward?.id !== previous.rewardId) {
+    // Automatic ranking chooses the next reward to start; it must not discard
+    // progress already earned on a healthy, still-eligible reward. An explicit
+    // user priority remains an intentional override.
+    const currentCampaign = campaigns.find((campaign) => campaign.id === previous.campaignId);
+    const currentReward = currentCampaign?.rewards.find((reward) => reward.id === previous.rewardId);
+    const currentActiveReward = currentCampaign && isEligible(currentCampaign, settings)
+      ? activeReward(currentCampaign, settings)
+      : undefined;
+    const shouldRetainProgress = currentCampaign != null
+      && currentReward?.status === "in_progress"
+      && currentActiveReward?.id === currentReward.id
+      && (preferredCampaign == null
+        || !hasHigherExplicitCampaignPriority(preferredCampaign, currentCampaign, settings));
+    if (!shouldRetainProgress) return undefined;
+    retainedCampaign = currentCampaign;
+    retainedReward = currentReward;
   }
   const decision: WatchDecision = {
     platform: previous.platform,
     action: "watch",
-    campaign: preferredCampaign,
-    reward: preferredReward,
+    campaign: retainedCampaign,
+    reward: retainedReward,
     channel: previous.channel,
-    reason: "Current campaign remains highest priority",
+    reason: retainedCampaign?.id === preferredCampaign?.id
+      ? "Current campaign remains highest priority"
+      : "Current reward is already in progress",
     reasonCode: "keeping_current_watch",
   };
   const keep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);
@@ -1368,7 +1518,7 @@ async function shouldKeepWatching(
   settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "checkChannel">,
   signal?: AbortSignal,
-): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; reason: string; reasonCode: WatchReasonCode; channel?: ChannelCandidate }> {
+): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; noProgressChecks?: number; lastWatchedMinutes?: number; reason: string; reasonCode: WatchReasonCode; channel?: ChannelCandidate }> {
   if (!previous.channel || previous.status !== "watching") {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session", reasonCode: "no_existing_session" };
   }
@@ -1460,14 +1610,59 @@ async function shouldKeepWatching(
     };
   }
 
+  // Checked after playback health so an unhealthy tab reports watch_unhealthy
+  // rather than being misread as a channel that does not pay out.
+  //
+  // Trusting Twitch's discovery sources means no availability check rejects a
+  // channel any more, so without this a healthy stream that never accrues a
+  // minute would be watched forever (#400). Ticks are at least a minute apart
+  // (pollIntervalMinutes has a floor of 1) and watched minutes have one-minute
+  // granularity, so consecutive equal readings are real stalls, not sampling
+  // artefacts.
+  const progress = watchProgress(campaigns, previous);
+  const noProgressChecks = progress.observable
+    ? progress.advanced ? 0 : (previous.noProgressChecks ?? 0) + 1
+    // Subscription-only rewards and adapters that cannot read progress must
+    // never rotate on this path, so the counter is carried forward untouched.
+    : previous.noProgressChecks ?? 0;
+  if (progress.observable && noProgressChecks >= settings.offlineRetryLimit) {
+    return {
+      keep: false,
+      offlineChecks,
+      playbackChecks,
+      noProgressChecks,
+      lastWatchedMinutes: progress.watchedMinutes,
+      reason: `Channel accrued no drop progress across ${noProgressChecks} checks`,
+      reasonCode: "no_progress",
+    };
+  }
+
   return {
     keep: true,
     offlineChecks,
     playbackChecks,
+    noProgressChecks,
+    lastWatchedMinutes: progress.watchedMinutes ?? previous.lastWatchedMinutes,
     channel: channelFromCheck(previous.channel, check),
     reason: "Keeping current watch tab",
     reasonCode: "keeping_current_watch",
   };
+}
+
+// Whether the session's active watch reward accrued since the last check.
+// `observable` is false when there is no active watch reward or the platform
+// could not read its minutes — the only safe reading is "no evidence", never
+// "no progress".
+function watchProgress(
+  campaigns: readonly DropCampaign[],
+  previous: WatchSession,
+): { observable: boolean; advanced: boolean; watchedMinutes?: number } {
+  const reward = activeRewardFor(campaigns, previous);
+  const watchedMinutes = reward?.isWatchBased === false ? undefined : reward?.watchedMinutes;
+  if (watchedMinutes === undefined) return { observable: false, advanced: false };
+  const previousMinutes = previous.lastWatchedMinutes;
+  if (previousMinutes === undefined) return { observable: false, advanced: false, watchedMinutes };
+  return { observable: true, advanced: watchedMinutes > previousMinutes, watchedMinutes };
 }
 
 // Playing — muted or not — is what indicates farming is working. The browser

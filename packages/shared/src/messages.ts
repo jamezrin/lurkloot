@@ -24,6 +24,7 @@ export type CoreRuntimeMessage =
 export type RuntimeMessage =
   | CoreRuntimeMessage
   | ({ type: "getActivity" } & ActivityQuery)
+  | { type: "exportDiagnostics"; platform: Platform }
   | { type: "clearActivity" }
   | { type: "resetExtension" }
   | { type: "exportCliCredentials" };
@@ -68,4 +69,8 @@ export interface ActivityQuery {
 export interface ActivityPage {
   events: ActivityHistoryRecord[];
   nextCursor?: string;
+}
+
+export interface DiagnosticsExport {
+  events: ActivityHistoryRecord[];
 }

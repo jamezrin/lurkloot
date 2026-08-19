@@ -1,4 +1,5 @@
 import { categoryListIndex } from "./categories";
+import { evaluateCampaignFarming } from "./campaignFarming";
 import type { CampaignFilterKey, DropCampaign, DropReward, EngineSettings, ExtensionSettings } from "./models";
 import { campaignHasSubscriptionRewards, canClaimReward, isRewardDeadlineFeasible, isRewardRelevantNow } from "./rewards";
 
@@ -68,7 +69,7 @@ export function campaignPassesFarmingEligibility(
 // scheduler, so "should the engine spend a tick on this reward" has one
 // definition instead of drifting between the two.
 export function isRewardFarmableNow(
-  campaign: Pick<DropCampaign, "endsAt">,
+  campaign: Pick<DropCampaign, "endsAt" | "platform">,
   reward: DropReward,
   settings: Pick<EngineSettings, "skipUnfinishableRewards" | "deadlineSafetyMarginMinutes">,
 ): boolean {
@@ -117,8 +118,7 @@ export function campaignEligibleClass(campaign: DropCampaign, settings: EngineSe
 // Strictly narrower than campaignEligibleClass — see that function for why
 // isCampaignVisible deliberately does NOT use this one.
 export function campaignFarmable(campaign: DropCampaign, settings: EngineSettings): boolean {
-  if (!campaignEligibleClass(campaign, settings)) return false;
-  return campaign.rewards.some((reward) => isRewardFarmableNow(campaign, reward, settings));
+  return evaluateCampaignFarming(campaign, settings).farmable;
 }
 
 // What the popup asks. A claimable reward always stays visible so the user can

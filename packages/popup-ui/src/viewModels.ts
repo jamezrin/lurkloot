@@ -8,6 +8,7 @@ import {
   rewardFeasibility,
 } from "@lurkloot/shared/rewards";
 import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaignFilters";
+import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 export {
   campaignFilterCategories,
   isCampaignExpired,
@@ -99,9 +100,13 @@ export function campaignStats(campaign: CampaignView): CampaignStats {
   const remaining = Math.max(totalRequired - totalFarmed, 0);
   const progress = totalRequired ? Math.min(100, (totalFarmed / totalRequired) * 100) : undefined;
   const completed = campaign.rewards.filter(rewardComplete).length;
-  const nextReward = campaign.rewards.find((reward) => !rewardComplete(reward)) ?? campaign.rewards.at(-1);
+  const nextIncompleteReward = campaign.rewards.find((reward) => !rewardComplete(reward));
+  const nextReward = nextIncompleteReward ?? campaign.rewards.at(-1);
+  const nextRewardRemaining = nextIncompleteReward?.requirement === "watch"
+    ? Math.max(nextIncompleteReward.requiredMinutes * (1 - (nextIncompleteReward.progress ?? 0) / 100), 0)
+    : undefined;
   const complete = campaign.rewards.length > 0 && campaign.rewards.every((reward) => reward.obtained);
-  return { kind, totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, complete };
+  return { kind, totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, nextRewardRemaining, complete };
 }
 
 function rewardComplete(reward: RewardView): boolean {
@@ -113,8 +118,11 @@ export function campaignViewFromCampaign(
   index: number,
   session: WatchSession,
   excluded: boolean,
-  feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number },
+  feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number; settings?: ExtensionSettings },
 ): CampaignView {
+  const farmingEvaluation = feasibility?.settings
+    ? evaluateCampaignFarming(campaign, feasibility.settings, { includePriorityMode: true, now: feasibility.now })
+    : undefined;
   return {
     id: campaign.id,
     gameId: gameId(campaign),
@@ -164,6 +172,7 @@ export function campaignViewFromCampaign(
     }),
     hasWatchRewards: campaignHasWatchRewards(campaign),
     hasSubscriptionRewards: campaignHasSubscriptionRewards(campaign),
+    farmingRejection: farmingEvaluation && !farmingEvaluation.farmable ? farmingEvaluation : undefined,
   };
 }
 

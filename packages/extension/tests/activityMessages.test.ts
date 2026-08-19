@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { EngineEvent } from "@lurkloot/shared/events";
+import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
 import {
   createActivityEventReporter,
   createActivityMessageHandler,
@@ -10,8 +10,9 @@ describe("activity message routing", () => {
   it("handles history messages through the extension repository", async () => {
     const page = { events: [], nextCursor: undefined };
     const load = vi.fn(async () => page);
+    const exportDiagnostics = vi.fn();
     const clear = vi.fn(async () => undefined);
-    const handler = createActivityMessageHandler({ load, clear });
+    const handler = createActivityMessageHandler({ load, exportDiagnostics, clear });
 
     await expect(handler({ type: "getActivity", category: "activity", platform: "twitch", limit: 80 }))
       .resolves.toBe(page);
@@ -23,13 +24,31 @@ describe("activity message routing", () => {
 
   it("returns undefined without using the repository for non-activity messages", async () => {
     const load = vi.fn();
+    const exportDiagnostics = vi.fn();
     const clear = vi.fn();
-    const handler = createActivityMessageHandler({ load, clear });
+    const handler = createActivityMessageHandler({ load, exportDiagnostics, clear });
 
     await expect(handler({ type: "getSnapshot" })).resolves.toBeUndefined();
 
     expect(load).not.toHaveBeenCalled();
+    expect(exportDiagnostics).not.toHaveBeenCalled();
     expect(clear).not.toHaveBeenCalled();
+  });
+
+  it("exports diagnostics through the extension repository", async () => {
+    const events: ActivityHistoryRecord[] = [
+      { id: "d1", at: "2026-08-16T00:00:00.000Z", category: "diagnostic", level: "info", message: "hello" },
+    ];
+    const exportDiagnostics = vi.fn(async () => events);
+    const handler = createActivityMessageHandler({
+      load: vi.fn(),
+      clear: vi.fn(),
+      exportDiagnostics,
+    });
+
+    await expect(handler({ type: "exportDiagnostics", platform: "kick" }))
+      .resolves.toEqual({ events });
+    expect(exportDiagnostics).toHaveBeenCalledWith("kick");
   });
 });
 
@@ -146,6 +165,7 @@ describe("runtime message dispatch", () => {
 
   it.each([
     { type: "getActivity", category: "activity" } as const,
+    { type: "exportDiagnostics", platform: "twitch" } as const,
     { type: "clearActivity" } as const,
   ])("routes $type without calling core", async (message) => {
     const env = setup();

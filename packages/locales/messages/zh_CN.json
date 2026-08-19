@@ -323,6 +323,9 @@
   "left": {
     "message": "剩余"
   },
+  "campaignLeft": {
+    "message": "活动剩余"
+  },
   "done": {
     "message": "完成"
   },
@@ -584,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "剩余时间不足"
   },
+  "campaignRejectionExcluded": { "message": "此活动已被排除，不会自动获取。" },
+  "campaignRejectionUpcoming": { "message": "此活动尚未开始。" },
+  "campaignRejectionExpired": { "message": "此活动已结束。" },
+  "campaignRejectionCompleted": { "message": "此活动的所有奖励均已完成。" },
+  "campaignRejectionUnlinkedDisabled": { "message": "未关联账户时获取活动奖励的功能已关闭。" },
+  "campaignRejectionTwitchLinkRequired": { "message": "此 Twitch 活动要求关联账户。" },
+  "campaignRejectionSubscriptionDisabled": { "message": "订阅活动的自动获取功能已关闭。" },
+  "campaignRejectionCategoryFiltered": { "message": "此活动不符合所选分类。" },
+  "campaignRejectionPriorityNotSelected": { "message": "此活动不在优先列表中。" },
+  "campaignRejectionNoRewards": { "message": "此活动没有可自动获取的奖励。" },
+  "campaignRejectionNoUnclaimedRewards": { "message": "此活动没有未领取的奖励。" },
+  "campaignRejectionPrerequisites": { "message": "$1 正在等待前置奖励或条件。" },
+  "campaignRejectionRewardNotStarted": { "message": "$1 尚未开放。" },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 已不可用。" },
+  "campaignRejectionInsufficientTime": { "message": "$1 无法在截止时间前完成。" },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 需要符合条件的订阅。" },
+  "campaignRejectionActionRequired": { "message": "$1 需要观看以外的操作。" },
+  "campaignRejectionNoFarmableReward": { "message": "此活动目前没有可自动获取的奖励。" },
   "automationSectionTitle": {
     "message": "自动化"
   },
@@ -601,6 +622,12 @@
   },
   "autoClaimChannelPointsDescription": {
     "message": "在该平台刷取时自动领取频道积分奖励。"
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "严格的活动可用性"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "仅在 Twitch 列出该活动的频道上刷取。Twitch 经常遗漏可刷取的活动，因此可能导致部分掉宝未被刷取。"
   },
   "autoClaimChallengesTitle": {
     "message": "自动领取每日挑战"
@@ -666,7 +693,7 @@
     "message": "刷取无需关联账号的活动"
   },
   "farmUnlinkedDescription": {
-    "message": "关闭后，将跳过需要关联账号的活动。关联前 Kick 仍会累积观看时长。"
+    "message": "关闭后，将跳过需要关联账号的活动。开启后，平台规则仍可能要求关联账号。"
   },
   "farmSubscriptionTitle": {
     "message": "刷取需要订阅的活动"
@@ -728,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 没有可刷取的合格掉宝。"
   },
-  "screenshotTwitchHeadline": {
-    "message": "在一个弹窗中管理 Twitch 与 Kick 掉宝。"
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot 通过正常浏览器会话和可见静音标签页刷取符合条件的活动。"
+  "screenshotHeroHeadline": {
+    "message": "一边做别的，一边挂机刷 drops。"
   },
-  "screenshotKickHeadline": {
-    "message": "现在也能刷 Kick 掉宝。"
+  "screenshotHeroSubcopy": {
+    "message": "用你已登录的会话自动领取。不用密码。"
   },
-  "screenshotKickSubcopy": {
-    "message": "你在 Twitch 依赖的自动化、资格检查和自动领取，现在也覆盖 Kick 创作者奖励。"
+  "screenshotExtrasEyebrow": {
+    "message": "不止活动"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "备用空闲观看列表让你持续获得收益。"
+  "screenshotExtrasHeadline": {
+    "message": "不只是 drops。"
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "没有活动掉宝时，Lurkloot 会观看你喜欢的频道，让在线时间不浪费。"
+  "screenshotExtrasSubcopy": {
+    "message": "频道点数和 Kick 每日挑战也会帮你领。没有可刷的 drops 时，用闲置观看列表。"
+  },
+  "screenshotExtrasPointsName": {
+    "message": "频道点数"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · 也会帮你领取"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "每日挑战"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · 也会帮你领取"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "闲置观看列表"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "活动间隙帮你看选定的主播"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "上手很简单"
+  },
+  "screenshotEasyHeadline": {
+    "message": "就这么简单。"
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "安装"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome 网上应用店。不用账号。"
+  },
+  "screenshotEasyPinTitle": {
+    "message": "固定图标"
+  },
+  "screenshotEasyPinSub": {
+    "message": "弹窗一键打开。"
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "开启平台"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch、Kick，或两个都开。"
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "开始挂机"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "它刷，你做别的。"
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "你的规则"
   },
   "screenshotSettingsHeadline": {
-    "message": "按你的环境调整每个细节。"
+    "message": "按你的方式挂机。"
   },
   "screenshotSettingsSubcopy": {
-    "message": "按平台自动化、自动领取、静音标签页、游戏优先级和实验性无标签低资源模式。"
+    "message": "优先级、游戏、无标签页模式、自动领取 — 按平台设置。"
   },
-  "screenshotActivityHeadline": {
-    "message": "清楚查看它正在做什么。"
+  "screenshotUpdatedEyebrow": {
+    "message": "开源"
   },
-  "screenshotActivitySubcopy": {
-    "message": "透明的活动日志显示每次检查、切换和领取，还可按需查看诊断详情。"
+  "screenshotUpdatedHeadline": {
+    "message": "功能完整。持续更新。"
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Twitch 和 Kick 一变就跟进发版，也欢迎想法和改进。"
   },
   "autoClaimReady": {
     "message": "自动领取就绪"
@@ -989,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "播放健康检查失败"
   },
+  "activityReasonNoProgress": {
+    "message": "该频道没有获得掉宝进度"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "已切换到更高优先级的奖励"
   },
@@ -1025,11 +1109,23 @@
   "copyActivityLog": {
     "message": "复制日志"
   },
+  "copyLoadedActivityLog": {
+    "message": "复制已加载"
+  },
   "copyActivityLogCopied": {
     "message": "已复制 $1 条事件"
   },
   "copyActivityLogFailed": {
     "message": "无法复制日志，请重试。"
+  },
+  "exportAllDiagnostics": {
+    "message": "全部导出"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "已导出 $1 条"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "无法导出日志。请重试。"
   },
   "activityViewTab": {
     "message": "活动"
@@ -1192,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "挂机标签页已关闭"
+  },
+  "automationPausedManualWatch": {
+    "message": "手动观看"
+  },
+  "manualWatchPauseDetail": {
+    "message": "你亲自观看直播期间，挂机已暂停。暂停直播、关闭直播，或切换离开此标签页后，挂机会在下一次检查时自动恢复。"
   }
 }

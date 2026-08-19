@@ -1,6 +1,6 @@
 import { ignoreEvent, unavailableWatchTabPort, type PageFetcher, type WatchTabPort } from "@lurkloot/core/adapter";
 import { KickAdapter, type KickAdapterOptions } from "@lurkloot/core/kick";
-import type { WebSocketFactory } from "@lurkloot/core/kick/watch";
+import type { WebSocketFactory } from "@lurkloot/core/webSocket";
 import type { TwitchIntegrityRequest } from "@lurkloot/core/tabs";
 import { TwitchAdapter, type TwitchAdapterOptions } from "@lurkloot/core/twitch";
 import type { EventEmitter } from "@lurkloot/shared/events";
@@ -26,7 +26,10 @@ export function twitchAdapter(
     fetcher,
     ensureIntegrity ?? (async () => false),
     watchTabPort ?? unavailableWatchTabPort,
-    { compatibility: TWITCH_COMPAT, ...options },
+    // Strict availability is off in production (#400) but on here: these
+    // fixtures were written against exact AvailableDrops validation and still
+    // cover it. Tests for the default path pass `false` explicitly.
+    { compatibility: TWITCH_COMPAT, strictCampaignAvailability: true, ...options },
     emit ?? ignoreEvent,
   );
 }

@@ -323,6 +323,9 @@
   "left": {
     "message": "बाकी"
   },
+  "campaignLeft": {
+    "message": "अभियान शेष"
+  },
   "done": {
     "message": "हो गया"
   },
@@ -584,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "पर्याप्त समय शेष नहीं"
   },
+  "campaignRejectionExcluded": { "message": "इस कैंपेन को फ़ार्मिंग से बाहर रखा गया है।" },
+  "campaignRejectionUpcoming": { "message": "यह कैंपेन अभी शुरू नहीं हुआ है।" },
+  "campaignRejectionExpired": { "message": "यह कैंपेन समाप्त हो गया है।" },
+  "campaignRejectionCompleted": { "message": "इस कैंपेन के सभी रिवॉर्ड पूरे हो चुके हैं।" },
+  "campaignRejectionUnlinkedDisabled": { "message": "लिंक किए खाते के बिना कैंपेन फ़ार्मिंग बंद है।" },
+  "campaignRejectionTwitchLinkRequired": { "message": "इस Twitch कैंपेन के लिए खाता लिंक करना आवश्यक है।" },
+  "campaignRejectionSubscriptionDisabled": { "message": "सब्सक्रिप्शन कैंपेन फ़ार्मिंग बंद है।" },
+  "campaignRejectionCategoryFiltered": { "message": "यह कैंपेन चुनी गई कैटेगरी से मेल नहीं खाता।" },
+  "campaignRejectionPriorityNotSelected": { "message": "यह कैंपेन प्राथमिकता सूची में नहीं है।" },
+  "campaignRejectionNoRewards": { "message": "इस कैंपेन में फ़ार्म करने योग्य रिवॉर्ड नहीं हैं।" },
+  "campaignRejectionNoUnclaimedRewards": { "message": "इस कैंपेन में बिना क्लेम किए रिवॉर्ड नहीं हैं।" },
+  "campaignRejectionPrerequisites": { "message": "$1 पहले के रिवॉर्ड या आवश्यकता की प्रतीक्षा कर रहा है।" },
+  "campaignRejectionRewardNotStarted": { "message": "$1 अभी उपलब्ध नहीं है।" },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 अब उपलब्ध नहीं है।" },
+  "campaignRejectionInsufficientTime": { "message": "$1 समय सीमा से पहले पूरा नहीं हो सकता।" },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 के लिए योग्य सब्सक्रिप्शन चाहिए।" },
+  "campaignRejectionActionRequired": { "message": "$1 के लिए देखने के अलावा दूसरी कार्रवाई चाहिए।" },
+  "campaignRejectionNoFarmableReward": { "message": "इस कैंपेन का कोई रिवॉर्ड अभी फ़ार्म नहीं किया जा सकता।" },
   "automationSectionTitle": {
     "message": "ऑटोमेशन"
   },
@@ -601,6 +622,12 @@
   },
   "autoClaimChannelPointsDescription": {
     "message": "इस प्लेटफ़ॉर्म पर फ़ार्म करते समय चैनल-पॉइंट बोनस अपने आप क्लेम करें।"
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "सख्त अभियान उपलब्धता"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "किसी अभियान को केवल उन चैनलों पर फ़ार्म करें जिनके लिए Twitch उसे सूचीबद्ध करता है। Twitch अक्सर फ़ार्म करने योग्य अभियान छोड़ देता है, जिससे कुछ ड्रॉप्स अनफ़ार्म रह सकते हैं।"
   },
   "autoClaimChallengesTitle": {
     "message": "दैनिक चैलेंज अपने आप क्लेम करें"
@@ -666,7 +693,7 @@
     "message": "बिना लिंक किए गए खाते वाले कैंपेन फ़ार्म करें"
   },
   "farmUnlinkedDescription": {
-    "message": "बंद होने पर, जिन कैंपेन के लिए आपका खाता लिंक करना ज़रूरी है, उन्हें छोड़ दिया जाता है। Kick लिंक करने से पहले भी वॉच टाइम जोड़ता रहता है।"
+    "message": "बंद होने पर, खाता लिंक करने वाले कैंपेन छोड़ दिए जाते हैं। चालू होने पर भी प्लेटफ़ॉर्म के नियम लिंक करना आवश्यक बना सकते हैं।"
   },
   "farmSubscriptionTitle": {
     "message": "सब्सक्रिप्शन वाले कैंपेन फ़ार्म करें"
@@ -728,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 पर फ़ार्म करने योग्य drops नहीं हैं。"
   },
-  "screenshotTwitchHeadline": {
-    "message": "Twitch और Kick drops, एक popup से प्रबंधित।"
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot सामान्य ब्राउज़र सत्र और दिखने वाले म्यूट टैब से योग्य कैंपेन फ़ार्म करता है।"
+  "screenshotHeroHeadline": {
+    "message": "कुछ और करते रहो, drops खुद फार्म हों।"
   },
-  "screenshotKickHeadline": {
-    "message": "अब Kick drops भी फ़ार्म करता है।"
+  "screenshotHeroSubcopy": {
+    "message": "जिस सेशन में तुम पहले से लॉग इन हो, वहीं से ऑटो-क्लेम। पासवर्ड नहीं।"
   },
-  "screenshotKickSubcopy": {
-    "message": "Twitch वाली automation, eligibility checks और auto-claim अब Kick creator rewards के लिए भी।"
+  "screenshotExtrasEyebrow": {
+    "message": "कैंपेन से आगे"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "बैकअप निष्क्रिय वॉचलिस्ट आपको कमाई जारी रखने देती है।"
+  "screenshotExtrasHeadline": {
+    "message": "सिर्फ़ drops नहीं।"
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "जब कोई active drops नहीं होते, Lurkloot आपके पसंदीदा चैनल देखता है ताकि ऑनलाइन समय बेकार न जाए।"
+  "screenshotExtrasSubcopy": {
+    "message": "चैनल पॉइंट्स और Kick चैलेंज भी तुम्हारे लिए क्लेम। जब फार्म करने को कुछ न हो, idle watchlist।"
+  },
+  "screenshotExtrasPointsName": {
+    "message": "चैनल पॉइंट्स"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · तुम्हारे लिए भी क्लेम"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "डेली चैलेंज"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · तुम्हारे लिए भी क्लेम"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "आइडल वॉचलिस्ट"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "कैंपेन के बीच तुम्हारे स्ट्रीमर देखे जाते हैं"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "आसान"
+  },
+  "screenshotEasyHeadline": {
+    "message": "इतना आसान।"
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "इंस्टॉल"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. कोई अकाउंट नहीं."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "पिन करो"
+  },
+  "screenshotEasyPinSub": {
+    "message": "पॉपअप एक क्लिक पर।"
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "प्लेटफ़ॉर्म चालू करो"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick, या दोनों."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "फार्म शुरू"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "यह फार्म करे, तुम और काम करो।"
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "तुम्हारे नियम"
   },
   "screenshotSettingsHeadline": {
-    "message": "अपने setup के लिए हर विवरण सेट करें।"
+    "message": "जैसा चाहो वैसा फार्म।"
   },
   "screenshotSettingsSubcopy": {
-    "message": "प्रति-प्लेटफ़ॉर्म automation, auto-claim, म्यूट टैब, game priority और experimental tabless low-resource mode."
+    "message": "प्राथमिकता, गेम, टैबलेस मोड, ऑटो-क्लेम — हर प्लेटफ़ॉर्म पर।"
   },
-  "screenshotActivityHeadline": {
-    "message": "ठीक-ठीक देखें यह क्या कर रहा है।"
+  "screenshotUpdatedEyebrow": {
+    "message": "ओपन सोर्स"
   },
-  "screenshotActivitySubcopy": {
-    "message": "पारदर्शी गतिविधि लॉग हर check, switch और claim दिखाता है, और ज़रूरत पड़ने पर diagnostic विवरण भी।"
+  "screenshotUpdatedHeadline": {
+    "message": "फीचर भरा। हमेशा अपडेट।"
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Twitch और Kick बदलें तो रिलीज़ आती रहें — और सुझाव खुले हैं।"
   },
   "autoClaimReady": {
     "message": "ऑटो-क्लेम तैयार"
@@ -989,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "प्लेबैक जाँच विफल हुई"
   },
+  "activityReasonNoProgress": {
+    "message": "चैनल ने कोई ड्रॉप प्रगति अर्जित नहीं की"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "अधिक प्राथमिकता वाला इनाम चुना गया"
   },
@@ -1025,11 +1109,23 @@
   "copyActivityLog": {
     "message": "लॉग कॉपी करें"
   },
+  "copyLoadedActivityLog": {
+    "message": "लोड की गई कॉपी करें"
+  },
   "copyActivityLogCopied": {
     "message": "$1 इवेंट कॉपी किए गए"
   },
   "copyActivityLogFailed": {
     "message": "लॉग कॉपी नहीं हो सका। फिर से कोशिश करें।"
+  },
+  "exportAllDiagnostics": {
+    "message": "सभी निर्यात करें"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 इवेंट निर्यात किए गए"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "लॉग निर्यात नहीं हो सका। फिर से कोशिश करें."
   },
   "activityViewTab": {
     "message": "गतिविधि"
@@ -1192,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "फ़ार्मिंग टैब बंद"
+  },
+  "automationPausedManualWatch": {
+    "message": "मैन्युअल देखना"
+  },
+  "manualWatchPauseDetail": {
+    "message": "आपके खुद कोई स्ट्रीम देखने के दौरान फ़ार्मिंग रुकी हुई है। अगली जाँच पर फ़ार्मिंग अपने आप फिर शुरू करने के लिए उसे रोकें, बंद करें या उस टैब से हट जाएँ।"
   }
 }

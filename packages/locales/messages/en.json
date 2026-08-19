@@ -323,6 +323,9 @@
   "left": {
     "message": "Left"
   },
+  "campaignLeft": {
+    "message": "Campaign left"
+  },
   "done": {
     "message": "Done"
   },
@@ -584,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "Insufficient time remaining"
   },
+  "campaignRejectionExcluded": { "message": "This campaign is excluded from farming." },
+  "campaignRejectionUpcoming": { "message": "This campaign has not started yet." },
+  "campaignRejectionExpired": { "message": "This campaign has ended." },
+  "campaignRejectionCompleted": { "message": "All rewards in this campaign are complete." },
+  "campaignRejectionUnlinkedDisabled": { "message": "Farming campaigns without a linked account is disabled." },
+  "campaignRejectionTwitchLinkRequired": { "message": "Account linking is required for this Twitch campaign." },
+  "campaignRejectionSubscriptionDisabled": { "message": "Farming subscription campaigns is disabled." },
+  "campaignRejectionCategoryFiltered": { "message": "This campaign does not match the selected categories." },
+  "campaignRejectionPriorityNotSelected": { "message": "This campaign is not in the priority list." },
+  "campaignRejectionNoRewards": { "message": "This campaign has no farmable rewards." },
+  "campaignRejectionNoUnclaimedRewards": { "message": "This campaign has no unclaimed rewards." },
+  "campaignRejectionPrerequisites": { "message": "$1 is waiting for an earlier reward or requirement." },
+  "campaignRejectionRewardNotStarted": { "message": "$1 is not available yet." },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 is no longer available." },
+  "campaignRejectionInsufficientTime": { "message": "$1 cannot be completed before its deadline." },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 requires a qualifying subscription." },
+  "campaignRejectionActionRequired": { "message": "$1 requires an action other than watching." },
+  "campaignRejectionNoFarmableReward": { "message": "No reward in this campaign can currently be farmed." },
   "automationSectionTitle": {
     "message": "Automation"
   },
@@ -601,6 +622,12 @@
   },
   "autoClaimChannelPointsDescription": {
     "message": "Claim channel-point bonuses while farming this platform."
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Strict campaign availability"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Only farm a campaign on channels Twitch lists it for. Twitch often omits farmable campaigns, so this can leave drops unfarmed."
   },
   "autoClaimChallengesTitle": {
     "message": "Auto-claim daily challenges"
@@ -666,7 +693,7 @@
     "message": "Farm campaigns without a linked account"
   },
   "farmUnlinkedDescription": {
-    "message": "When off, campaigns that need you to link your account are skipped. Kick still earns watch time before linking."
+    "message": "When off, campaigns that need you to link your account are skipped. Platform requirements can still require linking when this is on."
   },
   "farmSubscriptionTitle": {
     "message": "Farm campaigns that require a subscription"
@@ -728,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 has no eligible drops to farm."
   },
-  "screenshotTwitchHeadline": {
-    "message": "Twitch and Kick drops, managed from one popup."
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot farms eligible campaigns through your normal browser session with visible muted tabs."
+  "screenshotHeroHeadline": {
+    "message": "Farm drops while you do anything else."
   },
-  "screenshotKickHeadline": {
-    "message": "Now farming Kick drops too."
+  "screenshotHeroSubcopy": {
+    "message": "Auto-claim from your own logged-in session. No passwords."
   },
-  "screenshotKickSubcopy": {
-    "message": "The same automation, eligibility checks, and auto-claim you rely on for Twitch — now covering Kick creator rewards."
+  "screenshotExtrasEyebrow": {
+    "message": "Beyond campaigns"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "Your Idle Watchlist keeps you earning between drops."
+  "screenshotExtrasHeadline": {
+    "message": "More than drops."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "When no eligible drops are available, Lurkloot watches your selected fallback channels."
+  "screenshotExtrasSubcopy": {
+    "message": "Channel points and Kick challenges, also claimed for you. An idle watchlist when nothing is left to farm."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Channel points"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · also claimed for you"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Daily challenges"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · also claimed for you"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Idle watchlist"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Watches your streamers between campaigns"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Easy to use"
+  },
+  "screenshotEasyHeadline": {
+    "message": "That easy."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Install"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. No account."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Pin it"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Keep the popup one click away."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Enable a platform"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick, or both."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "Profit"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "It farms. You do other things."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Your rules"
   },
   "screenshotSettingsHeadline": {
-    "message": "Tune every detail to your setup."
+    "message": "Farm exactly how you want."
   },
   "screenshotSettingsSubcopy": {
-    "message": "Per-platform automation, auto-claim, muted tabs, game priority, and an experimental low-resource tabless mode."
+    "message": "Priorities, games, tabless mode, auto-claim — per platform."
   },
-  "screenshotActivityHeadline": {
-    "message": "See exactly what it's doing."
+  "screenshotUpdatedEyebrow": {
+    "message": "Open source"
   },
-  "screenshotActivitySubcopy": {
-    "message": "A transparent activity log shows every check, switch, and claim — with diagnostic detail on demand so nothing happens behind your back."
+  "screenshotUpdatedHeadline": {
+    "message": "Featureful. Always updated."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Frequent releases as Twitch and Kick change — and open to ideas and improvements."
   },
   "autoClaimReady": {
     "message": "Auto-claim ready"
@@ -989,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "the watch health check failed"
   },
+  "activityReasonNoProgress": {
+    "message": "the channel earned no drop progress"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "a higher-priority reward took over"
   },
@@ -1025,11 +1109,23 @@
   "copyActivityLog": {
     "message": "Copy log"
   },
+  "copyLoadedActivityLog": {
+    "message": "Copy loaded"
+  },
   "copyActivityLogCopied": {
     "message": "Copied $1 events"
   },
   "copyActivityLogFailed": {
     "message": "Could not copy the log. Try again."
+  },
+  "exportAllDiagnostics": {
+    "message": "Export all"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "Exported $1 events"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Could not export the log. Try again."
   },
   "activityViewTab": {
     "message": "Activity"
@@ -1192,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "farming tab closed"
+  },
+  "automationPausedManualWatch": {
+    "message": "Manual watching"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Farming is paused while you’re watching a stream yourself. Pause it, close it, or switch away from that tab to resume automatically on the next check."
   }
 }

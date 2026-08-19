@@ -323,6 +323,9 @@
   "left": {
     "message": "kaldı"
   },
+  "campaignLeft": {
+    "message": "Kampanyada kalan"
+  },
   "done": {
     "message": "Bitti"
   },
@@ -584,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "Yeterli süre kalmadı"
   },
+  "campaignRejectionExcluded": { "message": "Bu kampanya farmlamadan hariç tutuldu." },
+  "campaignRejectionUpcoming": { "message": "Bu kampanya henüz başlamadı." },
+  "campaignRejectionExpired": { "message": "Bu kampanya sona erdi." },
+  "campaignRejectionCompleted": { "message": "Bu kampanyadaki tüm ödüller tamamlandı." },
+  "campaignRejectionUnlinkedDisabled": { "message": "Bağlı hesap olmadan kampanya farmlama kapalı." },
+  "campaignRejectionTwitchLinkRequired": { "message": "Bu Twitch kampanyası için hesap bağlamak gerekir." },
+  "campaignRejectionSubscriptionDisabled": { "message": "Abonelik kampanyalarını farmlama kapalı." },
+  "campaignRejectionCategoryFiltered": { "message": "Bu kampanya seçili kategorilerle eşleşmiyor." },
+  "campaignRejectionPriorityNotSelected": { "message": "Bu kampanya öncelik listesinde değil." },
+  "campaignRejectionNoRewards": { "message": "Bu kampanyada farmlanabilir ödül yok." },
+  "campaignRejectionNoUnclaimedRewards": { "message": "Bu kampanyada alınmamış ödül yok." },
+  "campaignRejectionPrerequisites": { "message": "$1 önceki bir ödülü veya gereksinimi bekliyor." },
+  "campaignRejectionRewardNotStarted": { "message": "$1 henüz kullanılamıyor." },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 artık kullanılamıyor." },
+  "campaignRejectionInsufficientTime": { "message": "$1 son tarihten önce tamamlanamaz." },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 uygun bir abonelik gerektiriyor." },
+  "campaignRejectionActionRequired": { "message": "$1 izlemek dışında bir işlem gerektiriyor." },
+  "campaignRejectionNoFarmableReward": { "message": "Bu kampanyada şu anda farmlanabilecek ödül yok." },
   "automationSectionTitle": {
     "message": "Otomasyon"
   },
@@ -601,6 +622,12 @@
   },
   "autoClaimChannelPointsDescription": {
     "message": "Yayın izlerken biriken kanal puanı bonuslarını otomatik toplar."
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Katı kampanya uygunluğu"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Bir kampanyayı yalnızca Twitch'in onu listelediği kanallarda farmla. Twitch farmlanabilir kampanyaları sıkça atlar, bu yüzden bazı droplar farmlanmadan kalabilir."
   },
   "autoClaimChallengesTitle": {
     "message": "Günlük görevleri otomatik al"
@@ -666,7 +693,7 @@
     "message": "Bağlı hesabı olmayan kampanyaları farmla"
   },
   "farmUnlinkedDescription": {
-    "message": "Kapalıyken, hesabını bağlamanı gerektiren kampanyalar atlanır. Kick, bağlamadan önce yine de izleme süresi biriktirir."
+    "message": "Kapalıyken, hesap bağlantısı gerektiren kampanyalar atlanır. Açıkken bile platform kuralları bağlantı gerektirebilir."
   },
   "farmSubscriptionTitle": {
     "message": "Abonelik gerektiren kampanyaları farmla"
@@ -728,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 platformunda toplanacak başka drop kalmadı."
   },
-  "screenshotTwitchHeadline": {
-    "message": "Twitch droplarını otomatik toplayın"
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot, oturumunuzu kullanarak arka planda sessizce dropları toplar."
+  "screenshotHeroHeadline": {
+    "message": "Başka işine bak, dropları senin yerine kas."
   },
-  "screenshotKickHeadline": {
-    "message": "Kick droplarını ve sürelerini toplayın"
+  "screenshotHeroSubcopy": {
+    "message": "Zaten açık oturumundan otomatik teslim. Parola yok."
   },
-  "screenshotKickSubcopy": {
-    "message": "Düşük kaynak modu ile sisteminiz yorulmadan Kick izlenme sürelerini ve droplarını kasın."
+  "screenshotExtrasEyebrow": {
+    "message": "Kampanyaların ötesi"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "Yedek kanallarınızı seçin"
+  "screenshotExtrasHeadline": {
+    "message": "Sadece drop değil."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "Toplanacak drop yokken Lurkloot belirlediğiniz yayıncıları izlemeye devam eder."
+  "screenshotExtrasSubcopy": {
+    "message": "Kanal puanları ve Kick görevleri de senin için teslim. Kasacak bir şey kalmayınca idle izleme listesi."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Kanal puanları"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · senin için de teslim"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Günlük görevler"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · senin için de teslim"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Idle izleme listesi"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Kampanyalar arasında yayıncılarını izler"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Kullanması kolay"
+  },
+  "screenshotEasyHeadline": {
+    "message": "Bu kadar kolay."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Yükle"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Hesap yok."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Sabitle"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Popup bir tık uzağında."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Bir platform aç"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick veya ikisi."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "Kasılmaya başla"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "O kasar, sen başka işine bakarsın."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Senin kuralların"
   },
   "screenshotSettingsHeadline": {
-    "message": "Kolayca özelleştirin"
+    "message": "Tam istediğin gibi kas."
   },
   "screenshotSettingsSubcopy": {
-    "message": "Otomatik toplama ve oyun önceliklerini dilediğiniz gibi ayarlayın."
+    "message": "Öncelikler, oyunlar, sekmesiz mod, otomatik teslim — platforma göre."
   },
-  "screenshotActivityHeadline": {
-    "message": "Her şeyi takip edin"
+  "screenshotUpdatedEyebrow": {
+    "message": "Açık kaynak"
   },
-  "screenshotActivitySubcopy": {
-    "message": "Şeffaf geçmiş günlüğü sayesinde alınan tüm ödülleri ve yapılan işlemleri görün."
+  "screenshotUpdatedHeadline": {
+    "message": "Özellik dolu. Sürekli güncel."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Twitch ve Kick değişince sık sürümler — fikirlere ve iyileştirmelere açık."
   },
   "autoClaimReady": {
     "message": "Otomatik alma aktif"
@@ -989,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "İzleme kontrolü başarısız"
   },
+  "activityReasonNoProgress": {
+    "message": "kanal hiç drop ilerlemesi kazandırmadı"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "Daha yüksek öncelikli drop geldi"
   },
@@ -1025,11 +1109,23 @@
   "copyActivityLog": {
     "message": "Günlüğü kopyala"
   },
+  "copyLoadedActivityLog": {
+    "message": "Yüklenenleri kopyala"
+  },
   "copyActivityLogCopied": {
     "message": "$1 olay kopyalandı"
   },
   "copyActivityLogFailed": {
     "message": "Günlük kopyalanamadı. Tekrar deneyin."
+  },
+  "exportAllDiagnostics": {
+    "message": "Tümünü dışa aktar"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 olay dışa aktarıldı"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Günlük dışa aktarılamadı. Yeniden deneyin."
   },
   "activityViewTab": {
     "message": "Geçmiş"
@@ -1192,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "farm sekmesi kapatıldı"
+  },
+  "automationPausedManualWatch": {
+    "message": "Manuel izleme"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Bir yayını kendiniz izlerken farm duraklatılır. Bir sonraki kontrolde farmın otomatik olarak devam etmesi için yayını duraklatın, kapatın veya bu sekmeden başka bir yere geçin."
   }
 }

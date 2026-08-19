@@ -495,6 +495,20 @@ let twitchClientSessionId: string | undefined;
 // queries keep working anonymously / without integrity until one is captured.
 let twitchIntegrity: TwitchIntegrity | undefined;
 
+interface TwitchIntegrityCapture {
+  value: TwitchIntegrity;
+  sourceTabId?: number;
+  generation: number;
+}
+
+// Keep the latest capture from each attributed tab long enough for a managed
+// helper wait to identify its own replacement even if a user tab immediately
+// replays the previous token into the ordinary global slot.
+let latestTwitchIntegrityCapture: TwitchIntegrityCapture | undefined;
+const twitchIntegrityCapturesBySourceTab = new Map<number, TwitchIntegrityCapture>();
+let twitchIntegrityCaptureGeneration = 0;
+const MAX_TWITCH_INTEGRITY_SOURCE_CAPTURES = 32;
+
 // Treat a token expiring within this window as already stale, so a claim never
 // ships with one that expires mid-flight (the captured token is replayed and
 // the round-trip plus Twitch-side clock skew can otherwise straddle expiry).
@@ -527,7 +541,7 @@ export const TWITCH_PAGE_CONTEXT_URL = "https://www.twitch.tv/drops/inventory";
 export const INTEGRITY_REFRESH_TIMEOUT_MS = 30_000;
 
 // Resolvers waiting for the next captured token (see waitForIntegrityCapture).
-let integrityWaiters: Array<() => void> = [];
+let integrityWaiters: Array<(capture?: TwitchIntegrityCapture) => void> = [];
 
 // Test seam for proving terminal paths release their process-global callbacks.
 export function currentTwitchIntegrityWaiterCount(): number {
@@ -576,8 +590,40 @@ export function hasValidTwitchIntegrity(now: number = Date.now()): boolean {
   return isValidTwitchIntegrity(twitchIntegrity, now);
 }
 
-export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?: { isNew?: boolean }, emit: EventEmitter = ignoreEvent): void {
+export interface TwitchIntegrityCaptureOptions {
+  isNew?: boolean;
+  sourceTabId?: number;
+}
+
+export function setTwitchIntegrity(
+  value: TwitchIntegrity | undefined,
+  options?: TwitchIntegrityCaptureOptions,
+  emit: EventEmitter = ignoreEvent,
+): void {
   twitchIntegrity = value;
+  const generation = ++twitchIntegrityCaptureGeneration;
+  if (value == null) {
+    latestTwitchIntegrityCapture = undefined;
+    twitchIntegrityCapturesBySourceTab.clear();
+  } else {
+    const capture: TwitchIntegrityCapture = {
+      value,
+      generation,
+      ...(options?.sourceTabId != null ? { sourceTabId: options.sourceTabId } : {}),
+    };
+    latestTwitchIntegrityCapture = capture;
+    if (capture.sourceTabId != null) {
+      // Delete first so the insertion order reflects capture recency; stale
+      // source entries must not grow without bound in a long-lived background.
+      twitchIntegrityCapturesBySourceTab.delete(capture.sourceTabId);
+      twitchIntegrityCapturesBySourceTab.set(capture.sourceTabId, capture);
+      while (twitchIntegrityCapturesBySourceTab.size > MAX_TWITCH_INTEGRITY_SOURCE_CAPTURES) {
+        const oldestSourceTabId = twitchIntegrityCapturesBySourceTab.keys().next().value;
+        if (oldestSourceTabId == null) break;
+        twitchIntegrityCapturesBySourceTab.delete(oldestSourceTabId);
+      }
+    }
+  }
   if (value && options?.isNew) {
     const ttlSeconds = Math.max(0, Math.round((value.expiresAt - Date.now()) / 1000));
     diagnostic(emit, "info", `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()}, in ${ttlSeconds}s)`, "twitch");
@@ -585,7 +631,7 @@ export function setTwitchIntegrity(value: TwitchIntegrity | undefined, options?:
   if (value != null && integrityWaiters.length > 0) {
     const waiters = integrityWaiters;
     integrityWaiters = [];
-    for (const resolve of waiters) resolve();
+    for (const resolve of waiters) resolve(latestTwitchIntegrityCapture);
   }
 }
 
@@ -597,6 +643,10 @@ export interface TwitchIntegrityRequest {
   signal?: AbortSignal;
   reason?: "readiness" | "proactive_refresh" | "rejection_recovery";
   onManagedPageContextOpen?: () => void | Promise<void>;
+  // Receives the exact bundle captured by the managed context. A forced GQL
+  // retry uses this callback to pin the trio it sends instead of reading the
+  // last-writer-wins global after a concurrent page capture.
+  onIntegrityCaptured?: (value: TwitchIntegrity) => void;
   // The token the rejected request actually sent, captured before it was issued.
   // Without it a forced refresh cannot tell "this caller was rejected on a token
   // someone has already replaced" from "this caller was rejected on the token we
@@ -617,12 +667,17 @@ export function currentValidTwitchIntegrity(): TwitchIntegrity | undefined {
   return hasValidTwitchIntegrity() ? twitchIntegrity : undefined;
 }
 
+interface TwitchIntegrityAcquisitionResult {
+  value: TwitchIntegrity;
+  managedContext: boolean;
+}
+
 // Minting boots a twitch.tv context and may wait ~22s for Kasada's proof-of-work,
 // so every caller shares one owned acquisition. The owned abort cancels the
 // underlying page context; only the creator's signal owns that lifecycle, while
 // later joiners race their own signal without disturbing everyone else.
 interface TwitchIntegrityAcquisition {
-  promise: Promise<boolean>;
+  promise: Promise<TwitchIntegrityAcquisitionResult | undefined>;
   abort: AbortController;
 }
 
@@ -639,6 +694,7 @@ export function resetTwitchIntegrityRefreshBounds(): void {
   inFlightIntegrityAcquisition?.abort.abort();
   inFlightIntegrityAcquisition = undefined;
   integrityWaiters = [];
+  twitchIntegrityCapturesBySourceTab.clear();
 }
 
 function hasReplacementTwitchIntegrity(rejectedToken?: string): boolean {
@@ -646,18 +702,45 @@ function hasReplacementTwitchIntegrity(rejectedToken?: string): boolean {
   return rejectedToken == null || twitchIntegrity?.integrity !== rejectedToken;
 }
 
-// Resolves true once a usable token is present, or after timeoutMs (re-checking
-// validity at the deadline). A captured token can be near-expiry — captureTwitch-
-// Integrity does not gate on expiry — so resolvers re-check hasValidTwitchIntegrity.
-// When rejectedToken is set, re-capturing that same token does not settle the
-// wait; the page may replay it before minting a replacement.
+function isReplacementCapture(capture: TwitchIntegrityCapture | undefined, rejectedToken?: string): boolean {
+  if (!capture || !isValidTwitchIntegrity(capture.value)) return false;
+  return rejectedToken == null || capture.value.integrity !== rejectedToken;
+}
+
+function captureForIntegrityWait(
+  rejectedToken: string | undefined,
+  sourceTabId: number | undefined,
+  latestCapture?: TwitchIntegrityCapture,
+  minimumGeneration = 0,
+): TwitchIntegrityCapture | undefined {
+  if (sourceTabId != null) {
+    const sourceCapture = twitchIntegrityCapturesBySourceTab.get(sourceTabId);
+    if (sourceCapture != null && sourceCapture.generation > minimumGeneration && isReplacementCapture(sourceCapture, rejectedToken)) return sourceCapture;
+    // Unattributed captures retain the historic global behavior. Once a
+    // capture has an explicit source, however, a different tab cannot satisfy
+    // this managed-context wait.
+    if (latestCapture != null && latestCapture.generation > minimumGeneration && isReplacementCapture(latestCapture, rejectedToken) && latestCapture.sourceTabId == null) return latestCapture;
+    return undefined;
+  }
+  const capture = latestCapture ?? latestTwitchIntegrityCapture;
+  return capture != null && capture.generation > minimumGeneration && isReplacementCapture(capture, rejectedToken) ? capture : undefined;
+}
+
+// Resolves with the exact usable capture, or undefined after timeoutMs. A
+// captured token can be near-expiry — captureTwitchIntegrity does not gate on
+// expiry — so resolvers re-check validity. When rejectedToken is set,
+// re-capturing that same token does not settle the wait; the page may replay it
+// before minting a replacement.
 function waitForIntegrityCapture(
   timeoutMs: number,
   rejectedToken?: string,
   signal?: AbortSignal,
-): Promise<boolean> {
+  sourceTabId?: number,
+  minimumGeneration = 0,
+): Promise<TwitchIntegrityCapture | undefined> {
   signal?.throwIfAborted();
-  if (hasReplacementTwitchIntegrity(rejectedToken)) return Promise.resolve(true);
+  const alreadyCaptured = captureForIntegrityWait(rejectedToken, sourceTabId, undefined, minimumGeneration);
+  if (alreadyCaptured) return Promise.resolve(alreadyCaptured);
   return new Promise((resolve, reject) => {
     let settled = false;
     const removeWaiter = () => {
@@ -668,21 +751,22 @@ function waitForIntegrityCapture(
       signal?.removeEventListener("abort", onAbort);
       removeWaiter();
     };
-    const finish = () => {
+    const finish = (capture?: TwitchIntegrityCapture) => {
       if (settled) return;
       settled = true;
       cleanup();
-      resolve(hasReplacementTwitchIntegrity(rejectedToken));
+      resolve(capture);
     };
-    const onCapture = () => {
+    const onCapture = (capture?: TwitchIntegrityCapture) => {
       if (settled) return;
       // Not a replacement yet — keep waiting until the deadline instead of
       // reporting the rejected token back as a successful refresh.
-      if (!hasReplacementTwitchIntegrity(rejectedToken)) {
+      const replacement = captureForIntegrityWait(rejectedToken, sourceTabId, capture, minimumGeneration);
+      if (!replacement) {
         integrityWaiters.push(onCapture);
         return;
       }
-      finish();
+      finish(replacement);
     };
     const onAbort = () => {
       if (settled) return;
@@ -717,7 +801,7 @@ export async function ensureTwitchIntegrityWithBrowser(
     ?? (forceRefresh ? "rejection_recovery" : "readiness");
   if (!forceRefresh) {
     if (hasValidTwitchIntegrity()) return true;
-    return startTwitchIntegrityAcquisition(
+    const captured = await startTwitchIntegrityAcquisition(
       browserApi,
       originUrl,
       timeoutMs,
@@ -728,6 +812,8 @@ export async function ensureTwitchIntegrityWithBrowser(
       request?.onManagedPageContextOpen,
       request?.signal,
     );
+    if (captured) request?.onIntegrityCaptured?.(captured.value);
+    return captured != null;
   }
 
   // Another operation's refresh already replaced the token this caller was
@@ -735,11 +821,12 @@ export async function ensureTwitchIntegrityWithBrowser(
   // help it — and would cost another cold boot.
   if (request?.rejectedToken != null && hasReplacementTwitchIntegrity(request.rejectedToken)) {
     diagnostic(emit, "debug", "Reusing the Twitch integrity token another operation just minted instead of booting another page context", "twitch");
+    request.onIntegrityCaptured?.(latestTwitchIntegrityCapture?.value ?? twitchIntegrity!);
     return true;
   }
 
   const rejectedToken = request?.rejectedToken ?? twitchIntegrity?.integrity;
-  return startTwitchIntegrityAcquisition(
+  const captured = await startTwitchIntegrityAcquisition(
     browserApi,
     originUrl,
     timeoutMs,
@@ -750,6 +837,8 @@ export async function ensureTwitchIntegrityWithBrowser(
     request?.onManagedPageContextOpen,
     request?.signal,
   );
+  if (captured) request?.onIntegrityCaptured?.(captured.value);
+  return captured != null;
 }
 
 function startTwitchIntegrityAcquisition(
@@ -762,14 +851,14 @@ function startTwitchIntegrityAcquisition(
   reason: NonNullable<TwitchIntegrityRequest["reason"]>,
   onManagedPageContextOpen?: () => void | Promise<void>,
   ownerSignal?: AbortSignal,
-): Promise<boolean> {
+): Promise<TwitchIntegrityAcquisitionResult | undefined> {
   if (inFlightIntegrityAcquisition) {
     diagnostic(emit, "debug", "Joining the Twitch integrity acquisition already in flight", "twitch");
     const joined = withAbortSignal(inFlightIntegrityAcquisition.promise, ownerSignal);
     if (!forceRefresh) return joined;
     return joined.then((captured) => {
       ownerSignal?.throwIfAborted();
-      if (captured && hasReplacementTwitchIntegrity(rejectedToken)) return true;
+      if (captured && captured.managedContext && captured.value.integrity !== rejectedToken && isValidTwitchIntegrity(captured.value)) return captured;
       return startTwitchIntegrityAcquisition(
         browserApi,
         originUrl,
@@ -800,6 +889,7 @@ function startTwitchIntegrityAcquisition(
     abort.signal,
   ).finally(() => {
     ownerSignal?.removeEventListener("abort", abortFromOwner);
+    twitchIntegrityCapturesBySourceTab.clear();
     if (inFlightIntegrityAcquisition?.promise === promise) {
       inFlightIntegrityAcquisition = undefined;
     }
@@ -826,7 +916,7 @@ async function mintTwitchIntegrity(
   reason: NonNullable<TwitchIntegrityRequest["reason"]>,
   onManagedPageContextOpen?: () => void | Promise<void>,
   signal?: AbortSignal,
-): Promise<boolean> {
+): Promise<TwitchIntegrityAcquisitionResult | undefined> {
   diagnostic(
     emit,
     "info",
@@ -838,6 +928,7 @@ async function mintTwitchIntegrity(
     "twitch",
   );
   const origin = new URL(originUrl).origin;
+  const minimumCaptureGeneration = twitchIntegrityCaptureGeneration;
   let pageContext: PageContextTab | undefined;
   try {
     pageContext = await acquirePageContextTab(browserApi, originUrl, origin, {
@@ -869,7 +960,13 @@ async function mintTwitchIntegrity(
     // On success the capture itself is logged once by setTwitchIntegrity (info);
     // here we only surface the failure case so the log isn't doubled up.
     const startedAt = Date.now();
-    const captured = await waitForIntegrityCapture(timeoutMs, rejectedToken, signal);
+    const captured = await waitForIntegrityCapture(
+      timeoutMs,
+      rejectedToken,
+      signal,
+      forceRefresh ? pageContext.tabId : undefined,
+      forceRefresh ? minimumCaptureGeneration : 0,
+    );
     const settledAt = Date.now();
     // Logged on both outcomes, not just the failure: a success that took 20s is
     // the same latency problem as a timeout, and only the phase split says which
@@ -881,12 +978,17 @@ async function mintTwitchIntegrity(
     } else {
       diagnostic(emit, "debug", `Waited ${settledAt - startedAt}ms for a Twitch integrity token from a ${source} page context${phases}`, "twitch");
     }
-    return captured;
+    return captured
+      ? {
+          value: captured.value,
+          managedContext: pageContext.createdByExtension,
+        }
+      : undefined;
   } catch (error) {
     signal?.throwIfAborted();
     const message = error instanceof Error ? error.message : String(error);
     diagnostic(emit, reason === "proactive_refresh" ? "debug" : "warn", `Could not open a twitch.tv tab to capture an integrity token: ${message}`, "twitch");
-    return false;
+    return undefined;
   } finally {
     if (pageContext) {
       await releasePageContextTab(browserApi, origin, pageContext, emit, signal?.aborted === true);

@@ -17,7 +17,7 @@ Lurkloot is free and open source under the [Apache License 2.0](LICENSE).
 
 ## Get started
 
-1. [Install Lurkloot from the Chrome Web Store](https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn). Firefox builds are also available from [GitHub Releases](https://github.com/jamezrin/lurkloot/releases).
+1. [Install Lurkloot from the Chrome Web Store](https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn). Firefox builds are also available from [GitHub Releases](https://github.com/jamezrin/lurkloot/releases). To try a GitHub pre-release Chrome zip, see [Installing a pre-release build](docs/install-prerelease.md).
 2. Sign in to Twitch or Kick normally in your browser.
 3. Open the Lurkloot popup and enable the platforms you want to use.
 4. Pick your preferred campaigns, games, or channels—or keep the defaults and let Lurkloot choose.

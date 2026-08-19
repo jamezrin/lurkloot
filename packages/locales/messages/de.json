@@ -323,6 +323,9 @@
   "left": {
     "message": "Übrig"
   },
+  "campaignLeft": {
+    "message": "Kampagne übrig"
+  },
   "done": {
     "message": "Fertig"
   },
@@ -584,6 +587,24 @@
   "insufficientTimeRemaining": {
     "message": "Nicht genügend Zeit verbleibend"
   },
+  "campaignRejectionExcluded": { "message": "Diese Kampagne ist vom Farmen ausgeschlossen." },
+  "campaignRejectionUpcoming": { "message": "Diese Kampagne hat noch nicht begonnen." },
+  "campaignRejectionExpired": { "message": "Diese Kampagne ist beendet." },
+  "campaignRejectionCompleted": { "message": "Alle Belohnungen dieser Kampagne sind abgeschlossen." },
+  "campaignRejectionUnlinkedDisabled": { "message": "Kampagnen ohne verknüpftes Konto werden nicht gefarmt." },
+  "campaignRejectionTwitchLinkRequired": { "message": "Für diese Twitch-Kampagne muss ein Konto verknüpft sein." },
+  "campaignRejectionSubscriptionDisabled": { "message": "Abonnement-Kampagnen werden nicht gefarmt." },
+  "campaignRejectionCategoryFiltered": { "message": "Diese Kampagne entspricht nicht den ausgewählten Kategorien." },
+  "campaignRejectionPriorityNotSelected": { "message": "Diese Kampagne steht nicht auf der Prioritätsliste." },
+  "campaignRejectionNoRewards": { "message": "Diese Kampagne hat keine farmbaren Belohnungen." },
+  "campaignRejectionNoUnclaimedRewards": { "message": "Diese Kampagne hat keine nicht beanspruchten Belohnungen." },
+  "campaignRejectionPrerequisites": { "message": "$1 wartet auf eine frühere Belohnung oder Voraussetzung." },
+  "campaignRejectionRewardNotStarted": { "message": "$1 ist noch nicht verfügbar." },
+  "campaignRejectionRewardWindowEnded": { "message": "$1 ist nicht mehr verfügbar." },
+  "campaignRejectionInsufficientTime": { "message": "$1 kann nicht vor Ablauf der Frist abgeschlossen werden." },
+  "campaignRejectionSubscriptionRequired": { "message": "$1 erfordert ein gültiges Abonnement." },
+  "campaignRejectionActionRequired": { "message": "$1 erfordert eine andere Aktion als Zuschauen." },
+  "campaignRejectionNoFarmableReward": { "message": "Derzeit kann keine Belohnung dieser Kampagne gefarmt werden." },
   "automationSectionTitle": {
     "message": "Automatisierung"
   },
@@ -601,6 +622,12 @@
   },
   "autoClaimChannelPointsDescription": {
     "message": "Beansprucht Kanalpunkt-Boni automatisch, während diese Plattform gefarmt wird."
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Strikte Kampagnenverfügbarkeit"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Farme eine Kampagne nur auf Kanälen, für die Twitch sie auflistet. Twitch lässt farmbare Kampagnen oft aus, wodurch Drops ungefarmt bleiben können."
   },
   "autoClaimChallengesTitle": {
     "message": "Tägliche Challenges automatisch beanspruchen"
@@ -666,7 +693,7 @@
     "message": "Kampagnen ohne verknüpftes Konto farmen"
   },
   "farmUnlinkedDescription": {
-    "message": "Wenn aus, werden Kampagnen übersprungen, die ein Verknüpfen deines Kontos erfordern. Kick sammelt vor dem Verknüpfen weiterhin Wiedergabezeit."
+    "message": "Wenn aus, werden Kampagnen übersprungen, die eine Kontoverknüpfung erfordern. Plattformvorgaben können die Verknüpfung auch bei aktivierter Option verlangen."
   },
   "farmSubscriptionTitle": {
     "message": "Kampagnen farmen, die ein Abo erfordern"
@@ -728,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 hat keine geeigneten Drops zum Farmen."
   },
-  "screenshotTwitchHeadline": {
-    "message": "Twitch- und Kick-Drops aus einem Popup verwaltet."
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot farmt geeignete Kampagnen über deine normale Browsersitzung mit sichtbaren stummen Tabs."
+  "screenshotHeroHeadline": {
+    "message": "Farme Drops, während du etwas anderes machst."
   },
-  "screenshotKickHeadline": {
-    "message": "Farmt jetzt auch Kick-Drops."
+  "screenshotHeroSubcopy": {
+    "message": "Auto-Claim über deine bereits angemeldete Sitzung. Keine Passwörter."
   },
-  "screenshotKickSubcopy": {
-    "message": "Dieselbe Automatisierung, Eligibility-Prüfung und Auto-Beanspruchung wie für Twitch, jetzt auch für Kick-Creator-Belohnungen."
+  "screenshotExtrasEyebrow": {
+    "message": "Mehr als Kampagnen"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "Eine Ersatz-Leerlauf-Watchlist hält dich am Verdienen."
+  "screenshotExtrasHeadline": {
+    "message": "Mehr als Drops."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "Wenn keine Drops aktiv sind, schaut Lurkloot deine Lieblingskanäle, damit Online-Zeit nicht ungenutzt bleibt."
+  "screenshotExtrasSubcopy": {
+    "message": "Kanalpunkte und Kick-Challenges, ebenfalls für dich geclaimt. Eine Idle-Watchlist, wenn nichts mehr zu farmen ist."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Kanalpunkte"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · ebenfalls für dich geclaimt"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Tägliche Challenges"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · ebenfalls für dich geclaimt"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Idle-Watchlist"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Schaut deine Streamer zwischen Kampagnen"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Einfach zu nutzen"
+  },
+  "screenshotEasyHeadline": {
+    "message": "So einfach."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Installieren"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Kein Konto."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Anheften"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Das Popup einen Klick entfernt."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Eine Plattform aktivieren"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick oder beides."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "Und es farmt"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "Du machst anderes."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Deine Regeln"
   },
   "screenshotSettingsHeadline": {
-    "message": "Passe jedes Detail an dein Setup an."
+    "message": "Farme genau so, wie du willst."
   },
   "screenshotSettingsSubcopy": {
-    "message": "Automatisierung pro Plattform, Auto-Beanspruchung, stumme Tabs, Spielpriorität und experimenteller tabloser Energiesparmodus."
+    "message": "Prioritäten, Spiele, tabless Modus, Auto-Claim — pro Plattform."
   },
-  "screenshotActivityHeadline": {
-    "message": "Sieh genau, was es tut."
+  "screenshotUpdatedEyebrow": {
+    "message": "Quelloffen"
   },
-  "screenshotActivitySubcopy": {
-    "message": "Ein transparentes Aktivitätsprotokoll zeigt jede Prüfung, jeden Wechsel und jede Beanspruchung – mit Diagnosedetails auf Wunsch."
+  "screenshotUpdatedHeadline": {
+    "message": "Funktionsreich. Immer aktuell."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Häufige Releases, wenn sich Twitch und Kick ändern — und offen für Ideen und Verbesserungen."
   },
   "autoClaimReady": {
     "message": "Auto-Beanspruchen bereit"
@@ -989,6 +1070,9 @@
   "activityReasonWatchUnhealthy": {
     "message": "die Wiedergabeprüfung ist fehlgeschlagen"
   },
+  "activityReasonNoProgress": {
+    "message": "der Kanal erzielte keinen Drop-Fortschritt"
+  },
   "activityReasonHigherPriorityReward": {
     "message": "eine höher priorisierte Belohnung wurde übernommen"
   },
@@ -1025,11 +1109,23 @@
   "copyActivityLog": {
     "message": "Protokoll kopieren"
   },
+  "copyLoadedActivityLog": {
+    "message": "Geladene kopieren"
+  },
   "copyActivityLogCopied": {
     "message": "$1 Ereignisse kopiert"
   },
   "copyActivityLogFailed": {
     "message": "Das Protokoll konnte nicht kopiert werden. Bitte erneut versuchen."
+  },
+  "exportAllDiagnostics": {
+    "message": "Alle exportieren"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 Ereignisse exportiert"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Protokoll konnte nicht exportiert werden. Bitte erneut versuchen."
   },
   "activityViewTab": {
     "message": "Aktivität"
@@ -1192,5 +1288,11 @@
   },
   "activityReasonManualTabClose": {
     "message": "Farming-Tab geschlossen"
+  },
+  "automationPausedManualWatch": {
+    "message": "Manuelles Schauen"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Das Farmen ist pausiert, während du selbst einen Stream ansiehst. Pausiere ihn, schließe ihn oder wechsle von diesem Tab weg, damit das Farmen beim nächsten Check automatisch fortgesetzt wird."
   }
 }

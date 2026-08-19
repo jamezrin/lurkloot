@@ -17,6 +17,8 @@
     "typecheck": "tsc --noEmit",
     "kick:inspect": "node scripts/kick-inspect.mjs",
     "screenshot:store": "pnpm build && node scripts/capture-store-screenshot.mjs",
+    "screenshot:store:upload": "node scripts/upload-store-screenshots.mjs",
+    "screenshot:store:sync": "pnpm screenshot:store && pnpm screenshot:store:upload",
     "promo:store": "pnpm build && node scripts/capture-store-promo.mjs"
   },
   "dependencies": {
@@ -30,7 +32,7 @@
     "@vitejs/plugin-react": "^6.0.0",
     "@wxt-dev/module-react": "^1.1.3",
     "lucide-react": "^1.0.0",
-    "motion": "^12.40.0",
+    "motion": "^13.0.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "wxt": "^0.20.0"

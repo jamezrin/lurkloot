@@ -42,12 +42,15 @@ function campaign(id: string, rewards: DropReward[]): DropCampaign {
 
 const testMessages: Record<string, string> = {
   actionRequired: "Action required",
+  campaignLeft: "Campaign left",
   earned: "Earned",
   excluded: "Excluded",
   excludeFromFarming: "Exclude from farming",
   farmingLabel: "Farming",
   insufficientTimeRemaining: "Insufficient time remaining",
+  left: "Left",
   notEarnableByWatching: "Not earnable by watching",
+  nextReward: "Next: $1",
   qualifyingSubscriptionsRequired: "Requires $1 qualifying subscriptions",
   subscribedRefresh: "I've subscribed — refresh status",
   subscriptionProgressUnknown: "Progress unavailable",
@@ -84,6 +87,35 @@ function renderDrops(campaigns: CampaignView[], refreshing = false): string {
 }
 
 describe("subscription drop popup views", () => {
+  it("carries the shared campaign rejection into the popup view model", () => {
+    const source = campaign("unlinked", [reward({ requiredMinutes: 60, requirement: "watch", isWatchBased: true })]);
+    source.accountLinked = false;
+    const currentSettings = mergeSettings(undefined);
+
+    const view = campaignViewFromCampaign(source, 0, idleSession, false, {
+      skipUnfinishableRewards: currentSettings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: currentSettings.deadlineSafetyMarginMinutes,
+      settings: currentSettings,
+    });
+
+    expect(view.farmingRejection).toEqual({ farmable: false, code: "twitch_link_required" });
+  });
+
+  it("suppresses a stale rejection explanation while the campaign is actively farming", () => {
+    const view = campaignViewFromCampaign(campaign("active", [reward({
+      requiredMinutes: 60,
+      requirement: "watch",
+      isWatchBased: true,
+    })]), 0, idleSession, false);
+    const markup = renderDrops([expandedView({
+      ...view,
+      farmingRejection: { farmable: false, code: "no_farmable_reward" },
+    })]);
+
+    expect(markup).not.toContain("campaignRejectionNoFarmableReward");
+    expect(markup).not.toContain("data-farming-rejection-indicator");
+  });
+
   it("marks and explains watch rewards with insufficient time", () => {
     const source = {
       ...campaign("timed", [reward({ requirement: "watch", requiredMinutes: 60, watchedMinutes: 30, status: "in_progress" })]),
@@ -159,6 +191,44 @@ describe("subscription drop popup views", () => {
     });
   });
 
+  it("separates next-reward time from total campaign time", () => {
+    const source = campaign("sequential", [
+      reward({ id: "reward-30", name: "30 minute reward", requirement: "watch", requiredMinutes: 30 }),
+      reward({ id: "reward-60", name: "60 minute reward", requirement: "watch", requiredMinutes: 60 }),
+      reward({ id: "reward-120", name: "120 minute reward", requirement: "watch", requiredMinutes: 120 }),
+      reward({ id: "reward-240", name: "240 minute reward", requirement: "watch", requiredMinutes: 240 }),
+    ]);
+    const view = campaignViewFromCampaign(source, 0, idleSession, false);
+
+    expect(campaignStats(view)).toMatchObject({ remaining: 450, nextRewardRemaining: 30 });
+
+    const markup = renderDrops([expandedView(view)]);
+    expect(markup).toContain("30m left");
+    expect(markup).toContain("7h 30m");
+    expect(markup).toContain("Campaign left");
+    expect(markup).not.toContain(">left<");
+  });
+
+  it("calculates remaining time for an in-progress next watch reward", () => {
+    const source = campaign("in-progress", [
+      reward({ id: "reward-60", name: "60 minute reward", requirement: "watch", requiredMinutes: 60, watchedMinutes: 15, status: "in_progress" }),
+    ]);
+    const view = campaignViewFromCampaign(source, 0, idleSession, false);
+
+    expect(campaignStats(view)).toMatchObject({ nextRewardRemaining: 45 });
+  });
+
+  it("does not show remaining time for a completed but unclaimed watch reward", () => {
+    const source = campaign("claimable-watch", [
+      reward({ id: "reward-60", name: "60 minute reward", requirement: "watch", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" }),
+    ]);
+    const view = campaignViewFromCampaign(source, 0, idleSession, false);
+    const stats = campaignStats(view);
+
+    expect(stats.nextRewardRemaining).toBeUndefined();
+    expect(renderDrops([expandedView(view)])).not.toContain("&lt;1m left");
+  });
+
   it("models action-only campaigns without watch progress", () => {
     const source = campaign("action-only", [
       reward({ id: "purchase", name: "Purchase", requirement: "action", isWatchBased: false }),
@@ -208,6 +278,17 @@ describe("subscription drop popup views", () => {
     expect(markup).toContain("50%");
     expect(markup).toContain("Progress unavailable");
     expect(markup).not.toContain("&lt;1m");
+  });
+
+  it("shows campaign watch time when a non-watch reward is next", () => {
+    const source = campaign("mixed", [
+      reward({ id: "subscribe", name: "Subscriber Cape", requirement: "subscription", requiredSubs: 2 }),
+      reward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60 }),
+    ]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
+
+    expect(markup).toContain("1h");
+    expect(markup.match(/Progress unavailable/g)).toHaveLength(1);
   });
 
   it("shows unknown remaining work after mixed campaign watch minutes are complete", () => {

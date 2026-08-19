@@ -171,6 +171,14 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
 // popup's <img> doesn't 404 against the extension origin and fall back to the
 // gradient+initials placeholder.
 const KICK_ASSET_BASE = "https://ext.kick.com";
+// Kick's drops API measures `*_units` in 30-second intervals. The shared
+// contracts measure watch progress in minutes, so normalize at the adapter
+// boundary and leave explicitly named minute fields untouched.
+const KICK_MINUTES_PER_UNIT = 0.5;
+
+function kickUnitsToMinutes(units: number): number {
+  return units * KICK_MINUTES_PER_UNIT;
+}
 
 export function kickRewardImageUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -179,8 +187,9 @@ export function kickRewardImageUrl(value: string | undefined): string | undefine
 }
 
 function parseKickReward(reward: KickReward): DropReward {
-  const requiredMinutes =
-    reward.required_units ?? reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0;
+  const requiredMinutes = reward.required_units != null
+    ? kickUnitsToMinutes(reward.required_units)
+    : reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0;
   const requirement = requiredMinutes > 0 ? "watch" as const : "action" as const;
   return {
     id: String(reward.id),
@@ -200,11 +209,13 @@ export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgress
   return campaigns.map((campaign) => {
     const campaignProgress = progressItems.find((item) => String(item.id ?? item.campaign_id ?? item.drop_campaign_id) === campaign.id);
     // Kick's live drops API returns a single cumulative watch counter per
-    // campaign (`progress_units`, in minutes); tiered rewards share it, so each
-    // reward's watched minutes is the cumulative capped at its requirement. This
+    // campaign (`progress_units`, in 30-second units); tiered rewards share it,
+    // so each reward's watched minutes is the cumulative capped at its requirement. This
     // is the reliable signal — the per-reward `progress` is only a 0..1 fraction.
     // (Confirmed against the live /api/v1/drops/progress response.)
-    const campaignUnits = typeof campaignProgress?.progress_units === "number" ? campaignProgress.progress_units : undefined;
+    const campaignMinutes = typeof campaignProgress?.progress_units === "number"
+      ? kickUnitsToMinutes(campaignProgress.progress_units)
+      : undefined;
     const rewards = campaign.rewards.map((reward) => {
       const flatProgress = progressItems.find((item) => {
         const campaignId = item.campaign_id ?? item.drop_campaign_id;
@@ -216,10 +227,10 @@ export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgress
         return String(rewardId) === reward.id;
       });
       const progress = nestedProgress ?? flatProgress;
-      if (!progress && campaignUnits == null) return reward;
+      if (!progress && campaignMinutes == null) return reward;
 
-      const watchedMinutes = campaignUnits != null
-        ? Math.min(campaignUnits, reward.requiredMinutes)
+      const watchedMinutes = campaignMinutes != null
+        ? Math.min(campaignMinutes, reward.requiredMinutes)
         : progressMinutes(progress!, reward);
       const rawStatus = progress?.status?.toLowerCase();
       const status = progress?.claimed || progress?.is_claimed
@@ -282,14 +293,13 @@ function progressMinutes(progress: KickProgress | KickProgressReward, reward: Dr
   if ("watched_minutes" in progress || "current_minutes" in progress || "progress_minutes" in progress) {
     return progress.watched_minutes ?? progress.current_minutes ?? progress.progress_minutes ?? reward.watchedMinutes;
   }
-  if (progress.progress_units != null) return progress.progress_units;
+  if (progress.progress_units != null) return kickUnitsToMinutes(progress.progress_units);
   if ("percentage" in progress && progress.percentage != null) {
-    return Math.round((progress.percentage / 100) * reward.requiredMinutes);
+    return (progress.percentage / 100) * reward.requiredMinutes;
   }
   if (progress.progress != null) {
-    const required = progress.required_units ?? reward.requiredMinutes;
     const multiplier = progress.progress > 1 ? progress.progress / 100 : progress.progress;
-    return Math.round(multiplier * required);
+    return multiplier * reward.requiredMinutes;
   }
   return reward.watchedMinutes;
 }
