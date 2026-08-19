@@ -71,6 +71,9 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The store screenshot dashboard tests drive a real Chromium against local
+      # HTML fixtures, and the runner ships no Playwright browsers.
+      - run: pnpm --filter @lurkloot/extension exec playwright install --with-deps chromium
       - run: pnpm check
 
   extension:

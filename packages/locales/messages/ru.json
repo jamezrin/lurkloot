@@ -755,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "На $1 нет подходящих drops для фарма."
   },
-  "screenshotTwitchHeadline": {
-    "message": "Drops Twitch и Kick в одном popup."
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot фармит подходящие кампании через обычную сессию браузера с видимыми вкладками без звука."
+  "screenshotHeroHeadline": {
+    "message": "Фармите дропы, пока занимаетесь другим."
   },
-  "screenshotKickHeadline": {
-    "message": "Теперь фармит и drops Kick."
+  "screenshotHeroSubcopy": {
+    "message": "Автоклейм из уже открытой сессии. Без паролей."
   },
-  "screenshotKickSubcopy": {
-    "message": "Та же автоматизация, проверки eligibility и автополучение, что на Twitch, теперь для наград авторов Kick."
+  "screenshotExtrasEyebrow": {
+    "message": "Кроме кампаний"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "Резервный список просмотра в простое продолжает приносить прогресс."
+  "screenshotExtrasHeadline": {
+    "message": "Больше, чем дропы."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "Когда активных drops нет, Lurkloot смотрит любимые каналы, чтобы время онлайн не пропадало."
+  "screenshotExtrasSubcopy": {
+    "message": "Баллы канала и челленджи Kick тоже клеймятся за вас. Idle-список, когда фармить больше нечего."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Баллы канала"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · тоже клеймятся за вас"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Ежедневные челленджи"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · тоже клеймятся за вас"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Idle-список"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Смотрит ваших стримеров между кампаниями"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Просто использовать"
+  },
+  "screenshotEasyHeadline": {
+    "message": "Вот так просто."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Установить"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Без аккаунта."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Закрепить"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Попап в один клик."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Включить платформу"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick или обе."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "И фармит"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "Вы занимаетесь другим."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Ваши правила"
   },
   "screenshotSettingsHeadline": {
-    "message": "Настройте каждую деталь под себя."
+    "message": "Фармите так, как вам нужно."
   },
   "screenshotSettingsSubcopy": {
-    "message": "Автоматизация по платформам, автополучение, вкладки без звука, приоритет игр и экспериментальный режим без вкладки."
+    "message": "Приоритеты, игры, режим без вкладки, автоклейм — для каждой платформы."
   },
-  "screenshotActivityHeadline": {
-    "message": "Смотрите, что именно происходит."
+  "screenshotUpdatedEyebrow": {
+    "message": "Открытый код"
   },
-  "screenshotActivitySubcopy": {
-    "message": "Прозрачный журнал показывает каждую проверку, переключение и получение награды, а при необходимости — диагностические подробности."
+  "screenshotUpdatedHeadline": {
+    "message": "Много возможностей. Всегда обновляется."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Частые релизы, когда Twitch и Kick меняются — и открыты к идеям и улучшениям."
   },
   "autoClaimReady": {
     "message": "Автополучение готово"

@@ -30,6 +30,7 @@ import type {
   ScreenshotVariant,
   TFunction,
 } from "./types";
+import { variantShowsPopup } from "./types";
 import {
   campaignViewFromCampaign,
   channelViewFromSession,
@@ -70,7 +71,7 @@ import { automationPresentation, type AutomationPresentation } from "./automatio
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
-  return SCREENSHOT_VARIANTS[id ?? "twitch-drops"] ?? SCREENSHOT_VARIANTS["twitch-drops"];
+  return SCREENSHOT_VARIANTS[id ?? "drops"] ?? SCREENSHOT_VARIANTS.drops;
 }
 
 function isPlatform(value: unknown): value is Platform {
@@ -79,18 +80,22 @@ function isPlatform(value: unknown): value is Platform {
 
 export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initialState?: PopupInitialState }): React.ReactElement {
   const preview = initialState?.preview ?? false;
-  const initialVariant = initialState?.variant ?? screenshotVariant("twitch-drops");
+  const initialVariant = initialState?.variant ?? screenshotVariant("drops");
   const [snapshot, setSnapshot] = useState<RuntimeSnapshot | null>(null);
   const [overrideCatalog, setOverrideCatalog] = useState<MessageCatalog | undefined>();
   const [fallbackCatalog, setFallbackCatalog] = useState<MessageCatalog | undefined>();
-  const [platform, setPlatform] = useState<Platform>(preview ? initialVariant.platform : "twitch");
+  const [platform, setPlatform] = useState<Platform>(
+    preview && variantShowsPopup(initialVariant) ? initialVariant.platform : "twitch",
+  );
   // Drops and the Idle Watchlist share one view; the watchlist folds away under
   // the campaigns until asked for (or until a screenshot variant wants it).
-  const [watchlistExpanded, setWatchlistExpanded] = useState(preview && initialVariant.view === "idleWatchlist");
+  const [watchlistExpanded, setWatchlistExpanded] = useState(false);
   const [watchlistAdding, setWatchlistAdding] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(preview && initialVariant.view === "settings");
+  const [settingsOpen, setSettingsOpen] = useState(
+    preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings",
+  );
   const [settingsOpenGeneration, setSettingsOpenGeneration] = useState(0);
-  const [activityOpen, setActivityOpen] = useState(preview && initialVariant.view === "activity");
+  const [activityOpen, setActivityOpen] = useState(false);
   const [activityStream, setActivityStream] = useState<ActivityStream>(createActivityStream);
   const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>(createActivityStream);
   const [reportEvents, setReportEvents] = useState<ActivityHistoryRecord[]>([]);
@@ -106,7 +111,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // Request to jump to a campaign in the drops list (expand + scroll). The seq
   // counter lets repeated clicks on the same campaign re-trigger the effect.
   const [campaignFocus, setCampaignFocus] = useState<{ id: string; seq: number } | null>(null);
-  const watchlistRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const snapshotRequestGenerationRef = useRef(0);
@@ -178,34 +182,25 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return { ...nextSnapshot, settings };
   }
 
+  const previewPlatform = variantShowsPopup(initialVariant) ? initialVariant.platform : "twitch";
+
   useEffect(() => {
     void Promise.all([
       adapter.send<RuntimeSnapshot>({ type: "getSnapshot" }),
       preview
-        ? Promise.resolve({ [SELECTED_PLATFORM_KEY]: initialVariant.platform })
+        ? Promise.resolve({ [SELECTED_PLATFORM_KEY]: previewPlatform })
         : adapter.getStorage(SELECTED_PLATFORM_KEY),
     ]).then(([nextSnapshot, stored]) => {
       const savedPlatform = stored[SELECTED_PLATFORM_KEY];
       if (isPlatform(savedPlatform)) setPlatform(savedPlatform);
       setSnapshot(snapshotWithMergedSettings(nextSnapshot));
     });
-  }, [adapter, initialVariant.platform, preview]);
+  }, [adapter, previewPlatform, preview]);
 
   useEffect(() => {
     if (preview || !adapter.getPendingChangelogVersion) return;
     void adapter.getPendingChangelogVersion().then(setPendingChangelogVersion);
   }, [adapter, preview]);
-
-  // The Idle Watchlist lives below the campaigns now, so the store screenshot
-  // that is *about* the watchlist starts the campaign cards collapsed and scrolls
-  // down to the section.
-  const watchlistScreenshot = preview && initialVariant.view === "idleWatchlist";
-  const snapshotReady = snapshot != null;
-  useEffect(() => {
-    if (!watchlistScreenshot || !snapshotReady) return undefined;
-    const frame = requestAnimationFrame(() => watchlistRef.current?.scrollIntoView({ block: "start" }));
-    return () => cancelAnimationFrame(frame);
-  }, [snapshotReady, watchlistScreenshot]);
 
   useEffect(() => {
     if (!activityOpen || preview || clearingActivity) return;
@@ -748,7 +743,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} />
+                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : undefined} />
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
@@ -824,7 +819,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     gameMap={gameMap}
                     focus={campaignFocus}
                     refreshing={refreshing}
-                    startCollapsed={watchlistScreenshot}
                     onRefreshCampaign={() => refreshNow()}
                     onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) }, { tickAfterSave: true })}
                     onToggleExclude={(id) => {
@@ -835,29 +829,27 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     }}
                   />
                 )}
-                <div ref={watchlistRef}>
-                  {/* Keyed by platform so the add field's own text cannot survive
-                      a platform switch either. */}
-                  <IdleWatchlistPanel
-                    key={platform}
-                    platform={platform}
-                    streamers={idleWatchlist}
-                    expanded={watchlistExpanded}
-                    adding={watchlistAdding}
-                    onExpandedChange={(next) => { setWatchlistExpanded(next); if (!next) setWatchlistAdding(false); }}
-                    onAddingChange={setWatchlistAdding}
-                    onChange={(ordered) => updateSettings(
-                      {
-                        platform: {
-                          [platform]: {
-                            idleWatchlistChannels: ordered.map((streamer) => streamer.id),
-                          },
+                {/* Keyed by platform so the add field's own text cannot survive
+                    a platform switch either. */}
+                <IdleWatchlistPanel
+                  key={platform}
+                  platform={platform}
+                  streamers={idleWatchlist}
+                  expanded={watchlistExpanded}
+                  adding={watchlistAdding}
+                  onExpandedChange={(next) => { setWatchlistExpanded(next); if (!next) setWatchlistAdding(false); }}
+                  onAddingChange={setWatchlistAdding}
+                  onChange={(ordered) => updateSettings(
+                    {
+                      platform: {
+                        [platform]: {
+                          idleWatchlistChannels: ordered.map((streamer) => streamer.id),
                         },
                       },
-                      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
-                    )}
-                  />
-                </div>
+                    },
+                    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                  )}
+                />
               </motion.div>
             )}
           </AnimatePresence>

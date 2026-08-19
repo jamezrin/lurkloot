@@ -103,15 +103,30 @@ export type CampaignView = {
 
 export type TFunction = (key: string, substitutions?: string | string[]) => string;
 
-export type ScreenshotView = "drops" | "idleWatchlist" | "settings" | "activity";
+export type ScreenshotLayout = "hero" | "extras" | "steps" | "settings" | "updated";
 
-export type ScreenshotVariant = {
-  platform: Platform;
-  view: ScreenshotView;
-  accentGradient: string;
+type ScreenshotCopy = {
+  glow: string;
+  eyebrowKey: string;
   headlineKey: string;
   subcopyKey: string;
 };
+
+export type ScreenshotPopupVariant = ScreenshotCopy & {
+  layout: "hero" | "settings";
+  platform: Platform;
+  view: "drops" | "settings";
+};
+
+export type ScreenshotMarketingVariant = ScreenshotCopy & {
+  layout: "extras" | "steps" | "updated";
+};
+
+export type ScreenshotVariant = ScreenshotPopupVariant | ScreenshotMarketingVariant;
+
+export function variantShowsPopup(variant: ScreenshotVariant): variant is ScreenshotPopupVariant {
+  return variant.layout === "hero" || variant.layout === "settings";
+}
 
 export interface PopupAdapter {
   version: string;

@@ -9,7 +9,7 @@ import { filterSettingsTree } from "./settingsSearch";
 import { useT } from "./context";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
@@ -26,6 +26,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   exportConfirmationResetKey: number;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
+  focusGroupId?: string;
 }) {
   const t = useT();
   const [query, setQuery] = useState("");
@@ -48,6 +49,11 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     setResetArmed(false);
     setResetFailed(false);
   }, [exportConfirmationResetKey]);
+
+  useEffect(() => {
+    if (!focusGroupId) return;
+    document.getElementById(`settings-group-${focusGroupId}`)?.scrollIntoView?.({ block: "start" });
+  }, [focusGroupId]);
 
   // Export needs no arm/confirm step (it only reads, never mutates), but it
   // still needs a busy/failure state like import and reset: a slow or failed
@@ -160,24 +166,27 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
               </SettingsSection>
             ) : null,
             ...section.groups.map((group) => (
-              <SettingsSection
-                key={group.id}
-                id={group.id}
-                title={section.id === "general" ? t(group.titleKey) : `${PLATFORMS[section.id as Platform].label} · ${t(group.titleKey)}`}
-                icon={section.id === "general" ? undefined : section.icon}
-                iconNode={section.id === "general" ? undefined : section.iconNode}
-              >
-                {renderGroupContent(group, false)}
-              </SettingsSection>
+              <div key={group.id} id={`settings-group-${group.id}`}>
+                <SettingsSection
+                  id={group.id}
+                  title={section.id === "general" ? t(group.titleKey) : `${PLATFORMS[section.id as Platform].label} · ${t(group.titleKey)}`}
+                  icon={section.id === "general" ? undefined : section.icon}
+                  iconNode={section.id === "general" ? undefined : section.iconNode}
+                >
+                  {renderGroupContent(group, false)}
+                </SettingsSection>
+              </div>
             )),
           ])}
         </div>
       ) : (
         <div className="space-y-4">
           {generalSection?.groups.map((group) => group.id !== "general.advanced" ? (
-            <SettingsSection key={group.id} id={group.id} title={t(group.titleKey)} description={group.description}>
-              {renderGroupContent(group, false)}
-            </SettingsSection>
+            <div key={group.id} id={`settings-group-${group.id}`}>
+              <SettingsSection id={group.id} title={t(group.titleKey)} description={group.description}>
+                {renderGroupContent(group, false)}
+              </SettingsSection>
+            </div>
           ) : null)}
 
           <SettingsSection id="platform-specific" title={t("settingsPlatformSettingsTitle")} description={t("platformSettingsDescription")}>
@@ -215,9 +224,11 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                   </div>
                 ) : null}
                 {platformContentGroups.map((group) => (
-                  <SettingsGroup key={group.id} title={t(group.titleKey)} description={group.description} badge={group.badge}>
-                    {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
-                  </SettingsGroup>
+                  <div key={group.id} id={`settings-group-${group.id}`}>
+                    <SettingsGroup title={t(group.titleKey)} description={group.description} badge={group.badge}>
+                      {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
+                    </SettingsGroup>
+                  </div>
                 ))}
               </section>
             ) : null}

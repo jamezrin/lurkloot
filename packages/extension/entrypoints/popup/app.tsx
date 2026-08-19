@@ -7,6 +7,7 @@ import {
   createDemoPopupAdapter,
   openHttpsLink,
   screenshotVariant,
+  variantShowsPopup,
   type PopupAdapter,
   type ScreenshotVariant,
 } from "@lurkloot/popup-ui";
@@ -127,7 +128,9 @@ export function PopupApp(): React.ReactElement {
   if (SCREENSHOT_MODE) {
     return (
       <StoreScreenshot variant={SCREENSHOT_VARIANT} locale={POPUP_LOCALE}>
-        <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: POPUP_LOCALE, variant: SCREENSHOT_VARIANT }} />
+        {variantShowsPopup(SCREENSHOT_VARIANT) ? (
+          <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: POPUP_LOCALE, variant: SCREENSHOT_VARIANT }} />
+        ) : null}
       </StoreScreenshot>
     );
   }

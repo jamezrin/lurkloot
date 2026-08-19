@@ -1,0 +1,16 @@
+[env]
+# Chrome Web Store listing coordinates. Both mirror the GitHub Actions
+# repository *variables* of the same name (non-secret, see RELEASING.md).
+CWS_EXTENSION_ID = "aobaackpofkghaejdnnmpmeaiaoibhdn"
+CWS_PUBLISHER_ID = "5fdc4582-d1e8-4714-819e-d4bdcee7da79"
+
+# CWS_SERVICE_ACCOUNT_JSON is a GCP service-account key (inline JSON, parsed in
+# scripts/cws.mjs) and is a *secret* — it lives in the `production` GitHub
+# environment, never in this tracked file. For local `scripts/cws.mjs` runs put
+# it in the gitignored mise.local.toml, e.g.:
+#
+#   [env]
+#   CWS_SERVICE_ACCOUNT_JSON = '{"type":"service_account", ...}'
+#
+# The screenshot dashboard workflow (pnpm screenshot:store:sync / :upload) does
+# not use it — it only needs the two ids above.

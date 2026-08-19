@@ -755,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 platformunda toplanacak başka drop kalmadı."
   },
-  "screenshotTwitchHeadline": {
-    "message": "Twitch droplarını otomatik toplayın"
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot, oturumunuzu kullanarak arka planda sessizce dropları toplar."
+  "screenshotHeroHeadline": {
+    "message": "Başka işine bak, dropları senin yerine kas."
   },
-  "screenshotKickHeadline": {
-    "message": "Kick droplarını ve sürelerini toplayın"
+  "screenshotHeroSubcopy": {
+    "message": "Zaten açık oturumundan otomatik teslim. Parola yok."
   },
-  "screenshotKickSubcopy": {
-    "message": "Düşük kaynak modu ile sisteminiz yorulmadan Kick izlenme sürelerini ve droplarını kasın."
+  "screenshotExtrasEyebrow": {
+    "message": "Kampanyaların ötesi"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "Yedek kanallarınızı seçin"
+  "screenshotExtrasHeadline": {
+    "message": "Sadece drop değil."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "Toplanacak drop yokken Lurkloot belirlediğiniz yayıncıları izlemeye devam eder."
+  "screenshotExtrasSubcopy": {
+    "message": "Kanal puanları ve Kick görevleri de senin için teslim. Kasacak bir şey kalmayınca idle izleme listesi."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Kanal puanları"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · senin için de teslim"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Günlük görevler"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · senin için de teslim"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Idle izleme listesi"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Kampanyalar arasında yayıncılarını izler"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Kullanması kolay"
+  },
+  "screenshotEasyHeadline": {
+    "message": "Bu kadar kolay."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Yükle"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Hesap yok."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Sabitle"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Popup bir tık uzağında."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Bir platform aç"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick veya ikisi."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "Kasılmaya başla"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "O kasar, sen başka işine bakarsın."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Senin kuralların"
   },
   "screenshotSettingsHeadline": {
-    "message": "Kolayca özelleştirin"
+    "message": "Tam istediğin gibi kas."
   },
   "screenshotSettingsSubcopy": {
-    "message": "Otomatik toplama ve oyun önceliklerini dilediğiniz gibi ayarlayın."
+    "message": "Öncelikler, oyunlar, sekmesiz mod, otomatik teslim — platforma göre."
   },
-  "screenshotActivityHeadline": {
-    "message": "Her şeyi takip edin"
+  "screenshotUpdatedEyebrow": {
+    "message": "Açık kaynak"
   },
-  "screenshotActivitySubcopy": {
-    "message": "Şeffaf geçmiş günlüğü sayesinde alınan tüm ödülleri ve yapılan işlemleri görün."
+  "screenshotUpdatedHeadline": {
+    "message": "Özellik dolu. Sürekli güncel."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Twitch ve Kick değişince sık sürümler — fikirlere ve iyileştirmelere açık."
   },
   "autoClaimReady": {
     "message": "Otomatik alma aktif"

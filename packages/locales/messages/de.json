@@ -755,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 hat keine geeigneten Drops zum Farmen."
   },
-  "screenshotTwitchHeadline": {
-    "message": "Twitch- und Kick-Drops aus einem Popup verwaltet."
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot farmt geeignete Kampagnen über deine normale Browsersitzung mit sichtbaren stummen Tabs."
+  "screenshotHeroHeadline": {
+    "message": "Farme Drops, während du etwas anderes machst."
   },
-  "screenshotKickHeadline": {
-    "message": "Farmt jetzt auch Kick-Drops."
+  "screenshotHeroSubcopy": {
+    "message": "Auto-Claim über deine bereits angemeldete Sitzung. Keine Passwörter."
   },
-  "screenshotKickSubcopy": {
-    "message": "Dieselbe Automatisierung, Eligibility-Prüfung und Auto-Beanspruchung wie für Twitch, jetzt auch für Kick-Creator-Belohnungen."
+  "screenshotExtrasEyebrow": {
+    "message": "Mehr als Kampagnen"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "Eine Ersatz-Leerlauf-Watchlist hält dich am Verdienen."
+  "screenshotExtrasHeadline": {
+    "message": "Mehr als Drops."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "Wenn keine Drops aktiv sind, schaut Lurkloot deine Lieblingskanäle, damit Online-Zeit nicht ungenutzt bleibt."
+  "screenshotExtrasSubcopy": {
+    "message": "Kanalpunkte und Kick-Challenges, ebenfalls für dich geclaimt. Eine Idle-Watchlist, wenn nichts mehr zu farmen ist."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Kanalpunkte"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · ebenfalls für dich geclaimt"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Tägliche Challenges"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · ebenfalls für dich geclaimt"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Idle-Watchlist"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Schaut deine Streamer zwischen Kampagnen"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Einfach zu nutzen"
+  },
+  "screenshotEasyHeadline": {
+    "message": "So einfach."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Installieren"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Kein Konto."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Anheften"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Das Popup einen Klick entfernt."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Eine Plattform aktivieren"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick oder beides."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "Und es farmt"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "Du machst anderes."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Deine Regeln"
   },
   "screenshotSettingsHeadline": {
-    "message": "Passe jedes Detail an dein Setup an."
+    "message": "Farme genau so, wie du willst."
   },
   "screenshotSettingsSubcopy": {
-    "message": "Automatisierung pro Plattform, Auto-Beanspruchung, stumme Tabs, Spielpriorität und experimenteller tabloser Energiesparmodus."
+    "message": "Prioritäten, Spiele, tabless Modus, Auto-Claim — pro Plattform."
   },
-  "screenshotActivityHeadline": {
-    "message": "Sieh genau, was es tut."
+  "screenshotUpdatedEyebrow": {
+    "message": "Quelloffen"
   },
-  "screenshotActivitySubcopy": {
-    "message": "Ein transparentes Aktivitätsprotokoll zeigt jede Prüfung, jeden Wechsel und jede Beanspruchung – mit Diagnosedetails auf Wunsch."
+  "screenshotUpdatedHeadline": {
+    "message": "Funktionsreich. Immer aktuell."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Häufige Releases, wenn sich Twitch und Kick ändern — und offen für Ideen und Verbesserungen."
   },
   "autoClaimReady": {
     "message": "Auto-Beanspruchen bereit"

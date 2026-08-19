@@ -755,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "لا توجد Drops مؤهلة للفارم على $1."
   },
-  "screenshotTwitchHeadline": {
-    "message": "إدارة Drops على Twitch وKick من نافذة واحدة."
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "يفارم Lurkloot الحملات المؤهلة عبر جلسة متصفحك العادية مع تبويبات مرئية مكتومة."
+  "screenshotHeroHeadline": {
+    "message": "فارم الدروبس وأنت مشغول بشيء آخر."
   },
-  "screenshotKickHeadline": {
-    "message": "يفارم Drops على Kick الآن أيضًا."
+  "screenshotHeroSubcopy": {
+    "message": "مطالبة تلقائية من جلستك المسجّلة. بلا كلمات مرور."
   },
-  "screenshotKickSubcopy": {
-    "message": "نفس الأتمتة وفحوصات الأهلية والاستلام التلقائي على Twitch، الآن لمكافآت منشئي Kick."
+  "screenshotExtrasEyebrow": {
+    "message": "أكثر من الحملات"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "تحافظ قائمة المشاهدة الخاملة الاحتياطية على استمرار الكسب."
+  "screenshotExtrasHeadline": {
+    "message": "أكثر من دروبس."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "عند عدم وجود Drops نشطة، يشاهد Lurkloot قنواتك المفضلة حتى لا يضيع وقتك المتصل."
+  "screenshotExtrasSubcopy": {
+    "message": "نقاط القناة وتحديات Kick تُطالب أيضاً لأجلك. قائمة مشاهدة خاملة عندما لا يبقى شيء للفارم."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "نقاط القناة"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · تُطالب أيضاً لأجلك"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "التحديات اليومية"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · تُطالب أيضاً لأجلك"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "قائمة المشاهدة الخاملة"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "تشاهد ستريمرك بين الحملات"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "سهل الاستخدام"
+  },
+  "screenshotEasyHeadline": {
+    "message": "بهذه السهولة."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "ثبّت"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. بلا حساب."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "ثبّت الأيقونة"
+  },
+  "screenshotEasyPinSub": {
+    "message": "النافذة المنبثقة بنقرة."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "فعّل منصة"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch أو Kick أو كلاهما."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "والفارم يبدأ"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "هو يفارم، وأنت تعمل شيئاً آخر."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "قواعدك"
   },
   "screenshotSettingsHeadline": {
-    "message": "اضبط كل تفصيل حسب إعدادك."
+    "message": "فارم كما تريد."
   },
   "screenshotSettingsSubcopy": {
-    "message": "أتمتة لكل منصة، استلام تلقائي، تبويبات مكتومة، أولوية الألعاب، ووضع تجريبي منخفض الموارد بدون تبويب."
+    "message": "أولويات، ألعاب، وضع بلا تبويب، مطالبة تلقائية — لكل منصة."
   },
-  "screenshotActivityHeadline": {
-    "message": "شاهد بالضبط ما يفعله."
+  "screenshotUpdatedEyebrow": {
+    "message": "مفتوح المصدر"
   },
-  "screenshotActivitySubcopy": {
-    "message": "يعرض سجل نشاط شفاف كل فحص وتبديل واستلام، مع تفاصيل تشخيصية عند الحاجة."
+  "screenshotUpdatedHeadline": {
+    "message": "غني بالميزات. محدَّث دائماً."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "إصدارات متكررة كلما تغيّر Twitch وKick — ومفتوح للأفكار والتحسينات."
   },
   "autoClaimReady": {
     "message": "الاستلام التلقائي جاهز"

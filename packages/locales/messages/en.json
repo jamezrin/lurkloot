@@ -755,35 +755,89 @@
   "notificationNoDropsLeftMessage": {
     "message": "$1 has no eligible drops to farm."
   },
-  "screenshotTwitchHeadline": {
-    "message": "Twitch and Kick drops, managed from one popup."
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
   },
-  "screenshotTwitchSubcopy": {
-    "message": "Lurkloot farms eligible campaigns through your normal browser session with visible muted tabs."
+  "screenshotHeroHeadline": {
+    "message": "Farm drops while you do anything else."
   },
-  "screenshotKickHeadline": {
-    "message": "Now farming Kick drops too."
+  "screenshotHeroSubcopy": {
+    "message": "Auto-claim from your own logged-in session. No passwords."
   },
-  "screenshotKickSubcopy": {
-    "message": "The same automation, eligibility checks, and auto-claim you rely on for Twitch — now covering Kick creator rewards."
+  "screenshotExtrasEyebrow": {
+    "message": "Beyond campaigns"
   },
-  "screenshotIdleWatchlistHeadline": {
-    "message": "Your Idle Watchlist keeps you earning between drops."
+  "screenshotExtrasHeadline": {
+    "message": "More than drops."
   },
-  "screenshotIdleWatchlistSubcopy": {
-    "message": "When no eligible drops are available, Lurkloot watches your selected fallback channels."
+  "screenshotExtrasSubcopy": {
+    "message": "Channel points and Kick challenges, also claimed for you. An idle watchlist when nothing is left to farm."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Channel points"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · also claimed for you"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Daily challenges"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · also claimed for you"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Idle watchlist"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Watches your streamers between campaigns"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Easy to use"
+  },
+  "screenshotEasyHeadline": {
+    "message": "That easy."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Install"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. No account."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Pin it"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Keep the popup one click away."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Enable a platform"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick, or both."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "Profit"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "It farms. You do other things."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Your rules"
   },
   "screenshotSettingsHeadline": {
-    "message": "Tune every detail to your setup."
+    "message": "Farm exactly how you want."
   },
   "screenshotSettingsSubcopy": {
-    "message": "Per-platform automation, auto-claim, muted tabs, game priority, and an experimental low-resource tabless mode."
+    "message": "Priorities, games, tabless mode, auto-claim — per platform."
   },
-  "screenshotActivityHeadline": {
-    "message": "See exactly what it's doing."
+  "screenshotUpdatedEyebrow": {
+    "message": "Open source"
   },
-  "screenshotActivitySubcopy": {
-    "message": "A transparent activity log shows every check, switch, and claim — with diagnostic detail on demand so nothing happens behind your back."
+  "screenshotUpdatedHeadline": {
+    "message": "Featureful. Always updated."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Frequent releases as Twitch and Kick change — and open to ideas and improvements."
   },
   "autoClaimReady": {
     "message": "Auto-claim ready"
