@@ -1,14 +1,18 @@
 import { localeConfig } from "./store-screenshot-config.mjs";
 
+export const SECTIONS = Object.freeze({ localized: "localized", global: "global" });
+
 const LABELS = Object.freeze({
   language: /listing language|language|locale/i,
-  screenshots: /localized screenshots|screenshots/i,
-  removeScreenshot: /remove screenshot/i,
-  uploadScreenshots: /upload screenshots|add screenshots/i,
+  removeScreenshot: /^remove image screenshot \d+$/i,
+  removeConfirmation: /remove image/i,
+  confirmRemoval: /^remove$/i,
   saveDraft: /save draft|save changes|save/i,
   saved: /changes saved|saved/i,
   saving: /saving|updating|in progress|please wait/i,
   storeListing: /store listing/i,
+  localizedSection: "Localized screenshots",
+  globalSection: "Global screenshots",
 });
 
 async function requireUnique(locator, description) {
@@ -19,9 +23,13 @@ async function requireUnique(locator, description) {
   return locator;
 }
 
+// The dashboard labels every language option with its own locale code, as in
+// "English – en (default)" or "Chinese (China) – zh-CN". Matching that code
+// rather than the display name keeps this working when Google renames a
+// language or renders the dashboard in another language.
 function localeNamePattern(locale) {
-  const alternatives = locale.dashboardNames.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return new RegExp(`^(?:${alternatives.join("|")})$`, "i");
+  const dashboardCode = locale.code.replace(/_/g, "-").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`[\\u2013\\u2014-]\\s*${dashboardCode}(?:\\s*\\(default\\))?\\s*$`, "i");
 }
 
 export class ChromeWebStoreDashboard {
@@ -30,6 +38,7 @@ export class ChromeWebStoreDashboard {
     this.extensionId = extensionId;
     this.publisherId = publisherId;
     this.timeout = timeout;
+    this.saveEnableTimeout = 5_000;
     this.authenticationTimeout = authenticationTimeout;
     this.output = output;
     this.hasMutated = false;
@@ -44,33 +53,42 @@ export class ChromeWebStoreDashboard {
     return this.page.getByRole("combobox", { name: LABELS.language });
   }
 
-  screenshotRegion() {
-    return this.page.getByRole("region", { name: LABELS.screenshots });
+  // The listing carries two screenshot groups — one per language and one
+  // shared — and both label their images "Screenshot N". Neither group has an
+  // accessible name, so each is reached from its own visible heading text.
+  screenshotRegion(section = SECTIONS.localized) {
+    const label = section === SECTIONS.global ? LABELS.globalSection : LABELS.localizedSection;
+    // The label sits in its own column, so climbing from it overshoots into a
+    // container holding every media group. Instead take the first panel after
+    // the label that holds screenshots and an upload input and encloses no
+    // smaller panel of the same shape.
+    const panel = '*[.//img[starts-with(@alt,"Screenshot")] and .//input[@type="file"] and not(.//*[.//img[starts-with(@alt,"Screenshot")] and .//input[@type="file"]])]';
+    return this.page.locator(`xpath=(//*[normalize-space(text())="${label}"])[1]/following::${panel}[1]`);
   }
 
-  screenshotItems() {
-    return this.screenshotRegion().getByRole("listitem");
+  screenshotItems(section = SECTIONS.localized) {
+    return this.screenshotRegion(section).locator('img[alt^="Screenshot"]');
   }
 
-  uploadControl() {
-    return this.screenshotRegion().getByLabel(LABELS.uploadScreenshots);
+  removeControls(section = SECTIONS.localized) {
+    return this.screenshotRegion(section).getByRole("button", { name: LABELS.removeScreenshot });
+  }
+
+  uploadControl(section = SECTIONS.localized) {
+    return this.screenshotRegion(section).locator('input[type="file"]');
   }
 
   saveControl() {
     return this.page.getByRole("button", { name: LABELS.saveDraft });
   }
 
-  savedIndicator() {
-    return this.page.getByRole("status");
-  }
-
-  uploadErrors() {
-    return this.screenshotRegion().getByRole("alert");
+  uploadErrors(section = SECTIONS.localized) {
+    return this.screenshotRegion(section).getByRole("alert");
   }
 
   async openAndWaitForAuthentication() {
     await this.page.goto(this.dashboardUrl(), { waitUntil: "domcontentloaded" });
-    this.output("Chrome opened. Sign in to the Chrome Web Store Developer Dashboard and complete 2FA; automation will resume automatically.");
+    this.output("Chrome opened. If it asks you to sign in, do that and complete 2FA; automation resumes on its own and the session is reused next time.");
     await this.page.waitForURL((url) => url.toString().includes(this.extensionId), { timeout: this.authenticationTimeout });
 
     const listingHeading = this.page.getByRole("heading", { name: LABELS.storeListing });
@@ -85,12 +103,20 @@ export class ChromeWebStoreDashboard {
     await listingHeading.first().waitFor({ state: "visible", timeout: this.timeout });
   }
 
+  // The menu paints its options asynchronously, so counting straight after the
+  // click races the dashboard and reports zero matches for every locale.
+  async openLanguageMenu(language) {
+    if ((await language.getAttribute("aria-expanded")) === "true") return;
+    await language.click();
+    await this.page.getByRole("option").first().waitFor({ state: "visible", timeout: this.timeout });
+  }
+
   async preflight({ locales }) {
     const identity = this.page.getByText(this.extensionId, { exact: false });
     await requireUnique(identity, "configured extension identity");
     const language = await requireUnique(this.languageControl(), "listing language selector");
     const tagName = await language.evaluate((element) => element.tagName);
-    if (tagName !== "SELECT") await language.click();
+    if (tagName !== "SELECT") await this.openLanguageMenu(language);
 
     for (const code of locales) {
       const locale = localeConfig(code);
@@ -105,17 +131,19 @@ export class ChromeWebStoreDashboard {
     if (tagName !== "SELECT") await this.page.keyboard.press("Escape");
 
     await this.selectLocale(locales[0]);
-    const count = await this.screenshotCount();
-    if (count !== 4 && count !== 5) {
-      throw new Error(`Localized screenshots: expected 4 or 5 screenshot items, found ${count}`);
+    for (const section of [SECTIONS.localized, SECTIONS.global]) {
+      await requireUnique(this.screenshotRegion(section), `${section} screenshot section`);
+      const count = await this.screenshotCount(section);
+      if (count !== 4 && count !== 5) {
+        throw new Error(`${section === SECTIONS.global ? "Global" : "Localized"} screenshots: expected 4 or 5 screenshot items, found ${count}`);
+      }
+      await this.requirePngUploadControl(section);
     }
-    await this.requirePngUploadControl();
     await requireUnique(this.saveControl(), "draft save button");
-    await requireUnique(this.savedIndicator(), "saved-state indicator");
   }
 
-  async requirePngUploadControl() {
-    const input = await requireUnique(this.uploadControl(), "screenshot upload input");
+  async requirePngUploadControl(section = SECTIONS.localized) {
+    const input = await requireUnique(this.uploadControl(section), "screenshot upload input");
     const semantics = await input.evaluate((element) => ({
       accept: element.getAttribute("accept") ?? "",
       tagName: element.tagName,
@@ -138,15 +166,13 @@ export class ChromeWebStoreDashboard {
     return (await language.textContent())?.trim() ?? "";
   }
 
-  async screenshotMediaFingerprint() {
-    return this.screenshotItems().evaluateAll((items) => JSON.stringify(items.map((item) => [
-      ...item.querySelectorAll("img, source"),
-    ].map((media) => ({
-      alt: media.getAttribute("alt") ?? "",
-      currentSrc: media.currentSrc ?? "",
-      src: media.getAttribute("src") ?? "",
-      srcset: media.getAttribute("srcset") ?? "",
-    })))));
+  async screenshotMediaFingerprint(section = SECTIONS.localized) {
+    return this.screenshotItems(section).evaluateAll((media) => JSON.stringify(media.map((image) => ({
+      alt: image.getAttribute("alt") ?? "",
+      currentSrc: image.currentSrc ?? "",
+      src: image.getAttribute("src") ?? "",
+      srcset: image.getAttribute("srcset") ?? "",
+    }))));
   }
 
   async waitForScreenshotPanelChange(before, dashboardLabel) {
@@ -155,7 +181,7 @@ export class ChromeWebStoreDashboard {
     let stableSince = 0;
     while (Date.now() < deadline) {
       const current = await this.screenshotMediaFingerprint();
-      const region = await requireUnique(this.screenshotRegion(), "localized screenshot region");
+      const region = await requireUnique(this.screenshotRegion(), "localized screenshot panel");
       const busy = (await region.getAttribute("aria-busy")) === "true"
         || await region.getByRole("progressbar").count() > 0;
       if (!busy && current !== before) {
@@ -188,7 +214,7 @@ export class ChromeWebStoreDashboard {
       await requireUnique(option, `dashboard locale ${dashboardLabel}`);
       await language.selectOption({ label: (await option.textContent())?.trim() });
     } else {
-      await language.click();
+      await this.openLanguageMenu(language);
       const option = this.page.getByRole("option", { name });
       await requireUnique(option, `dashboard locale ${dashboardLabel}`);
       await option.click();
@@ -200,47 +226,59 @@ export class ChromeWebStoreDashboard {
     await this.waitForScreenshotPanelChange(previousScreenshots, dashboardLabel);
   }
 
-  async screenshotCount() {
-    return this.screenshotItems().count();
+  async screenshotCount(section = SECTIONS.localized) {
+    return this.screenshotItems(section).count();
   }
 
-  async removeFirstScreenshot() {
-    const items = this.screenshotItems();
-    const count = await items.count();
+  async removeFirstScreenshot(section = SECTIONS.localized) {
+    const count = await this.screenshotCount(section);
     if (count !== 4 && count !== 5) {
       throw new Error(`Screenshot removal expected 4 or 5 items, found ${count}`);
     }
-    const remove = await requireUnique(items.first().getByRole("button", { name: LABELS.removeScreenshot }), "first screenshot remove button");
+    // Removal renumbers the remaining labels, so the leading control is taken
+    // in DOM order rather than by the number in its name.
+    const controls = this.removeControls(section);
+    const controlCount = await controls.count();
+    if (controlCount !== count) {
+      throw new Error(`Screenshot removal expected ${count} remove controls, found ${controlCount}`);
+    }
     this.hasMutated = true;
-    await remove.click();
+    await controls.first().click();
+    await this.confirmRemoval();
   }
 
-  async waitForScreenshotCount(count) {
-    const items = this.screenshotItems();
-    if (count > 0) await items.nth(count - 1).waitFor({ state: "visible", timeout: this.timeout });
+  // Removal is destructive and the dashboard asks for confirmation first, so
+  // the click alone leaves the screenshot in place.
+  async confirmRemoval() {
+    const dialog = this.page.getByRole("dialog").filter({ hasText: LABELS.removeConfirmation });
+    await dialog.first().waitFor({ state: "visible", timeout: this.timeout });
+    const confirm = await requireUnique(dialog.getByRole("button", { name: LABELS.confirmRemoval }), "remove confirmation button");
+    await confirm.click();
+    await dialog.first().waitFor({ state: "hidden", timeout: this.timeout });
+  }
+
+  async waitForScreenshotCount(count, section = SECTIONS.localized) {
+    const items = this.screenshotItems(section);
+    // Counting tracks attachment, not paint: a freshly inserted thumbnail has
+    // no dimensions until its image data arrives, which the upload lifecycle
+    // waits for separately.
+    if (count > 0) await items.nth(count - 1).waitFor({ state: "attached", timeout: this.timeout });
     await items.nth(count).waitFor({ state: "detached", timeout: this.timeout });
     const actual = await items.count();
     if (actual !== count) throw new Error(`Expected ${count} screenshots, found ${actual}`);
-    if (this.uploadPending) await this.waitForUploadCompletion();
+    if (this.uploadPending) await this.waitForUploadCompletion(section);
   }
 
-  async waitForUploadCompletion() {
+  async waitForUploadCompletion(section = SECTIONS.localized) {
     if (!this.uploadLifecycle) throw new Error("Screenshot upload lifecycle was not armed before file selection");
     const lifecycle = this.uploadLifecycle;
-    await this.page.waitForFunction(
-      (element) => element.__lurklootUploadState.started || element.__lurklootUploadState.error,
-      lifecycle,
-      { timeout: this.timeout },
-    );
-    await this.page.waitForFunction(
-      (element) => element.__lurklootUploadState.error
-        || element.__lurklootUploadState.settledAt !== null,
-      lifecycle,
-      { timeout: this.timeout },
-    );
-    await this.waitForUploadedThumbnailReady(lifecycle);
+    // This dashboard never paints a visible progress indicator for a screenshot
+    // upload, so completion is taken from the thumbnail itself: a single new
+    // image source that has finished decoding. Errors still come from the
+    // lifecycle observer's alert watch.
+    await this.waitForUploadedThumbnailReady(lifecycle, section);
     const lifecycleError = await lifecycle.evaluate((element) => element.__lurklootUploadState.error);
-    const errors = this.uploadErrors();
+    const errors = this.uploadErrors(section);
     const errorMessages = [];
     for (let index = 0; index < await errors.count(); index += 1) {
       const error = errors.nth(index);
@@ -254,62 +292,61 @@ export class ChromeWebStoreDashboard {
     this.uploadPending = false;
   }
 
-  async screenshotMediaSources() {
-    return this.screenshotItems().evaluateAll((items) => items.flatMap((item) => [
-      ...item.querySelectorAll("img, source"),
-    ].flatMap((media) => [
-      media.currentSrc ?? "",
-      media.getAttribute("src") ?? "",
-      media.getAttribute("srcset") ?? "",
-    ].filter(Boolean))));
+  async screenshotMediaSources(section = SECTIONS.localized) {
+    return this.screenshotItems(section).evaluateAll((media) => media.flatMap((image) => [
+      image.currentSrc ?? "",
+      image.getAttribute("src") ?? "",
+      image.getAttribute("srcset") ?? "",
+    ].filter(Boolean)));
   }
 
-  async waitForUploadedThumbnailReady(lifecycle) {
+  async waitForUploadedThumbnailReady(lifecycle, section = SECTIONS.localized) {
     const deadline = Date.now() + this.timeout;
     while (Date.now() < deadline) {
       const state = await lifecycle.evaluate((element) => ({ ...element.__lurklootUploadState }));
       if (state.error) throw new Error(`Screenshot upload failed validation: ${state.error}`);
-      const readiness = await this.screenshotItems().evaluateAll((items, previousSources) => {
-        const previous = new Set(previousSources);
-        const candidates = items.flatMap((item) => {
-          const images = [...item.querySelectorAll("img")].filter((image) => {
-            const sources = [image.currentSrc, image.getAttribute("src"), image.getAttribute("srcset")].filter(Boolean);
-            return sources.some((source) => !previous.has(source));
-          });
-          return images.length > 0 ? [{ images, item }] : [];
-        });
-        if (candidates.length !== 1) return false;
-        const { images, item } = candidates[0];
-        const itemBusy = item.getAttribute("aria-busy") === "true"
-          || [...item.querySelectorAll('progress, [role="progressbar"]')].some((progress) => {
+      // Thumbnail URLs are re-signed by the dashboard, so a source that was
+      // captured earlier cannot identify the new image. Completion is instead
+      // every thumbnail having decoded while the panel reports no active work.
+      const readiness = await this.screenshotItems(section).evaluateAll((images) => {
+        if (images.length === 0) return false;
+        let panel = images[0].parentElement;
+        while (panel && !panel.querySelector('input[type="file"]')) panel = panel.parentElement;
+        const busy = panel?.getAttribute("aria-busy") === "true"
+          || [...(panel?.querySelectorAll('progress, [role="progressbar"]') ?? [])].some((progress) => {
             const style = getComputedStyle(progress);
+            const box = progress.getBoundingClientRect();
             return progress.isConnected
               && !progress.hidden
               && progress.getAttribute("aria-hidden") !== "true"
               && style.display !== "none"
-              && style.visibility !== "hidden";
+              && style.visibility !== "hidden"
+              && box.height > 0
+              && box.width > 0;
           });
-        return !itemBusy && images.some((image) => image.complete && image.naturalWidth > 0);
-      }, this.uploadBeforeSources);
-      if (state.started && state.settledAt !== null && readiness) return;
+        return !busy && images.every((image) => image.complete && image.naturalWidth > 0);
+      });
+      if (readiness) return;
       await this.page.waitForTimeout(Math.min(50, Math.max(1, deadline - Date.now())));
     }
     throw new Error("Uploaded screenshot thumbnail never reached a processed, ready state");
   }
 
-  async armUploadLifecycle() {
-    const region = await requireUnique(this.screenshotRegion(), "localized screenshot region");
+  async armUploadLifecycle(section = SECTIONS.localized) {
+    const region = await requireUnique(this.screenshotRegion(section), "screenshot region");
     const handle = await region.elementHandle();
     if (!handle) throw new Error("Localized screenshot region is not attached");
     await handle.evaluate((element) => {
       element.__lurklootUploadObserver?.disconnect();
       const state = { error: "", settledAt: null, started: false };
-      const visible = (candidate) => candidate instanceof HTMLElement
-        && candidate.isConnected
-        && !candidate.hidden
-        && candidate.getAttribute("aria-hidden") !== "true"
-        && getComputedStyle(candidate).display !== "none"
-        && getComputedStyle(candidate).visibility !== "hidden";
+      const visible = (candidate) => {
+        if (!(candidate instanceof HTMLElement) || !candidate.isConnected) return false;
+        if (candidate.hidden || candidate.getAttribute("aria-hidden") === "true") return false;
+        const style = getComputedStyle(candidate);
+        if (style.display === "none" || style.visibility === "hidden") return false;
+        const box = candidate.getBoundingClientRect();
+        return box.height > 0 && box.width > 0;
+      };
       const descendants = (node, selector) => {
         if (!(node instanceof Element)) return [];
         return [node.matches(selector) ? node : null, ...node.querySelectorAll(selector)].filter(Boolean);
@@ -340,10 +377,10 @@ export class ChromeWebStoreDashboard {
     return handle;
   }
 
-  async uploadScreenshot(path) {
-    const input = await this.requirePngUploadControl();
-    this.uploadBeforeSources = await this.screenshotMediaSources();
-    this.uploadLifecycle = await this.armUploadLifecycle();
+  async uploadScreenshot(path, section = SECTIONS.localized) {
+    const input = await this.requirePngUploadControl(section);
+    this.uploadBeforeSources = await this.screenshotMediaSources(section);
+    this.uploadLifecycle = await this.armUploadLifecycle(section);
     this.hasMutated = true;
     this.uploadPending = true;
     await input.setInputFiles(path);
@@ -351,19 +388,26 @@ export class ChromeWebStoreDashboard {
 
   async saveDraft() {
     const save = await requireUnique(this.saveControl(), "draft save button");
-    const status = await requireUnique(this.savedIndicator(), "saved-state indicator");
-    const statusHandle = await status.elementHandle();
-    if (!statusHandle) throw new Error("Saved-state indicator is not attached");
-    await statusHandle.evaluate((element, patterns) => {
-      element.__lurklootSaveObserver?.disconnect();
+    // Adding and removing images takes effect as it happens, so the control
+    // stays disabled when the section left nothing pending. Give it a moment
+    // to settle before concluding there is nothing to save.
+    const enabledBy = Date.now() + this.saveEnableTimeout;
+    while (Date.now() < enabledBy && !(await save.isEnabled())) {
+      await this.page.waitForTimeout(100);
+    }
+    if (!(await save.isEnabled())) {
+      this.output("Save draft is inactive; the section reported no pending changes.");
+      return;
+    }
+    // The dashboard creates its live region only when a save first runs, so the
+    // announcement is observed at document level rather than bound to an
+    // element that may not exist yet.
+    await this.page.evaluate((patterns) => {
+      window.__lurklootSaveObserver?.disconnect();
       const saved = new RegExp(patterns.saved, "i");
       const saving = new RegExp(patterns.saving, "i");
       const normalize = (text) => text.replace(/\s+/g, " ").trim();
-      const state = {
-        acknowledged: false,
-        lastText: normalize(element.textContent ?? ""),
-        sawPending: false,
-      };
+      const state = { acknowledged: false, lastText: "", sawPending: false };
       const observeText = (text) => {
         const normalized = normalize(text);
         if (!normalized || normalized === state.lastText) return;
@@ -371,26 +415,27 @@ export class ChromeWebStoreDashboard {
         if (saving.test(normalized)) state.sawPending = true;
         else if (saved.test(normalized) && state.sawPending) state.acknowledged = true;
       };
-      const observer = new MutationObserver((records) => {
-        for (const record of records) {
-          for (const node of record.addedNodes) observeText(node.textContent ?? "");
-          if (record.type === "characterData") observeText(record.target.textContent ?? "");
+      const readRegions = () => {
+        for (const region of document.querySelectorAll('[aria-live]:not([role]), [role="status"]')) {
+          observeText(region.textContent ?? "");
         }
-        observeText(element.textContent ?? "");
-      });
-      observer.observe(element, { childList: true, characterData: true, subtree: true });
-      element.__lurklootSaveState = state;
-      element.__lurklootSaveObserver = observer;
+      };
+      const observer = new MutationObserver(readRegions);
+      observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+      readRegions();
+      window.__lurklootSaveState = state;
+      window.__lurklootSaveObserver = observer;
     }, { saved: LABELS.saved.source, saving: LABELS.saving.source });
     this.hasMutated = true;
     await save.click();
-    await this.page.waitForFunction(
-      (element) => element.__lurklootSaveState.acknowledged === true,
-      statusHandle,
-      { timeout: this.timeout },
-    );
-    await statusHandle.evaluate((element) => element.__lurklootSaveObserver?.disconnect());
-    const acknowledgement = await requireUnique(this.savedIndicator(), "saved-state indicator");
-    await acknowledgement.filter({ hasText: LABELS.saved }).waitFor({ state: "visible", timeout: this.timeout });
+    try {
+      await this.page.waitForFunction(
+        () => window.__lurklootSaveState.acknowledged === true,
+        undefined,
+        { timeout: this.timeout },
+      );
+    } finally {
+      await this.page.evaluate(() => window.__lurklootSaveObserver?.disconnect());
+    }
   }
 }

@@ -5,6 +5,7 @@ import { parseRequestedLocales } from "./store-screenshot-config.mjs";
 import { validateStoreScreenshotFiles } from "./store-screenshot-files.mjs";
 import { ChromeWebStoreDashboard } from "./store-screenshot-dashboard.mjs";
 import { uploadStoreScreenshots } from "./store-screenshot-upload.mjs";
+import { abandonBrowserSession, finishBrowserSession, startBrowserSession } from "./store-screenshot-browser.mjs";
 
 function required(value, name) {
   if (!value) throw new Error(`${name} is required`);
@@ -23,11 +24,8 @@ function validatePublisherId(value) {
   }
 }
 
-async function defaultLaunchBrowser(env) {
-  return chromium.launch({
-    channel: env.CWS_BROWSER_CHANNEL ?? "chrome",
-    headless: false,
-  });
+function connectOverCdp(url) {
+  return chromium.connectOverCDP(url);
 }
 
 function defaultCreateDashboard({ page, env, output }) {
@@ -39,11 +37,7 @@ function defaultCreateDashboard({ page, env, output }) {
   });
 }
 
-async function waitForInspection(browser, output) {
-  output("The draft was partially changed but never submitted. Inspect it in Chrome, then close the browser to finish the command.");
-  if (!browser.isConnected()) return;
-  await new Promise((resolveDisconnected) => browser.once("disconnected", resolveDisconnected));
-}
+
 
 export async function main(args = process.argv.slice(2), env = process.env, dependencies = {}) {
   validateExtensionId(env.CWS_EXTENSION_ID);
@@ -57,37 +51,34 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
   if (args.includes("--validate-only")) return;
   validatePublisherId(env.CWS_PUBLISHER_ID);
 
-  const launchBrowser = dependencies.launchBrowser ?? (() => defaultLaunchBrowser(env));
+  const openBrowser = dependencies.openBrowser ?? startBrowserSession;
   const createDashboard = dependencies.createDashboard ?? defaultCreateDashboard;
-  const browser = await launchBrowser();
-  let context;
+  const session = await openBrowser({ env, output, connect: dependencies.connect ?? connectOverCdp });
   let dashboard;
   try {
-    context = await browser.newContext({});
-    const page = await context.newPage();
+    // The signed-in session lives in the browser's existing context; a new one
+    // would carry no cookies and land on a signed-out dashboard.
+    const page = await session.context.newPage();
     dashboard = createDashboard({ page, env, output });
     await dashboard.openAndWaitForAuthentication();
     await uploadStoreScreenshots({
       locales,
       filesByLocale,
       dashboard,
-      onProgress: ({ locale, variant, phase }) => {
-        if (phase === "uploaded") output(`${locale}: uploaded ${variant}`);
-        if (phase === "recovered") output(`${locale}: repaired an interrupted four-image draft`);
-        if (phase === "saved") output(`${locale}: draft saved`);
+      onProgress: ({ locale, variant, phase, section }) => {
+        const scope = section === "global" ? "global" : locale;
+        if (phase === "uploaded") output(`${scope}: uploaded ${variant}`);
+        if (phase === "recovered") output(`${scope}: repaired an interrupted four-image draft`);
+        if (phase === "saved") output(`${scope}: draft saved`);
       },
     });
     output(`Saved ${imageCount} screenshots across ${locales.length} ${locales.length === 1 ? "locale" : "locales"}. Nothing was submitted for review.`);
-    await context.close();
-    await browser.close();
+    await (dependencies.finishBrowser ?? finishBrowserSession)(session, { output });
   } catch (error) {
-    if (dashboard?.hasMutated) {
-      const inspect = dependencies.waitForInspection ?? waitForInspection;
-      await inspect(browser, output);
-    } else {
-      await context?.close();
-      await browser.close();
-    }
+    // Any failure keeps the browser: the operator may have signed in already,
+    // including while the step that failed was still waiting, and rebuilding
+    // that session costs another sign-in and 2FA.
+    await (dependencies.abandonBrowser ?? abandonBrowserSession)(session, output, { mutated: Boolean(dashboard?.hasMutated) });
     throw error;
   }
 }

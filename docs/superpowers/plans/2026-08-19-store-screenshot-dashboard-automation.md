@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a local Playwright operator command that regenerates, validates, replaces, orders, and saves all localized Chrome Web Store screenshots without persisting authentication or submitting the listing.
+**Goal:** Add a local Playwright operator command that regenerates, validates, replaces, orders, and saves all localized Chrome Web Store screenshots — plus the shared global set, filled from the English artwork — without persisting authentication or submitting the listing.
 
-**Architecture:** A shared screenshot manifest feeds capture and upload. Pure file validation and replacement coordination are isolated from a narrow Playwright dashboard adapter, allowing deterministic tests without authenticated dashboard access. A headed non-persistent Chrome context supplies interactive sign-in and fails closed when dashboard controls are missing or ambiguous.
+**Architecture:** A shared screenshot manifest feeds capture and upload. Pure file validation and replacement coordination are isolated from a narrow Playwright dashboard adapter, allowing deterministic tests without authenticated dashboard access. The command starts an ordinary headed Chrome with no automation switches and attaches over CDP, because Google rejects interactive sign-in in a Playwright-launched browser; it reuses that browser's existing context and fails closed when dashboard controls are missing or ambiguous.
 
 **Tech Stack:** Node.js ES modules, Playwright, Vitest, pnpm.
 
@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Work only in `.worktrees/store-screenshot-rework` on `feat/store-screenshot-rework`.
-- Never persist or print Google authentication state.
+- Never print Google authentication state, and never place it inside the repository. The signed-in Chrome profile persists deliberately, in the operator's own state directory, so a sync does not require a fresh login each time; it is local-only and never distributed.
 - Never expose a submit, publish, review-cancellation, package, privacy, or distribution operation.
 - Use role, label, and visible-text locators; fail on zero or multiple matches.
 - Preserve two-space indentation, double quotes, semicolons, and ES modules.
@@ -139,7 +139,7 @@ git commit -m "feat(store): coordinate screenshot replacement"
 
 - [ ] **Step 1: Write failing adapter and CLI tests**
 
-Serve a local HTML fixture with accessible item, locale selector, screenshot list, remove buttons, PNG input, save button, and saved status. Assert unique locator enforcement, first-thumbnail removal, file upload, saved-state waiting, and rejection of ambiguous controls. Test CLI validation happens before browser launch, uses a non-persistent context, and closes the browser on success. Inspect the public adapter prototype to assert there is no submit/publish method.
+Serve a local HTML fixture with accessible item, locale selector, screenshot list, remove buttons, PNG input, save button, and saved status. Assert unique locator enforcement, first-thumbnail removal, file upload, saved-state waiting, and rejection of ambiguous controls. Test CLI validation happens before the browser starts, that the existing context is reused rather than a new one created, and that the session is finished on success and abandoned after a mutation failure. Inspect the public adapter prototype to assert there is no submit/publish method.
 
 - [ ] **Step 2: Run the focused tests and verify RED**
 
@@ -160,7 +160,7 @@ Add package scripts:
 "screenshot:store:sync": "pnpm screenshot:store && pnpm screenshot:store:upload"
 ```
 
-The root delegates both commands to `@lurkloot/extension`. The CLI launches `chromium.launch({ channel: "chrome", headless: false })`, creates `browser.newContext()`, never supplies or saves storage state, and waits for interactive authentication.
+The root delegates both commands to `@lurkloot/extension`. The CLI resolves a Chrome binary (`CWS_CHROME_BINARY`, else a PATH scan preferring Chrome channels over Chromium), spawns it detached with only `--user-data-dir` and `--remote-debugging-port`, polls the endpoint for readiness, then `chromium.connectOverCDP(...)` and uses `browser.contexts()[0]` — a new context would carry no cookies. An endpoint that already answers is attached to and never closed.
 
 - [ ] **Step 5: Document operation and recovery**
 

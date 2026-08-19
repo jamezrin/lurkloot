@@ -7,17 +7,17 @@ export const STORE_SCREENSHOT_VARIANTS = Object.freeze([
 ]);
 
 export const STORE_SCREENSHOT_LOCALES = Object.freeze([
-  Object.freeze({ code: "en", dashboardLabel: "English", dashboardNames: ["English"] }),
-  Object.freeze({ code: "es", dashboardLabel: "Spanish", dashboardNames: ["Spanish", "Español", "Español – América Latina", "Español - América Latina"] }),
-  Object.freeze({ code: "fr", dashboardLabel: "French", dashboardNames: ["French", "Français"] }),
-  Object.freeze({ code: "it", dashboardLabel: "Italian", dashboardNames: ["Italian", "Italiano"] }),
-  Object.freeze({ code: "ru", dashboardLabel: "Russian", dashboardNames: ["Russian", "Русский"] }),
-  Object.freeze({ code: "de", dashboardLabel: "German", dashboardNames: ["German", "Deutsch"] }),
-  Object.freeze({ code: "zh_CN", dashboardLabel: "Chinese (Simplified)", dashboardNames: ["Chinese (Simplified)", "Chinese – Simplified", "中文 – 简体"] }),
-  Object.freeze({ code: "hi", dashboardLabel: "Hindi", dashboardNames: ["Hindi", "हिंदी"] }),
-  Object.freeze({ code: "pt_BR", dashboardLabel: "Portuguese (Brazil)", dashboardNames: ["Portuguese (Brazil)", "Português – Brasil", "Português - Brasil"] }),
-  Object.freeze({ code: "ar", dashboardLabel: "Arabic", dashboardNames: ["Arabic", "العربيّة"] }),
-  Object.freeze({ code: "tr", dashboardLabel: "Turkish", dashboardNames: ["Turkish", "Türkçe"] }),
+  Object.freeze({ code: "en", dashboardLabel: "English" }),
+  Object.freeze({ code: "es", dashboardLabel: "Spanish" }),
+  Object.freeze({ code: "fr", dashboardLabel: "French" }),
+  Object.freeze({ code: "it", dashboardLabel: "Italian" }),
+  Object.freeze({ code: "ru", dashboardLabel: "Russian" }),
+  Object.freeze({ code: "de", dashboardLabel: "German" }),
+  Object.freeze({ code: "zh_CN", dashboardLabel: "Chinese (China)" }),
+  Object.freeze({ code: "hi", dashboardLabel: "Hindi" }),
+  Object.freeze({ code: "pt_BR", dashboardLabel: "Portuguese (Brazil)" }),
+  Object.freeze({ code: "ar", dashboardLabel: "Arabic" }),
+  Object.freeze({ code: "tr", dashboardLabel: "Turkish" }),
 ]);
 
 const localeCodes = STORE_SCREENSHOT_LOCALES.map(({ code }) => code);

@@ -27,9 +27,18 @@ class MemoryDashboard {
     this.imagesByLocale = imagesByLocale;
   }
 
+  globalImages: string[] = ["old-a", "old-b", "old-c", "old-d", "old-e"];
+  savedSections: string[] = [];
+
   get images(): string[] {
     if (!this.selectedLocale) return [];
     return this.imagesByLocale.get(this.selectedLocale) ?? [];
+  }
+
+  // The listing keeps a per-language set and a shared one; the language
+  // selector moves only the former.
+  imagesFor(section = "localized"): string[] {
+    return section === "global" ? this.globalImages : this.images;
   }
 
   async preflight(): Promise<void> {
@@ -40,23 +49,24 @@ class MemoryDashboard {
     this.selectedLocale = locale;
   }
 
-  async screenshotCount(): Promise<number> {
-    return this.images.length;
+  async screenshotCount(section?: string): Promise<number> {
+    return this.imagesFor(section).length;
   }
 
-  async removeFirstScreenshot(): Promise<void> {
-    this.images.shift();
+  async removeFirstScreenshot(section?: string): Promise<void> {
+    this.imagesFor(section).shift();
   }
 
-  async waitForScreenshotCount(count: number): Promise<void> {
+  async waitForScreenshotCount(count: number, section?: string): Promise<void> {
     this.observedCounts.push(count);
-    if (this.images.length !== count) throw new Error(`expected ${count}, received ${this.images.length}`);
+    const images = this.imagesFor(section);
+    if (images.length !== count) throw new Error(`expected ${count}, received ${images.length}`);
   }
 
-  async uploadScreenshot(path: string): Promise<void> {
+  async uploadScreenshot(path: string, section?: string): Promise<void> {
     this.uploadCalls += 1;
     if (this.uploadCalls === this.failUploadAt) throw new Error("network upload failed");
-    this.images.push(imageId(path));
+    this.imagesFor(section).push(imageId(path));
   }
 
   async saveDraft(): Promise<void> {
@@ -128,8 +138,20 @@ describe("store screenshot replacement", () => {
     await uploadStoreScreenshots({ locales: ["en", "ar"], filesByLocale, dashboard });
 
     expect(dashboard.preflightCalls).toBe(1);
-    expect(dashboard.savedLocales).toEqual(["en", "ar"]);
     expect(dashboard.imagesByLocale.get("en")).toEqual(["01", "02", "03", "04", "05"]);
     expect(dashboard.imagesByLocale.get("ar")).toEqual(["01", "02", "03", "04", "05"]);
+    // The shared set is rewritten once, from the English artwork.
+    expect(dashboard.globalImages).toEqual(["01", "02", "03", "04", "05"]);
+    expect(dashboard.savedLocales).toHaveLength(3);
+  });
+
+  it("leaves the shared set alone when English is not part of the run", async () => {
+    const dashboard = new MemoryDashboard(new Map([["ar", ["old-a", "old-b", "old-c", "old-d", "old-e"]]]));
+    const filesByLocale = new Map([["ar", desiredFiles]]);
+
+    await uploadStoreScreenshots({ locales: ["ar"], filesByLocale, dashboard });
+
+    expect(dashboard.imagesByLocale.get("ar")).toEqual(["01", "02", "03", "04", "05"]);
+    expect(dashboard.globalImages).toEqual(["old-a", "old-b", "old-c", "old-d", "old-e"]);
   });
 });

@@ -71,19 +71,66 @@ Pass locale codes to limit, e.g. `pnpm screenshot:store es ar tr`. Turkish promo
 ## Replacing localized screenshots automatically
 
 The public Chrome Web Store API cannot update listing screenshots. The local operator command below
-uses a visible, isolated Chrome session to replace all 55 screenshots through the Developer
-Dashboard and save the listing draft:
+uses a visible Chrome session to replace all 55 screenshots through the Developer Dashboard and save
+the listing draft:
+
+```bash
+pnpm screenshot:store:sync
+```
+
+`CWS_EXTENSION_ID` and `CWS_PUBLISHER_ID` come from the repository `mise.toml`. Without mise
+activated in your shell, export them by hand:
 
 ```bash
 export CWS_EXTENSION_ID=aobaackpofkghaejdnnmpmeaiaoibhdn
 export CWS_PUBLISHER_ID=<publisher-id-from-the-dashboard>
-pnpm screenshot:store:sync
 ```
 
-The command regenerates and validates the images before opening Chrome. Sign in to Google and
-complete 2FA in the opened browser; automation resumes on its own, replaces the five screenshots for
-each of the 11 locales in numbered order, and saves each locale. The browser context is fresh for
-every run and its authentication state is not saved.
+The command regenerates and validates the images, then starts Chrome itself and attaches to it over
+the DevTools protocol. Sign in to Google and complete 2FA in the window it opens; automation resumes
+on its own, replaces the five screenshots for each of the 11 locales in numbered order, and saves
+each locale.
+
+Playwright never launches the browser. Google refuses interactive sign-in in a browser started with
+automation switches — it answers `accounts.google.com/v3/signin/rejected`, "Couldn't sign you in;
+this browser or app may not be secure". Chrome is therefore spawned as an ordinary browser with no
+automation flags, and automation only attaches once you are signed in.
+
+The browser runs against a persistent profile at `$XDG_STATE_HOME/lurkloot/cws-chrome-profile`
+(`~/.local/state/lurkloot/cws-chrome-profile` by default), alongside your other browser state and
+outside the repository. Signing in once is enough; later runs reuse that session. The directory holds
+live Google credentials — keep it local, never copy it anywhere or share it. Delete it to sign out.
+Three optional variables adjust this:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CWS_CHROME_BINARY` | first of `google-chrome-stable`, `google-chrome`, `chrome`, `chromium`, `chromium-browser` on `PATH` | Full path to the browser to start |
+| `CWS_CDP_PORT` | `9333` | DevTools port; chosen off the usual `9222` to avoid colliding with your own debugging sessions |
+| `CWS_CHROME_PROFILE` | `$XDG_STATE_HOME/lurkloot/cws-chrome-profile` | Use a different profile directory |
+
+Chrome channels are preferred over Chromium because Google frequently refuses sign-in on Chromium
+builds; if only Chromium is found the command says so before continuing.
+
+If something is already listening on the port, the command attaches to it instead of starting a
+browser, and leaves it running when it finishes — closing only the automation connection. That is the way to reuse a session you signed into
+yourself:
+
+```bash
+# The binary name varies by distribution: google-chrome, google-chrome-stable, chrome.
+"$BROWSER" --user-data-dir=~/.local/state/lurkloot/cws-chrome-profile --remote-debugging-port=9333
+CWS_CDP_PORT=9333 pnpm screenshot:store:upload
+```
+
+The listing holds two screenshot groups. **Localized screenshots** change with the language
+selector, so each of the 11 locales gets its own five. **Global screenshots** are shared across every
+language; the command fills them from the English set, and only when `en` is part of the run. Both
+groups label their thumbnails "Screenshot N", so each is located from its own heading rather than by
+a page-wide search. Within a group the leading image is removed and its replacement appended, one at
+a time, which rotates the set exactly once per image and preserves the original order.
+
+Removing an image raises a confirmation dialog, which the command answers. Image changes take effect
+as they are made rather than on save, so "Save draft" is often already inactive by the end of a
+group; the command reports that and moves on instead of failing.
 
 This workflow deliberately stops at a saved draft. It has no operation that submits the item for
 review or publishes it. Use the normal release flow when the draft should be submitted.
@@ -99,7 +146,7 @@ A run interrupted between deletion and upload may leave four screenshots in one 
 locale-filtered run repairs that state before replacing the full ordered set. The operation is safe
 to repeat.
 
-Validate the screenshot files and extension ID without opening Chrome or changing the dashboard
+Validate the screenshot files and extension ID without starting Chrome or changing the dashboard
 (`CWS_PUBLISHER_ID` is only checked for a live upload):
 
 ```bash
@@ -108,5 +155,5 @@ pnpm screenshot:store:upload -- --locales en --validate-only
 
 Dashboard automation depends on Google's unsupported UI rather than a stable API. It uses accessible
 labels and fails closed if an expected control is missing or ambiguous. If failure occurs after a
-change, it leaves Chrome open for inspection and reports the exact locale and recovery command; no
-listing submission is attempted.
+change, it leaves Chrome open for inspection — including the browser it started, which you close
+yourself — and reports the exact locale and recovery command; no listing submission is attempted.

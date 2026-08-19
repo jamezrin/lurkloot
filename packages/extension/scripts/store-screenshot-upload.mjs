@@ -7,14 +7,18 @@ async function phase(locale, variant, name, action) {
   }
 }
 
-export async function replaceLocaleScreenshots({ locale, files, dashboard, onProgress = () => {} }) {
-  await phase(locale, undefined, "locale selection", () => dashboard.selectLocale(locale));
-  let count = await phase(locale, undefined, "screenshot count", () => dashboard.screenshotCount());
+export async function replaceLocaleScreenshots({ locale, files, dashboard, section = "localized", onProgress = () => {} }) {
+  // The global section is shared by every language, so it is filled from the
+  // English set once and never follows the language selector.
+  if (section === "localized") {
+    await phase(locale, undefined, "locale selection", () => dashboard.selectLocale(locale));
+  }
+  let count = await phase(locale, undefined, "screenshot count", () => dashboard.screenshotCount(section));
 
   if (count === 4) {
     const recovery = files[0];
-    await phase(locale, recovery.variant.file, "interruption recovery upload", () => dashboard.uploadScreenshot(recovery.path));
-    await phase(locale, recovery.variant.file, "interruption recovery wait", () => dashboard.waitForScreenshotCount(5));
+    await phase(locale, recovery.variant.file, "interruption recovery upload", () => dashboard.uploadScreenshot(recovery.path, section));
+    await phase(locale, recovery.variant.file, "interruption recovery wait", () => dashboard.waitForScreenshotCount(5, section));
     onProgress({ locale, variant: recovery.variant.file, phase: "recovered" });
     count = 5;
   }
@@ -24,15 +28,17 @@ export async function replaceLocaleScreenshots({ locale, files, dashboard, onPro
 
   for (const file of files) {
     const variant = file.variant.file;
-    await phase(locale, variant, "removal", () => dashboard.removeFirstScreenshot());
-    await phase(locale, variant, "post-removal wait", () => dashboard.waitForScreenshotCount(4));
-    await phase(locale, variant, "upload", () => dashboard.uploadScreenshot(file.path));
-    await phase(locale, variant, "post-upload wait", () => dashboard.waitForScreenshotCount(5));
-    onProgress({ locale, variant, phase: "uploaded" });
+    // Removing the leading image and appending its replacement rotates the set
+    // exactly once per image, so the original order is preserved.
+    await phase(locale, variant, "removal", () => dashboard.removeFirstScreenshot(section));
+    await phase(locale, variant, "post-removal wait", () => dashboard.waitForScreenshotCount(4, section));
+    await phase(locale, variant, "upload", () => dashboard.uploadScreenshot(file.path, section));
+    await phase(locale, variant, "post-upload wait", () => dashboard.waitForScreenshotCount(5, section));
+    onProgress({ locale, variant, phase: "uploaded", section });
   }
 
   await phase(locale, undefined, "draft save", () => dashboard.saveDraft());
-  onProgress({ locale, phase: "saved" });
+  onProgress({ locale, phase: "saved", section });
 }
 
 export async function uploadStoreScreenshots({ locales, filesByLocale, dashboard, onProgress = () => {} }) {
@@ -46,5 +52,12 @@ export async function uploadStoreScreenshots({ locales, filesByLocale, dashboard
     const files = filesByLocale.get(locale);
     if (!files) throw new Error(`No validated screenshot files found for ${locale}`);
     await replaceLocaleScreenshots({ locale, files, dashboard, onProgress });
+  }
+
+  // The shared section shows the English artwork, so it is only rewritten when
+  // the English set was part of this run.
+  const englishFiles = filesByLocale.get("en");
+  if (locales.includes("en") && englishFiles) {
+    await replaceLocaleScreenshots({ locale: "en", files: englishFiles, dashboard, section: "global", onProgress });
   }
 }
