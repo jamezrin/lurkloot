@@ -77,3 +77,6 @@ state.json
 ehthumbs.db
 Thumbs.db
 desktop.ini
+
+# mise local overrides (secrets)
+mise.local.toml
