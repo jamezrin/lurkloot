@@ -55,7 +55,7 @@
         "text": "Fixed the time shown next to the next reward being the campaign's whole remaining total, which made a 30-minute reward look like it needed the sum of every reward before it. The campaign-wide total is still shown, now labelled “Campaign left”."
       }
     ],
-    "date": "2026-08-19"
+    "date": "2026-08-20"
   },
   {
     "version": "1.11.0",
