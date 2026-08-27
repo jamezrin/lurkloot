@@ -196,7 +196,9 @@ export async function promotePrerelease({ client, pr, version, notes }) {
   if (!release) throw new Error(`cannot promote ${tag}: no candidate release exists`);
   if (!release.prerelease) {
     const ownership = parseCandidateMarker(release.body);
-    if (ownership?.version !== version || ownership.head !== `release/${version}`) {
+    // Promotion writes notes without the candidate marker. A stable release at this
+    // tag is the terminal state; recovery must no-op even when that marker is gone.
+    if (ownership && (ownership.version !== version || ownership.head !== `release/${version}`)) {
       throw new Error(`refusing to promote ${tag}: release does not belong to release/${version}`);
     }
     return { release, tag, promoted: false };

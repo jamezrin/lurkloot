@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
@@ -17,9 +17,32 @@ async function isAncestor(cwd, ancestor, descendant) {
   }
 }
 
-async function defaultVerify(cwd) {
-  await exec("pnpm", ["install", "--frozen-lockfile"], { cwd });
-  await exec("pnpm", ["verify"], { cwd });
+function commandFailure(error) {
+  const details = [error.message, error.stdout, error.stderr].filter(Boolean).join("\n");
+  return new Error(details);
+}
+
+export async function defaultVerify(cwd, run = execPnpm) {
+  try {
+    await run(cwd, ["install", "--frozen-lockfile"]);
+    // Same Chromium the PR and candidate verify jobs install. storeScreenshotDashboard
+    // tests launch it; GitHub-hosted runners do not ship Playwright browsers.
+    await run(cwd, ["--filter", "@lurkloot/extension", "exec", "playwright", "install", "chromium"]);
+    await run(cwd, ["verify"]);
+  } catch (error) {
+    throw commandFailure(error);
+  }
+}
+
+function execPnpm(cwd, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("pnpm", args, { cwd, stdio: "inherit" });
+    child.on("error", reject);
+    child.on("close", (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(signal ? `pnpm ${args.join(" ")} killed by ${signal}` : `Command failed: pnpm ${args.join(" ")}`));
+    });
+  });
 }
 
 export async function syncBranches({ cwd = process.cwd(), remote = "origin", verify = defaultVerify }) {
