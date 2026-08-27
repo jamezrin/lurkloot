@@ -48,7 +48,11 @@ jobs:
             pr_number=$EVENT_PR
             labels=$(jq -r '[.pull_request.labels[].name] | join(",")' "$GITHUB_EVENT_PATH")
           else
-            test "$GITHUB_REF" = refs/heads/main
+            # Dispatch always checkouts main first, then re-resolves that version's
+            # merged release SHA. Do not require GITHUB_REF to be main: a failed
+            # stable run's YAML is frozen on that SHA, so recovery must be able to
+            # run a fixed workflow file from another branch while publication still
+            # operates on the original merged commit. Production still approves.
             pr_number=$(gh pr list --base main --head "release/$version" --state merged --limit 1 --json number --jq '.[0].number // ""')
             test -n "$pr_number"
             release_ref=$(gh pr view "$pr_number" --json mergeCommit --jq '.mergeCommit.oid // ""')

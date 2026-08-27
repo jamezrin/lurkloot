@@ -150,3 +150,12 @@ test("publish installs Playwright Chromium before synchronizing develop", async 
     /playwright install chromium\s+node scripts\/release\/cli\.mjs sync-branches/,
   );
 });
+
+test("recovery dispatch is not gated on the workflow ref being main", async () => {
+  const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
+  assert.doesNotMatch(yaml, /test "\$GITHUB_REF" = refs\/heads\/main/);
+  assert.match(
+    yaml,
+    /github\.event_name == 'pull_request' && github\.event\.pull_request\.merge_commit_sha \|\| 'main'/,
+  );
+});
