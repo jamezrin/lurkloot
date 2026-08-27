@@ -237,6 +237,11 @@ jobs:
           # demand, which rewrites package.json. Synchronization switches branches, so it aborts on a
           # dirty tree. Everything is already published by now, so tracked edits are discarded.
           git restore --staged --worktree -- .
+          # Playwright browsers live in the runner cache, not the worktree, so they survive the
+          # branch switch inside sync-branches. Candidate and PR verify jobs already install
+          # Chromium; this publish checkout may be an older release SHA whose defaultVerify does not.
+          pnpm install --frozen-lockfile
+          pnpm --filter @lurkloot/extension exec playwright install chromium
           node scripts/release/cli.mjs sync-branches --remote origin
       - name: Report stable publication
         run: >-

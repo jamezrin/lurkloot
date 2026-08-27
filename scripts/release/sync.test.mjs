@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { syncBranches } from "./sync.mjs";
+import { defaultVerify, syncBranches } from "./sync.mjs";
 
 const exec = promisify(execFile);
 
@@ -116,4 +116,37 @@ test("untracked files do not block synchronization", async () => {
   await writeFile(join(seed, "notes.md"), "left behind by publication\n");
   const result = await syncBranches({ cwd: seed, verify: async () => {} });
   assert.equal(result.mode, "fast-forward");
+});
+
+test("defaultVerify installs Playwright Chromium before pnpm verify", async () => {
+  const commands = [];
+  await defaultVerify("/repo", async (cwd, args) => {
+    commands.push([cwd, ...args]);
+  });
+  assert.deepEqual(commands, [
+    ["/repo", "install", "--frozen-lockfile"],
+    ["/repo", "--filter", "@lurkloot/extension", "exec", "playwright", "install", "chromium"],
+    ["/repo", "verify"],
+  ]);
+});
+
+test("defaultVerify includes command stdout when verification fails", async () => {
+  const failure = Object.assign(new Error("Command failed: pnpm verify"), {
+    stdout: "browserType.launch: Executable doesn't exist at /ms-playwright/chromium\n",
+    stderr: "$ pnpm -r --if-present test\n",
+  });
+  await assert.rejects(
+    () => defaultVerify("/repo", async () => {
+      throw failure;
+    }),
+    /Executable doesn't exist[\s\S]*pnpm -r --if-present test/,
+  );
+});
+
+test("publish installs Playwright Chromium before synchronizing develop", async () => {
+  const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
+  assert.match(
+    yaml,
+    /playwright install chromium\s+node scripts\/release\/cli\.mjs sync-branches/,
+  );
 });
