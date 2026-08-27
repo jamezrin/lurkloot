@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { DndContext, DragOverlay, closestCenter, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { DragDropProvider } from "@dnd-kit/react";
+import { useSortable } from "@dnd-kit/react/sortable";
 import { AnimatePresence, motion } from "motion/react";
 import {
   AlertTriangle,
@@ -40,8 +39,8 @@ import {
   SectionHeader,
   cn,
   moveById,
-  useDndSensors,
   preventNativeDrag,
+  type SortableDragEndEvent,
 } from "./primitives";
 
 /** Cards start collapsed; only a campaign that is actively being farmed is worth
@@ -59,8 +58,6 @@ function farmingCampaignId(campaigns: CampaignView[]): string | undefined {
 
 export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollapsed = false, onRefreshCampaign, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; refreshing: boolean; startCollapsed?: boolean; onRefreshCampaign(id: string): void | Promise<void>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
   const t = useT();
-  const sensors = useDndSensors();
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [sectionExpanded, setSectionExpanded] = useState(true);
@@ -106,16 +103,13 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
     });
     return () => cancelAnimationFrame(frame);
   }, [focus?.id, focus?.seq, searching, searchOpen, sectionExpanded]);
-  const activeCampaign = campaigns.find((campaign) => campaign.id === activeId);
-  const activeIndex = campaigns.findIndex((campaign) => campaign.id === activeId);
   const anyFarming = campaigns.some((campaign) => Boolean(campaign.farmingChannel));
 
-  function endDrag(event: DragEndEvent): void {
-    setActiveId(null);
-    const active = String(event.active.id);
-    const over = event.over?.id == null ? undefined : String(event.over.id);
-    if (!over || active === over) return;
-    void onReorder(moveById(campaigns, active, over));
+  function endDrag(event: SortableDragEndEvent): void {
+    if (event.canceled) return;
+    const { source, target } = event.operation;
+    if (!source || !target) return;
+    void onReorder(moveById(campaigns, String(source.id), String(target.id)));
   }
 
   return (
@@ -164,18 +158,13 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
                 </div>
               )
             ) : (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event: DragStartEvent) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
-                <SortableContext items={campaigns.map((campaign) => campaign.id)} strategy={verticalListSortingStrategy}>
-                  <div ref={listRef} className="space-y-1">
-                    {campaigns.map((campaign, index) => (
-                      <SortableCampaign key={campaign.id} campaign={campaign} index={index} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
-                    ))}
-                  </div>
-                </SortableContext>
-                <DragOverlay dropAnimation={null}>
-                  {activeCampaign ? <CampaignCard campaign={activeCampaign} index={activeIndex} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[activeCampaign.gameId] ?? fallbackGame(activeCampaign, activeIndex, t)} expanded={false} refreshing={refreshing} onToggle={() => undefined} onRefreshCampaign={onRefreshCampaign} isOverlay dragHandle={<GripVertical size={16} className="text-zinc-400" />} /> : null}
-                </DragOverlay>
-              </DndContext>
+              <DragDropProvider onDragEnd={endDrag}>
+                <div ref={listRef} className="space-y-1">
+                  {campaigns.map((campaign, index) => (
+                    <SortableCampaign key={campaign.id} campaign={campaign} index={index} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
+                  ))}
+                </div>
+              </DragDropProvider>
             )}
           </motion.div>
         ) : null}
@@ -185,10 +174,12 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
 }
 
 function SortableCampaign(props: { campaign: CampaignView; index: number; farmingIndex: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.campaign.id });
+  // The new dnd-kit animates the real element, so there is no DragOverlay copy
+  // and no transform/transition to apply by hand.
+  const { ref, handleRef, isDragging } = useSortable({ id: props.campaign.id, index: props.index });
   return (
-    <div ref={setNodeRef} data-campaign-id={props.campaign.id} onDragStart={preventNativeDrag} style={{ transform: CSS.Transform.toString(transform), transition }}>
-      <CampaignCard {...props} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${props.campaign.title}`} />} />
+    <div ref={ref} data-campaign-id={props.campaign.id} onDragStart={preventNativeDrag}>
+      <CampaignCard {...props} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={`Reorder ${props.campaign.title}`} />} />
     </div>
   );
 }
