@@ -1,9 +1,8 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { DndContext, DragOverlay, closestCenter, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { Eye, GripVertical, Play, Plus } from "lucide-react";
+import { DragDropProvider } from "@dnd-kit/react";
+import { useSortable } from "@dnd-kit/react/sortable";
+import { Eye, Play, Plus } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import { useT } from "./context";
 import { formatViewers } from "./format";
@@ -18,7 +17,8 @@ import {
   RemoveRowButton,
   SectionHeader,
   moveById,
-  useDndSensors,
+  preventNativeDrag,
+  type SortableDragEndEvent,
 } from "./primitives";
 
 /** The watchlist as a collapsible section under the drops list. Expansion and the
@@ -26,18 +26,13 @@ import {
  * both — that toolbar is what replaced the Drops/Idle Watchlist tab pair. */
 export function IdleWatchlistPanel({ platform, streamers, expanded, adding, onExpandedChange, onAddingChange, onChange }: { platform: Platform; streamers: StreamerItem[]; expanded: boolean; adding: boolean; onExpandedChange(expanded: boolean): void; onAddingChange(adding: boolean): void; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
   const t = useT();
-  const sensors = useDndSensors();
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [value, setValue] = useState("");
-  const active = streamers.find((streamer) => streamer.id === activeId);
-  const activeIndex = streamers.findIndex((streamer) => streamer.id === activeId);
 
-  function endDrag(event: DragEndEvent): void {
-    setActiveId(null);
-    const active = String(event.active.id);
-    const over = event.over?.id == null ? undefined : String(event.over.id);
-    if (!over || active === over) return;
-    void onChange(moveById(streamers, active, over));
+  function endDrag(event: SortableDragEndEvent): void {
+    if (event.canceled) return;
+    const { source, target } = event.operation;
+    if (!source || !target) return;
+    void onChange(moveById(streamers, String(source.id), String(target.id)));
   }
 
   function addChannel(): void {
@@ -78,16 +73,11 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, onEx
           <motion.div key="watchlist" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
             <div className="space-y-1.5">
               {streamers.length === 0 ? <EmptyPanel>{t("noIdleWatchlist")}</EmptyPanel> : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
-                  <SortableContext items={streamers.map((streamer) => streamer.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-1.5">
-                      {streamers.map((streamer, index) => <SortableIdleWatchlist key={streamer.id} streamer={streamer} index={index} platform={platform} onRemove={() => removeChannel(streamer.id)} />)}
-                    </div>
-                  </SortableContext>
-                  <DragOverlay dropAnimation={null}>
-                    {active ? <CompactRow isOverlay index={activeIndex} avatar={active.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={active.name} titleHref={channelUrl(platform, active.id)} subtitle={active.subtitle} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<IdleWatchlistStatus streamer={active} />} /> : null}
-                  </DragOverlay>
-                </DndContext>
+                <DragDropProvider onDragEnd={endDrag}>
+                  <div className="space-y-1.5">
+                    {streamers.map((streamer, index) => <SortableIdleWatchlist key={streamer.id} streamer={streamer} index={index} platform={platform} onRemove={() => removeChannel(streamer.id)} />)}
+                  </div>
+                </DragDropProvider>
               )}
               {adding ? (
                 <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); addChannel(); }}>
@@ -104,11 +94,13 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, onEx
 }
 
 function SortableIdleWatchlist({ streamer, index, platform, onRemove }: { streamer: StreamerItem; index: number; platform: Platform; onRemove(): void }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: streamer.id });
+  // The new dnd-kit animates the real element, so there is no DragOverlay copy
+  // and no transform/transition to apply by hand.
+  const { ref, handleRef, isDragging } = useSortable({ id: streamer.id, index });
   const status = <IdleWatchlistStatus streamer={streamer} />;
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
-      <CompactRow index={index} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} titleHref={channelUrl(platform, streamer.id)} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${streamer.name}`} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={`Remove ${streamer.name}`} onClick={onRemove} /></span>} />
+    <div ref={ref} onDragStart={preventNativeDrag}>
+      <CompactRow index={index} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} titleHref={channelUrl(platform, streamer.id)} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={`Reorder ${streamer.name}`} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={`Remove ${streamer.name}`} onClick={onRemove} /></span>} />
     </div>
   );
 }
