@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.12.1",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Fixed drag-and-drop reordering in the popup not working. The popup window resizes itself to fit its contents, and the previous drag-and-drop library cancelled any in-progress drag whenever that happened or when you switched tabs. Reordering the Drops and Idle Watchlist sections, by pointer or keyboard, now works by using @dnd-kit/react instead of the legacy @dnd-kit/core library."
+      }
+    ],
+    "date": "2026-08-27"
+  },
+  {
     "version": "1.12.0",
     "changes": [
       {

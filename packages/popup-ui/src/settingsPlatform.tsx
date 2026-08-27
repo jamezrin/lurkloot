@@ -1,17 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, GripVertical, Plus, Search } from "lucide-react";
+import { DragDropProvider } from "@dnd-kit/react";
+import { useSortable } from "@dnd-kit/react/sortable";
+import { AlertTriangle, Plus, Search } from "lucide-react";
 import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { GAME_ACCENTS, PLATFORMS } from "./constants";
 import { useT } from "./context";
@@ -24,7 +14,8 @@ import {
   RemoveRowButton,
   Toggle,
   moveById,
-  useDndSensors,
+  preventNativeDrag,
+  type SortableDragEndEvent,
 } from "./primitives";
 
 export function PlatformCategorySettings({ platform, suggestions, settings, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories }: {
@@ -144,24 +135,19 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
   onSearch(query: string): Promise<CategorySelection[]>;
 }) {
   const t = useT();
-  const sensors = useDndSensors();
-  const [activeId, setActiveId] = useState<string | null>(null);
 
   const selectedIds = useMemo(() => new Set(categories.map((category) => category.id.toLowerCase())), [categories]);
-  const active = categories.find((category) => category.id === activeId);
-  const activeIndex = categories.findIndex((category) => category.id === activeId);
 
   function addCategory(category: CategorySelection): void {
     if (selectedIds.has(category.id.toLowerCase())) return;
     void onChange([...categories, category]);
   }
 
-  function endDrag(event: DragEndEvent): void {
-    setActiveId(null);
-    const from = String(event.active.id);
-    const over = event.over?.id == null ? undefined : String(event.over.id);
-    if (!over || from === over) return;
-    void onChange(moveById(categories, from, over));
+  function endDrag(event: SortableDragEndEvent): void {
+    if (event.canceled) return;
+    const { source, target } = event.operation;
+    if (!source || !target) return;
+    void onChange(moveById(categories, String(source.id), String(target.id)));
   }
 
   const accentFor = (index: number): string => GAME_ACCENTS[index % GAME_ACCENTS.length];
@@ -179,12 +165,9 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
           <span>{t("noCategoriesSelected", PLATFORMS[platform].label)}</span>
         </div>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={endDrag} onDragCancel={() => setActiveId(null)}>
-          <SortableContext items={categories.map((category) => category.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-1.5">{categories.map((category, index) => <SortableCategoryRow key={category.id} category={category} index={index} accent={accentFor(index)} onRemove={() => void onChange(categories.filter((entry) => entry.id !== category.id))} />)}</div>
-          </SortableContext>
-          <DragOverlay dropAnimation={null}>{active ? <CompactRow isOverlay index={activeIndex} avatar={initials(active.name)} avatarImageUrl={active.imageUrl} avatarStyle={{ backgroundColor: accentFor(activeIndex), color: "#fff" }} title={active.name} dragHandle={<GripVertical size={16} className="text-zinc-400" />} trailing={<span className="w-4" />} /> : null}</DragOverlay>
-        </DndContext>
+        <DragDropProvider onDragEnd={endDrag}>
+          <div className="space-y-1.5">{categories.map((category, index) => <SortableCategoryRow key={category.id} category={category} index={index} accent={accentFor(index)} onRemove={() => void onChange(categories.filter((entry) => entry.id !== category.id))} />)}</div>
+        </DragDropProvider>
       )}
 
       <CategoryPickerCombobox platform={platform} suggestions={suggestions} selectedIds={selectedIds} onSearch={onSearch} onSelect={addCategory} />
@@ -330,10 +313,10 @@ function CategoryPickerGroup({ label, items, onSelect }: {
 }
 
 function SortableCategoryRow({ category, index, accent, onRemove }: { category: CategorySelection; index: number; accent: string; onRemove(): void }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
+  const { ref, handleRef, isDragging } = useSortable({ id: category.id, index });
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
-      <CompactRow index={index} avatar={initials(category.name)} avatarImageUrl={category.imageUrl} avatarStyle={{ backgroundColor: accent, color: "#fff" }} title={category.name} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${category.name}`} />} trailing={<RemoveRowButton label={`Remove ${category.name}`} onClick={onRemove} />} />
+    <div ref={ref} onDragStart={preventNativeDrag}>
+      <CompactRow index={index} avatar={initials(category.name)} avatarImageUrl={category.imageUrl} avatarStyle={{ backgroundColor: accent, color: "#fff" }} title={category.name} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={`Reorder ${category.name}`} />} trailing={<RemoveRowButton label={`Remove ${category.name}`} onClick={onRemove} />} />
     </div>
   );
 }

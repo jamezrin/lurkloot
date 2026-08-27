@@ -1,12 +1,16 @@
 import React from "react";
-import { KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { arrayMove } from "@dnd-kit/helpers";
+import type { DragDropProvider } from "@dnd-kit/react";
 import { motion } from "motion/react";
 import { ChevronRight, GripVertical, Search, X, type LucideIcon } from "lucide-react";
 
 export function cn(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
 }
+
+/** The `onDragEnd` payload, derived from the provider so it tracks the library
+ * rather than pinning a hand-written shape. */
+export type SortableDragEndEvent = Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>["onDragEnd"]>>[0];
 
 export function moveById<T extends { id: string }>(list: T[], activeId: string, overId: string): T[] {
   if (activeId === overId) return list;
@@ -35,12 +39,13 @@ export function SearchBox({ value, onChange, placeholder, autoFocus = false, com
   );
 }
 
-export function useDndSensors() {
-  return useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-}
+/** Links and images inside a sortable row are natively draggable, so grabbing a
+ * row by its body starts an HTML5 drag (a link/image ghost follows the cursor)
+ * instead of doing nothing. Reordering is driven by the grip handle and dnd-kit's
+ * own pointer sensor, so native drag has no purpose here. `dragstart` bubbles,
+ * so suppressing it on the sortable wrapper covers every descendant — including
+ * links and images added later. */
+export const preventNativeDrag = (event: React.DragEvent): void => event.preventDefault();
 
 export function ImageWithFallback({ src, alt, className, fit = "cover", fallback }: { src?: string; alt: string; className?: string; fit?: "cover" | "contain"; fallback: React.ReactNode }) {
   const [failed, setFailed] = React.useState(false);
@@ -93,9 +98,11 @@ export function RemoveRowButton({ label, onClick }: { label: string; onClick(): 
   );
 }
 
-export function DragHandle({ setActivatorNodeRef, attributes, listeners, label }: { setActivatorNodeRef(element: HTMLElement | null): void; attributes: React.ButtonHTMLAttributes<HTMLButtonElement>; listeners?: Record<string, unknown>; label: string }) {
+/** The grip. The new dnd-kit wires the activator through a single `handleRef`
+ * — there are no `attributes`/`listeners` props to spread any more. */
+export function DragHandle({ handleRef, label }: { handleRef(element: Element | null): void; label: string }) {
   return (
-    <button ref={setActivatorNodeRef} type="button" aria-label={label} {...attributes} {...listeners} onClick={(event) => event.stopPropagation()} className="flex cursor-grab touch-none items-center justify-center rounded-md text-zinc-300 transition-colors outline-none hover:text-zinc-500 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:cursor-grabbing dark:text-zinc-600 dark:hover:text-zinc-400" style={{ touchAction: "none", userSelect: "none" }}>
+    <button ref={handleRef} type="button" aria-label={label} onClick={(event) => event.stopPropagation()} className="flex cursor-grab touch-none items-center justify-center rounded-md text-zinc-300 transition-colors outline-none hover:text-zinc-500 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:cursor-grabbing dark:text-zinc-600 dark:hover:text-zinc-400" style={{ touchAction: "none", userSelect: "none" }}>
       <GripVertical size={16} />
     </button>
   );
