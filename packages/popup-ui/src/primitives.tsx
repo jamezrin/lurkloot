@@ -35,6 +35,14 @@ export function SearchBox({ value, onChange, placeholder, autoFocus = false, com
   );
 }
 
+/** Links and images inside a sortable row are natively draggable, so grabbing a
+ * row by its body starts an HTML5 drag (a link/image ghost follows the cursor)
+ * instead of doing nothing. Reordering is driven by the grip handle and dnd-kit's
+ * own pointer sensor, so native drag has no purpose here. `dragstart` bubbles,
+ * so suppressing it on the sortable wrapper covers every descendant — including
+ * links and images added later. */
+export const preventNativeDrag = (event: React.DragEvent): void => event.preventDefault();
+
 export function useDndSensors() {
   return useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

@@ -41,6 +41,7 @@ import {
   cn,
   moveById,
   useDndSensors,
+  preventNativeDrag,
 } from "./primitives";
 
 /** Cards start collapsed; only a campaign that is actively being farmed is worth
@@ -186,7 +187,7 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
 function SortableCampaign(props: { campaign: CampaignView; index: number; farmingIndex: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.campaign.id });
   return (
-    <div ref={setNodeRef} data-campaign-id={props.campaign.id} style={{ transform: CSS.Transform.toString(transform), transition }}>
+    <div ref={setNodeRef} data-campaign-id={props.campaign.id} onDragStart={preventNativeDrag} style={{ transform: CSS.Transform.toString(transform), transition }}>
       <CampaignCard {...props} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${props.campaign.title}`} />} />
     </div>
   );

@@ -19,6 +19,7 @@ import {
   SectionHeader,
   moveById,
   useDndSensors,
+  preventNativeDrag,
 } from "./primitives";
 
 /** The watchlist as a collapsible section under the drops list. Expansion and the
@@ -107,7 +108,7 @@ function SortableIdleWatchlist({ streamer, index, platform, onRemove }: { stream
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: streamer.id });
   const status = <IdleWatchlistStatus streamer={streamer} />;
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
+    <div ref={setNodeRef} onDragStart={preventNativeDrag} style={{ transform: CSS.Transform.toString(transform), transition }}>
       <CompactRow index={index} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} titleHref={channelUrl(platform, streamer.id)} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${streamer.name}`} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={`Remove ${streamer.name}`} onClick={onRemove} /></span>} />
     </div>
   );
