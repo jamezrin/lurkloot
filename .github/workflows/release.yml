@@ -178,7 +178,13 @@ jobs:
             echo
             echo "To load this pre-release in Chrome from the zip, see [Installing a pre-release build]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/docs/install-prerelease.md)."
           } >> notes.md
-          node scripts/release/cli.mjs promote-release --pr "$RELEASE_PR" --version "$VERSION" --notes notes.md
+          # Promotion strips the candidate marker, so a recovery checkout of the merged
+          # SHA cannot satisfy promote-release's ownership check. Skip when already stable.
+          if [ "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true ]; then
+            node scripts/release/cli.mjs promote-release --pr "$RELEASE_PR" --version "$VERSION" --notes notes.md
+          else
+            echo "v$VERSION is already the stable release"
+          fi
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -194,6 +200,12 @@ jobs:
           cd docker-images
           sha256sum -c image-amd64.tar.sha256
           sha256sum -c image-arm64.tar.sha256
+          # Recovery rebuilds OCI archives; those digests are not guaranteed to match the
+          # already-published immutable tag. Leave X.Y.Z in place when it exists.
+          if docker buildx imagetools inspect "$IMAGE:$VERSION" --raw >/dev/null 2>&1; then
+            echo "$IMAGE:$VERSION already published; leaving the immutable digest in place"
+            exit 0
+          fi
           for arch in amd64 arm64; do
             docker load --input "image-$arch.tar"
             docker tag "$IMAGE:$VERSION-$arch" "$IMAGE:$staging-$arch"

@@ -201,6 +201,20 @@ test("promoting an already promoted release is a no-op", async () => {
   assert.ok(!routes.calls.some(({ method }) => method === "PATCH"));
 });
 
+test("promoting an already stable release without a candidate marker is a no-op", async () => {
+  const routes = recordingFetch({
+    "GET /repos/jamezrin/lurkloot/releases/tags/v1.6.0": response(200, {
+      id: 12,
+      prerelease: false,
+      body: "## Fixed\n- A bug.\n",
+    }),
+  });
+  const client = new GitHubClient({ repository: "jamezrin/lurkloot", token: "token", fetchImpl: routes.fetchImpl });
+  const result = await promotePrerelease({ client, pr: 132, version: "1.6.0", notes: "notes" });
+  assert.equal(result.promoted, false);
+  assert.ok(!routes.calls.some(({ method }) => method === "PATCH"));
+});
+
 test("refuses to promote a release belonging to another release branch", async () => {
   const marker = candidateMarker({ pr: 999, version: "1.7.0", head: "release/1.7.0" });
   const routes = recordingFetch({

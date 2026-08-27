@@ -159,3 +159,14 @@ test("recovery dispatch is not gated on the workflow ref being main", async () =
     /github\.event_name == 'pull_request' && github\.event\.pull_request\.merge_commit_sha \|\| 'main'/,
   );
 });
+
+test("recovery skips promotion when the GitHub release is already stable", async () => {
+  const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
+  assert.match(yaml, /gh release view "v\$VERSION" --json isPrerelease/);
+  assert.match(yaml, /already the stable release/);
+});
+
+test("recovery leaves an already published immutable image tag in place", async () => {
+  const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
+  assert.match(yaml, /already published; leaving the immutable digest in place/);
+});
