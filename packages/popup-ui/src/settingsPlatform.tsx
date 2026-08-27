@@ -25,6 +25,7 @@ import {
   Toggle,
   moveById,
   useDndSensors,
+  preventNativeDrag,
 } from "./primitives";
 
 export function PlatformCategorySettings({ platform, suggestions, settings, onFarmAllCategoriesChange, onCategoriesChange, onSearchCategories }: {
@@ -332,7 +333,7 @@ function CategoryPickerGroup({ label, items, onSelect }: {
 function SortableCategoryRow({ category, index, accent, onRemove }: { category: CategorySelection; index: number; accent: string; onRemove(): void }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
+    <div ref={setNodeRef} onDragStart={preventNativeDrag} style={{ transform: CSS.Transform.toString(transform), transition }}>
       <CompactRow index={index} avatar={initials(category.name)} avatarImageUrl={category.imageUrl} avatarStyle={{ backgroundColor: accent, color: "#fff" }} title={category.name} dimmed={isDragging} dragHandle={<DragHandle setActivatorNodeRef={setActivatorNodeRef} attributes={attributes} listeners={listeners} label={`Reorder ${category.name}`} />} trailing={<RemoveRowButton label={`Remove ${category.name}`} onClick={onRemove} />} />
     </div>
   );
