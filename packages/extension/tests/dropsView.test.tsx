@@ -176,6 +176,33 @@ function setInputValue(input: HTMLInputElement, value: string): void {
   props?.onChange?.({ target: input, currentTarget: input });
 }
 
+function findNumericRankInput(container: Element): HTMLInputElement | undefined {
+  // linkedom keeps React's camelCase inputMode attribute rather than lowercasing it.
+  return [...container.querySelectorAll<HTMLInputElement>("input")].find((el) =>
+    el.getAttribute("inputmode") === "numeric" || el.getAttribute("inputMode") === "numeric"
+  );
+}
+
+function blurRankInput(input: HTMLInputElement): void {
+  // Re-read props after the controlled value commit; the pre-change onBlur
+  // closure still sees the old rank and would cancel the move.
+  const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
+  const props = propsKey
+    ? (input as unknown as Record<string, { onBlur?(): void }>)[propsKey]
+    : undefined;
+  props?.onBlur?.();
+}
+
+function keyDownRankInput(input: HTMLInputElement, key: string): void {
+  const propsKey = Object.keys(input).find((keyName) => keyName.startsWith("__reactProps$"));
+  const props = propsKey
+    ? (input as unknown as Record<string, {
+      onKeyDown?(event: { key: string; preventDefault(): void; stopPropagation(): void }): void;
+    }>)[propsKey]
+    : undefined;
+  props?.onKeyDown?.({ key, preventDefault() {}, stopPropagation() {} });
+}
+
 describe("campaign rank input", () => {
   it("reorders via the typed rank on blur", () => {
     const { document, window } = parseHTML("<div id=app></div>");
@@ -217,24 +244,80 @@ describe("campaign rank input", () => {
     });
 
     const rank = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign");
-    expect(rank).not.toBeNull();
+    expect(rank).toBeDefined();
     act(() => rank?.click());
-    // linkedom keeps React's camelCase inputMode attribute rather than lowercasing it.
-    const input = [...container.querySelectorAll<HTMLInputElement>("input")].find((el) =>
-      el.getAttribute("inputmode") === "numeric" || el.getAttribute("inputMode") === "numeric"
-    )!;
-    expect(input).not.toBeNull();
+    const input = findNumericRankInput(container);
+    expect(input).toBeDefined();
     act(() => {
-      setInputValue(input, "1");
+      setInputValue(input!, "1");
     });
     act(() => {
-      // Re-read props after the controlled value commit; the pre-change onBlur
-      // closure still sees the old rank and would cancel the move.
-      const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
-      const props = propsKey
-        ? (input as unknown as Record<string, { onBlur?(): void }>)[propsKey]
-        : undefined;
-      props?.onBlur?.();
+      blurRankInput(input!);
+    });
+
+    expect(onReorder).toHaveBeenCalledOnce();
+    expect(onReorder.mock.calls[0]?.[0].map((campaign: { id: string }) => campaign.id)).toEqual(["second", "first"]);
+  });
+
+  it("allows commit after Escape cancels a prior edit on the same row", () => {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
+    const onReorder = vi.fn();
+    const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
+    const campaigns = [
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+    ];
+    const container = document.getElementById("app")!;
+
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
+          <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
+            <DropsPanel
+              campaigns={campaigns}
+              gameMap={{}}
+              refreshing={false}
+              onRefreshCampaign={() => undefined}
+              onReorder={onReorder}
+              onToggleExclude={() => undefined}
+            />
+          </PopupRuntimeContext.Provider>
+        </I18nContext.Provider>,
+      );
+    });
+
+    const openRank = () => {
+      const rank = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign");
+      expect(rank).toBeDefined();
+      act(() => rank?.click());
+      return findNumericRankInput(container);
+    };
+
+    const inputAfterOpen = openRank();
+    expect(inputAfterOpen).toBeDefined();
+    act(() => {
+      keyDownRankInput(inputAfterOpen!, "Escape");
+    });
+    expect(onReorder).not.toHaveBeenCalled();
+
+    const input = openRank();
+    expect(input).toBeDefined();
+    act(() => {
+      setInputValue(input!, "1");
+    });
+    act(() => {
+      blurRankInput(input!);
     });
 
     expect(onReorder).toHaveBeenCalledOnce();
@@ -268,7 +351,7 @@ describe("campaign rank input", () => {
     act(() => setSearchQuery(input, "Second"));
 
     expect([...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign")).toBeUndefined();
-    expect(container.querySelector("input[inputmode='numeric']")).toBeNull();
+    expect(findNumericRankInput(container)).toBeUndefined();
     expect(container.querySelector<HTMLElement>("article .w-7 span")?.textContent).toBe("2");
   });
 });

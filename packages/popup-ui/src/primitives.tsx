@@ -133,7 +133,9 @@ export function RankInput({ index, count, label, onMove, size }: { index: number
   const color: React.CSSProperties = { color: "var(--accent-text)" };
 
   React.useEffect(() => {
-    if (editing) inputRef.current?.select();
+    if (!editing) return;
+    skipBlur.current = false;
+    inputRef.current?.select();
   }, [editing]);
 
   if (!onMove) {
