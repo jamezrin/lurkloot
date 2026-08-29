@@ -167,6 +167,112 @@ function setSearchQuery(input: HTMLInputElement, value: string): void {
   props?.onChange?.({ target: input, currentTarget: input });
 }
 
+function setInputValue(input: HTMLInputElement, value: string): void {
+  input.value = value;
+  const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
+  const props = propsKey
+    ? (input as unknown as Record<string, { onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void; onBlur?(): void }>)[propsKey]
+    : undefined;
+  props?.onChange?.({ target: input, currentTarget: input });
+}
+
+describe("campaign rank input", () => {
+  it("reorders via the typed rank on blur", () => {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    // linkedom's HTMLInputElement has no select(); RankInput calls it on edit.
+    Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
+    const onReorder = vi.fn();
+    const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
+    const campaigns = [
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+    ];
+    const container = document.getElementById("app")!;
+
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
+          <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
+            <DropsPanel
+              campaigns={campaigns}
+              gameMap={{}}
+              refreshing={false}
+              onRefreshCampaign={() => undefined}
+              onReorder={onReorder}
+              onToggleExclude={() => undefined}
+            />
+          </PopupRuntimeContext.Provider>
+        </I18nContext.Provider>,
+      );
+    });
+
+    const rank = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign");
+    expect(rank).not.toBeNull();
+    act(() => rank?.click());
+    // linkedom keeps React's camelCase inputMode attribute rather than lowercasing it.
+    const input = [...container.querySelectorAll<HTMLInputElement>("input")].find((el) =>
+      el.getAttribute("inputmode") === "numeric" || el.getAttribute("inputMode") === "numeric"
+    )!;
+    expect(input).not.toBeNull();
+    act(() => {
+      setInputValue(input, "1");
+    });
+    act(() => {
+      // Re-read props after the controlled value commit; the pre-change onBlur
+      // closure still sees the old rank and would cancel the move.
+      const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
+      const props = propsKey
+        ? (input as unknown as Record<string, { onBlur?(): void }>)[propsKey]
+        : undefined;
+      props?.onBlur?.();
+    });
+
+    expect(onReorder).toHaveBeenCalledOnce();
+    expect(onReorder.mock.calls[0]?.[0].map((campaign: { id: string }) => campaign.id)).toEqual(["second", "first"]);
+  });
+
+  it("does not expose a rank editor while searching", () => {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const container = document.getElementById("app")!;
+    const campaigns = [
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+    ];
+
+    act(() => {
+      root = createRoot(container);
+      renderDropsPanel(campaigns);
+    });
+
+    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
+    const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
+    act(() => setSearchQuery(input, "Second"));
+
+    expect([...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign")).toBeUndefined();
+    expect(container.querySelector("input[inputmode='numeric']")).toBeNull();
+    expect(container.querySelector<HTMLElement>("article .w-7 span")?.textContent).toBe("2");
+  });
+});
+
 describe("initial drops expansion", () => {
   it("expands nothing when no campaign is farming", () => {
     const campaigns = [
