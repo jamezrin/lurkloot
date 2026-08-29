@@ -20,6 +20,20 @@ export function moveById<T extends { id: string }>(list: T[], activeId: string, 
   return arrayMove(list, oldIndex, newIndex);
 }
 
+export type CommitRankResult =
+  | { action: "cancel" }
+  | { action: "move"; toIndex: number };
+
+export function commitRank(raw: string, currentIndex: number, count: number): CommitRankResult {
+  const trimmed = raw.trim();
+  if (count < 1 || !/^\d+$/.test(trimmed)) return { action: "cancel" };
+  const n = Number(trimmed);
+  if (n < 1) return { action: "cancel" };
+  const toIndex = Math.min(n, count) - 1;
+  if (toIndex === currentIndex) return { action: "cancel" };
+  return { action: "move", toIndex };
+}
+
 // `compact` only trims the vertical padding — the icon offset and left padding
 // classes stay put because styles.css mirrors those exact class names for RTL.
 export function SearchBox({ value, onChange, placeholder, autoFocus = false, compact = false }: { value: string; onChange(value: string): void; placeholder: string; autoFocus?: boolean; compact?: boolean }) {
