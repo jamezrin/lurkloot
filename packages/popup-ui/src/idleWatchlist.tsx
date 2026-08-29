@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { arrayMove } from "@dnd-kit/helpers";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { Eye, Play, Plus } from "lucide-react";
@@ -75,7 +76,17 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, onEx
               {streamers.length === 0 ? <EmptyPanel>{t("noIdleWatchlist")}</EmptyPanel> : (
                 <DragDropProvider onDragEnd={endDrag}>
                   <div className="space-y-1.5">
-                    {streamers.map((streamer, index) => <SortableIdleWatchlist key={streamer.id} streamer={streamer} index={index} platform={platform} onRemove={() => removeChannel(streamer.id)} />)}
+                    {streamers.map((streamer, index) => (
+                      <SortableIdleWatchlist
+                        key={streamer.id}
+                        streamer={streamer}
+                        index={index}
+                        count={streamers.length}
+                        platform={platform}
+                        onRemove={() => removeChannel(streamer.id)}
+                        onMove={(toIndex) => void onChange(arrayMove(streamers, index, toIndex))}
+                      />
+                    ))}
                   </div>
                 </DragDropProvider>
               )}
@@ -93,14 +104,14 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, onEx
   );
 }
 
-function SortableIdleWatchlist({ streamer, index, platform, onRemove }: { streamer: StreamerItem; index: number; platform: Platform; onRemove(): void }) {
+function SortableIdleWatchlist({ streamer, index, count, platform, onRemove, onMove }: { streamer: StreamerItem; index: number; count: number; platform: Platform; onRemove(): void; onMove(toIndex: number): void }) {
   // The new dnd-kit animates the real element, so there is no DragOverlay copy
   // and no transform/transition to apply by hand.
   const { ref, handleRef, isDragging } = useSortable({ id: streamer.id, index });
   const status = <IdleWatchlistStatus streamer={streamer} />;
   return (
     <div ref={ref} onDragStart={preventNativeDrag}>
-      <CompactRow index={index} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} titleHref={channelUrl(platform, streamer.id)} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={`Reorder ${streamer.name}`} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={`Remove ${streamer.name}`} onClick={onRemove} /></span>} />
+      <CompactRow index={index} rankCount={count} rankLabel={streamer.name} onRankMove={onMove} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} titleHref={channelUrl(platform, streamer.id)} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={`Reorder ${streamer.name}`} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={`Remove ${streamer.name}`} onClick={onRemove} /></span>} />
     </div>
   );
 }

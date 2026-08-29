@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { arrayMove } from "@dnd-kit/helpers";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { AlertTriangle, Plus, Search } from "lucide-react";
@@ -166,7 +167,19 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
         </div>
       ) : (
         <DragDropProvider onDragEnd={endDrag}>
-          <div className="space-y-1.5">{categories.map((category, index) => <SortableCategoryRow key={category.id} category={category} index={index} accent={accentFor(index)} onRemove={() => void onChange(categories.filter((entry) => entry.id !== category.id))} />)}</div>
+          <div className="space-y-1.5">
+            {categories.map((category, index) => (
+              <SortableCategoryRow
+                key={category.id}
+                category={category}
+                index={index}
+                count={categories.length}
+                accent={accentFor(index)}
+                onRemove={() => void onChange(categories.filter((entry) => entry.id !== category.id))}
+                onMove={(toIndex) => void onChange(arrayMove(categories, index, toIndex))}
+              />
+            ))}
+          </div>
         </DragDropProvider>
       )}
 
@@ -312,11 +325,11 @@ function CategoryPickerGroup({ label, items, onSelect }: {
   );
 }
 
-function SortableCategoryRow({ category, index, accent, onRemove }: { category: CategorySelection; index: number; accent: string; onRemove(): void }) {
+function SortableCategoryRow({ category, index, count, accent, onRemove, onMove }: { category: CategorySelection; index: number; count: number; accent: string; onRemove(): void; onMove(toIndex: number): void }) {
   const { ref, handleRef, isDragging } = useSortable({ id: category.id, index });
   return (
     <div ref={ref} onDragStart={preventNativeDrag}>
-      <CompactRow index={index} avatar={initials(category.name)} avatarImageUrl={category.imageUrl} avatarStyle={{ backgroundColor: accent, color: "#fff" }} title={category.name} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={`Reorder ${category.name}`} />} trailing={<RemoveRowButton label={`Remove ${category.name}`} onClick={onRemove} />} />
+      <CompactRow index={index} rankCount={count} rankLabel={category.name} onRankMove={onMove} avatar={initials(category.name)} avatarImageUrl={category.imageUrl} avatarStyle={{ backgroundColor: accent, color: "#fff" }} title={category.name} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={`Reorder ${category.name}`} />} trailing={<RemoveRowButton label={`Remove ${category.name}`} onClick={onRemove} />} />
     </div>
   );
 }

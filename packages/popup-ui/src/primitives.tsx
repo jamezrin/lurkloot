@@ -122,6 +122,87 @@ export function DragHandle({ handleRef, label }: { handleRef(element: Element | 
   );
 }
 
+export function RankInput({ index, count, label, onMove, size }: { index: number; count: number; label: string; onMove?: (toIndex: number) => void; size: "row" | "rail" }) {
+  const [editing, setEditing] = React.useState(false);
+  const [value, setValue] = React.useState(String(index + 1));
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const skipBlur = React.useRef(false);
+  const textClass = size === "rail"
+    ? "w-full min-w-0 text-center text-[10px] font-bold tabular leading-none"
+    : "w-4 text-center text-[11px] font-bold tabular";
+  const color: React.CSSProperties = { color: "var(--accent-text)" };
+
+  React.useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
+
+  if (!onMove) {
+    return <span className={textClass} style={color}>{index + 1}</span>;
+  }
+
+  // Local binding so nested `close` keeps the narrowed non-optional type.
+  const move = onMove;
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        aria-label={`Set rank of ${label}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          setValue(String(index + 1));
+          setEditing(true);
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        className={cn(textClass, "rounded-sm outline-none hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:text-zinc-200")}
+        style={color}
+      >
+        {index + 1}
+      </button>
+    );
+  }
+
+  function close(commit: boolean): void {
+    skipBlur.current = !commit;
+    setEditing(false);
+    if (!commit) return;
+    const result = commitRank(value, index, count);
+    if (result.action === "move") move(result.toIndex);
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      autoFocus
+      inputMode="numeric"
+      aria-label={`Set rank of ${label}`}
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={() => {
+        if (skipBlur.current) {
+          skipBlur.current = false;
+          return;
+        }
+        close(true);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          close(false);
+        } else if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+      className={cn(textClass, "bg-transparent p-0 outline-none focus:ring-1 focus:ring-[var(--accent-ring)]")}
+      style={color}
+    />
+  );
+}
+
 /** Collapsible group heading, used to fold the Idle Watchlist under the drops
  * list instead of hiding it behind a tab. `action` is a sibling of the toggle,
  * not a child: the section's own actions belong on its heading, and a button
@@ -174,6 +255,9 @@ export function CompactRow({
   avatarImageUrl,
   avatarStyle,
   index,
+  rankLabel,
+  rankCount,
+  onRankMove,
   title,
   titleHref,
   subtitle,
@@ -186,6 +270,9 @@ export function CompactRow({
   avatarImageUrl?: string;
   avatarStyle: React.CSSProperties;
   index: number;
+  rankLabel: string;
+  rankCount: number;
+  onRankMove(toIndex: number): void;
   title: string;
   titleHref?: string;
   subtitle?: string;
@@ -197,7 +284,7 @@ export function CompactRow({
   return (
     <div className={cn("flex items-center gap-2 rounded-xl border bg-white px-2 py-2 dark:bg-zinc-900", isOverlay ? "border-transparent shadow-2xl shadow-black/25" : "border-zinc-200 shadow-sm dark:border-zinc-800", dimmed && "opacity-40")}>
       {dragHandle}
-      <span className="w-4 text-center text-[11px] font-bold tabular" style={{ color: "var(--accent-text)" }}>{index + 1}</span>
+      <RankInput index={index} count={rankCount} label={rankLabel} onMove={onRankMove} size="row" />
       <span
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center text-[11px] font-bold",
