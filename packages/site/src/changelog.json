@@ -10,7 +10,8 @@
         "kind": "fixed",
         "text": "Fixed a dragged row sometimes snapping back to its old place after you closed the popup. The list looked reordered on screen, but the saved order — including which campaign Lurkloot farms — did not change. Drops, Idle Watchlist, and category lists now keep the order you dropped."
       }
-    ]
+    ],
+    "date": "2026-08-30"
   },
   {
     "version": "1.12.1",
