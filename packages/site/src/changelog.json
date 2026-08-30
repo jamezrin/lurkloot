@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.12.2",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "You can now click the sort number next to a drag handle and type a new position. This works on Drops campaigns, Idle Watchlist rows, and Settings categories. The item moves to that rank and the others shift, the same as dragging. While Drops search is open, the number stays view-only, matching drag."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed a dragged row sometimes snapping back to its old place after you closed the popup. The list looked reordered on screen, but the saved order — including which campaign Lurkloot farms — did not change. Drops, Idle Watchlist, and category lists now keep the order you dropped."
+      }
+    ]
+  },
+  {
     "version": "1.12.1",
     "changes": [
       {
