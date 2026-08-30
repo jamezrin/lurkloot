@@ -1,5 +1,5 @@
 import React from "react";
-import { arrayMove } from "@dnd-kit/helpers";
+import { move } from "@dnd-kit/helpers";
 import type { DragDropProvider } from "@dnd-kit/react";
 import { motion } from "motion/react";
 import { ChevronRight, GripVertical, Search, X, type LucideIcon } from "lucide-react";
@@ -12,12 +12,27 @@ export function cn(...classes: Array<string | false | null | undefined>): string
  * rather than pinning a hand-written shape. */
 export type SortableDragEndEvent = Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>["onDragEnd"]>>[0];
 
-export function moveById<T extends { id: string }>(list: T[], activeId: string, overId: string): T[] {
-  if (activeId === overId) return list;
-  const oldIndex = list.findIndex((item) => item.id === activeId);
-  const newIndex = list.findIndex((item) => item.id === overId);
-  if (oldIndex === -1 || newIndex === -1) return list;
-  return arrayMove(list, oldIndex, newIndex);
+/** @dnd-kit/react projects the dragged row into its new slot before drop, so
+ * the pointer is often still over that same row (`source.id === target.id`).
+ * Matching ids is a no-op if we only look at source/target ids; `move()` uses
+ * the sortable's projected `source.index` instead. */
+export function reorderFromDragEnd<T extends { id: string }>(list: T[], event: SortableDragEndEvent): T[] {
+  if (event.canceled) return list;
+  return move(list, event);
+}
+
+export type CommitRankResult =
+  | { action: "cancel" }
+  | { action: "move"; toIndex: number };
+
+export function commitRank(raw: string, currentIndex: number, count: number): CommitRankResult {
+  const trimmed = raw.trim();
+  if (count < 1 || !/^\d+$/.test(trimmed)) return { action: "cancel" };
+  const n = Number(trimmed);
+  if (n < 1) return { action: "cancel" };
+  const toIndex = Math.min(n, count) - 1;
+  if (toIndex === currentIndex) return { action: "cancel" };
+  return { action: "move", toIndex };
 }
 
 // `compact` only trims the vertical padding — the icon offset and left padding
@@ -108,6 +123,89 @@ export function DragHandle({ handleRef, label }: { handleRef(element: Element | 
   );
 }
 
+export function RankInput({ index, count, label, onMove, size }: { index: number; count: number; label: string; onMove?: (toIndex: number) => void; size: "row" | "rail" }) {
+  const [editing, setEditing] = React.useState(false);
+  const [value, setValue] = React.useState(String(index + 1));
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const skipBlur = React.useRef(false);
+  const textClass = size === "rail"
+    ? "flex w-4 items-center justify-center text-center text-[10px] font-bold tabular leading-none"
+    : "w-4 text-center text-[11px] font-bold tabular";
+  const color: React.CSSProperties = { color: "var(--accent-text)" };
+
+  React.useEffect(() => {
+    if (!editing) return;
+    skipBlur.current = false;
+    inputRef.current?.select();
+  }, [editing]);
+
+  if (!onMove) {
+    return <span className={textClass} style={color}>{index + 1}</span>;
+  }
+
+  // Local binding so nested `close` keeps the narrowed non-optional type.
+  const move = onMove;
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        aria-label={`Set rank of ${label}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          setValue(String(index + 1));
+          setEditing(true);
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        className={cn(textClass, "rounded-sm outline-none hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:text-zinc-200")}
+        style={color}
+      >
+        {index + 1}
+      </button>
+    );
+  }
+
+  function close(commit: boolean): void {
+    skipBlur.current = !commit;
+    setEditing(false);
+    if (!commit) return;
+    const result = commitRank(value, index, count);
+    if (result.action === "move") move(result.toIndex);
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      autoFocus
+      inputMode="numeric"
+      aria-label={`Set rank of ${label}`}
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={() => {
+        if (skipBlur.current) {
+          skipBlur.current = false;
+          return;
+        }
+        close(true);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          close(false);
+        } else if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+      className={cn(textClass, "bg-transparent p-0 outline-none focus:ring-1 focus:ring-[var(--accent-ring)]")}
+      style={color}
+    />
+  );
+}
+
 /** Collapsible group heading, used to fold the Idle Watchlist under the drops
  * list instead of hiding it behind a tab. `action` is a sibling of the toggle,
  * not a child: the section's own actions belong on its heading, and a button
@@ -160,6 +258,9 @@ export function CompactRow({
   avatarImageUrl,
   avatarStyle,
   index,
+  rankLabel,
+  rankCount,
+  onRankMove,
   title,
   titleHref,
   subtitle,
@@ -172,6 +273,9 @@ export function CompactRow({
   avatarImageUrl?: string;
   avatarStyle: React.CSSProperties;
   index: number;
+  rankLabel: string;
+  rankCount: number;
+  onRankMove(toIndex: number): void;
   title: string;
   titleHref?: string;
   subtitle?: string;
@@ -183,7 +287,7 @@ export function CompactRow({
   return (
     <div className={cn("flex items-center gap-2 rounded-xl border bg-white px-2 py-2 dark:bg-zinc-900", isOverlay ? "border-transparent shadow-2xl shadow-black/25" : "border-zinc-200 shadow-sm dark:border-zinc-800", dimmed && "opacity-40")}>
       {dragHandle}
-      <span className="w-4 text-center text-[11px] font-bold tabular" style={{ color: "var(--accent-text)" }}>{index + 1}</span>
+      <RankInput index={index} count={rankCount} label={rankLabel} onMove={onRankMove} size="row" />
       <span
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center text-[11px] font-bold",

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { arrayMove } from "@dnd-kit/helpers";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { AnimatePresence, motion } from "motion/react";
@@ -35,10 +36,11 @@ import {
   MetaStat,
   Pill,
   ProgressBar,
+  RankInput,
   SearchBox,
   SectionHeader,
   cn,
-  moveById,
+  reorderFromDragEnd,
   preventNativeDrag,
   type SortableDragEndEvent,
 } from "./primitives";
@@ -106,10 +108,13 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
   const anyFarming = campaigns.some((campaign) => Boolean(campaign.farmingChannel));
 
   function endDrag(event: SortableDragEndEvent): void {
-    if (event.canceled) return;
-    const { source, target } = event.operation;
-    if (!source || !target) return;
-    void onReorder(moveById(campaigns, String(source.id), String(target.id)));
+    const next = reorderFromDragEnd(campaigns, event);
+    if (next === campaigns) return;
+    void onReorder(next);
+  }
+
+  function moveCampaign(fromIndex: number, toIndex: number): void {
+    void onReorder(arrayMove(campaigns, fromIndex, toIndex));
   }
 
   return (
@@ -161,7 +166,7 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
               <DragDropProvider onDragEnd={endDrag}>
                 <div ref={listRef} className="space-y-1">
                   {campaigns.map((campaign, index) => (
-                    <SortableCampaign key={campaign.id} campaign={campaign} index={index} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
+                    <SortableCampaign key={campaign.id} campaign={campaign} index={index} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} rankCount={campaigns.length} onRankMove={(toIndex) => moveCampaign(index, toIndex)} />
                   ))}
                 </div>
               </DragDropProvider>
@@ -173,7 +178,7 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
   );
 }
 
-function SortableCampaign(props: { campaign: CampaignView; index: number; farmingIndex: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
+function SortableCampaign(props: { campaign: CampaignView; index: number; farmingIndex: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude(id: string): void | Promise<void>; rankCount?: number; onRankMove?: (toIndex: number) => void }) {
   // The new dnd-kit animates the real element, so there is no DragOverlay copy
   // and no transform/transition to apply by hand.
   const { ref, handleRef, isDragging } = useSortable({ id: props.campaign.id, index: props.index });
@@ -184,7 +189,7 @@ function SortableCampaign(props: { campaign: CampaignView; index: number; farmin
   );
 }
 
-function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expanded, refreshing, onToggle, onRefreshCampaign, onToggleExclude, dragHandle, isOverlay = false, dimmed = false }: { campaign: CampaignView; index: number; farmingIndex: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude?(id: string): void | Promise<void>; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean }) {
+function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expanded, refreshing, onToggle, onRefreshCampaign, onToggleExclude, dragHandle, isOverlay = false, dimmed = false, rankCount, onRankMove }: { campaign: CampaignView; index: number; farmingIndex: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude?(id: string): void | Promise<void>; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean; rankCount?: number; onRankMove?: (toIndex: number) => void }) {
   const t = useT();
   const runtime = React.useContext(PopupRuntimeContext);
   // Where the pointer went down on the meta row, so drag-scrolling an
@@ -217,12 +222,14 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
   return (
     <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-[var(--accent-ring)]" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized && !isOverlay ? { boxShadow: "0 10px 30px -18px var(--accent-glow)" } : undefined}>
       <div className="relative flex items-stretch">
-        {/* Drag rail doubles as the priority column: the grip keeps reorder
-            discoverable, the number underneath is the campaign's rank — the same
-            handle+index grammar CompactRow uses for watchlist rows. */}
-        <div className="flex w-7 shrink-0 flex-col items-center justify-center gap-0.5 border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">
-          {dragHandle ?? <GripVertical size={14} className="text-zinc-300 dark:text-zinc-600" />}
-          <span className="text-[10px] font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>{index + 1}</span>
+        {/* Drag rail doubles as the priority column: grip and rank share a
+            16px column centered in the rail so the number is a caption of the
+            handle, not full-rail text. */}
+        <div className="flex w-7 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">
+          <div className="flex w-4 flex-col items-center gap-0.5">
+            {dragHandle ?? <GripVertical size={14} className="text-zinc-300 dark:text-zinc-600" />}
+            <RankInput index={index} count={rankCount ?? 0} label={campaign.title} onMove={onRankMove} size="rail" />
+          </div>
         </div>
         {/* Full-area toggle behind the content so the page-link anchor can live next
             to the title without nesting an <a> inside a <button>. */}
