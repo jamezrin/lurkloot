@@ -40,7 +40,7 @@ import {
   SearchBox,
   SectionHeader,
   cn,
-  moveById,
+  reorderFromDragEnd,
   preventNativeDrag,
   type SortableDragEndEvent,
 } from "./primitives";
@@ -108,10 +108,9 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
   const anyFarming = campaigns.some((campaign) => Boolean(campaign.farmingChannel));
 
   function endDrag(event: SortableDragEndEvent): void {
-    if (event.canceled) return;
-    const { source, target } = event.operation;
-    if (!source || !target) return;
-    void onReorder(moveById(campaigns, String(source.id), String(target.id)));
+    const next = reorderFromDragEnd(campaigns, event);
+    if (next === campaigns) return;
+    void onReorder(next);
   }
 
   function moveCampaign(fromIndex: number, toIndex: number): void {

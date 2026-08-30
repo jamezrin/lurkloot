@@ -1,5 +1,5 @@
 import React from "react";
-import { arrayMove } from "@dnd-kit/helpers";
+import { move } from "@dnd-kit/helpers";
 import type { DragDropProvider } from "@dnd-kit/react";
 import { motion } from "motion/react";
 import { ChevronRight, GripVertical, Search, X, type LucideIcon } from "lucide-react";
@@ -12,12 +12,13 @@ export function cn(...classes: Array<string | false | null | undefined>): string
  * rather than pinning a hand-written shape. */
 export type SortableDragEndEvent = Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>["onDragEnd"]>>[0];
 
-export function moveById<T extends { id: string }>(list: T[], activeId: string, overId: string): T[] {
-  if (activeId === overId) return list;
-  const oldIndex = list.findIndex((item) => item.id === activeId);
-  const newIndex = list.findIndex((item) => item.id === overId);
-  if (oldIndex === -1 || newIndex === -1) return list;
-  return arrayMove(list, oldIndex, newIndex);
+/** @dnd-kit/react projects the dragged row into its new slot before drop, so
+ * the pointer is often still over that same row (`source.id === target.id`).
+ * Matching ids is a no-op if we only look at source/target ids; `move()` uses
+ * the sortable's projected `source.index` instead. */
+export function reorderFromDragEnd<T extends { id: string }>(list: T[], event: SortableDragEndEvent): T[] {
+  if (event.canceled) return list;
+  return move(list, event);
 }
 
 export type CommitRankResult =

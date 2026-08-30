@@ -14,7 +14,7 @@ import {
   Pill,
   RemoveRowButton,
   Toggle,
-  moveById,
+  reorderFromDragEnd,
   preventNativeDrag,
   type SortableDragEndEvent,
 } from "./primitives";
@@ -145,10 +145,9 @@ function CategoryFilterEditor({ platform, categories, suggestions, onChange, onS
   }
 
   function endDrag(event: SortableDragEndEvent): void {
-    if (event.canceled) return;
-    const { source, target } = event.operation;
-    if (!source || !target) return;
-    void onChange(moveById(categories, String(source.id), String(target.id)));
+    const next = reorderFromDragEnd(categories, event);
+    if (next === categories) return;
+    void onChange(next);
   }
 
   const accentFor = (index: number): string => GAME_ACCENTS[index % GAME_ACCENTS.length];

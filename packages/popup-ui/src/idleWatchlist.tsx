@@ -17,7 +17,7 @@ import {
   Pill,
   RemoveRowButton,
   SectionHeader,
-  moveById,
+  reorderFromDragEnd,
   preventNativeDrag,
   type SortableDragEndEvent,
 } from "./primitives";
@@ -30,10 +30,9 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, onEx
   const [value, setValue] = useState("");
 
   function endDrag(event: SortableDragEndEvent): void {
-    if (event.canceled) return;
-    const { source, target } = event.operation;
-    if (!source || !target) return;
-    void onChange(moveById(streamers, String(source.id), String(target.id)));
+    const next = reorderFromDragEnd(streamers, event);
+    if (next === streamers) return;
+    void onChange(next);
   }
 
   function addChannel(): void {
