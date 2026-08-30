@@ -245,6 +245,8 @@ describe("campaign rank input", () => {
 
     const rank = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign");
     expect(rank).toBeDefined();
+    expect(rank?.className).toContain("w-4");
+    expect(rank?.className).not.toContain("w-full");
     act(() => rank?.click());
     const input = findNumericRankInput(container);
     expect(input).toBeDefined();
@@ -352,7 +354,10 @@ describe("campaign rank input", () => {
 
     expect([...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign")).toBeUndefined();
     expect(findNumericRankInput(container)).toBeUndefined();
-    expect(container.querySelector<HTMLElement>("article .w-7 span")?.textContent).toBe("2");
+    const rankSpan = container.querySelector<HTMLElement>("article .w-7 span");
+    expect(rankSpan?.textContent).toBe("2");
+    expect(rankSpan?.className).toContain("w-4");
+    expect(rankSpan?.className).not.toContain("w-full");
   });
 });
 

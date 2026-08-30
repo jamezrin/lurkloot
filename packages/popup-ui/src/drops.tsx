@@ -222,12 +222,14 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
   return (
     <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-[var(--accent-ring)]" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized && !isOverlay ? { boxShadow: "0 10px 30px -18px var(--accent-glow)" } : undefined}>
       <div className="relative flex items-stretch">
-        {/* Drag rail doubles as the priority column: the grip keeps reorder
-            discoverable, the number underneath is the campaign's rank — the same
-            handle+index grammar CompactRow uses for watchlist rows. */}
-        <div className="flex w-7 shrink-0 flex-col items-center justify-center gap-0.5 border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">
-          {dragHandle ?? <GripVertical size={14} className="text-zinc-300 dark:text-zinc-600" />}
-          <RankInput index={index} count={rankCount ?? 0} label={campaign.title} onMove={onRankMove} size="rail" />
+        {/* Drag rail doubles as the priority column: grip and rank share a
+            16px column centered in the rail so the number is a caption of the
+            handle, not full-rail text. */}
+        <div className="flex w-7 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">
+          <div className="flex w-4 flex-col items-center gap-0.5">
+            {dragHandle ?? <GripVertical size={14} className="text-zinc-300 dark:text-zinc-600" />}
+            <RankInput index={index} count={rankCount ?? 0} label={campaign.title} onMove={onRankMove} size="rail" />
+          </div>
         </div>
         {/* Full-area toggle behind the content so the page-link anchor can live next
             to the title without nesting an <a> inside a <button>. */}

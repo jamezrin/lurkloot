@@ -129,7 +129,7 @@ export function RankInput({ index, count, label, onMove, size }: { index: number
   const inputRef = React.useRef<HTMLInputElement>(null);
   const skipBlur = React.useRef(false);
   const textClass = size === "rail"
-    ? "w-full min-w-0 text-center text-[10px] font-bold tabular leading-none"
+    ? "flex w-4 items-center justify-center text-center text-[10px] font-bold tabular leading-none"
     : "w-4 text-center text-[11px] font-bold tabular";
   const color: React.CSSProperties = { color: "var(--accent-text)" };
 
