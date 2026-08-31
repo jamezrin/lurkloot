@@ -16,6 +16,18 @@ import type { ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shar
 const BUTTON_ID = "lurkloot-nav-button";
 const IDLE_BACKGROUND = "rgba(128,128,128,.22)";
 const HOVER_BACKGROUND = "rgba(128,128,128,.34)";
+
+// The window chrome is drawn here, outside the iframe, so it cannot pick up the
+// panel's own theming and has to resolve its colours itself. It follows
+// prefers-color-scheme rather than the host site's theme, because what it
+// frames is the popup, and the popup's stylesheet sets `color-scheme: light
+// dark` — matching Twitch instead would leave a light title bar bolted to a
+// dark popup for anyone whose site theme and OS theme disagree.
+const CHROME_SURFACE = "light-dark(#f7f7f8, #0e0e10)";
+const CHROME_TEXT = "light-dark(#18181b, #efeff1)";
+const CHROME_MUTED = "light-dark(#53535f, #adadb8)";
+const CHROME_HOVER = "light-dark(rgba(0,0,0,.08), rgba(255,255,255,.12))";
+const PANEL_SURFACE = "light-dark(#ffffff, #18181b)";
 const PANEL_ID = "lurkloot-panel";
 const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";
@@ -269,7 +281,9 @@ async function openPanel(): Promise<void> {
     "border-radius:12px",
     "overflow:hidden",
     "box-shadow:0 16px 48px rgba(0,0,0,.45)",
-    "background:#18181b",
+    // Required for light-dark() below to resolve at all.
+    "color-scheme:light dark",
+    `background:${PANEL_SURFACE}`,
   ].join(";");
 
   const titlebar = document.createElement("div");
@@ -280,8 +294,8 @@ async function openPanel(): Promise<void> {
     `height:${TITLEBAR_HEIGHT}px`,
     "padding:0 6px 0 12px",
     "cursor:grab",
-    "background:#0e0e10",
-    "color:#efeff1",
+    `background:${CHROME_SURFACE}`,
+    `color:${CHROME_TEXT}`,
     "font:600 12px/1 system-ui,sans-serif",
     "user-select:none",
   ].join(";");
@@ -303,9 +317,9 @@ async function openPanel(): Promise<void> {
     "height:24px",
     "border-radius:6px",
     "font:400 18px/1 system-ui,sans-serif",
-    "color:#adadb8",
+    `color:${CHROME_MUTED}`,
   ].join(";");
-  close.addEventListener("mouseenter", () => { close.style.background = "rgba(255,255,255,.12)"; });
+  close.addEventListener("mouseenter", () => { close.style.background = CHROME_HOVER; });
   close.addEventListener("mouseleave", () => { close.style.background = ""; });
   close.addEventListener("click", () => { void togglePanel(); });
   titlebar.append(title, close);
