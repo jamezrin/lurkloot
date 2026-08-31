@@ -401,8 +401,11 @@ export interface ExtensionSettings extends EngineSettings {
   // recorded; this opt-in adds lower-level technical diagnostics.
   diagnosticLogging: boolean;
   // Shows a Lurkloot button on twitch.tv/kick.com that opens the popup in a
-  // draggable panel on the page. Off by default: it injects visible UI into a
-  // site the user did not ask us to change, so it should be opted into.
+  // draggable panel on the page. On by default, despite injecting UI into a
+  // site the user did not ask us to change: the feature exists for people who
+  // do not pin the extension and find the toolbar popup awkward to reach, and
+  // gating it behind a toggle *inside that popup* would only ever reach the
+  // people who already open it comfortably.
   showInPagePanel: boolean;
 }
 

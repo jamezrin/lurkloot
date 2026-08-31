@@ -113,7 +113,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   // installs are unaffected: they have persisted an explicit value already, and
   // no migration overrides it.
   diagnosticLogging: true,
-  showInPagePanel: false,
+  showInPagePanel: true,
 };
 
 // Normalizes the universal engine contract. The engine (packages/core) and any

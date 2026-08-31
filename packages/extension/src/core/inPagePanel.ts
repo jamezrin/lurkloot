@@ -28,9 +28,7 @@ const PANEL_HEIGHT = 600;
 const TITLEBAR_HEIGHT = 32;
 const EDGE_MARGIN = 16;
 
-// Where the button goes on each site, most specific first, falling back to a
-// floating corner control if every candidate misses so the feature cannot
-// silently disappear.
+// Where the button goes on each site, most specific first.
 //
 // These deliberately avoid the generated class names sitting right beside them
 // — Twitch's `Layout-sc-1xcs6mc-0`, Kick's `z-[402]` — because those are build
@@ -158,26 +156,31 @@ function ensureButton(): void {
 
   button ??= createButton();
   const target = resolveAnchor();
-  if (target) {
-    button.style.position = "";
-    button.style.inset = "";
-    if (target.place === "before") target.element.parentElement?.insertBefore(button, target.element);
-    else if (target.place === "prepend") target.element.prepend(button);
-    else target.element.append(button);
+  if (!target) {
+    // No anchor matched, so the site reorganized its nav. Show nothing.
+    //
+    // An earlier revision fell back to a floating corner button so the feature
+    // could not silently disappear. That was right while this was opt-in, and
+    // wrong now that it ships on: a single Twitch nav change would put an
+    // unexpected floating control on every user's screen at once, which is a
+    // worse outcome than the absence it guards against. The toolbar popup still
+    // works, so absence degrades rather than breaks.
+    warnOnce("could not find a place in the page nav for the Lurkloot button; the toolbar popup still works");
     return;
   }
+  if (target.place === "before") target.element.parentElement?.insertBefore(button, target.element);
+  else if (target.place === "prepend") target.element.prepend(button);
+  else target.element.append(button);
+}
 
-  // No anchor matched. Rather than have the feature vanish silently when a site
-  // reorganizes its nav, fall back to a floating corner control.
-  Object.assign(button.style, {
-    position: "fixed",
-    top: "",
-    right: `${EDGE_MARGIN}px`,
-    bottom: `${EDGE_MARGIN}px`,
-    left: "",
-    zIndex: "2147483646",
-  });
-  document.body.append(button);
+// The page console is where someone debugging a missing button would look.
+// There is no diagnostic channel from a content script into the activity log,
+// and adding one would cost more plumbing than this failure is worth.
+let warned = false;
+function warnOnce(message: string): void {
+  if (warned) return;
+  warned = true;
+  console.warn(`[Lurkloot] ${message}`);
 }
 
 function resolveAnchor(): { element: Element; place: Anchor["place"] } | undefined {
