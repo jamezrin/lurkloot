@@ -33,6 +33,11 @@ pnpm build            # Chrome
 pnpm build:firefox    # Firefox
 ```
 
+**Disable any installed store build first.** Loading unpacked gives a second live
+instance with its own `alarms`, `cookies` and scheduler; two engines will open
+managed tabs and hit Twitch GQL concurrently, which looks like a bug and can trip
+rate limits.
+
 **Chrome** — `chrome://extensions` → enable Developer mode → *Load unpacked* →
 `packages/extension/.output/chrome-mv3`.
 
@@ -44,6 +49,10 @@ Then open <https://www.twitch.tv> (logged in, any page) and click the purple
 
 Twitch is the hardened origin — if it passes there, Kick will pass. Test Twitch
 first; only bother with Kick if Twitch passes.
+
+Expect the pill to appear inside the extension's own managed farming tabs too.
+That is not a bug: managed-tab suppression needs a background round-trip that the
+spike deliberately omits.
 
 ## Reading the result
 
@@ -81,6 +90,20 @@ The spike is confined to:
 
 The `web_accessible_resources` entry in `wxt.config.ts` is **not** spike-only —
 the real feature needs it too.
+
+## Firefox caveat worth recording
+
+WXT downlevels the MV3 `{resources, matches}` entry to MV2's flat string array,
+verified in the built `firefox-mv2/manifest.json`:
+
+```json
+"web_accessible_resources": ["inpagePanel.html"]
+```
+
+MV2 has no `matches` field, so on Firefox the panel page is web-accessible to
+**every** origin, not just Twitch and Kick — the origin scoping is Chrome-only.
+The page exposes no secrets, but it is fingerprintable browser-wide there. Worth
+a line in the PR and the store/AMO listing notes.
 
 Note what the spike already demonstrates about stage-1 purity: the built
 `content-scripts/twitch.js` is ~6.7 kB with no React, because

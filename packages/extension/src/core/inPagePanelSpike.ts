@@ -34,8 +34,11 @@ export function mountInPagePanelSpike(): void {
     "font:13px/1.5 system-ui,sans-serif",
   ].join(";");
 
+  // `src` is deliberately left unset until the first click. A hidden iframe
+  // still fetches its src, so assigning it up front would load the stage-2
+  // document on every page view — exactly the cost the two-stage design exists
+  // to avoid.
   const frame = document.createElement("iframe");
-  frame.src = browser.runtime.getURL("/inpagePanel.html");
   frame.title = "Lurkloot";
   frame.hidden = true;
   frame.style.cssText = [
@@ -63,8 +66,10 @@ export function mountInPagePanelSpike(): void {
     "box-shadow:0 4px 12px rgba(0,0,0,.3)",
   ].join(";");
   button.addEventListener("click", () => {
-    // Keep the frame mounted after the first open so reopening is instant and
-    // the panel keeps its state; only visibility toggles.
+    // First click loads stage 2; afterwards the frame stays mounted so
+    // reopening is instant and the panel keeps its state, and only visibility
+    // toggles.
+    if (!frame.src) frame.src = browser.runtime.getURL("/inpagePanel.html");
     frame.hidden = !frame.hidden;
   });
 
