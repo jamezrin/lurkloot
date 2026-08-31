@@ -14,6 +14,8 @@ import type { ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shar
 // Everything here is styled with hand-written CSS for the same reason.
 
 const BUTTON_ID = "lurkloot-nav-button";
+const IDLE_BACKGROUND = "rgba(128,128,128,.22)";
+const HOVER_BACKGROUND = "rgba(128,128,128,.34)";
 const PANEL_ID = "lurkloot-panel";
 const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";
@@ -54,8 +56,11 @@ const ANCHORS: Record<Platform, Anchor[]> = {
   ],
 };
 
-// Matches the host site's own icon buttons: Twitch's are 32px, Kick's 40px.
-const BUTTON_SIZE: Record<Platform, number> = { twitch: 32, kick: 40 };
+// Matched to each site's own nav buttons, measured against the live pages.
+const BUTTON_METRICS: Record<Platform, { height: number; radius: number; padding: number }> = {
+  twitch: { height: 30, radius: 4, padding: 12 },
+  kick: { height: 36, radius: 6, padding: 14 },
+};
 
 // The Lurkloot mark as a monochrome glyph. Drawn inline (not the packaged
 // logo-ring.svg) for two reasons: referencing the file from a content script
@@ -63,7 +68,7 @@ const BUTTON_SIZE: Record<Platform, number> = { twitch: 32, kick: 40 };
 // icons are single-colour, so the gradient logo would look pasted on.
 // currentColor lets it inherit the site's own nav foreground.
 const ICON = `
-<svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" focusable="false">
+<svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true" focusable="false">
   <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-opacity="0.35" stroke-width="2.5"/>
   <path d="M12 3.5 A8.5 8.5 0 1 1 5.05 16.9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
   <path d="M10.4 9.1 a0.7 0.7 0 0 1 1.05-0.6 l3.6 2.3 a0.7 0.7 0 0 1 0 1.2 l-3.6 2.3 a0.7 0.7 0 0 1-1.05-0.6 z" fill="currentColor"/>
@@ -192,16 +197,16 @@ function resolveAnchor(): { element: Element; place: Anchor["place"] } | undefin
 }
 
 function createButton(): HTMLButtonElement {
-  const size = BUTTON_SIZE[platform];
+  const metrics = BUTTON_METRICS[platform];
   const el = document.createElement("button");
   el.id = BUTTON_ID;
   el.type = "button";
-  el.innerHTML = ICON;
-  // The label is not localized: this module is dependency-free by design and
-  // cannot reach the locale catalogs without pulling the loader — and with it
-  // the whole popup bundle — into every page load.
-  el.title = "Farm drops";
-  el.setAttribute("aria-label", "Farm drops");
+  el.innerHTML = `${ICON}<span>Lurkloot</span>`;
+  // The visible text is the accessible name, so no aria-label: adding one would
+  // override what the user can actually read. Neither string is localized —
+  // this module is dependency-free by design and cannot reach the locale
+  // catalogs without pulling the popup bundle into every page load.
+  el.title = "Open Lurkloot";
   el.setAttribute("aria-expanded", "false");
   el.style.cssText = [
     "all:unset",
@@ -209,17 +214,25 @@ function createButton(): HTMLButtonElement {
     "cursor:pointer",
     "display:inline-flex",
     "align-items:center",
-    "justify-content:center",
+    "gap:6px",
     "flex:0 0 auto",
-    `width:${size}px`,
-    `height:${size}px`,
-    "border-radius:9999px",
-    // Inherits the nav's own foreground so the glyph matches its neighbours in
-    // both of Twitch's themes and on Kick.
-    "color:currentColor",
+    "white-space:nowrap",
+    `height:${metrics.height}px`,
+    `padding:0 ${metrics.padding}px`,
+    `border-radius:${metrics.radius}px`,
+    "font-weight:600",
+    "font-size:13px",
+    "line-height:1",
+    // A neutral mid-grey rather than either site's surface colour, with the
+    // text left to inherit the nav's own foreground. That pairing survives a
+    // theme flip in both directions: near-white text and near-black text are
+    // both legible against mid-grey, so the button does not need to know
+    // whether Twitch is in its dark or light theme.
+    `background:${IDLE_BACKGROUND}`,
+    "color:inherit",
   ].join(";");
-  el.addEventListener("mouseenter", () => { el.style.background = "rgba(128,128,128,.24)"; });
-  el.addEventListener("mouseleave", () => { el.style.background = ""; });
+  el.addEventListener("mouseenter", () => { el.style.background = HOVER_BACKGROUND; });
+  el.addEventListener("mouseleave", () => { el.style.background = IDLE_BACKGROUND; });
   el.addEventListener("click", () => { void togglePanel(); });
   return el;
 }
