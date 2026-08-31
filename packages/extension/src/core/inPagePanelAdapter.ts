@@ -1,13 +1,14 @@
 import { browser } from "wxt/browser";
 import { openHttpsLink, type PopupAdapter } from "@lurkloot/popup-ui";
 
-// Popup adapter for the in-page panel.
+// Popup adapter for the in-page panel document (entrypoints/inpagePanel).
 //
 // Every optional `PopupAdapter` member left out here is left out on purpose:
 // omitting one hides its action in the UI, which is the same mechanism
-// `createDemoPopupAdapter` uses for the site demo. The omissions are the
-// mitigation — a shadow root is not a security boundary, and an open shadow
-// root is reachable from the host page.
+// `createDemoPopupAdapter` uses for the site demo. The panel document is
+// origin-isolated from the host page, but the omissions stand on their own
+// merits: this surface is opened from a streaming page, so the destructive and
+// credential-bearing actions belong in the toolbar popup regardless.
 //
 //   exportCredentials  Writes the Twitch auth-token and Kick session_token to a
 //                      file. It must not exist on a surface rendered inside a
@@ -31,10 +32,8 @@ export function createInPagePanelAdapter(): PopupAdapter {
     setStorage: (values) => browser.storage.local.set(values),
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),
     getUiLanguage: () => browser.i18n.getUILanguage(),
-    // `browser.tabs` is not exposed to content scripts, so the popup's
-    // `tabs.create` route is unavailable here. `window.open` is equivalent for
-    // this purpose and still routed through openHttpsLink, which enforces the
-    // https-only scheme check.
-    openLink: (url) => openHttpsLink(url, (safeUrl) => void window.open(safeUrl, "_blank", "noopener,noreferrer")),
+    // The panel is an extension document, so it has the same `browser.tabs`
+    // access the toolbar popup does and opens links the same way.
+    openLink: (url) => openHttpsLink(url, (safeUrl) => void browser.tabs.create({ url: safeUrl })),
   };
 }

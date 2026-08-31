@@ -3,10 +3,8 @@ import { mountInPagePanel } from "../src/core/inPagePanel";
 
 export default defineContentScript({
   matches: ["https://www.twitch.tv/*"],
-  // Routes the panel's imported CSS into its shadow root instead of the page.
-  cssInjectionMode: "ui",
-  main(ctx) {
+  main() {
     startPlaybackTelemetry("twitch");
-    void mountInPagePanel(ctx);
+    mountInPagePanel();
   },
 });

@@ -1,112 +1,84 @@
-# Spike: in-page panel in a shadow root
+# Spike: in-page panel rendering
 
 Tracking issue: [#446](https://github.com/jamezrin/lurkloot/issues/446)
 
-**Status: PASSED** on Twitch/Chrome — `--font-sans` and `--accent` both resolved
-and Tailwind utilities applied, so the `:host` mirror works and Twitch's
-CSP/trusted-types did not block the style injection. The architecture is settled;
-this file is kept for the reasoning and the open bundle-size question.
+**Outcome: shadow root rejected, iframe adopted.** Kept for the reasoning, so the
+shadow-root path is not re-attempted.
 
-Supersedes the iframe frame-embedding spike. That approach existed to make
-two-stage lazy injection possible; with the two-stage requirement dropped, the
-idiomatic WXT path — `createShadowRootUi` — wins on every remaining axis except
-bundle size (see the open question at the end).
+## What the shadow-root spike measured, and what it missed
 
-## What this mounts
+The probe asked whether `--font-sans` and `--accent` resolved inside the shadow
+root and whether Tailwind utilities applied. All three passed, and the
+architecture was declared settled on that basis.
 
-The real `<Popup>`, inside a shadow root on twitch.tv and kick.com, with the
-restricted read-mostly adapter. It is not a throwaway harness: this is the shape
-the feature ships on. A green run means the architecture is settled.
+That was the wrong set of questions. The probe read `getComputedStyle` values; it
+never compared a *rendered* panel against the real popup. One screenshot then
+found two structural defects the instrumented run could not:
 
-Provisional and deliberately absent: the enable setting, drag, position
-persistence, managed-tab suppression.
+1. **Assets 404.** `Popup.tsx` renders `<img src="/logo-ring.svg">` — root-absolute.
+   In an extension document that resolves to `chrome-extension://…/logo-ring.svg`;
+   inside a content script it resolved to `https://www.twitch.tv/logo-ring.svg`.
+   Fixing it in a shadow root means threading a base URL through `Popup.tsx` and
+   `marketing.tsx`, which the site demo also consumes.
+2. **`rem` is document-rooted.** `rem` resolves against the document root element
+   even inside a shadow root. The built CSS has 25 rem occurrences and Tailwind
+   v4's `--spacing` scale is rem-based, so the panel's entire internal layout
+   scaled with whatever `html { font-size }` Twitch or Kick set. The outer box
+   looked right only because `h-[600px] w-[400px]` are px literals. This stays
+   fragile even where the host happens to use 16px.
 
-## The questions it answers
+Neither is fixable without editing `packages/popup-ui`, which is the shared-file
+regression risk the shadow-root design existed to avoid.
 
-1. **Does the shared popup stylesheet survive the shadow boundary?**
-   `packages/popup-ui/src/styles.css` puts `@theme` tokens on `:root`, plus
-   `color-scheme` on `:root` and sizing/font on `html`/`body`. WXT's
-   `cssInjectionMode: "ui"` injects it *into* the shadow root, where none of
-   those selectors match. `src/core/inPagePanel.css` re-states them on `:host`
-   without touching the shared sheet — so the toolbar popup and the site demo
-   carry zero regression risk.
-2. **Does Twitch's CSP / trusted-types policy block the style injection?**
-3. **Does the popup actually render and function** against a content-script
-   adapter with no `browser.tabs`?
+**Lesson worth keeping: a styling probe is not a rendering check.** Compare
+against the real thing, not against computed values.
 
-## What to run
+## Why the iframe is right
 
-```bash
-cd .worktrees/in-page-panel
-pnpm build            # Chrome
-pnpm build:firefox    # Firefox
+The panel is its own extension document, so all three problems dissolve rather
+than being worked around:
+
+- Root-absolute asset URLs resolve against the extension origin, as in the popup.
+- `rem` resolves against the panel's own root — immune to the host page.
+- `styles.css` applies unmodified. No `:host` mirror, no duplicated font tokens
+  that could drift, and `packages/popup-ui` is untouched.
+- Full origin isolation from Twitch/Kick CSS and JS.
+
+It also restores two-stage injection, which the shadow-root design had given up:
+
+| | shadow root | iframe (two-stage) |
+| --- | --- | --- |
+| `content-scripts/twitch.js` | 1.2 MB | **6.72 kB** |
+| build total | 5.07 MB | 2.56 MB |
+| web-accessible resources | `content-scripts/*.css` (WXT auto-generated) | `inpagePanel.html` |
+
+The panel document is exactly 400x600 — the popup's own dimensions — and the
+iframe is sized to match, so nothing scrolls.
+
+## Firefox caveat
+
+WXT downlevels the MV3 `{resources, matches}` entry to MV2's flat string array,
+verified in the built manifest:
+
+```json
+"web_accessible_resources": ["inpagePanel.html"]
 ```
 
-**Disable any installed store build first.** Loading unpacked gives a second live
-instance with its own `alarms`, `cookies` and scheduler; two engines will open
-managed tabs and hit Twitch GQL concurrently, which looks like a bug and can trip
-rate limits.
+MV2 has no `matches` field, so on Firefox the panel page is web-accessible to
+**every** origin, not just Twitch and Kick. The page exposes no secrets, but it is
+fingerprintable browser-wide there. Worth a line in the PR and the AMO listing.
 
-**Chrome** — `chrome://extensions` → Developer mode → *Load unpacked* →
-`packages/extension/.output/chrome-mv3`.
+## Still to build
 
-**Firefox** — `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* →
-`manifest.json` in `packages/extension/.output/firefox-mv2`.
-
-Open <https://www.twitch.tv> logged in. The panel mounts bottom-right
-automatically — no button yet. Repeat on <https://kick.com>.
-
-Expect the panel inside the extension's own managed farming tabs too. Not a bug:
-suppression needs a background round-trip this spike omits.
-
-## Reading the result
-
-A black diagnostic strip sits above the panel:
-
-```
---font-sans: "Geist", ui-sans-serif, …  |  --accent: #9147ff  |  utilities: applied
-```
-
-| Reading | Means |
-| --- | --- |
-| all three populated, panel looks like the toolbar popup | **pass** — `:host` mirroring works, ship this architecture |
-| `--font-sans: MISSING` | the `:host` mirror isn't landing; the shared sheet may need restructuring after all |
-| `--accent: MISSING` | the `[data-platform]` attribute-selector assumption is wrong |
-| `utilities: NOT APPLIED` | Tailwind output isn't reaching the shadow root — the serious failure |
-| nothing renders, console shows a CSP / trusted-types violation | style injection blocked; the iframe approach comes back |
-
-Please note browser + version and paste any console errors.
-
-## Open question this spike does not resolve: bundle size
-
-Dropping two-stage means the panel ships in the content script, which is now
-**1.2 MB raw / ~345 kB gzipped** per platform (up from 6.7 kB), plus ~65 kB raw /
-~10 kB gzipped of CSS. That is parsed and executed on **every** twitch.tv and
-kick.com page load, whether or not the user opens the panel.
-
-There is no network fetch — content scripts are local — but the parse/execute
-cost on page load is real, and Twitch is already heavy.
-
-If that proves unacceptable, two-stage can be restored *without* going back to
-the iframe: keep this exact shadow-root code as stage 2 and move it into a WXT
-**unlisted script**, injected on click via `browser.scripting.executeScript`
-(the `scripting` permission is already granted). Stage 1 then shrinks back to a
-button-only content script. That keeps the idiomatic shadow-root rendering and
-the simple single-document drag/focus model, and pays only for the executeScript
-plumbing.
-
-Decide it on the measured number after the spike passes, not before.
-
-## Cleanup
-
-Spike-only:
-
-- ~~`src/core/inPagePanelSpike.tsx`~~ — removed; it is now `src/core/inPagePanel.tsx`
-- the `mountInPagePanelSpike()` calls in `twitch.content.ts` / `kick.content.ts`
-- this file
-
-Not spike-only — these are the real feature:
-
-- `src/core/inPagePanelAdapter.ts`
-- `src/core/inPagePanel.css`
-- `cssInjectionMode: "ui"` on both content scripts
+- `inPagePanel` settings block (`enabled` default off, `position`, `open`) plus a
+  schema migration — settings go through `@lurkloot/shared/settingsSchema`, at
+  `CURRENT_SETTINGS_SCHEMA_VERSION = 4`.
+- Managed-tab suppression. Stage 1 runs in the extension's own farming tabs under
+  every architecture; it needs an `isManagedTab` round-trip because content
+  scripts cannot learn their own tab id.
+- Drag + position persistence. The drag handle must live in the content script,
+  not the panel document — pointer events inside an iframe do not reach the
+  parent — with `pointer-events: none` on the frame mid-drag.
+- SPA-navigation and `ctx.onInvalidated` handling so the host element is neither
+  duplicated nor orphaned.
+- Hide or lower the button in theatre/fullscreen.
