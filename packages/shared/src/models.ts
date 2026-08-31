@@ -400,6 +400,10 @@ export interface ExtensionSettings extends EngineSettings {
   // Extension-only persistence policy. Normal farming activity is always
   // recorded; this opt-in adds lower-level technical diagnostics.
   diagnosticLogging: boolean;
+  // Shows a Lurkloot button on twitch.tv/kick.com that opens the popup in a
+  // draggable panel on the page. Off by default: it injects visible UI into a
+  // site the user did not ask us to change, so it should be opted into.
+  showInPagePanel: boolean;
 }
 
 export interface SchedulerState {

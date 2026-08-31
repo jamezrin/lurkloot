@@ -155,6 +155,12 @@
   "hideTipsDescription": {
     "message": "Скрывает полезные советы в главном окне."
   },
+  "inPagePanelTitle": {
+    "message": "Показывать панель на Twitch и Kick"
+  },
+  "inPagePanelDescription": {
+    "message": "Добавляет кнопку Lurkloot на twitch.tv и kick.com, которая открывает это окно в виде панели на странице."
+  },
   "tipCampaignPriority": {
     "message": "Drops имеют приоритет над списком. Перетаскивайте кампании за ручку, чтобы задать порядок."
   },
@@ -587,24 +593,60 @@
   "insufficientTimeRemaining": {
     "message": "Недостаточно оставшегося времени"
   },
-  "campaignRejectionExcluded": { "message": "Эта кампания исключена из фарминга." },
-  "campaignRejectionUpcoming": { "message": "Эта кампания ещё не началась." },
-  "campaignRejectionExpired": { "message": "Эта кампания завершилась." },
-  "campaignRejectionCompleted": { "message": "Все награды этой кампании получены." },
-  "campaignRejectionUnlinkedDisabled": { "message": "Фарминг без привязанной учётной записи отключён." },
-  "campaignRejectionTwitchLinkRequired": { "message": "Для этой кампании Twitch требуется привязка учётной записи." },
-  "campaignRejectionSubscriptionDisabled": { "message": "Фарминг кампаний с подпиской отключён." },
-  "campaignRejectionCategoryFiltered": { "message": "Эта кампания не соответствует выбранным категориям." },
-  "campaignRejectionPriorityNotSelected": { "message": "Этой кампании нет в списке приоритетов." },
-  "campaignRejectionNoRewards": { "message": "В этой кампании нет доступных для фарминга наград." },
-  "campaignRejectionNoUnclaimedRewards": { "message": "В этой кампании нет неполученных наград." },
-  "campaignRejectionPrerequisites": { "message": "$1 ожидает предыдущую награду или условие." },
-  "campaignRejectionRewardNotStarted": { "message": "$1 пока недоступна." },
-  "campaignRejectionRewardWindowEnded": { "message": "$1 больше недоступна." },
-  "campaignRejectionInsufficientTime": { "message": "$1 нельзя завершить до окончания срока." },
-  "campaignRejectionSubscriptionRequired": { "message": "$1 требует подходящую подписку." },
-  "campaignRejectionActionRequired": { "message": "$1 требует действие помимо просмотра." },
-  "campaignRejectionNoFarmableReward": { "message": "Сейчас ни одну награду этой кампании нельзя фармить." },
+  "campaignRejectionExcluded": {
+    "message": "Эта кампания исключена из фарминга."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "Эта кампания ещё не началась."
+  },
+  "campaignRejectionExpired": {
+    "message": "Эта кампания завершилась."
+  },
+  "campaignRejectionCompleted": {
+    "message": "Все награды этой кампании получены."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "Фарминг без привязанной учётной записи отключён."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "Для этой кампании Twitch требуется привязка учётной записи."
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "Фарминг кампаний с подпиской отключён."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "Эта кампания не соответствует выбранным категориям."
+  },
+  "campaignRejectionPriorityNotSelected": {
+    "message": "Этой кампании нет в списке приоритетов."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "В этой кампании нет доступных для фарминга наград."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "В этой кампании нет неполученных наград."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 ожидает предыдущую награду или условие."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 пока недоступна."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 больше недоступна."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1 нельзя завершить до окончания срока."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1 требует подходящую подписку."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "$1 требует действие помимо просмотра."
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "Сейчас ни одну награду этой кампании нельзя фармить."
+  },
   "automationSectionTitle": {
     "message": "Автоматизация"
   },

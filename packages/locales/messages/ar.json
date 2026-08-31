@@ -155,6 +155,12 @@
   "hideTipsDescription": {
     "message": "يخفي النصائح المفيدة من النافذة الرئيسية."
   },
+  "inPagePanelTitle": {
+    "message": "إظهار اللوحة على Twitch وKick"
+  },
+  "inPagePanelDescription": {
+    "message": "يضيف زر Lurkloot إلى twitch.tv وkick.com لفتح هذه النافذة كلوحة داخل الصفحة."
+  },
   "tipCampaignPriority": {
     "message": "تأخذ Drops الأولوية على قائمة المشاهدة الخاملة. اسحب الحملات من المقبض لترتيب الفارم."
   },
@@ -587,24 +593,60 @@
   "insufficientTimeRemaining": {
     "message": "الوقت المتبقي غير كافٍ"
   },
-  "campaignRejectionExcluded": { "message": "هذه الحملة مستبعدة من الجمع التلقائي." },
-  "campaignRejectionUpcoming": { "message": "هذه الحملة لم تبدأ بعد." },
-  "campaignRejectionExpired": { "message": "انتهت هذه الحملة." },
-  "campaignRejectionCompleted": { "message": "اكتملت جميع مكافآت هذه الحملة." },
-  "campaignRejectionUnlinkedDisabled": { "message": "جمع الحملات دون حساب مرتبط معطّل." },
-  "campaignRejectionTwitchLinkRequired": { "message": "تتطلب حملة Twitch هذه ربط حساب." },
-  "campaignRejectionSubscriptionDisabled": { "message": "جمع حملات الاشتراك معطّل." },
-  "campaignRejectionCategoryFiltered": { "message": "هذه الحملة لا تطابق الفئات المحددة." },
-  "campaignRejectionPriorityNotSelected": { "message": "هذه الحملة ليست في قائمة الأولوية." },
-  "campaignRejectionNoRewards": { "message": "لا تحتوي هذه الحملة على مكافآت قابلة للجمع." },
-  "campaignRejectionNoUnclaimedRewards": { "message": "لا تحتوي هذه الحملة على مكافآت غير مستلمة." },
-  "campaignRejectionPrerequisites": { "message": "$1 بانتظار مكافأة أو شرط سابق." },
-  "campaignRejectionRewardNotStarted": { "message": "$1 غير متاحة بعد." },
-  "campaignRejectionRewardWindowEnded": { "message": "$1 لم تعد متاحة." },
-  "campaignRejectionInsufficientTime": { "message": "لا يمكن إكمال $1 قبل الموعد النهائي." },
-  "campaignRejectionSubscriptionRequired": { "message": "تتطلب $1 اشتراكًا مؤهلًا." },
-  "campaignRejectionActionRequired": { "message": "تتطلب $1 إجراءً غير المشاهدة." },
-  "campaignRejectionNoFarmableReward": { "message": "لا يمكن جمع أي مكافأة من هذه الحملة حاليًا." },
+  "campaignRejectionExcluded": {
+    "message": "هذه الحملة مستبعدة من الجمع التلقائي."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "هذه الحملة لم تبدأ بعد."
+  },
+  "campaignRejectionExpired": {
+    "message": "انتهت هذه الحملة."
+  },
+  "campaignRejectionCompleted": {
+    "message": "اكتملت جميع مكافآت هذه الحملة."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "جمع الحملات دون حساب مرتبط معطّل."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "تتطلب حملة Twitch هذه ربط حساب."
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "جمع حملات الاشتراك معطّل."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "هذه الحملة لا تطابق الفئات المحددة."
+  },
+  "campaignRejectionPriorityNotSelected": {
+    "message": "هذه الحملة ليست في قائمة الأولوية."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "لا تحتوي هذه الحملة على مكافآت قابلة للجمع."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "لا تحتوي هذه الحملة على مكافآت غير مستلمة."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 بانتظار مكافأة أو شرط سابق."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 غير متاحة بعد."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 لم تعد متاحة."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "لا يمكن إكمال $1 قبل الموعد النهائي."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "تتطلب $1 اشتراكًا مؤهلًا."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "تتطلب $1 إجراءً غير المشاهدة."
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "لا يمكن جمع أي مكافأة من هذه الحملة حاليًا."
+  },
   "automationSectionTitle": {
     "message": "الأتمتة"
   },

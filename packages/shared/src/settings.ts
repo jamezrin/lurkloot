@@ -113,6 +113,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   // installs are unaffected: they have persisted an explicit value already, and
   // no migration overrides it.
   diagnosticLogging: true,
+  showInPagePanel: false,
 };
 
 // Normalizes the universal engine contract. The engine (packages/core) and any
@@ -209,6 +210,7 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
       : DEFAULT_SETTINGS.rateNudgeStatus,
     showTips: booleanOr(value?.showTips, DEFAULT_SETTINGS.showTips),
     diagnosticLogging: booleanOr(value?.diagnosticLogging, DEFAULT_SETTINGS.diagnosticLogging),
+    showInPagePanel: booleanOr(value?.showInPagePanel, DEFAULT_SETTINGS.showInPagePanel),
   };
 }
 
