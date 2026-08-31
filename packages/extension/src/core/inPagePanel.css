@@ -1,0 +1,45 @@
+/* Shadow-root entry stylesheet for the in-page panel.
+ *
+ * The shared popup stylesheet is imported unmodified — deliberately. It is
+ * consumed by the toolbar popup and the Astro site demo as well, so editing it
+ * to suit a shadow root would put both at regression risk. Everything a shadow
+ * root needs differently is added here instead.
+ *
+ * What needs re-stating: the shared sheet's document-level rules. WXT's
+ * `cssInjectionMode: "ui"` injects this file INTO the shadow root, where
+ * `:root`, `html` and `body` match nothing — a ShadowRoot is a DocumentFragment,
+ * not a document. Custom properties do inherit across the shadow boundary, but
+ * only from a sheet present at document level, which "ui" mode specifically
+ * avoids.
+ *
+ * What does NOT need re-stating: the `[data-platform="twitch"|"kick"]` accent
+ * blocks. Those are attribute selectors matched against an element inside the
+ * panel, so they work in a shadow root untouched.
+ */
+
+@import "@lurkloot/popup-ui/styles.css";
+
+/* Mirrors `@theme` (which Tailwind v4 emits to `:root`) and the `@layer base`
+ * `:root` / `body` rules from the shared sheet.
+ *
+ * The font stacks are duplicated from that sheet's `@theme` block, which means
+ * they can drift. If this survives the spike, extract the tokens into a file
+ * both sheets import rather than leaving two copies. */
+:host {
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  --font-display: "Bricolage Grotesque", "Geist", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  color-scheme: light dark;
+
+  /* The shared sheet hangs these off `body`, which the panel has no equivalent
+   * of. Sizing is explicit here for the same reason: `body { min-width: 400px }`
+   * and `html, body, #root { height: 100% }` size the popup against the browser
+   * chrome's viewport, and a floating panel has none. */
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}

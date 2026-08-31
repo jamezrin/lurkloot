@@ -37,17 +37,6 @@ export default defineConfig({
       "https://*.twitch.tv/*",
       "https://*.kick.com/*"
     ],
-    // The in-page panel is an extension page embedded in an iframe by the
-    // twitch/kick content scripts, so its document must be web-accessible.
-    // Scoped to the two origins that inject it — never <all_urls>: a resource
-    // listed here is fetchable, and therefore fingerprintable, by every origin
-    // it is exposed to.
-    web_accessible_resources: [
-      {
-        resources: ["inpagePanel.html"],
-        matches: ["https://*.twitch.tv/*", "https://*.kick.com/*"]
-      }
-    ],
     icons: {
       "16": "icon/16.png",
       "32": "icon/32.png",
