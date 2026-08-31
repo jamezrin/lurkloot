@@ -5,6 +5,6 @@ export default defineContentScript({
   matches: ["https://kick.com/*"],
   main() {
     startPlaybackTelemetry("kick");
-    mountInPagePanel();
+    mountInPagePanel("kick");
   },
 });

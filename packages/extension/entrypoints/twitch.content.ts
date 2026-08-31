@@ -5,6 +5,6 @@ export default defineContentScript({
   matches: ["https://www.twitch.tv/*"],
   main() {
     startPlaybackTelemetry("twitch");
-    mountInPagePanel();
+    mountInPagePanel("twitch");
   },
 });

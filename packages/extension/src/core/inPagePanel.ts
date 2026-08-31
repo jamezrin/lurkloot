@@ -1,8 +1,9 @@
 import { browser } from "wxt/browser";
-import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
+import type { ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 
-// Stage 1 of the in-page panel: a toggle button, and an iframe hosting the
-// panel document (entrypoints/inpagePanel) that is loaded on first click.
+// Stage 1 of the in-page panel: an icon button in the site's own top-right nav,
+// and a draggable window hosting the panel document (entrypoints/inpagePanel),
+// loaded on first open.
 //
 // This module must stay dependency-free. WXT builds content scripts as a single
 // IIFE bundle (`formats: ["iife"]` in getLibModeConfig), which forces Rollup's
@@ -10,9 +11,10 @@ import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models"
 // Tailwind — ships on every twitch.tv and kick.com page load whether or not the
 // panel is ever opened. Rendering the popup in the content script cost 1.2 MB
 // per platform; behind the iframe this bundle stays in single-digit kilobytes.
-// The button is styled with hand-written CSS for the same reason.
+// Everything here is styled with hand-written CSS for the same reason.
 
-const HOST_ID = "lurkloot-panel-host";
+const BUTTON_ID = "lurkloot-nav-button";
+const PANEL_ID = "lurkloot-panel";
 const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";
 const UI_STATE_KEY = "inPagePanelUi";
@@ -23,10 +25,51 @@ const UI_STATE_KEY = "inPagePanelUi";
 // horizontally.
 const PANEL_WIDTH = 400;
 const PANEL_HEIGHT = 600;
+const TITLEBAR_HEIGHT = 32;
 const EDGE_MARGIN = 16;
-// Pointer travel past which a press counts as a drag rather than a click, so
-// the button can be both draggable and clickable without a separate handle.
-const DRAG_THRESHOLD = 4;
+
+// Where the button goes on each site, most specific first, falling back to a
+// floating corner control if every candidate misses so the feature cannot
+// silently disappear.
+//
+// These deliberately avoid the generated class names sitting right beside them
+// — Twitch's `Layout-sc-1xcs6mc-0`, Kick's `z-[402]` — because those are build
+// output. Kick proved the point during development: its nav class went from
+// `z-navbar` to `z-[402]` between two page loads on the same afternoon, so a
+// selector keyed on that would already be dead. `--navbar-height` survives both
+// spellings Kick emits (`h-[var(--navbar-height)]` and `h-(--navbar-height)`).
+interface Anchor {
+  find(): Element | null | undefined;
+  place: "before" | "append" | "prepend";
+}
+
+const ANCHORS: Record<Platform, Anchor[]> = {
+  twitch: [
+    // Immediately left of the Prime crown, inside the icon cluster.
+    { find: () => document.querySelector(".top-nav__prime"), place: "before" },
+    { find: () => document.querySelector(".top-nav__menu"), place: "append" },
+  ],
+  kick: [
+    // Kick's nav carries no semantic hooks, so this keys off the layout
+    // variable and takes the bar's right-hand cluster.
+    { find: () => document.querySelector('nav[class*="navbar-height"]')?.lastElementChild, place: "prepend" },
+  ],
+};
+
+// Matches the host site's own icon buttons: Twitch's are 32px, Kick's 40px.
+const BUTTON_SIZE: Record<Platform, number> = { twitch: 32, kick: 40 };
+
+// The Lurkloot mark as a monochrome glyph. Drawn inline (not the packaged
+// logo-ring.svg) for two reasons: referencing the file from a content script
+// would mean making it a second web-accessible resource, and the nav's other
+// icons are single-colour, so the gradient logo would look pasted on.
+// currentColor lets it inherit the site's own nav foreground.
+const ICON = `
+<svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" focusable="false">
+  <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-opacity="0.35" stroke-width="2.5"/>
+  <path d="M12 3.5 A8.5 8.5 0 1 1 5.05 16.9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M10.4 9.1 a0.7 0.7 0 0 1 1.05-0.6 l3.6 2.3 a0.7 0.7 0 0 1 0 1.2 l-3.6 2.3 a0.7 0.7 0 0 1-1.05-0.6 z" fill="currentColor"/>
+</svg>`;
 
 interface PanelUiState {
   left?: number;
@@ -34,10 +77,16 @@ interface PanelUiState {
   open?: boolean;
 }
 
-let host: HTMLDivElement | undefined;
+let platform: Platform;
+let button: HTMLButtonElement | undefined;
+let panel: HTMLDivElement | undefined;
+let frame: HTMLIFrameElement | undefined;
+let anchorObserver: MutationObserver | undefined;
 let ownTabId: number | undefined;
+let enabled = false;
 
-export function mountInPagePanel(): void {
+export function mountInPagePanel(forPlatform: Platform): void {
+  platform = forPlatform;
   void start();
 }
 
@@ -61,6 +110,7 @@ async function start(): Promise<void> {
   // panel over fullscreen video is intrusive, and on Twitch it is drawn above
   // the player controls.
   document.addEventListener("fullscreenchange", applyVisibility);
+  window.addEventListener("resize", clampIntoViewport);
 }
 
 async function reconcile(): Promise<void> {
@@ -68,189 +118,286 @@ async function reconcile(): Promise<void> {
   const settings = stored[SETTINGS_KEY] as Partial<ExtensionSettings> | undefined;
   const state = stored[STATE_KEY] as Partial<SchedulerState> | undefined;
 
-  if (settings?.showInPagePanel !== true || isManagedTab(state)) {
-    unmount();
+  enabled = settings?.showInPagePanel === true && !isManagedTab(state);
+  if (!enabled) {
+    teardown();
     return;
   }
-  await ensureMounted();
+  ensureButton();
+  watchAnchor();
+  if ((await readUi())?.open) await openPanel();
 }
 
 // The extension opens its own muted twitch.tv/kick.com tabs to farm in, and
-// content scripts run there like anywhere else. Showing the panel inside one
+// content scripts run there like anywhere else. Showing the button inside one
 // would be noise at best, and it would invite the user to interact with a tab
 // the scheduler owns and may close.
 function isManagedTab(state: Partial<SchedulerState> | undefined): boolean {
   if (ownTabId === undefined || !state) return false;
-  const managed = [
+  return [
     ...Object.values(state.managedWatchTabs ?? {}),
     ...Object.values(state.managedPageContextTabs ?? {}),
-  ];
-  return managed.some((tab) => tab?.tabId === ownTabId);
+  ].some((tab) => tab?.tabId === ownTabId);
 }
 
-function unmount(): void {
-  host?.remove();
-  host = undefined;
+function teardown(): void {
+  anchorObserver?.disconnect();
+  anchorObserver = undefined;
+  button?.remove();
+  button = undefined;
+  closePanel();
+  panel?.remove();
+  panel = undefined;
+  frame = undefined;
 }
 
-async function ensureMounted(): Promise<void> {
-  if (host?.isConnected) return;
+/* -------------------------------------------------------------- nav button */
 
-  const ui = (await browser.storage.local.get(UI_STATE_KEY))[UI_STATE_KEY] as PanelUiState | undefined;
+function ensureButton(): void {
+  if (button?.isConnected) return;
 
-  host = document.createElement("div");
-  host.id = HOST_ID;
-  host.style.cssText = [
+  button ??= createButton();
+  const target = resolveAnchor();
+  if (target) {
+    button.style.position = "";
+    button.style.inset = "";
+    if (target.place === "before") target.element.parentElement?.insertBefore(button, target.element);
+    else if (target.place === "prepend") target.element.prepend(button);
+    else target.element.append(button);
+    return;
+  }
+
+  // No anchor matched. Rather than have the feature vanish silently when a site
+  // reorganizes its nav, fall back to a floating corner control.
+  Object.assign(button.style, {
+    position: "fixed",
+    top: "",
+    right: `${EDGE_MARGIN}px`,
+    bottom: `${EDGE_MARGIN}px`,
+    left: "",
+    zIndex: "2147483646",
+  });
+  document.body.append(button);
+}
+
+function resolveAnchor(): { element: Element; place: Anchor["place"] } | undefined {
+  for (const candidate of ANCHORS[platform] ?? []) {
+    const element = candidate.find();
+    if (element) return { element, place: candidate.place };
+  }
+  return undefined;
+}
+
+function createButton(): HTMLButtonElement {
+  const size = BUTTON_SIZE[platform];
+  const el = document.createElement("button");
+  el.id = BUTTON_ID;
+  el.type = "button";
+  el.innerHTML = ICON;
+  // The label is not localized: this module is dependency-free by design and
+  // cannot reach the locale catalogs without pulling the loader — and with it
+  // the whole popup bundle — into every page load.
+  el.title = "Farm drops";
+  el.setAttribute("aria-label", "Farm drops");
+  el.setAttribute("aria-expanded", "false");
+  el.style.cssText = [
+    "all:unset",
+    "box-sizing:border-box",
+    "cursor:pointer",
+    "display:inline-flex",
+    "align-items:center",
+    "justify-content:center",
+    "flex:0 0 auto",
+    `width:${size}px`,
+    `height:${size}px`,
+    "border-radius:9999px",
+    // Inherits the nav's own foreground so the glyph matches its neighbours in
+    // both of Twitch's themes and on Kick.
+    "color:currentColor",
+  ].join(";");
+  el.addEventListener("mouseenter", () => { el.style.background = "rgba(128,128,128,.24)"; });
+  el.addEventListener("mouseleave", () => { el.style.background = ""; });
+  el.addEventListener("click", () => { void togglePanel(); });
+  return el;
+}
+
+// Twitch and Kick are both client-rendered: navigating re-renders the nav and
+// drops anything inserted into it. Re-inserting on mutation is what keeps the
+// button alive across route changes without polling.
+function watchAnchor(): void {
+  anchorObserver?.disconnect();
+  anchorObserver = new MutationObserver(() => {
+    if (enabled && !button?.isConnected) ensureButton();
+  });
+  anchorObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+/* ------------------------------------------------------------ panel window */
+
+async function togglePanel(): Promise<void> {
+  if (panel) closePanel();
+  else await openPanel();
+  await saveUi({ open: Boolean(panel) });
+}
+
+async function openPanel(): Promise<void> {
+  if (panel) return;
+  const ui = await readUi();
+
+  panel = document.createElement("div");
+  panel.id = PANEL_ID;
+  panel.style.cssText = [
     "position:fixed",
     "z-index:2147483647",
-    "display:flex",
-    "flex-direction:column",
-    "align-items:flex-end",
-    "gap:8px",
+    `width:${PANEL_WIDTH}px`,
+    "border-radius:12px",
+    "overflow:hidden",
+    "box-shadow:0 16px 48px rgba(0,0,0,.45)",
+    "background:#18181b",
   ].join(";");
 
-  // `src` is assigned on first open, not here: a hidden iframe still fetches
-  // its src, so setting it up front would load the panel on every page view and
-  // give up the reason for splitting the stages at all.
-  const frame = document.createElement("iframe");
+  const titlebar = document.createElement("div");
+  titlebar.style.cssText = [
+    "display:flex",
+    "align-items:center",
+    "justify-content:space-between",
+    `height:${TITLEBAR_HEIGHT}px`,
+    "padding:0 6px 0 12px",
+    "cursor:grab",
+    "background:#0e0e10",
+    "color:#efeff1",
+    "font:600 12px/1 system-ui,sans-serif",
+    "user-select:none",
+  ].join(";");
+
+  const title = document.createElement("span");
+  title.textContent = "Lurkloot";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.textContent = "×";
+  close.title = "Close";
+  close.setAttribute("aria-label", "Close");
+  close.style.cssText = [
+    "all:unset",
+    "cursor:pointer",
+    "display:inline-flex",
+    "align-items:center",
+    "justify-content:center",
+    "width:24px",
+    "height:24px",
+    "border-radius:6px",
+    "font:400 18px/1 system-ui,sans-serif",
+    "color:#adadb8",
+  ].join(";");
+  close.addEventListener("mouseenter", () => { close.style.background = "rgba(255,255,255,.12)"; });
+  close.addEventListener("mouseleave", () => { close.style.background = ""; });
+  close.addEventListener("click", () => { void togglePanel(); });
+  titlebar.append(title, close);
+
+  // `src` is assigned here rather than at page load: this is the point where
+  // the user has actually asked for the panel, and it is what keeps the popup
+  // bundle off every page view.
+  frame = document.createElement("iframe");
   frame.title = "Lurkloot";
-  frame.hidden = true;
+  frame.src = browser.runtime.getURL("/inpagePanel.html");
   frame.style.cssText = [
     `width:${PANEL_WIDTH}px`,
     `height:${PANEL_HEIGHT}px`,
     "border:0",
-    "border-radius:12px",
-    "box-shadow:0 12px 32px rgba(0,0,0,.35)",
+    "display:block",
     "color-scheme:normal",
   ].join(";");
 
-  // Text-only, deliberately: the popup's logo is served from the extension
-  // origin, and a content script cannot reference it without making the image a
-  // second web-accessible resource. Not worth widening the manifest for a pill.
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = "Lurkloot";
-  button.setAttribute("aria-expanded", "false");
-  button.style.cssText = [
-    "all:unset",
-    "box-sizing:border-box",
-    "cursor:grab",
-    "padding:8px 14px",
-    "border-radius:999px",
-    "background:#9147ff",
-    "color:#fff",
-    "font:600 13px/1 system-ui,sans-serif",
-    "box-shadow:0 4px 12px rgba(0,0,0,.3)",
-  ].join(";");
-
-  host.append(frame, button);
-  document.body.append(host);
+  panel.append(titlebar, frame);
+  document.body.append(panel);
 
   position(ui?.left, ui?.top);
-  if (ui?.open) openPanel(frame, button);
-
-  button.addEventListener("click", () => {
-    if (frame.hidden) openPanel(frame, button);
-    else closePanel(frame, button);
-    void saveUi({ open: !frame.hidden });
-  });
-
-  makeDraggable(host, button, frame);
+  makeDraggable(titlebar);
   applyVisibility();
+  button?.setAttribute("aria-expanded", "true");
 }
 
-function openPanel(frame: HTMLIFrameElement, button: HTMLButtonElement): void {
-  if (!frame.src) frame.src = browser.runtime.getURL("/inpagePanel.html");
-  frame.hidden = false;
-  button.setAttribute("aria-expanded", "true");
-  clampIntoViewport();
-}
-
-function closePanel(frame: HTMLIFrameElement, button: HTMLButtonElement): void {
-  frame.hidden = true;
-  button.setAttribute("aria-expanded", "false");
+function closePanel(): void {
+  panel?.remove();
+  panel = undefined;
+  frame = undefined;
+  button?.setAttribute("aria-expanded", "false");
 }
 
 function applyVisibility(): void {
-  if (host) host.style.display = document.fullscreenElement ? "none" : "flex";
+  const hidden = Boolean(document.fullscreenElement);
+  if (panel) panel.style.display = hidden ? "none" : "";
+  if (button) button.style.visibility = hidden ? "hidden" : "";
 }
 
 function position(left: number | undefined, top: number | undefined): void {
-  if (!host) return;
-  host.style.left = left === undefined ? "" : `${left}px`;
-  host.style.top = top === undefined ? "" : `${top}px`;
-  // Falls back to the bottom-right corner until the user moves it.
-  host.style.right = left === undefined ? `${EDGE_MARGIN}px` : "";
-  host.style.bottom = top === undefined ? `${EDGE_MARGIN}px` : "";
-  if (left !== undefined) clampIntoViewport();
+  if (!panel) return;
+  if (left === undefined || top === undefined) {
+    // Opens under the top-right nav, near the button that summoned it.
+    panel.style.right = `${EDGE_MARGIN}px`;
+    panel.style.top = `${EDGE_MARGIN + 40}px`;
+    return;
+  }
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  clampIntoViewport();
 }
 
-// A stored position can land off-screen after a resize, a monitor change, or
-// simply because opening the panel makes the host 600px taller.
+// A stored position can land off-screen after a resize or a monitor change.
 function clampIntoViewport(): void {
-  if (!host || host.style.left === "") return;
-  const rect = host.getBoundingClientRect();
+  if (!panel || !panel.style.left) return;
+  const rect = panel.getBoundingClientRect();
   const maxLeft = Math.max(EDGE_MARGIN, window.innerWidth - rect.width - EDGE_MARGIN);
   const maxTop = Math.max(EDGE_MARGIN, window.innerHeight - rect.height - EDGE_MARGIN);
-  host.style.left = `${Math.min(Math.max(EDGE_MARGIN, rect.left), maxLeft)}px`;
-  host.style.top = `${Math.min(Math.max(EDGE_MARGIN, rect.top), maxTop)}px`;
+  panel.style.left = `${Math.min(Math.max(EDGE_MARGIN, rect.left), maxLeft)}px`;
+  panel.style.top = `${Math.min(Math.max(EDGE_MARGIN, rect.top), maxTop)}px`;
 }
 
-// Dragging is bound to the button rather than a separate title bar. Pointer
-// events inside the iframe never reach this document, so a handle drawn over
-// the panel would need postMessage; the button is already outside the frame and
-// always visible, open or closed.
-function makeDraggable(hostEl: HTMLDivElement, button: HTMLButtonElement, frame: HTMLIFrameElement): void {
+function makeDraggable(handle: HTMLElement): void {
   let origin: { x: number; y: number; left: number; top: number } | undefined;
-  let dragging = false;
 
-  button.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
-    const rect = hostEl.getBoundingClientRect();
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || !panel) return;
+    if ((event.target as HTMLElement).closest("button")) return;
+    const rect = panel.getBoundingClientRect();
     origin = { x: event.clientX, y: event.clientY, left: rect.left, top: rect.top };
-    button.setPointerCapture(event.pointerId);
+    handle.setPointerCapture(event.pointerId);
+    handle.style.cursor = "grabbing";
+    // The iframe must not swallow the pointer stream the moment the cursor
+    // crosses over it; pointer events inside a frame never reach this document.
+    if (frame) frame.style.pointerEvents = "none";
+    // Anchor to left/top for the whole drag, so the right/top default does not
+    // fight the coordinates being written.
+    panel.style.right = "";
+    panel.style.left = `${rect.left}px`;
+    panel.style.top = `${rect.top}px`;
   });
 
-  button.addEventListener("pointermove", (event) => {
-    if (!origin) return;
-    const dx = event.clientX - origin.x;
-    const dy = event.clientY - origin.y;
-    if (!dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-
-    if (!dragging) {
-      dragging = true;
-      button.style.cursor = "grabbing";
-      // While dragging, the iframe must not swallow the pointer stream the
-      // moment the cursor crosses over it.
-      frame.style.pointerEvents = "none";
-    }
-    hostEl.style.right = "";
-    hostEl.style.bottom = "";
-    hostEl.style.left = `${origin.left + dx}px`;
-    hostEl.style.top = `${origin.top + dy}px`;
+  handle.addEventListener("pointermove", (event) => {
+    if (!origin || !panel) return;
+    panel.style.left = `${origin.left + event.clientX - origin.x}px`;
+    panel.style.top = `${origin.top + event.clientY - origin.y}px`;
   });
 
   const end = (event: PointerEvent) => {
-    if (!origin) return;
+    if (!origin || !panel) return;
     origin = undefined;
-    button.releasePointerCapture(event.pointerId);
-    if (!dragging) return;
-    dragging = false;
-    button.style.cursor = "grab";
-    frame.style.pointerEvents = "";
+    handle.releasePointerCapture(event.pointerId);
+    handle.style.cursor = "grab";
+    if (frame) frame.style.pointerEvents = "";
     clampIntoViewport();
-    void saveUi({ left: parseFloat(hostEl.style.left), top: parseFloat(hostEl.style.top) });
-    // Suppress the click this pointer sequence is about to fire, so finishing a
-    // drag does not also toggle the panel.
-    button.addEventListener("click", (click) => click.stopImmediatePropagation(), { capture: true, once: true });
+    void saveUi({ left: parseFloat(panel.style.left), top: parseFloat(panel.style.top) });
   };
-  button.addEventListener("pointerup", end);
-  button.addEventListener("pointercancel", end);
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+}
 
-  window.addEventListener("resize", clampIntoViewport);
+/* ------------------------------------------------------------- persistence */
+
+async function readUi(): Promise<PanelUiState | undefined> {
+  return (await browser.storage.local.get(UI_STATE_KEY))[UI_STATE_KEY] as PanelUiState | undefined;
 }
 
 async function saveUi(patch: PanelUiState): Promise<void> {
-  const current = (await browser.storage.local.get(UI_STATE_KEY))[UI_STATE_KEY] as PanelUiState | undefined;
-  await browser.storage.local.set({ [UI_STATE_KEY]: { ...current, ...patch } });
+  await browser.storage.local.set({ [UI_STATE_KEY]: { ...await readUi(), ...patch } });
 }
