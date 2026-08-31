@@ -155,6 +155,12 @@
   "hideTipsDescription": {
     "message": "Ana ekrandaki ipuçlarını gizler."
   },
+  "inPagePanelTitle": {
+    "message": "Twitch ve Kick'te paneli göster"
+  },
+  "inPagePanelDescription": {
+    "message": "twitch.tv ve kick.com sitelerine, bu açılır pencereyi sayfa üzerinde bir panel olarak açan bir Lurkloot düğmesi ekler."
+  },
   "tipCampaignPriority": {
     "message": "Aktif kampanyalar yedek listenizden önceliklidir. Sıralamayı değiştirmek için sürükleyin."
   },
@@ -587,24 +593,60 @@
   "insufficientTimeRemaining": {
     "message": "Yeterli süre kalmadı"
   },
-  "campaignRejectionExcluded": { "message": "Bu kampanya farmlamadan hariç tutuldu." },
-  "campaignRejectionUpcoming": { "message": "Bu kampanya henüz başlamadı." },
-  "campaignRejectionExpired": { "message": "Bu kampanya sona erdi." },
-  "campaignRejectionCompleted": { "message": "Bu kampanyadaki tüm ödüller tamamlandı." },
-  "campaignRejectionUnlinkedDisabled": { "message": "Bağlı hesap olmadan kampanya farmlama kapalı." },
-  "campaignRejectionTwitchLinkRequired": { "message": "Bu Twitch kampanyası için hesap bağlamak gerekir." },
-  "campaignRejectionSubscriptionDisabled": { "message": "Abonelik kampanyalarını farmlama kapalı." },
-  "campaignRejectionCategoryFiltered": { "message": "Bu kampanya seçili kategorilerle eşleşmiyor." },
-  "campaignRejectionPriorityNotSelected": { "message": "Bu kampanya öncelik listesinde değil." },
-  "campaignRejectionNoRewards": { "message": "Bu kampanyada farmlanabilir ödül yok." },
-  "campaignRejectionNoUnclaimedRewards": { "message": "Bu kampanyada alınmamış ödül yok." },
-  "campaignRejectionPrerequisites": { "message": "$1 önceki bir ödülü veya gereksinimi bekliyor." },
-  "campaignRejectionRewardNotStarted": { "message": "$1 henüz kullanılamıyor." },
-  "campaignRejectionRewardWindowEnded": { "message": "$1 artık kullanılamıyor." },
-  "campaignRejectionInsufficientTime": { "message": "$1 son tarihten önce tamamlanamaz." },
-  "campaignRejectionSubscriptionRequired": { "message": "$1 uygun bir abonelik gerektiriyor." },
-  "campaignRejectionActionRequired": { "message": "$1 izlemek dışında bir işlem gerektiriyor." },
-  "campaignRejectionNoFarmableReward": { "message": "Bu kampanyada şu anda farmlanabilecek ödül yok." },
+  "campaignRejectionExcluded": {
+    "message": "Bu kampanya farmlamadan hariç tutuldu."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "Bu kampanya henüz başlamadı."
+  },
+  "campaignRejectionExpired": {
+    "message": "Bu kampanya sona erdi."
+  },
+  "campaignRejectionCompleted": {
+    "message": "Bu kampanyadaki tüm ödüller tamamlandı."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "Bağlı hesap olmadan kampanya farmlama kapalı."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "Bu Twitch kampanyası için hesap bağlamak gerekir."
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "Abonelik kampanyalarını farmlama kapalı."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "Bu kampanya seçili kategorilerle eşleşmiyor."
+  },
+  "campaignRejectionPriorityNotSelected": {
+    "message": "Bu kampanya öncelik listesinde değil."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "Bu kampanyada farmlanabilir ödül yok."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "Bu kampanyada alınmamış ödül yok."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 önceki bir ödülü veya gereksinimi bekliyor."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 henüz kullanılamıyor."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 artık kullanılamıyor."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1 son tarihten önce tamamlanamaz."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1 uygun bir abonelik gerektiriyor."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "$1 izlemek dışında bir işlem gerektiriyor."
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "Bu kampanyada şu anda farmlanabilecek ödül yok."
+  },
   "automationSectionTitle": {
     "message": "Otomasyon"
   },

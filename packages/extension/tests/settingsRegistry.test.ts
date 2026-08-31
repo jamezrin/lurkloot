@@ -123,6 +123,7 @@ describe("settings registry", () => {
         "general.appearance.autoStart",
         "general.appearance.pauseOnManualWatch",
         "general.appearance.hideTips",
+        "general.appearance.inPagePanel",
         "general.notifications.rewardEarned",
         "general.notifications.noDropsLeft",
         "general.drops.autoClaim",
