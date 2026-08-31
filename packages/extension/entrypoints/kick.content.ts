@@ -1,5 +1,5 @@
 import { startPlaybackTelemetry } from "../src/core/playbackContent";
-import { mountInPagePanelSpike } from "../src/core/inPagePanelSpike";
+import { mountInPagePanel } from "../src/core/inPagePanel";
 
 export default defineContentScript({
   matches: ["https://kick.com/*"],
@@ -7,7 +7,6 @@ export default defineContentScript({
   cssInjectionMode: "ui",
   main(ctx) {
     startPlaybackTelemetry("kick");
-    // SPIKE ONLY — remove with src/core/inPagePanelSpike.tsx.
-    void mountInPagePanelSpike(ctx);
+    void mountInPagePanel(ctx);
   },
 });

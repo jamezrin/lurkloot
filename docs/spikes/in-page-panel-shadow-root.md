@@ -2,7 +2,10 @@
 
 Tracking issue: [#446](https://github.com/jamezrin/lurkloot/issues/446)
 
-**Status: awaiting a manual run.**
+**Status: PASSED** on Twitch/Chrome — `--font-sans` and `--accent` both resolved
+and Tailwind utilities applied, so the `:host` mirror works and Twitch's
+CSP/trusted-types did not block the style injection. The architecture is settled;
+this file is kept for the reasoning and the open bundle-size question.
 
 Supersedes the iframe frame-embedding spike. That approach existed to make
 two-stage lazy injection possible; with the two-stage requirement dropped, the
@@ -98,7 +101,7 @@ Decide it on the measured number after the spike passes, not before.
 
 Spike-only:
 
-- `src/core/inPagePanelSpike.tsx` (the `StyleProbe` strip especially)
+- ~~`src/core/inPagePanelSpike.tsx`~~ — removed; it is now `src/core/inPagePanel.tsx`
 - the `mountInPagePanelSpike()` calls in `twitch.content.ts` / `kick.content.ts`
 - this file
 
