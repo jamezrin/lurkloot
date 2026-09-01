@@ -20,6 +20,12 @@ export interface RunOptions {
   // transiently unavailable one. Stays independent of any browser cookie
   // observation — it reads only the CLI's file/env credential store.
   checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
+  hooks?: {
+    onStateLoad?(): void;
+    onStateSave?(): void;
+    onEventsPublished?(): void;
+    onTickCompleted?(): void | Promise<void>;
+  };
 }
 
 // Headless farming loop. Reuses the engine's background controller — the same
@@ -32,15 +38,28 @@ export async function runLoop(options: RunOptions): Promise<void> {
   // The shared engine works on the EngineSettings contract; expand the CLI's
   // schema once, pinning the headless invariants (always running, always tabless).
   const engineSettings = toEngineSettings(settings);
+  const enabledPlatforms = (["twitch", "kick"] as const).filter((platform) =>
+    engineSettings.platform[platform].enabled);
   const seenSubscriptionWaits = new Set<string>();
+  const loadRuntimeState = async (): Promise<SchedulerState> => {
+    options.hooks?.onStateLoad?.();
+    return await loadState(statePath);
+  };
+  const saveRuntimeState = async (state: SchedulerState): Promise<void> => {
+    options.hooks?.onStateSave?.();
+    await saveState(statePath, state);
+  };
 
   const controller = createBackgroundController({
     loadSettings: async () => engineSettings,
     // Settings come from the config file; the run loop never mutates them.
     saveSettings: async () => {},
-    loadState: () => loadState(statePath),
-    saveState: (state: SchedulerState) => saveState(statePath, state),
-    reportEvents: (events) => reportCliEvents(events, logger),
+    loadState: loadRuntimeState,
+    saveState: saveRuntimeState,
+    reportEvents: (events) => {
+      if (events.length > 0) options.hooks?.onEventsPublished?.();
+      return reportCliEvents(events, logger);
+    },
     // The CLI drives its own interval below, so alarm scheduling is a no-op.
     createAlarm: async () => {},
     createAdapter: (platform, emit, currentSettings) => transport.createAdapter(platform, emit, currentSettings),
@@ -51,8 +70,8 @@ export async function runLoop(options: RunOptions): Promise<void> {
 
   const tickOnce = async () => {
     try {
-      await controller.tickAndHandOff();
-      const state = await loadState(statePath);
+      await controller.tickAndHandOff(enabledPlatforms);
+      const state = await loadRuntimeState();
       const waits = subscriptionWaitKeys([...state.campaigns.twitch, ...state.campaigns.kick]);
       for (const key of seenSubscriptionWaits) {
         if (!waits.has(key)) seenSubscriptionWaits.delete(key);
@@ -62,6 +81,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
         seenSubscriptionWaits.add(key);
         logger.info(message, key.slice(0, key.indexOf(":")) as Platform);
       }
+      await options.hooks?.onTickCompleted?.();
     } catch (error) {
       logger.error(error instanceof Error ? error.message : String(error), "tick");
     }

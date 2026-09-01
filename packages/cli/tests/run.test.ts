@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,6 +11,7 @@ import type { TransportHandle } from "../src/transport";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
 import { runLoop } from "../src/runtime/run";
 import { createLogger } from "../src/logger";
+import { runCliBaselineCell } from "./helpers/tickBaseline";
 
 // A benign adapter whose only interesting behaviour is checkAuthHealth. Every
 // data method returns an empty result so an unhealthy (suspended) tick never
@@ -66,7 +67,10 @@ async function readAuthHealth(statePath: string): Promise<SchedulerState["authHe
 
 let dir: string;
 beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), "lurkloot-run-")); });
-afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
+afterEach(async () => {
+  vi.useRealTimers();
+  await rm(dir, { recursive: true, force: true });
+});
 
 async function runOnce(health: Record<Platform, PlatformAuthHealth>, availability: (platform: Platform) => CredentialAvailability): Promise<string> {
   const statePath = join(dir, "state.json");
@@ -115,5 +119,127 @@ describe("runLoop authentication health reporting", () => {
     );
     const authHealth = await readAuthHealth(statePath);
     expect(authHealth.kick).toMatchObject({ status: "unavailable", reasonCode: "credential_lookup_failed" });
+  });
+});
+
+describe("CLI scheduler tick baseline", () => {
+  it.each(["twitch", "kick"] as const)("measures an idle %s one-shot tick", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+    const result = await runCliBaselineCell(dir, platform, "idle");
+
+    expect(result).toEqual({
+      host: "cli",
+      platform,
+      scenario: "idle",
+      counts: {
+        providerRequests: 2,
+        campaignDiscovery: 1,
+        candidateListings: 0,
+        channelChecks: 0,
+        adapterConstructions: 2,
+        stateLoads: 4,
+        stateSaves: 2,
+        eventPublications: 6,
+      },
+      durationsMs: {
+        discovery: 30,
+        selection: 0,
+        watcher: 0,
+        persistence: 10,
+        total: 40,
+      },
+    });
+  });
+
+  it.each(["twitch", "kick"] as const)("matches retained %s core work with the extension host", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+
+    const result = await runCliBaselineCell(dir, platform, "stable");
+
+    expect(result.counts).toMatchObject({
+      providerRequests: 3,
+      campaignDiscovery: 1,
+      candidateListings: 0,
+      channelChecks: 1,
+      adapterConstructions: 2,
+      stateLoads: 4,
+      stateSaves: 2,
+    });
+    expect(result.durationsMs).toEqual({
+      discovery: 30,
+      selection: 10,
+      watcher: 0,
+      persistence: 10,
+      total: 50,
+    });
+  });
+
+  it.each(["twitch", "kick"] as const)("attributes slow %s work with the same controlled clock", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+
+    const result = await runCliBaselineCell(dir, platform, "slow");
+
+    expect(result.durationsMs).toEqual({
+      discovery: 300,
+      selection: 200,
+      watcher: 0,
+      persistence: 10,
+      total: 510,
+    });
+  });
+
+  it.each([
+    ["twitch", "switch"],
+    ["kick", "switch"],
+    ["twitch", "higherPriorityUnavailable"],
+    ["kick", "higherPriorityUnavailable"],
+  ] as const)("measures %s/%s selection work", async (platform, scenario) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+
+    const result = await runCliBaselineCell(dir, platform, scenario);
+
+    expect(result.counts).toMatchObject({
+      providerRequests: 4,
+      campaignDiscovery: 1,
+      candidateListings: 1,
+      channelChecks: 1,
+      adapterConstructions: 2,
+      stateLoads: 4,
+      stateSaves: 2,
+    });
+    expect(result.durationsMs).toEqual({
+      discovery: 30,
+      selection: 20,
+      watcher: 0,
+      persistence: 10,
+      total: 60,
+    });
+  });
+
+  it.each(["twitch", "kick"] as const)("measures a failed %s response", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+
+    const result = await runCliBaselineCell(dir, platform, "failed");
+
+    expect(result.counts).toMatchObject({
+      providerRequests: 2,
+      campaignDiscovery: 1,
+      candidateListings: 0,
+      channelChecks: 0,
+      stateLoads: 4,
+      stateSaves: 2,
+    });
+    expect(result.durationsMs).toEqual({
+      discovery: 30,
+      selection: 0,
+      watcher: 0,
+      persistence: 10,
+      total: 40,
+    });
   });
 });
