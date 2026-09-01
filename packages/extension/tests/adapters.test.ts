@@ -1641,7 +1641,7 @@ describe("TwitchAdapter", () => {
     expect(emit).toHaveBeenCalledWith(expect.objectContaining({
       category: "diagnostic",
       platform: "twitch",
-      message: expect.stringMatching(/^Twitch campaign details finished in \d+ms \(41 operations: 3 batch requests, 0 single fallbacks\)$/),
+      message: expect.stringMatching(/^Twitch campaign details finished in \d+ms \(41 campaigns: 41 fetched in 3 batch requests, 0 single fallbacks, 0 served from cache\)$/),
     }));
   });
 
@@ -1723,13 +1723,22 @@ describe("TwitchAdapter", () => {
     const discoveryState = new TwitchDiscoveryState();
     const firstAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
 
-    expect((await firstAdapter.refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["a", "b"]);
-    failing = "b";
-    const secondAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
-    const campaigns = await secondAdapter.refreshCampaigns();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime("2026-08-31T12:00:00.000Z");
+      expect((await firstAdapter.refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["a", "b"]);
+      failing = "b";
+      // Past the detail reuse window, so "b" is actually re-requested and can
+      // fail; retention is what has to carry it, not the reuse cache.
+      vi.setSystemTime("2026-08-31T12:10:00.000Z");
+      const secondAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
+      const campaigns = await secondAdapter.refreshCampaigns();
 
-    expect(campaigns.map((campaign) => campaign.id)).toEqual(["a", "b"]);
-    expect(events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("b"))).toBe(true);
+      expect(campaigns.map((campaign) => campaign.id)).toEqual(["a", "b"]);
+      expect(events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("b"))).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("omits a campaign whose details request fails before it was ever seen, but records it", async () => {
@@ -2004,15 +2013,26 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
 
-    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
-      .map((campaign) => campaign.id)).toEqual(["campaign"]);
-    detailResponse = "missing";
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
-      .resolves.toEqual([]);
-    detailResponse = "failure";
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime("2026-08-31T12:00:00.000Z");
+      expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+        .map((campaign) => campaign.id)).toEqual(["campaign"]);
+      detailResponse = "missing";
+      // Each later refresh is stepped past the detail reuse window so it issues
+      // a real request: reuse must not stand in for the authoritative "no such
+      // campaign" answer this test is about.
+      vi.setSystemTime("2026-08-31T12:10:00.000Z");
+      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+        .resolves.toEqual([]);
+      detailResponse = "failure";
 
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
-      .resolves.toEqual([]);
+      vi.setSystemTime("2026-08-31T12:20:00.000Z");
+      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+        .resolves.toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("prunes expired retained campaign details during a later write", () => {
@@ -2024,9 +2044,19 @@ describe("TwitchAdapter", () => {
         campaignDetailsByDropId: Map<string, unknown>;
       }).campaignDetailsByDropId;
 
-      discoveryState.rememberCampaignDetails("expired", { id: "expired" });
+      discoveryState.rememberCampaignDetails(
+        "expired",
+        { id: "expired" },
+        undefined,
+        discoveryState.availabilityRequestIdentity(),
+      );
       vi.setSystemTime("2026-07-26T12:31:00.000Z");
-      discoveryState.rememberCampaignDetails("fresh", { id: "fresh" });
+      discoveryState.rememberCampaignDetails(
+        "fresh",
+        { id: "fresh" },
+        undefined,
+        discoveryState.availabilityRequestIdentity(),
+      );
 
       expect([...details.keys()]).toEqual(["fresh"]);
     } finally {
