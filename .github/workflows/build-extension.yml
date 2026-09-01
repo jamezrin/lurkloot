@@ -42,7 +42,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@v6
         with:
-          version: 11.24.0
+          version: 11.25.0
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -72,7 +72,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@v6
         with:
-          version: 11.24.0
+          version: 11.25.0
       - uses: actions/setup-node@v7
         with:
           node-version: 24
