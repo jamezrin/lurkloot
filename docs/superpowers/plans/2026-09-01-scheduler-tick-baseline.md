@@ -43,11 +43,11 @@ Define the intended public shapes in the test before the helper exists:
 ```ts
 it("records aggregate work without credential or payload fields", async () => {
   const recorder = createTickBaselineRecorder();
-  recorder.count("providerRequests");
+  recorder.count("adapterOperations");
   await recorder.clock.advance("discovery", 40);
 
   expect(recorder.snapshot()).toEqual({
-    counts: expect.objectContaining({ providerRequests: 1 }),
+    counts: expect.objectContaining({ adapterOperations: 1 }),
     durationsMs: expect.objectContaining({ discovery: 40 }),
   });
   expect(JSON.stringify(recorder.snapshot())).not.toMatch(
@@ -68,14 +68,13 @@ Use fixed keys so reports remain comparable:
 
 ```ts
 export interface TickBaselineCounts {
-  providerRequests: number;
+  adapterOperations: number;
   campaignDiscovery: number;
   candidateListings: number;
   channelChecks: number;
   campaignsEvaluated: number;
   candidatesEvaluated: number;
   watcherReconciliations: number;
-  heartbeats: number;
   adapterConstructions: number;
   settingsLoads: number;
   stateLoads: number;
@@ -166,33 +165,22 @@ git commit -m "test(extension): baseline scheduler tick work"
 - Modify: `packages/extension/tests/tickBaseline.test.ts`
 
 **Interfaces:**
-- Produces: a test-only `RunLoopHooks` contract for observing a completed tick and injecting a scheduler driver.
 - Produces: `runCliBaselineCell(platform, scenario): Promise<TickBaselineResult>`.
 - Consumes: the same counting adapter behavior and `TickBaselineResult` shape used by extension tests.
 
 - [ ] **Step 1: Write a failing CLI one-shot measurement test**
 
-Run a single-platform CLI configuration through `runLoop({ once: true })` and assert exact adapter construction, state load/save, publication, discovery, selection, and provider request counts.
+Run a single-platform CLI configuration through `runLoop({ once: true })` and assert exact adapter construction, discovery, selection, and normalized adapter-operation counts.
 
 - [ ] **Step 2: Verify RED**
 
 Run: `pnpm --filter @lurkloot/cli test -- run.test.ts`
 
-Expected: FAIL because the run loop exposes neither its completed-tick observation nor deterministic host-driver injection.
+Expected: FAIL because the CLI baseline runner does not exist.
 
-- [ ] **Step 3: Add narrow optional test hooks to the CLI run loop**
+- [ ] **Step 3: Keep the production run-loop API unchanged**
 
-Add an optional dependency object rather than importing Vitest or test helpers into production:
-
-```ts
-export interface RunLoopHooks {
-  onTickCompleted?: () => void | Promise<void>;
-  setInterval?: typeof globalThis.setInterval;
-  clearInterval?: typeof globalThis.clearInterval;
-}
-```
-
-Default every hook to the existing production behavior. Call `onTickCompleted` after `tickAndHandOff()` and subscription-wait reconciliation complete.
+Measure normalized controller work through counting transport adapters and use Vitest's controlled clock for the real interval driver. Do not add test-only callbacks to `RunOptions`.
 
 - [ ] **Step 4: Implement the CLI baseline runner**
 
@@ -200,11 +188,11 @@ Use a temporary state file containing normalized `SchedulerState`, a silent logg
 
 - [ ] **Step 5: Assert host equivalence and unavoidable wrapper differences**
 
-For equivalent normalized scenarios, compare discovery, selection, watcher, and provider request counts between CLI and extension. Assert CLI-specific state-file reads separately and require a comment explaining each count that differs by host.
+For equivalent normalized scenarios, compare discovery, selection, watcher, and adapter-operation counts between CLI and extension. Keep real HTTP request counts in focused adapter tests.
 
 - [ ] **Step 6: Characterize timer overlap deterministically**
 
-Inject the timer hooks, block the first tick, advance the fake clock through another interval, and assert the exact number of controller tick requests. This records whether the CLI currently overlaps or queues timer-driven work without implementing #336 or #394.
+Block a refresh, advance the fake clock through another interval, and assert that provider work remains serialized while each elapsed interval queues a later tick. This records current behavior without implementing #336 or #394.
 
 - [ ] **Step 7: Verify CLI and cross-host matrix GREEN**
 

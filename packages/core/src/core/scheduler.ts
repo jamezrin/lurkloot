@@ -811,6 +811,7 @@ export async function runSchedulerTick(
         // platform-scoped stop. Both reason codes remain meaningful.
         const automationOff = !isFarmingActive(settings);
         await adapter.stopWatchTab?.(previous, { signal: options.signal });
+        nextState.campaigns[platform] = [];
         nextState.sessions[platform] = {
           ...previous,
           status: "paused",

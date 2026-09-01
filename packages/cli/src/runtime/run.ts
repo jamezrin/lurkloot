@@ -20,12 +20,22 @@ export interface RunOptions {
   // transiently unavailable one. Stays independent of any browser cookie
   // observation — it reads only the CLI's file/env credential store.
   checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
-  hooks?: {
-    onStateLoad?(): void;
-    onStateSave?(): void;
-    onEventsPublished?(): void;
-    onTickCompleted?(): void | Promise<void>;
-  };
+}
+
+function disabledPlatformsNeedingCleanup(
+  state: SchedulerState,
+  settings: ReturnType<typeof toEngineSettings>,
+): Platform[] {
+  return (["twitch", "kick"] as const).filter((platform) => {
+    if (settings.platform[platform].enabled) return false;
+    const session = state.sessions[platform];
+    return state.campaigns[platform].length > 0
+      || session.channel !== undefined
+      || session.campaignId !== undefined
+      || session.rewardId !== undefined
+      || session.watchMode !== undefined
+      || state.managedWatchTabs?.[platform] !== undefined;
+  });
 }
 
 // Headless farming loop. Reuses the engine's background controller — the same
@@ -41,14 +51,8 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const enabledPlatforms = (["twitch", "kick"] as const).filter((platform) =>
     engineSettings.platform[platform].enabled);
   const seenSubscriptionWaits = new Set<string>();
-  const loadRuntimeState = async (): Promise<SchedulerState> => {
-    options.hooks?.onStateLoad?.();
-    return await loadState(statePath);
-  };
-  const saveRuntimeState = async (state: SchedulerState): Promise<void> => {
-    options.hooks?.onStateSave?.();
-    await saveState(statePath, state);
-  };
+  const loadRuntimeState = async (): Promise<SchedulerState> => loadState(statePath);
+  const saveRuntimeState = async (state: SchedulerState): Promise<void> => saveState(statePath, state);
 
   const controller = createBackgroundController({
     loadSettings: async () => engineSettings,
@@ -56,10 +60,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     saveSettings: async () => {},
     loadState: loadRuntimeState,
     saveState: saveRuntimeState,
-    reportEvents: (events) => {
-      if (events.length > 0) options.hooks?.onEventsPublished?.();
-      return reportCliEvents(events, logger);
-    },
+    reportEvents: (events) => reportCliEvents(events, logger),
     // The CLI drives its own interval below, so alarm scheduling is a no-op.
     createAlarm: async () => {},
     createAdapter: (platform, emit, currentSettings) => transport.createAdapter(platform, emit, currentSettings),
@@ -71,7 +72,12 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const tickOnce = async () => {
     try {
       await controller.tickAndHandOff(enabledPlatforms);
-      const state = await loadRuntimeState();
+      let state = await loadRuntimeState();
+      const staleDisabledPlatforms = disabledPlatformsNeedingCleanup(state, engineSettings);
+      if (staleDisabledPlatforms.length > 0) {
+        await controller.tickAndHandOff(staleDisabledPlatforms);
+        state = await loadRuntimeState();
+      }
       const waits = subscriptionWaitKeys([...state.campaigns.twitch, ...state.campaigns.kick]);
       for (const key of seenSubscriptionWaits) {
         if (!waits.has(key)) seenSubscriptionWaits.delete(key);
@@ -81,7 +87,6 @@ export async function runLoop(options: RunOptions): Promise<void> {
         seenSubscriptionWaits.add(key);
         logger.info(message, key.slice(0, key.indexOf(":")) as Platform);
       }
-      await options.hooks?.onTickCompleted?.();
     } catch (error) {
       logger.error(error instanceof Error ? error.message : String(error), "tick");
     }

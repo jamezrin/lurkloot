@@ -21,19 +21,18 @@ describe("scheduler tick baseline recorder", () => {
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
     const recorder = createTickBaselineRecorder();
 
-    recorder.count("providerRequests");
+    recorder.count("adapterOperations");
     await recorder.clock.advance("discovery", 40);
 
     expect(recorder.snapshot()).toEqual({
       counts: {
-        providerRequests: 1,
+        adapterOperations: 1,
         campaignDiscovery: 0,
         candidateListings: 0,
         channelChecks: 0,
         campaignsEvaluated: 0,
         candidatesEvaluated: 0,
         watcherReconciliations: 0,
-        heartbeats: 0,
         adapterConstructions: 0,
         settingsLoads: 0,
         stateLoads: 0,
@@ -67,7 +66,7 @@ describe("scheduler tick baseline recorder", () => {
     expect(checked).toMatchObject({ live: true, categoryMatches: true });
     expect(recorder.snapshot()).toMatchObject({
       counts: {
-        providerRequests: 3,
+        adapterOperations: 3,
         campaignDiscovery: 1,
         candidateListings: 1,
         channelChecks: 1,
@@ -95,20 +94,23 @@ describe("extension scheduler tick baseline", () => {
         channelChecks: 0,
         campaignsEvaluated: 0,
         candidatesEvaluated: 0,
-        providerRequests: 2,
+        adapterOperations: 2,
         adapterConstructions: 2,
         settingsLoads: 3,
         stateLoads: 3,
         stateSaves: 2,
         eventPublications: 6,
         watcherReconciliations: 0,
-        heartbeats: 0,
       },
       durationsMs: {
         discovery: 30,
         selection: 0,
         watcher: 0,
         persistence: 10,
+        total: 40,
+      },
+      observedControllerMs: {
+        discovery: 30,
         total: 40,
       },
     });
@@ -122,7 +124,7 @@ describe("extension scheduler tick baseline", () => {
     reportBaseline(result);
 
     expect(result.counts).toMatchObject({
-      providerRequests: 3,
+      adapterOperations: 3,
       campaignDiscovery: 1,
       candidateListings: 0,
       channelChecks: 1,
@@ -155,25 +157,27 @@ describe("extension scheduler tick baseline", () => {
     const result = await runExtensionBaselineCell(platform, scenario);
     reportBaseline(result);
 
+    expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
+
     expect(result.counts).toMatchObject({
-      providerRequests: 4,
+      adapterOperations: scenario === "higherPriorityUnavailable" ? 7 : 4,
       campaignDiscovery: 1,
-      candidateListings: 1,
-      channelChecks: 1,
-      campaignsEvaluated: 1,
-      candidatesEvaluated: 1,
+      candidateListings: scenario === "higherPriorityUnavailable" ? 2 : 1,
+      channelChecks: scenario === "higherPriorityUnavailable" ? 3 : 1,
+      campaignsEvaluated: scenario === "higherPriorityUnavailable" ? 2 : 1,
+      candidatesEvaluated: scenario === "higherPriorityUnavailable" ? 2 : 1,
       adapterConstructions: 2,
       settingsLoads: 3,
       stateLoads: 3,
       stateSaves: 2,
-      watcherReconciliations: scenario === "switch" ? 1 : 0,
+      watcherReconciliations: 1,
     });
     expect(result.durationsMs).toEqual({
       discovery: 30,
-      selection: 20,
-      watcher: scenario === "switch" ? 5 : 0,
+      selection: scenario === "higherPriorityUnavailable" ? 50 : 20,
+      watcher: 5,
       persistence: 10,
-      total: scenario === "switch" ? 65 : 60,
+      total: scenario === "higherPriorityUnavailable" ? 95 : 65,
     });
   });
 
@@ -185,7 +189,7 @@ describe("extension scheduler tick baseline", () => {
     reportBaseline(result);
 
     expect(result.counts).toMatchObject({
-      providerRequests: 2,
+      adapterOperations: 2,
       campaignDiscovery: 1,
       candidateListings: 0,
       channelChecks: 0,
@@ -214,6 +218,11 @@ describe("extension scheduler tick baseline", () => {
       selection: 200,
       watcher: 5,
       persistence: 10,
+      total: 515,
+    });
+    expect(result.observedControllerMs).toEqual({
+      discovery: 300,
+      selection: 200,
       total: 515,
     });
   });

@@ -99,7 +99,7 @@ describe("KickAdapter", () => {
   it("starts Kick campaign and progress requests concurrently", async () => {
     let campaignStarted = false;
     let progressStarted = false;
-    const adapter = kickAdapter(jsonFetcher(async (url) => {
+    const fetcher = jsonFetcher(async (url) => {
       if (url.endsWith("/drops/campaigns")) {
         campaignStarted = true;
         await vi.waitFor(() => expect(progressStarted).toBe(true));
@@ -125,11 +125,13 @@ describe("KickAdapter", () => {
         };
       }
       throw new Error(`Unexpected URL ${url}`);
-    }));
+    });
+    const adapter = kickAdapter(fetcher);
 
     const campaigns = await adapter.refreshCampaigns();
 
     expect(campaigns[0]?.rewards[0]?.watchedMinutes).toBe(30);
+    expect(fetcher.fetchJson).toHaveBeenCalledTimes(2);
   });
 
   it("keeps Kick campaigns when concurrent progress refresh fails", async () => {

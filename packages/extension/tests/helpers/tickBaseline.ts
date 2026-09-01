@@ -8,14 +8,15 @@ import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
 
 export interface TickBaselineCounts {
-  providerRequests: number;
+  // Calls across the PlatformAdapter boundary. These are not transport request
+  // counts: one adapter operation may issue zero, one, or several HTTP requests.
+  adapterOperations: number;
   campaignDiscovery: number;
   candidateListings: number;
   channelChecks: number;
   campaignsEvaluated: number;
   candidatesEvaluated: number;
   watcherReconciliations: number;
-  heartbeats: number;
   adapterConstructions: number;
   settingsLoads: number;
   stateLoads: number;
@@ -28,12 +29,14 @@ export type TickPhase = "discovery" | "selection" | "watcher" | "persistence" | 
 export interface TickBaselineResult {
   counts: TickBaselineCounts;
   durationsMs: Record<TickPhase, number>;
+  observedControllerMs?: Partial<Record<"discovery" | "selection" | "total", number>>;
 }
 
 export interface HostTickBaselineResult extends TickBaselineResult {
   host: "extension" | "cli";
   platform: Platform;
   scenario: TickBaselineScenario;
+  outcomeCampaignId?: string;
 }
 
 export type TickBaselineScenario =
@@ -49,14 +52,13 @@ export type TickBaselineScenario =
 export type TickBaselineRecorder = ReturnType<typeof createTickBaselineRecorder>;
 
 const countKeys = [
-  "providerRequests",
+  "adapterOperations",
   "campaignDiscovery",
   "candidateListings",
   "channelChecks",
   "campaignsEvaluated",
   "candidatesEvaluated",
   "watcherReconciliations",
-  "heartbeats",
   "adapterConstructions",
   "settingsLoads",
   "stateLoads",
@@ -104,34 +106,40 @@ export function createCountingAdapter(
   recorder: TickBaselineRecorder,
 ): PlatformAdapter {
   const campaign = baselineCampaign(platform);
+  const urgentCampaign = baselineCampaign(platform, "urgent");
   const candidate = baselineCandidate(platform);
   const request = async (phase: "discovery" | "selection", milliseconds: number): Promise<void> => {
-    recorder.count("providerRequests");
+    recorder.count("adapterOperations");
     await recorder.clock.advance(phase, scenario === "slow" ? milliseconds * 10 : milliseconds);
   };
 
   return {
     platform,
     checkAuthHealth: async () => {
-      recorder.count("providerRequests");
+      recorder.count("adapterOperations");
       return { status: "healthy" };
     },
     refreshCampaigns: async () => {
       recorder.count("campaignDiscovery");
       await request("discovery", 30);
       if (scenario === "failed") throw new Error(`${platform} synthetic discovery failure`);
-      return scenario === "idle" ? [] : [campaign];
+      return scenario === "idle"
+        ? []
+        : scenario === "higherPriorityUnavailable" ? [campaign, urgentCampaign] : [campaign];
     },
-    listCandidateChannels: async () => {
+    listCandidateChannels: async (selectedCampaign) => {
       recorder.count("candidateListings");
       await request("selection", 10);
-      return [candidate];
+      return [{
+        ...candidate,
+        username: selectedCampaign.id.endsWith("urgent") ? `${platform}-urgent-creator` : candidate.username,
+      }];
     },
     checkChannel: async (checkedCandidate) => {
       recorder.count("channelChecks");
       await request("selection", 10);
       return {
-        live: scenario !== "higherPriorityUnavailable",
+        live: scenario !== "higherPriorityUnavailable" || !checkedCandidate.username.includes("urgent"),
         categoryMatches: true,
         candidate: checkedCandidate,
       };
@@ -149,9 +157,9 @@ export function createCountingAdapter(
   };
 }
 
-function baselineCampaign(platform: Platform): DropCampaign {
+function baselineCampaign(platform: Platform, suffix = "campaign"): DropCampaign {
   return {
-    id: `${platform}-campaign`,
+    id: `${platform}-${suffix}`,
     platform,
     name: `${platform} campaign`,
     status: "active",
@@ -191,9 +199,12 @@ export async function runExtensionBaselineCell(
       twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: platform === "twitch" },
       kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: platform === "kick" },
     },
+    campaignPriorities: scenario === "higherPriorityUnavailable"
+      ? { [`${platform}-urgent`]: 10 }
+      : {},
   };
   let state: SchedulerState = structuredClone(DEFAULT_STATE);
-  if (scenario === "stable" || scenario === "retained" || scenario === "switch") {
+  if (scenario === "stable" || scenario === "retained" || scenario === "switch" || scenario === "higherPriorityUnavailable") {
     const currentIds = scenario === "switch"
       ? { campaign: `${platform}-old-campaign`, reward: `${platform}-old-reward` }
       : { campaign: `${platform}-campaign`, reward: `${platform}-reward` };
@@ -251,11 +262,18 @@ export async function runExtensionBaselineCell(
     host: "extension",
     twitchIdentity: "web",
   });
+  const observedControllerMs: Partial<Record<"discovery" | "selection" | "total", number>> = {};
   const reportEvents = async (events: readonly EngineEvent[]): Promise<void> => {
     if (events.length === 0) return;
     recorder.count("eventPublications");
     for (const event of events) {
       if (event.category !== "diagnostic") continue;
+      const refreshDuration = event.message.match(/^Campaign refresh finished in (\d+)ms/);
+      if (refreshDuration) observedControllerMs.discovery = Number(refreshDuration[1]);
+      const selectionDuration = event.message.match(/^Campaign selection(?: fast path retained current watch)? finished in (\d+)ms/);
+      if (selectionDuration) observedControllerMs.selection = Number(selectionDuration[1]);
+      const totalDuration = event.message.match(/^Tick #\d+ finished after (\d+)ms/);
+      if (totalDuration) observedControllerMs.total = Number(totalDuration[1]);
       const selection = event.message.match(/\((\d+) campaigns? checked, (\d+) candidates? checked\)/);
       if (selection) {
         recorder.count("campaignsEvaluated", Number(selection[1]));
@@ -302,5 +320,7 @@ export async function runExtensionBaselineCell(
     platform,
     scenario,
     ...recorder.snapshot(),
+    observedControllerMs,
+    outcomeCampaignId: state.sessions[platform].campaignId,
   };
 }

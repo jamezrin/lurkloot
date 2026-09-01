@@ -8,20 +8,18 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_CLI_SETTINGS, type CliSettings } from "../../src/settings";
 import type { Logger } from "../../src/logger";
 import { runLoop } from "../../src/runtime/run";
-import { saveState } from "../../src/storage";
+import { loadState, saveState } from "../../src/storage";
 import type { TransportHandle } from "../../src/transport";
 
 type Scenario = "idle" | "stable" | "switch" | "higherPriorityUnavailable" | "slow" | "failed";
 
 interface Counts {
-  providerRequests: number;
+  // PlatformAdapter calls, not raw HTTP request counts.
+  adapterOperations: number;
   campaignDiscovery: number;
   candidateListings: number;
   channelChecks: number;
   adapterConstructions: number;
-  stateLoads: number;
-  stateSaves: number;
-  eventPublications: number;
   watcherReconciliations: number;
 }
 
@@ -61,6 +59,10 @@ function countingAdapter(
       status: "in_progress",
     }],
   };
+  const urgentCampaign: DropCampaign = {
+    ...campaign,
+    id: `${platform}-urgent`,
+  };
   const candidate: ChannelCandidate = {
     platform,
     username: `${platform}-creator`,
@@ -68,7 +70,7 @@ function countingAdapter(
       ? "https://www.twitch.tv/twitch-creator"
       : "https://kick.com/kick-creator",
   };
-  const request = (): void => { counts.providerRequests += 1; };
+  const request = (): void => { counts.adapterOperations += 1; };
   return {
     platform,
     checkAuthHealth: async () => {
@@ -80,20 +82,25 @@ function countingAdapter(
       request();
       advance("discovery", scenario === "slow" ? 300 : 30);
       if (scenario === "failed") throw new Error(`${platform} synthetic discovery failure`);
-      return scenario === "idle" ? [] : [campaign];
+      return scenario === "idle"
+        ? []
+        : scenario === "higherPriorityUnavailable" ? [campaign, urgentCampaign] : [campaign];
     },
-    listCandidateChannels: async () => {
+    listCandidateChannels: async (selectedCampaign) => {
       counts.candidateListings += 1;
       request();
       advance("selection", scenario === "slow" ? 100 : 10);
-      return [candidate];
+      return [{
+        ...candidate,
+        username: selectedCampaign.id.endsWith("urgent") ? `${platform}-urgent-creator` : candidate.username,
+      }];
     },
     checkChannel: async (checkedCandidate) => {
       counts.channelChecks += 1;
       request();
       advance("selection", scenario === "slow" ? 100 : 10);
       return {
-        live: scenario !== "higherPriorityUnavailable",
+        live: scenario !== "higherPriorityUnavailable" || !checkedCandidate.username.includes("urgent"),
         categoryMatches: true,
         candidate: checkedCandidate,
       };
@@ -114,14 +121,11 @@ export async function runCliBaselineCell(
   scenario: Scenario,
 ) {
   const counts: Counts = {
-    providerRequests: 0,
+    adapterOperations: 0,
     campaignDiscovery: 0,
     candidateListings: 0,
     channelChecks: 0,
     adapterConstructions: 0,
-    stateLoads: 0,
-    stateSaves: 0,
-    eventPublications: 0,
     watcherReconciliations: 0,
   };
   const durationsMs: Durations = {
@@ -146,6 +150,9 @@ export async function runCliBaselineCell(
       twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, enabled: platform === "twitch" },
       kick: { ...DEFAULT_CLI_SETTINGS.platform.kick, enabled: platform === "kick" },
     },
+    campaignPriorities: scenario === "higherPriorityUnavailable"
+      ? { [`${platform}-urgent`]: 10 }
+      : {},
   };
   const buildOne = (selectedPlatform: Platform, _emit: EventEmitter, engineSettings: EngineSettings) => {
     counts.adapterConstructions += 1;
@@ -168,7 +175,7 @@ export async function runCliBaselineCell(
   };
 
   const statePath = join(directory, `${platform}-${scenario}.json`);
-  if (scenario === "stable") {
+  if (scenario === "stable" || scenario === "switch" || scenario === "higherPriorityUnavailable") {
     const candidate: ChannelCandidate = {
       platform,
       username: `${platform}-creator`,
@@ -176,7 +183,9 @@ export async function runCliBaselineCell(
         ? "https://www.twitch.tv/twitch-creator"
         : "https://kick.com/kick-creator",
     };
-    const current = countingCampaign(platform);
+    const current = scenario === "switch"
+      ? countingCampaign(platform, "old-campaign", "old-reward")
+      : countingCampaign(platform);
     await saveState(statePath, {
       ...structuredClone(DEFAULT_STATE),
       campaigns: { ...DEFAULT_STATE.campaigns, [platform]: [current] },
@@ -202,27 +211,27 @@ export async function runCliBaselineCell(
     transport,
     logger: silentLogger,
     once: true,
-    hooks: {
-      onStateLoad: () => { counts.stateLoads += 1; },
-      onStateSave: () => {
-        counts.stateSaves += 1;
-        advance("persistence", 5);
-      },
-      onEventsPublished: () => { counts.eventPublications += 1; },
-    },
   });
+  const finalState = await loadState(statePath);
 
-  return { host: "cli" as const, platform, scenario, counts, durationsMs };
+  return {
+    host: "cli" as const,
+    platform,
+    scenario,
+    counts,
+    durationsMs,
+    outcomeCampaignId: finalState.sessions[platform].campaignId,
+  };
 }
 
-function countingCampaign(platform: Platform): DropCampaign {
+function countingCampaign(platform: Platform, campaignSuffix = "campaign", rewardSuffix = "reward"): DropCampaign {
   return {
-    id: `${platform}-campaign`,
+    id: `${platform}-${campaignSuffix}`,
     platform,
     name: `${platform} campaign`,
     status: "active",
     rewards: [{
-      id: `${platform}-reward`,
+      id: `${platform}-${rewardSuffix}`,
       name: `${platform} reward`,
       requiredMinutes: 60,
       watchedMinutes: 10,
