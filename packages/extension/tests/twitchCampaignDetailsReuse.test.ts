@@ -11,6 +11,14 @@ import { twitchAdapter } from "./helpers/adapters";
 
 const REUSE_WINDOW_MS = 5 * 60_000 + 1;
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function dashboard(campaigns: readonly { id: string; status?: string }[]): unknown {
   return {
     data: {
@@ -247,13 +255,111 @@ describe("twitch campaign details reuse (#339)", () => {
     }
   });
 
+  it("does not let an old identity refresh overwrite the current identity's details cache", async () => {
+    let activeUser = { id: "user-a-id", login: "user-a" };
+    const oldDetails = deferred<unknown>();
+    const oldDetailsStarted = deferred<void>();
+    let userBDetailRequests = 0;
+    const fetcher: PageFetcher = {
+      fetchJson: vi.fn(async (_url: string, init?: RequestInit) => {
+        const request = JSON.parse(String(init?.body)) as
+          | Record<string, unknown>
+          | Record<string, unknown>[];
+        const respond = async (body: Record<string, unknown>): Promise<unknown> => {
+          if (body.operationName === "Inventory") {
+            return {
+              data: {
+                currentUser: {
+                  id: activeUser.id,
+                  inventory: { dropCampaignsInProgress: [] },
+                },
+              },
+            };
+          }
+          if (body.operationName === "ViewerDropsDashboard") {
+            return {
+              data: {
+                currentUser: {
+                  ...activeUser,
+                  dropCampaigns: [{
+                    id: "campaign",
+                    status: "ACTIVE",
+                    self: { isAccountConnected: true },
+                  }],
+                },
+              },
+            };
+          }
+          if (body.operationName === "DropCampaignDetails") {
+            const login = String((body.variables as { channelLogin?: string }).channelLogin);
+            if (login === "user-a-id") {
+              oldDetailsStarted.resolve();
+              return oldDetails.promise;
+            }
+            userBDetailRequests += 1;
+            return {
+              data: {
+                dropCampaign: {
+                  ...(details("campaign") as { data: { dropCampaign: Record<string, unknown> } }).data.dropCampaign,
+                  name: "Campaign from user B",
+                },
+              },
+            };
+          }
+          throw new Error(`Unexpected operation ${String(body.operationName)}`);
+        };
+        return Array.isArray(request)
+          ? Promise.all(request.map(respond))
+          : respond(request);
+      }) as PageFetcher["fetchJson"],
+    };
+    const discoveryState = new TwitchDiscoveryState();
+
+    const oldRefresh = twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+    await oldDetailsStarted.promise;
+
+    activeUser = { id: "user-b-id", login: "user-b" };
+    const currentRefresh = await twitchAdapter(
+      fetcher,
+      undefined,
+      undefined,
+      { discoveryState },
+    ).refreshCampaigns();
+    expect(currentRefresh[0]?.name).toBe("Campaign from user B");
+
+    oldDetails.resolve({
+      data: {
+        dropCampaign: {
+          ...(details("campaign") as { data: { dropCampaign: Record<string, unknown> } }).data.dropCampaign,
+          name: "Campaign from user A",
+        },
+      },
+    });
+    await oldRefresh;
+
+    const nextCurrentRefresh = await twitchAdapter(
+      fetcher,
+      undefined,
+      undefined,
+      { discoveryState },
+    ).refreshCampaigns();
+
+    expect(userBDetailRequests).toBe(1);
+    expect(nextCurrentRefresh[0]?.name).toBe("Campaign from user B");
+  });
+
   describe("TwitchDiscoveryState", () => {
     it("keeps outage retention alive after the reuse window lapses", () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       try {
         vi.setSystemTime("2026-08-31T12:00:00.000Z");
         const discoveryState = new TwitchDiscoveryState();
-        discoveryState.rememberCampaignDetails("a", { id: "a" });
+        discoveryState.rememberCampaignDetails(
+          "a",
+          { id: "a" },
+          undefined,
+          discoveryState.availabilityRequestIdentity(),
+        );
 
         vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z").getTime() + REUSE_WINDOW_MS);
         // #274's failure fallback outlives reuse by design: a lapsed reuse
@@ -271,7 +377,12 @@ describe("twitch campaign details reuse (#339)", () => {
     it("drops reusable details when the authenticated identity changes", () => {
       const discoveryState = new TwitchDiscoveryState();
       discoveryState.setAuthenticatedUser("user-a");
-      discoveryState.rememberCampaignDetails("a", { id: "a" });
+      discoveryState.rememberCampaignDetails(
+        "a",
+        { id: "a" },
+        undefined,
+        discoveryState.availabilityRequestIdentity(),
+      );
       expect(discoveryState.freshCampaignDetails("a")).toEqual({ id: "a" });
 
       discoveryState.setAuthenticatedUser("user-b");
@@ -280,10 +391,31 @@ describe("twitch campaign details reuse (#339)", () => {
       expect(discoveryState.retainedCampaignDetails("a")).toBeUndefined();
     });
 
+    it("does not let an old identity response delete the current identity's details", () => {
+      const discoveryState = new TwitchDiscoveryState();
+      discoveryState.setAuthenticatedUser("user-a");
+      const oldRequestIdentity = discoveryState.availabilityRequestIdentity();
+
+      discoveryState.setAuthenticatedUser("user-b");
+      discoveryState.rememberCampaignDetails(
+        "campaign",
+        { id: "campaign", owner: "user-b" },
+        "ACTIVE",
+        discoveryState.availabilityRequestIdentity(),
+      );
+
+      expect(discoveryState.forgetCampaignDetails("campaign", oldRequestIdentity)).toBe(false);
+      expect(discoveryState.retainedCampaignDetails("campaign")).toEqual({
+        id: "campaign",
+        owner: "user-b",
+      });
+    });
+
     it("keeps the last known dashboard status when a tick has no dashboard answer", () => {
       const discoveryState = new TwitchDiscoveryState();
-      discoveryState.rememberCampaignDetails("a", { id: "a" }, "UPCOMING");
-      discoveryState.rememberCampaignDetails("a", { id: "a" }, undefined);
+      const requestIdentity = discoveryState.availabilityRequestIdentity();
+      discoveryState.rememberCampaignDetails("a", { id: "a" }, "UPCOMING", requestIdentity);
+      discoveryState.rememberCampaignDetails("a", { id: "a" }, undefined, requestIdentity);
 
       // Still comparable against a later dashboard answer, so the flip is not
       // lost just because one tick could not reach the dashboard.

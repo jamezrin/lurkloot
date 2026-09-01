@@ -2044,9 +2044,19 @@ describe("TwitchAdapter", () => {
         campaignDetailsByDropId: Map<string, unknown>;
       }).campaignDetailsByDropId;
 
-      discoveryState.rememberCampaignDetails("expired", { id: "expired" });
+      discoveryState.rememberCampaignDetails(
+        "expired",
+        { id: "expired" },
+        undefined,
+        discoveryState.availabilityRequestIdentity(),
+      );
       vi.setSystemTime("2026-07-26T12:31:00.000Z");
-      discoveryState.rememberCampaignDetails("fresh", { id: "fresh" });
+      discoveryState.rememberCampaignDetails(
+        "fresh",
+        { id: "fresh" },
+        undefined,
+        discoveryState.availabilityRequestIdentity(),
+      );
 
       expect([...details.keys()]).toEqual(["fresh"]);
     } finally {

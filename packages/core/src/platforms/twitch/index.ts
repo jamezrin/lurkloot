@@ -555,7 +555,18 @@ export class TwitchDiscoveryState {
     return this.retainedDashboard.campaignIds;
   }
 
-  rememberCampaignDetails(dropID: string, campaign: unknown, dashboardStatus?: string): void {
+  rememberCampaignDetails(
+    dropID: string,
+    campaign: unknown,
+    dashboardStatus: string | undefined,
+    requestIdentity: TwitchAvailabilityRequestIdentity,
+  ): boolean {
+    if (
+      requestIdentity.userId !== this.authenticatedUserId
+      || requestIdentity.generation !== this.availabilityGeneration
+    ) {
+      return false;
+    }
     const now = Date.now();
     // A tick with no dashboard answer knows nothing about status; it must not
     // erase what the last answering tick recorded, or the flip check below
@@ -573,10 +584,20 @@ export class TwitchDiscoveryState {
       freshUntil: now + CAMPAIGN_DETAILS_FRESH_TTL_MS + campaignDetailsFreshnessSpread(dropID),
       expiresAt: now + DISCOVERY_RETENTION_TTL_MS,
     });
+    return true;
   }
 
-  forgetCampaignDetails(dropID: string): void {
-    this.campaignDetailsByDropId.delete(dropID);
+  forgetCampaignDetails(
+    dropID: string,
+    requestIdentity: TwitchAvailabilityRequestIdentity,
+  ): boolean {
+    if (
+      requestIdentity.userId !== this.authenticatedUserId
+      || requestIdentity.generation !== this.availabilityGeneration
+    ) {
+      return false;
+    }
+    return this.campaignDetailsByDropId.delete(dropID);
   }
 
   // Drops the entry's reuse window without dropping the entry: the next
@@ -997,6 +1018,11 @@ export class TwitchAdapter implements PlatformAdapter {
       diagnostic(this.emit, "debug", "Twitch authenticated identity changed; discovery caches cleared", "twitch");
     }
     const userLogin = authenticatedUserId ?? dashboard.data?.currentUser?.login ?? "";
+    // Captured after installing this response's identity and replayed when the
+    // asynchronous detail requests settle. A request from an older identity
+    // may still finish after a later tick clears the cache; it must answer its
+    // own caller without repopulating shared state for the new identity.
+    const detailsRequestIdentity = this.discoveryState.availabilityRequestIdentity();
     const freshCampaignIds = dashboardCampaigns
       .filter((campaign) =>
         campaign.id
@@ -1102,12 +1128,17 @@ export class TwitchAdapter implements PlatformAdapter {
             ),
           );
           if (authenticatedUserId && campaignWasAuthoritativelyMissing) {
-            this.discoveryState.forgetCampaignDetails(dropID);
+            this.discoveryState.forgetCampaignDetails(dropID, detailsRequestIdentity);
           }
           return;
         }
         if (authenticatedUserId) {
-          this.discoveryState.rememberCampaignDetails(dropID, campaign, dashboardStatusById.get(dropID));
+          this.discoveryState.rememberCampaignDetails(
+            dropID,
+            campaign,
+            dashboardStatusById.get(dropID),
+            detailsRequestIdentity,
+          );
         }
         detailedCampaigns.push(campaign);
         return;
