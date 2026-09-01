@@ -101,6 +101,7 @@ describe("twitch campaign details reuse (#339)", () => {
       vi.setSystemTime("2026-08-31T12:00:00.000Z");
       const first = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
       expect(requested).toEqual(["a", "b", "c"]);
+      expect(fetcher.fetchJson).toHaveBeenCalledTimes(3);
 
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
       const second = await twitchAdapter(
@@ -112,6 +113,9 @@ describe("twitch campaign details reuse (#339)", () => {
       ).refreshCampaigns();
 
       expect(requested).toEqual(["a", "b", "c"]);
+      // The warm tick performs only inventory + dashboard transport requests;
+      // campaign details are served from the state shared by rebuilt adapters.
+      expect(fetcher.fetchJson).toHaveBeenCalledTimes(5);
       expect(second.map((campaign) => campaign.id)).toEqual(first.map((campaign) => campaign.id));
       expect(events.some((event) =>
         event.category === "diagnostic"
