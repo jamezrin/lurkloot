@@ -13,6 +13,12 @@ import { runLoop } from "../src/runtime/run";
 import { createLogger } from "../src/logger";
 import { runCliBaselineCell } from "./helpers/tickBaseline";
 
+function reportBaseline(result: unknown): void {
+  if (process.env.LURKLOOT_TICK_BASELINE === "1") {
+    console.log(`TICK_BASELINE ${JSON.stringify(result)}`);
+  }
+}
+
 // A benign adapter whose only interesting behaviour is checkAuthHealth. Every
 // data method returns an empty result so an unhealthy (suspended) tick never
 // throws while we assert on the persisted auth health.
@@ -127,6 +133,7 @@ describe("CLI scheduler tick baseline", () => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
     const result = await runCliBaselineCell(dir, platform, "idle");
+    reportBaseline(result);
 
     expect(result).toEqual({
       host: "cli",
@@ -141,6 +148,7 @@ describe("CLI scheduler tick baseline", () => {
         stateLoads: 4,
         stateSaves: 2,
         eventPublications: 6,
+        watcherReconciliations: 0,
       },
       durationsMs: {
         discovery: 30,
@@ -157,6 +165,7 @@ describe("CLI scheduler tick baseline", () => {
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
     const result = await runCliBaselineCell(dir, platform, "stable");
+    reportBaseline(result);
 
     expect(result.counts).toMatchObject({
       providerRequests: 3,
@@ -166,13 +175,14 @@ describe("CLI scheduler tick baseline", () => {
       adapterConstructions: 2,
       stateLoads: 4,
       stateSaves: 2,
+      watcherReconciliations: 1,
     });
     expect(result.durationsMs).toEqual({
       discovery: 30,
       selection: 10,
-      watcher: 0,
+      watcher: 5,
       persistence: 10,
-      total: 50,
+      total: 55,
     });
   });
 
@@ -181,13 +191,14 @@ describe("CLI scheduler tick baseline", () => {
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
     const result = await runCliBaselineCell(dir, platform, "slow");
+    reportBaseline(result);
 
     expect(result.durationsMs).toEqual({
       discovery: 300,
       selection: 200,
-      watcher: 0,
+      watcher: 5,
       persistence: 10,
-      total: 510,
+      total: 515,
     });
   });
 
@@ -201,6 +212,7 @@ describe("CLI scheduler tick baseline", () => {
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
     const result = await runCliBaselineCell(dir, platform, scenario);
+    reportBaseline(result);
 
     expect(result.counts).toMatchObject({
       providerRequests: 4,
@@ -210,13 +222,14 @@ describe("CLI scheduler tick baseline", () => {
       adapterConstructions: 2,
       stateLoads: 4,
       stateSaves: 2,
+      watcherReconciliations: scenario === "switch" ? 1 : 0,
     });
     expect(result.durationsMs).toEqual({
       discovery: 30,
       selection: 20,
-      watcher: 0,
+      watcher: scenario === "switch" ? 5 : 0,
       persistence: 10,
-      total: 60,
+      total: scenario === "switch" ? 65 : 60,
     });
   });
 
@@ -225,6 +238,7 @@ describe("CLI scheduler tick baseline", () => {
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
     const result = await runCliBaselineCell(dir, platform, "failed");
+    reportBaseline(result);
 
     expect(result.counts).toMatchObject({
       providerRequests: 2,

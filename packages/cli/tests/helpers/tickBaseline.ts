@@ -22,6 +22,7 @@ interface Counts {
   stateLoads: number;
   stateSaves: number;
   eventPublications: number;
+  watcherReconciliations: number;
 }
 
 interface Durations {
@@ -45,7 +46,7 @@ function countingAdapter(
   platform: Platform,
   scenario: Scenario,
   counts: Counts,
-  advance: (phase: "discovery" | "selection", milliseconds: number) => void,
+  advance: (phase: "discovery" | "selection" | "watcher", milliseconds: number) => void,
 ): PlatformAdapter {
   const campaign: DropCampaign = {
     id: `${platform}-campaign`,
@@ -98,7 +99,11 @@ function countingAdapter(
       };
     },
     claimReward: async () => false,
-    prepareWatchTab: async () => ({ tabId: platform === "twitch" ? 10 : 20, managedByExtension: false }),
+    prepareWatchTab: async () => {
+      counts.watcherReconciliations += 1;
+      advance("watcher", 5);
+      return { tabId: platform === "twitch" ? 10 : 20, managedByExtension: false };
+    },
     stopWatchTab: async () => undefined,
   };
 }
@@ -117,6 +122,7 @@ export async function runCliBaselineCell(
     stateLoads: 0,
     stateSaves: 0,
     eventPublications: 0,
+    watcherReconciliations: 0,
   };
   const durationsMs: Durations = {
     discovery: 0,
@@ -125,7 +131,7 @@ export async function runCliBaselineCell(
     persistence: 0,
     total: 0,
   };
-  const advance = (phase: "discovery" | "selection" | "persistence", milliseconds: number): void => {
+  const advance = (phase: "discovery" | "selection" | "watcher" | "persistence", milliseconds: number): void => {
     durationsMs[phase] += milliseconds;
     durationsMs.total += milliseconds;
     vi.setSystemTime(Date.now() + milliseconds);

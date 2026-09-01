@@ -137,10 +137,14 @@ export function createCountingAdapter(
       };
     },
     claimReward: async () => false,
-    prepareWatchTab: async () => ({
-      tabId: platform === "twitch" ? 10 : 20,
-      managedByExtension: true,
-    }),
+    prepareWatchTab: async () => {
+      recorder.count("watcherReconciliations");
+      await recorder.clock.advance("watcher", 5);
+      return {
+        tabId: platform === "twitch" ? 10 : 20,
+        managedByExtension: true,
+      };
+    },
     stopWatchTab: async () => undefined,
   };
 }
