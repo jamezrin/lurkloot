@@ -5809,6 +5809,28 @@ describe("background controller", () => {
     return env;
   }
 
+  async function establishedTablessEnv(platform: Platform) {
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      tablessMode: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: platform === "twitch" },
+        kick: {
+          ...DEFAULT_SETTINGS.platform.kick,
+          enabled: platform === "kick",
+          idleWatchlistChannels: [],
+        },
+      },
+    });
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }), platform);
+    const adapter = platform === "twitch" ? env.twitch : env.kick;
+    adapter.supportsTabless = true;
+    adapter.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    await env.controller.tick([platform]);
+    return { env, adapter, watcher };
+  }
+
   it("farms tablessly without opening a tab and records heartbeat health", async () => {
     const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
     const env = tablessEnv();
@@ -5857,6 +5879,44 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
     expect(env.state.sessions.kick.lastHeartbeatOk).toBe(true);
   });
+
+  it.each(["twitch", "kick"] as const)(
+    "attempts a due %s heartbeat while discovery holds the platform lock",
+    async (platform) => {
+      const blocked = deferred<DropCampaign[]>();
+      const { env, adapter, watcher } = await establishedTablessEnv(platform);
+      adapter.refreshCampaigns = vi.fn(() => blocked.promise);
+      const discovery = env.controller.tick([platform]);
+      await vi.waitFor(() => expect(adapter.refreshCampaigns).toHaveBeenCalled());
+
+      const heartbeat = env.controller.runWatchHeartbeat();
+      try {
+        await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalled());
+      } finally {
+        blocked.resolve([]);
+        await Promise.all([discovery, heartbeat]);
+      }
+    },
+  );
+
+  it.each(["twitch", "kick"] as const)(
+    "runs %s discovery while the platform heartbeat transport is pending",
+    async (platform) => {
+      const blocked = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+      const { env, adapter, watcher } = await establishedTablessEnv(platform);
+      watcher.tick.mockImplementation(() => blocked.promise);
+
+      const heartbeat = env.controller.runWatchHeartbeat();
+      await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalled());
+      const discovery = env.controller.tick([platform]);
+      try {
+        await vi.waitFor(() => expect(adapter.refreshCampaigns).toHaveBeenCalledTimes(2));
+      } finally {
+        blocked.resolve({ ok: true, live: true });
+        await Promise.all([heartbeat, discovery]);
+      }
+    },
+  );
 
   it("persists page-context lifecycle metadata changed during a heartbeat", async () => {
     const watcher = fakeTablessWatcher(async () => {
@@ -6954,7 +7014,7 @@ describe("discovery signal lifecycle", () => {
     expect(env.discoverySignalController.targetKey).toBe("42");
   });
 
-  it("restores Kick discovery during the first tabless heartbeat after a service-worker restart", async () => {
+  it("does not restore Kick discovery during tabless heartbeat restart recovery", async () => {
     const env = harness(kickOnlySettings(true));
     const watcher = {
       platform: "kick" as const,
@@ -6983,9 +7043,12 @@ describe("discovery signal lifecycle", () => {
 
     await env.controller.runWatchHeartbeat();
 
-    expect(env.discoverySignalController.starts).toEqual([
-      expect.objectContaining({ channel: expect.objectContaining({ categoryId: "42" }) }),
-    ]);
+    expect(watcher.start).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: "42" }),
+      expect.any(Object),
+    );
+    expect(watcher.tick).toHaveBeenCalledOnce();
+    expect(env.discoverySignalController.starts).toEqual([]);
   });
 
   it("does not make discovery failure count as a watch-heartbeat failure", async () => {

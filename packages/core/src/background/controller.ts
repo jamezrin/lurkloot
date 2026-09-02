@@ -1,5 +1,5 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { isFarmingActive } from "@lurkloot/shared/settings";
@@ -25,6 +25,7 @@ import type { TablessWatchController, WatchContext } from "../core/tablessWatch"
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import { applyPlatformAuthHealth } from "../core/authHealth";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
+import { heartbeatContextKey, HEARTBEAT_INTERVAL_MS } from "../core/heartbeatCadence";
 import { mergePlatformState } from "./platformState";
 
 export const ALARM_NAME = "lurkloot.tick";
@@ -100,6 +101,25 @@ function isNothingLeftToFarm(reasonCode: WatchReasonCode | undefined): boolean {
 // still transmits.
 const RECENT_HEARTBEAT_MS = 30_000;
 const PLATFORMS: Platform[] = ["twitch", "kick"];
+
+interface CommittedHeartbeatContext {
+  readonly generation: number;
+  readonly contextKey: string;
+  readonly session: Readonly<WatchSession>;
+  readonly watcher: TablessWatchController;
+}
+
+// Task 3 fills this reserved lane slot with the cadence reservation metadata.
+interface HeartbeatAttempt {
+  readonly reserved: never;
+}
+
+interface HeartbeatLane {
+  mutation: Promise<unknown>;
+  committed?: CommittedHeartbeatContext;
+  inFlight?: HeartbeatAttempt;
+  coalescedWithoutAttempt: number;
+}
 
 function correlateTickDiagnostics(
   events: readonly EngineEvent[],
@@ -409,6 +429,79 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // ticks (the WebSocket-based Kick watcher in particular must not be recreated
   // each tick). Reconciled against the scheduler's per-platform session state.
   const tablessWatchers = new Map<Platform, TablessWatchController>();
+  const heartbeatLanes: Record<Platform, HeartbeatLane> = {
+    twitch: { mutation: Promise.resolve(), coalescedWithoutAttempt: 0 },
+    kick: { mutation: Promise.resolve(), coalescedWithoutAttempt: 0 },
+  };
+
+  function withHeartbeatLane<T>(
+    platform: Platform,
+    operation: (lane: HeartbeatLane) => Promise<T>,
+  ): Promise<T> {
+    const lane = heartbeatLanes[platform];
+    const run = lane.mutation.then(() => operation(lane), () => operation(lane));
+    lane.mutation = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
+  function frozenHeartbeatSession(
+    session: WatchSession,
+    cadence: TablessHeartbeatCadence,
+  ): Readonly<WatchSession> {
+    return Object.freeze({
+      ...session,
+      channel: session.channel ? Object.freeze({ ...session.channel }) : undefined,
+      tablessHeartbeat: Object.freeze({ ...cadence }),
+    });
+  }
+
+  async function commitHeartbeatContext(
+    platform: Platform,
+    session: WatchSession,
+    watcher: TablessWatchController,
+  ): Promise<{ cadence?: TablessHeartbeatCadence; replaced?: TablessWatchController }> {
+    const contextKey = heartbeatContextKey(session);
+    return withHeartbeatLane(platform, async (lane) => {
+      const previous = lane.committed;
+      if (!contextKey) {
+        lane.committed = undefined;
+        tablessWatchers.set(platform, watcher);
+        return { replaced: previous?.watcher === watcher ? undefined : previous?.watcher };
+      }
+
+      const persisted = session.tablessHeartbeat;
+      const retained = persisted?.contextKey === contextKey
+        && Number.isFinite(Date.parse(persisted.nextDueAt));
+      const previousCadence = previous?.contextKey === contextKey
+        ? previous.session.tablessHeartbeat
+        : undefined;
+      const generation = retained
+        ? persisted.generation
+        : previousCadence?.generation
+          ?? Math.max(previous?.generation ?? 0, persisted?.generation ?? 0) + 1;
+      const cadence: TablessHeartbeatCadence = Object.freeze(retained
+        ? { ...persisted }
+        : previousCadence
+          ? { ...previousCadence }
+          : {
+              generation,
+              contextKey,
+              nextDueAt: new Date(Date.now() + HEARTBEAT_INTERVAL_MS).toISOString(),
+            });
+      const committed = Object.freeze({
+        generation,
+        contextKey,
+        session: frozenHeartbeatSession(session, cadence),
+        watcher,
+      });
+      lane.committed = committed;
+      tablessWatchers.set(platform, watcher);
+      return {
+        cadence,
+        replaced: previous?.watcher === watcher ? undefined : previous?.watcher,
+      };
+    });
+  }
   const campaignEvaluationFingerprints: Partial<Record<Platform, string>> = {};
   const discoverySignalControllers = new Map<Platform, DiscoverySignalController>();
   const discoverySignalPlatformBlocked: Record<Platform, boolean> = {
@@ -1779,11 +1872,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         && session.status === "watching"
         && session.watchMode === "tabless"
         && Boolean(session.channel);
-      const existing = tablessWatchers.get(platform);
+      const committed = await withHeartbeatLane(platform, async (lane) => lane.committed);
+      const existing = committed?.watcher ?? tablessWatchers.get(platform);
 
       if (wantsTabless && session.channel && adapter.createTablessWatcher) {
-        const watcher = existing ?? adapter.createTablessWatcher();
-        if (!existing) tablessWatchers.set(platform, watcher);
+        const contextKey = heartbeatContextKey(session);
+        const changingContext = committed != null && committed.contextKey !== contextKey;
+        const watcher = !existing || changingContext
+          ? adapter.createTablessWatcher()
+          : existing;
         drainWatcherEvents(watcher, emit);
         if (watcher.channelUrl !== session.channel.url) {
           let startFailed = false;
@@ -1805,16 +1902,41 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             });
           }
         }
+        const publication = await commitHeartbeatContext(platform, session, watcher);
+        session.tablessHeartbeat = publication.cadence;
+        if (publication.replaced) {
+          drainWatcherEvents(publication.replaced, emit);
+          try {
+            await publication.replaced.stop();
+          } catch (error) {
+            emitHostCallbackError(emit, platform, error, "Could not stop the tabless watcher");
+          } finally {
+            drainWatcherEvents(publication.replaced, emit);
+          }
+        }
       } else if (existing) {
-        drainWatcherEvents(existing, emit);
+        const owned = await withHeartbeatLane(platform, async (lane) => {
+          const watcher = lane.committed?.watcher ?? tablessWatchers.get(platform);
+          lane.committed = undefined;
+          tablessWatchers.delete(platform);
+          return watcher;
+        });
+        session.tablessHeartbeat = undefined;
+        if (!owned) continue;
+        drainWatcherEvents(owned, emit);
         try {
-          await existing.stop();
+          await owned.stop();
         } catch (error) {
           emitHostCallbackError(emit, platform, error, "Could not stop the tabless watcher");
         } finally {
-          drainWatcherEvents(existing, emit);
-          tablessWatchers.delete(platform);
+          drainWatcherEvents(owned, emit);
         }
+      } else {
+        await withHeartbeatLane(platform, async (lane) => {
+          lane.committed = undefined;
+          tablessWatchers.delete(platform);
+        });
+        session.tablessHeartbeat = undefined;
       }
     }
   }
@@ -1983,18 +2105,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     platform: Platform,
     settings: S,
   ): Promise<Platform | undefined> {
-    return withStateLock(() => withEventCollector(async (emit, events) => {
+    return withEventCollector(async (emit, events) => {
       let nextState = await deps.loadState();
       registerManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, [platform]);
       // After a service-worker restart the in-memory watcher map is empty, so
       // rebuild this platform's watcher from its persisted tabless session.
       // Otherwise the 1-minute watch alarm would do nothing until the next
-      // (possibly distant) discovery tick re-armed the watchers, stalling Twitch
-      // tabless farming. Done inside the platform lock so it cannot race tick()'s
-      // own reconcile for the same watcher (the discovery and watch alarms both
-      // fire on a ~1-minute cadence). reconcileTablessWatchers only calls
-      // watcher.start() on a fresh start/channel switch and never re-acquires the
-      // lock, so holding it here is safe (no reentrancy).
+      // (possibly distant) discovery tick re-armed the watchers, stalling
+      // tabless farming. This recovery only rebuilds normalized watch context;
+      // it never starts discovery or target selection.
       const adapters = createSelectedAdapters(settings, emit, [platform]);
       await reconcileTablessWatchers(
         nextState,
@@ -2003,20 +2122,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         emit,
         [platform],
       );
-      await reconcileDiscoverySignalControllers(
-        nextState,
-        settings,
-        adapters,
-        emit,
-        [platform],
-      );
-      const watcher = tablessWatchers.get(platform);
-      if (!watcher) {
+      const committed = await withHeartbeatLane(platform, async (lane) => lane.committed);
+      if (!committed) {
         await reportBestEffort(events);
         return undefined;
       }
 
-      const session = nextState.sessions[platform];
+      const { session, watcher } = committed;
       let ok = false;
       let message: string | undefined;
       drainWatcherEvents(watcher, emit);
@@ -2062,7 +2174,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       await persistPlatformAndReport(platform, nextState, events);
       return fallback ? platform : undefined;
-    }), [platform]);
+    });
   }
 
   // Aborts every in-flight handoff. Called when farming stops, when a settings
