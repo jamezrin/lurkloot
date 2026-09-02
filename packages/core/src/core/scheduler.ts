@@ -31,6 +31,7 @@ import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
 import { isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
+import { heartbeatContextKey } from "./heartbeatCadence";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -466,6 +467,8 @@ function channelFromCheck(candidate: ChannelCandidate, check: { live: boolean; c
     viewerCount: check.candidate.viewerCount ?? candidate.viewerCount,
     title: check.candidate.title ?? candidate.title,
     profileImageUrl: check.candidate.profileImageUrl ?? candidate.profileImageUrl,
+    broadcastId: check.candidate.broadcastId ?? candidate.broadcastId,
+    channelId: check.candidate.channelId ?? candidate.channelId,
   };
 }
 
@@ -503,12 +506,13 @@ function sessionForDecision(
       heartbeatChecks: 0,
       lastHeartbeatAt: undefined,
       lastHeartbeatOk: undefined,
+      tablessHeartbeat: undefined,
     };
   }
 
   const sameChannel = previous.channel?.url === decision.channel?.url && previous.status === "watching";
   const keepPlayback = sameChannel && keepStatus?.keep === true;
-  return {
+  const next: WatchSession = {
     ...previous,
     status: "watching",
     channel: decision.channel,
@@ -520,6 +524,21 @@ function sessionForDecision(
     playback: keepPlayback ? previous.playback : undefined,
     playbackChecks: keepStatus?.playbackChecks ?? 0,
   };
+  return retainTablessHeartbeat(previous, next);
+}
+
+function retainTablessHeartbeat(previous: WatchSession, next: WatchSession): WatchSession {
+  const previousContextKey = heartbeatContextKey(previous);
+  const nextContextKey = heartbeatContextKey(next);
+  if (
+    previous.status !== "watching"
+    || next.status !== "watching"
+    || previousContextKey === undefined
+    || previousContextKey !== nextContextKey
+  ) {
+    return { ...next, tablessHeartbeat: undefined };
+  }
+  return next;
 }
 
 export interface SchedulerTickResult {
@@ -681,6 +700,7 @@ export async function runSchedulerTick(
       heartbeatChecks: 0,
       lastHeartbeatAt: undefined,
       lastHeartbeatOk: undefined,
+      tablessHeartbeat: undefined,
     };
     nextState.campaigns[platform] = [];
     nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
@@ -771,6 +791,7 @@ export async function runSchedulerTick(
           heartbeatChecks: 0,
           lastHeartbeatAt: undefined,
           lastHeartbeatOk: undefined,
+          tablessHeartbeat: undefined,
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform], reason: "manual_tab_close", emit });
@@ -798,6 +819,7 @@ export async function runSchedulerTick(
           heartbeatChecks: 0,
           lastHeartbeatAt: undefined,
           lastHeartbeatOk: undefined,
+          tablessHeartbeat: undefined,
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform], reason: "manual_watch", emit });
@@ -831,6 +853,7 @@ export async function runSchedulerTick(
           heartbeatChecks: 0,
           lastHeartbeatAt: undefined,
           lastHeartbeatOk: undefined,
+          tablessHeartbeat: undefined,
         };
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
         nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, {
@@ -882,6 +905,7 @@ export async function runSchedulerTick(
           lastCheckedAt: new Date().toISOString(),
           message: `Waiting until ${previous.retryAfter} before retrying after platform errors`,
           reasonCode: "platform_backoff",
+          tablessHeartbeat: undefined,
         };
         observation = {
           at: Date.now(),
@@ -1157,6 +1181,7 @@ export async function runSchedulerTick(
             tabId: undefined,
             tabManagedByExtension: undefined,
             watchMode: undefined,
+            tablessHeartbeat: undefined,
           };
           emitDiagnostic(emit, platform, "warn", "Paused: a managed tab kept reopening");
           continue;
@@ -1214,6 +1239,7 @@ export async function runSchedulerTick(
           // channel instead of flipping back to a failing tabless heartbeat.
           session.watchMode = "tab";
           session.tablessFallback = Boolean(settings.tablessMode && adapter.supportsTabless);
+          session.tablessHeartbeat = undefined;
           // A new tab id, a different channel, or a switch out of tabless all mean
           // the page starts from scratch: restart the playback grace window (#250).
           const freshTab = !sameChannel || previous.watchMode !== "tab" || previous.tabId !== prepared.tabId;
@@ -1284,6 +1310,7 @@ export async function runSchedulerTick(
         retryAfter: nextRetryAfter(errorChecks),
         message,
         reasonCode: "platform_error",
+        tablessHeartbeat: undefined,
       };
       nextState.managedPageContextTabs = currentManagedPageContextTabs();
       emitDiagnostic(emit, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`);
