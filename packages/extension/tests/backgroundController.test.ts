@@ -8,7 +8,8 @@ import {
   type CredentialAvailability,
 } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformAuthHealth, SchedulerState } from "@lurkloot/shared/models";
+import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
+import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformAuthHealth, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS, isFarmingActive } from "@lurkloot/shared/settings";
@@ -342,7 +343,21 @@ function allDiagnostics(env: ReturnType<typeof harness>): DiagnosticEvent[] {
     .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
 }
 
+function dueHeartbeatCadence(session: WatchSession, dueAt = Date.now()) {
+  const contextKey = heartbeatContextKey(session);
+  if (!contextKey) throw new Error("Expected a complete tabless heartbeat context");
+  return {
+    generation: 1,
+    contextKey,
+    nextDueAt: new Date(dueAt).toISOString(),
+  };
+}
+
 describe("background controller", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe("Twitch integrity expiry scheduling", () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ["Date"] });
@@ -5735,6 +5750,12 @@ describe("background controller", () => {
     return watcher;
   }
 
+  function advanceToNextHeartbeatDue(): void {
+    const nextDueAt = Date.now() + 60_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(nextDueAt);
+  }
+
   it("stops a tabless watcher without another heartbeat when authentication degrades", async () => {
     const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
     const env = harness({
@@ -5828,8 +5849,122 @@ describe("background controller", () => {
     adapter.supportsTabless = true;
     adapter.createTablessWatcher = () => watcher as unknown as TablessWatchController;
     await env.controller.tick([platform]);
+    advanceToNextHeartbeatDue();
     return { env, adapter, watcher };
   }
+
+  describe("tabless heartbeat cadence", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    async function cadenceEnv(
+      heartbeat: () => Promise<{ ok: boolean; live?: boolean; message?: string }>,
+    ) {
+      const watcher = fakeTablessWatcher(heartbeat);
+      const env = tablessEnv();
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+      await env.controller.tick(["twitch"]);
+      return { env, watcher };
+    }
+
+    function aggregateHeartbeatDiagnostics(env: ReturnType<typeof harness>): string[] {
+      return allDiagnostics(env)
+        .map((event) => event.message)
+        .filter((message) => message.startsWith("Tabless heartbeat timing "));
+    }
+
+    it("keeps heartbeat cadence anchored to the scheduled due time after slow completion", async () => {
+      const result = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+      const { env, watcher } = await cadenceEnv(() => result.promise);
+      vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+
+      const heartbeat = env.controller.runWatchHeartbeat();
+      await drainMicrotasks();
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      vi.setSystemTime(new Date("2026-09-02T12:01:07.000Z"));
+      result.resolve({ ok: true, live: true });
+      await heartbeat;
+
+      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
+        .toBe("2026-09-02T12:02:00.000Z");
+    });
+
+    it("skips missed heartbeat slots after a late wake without a catch-up burst", async () => {
+      const { env, watcher } = await cadenceEnv(async () => ({ ok: true, live: true }));
+      vi.setSystemTime(new Date("2026-09-02T12:04:15.000Z"));
+
+      await env.controller.runWatchHeartbeat();
+
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
+        .toBe("2026-09-02T12:05:00.000Z");
+    });
+
+    it("coalesces three concurrent heartbeat calls into one transport attempt", async () => {
+      const result = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+      const { env, watcher } = await cadenceEnv(() => result.promise);
+      vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+
+      const firstHeartbeat = env.controller.runWatchHeartbeat();
+      await drainMicrotasks();
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      const heartbeats = [
+        firstHeartbeat,
+        env.controller.runWatchHeartbeat(),
+        env.controller.runWatchHeartbeat(),
+      ];
+      await drainMicrotasks();
+      result.resolve({ ok: true, live: true });
+      await Promise.all(heartbeats);
+
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      expect(aggregateHeartbeatDiagnostics(env)).toEqual([
+        expect.stringContaining("coalescedCalls=2"),
+      ]);
+    });
+
+    it("performs no heartbeat transport before the scheduled due time", async () => {
+      const { env, watcher } = await cadenceEnv(async () => ({ ok: true, live: true }));
+      vi.setSystemTime(new Date("2026-09-02T12:00:59.999Z"));
+
+      await env.controller.runWatchHeartbeat();
+
+      expect(watcher.tick).not.toHaveBeenCalled();
+      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
+        .toBe("2026-09-02T12:01:00.000Z");
+      expect(aggregateHeartbeatDiagnostics(env)).toEqual([]);
+    });
+
+    it("emits exactly one aggregate heartbeat timing diagnostic per attempt", async () => {
+      const result = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+      const { env, watcher } = await cadenceEnv(() => result.promise);
+      vi.setSystemTime(new Date("2026-09-02T12:04:15.000Z"));
+
+      const firstHeartbeat = env.controller.runWatchHeartbeat();
+      await drainMicrotasks();
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      const heartbeats = [
+        firstHeartbeat,
+        env.controller.runWatchHeartbeat(),
+        env.controller.runWatchHeartbeat(),
+      ];
+      await drainMicrotasks();
+      result.resolve({ ok: true, live: true });
+      await Promise.all(heartbeats);
+
+      expect(aggregateHeartbeatDiagnostics(env)).toEqual([
+        expect.stringMatching(
+          /scheduledDueAt=2026-09-02T12:01:00.000Z actualAttemptAt=2026-09-02T12:04:15.000Z latenessMs=195000 synchronizationDelayMs=\d+ coalescedCalls=2 outcome=ok staleResult=false/,
+        ),
+      ]);
+    });
+  });
 
   it("does not let a slow old-target start overwrite or stop the newer committed watcher", async () => {
     const slowStart = deferred<void>();
@@ -5853,6 +5988,7 @@ describe("background controller", () => {
       campaignId: "old-campaign",
       rewardId: "old-reward",
     };
+    env.state.sessions.twitch.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.twitch);
 
     const oldRecovery = env.controller.runWatchHeartbeat();
     await vi.waitFor(() => expect(oldWatcher.start).toHaveBeenCalled());
@@ -5867,6 +6003,7 @@ describe("background controller", () => {
       rewardId: "new-reward",
       tablessHeartbeat: undefined,
     };
+    env.state.sessions.twitch.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.twitch);
     const newRecovery = env.controller.runWatchHeartbeat();
     await vi.waitFor(() => expect(newWatcher.tick).toHaveBeenCalled());
 
@@ -5877,6 +6014,7 @@ describe("background controller", () => {
     expect(newWatcher.stop).not.toHaveBeenCalled();
     oldWatcher.tick.mockClear();
     newWatcher.tick.mockClear();
+    advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat();
     expect(oldWatcher.tick).not.toHaveBeenCalled();
     expect(newWatcher.tick).toHaveBeenCalledOnce();
@@ -5912,6 +6050,7 @@ describe("background controller", () => {
       campaignId: "kick-campaign",
       rewardId: "reward",
     };
+    env.state.sessions.kick.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.kick);
 
     const slowRecovery = env.controller.runWatchHeartbeat();
     await vi.waitFor(() => expect(slowWatcher.start).toHaveBeenCalled());
@@ -5925,6 +6064,7 @@ describe("background controller", () => {
     expect(winner.stop).not.toHaveBeenCalled();
     slowWatcher.tick.mockClear();
     winner.tick.mockClear();
+    advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat();
     expect(slowWatcher.tick).not.toHaveBeenCalled();
     expect(winner.tick).toHaveBeenCalledOnce();
@@ -5958,6 +6098,7 @@ describe("background controller", () => {
       campaignId: "kick-campaign",
       rewardId: "reward",
     };
+    winningState.sessions.kick.tablessHeartbeat = dueHeartbeatCadence(winningState.sessions.kick);
     const staleState = structuredClone(winningState);
     staleState.sessions.kick = {
       platform: "kick",
@@ -5980,6 +6121,7 @@ describe("background controller", () => {
 
     expect(winner.stop).not.toHaveBeenCalled();
     winner.tick.mockClear();
+    advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat();
     expect(winner.tick).toHaveBeenCalledOnce();
   });
@@ -6007,6 +6149,7 @@ describe("background controller", () => {
       campaignId: "kick-campaign",
       rewardId: "reward",
     };
+    candidateState.sessions.kick.tablessHeartbeat = dueHeartbeatCadence(candidateState.sessions.kick);
     const staleState = structuredClone(candidateState);
     staleState.sessions.kick = {
       platform: "kick",
@@ -6029,6 +6172,7 @@ describe("background controller", () => {
 
     expect(candidate.stop).not.toHaveBeenCalled();
     candidate.tick.mockClear();
+    advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat();
     expect(candidate.tick).toHaveBeenCalledOnce();
   });
@@ -6050,6 +6194,7 @@ describe("background controller", () => {
       } else {
         await env.controller.prepareForHostReset();
       }
+      advanceToNextHeartbeatDue();
       await env.controller.runWatchHeartbeat();
 
       expect(stoppedWatcher.stop).toHaveBeenCalledOnce();
@@ -6074,6 +6219,7 @@ describe("background controller", () => {
       expect.any(Object),
     );
 
+    advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat();
 
     expect(watcher.tick).toHaveBeenCalled();
@@ -6093,6 +6239,7 @@ describe("background controller", () => {
     await env.controller.tick(["twitch"]);
     await env.controller.tick(["kick"]);
 
+    advanceToNextHeartbeatDue();
     const heartbeat = env.controller.runWatchHeartbeat();
 
     try {
@@ -6165,6 +6312,7 @@ describe("background controller", () => {
     env.state.managedPageContextTabs = { twitch: context };
     registerManagedPageContextTabs({ twitch: context });
 
+    advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat();
 
     expect(env.state.managedPageContextTabs?.twitch).toMatchObject({
@@ -6201,8 +6349,9 @@ describe("background controller", () => {
     pending.push({ category: "diagnostic", platform: "twitch", level: "info", message: "connected-after-start" });
     expect(reported.flat().some((event) => event.category === "diagnostic" && event.message === "connected-after-start")).toBe(false);
 
+    advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat();
-    expect(reported.at(-1)?.filter((event) =>
+    expect(reported.flat().filter((event) =>
       event.category === "diagnostic"
       && (event.message === "connected-after-start" || event.message === "heartbeat-detail"))
     ).toEqual([
@@ -6222,9 +6371,11 @@ describe("background controller", () => {
     await env.controller.tick();
     expect(env.state.sessions.twitch.watchMode).toBe("tabless");
 
+    advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat(); // heartbeatChecks -> 1
     expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
 
+    advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat(); // heartbeatChecks -> 2, triggers fallback
 
     expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
@@ -6267,6 +6418,7 @@ describe("background controller", () => {
       campaignId: "twitch-campaign",
       rewardId: "reward",
     };
+    env.state.sessions.twitch.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.twitch);
 
     await env.controller.runWatchHeartbeat();
 
@@ -6716,6 +6868,7 @@ describe("background controller", () => {
 
       // Establish the tabless session and land a heartbeat seconds ago.
       await env.controller.tick();
+      vi.setSystemTime(Date.now() + 60_000);
       await env.controller.runWatchHeartbeat();
       watcher.tick.mockClear();
 
@@ -7269,6 +7422,7 @@ describe("discovery signal lifecycle", () => {
       campaignId: "kick-campaign",
       rewardId: "reward",
     };
+    env.state.sessions.kick.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.kick);
 
     await env.controller.runWatchHeartbeat();
 
