@@ -337,3 +337,20 @@ describe("farmingEligibility in the engine contract", () => {
     expect("dropsListFilter" in mergeEngineSettings({})).toBe(false);
   });
 });
+
+describe("in-page panel default", () => {
+  // On by default is a deliberate product call, not an oversight. The feature
+  // exists for people who do not pin the extension and find the toolbar popup
+  // awkward to reach; gating it behind a toggle inside that popup would only
+  // ever reach the people who already open it comfortably. Flipping this to
+  // false silently un-ships the feature for almost everyone, so it is pinned.
+  it("shows the in-page panel unless the user turns it off", () => {
+    expect(DEFAULT_SETTINGS.showInPagePanel).toBe(true);
+    expect(mergeSettings(undefined).showInPagePanel).toBe(true);
+    expect(mergeSettings({}).showInPagePanel).toBe(true);
+  });
+
+  it("respects an explicit opt-out", () => {
+    expect(mergeSettings({ showInPagePanel: false }).showInPagePanel).toBe(false);
+  });
+});

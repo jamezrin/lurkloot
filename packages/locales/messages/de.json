@@ -155,6 +155,12 @@
   "hideTipsDescription": {
     "message": "Blendet hilfreiche Tipps im Hauptfenster aus."
   },
+  "inPagePanelTitle": {
+    "message": "Panel auf Twitch und Kick anzeigen"
+  },
+  "inPagePanelDescription": {
+    "message": "Fügt auf twitch.tv und kick.com eine Lurkloot-Schaltfläche hinzu, die dieses Popup als Panel auf der Seite öffnet."
+  },
   "tipCampaignPriority": {
     "message": "Drops haben Vorrang vor der Leerlauf-Watchlist. Ziehe Kampagnen am Griff, um sie zu ordnen."
   },
@@ -587,24 +593,60 @@
   "insufficientTimeRemaining": {
     "message": "Nicht genügend Zeit verbleibend"
   },
-  "campaignRejectionExcluded": { "message": "Diese Kampagne ist vom Farmen ausgeschlossen." },
-  "campaignRejectionUpcoming": { "message": "Diese Kampagne hat noch nicht begonnen." },
-  "campaignRejectionExpired": { "message": "Diese Kampagne ist beendet." },
-  "campaignRejectionCompleted": { "message": "Alle Belohnungen dieser Kampagne sind abgeschlossen." },
-  "campaignRejectionUnlinkedDisabled": { "message": "Kampagnen ohne verknüpftes Konto werden nicht gefarmt." },
-  "campaignRejectionTwitchLinkRequired": { "message": "Für diese Twitch-Kampagne muss ein Konto verknüpft sein." },
-  "campaignRejectionSubscriptionDisabled": { "message": "Abonnement-Kampagnen werden nicht gefarmt." },
-  "campaignRejectionCategoryFiltered": { "message": "Diese Kampagne entspricht nicht den ausgewählten Kategorien." },
-  "campaignRejectionPriorityNotSelected": { "message": "Diese Kampagne steht nicht auf der Prioritätsliste." },
-  "campaignRejectionNoRewards": { "message": "Diese Kampagne hat keine farmbaren Belohnungen." },
-  "campaignRejectionNoUnclaimedRewards": { "message": "Diese Kampagne hat keine nicht beanspruchten Belohnungen." },
-  "campaignRejectionPrerequisites": { "message": "$1 wartet auf eine frühere Belohnung oder Voraussetzung." },
-  "campaignRejectionRewardNotStarted": { "message": "$1 ist noch nicht verfügbar." },
-  "campaignRejectionRewardWindowEnded": { "message": "$1 ist nicht mehr verfügbar." },
-  "campaignRejectionInsufficientTime": { "message": "$1 kann nicht vor Ablauf der Frist abgeschlossen werden." },
-  "campaignRejectionSubscriptionRequired": { "message": "$1 erfordert ein gültiges Abonnement." },
-  "campaignRejectionActionRequired": { "message": "$1 erfordert eine andere Aktion als Zuschauen." },
-  "campaignRejectionNoFarmableReward": { "message": "Derzeit kann keine Belohnung dieser Kampagne gefarmt werden." },
+  "campaignRejectionExcluded": {
+    "message": "Diese Kampagne ist vom Farmen ausgeschlossen."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "Diese Kampagne hat noch nicht begonnen."
+  },
+  "campaignRejectionExpired": {
+    "message": "Diese Kampagne ist beendet."
+  },
+  "campaignRejectionCompleted": {
+    "message": "Alle Belohnungen dieser Kampagne sind abgeschlossen."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "Kampagnen ohne verknüpftes Konto werden nicht gefarmt."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "Für diese Twitch-Kampagne muss ein Konto verknüpft sein."
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "Abonnement-Kampagnen werden nicht gefarmt."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "Diese Kampagne entspricht nicht den ausgewählten Kategorien."
+  },
+  "campaignRejectionPriorityNotSelected": {
+    "message": "Diese Kampagne steht nicht auf der Prioritätsliste."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "Diese Kampagne hat keine farmbaren Belohnungen."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "Diese Kampagne hat keine nicht beanspruchten Belohnungen."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 wartet auf eine frühere Belohnung oder Voraussetzung."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 ist noch nicht verfügbar."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 ist nicht mehr verfügbar."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1 kann nicht vor Ablauf der Frist abgeschlossen werden."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1 erfordert ein gültiges Abonnement."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "$1 erfordert eine andere Aktion als Zuschauen."
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "Derzeit kann keine Belohnung dieser Kampagne gefarmt werden."
+  },
   "automationSectionTitle": {
     "message": "Automatisierung"
   },

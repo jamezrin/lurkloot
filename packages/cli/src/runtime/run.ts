@@ -22,6 +22,22 @@ export interface RunOptions {
   checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
 }
 
+function disabledPlatformsNeedingCleanup(
+  state: SchedulerState,
+  settings: ReturnType<typeof toEngineSettings>,
+): Platform[] {
+  return (["twitch", "kick"] as const).filter((platform) => {
+    if (settings.platform[platform].enabled) return false;
+    const session = state.sessions[platform];
+    return state.campaigns[platform].length > 0
+      || session.channel !== undefined
+      || session.campaignId !== undefined
+      || session.rewardId !== undefined
+      || session.watchMode !== undefined
+      || state.managedWatchTabs?.[platform] !== undefined;
+  });
+}
+
 // Headless farming loop. Reuses the engine's background controller — the same
 // tick (discovery → watch decisions → claims → state persistence) the extension
 // runs — backed by file storage and a self-driven interval instead of the
@@ -32,14 +48,18 @@ export async function runLoop(options: RunOptions): Promise<void> {
   // The shared engine works on the EngineSettings contract; expand the CLI's
   // schema once, pinning the headless invariants (always running, always tabless).
   const engineSettings = toEngineSettings(settings);
+  const enabledPlatforms = (["twitch", "kick"] as const).filter((platform) =>
+    engineSettings.platform[platform].enabled);
   const seenSubscriptionWaits = new Set<string>();
+  const loadRuntimeState = async (): Promise<SchedulerState> => loadState(statePath);
+  const saveRuntimeState = async (state: SchedulerState): Promise<void> => saveState(statePath, state);
 
   const controller = createBackgroundController({
     loadSettings: async () => engineSettings,
     // Settings come from the config file; the run loop never mutates them.
     saveSettings: async () => {},
-    loadState: () => loadState(statePath),
-    saveState: (state: SchedulerState) => saveState(statePath, state),
+    loadState: loadRuntimeState,
+    saveState: saveRuntimeState,
     reportEvents: (events) => reportCliEvents(events, logger),
     // The CLI drives its own interval below, so alarm scheduling is a no-op.
     createAlarm: async () => {},
@@ -51,8 +71,13 @@ export async function runLoop(options: RunOptions): Promise<void> {
 
   const tickOnce = async () => {
     try {
-      await controller.tickAndHandOff();
-      const state = await loadState(statePath);
+      await controller.tickAndHandOff(enabledPlatforms);
+      let state = await loadRuntimeState();
+      const staleDisabledPlatforms = disabledPlatformsNeedingCleanup(state, engineSettings);
+      if (staleDisabledPlatforms.length > 0) {
+        await controller.tickAndHandOff(staleDisabledPlatforms);
+        state = await loadRuntimeState();
+      }
       const waits = subscriptionWaitKeys([...state.campaigns.twitch, ...state.campaigns.kick]);
       for (const key of seenSubscriptionWaits) {
         if (!waits.has(key)) seenSubscriptionWaits.delete(key);
