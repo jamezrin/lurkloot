@@ -520,13 +520,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     });
   }
 
-  function takeHeartbeatWatcher(platform: Platform): Promise<TablessWatchController | undefined> {
+  function takeHeartbeatWatcher(
+    platform: Platform,
+    expectedRevision?: number,
+  ): Promise<{ accepted: boolean; watcher?: TablessWatchController }> {
     return withHeartbeatLane(platform, async (lane) => {
+      if (expectedRevision !== undefined && lane.revision !== expectedRevision) {
+        return { accepted: false };
+      }
       const watcher = lane.committed?.watcher ?? tablessWatchers.get(platform);
       lane.committed = undefined;
       tablessWatchers.delete(platform);
       lane.revision += 1;
-      return watcher;
+      return { accepted: true, watcher };
     });
   }
   const campaignEvaluationFingerprints: Partial<Record<Platform, string>> = {};
@@ -1900,11 +1906,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         && session.status === "watching"
         && session.watchMode === "tabless"
         && Boolean(session.channel);
-      const ownership = await withHeartbeatLane(platform, async (lane) => ({
-        revision: lane.revision,
-        committed: lane.committed,
-        watcher: lane.committed?.watcher ?? tablessWatchers.get(platform),
-      }));
+      const ownership = await withHeartbeatLane(platform, async (lane) => {
+        const committed = lane.committed;
+        const watcher = committed?.watcher ?? tablessWatchers.get(platform);
+        if (wantsTabless) lane.revision += 1;
+        return {
+          revision: lane.revision,
+          committed,
+          watcher,
+        };
+      });
       const existing = ownership.watcher;
 
       if (wantsTabless && session.channel && adapter.createTablessWatcher) {
@@ -1952,12 +1963,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           : created ? watcher : undefined;
         if (discarded) await stopTablessWatcher(discarded, platform, emit);
       } else if (existing) {
-        const owned = await takeHeartbeatWatcher(platform);
+        const removal = await takeHeartbeatWatcher(platform, ownership.revision);
         session.tablessHeartbeat = undefined;
-        if (!owned) continue;
-        await stopTablessWatcher(owned, platform, emit);
+        if (!removal.accepted || !removal.watcher) continue;
+        await stopTablessWatcher(removal.watcher, platform, emit);
       } else {
-        await takeHeartbeatWatcher(platform);
+        await takeHeartbeatWatcher(platform, ownership.revision);
         session.tablessHeartbeat = undefined;
       }
     }
@@ -1985,8 +1996,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function clearHeartbeatOwnership(platforms: readonly Platform[]): Promise<void> {
     await withEventCollector(async (emit, events) => {
       for (const platform of platforms) {
-        const watcher = await takeHeartbeatWatcher(platform);
-        if (watcher) await stopTablessWatcher(watcher, platform, emit);
+        const removal = await takeHeartbeatWatcher(platform);
+        if (removal.watcher) await stopTablessWatcher(removal.watcher, platform, emit);
       }
       await reportBestEffort(events);
     });

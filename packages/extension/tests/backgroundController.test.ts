@@ -5930,6 +5930,109 @@ describe("background controller", () => {
     expect(winner.tick).toHaveBeenCalledOnce();
   });
 
+  it("does not let a stale non-tabless removal clear a newer committed winner", async () => {
+    const winnerStart = deferred<void>();
+    const winner = fakeTablessWatcher(async () => ({ ok: true, live: true }), "kick");
+    winner.start.mockImplementation(async (candidate) => {
+      await winnerStart.promise;
+      winner.channelUrl = candidate.url;
+    });
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      tablessMode: true,
+      platform: {
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+      },
+    });
+    env.kick.supportsTabless = true;
+    env.kick.createTablessWatcher = vi.fn(() => winner);
+    const winningState = structuredClone(env.state);
+    winningState.authHealth.kick = { status: "healthy" };
+    winningState.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("kick"),
+      campaignId: "kick-campaign",
+      rewardId: "reward",
+    };
+    const staleState = structuredClone(winningState);
+    staleState.sessions.kick = {
+      platform: "kick",
+      status: "paused",
+      offlineChecks: 0,
+    };
+    const staleRead = deferred<SchedulerState>();
+    env.deps.loadState
+      .mockResolvedValueOnce(winningState)
+      .mockResolvedValueOnce(winningState)
+      .mockImplementationOnce(() => staleRead.promise)
+      .mockImplementationOnce(() => staleRead.promise);
+
+    const winningRecovery = env.controller.runWatchHeartbeat();
+    await vi.waitFor(() => expect(winner.start).toHaveBeenCalled());
+    const staleRemoval = env.controller.runWatchHeartbeat();
+    staleRead.resolve(staleState);
+    winnerStart.resolve();
+    await Promise.all([winningRecovery, staleRemoval]);
+
+    expect(winner.stop).not.toHaveBeenCalled();
+    winner.tick.mockClear();
+    await env.controller.runWatchHeartbeat();
+    expect(winner.tick).toHaveBeenCalledOnce();
+  });
+
+  it("does not let a stale removal revision reject a newer candidate", async () => {
+    const candidate = fakeTablessWatcher(async () => ({ ok: true, live: true }), "kick");
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      tablessMode: true,
+      platform: {
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+      },
+    });
+    env.kick.supportsTabless = true;
+    env.kick.createTablessWatcher = vi.fn(() => candidate);
+    const candidateState = structuredClone(env.state);
+    candidateState.authHealth.kick = { status: "healthy" };
+    candidateState.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("kick"),
+      campaignId: "kick-campaign",
+      rewardId: "reward",
+    };
+    const staleState = structuredClone(candidateState);
+    staleState.sessions.kick = {
+      platform: "kick",
+      status: "paused",
+      offlineChecks: 0,
+    };
+    const staleRead = deferred<SchedulerState>();
+    const candidateRead = deferred<SchedulerState>();
+    env.deps.loadState
+      .mockImplementationOnce(() => staleRead.promise)
+      .mockImplementationOnce(() => staleRead.promise)
+      .mockImplementationOnce(() => candidateRead.promise)
+      .mockImplementationOnce(() => candidateRead.promise);
+
+    const staleRemoval = env.controller.runWatchHeartbeat();
+    const winningRecovery = env.controller.runWatchHeartbeat();
+    staleRead.resolve(staleState);
+    candidateRead.resolve(candidateState);
+    await Promise.all([staleRemoval, winningRecovery]);
+
+    expect(candidate.stop).not.toHaveBeenCalled();
+    candidate.tick.mockClear();
+    await env.controller.runWatchHeartbeat();
+    expect(candidate.tick).toHaveBeenCalledOnce();
+  });
+
   it.each(["startup", "host reset"] as const)(
     "%s atomically clears heartbeat ownership before a later heartbeat",
     async (lifecycle) => {
