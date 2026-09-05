@@ -1336,5 +1336,14 @@
   },
   "manualWatchPauseDetail": {
     "message": "O farm está pausado enquanto você assiste a uma transmissão por conta própria. Pause-a, feche-a ou mude para outra aba para o farm retomar automaticamente na próxima verificação."
+  },
+  "reorderItem": {
+    "message": "Reordenar $1"
+  },
+  "scrollRewardsLeft": {
+    "message": "Rolar recompensas para a esquerda"
+  },
+  "scrollRewardsRight": {
+    "message": "Rolar recompensas para a direita"
   }
 }

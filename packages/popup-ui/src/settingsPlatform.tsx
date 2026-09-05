@@ -325,10 +325,11 @@ function CategoryPickerGroup({ label, items, onSelect }: {
 }
 
 function SortableCategoryRow({ category, index, count, accent, onRemove, onMove }: { category: CategorySelection; index: number; count: number; accent: string; onRemove(): void; onMove(toIndex: number): void }) {
+  const t = useT();
   const { ref, handleRef, isDragging } = useSortable({ id: category.id, index });
   return (
     <div ref={ref} onDragStart={preventNativeDrag}>
-      <CompactRow index={index} rankCount={count} rankLabel={category.name} onRankMove={onMove} avatar={initials(category.name)} avatarImageUrl={category.imageUrl} avatarStyle={{ backgroundColor: accent, color: "#fff" }} title={category.name} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={`Reorder ${category.name}`} />} trailing={<RemoveRowButton label={`Remove ${category.name}`} onClick={onRemove} />} />
+      <CompactRow index={index} rankCount={count} rankLabel={category.name} onRankMove={onMove} avatar={initials(category.name)} avatarImageUrl={category.imageUrl} avatarStyle={{ backgroundColor: accent, color: "#fff" }} title={category.name} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={t("reorderItem", category.name)} />} trailing={<RemoveRowButton label={t("removeItem", category.name)} onClick={onRemove} />} />
     </div>
   );
 }
