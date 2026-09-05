@@ -148,7 +148,7 @@ jobs:
         run: node scripts/release/cli.mjs app-token
       - uses: pnpm/action-setup@v6
         with:
-          version: 11.25.0
+          version: 12.3.4
       - uses: actions/download-artifact@v8
         with:
           pattern: stable-docker-${{ github.run_id }}-${{ github.run_attempt }}-oci-*
