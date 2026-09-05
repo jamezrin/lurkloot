@@ -1336,5 +1336,14 @@
   },
   "manualWatchPauseDetail": {
     "message": "Das Farmen ist pausiert, während du selbst einen Stream ansiehst. Pausiere ihn, schließe ihn oder wechsle von diesem Tab weg, damit das Farmen beim nächsten Check automatisch fortgesetzt wird."
+  },
+  "reorderItem": {
+    "message": "$1 neu anordnen"
+  },
+  "scrollRewardsLeft": {
+    "message": "Belohnungen nach links scrollen"
+  },
+  "scrollRewardsRight": {
+    "message": "Belohnungen nach rechts scrollen"
   }
 }

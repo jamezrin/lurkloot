@@ -1336,5 +1336,14 @@
   },
   "manualWatchPauseDetail": {
     "message": "你亲自观看直播期间，挂机已暂停。暂停播放、关闭直播或切换到其他标签页后，挂机会在下次检查时自动恢复。"
+  },
+  "reorderItem": {
+    "message": "调整 $1 的顺序"
+  },
+  "scrollRewardsLeft": {
+    "message": "向左滚动奖励列表"
+  },
+  "scrollRewardsRight": {
+    "message": "向右滚动奖励列表"
   }
 }
