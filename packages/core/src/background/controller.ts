@@ -1086,7 +1086,32 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   ): Promise<void> {
     await withStateCommit(async () => {
       const latest = await deps.loadState();
-      await saveOperationalStateDirect(mergePlatformState(latest, state, platform));
+      const currentSession = latest.sessions[platform];
+      const nextSession = state.sessions[platform];
+      const currentCadence = currentSession.tablessHeartbeat;
+      const nextCadence = nextSession.tablessHeartbeat;
+      const retainsHeartbeatAuthority = currentCadence !== undefined
+        && nextCadence !== undefined
+        && currentCadence.generation === nextCadence.generation
+        && currentCadence.contextKey === nextCadence.contextKey
+        && heartbeatContextKey(currentSession) === currentCadence.contextKey
+        && heartbeatContextKey(nextSession) === nextCadence.contextKey;
+      const mergeSource = retainsHeartbeatAuthority
+        ? {
+            ...state,
+            sessions: {
+              ...state.sessions,
+              [platform]: {
+                ...nextSession,
+                lastHeartbeatAt: currentSession.lastHeartbeatAt,
+                lastHeartbeatOk: currentSession.lastHeartbeatOk,
+                heartbeatChecks: currentSession.heartbeatChecks,
+                tablessHeartbeat: currentCadence,
+              },
+            },
+          }
+        : state;
+      await saveOperationalStateDirect(mergePlatformState(latest, mergeSource, platform));
     });
   }
 

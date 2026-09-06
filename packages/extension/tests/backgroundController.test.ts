@@ -6796,6 +6796,48 @@ describe("background controller", () => {
     });
   });
 
+  it("retains a current heartbeat when a stale scheduler snapshot persists the same target", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const blockedDiscovery = deferred<DropCampaign[]>();
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    await env.controller.tick(["twitch"]);
+
+    vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+    env.twitch.refreshCampaigns = vi.fn(() => blockedDiscovery.promise);
+    const schedulerTick = env.controller.tick(["twitch"]);
+    await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+
+    vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+    await env.controller.runWatchHeartbeat();
+    expect(env.state.sessions.twitch).toMatchObject({
+      heartbeatChecks: 0,
+      lastHeartbeatAt: "2026-09-02T12:01:00.000Z",
+      lastHeartbeatOk: true,
+      tablessHeartbeat: {
+        generation: 1,
+        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"\",\"\",\"twitch-campaign\",\"reward\"]",
+        nextDueAt: "2026-09-02T12:02:00.000Z",
+      },
+    });
+
+    blockedDiscovery.resolve([campaign("twitch")]);
+    await schedulerTick;
+
+    expect(env.state.sessions.twitch).toMatchObject({
+      heartbeatChecks: 0,
+      lastHeartbeatAt: "2026-09-02T12:01:00.000Z",
+      lastHeartbeatOk: true,
+      tablessHeartbeat: {
+        generation: 1,
+        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"\",\"\",\"twitch-campaign\",\"reward\"]",
+        nextDueAt: "2026-09-02T12:02:00.000Z",
+      },
+    });
+  });
+
   it("records the first current-generation failure before heartbeat fallback", async () => {
     const watcher = fakeTablessWatcher(async () => ({
       ok: false,

@@ -144,33 +144,41 @@ describe("CLI scheduler tick baseline", () => {
   it.each(["twitch", "kick"] as const)("measures isolated %s heartbeat/discovery overlap", async (platform) => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
+    const existingListener = vi.fn();
+    process.on("SIGINT", existingListener);
+    const sigintListenersBefore = process.listeners("SIGINT");
 
-    const result = await runCliBaselineCell(
-      dir,
-      platform,
-      "heartbeatOverlap",
-    );
-    reportBaseline(result);
+    try {
+      const result = await runCliBaselineCell(
+        dir,
+        platform,
+        "heartbeatOverlap",
+      );
+      reportBaseline(result);
 
-    expect(result.counts).toEqual({
-      adapterOperations: 6,
-      campaignDiscovery: 2,
-      candidateListings: 0,
-      channelChecks: 2,
-      heartbeatAttempts: 1,
-      heartbeatBlockedByDiscovery: 0,
-      discoveryBlockedByHeartbeat: 0,
-      adapterConstructions: 6,
-      watcherReconciliations: 1,
-    });
-    expect(result.durationsMs).toEqual({
-      discovery: 60,
-      selection: 20,
-      watcher: 5,
-      persistence: 0,
-      total: 85,
-    });
-    expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
+      expect(result.counts).toEqual({
+        adapterOperations: 6,
+        campaignDiscovery: 2,
+        candidateListings: 0,
+        channelChecks: 2,
+        heartbeatAttempts: 1,
+        heartbeatBlockedByDiscovery: 0,
+        discoveryBlockedByHeartbeat: 0,
+        adapterConstructions: 6,
+        watcherReconciliations: 1,
+      });
+      expect(result.durationsMs).toEqual({
+        discovery: 60,
+        selection: 20,
+        watcher: 5,
+        persistence: 0,
+        total: 85,
+      });
+      expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
+      expect(process.listeners("SIGINT")).toEqual(sigintListenersBefore);
+    } finally {
+      process.removeListener("SIGINT", existingListener);
+    }
   });
 
   it.each(["twitch", "kick"] as const)("measures an idle %s one-shot tick", async (platform) => {

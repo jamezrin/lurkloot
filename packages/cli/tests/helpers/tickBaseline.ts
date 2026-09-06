@@ -289,6 +289,10 @@ function createOverlapMilestones() {
 }
 
 async function runCliHeartbeatOverlapCell(directory: string, platform: Platform) {
+  const signalListenersBefore = {
+    SIGINT: new Set(process.listeners("SIGINT")),
+    SIGTERM: new Set(process.listeners("SIGTERM")),
+  };
   const counts: Counts = {
     adapterOperations: 0,
     campaignDiscovery: 0,
@@ -508,8 +512,18 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
   } finally {
     releaseDiscovery.resolve();
     releaseHeartbeat.resolve();
-    process.emit("SIGTERM");
-    await running;
+    try {
+      process.emit("SIGTERM");
+      await running;
+    } finally {
+      for (const signal of ["SIGINT", "SIGTERM"] as const) {
+        for (const listener of process.listeners(signal)) {
+          if (!signalListenersBefore[signal].has(listener)) {
+            process.removeListener(signal, listener);
+          }
+        }
+      }
+    }
   }
   if (!result) throw new Error("CLI heartbeat overlap baseline did not complete");
   return result;
