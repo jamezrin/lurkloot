@@ -5,10 +5,17 @@ Issue #452 is measured with credential-free, deterministic controller fixtures. 
 Run the focused extension and CLI matrices from the repository root:
 
 ```bash
-LURKLOOT_TICK_BASELINE=1 pnpm --filter @lurkloot/extension exec vitest run tests/tickBaseline.test.ts --reporter=dot
-LURKLOOT_TICK_BASELINE=1 pnpm --filter @lurkloot/cli exec vitest run tests/run.test.ts --reporter=dot
+LURKLOOT_TICK_BASELINE=1 pnpm --filter @lurkloot/extension test -- tickBaseline.test.ts
+LURKLOOT_TICK_BASELINE=1 pnpm --filter @lurkloot/cli test -- run.test.ts -t "baseline"
 pnpm --filter @lurkloot/extension exec vitest run tests/twitchCampaignDetailsReuse.test.ts --reporter=dot
 pnpm --filter @lurkloot/extension exec vitest run tests/adapters.test.ts --reporter=dot
+```
+
+To stream every opted-in JSON record even when its test passes, run the focused files directly:
+
+```bash
+LURKLOOT_TICK_BASELINE=1 pnpm --filter @lurkloot/extension exec vitest run tests/tickBaseline.test.ts --disableConsoleIntercept --reporter=dot
+LURKLOOT_TICK_BASELINE=1 pnpm --filter @lurkloot/cli exec vitest run tests/run.test.ts -t "baseline" --disableConsoleIntercept --reporter=dot
 ```
 
 Each `TICK_BASELINE` line is JSON containing the host, provider, scenario, aggregate work counts, and controlled-clock durations. Normal test runs do not print these records.
@@ -24,6 +31,14 @@ These values are not production latency claims. They prove that phase attributio
 
 The four-cell matrix covers idle, stable retained watch, real target switch, a higher-priority target that is unavailable followed by retention of the current watch, failed discovery, and slow discovery/selection for Twitch and Kick in both hosts.
 
+The `heartbeatOverlap` row additionally drives the real shared controller through each host wrapper: the extension's named alarm dispatcher and the CLI's recurring discovery and heartbeat timers. A seeded normalized tabless session is due for one heartbeat while campaign refresh and the watcher heartbeat are held at test-owned deferred boundaries. The harness releases discovery, then heartbeat, on consecutive controlled-clock steps and derives the two blocking counters from the observed milestone order:
+
+- `heartbeatAttempts` counts normalized `TablessWatchController.tick` calls;
+- `heartbeatBlockedByDiscovery` is `1` when heartbeat start is observed only after discovery reaches channel validation;
+- `discoveryBlockedByHeartbeat` is `1` when discovery reaches channel validation only after heartbeat transport finishes.
+
+Therefore `heartbeatAttempts: 1`, `heartbeatBlockedByDiscovery: 0`, and `discoveryBlockedByHeartbeat: 0` demonstrate progress ordering for this controlled overlap. They do not claim universal production latency, network performance, or an absence of unrelated host scheduling delay.
+
 Related scheduler entry paths and concurrency boundaries remain pinned by focused deterministic tests rather than duplicated inside every matrix cell:
 
 - extension alarm dispatch: `backgroundEntrypoint.test.ts` asserts Twitch and Kick alarm names dispatch targeted `alarm` ticks;
@@ -38,6 +53,7 @@ The CLI interval baseline blocks one refresh across another elapsed interval. It
 
 - `adapterOperations` counts calls across the normalized `PlatformAdapter` boundary, including the authentication probe and discovery/selection operations. It deliberately does not claim to count HTTP requests: an adapter operation may issue zero, one, or several transport requests. Provider transport request counts belong in focused adapter tests.
 - `watcherReconciliations` counts observable watcher preparation, not a no-op traversal of the controller's watcher map.
+- The overlap blocking counters are calculated from observed controller milestones. The harness never assigns zero merely because it released a deferred operation.
 - `eventPublications` counts non-empty aggregate batches passed to the host reporter, not individual diagnostic or activity records.
 - Authentication health is saved before scheduler work so a later failure cannot erase the health observation. That makes two state saves per measured tick intentional.
 - `observedControllerMs` is parsed from the controller's emitted refresh, selection, and tick-completion diagnostics; assertions therefore verify the production timing instrumentation rather than only the fixture clock.
