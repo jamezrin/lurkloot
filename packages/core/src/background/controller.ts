@@ -116,7 +116,13 @@ interface HeartbeatAttempt {
   readonly attemptAt: number;
   readonly synchronizationDelayMs: number;
   coalescedCalls: number;
-  readonly promise: Promise<Platform | undefined>;
+  readonly promise: Promise<HeartbeatFallback | undefined>;
+}
+
+interface HeartbeatFallback {
+  readonly platform: Platform;
+  readonly generation: number;
+  readonly contextKey: string;
 }
 
 interface HeartbeatLane {
@@ -2152,10 +2158,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
     const heartbeatResults = await Promise.allSettled(PLATFORMS.map((platform) =>
       runPlatformWatchHeartbeat(platform, settings)));
-    const fallbackPlatforms = heartbeatResults.flatMap((result) =>
+    const fallbacks = heartbeatResults.flatMap((result) =>
       result.status === "fulfilled" && result.value ? [result.value] : []);
-    const fallbackResults = await Promise.allSettled(fallbackPlatforms.map((platform) =>
-      tick([platform], "tabless_fallback")));
+    const fallbackResults = await Promise.allSettled(fallbacks.map(runHeartbeatFallback));
     const failures = [...heartbeatResults, ...fallbackResults].flatMap((result) =>
       result.status === "rejected" ? [result.reason] : []);
     if (failures.length === 1) throw failures[0];
@@ -2167,7 +2172,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function runPlatformWatchHeartbeat(
     platform: Platform,
     settings: S,
-  ): Promise<Platform | undefined> {
+  ): Promise<HeartbeatFallback | undefined> {
     return withEventCollector(async (emit, events) => {
       const nextState = await deps.loadState();
       registerManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, [platform]);
@@ -2187,9 +2192,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       );
 
       const requestedAt = Date.now();
-      let resolveAttempt!: (fallback: Platform | undefined) => void;
+      let resolveAttempt!: (fallback: HeartbeatFallback | undefined) => void;
       let rejectAttempt!: (error: unknown) => void;
-      const attemptPromise = new Promise<Platform | undefined>((resolve, reject) => {
+      const attemptPromise = new Promise<HeartbeatFallback | undefined>((resolve, reject) => {
         resolveAttempt = resolve;
         rejectAttempt = reject;
       });
@@ -2250,7 +2255,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           const fallback = await performReservedHeartbeatAttempt(
             platform,
             settings,
-            nextState,
             committed,
             attempt,
             emit,
@@ -2268,13 +2272,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function performReservedHeartbeatAttempt(
     platform: Platform,
     settings: S,
-    state: SchedulerState,
     committed: CommittedHeartbeatContext,
     attempt: HeartbeatAttempt,
     emit: EventEmitter,
     events: EngineEvent[],
-  ): Promise<Platform | undefined> {
-    const { session, watcher } = committed;
+  ): Promise<HeartbeatFallback | undefined> {
+    const { watcher } = committed;
     let ok = false;
     let message: string | undefined;
     drainWatcherEvents(watcher, emit);
@@ -2288,57 +2291,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       drainWatcherEvents(watcher, emit);
     }
 
-    const previousChecks = session.heartbeatChecks ?? 0;
-    const heartbeatChecks = ok ? 0 : previousChecks + 1;
-    const nextSession: WatchSession = {
-      ...session,
-      lastHeartbeatAt: new Date().toISOString(),
-      lastHeartbeatOk: ok,
-      heartbeatChecks,
-      tablessHeartbeat: {
-        generation: attempt.generation,
-        contextKey: attempt.contextKey,
-        nextDueAt: new Date(nextHeartbeatDueAt(attempt.dueAt, attempt.attemptAt)).toISOString(),
-      },
-    };
-    const nextState: SchedulerState = {
-      ...state,
-      sessions: {
-        ...state.sessions,
-        [platform]: nextSession,
-      },
-      managedPageContextTabs: currentManagedPageContextTabs(),
-    };
-
-    if (ok && previousChecks > 0) {
-      emit({ category: "diagnostic", platform, level: "info", message: "Tabless watch heartbeat recovered" });
-    } else if (!ok && previousChecks === 0) {
-      emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
-    }
-    const fallback = !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
-    if (fallback) {
-      emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
-    }
-
+    let commit = { stale: false, fallback: false };
     let commitError: unknown;
     try {
-      await persistPlatformAndReport(platform, nextState, events);
+      commit = await commitHeartbeatResult(platform, settings, attempt, ok, message, emit);
+      await reportBestEffort(events);
     } catch (error) {
       commitError = error;
     }
 
     const coalescedCalls = await withHeartbeatLane(platform, async (lane) => {
       if (lane.inFlight === attempt) lane.inFlight = undefined;
-      if (
-        !commitError
-        && lane.committed?.generation === attempt.generation
-        && lane.committed.contextKey === attempt.contextKey
-      ) {
-        lane.committed = Object.freeze({
-          ...lane.committed,
-          session: frozenHeartbeatSession(nextSession, nextSession.tablessHeartbeat!),
-        });
-      }
       return attempt.coalescedCalls;
     });
     await reportBestEffort([{
@@ -2353,12 +2316,123 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         `synchronizationDelayMs=${attempt.synchronizationDelayMs}`,
         `coalescedCalls=${coalescedCalls}`,
         `outcome=${ok ? "ok" : "failed"}`,
-        "staleResult=false",
+        `staleResult=${commit.stale}`,
       ].join(" "),
     }]);
 
     if (commitError) throw commitError;
-    return fallback ? platform : undefined;
+    return commit.fallback
+      ? { platform, generation: attempt.generation, contextKey: attempt.contextKey }
+      : undefined;
+  }
+
+  async function commitHeartbeatResult(
+    platform: Platform,
+    settings: S,
+    attempt: HeartbeatAttempt,
+    ok: boolean,
+    message: string | undefined,
+    emit: EventEmitter,
+  ): Promise<{ stale: boolean; fallback: boolean }> {
+    let committedSession: WatchSession | undefined;
+    const result = await withStateCommit(async () => {
+      const latest = await deps.loadState();
+      const current = latest.sessions[platform];
+      if (!heartbeatAuthorityMatches(current, attempt.generation, attempt.contextKey)) {
+        return { stale: true, fallback: false };
+      }
+
+      const previousChecks = current.heartbeatChecks ?? 0;
+      const heartbeatChecks = ok ? 0 : previousChecks + 1;
+      const nextSession: WatchSession = {
+        ...current,
+        lastHeartbeatAt: new Date().toISOString(),
+        lastHeartbeatOk: ok,
+        heartbeatChecks,
+        tablessHeartbeat: {
+          generation: attempt.generation,
+          contextKey: attempt.contextKey,
+          nextDueAt: new Date(nextHeartbeatDueAt(attempt.dueAt, attempt.attemptAt)).toISOString(),
+        },
+      };
+      const managedPageContextTabs = { ...latest.managedPageContextTabs };
+      const pageContext = currentManagedPageContextTabs()[platform];
+      if (pageContext) managedPageContextTabs[platform] = pageContext;
+      else delete managedPageContextTabs[platform];
+
+      if (ok && previousChecks > 0) {
+        emit({ category: "diagnostic", platform, level: "info", message: "Tabless watch heartbeat recovered" });
+      } else if (!ok && previousChecks === 0) {
+        emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
+      }
+      const fallback = !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
+      if (fallback) {
+        emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
+      }
+
+      await saveOperationalStateDirect({
+        ...latest,
+        sessions: {
+          ...latest.sessions,
+          [platform]: nextSession,
+        },
+        managedPageContextTabs,
+      });
+      committedSession = nextSession;
+      return { stale: false, fallback };
+    });
+
+    const nextCommittedSession = committedSession;
+    if (nextCommittedSession) {
+      await withHeartbeatLane(platform, async (lane) => {
+        if (
+          lane.committed?.generation === attempt.generation
+          && lane.committed.contextKey === attempt.contextKey
+        ) {
+          lane.committed = Object.freeze({
+            ...lane.committed,
+            session: frozenHeartbeatSession(
+              nextCommittedSession,
+              nextCommittedSession.tablessHeartbeat!,
+            ),
+          });
+        }
+      });
+    }
+    return result;
+  }
+
+  function heartbeatAuthorityMatches(
+    session: WatchSession,
+    generation: number,
+    contextKey: string,
+  ): boolean {
+    return session.tablessHeartbeat?.generation === generation
+      && session.tablessHeartbeat.contextKey === contextKey
+      && heartbeatContextKey(session) === contextKey;
+  }
+
+  async function runHeartbeatFallback(fallback: HeartbeatFallback): Promise<void> {
+    const ownsLane = await withHeartbeatLane(fallback.platform, async (lane) =>
+      lane.committed?.generation === fallback.generation
+      && lane.committed.contextKey === fallback.contextKey);
+    if (!ownsLane) return;
+
+    const ownsPersistedContext = await withStateCommit(async () => {
+      const latest = await deps.loadState();
+      return heartbeatAuthorityMatches(
+        latest.sessions[fallback.platform],
+        fallback.generation,
+        fallback.contextKey,
+      );
+    });
+    if (!ownsPersistedContext) return;
+
+    const stillOwnsLane = await withHeartbeatLane(fallback.platform, async (lane) =>
+      lane.committed?.generation === fallback.generation
+      && lane.committed.contextKey === fallback.contextKey);
+    if (!stillOwnsLane) return;
+    await tick([fallback.platform], "tabless_fallback");
   }
 
   // Aborts every in-flight handoff. Called when farming stops, when a settings

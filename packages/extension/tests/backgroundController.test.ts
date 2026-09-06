@@ -343,6 +343,24 @@ function allDiagnostics(env: ReturnType<typeof harness>): DiagnosticEvent[] {
     .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
 }
 
+function aggregateHeartbeatDiagnostics(
+  env: ReturnType<typeof harness>,
+  platform: Platform,
+): string[] {
+  return allDiagnostics(env)
+    .filter((event) =>
+      event.platform === platform
+      && event.message.startsWith("Tabless heartbeat timing "))
+    .map((event) => event.message);
+}
+
+function lastAggregateDiagnostic(
+  env: ReturnType<typeof harness>,
+  platform: Platform,
+): string | undefined {
+  return aggregateHeartbeatDiagnostics(env, platform).at(-1);
+}
+
 function dueHeartbeatCadence(session: WatchSession, dueAt = Date.now()) {
   const contextKey = heartbeatContextKey(session);
   if (!contextKey) throw new Error("Expected a complete tabless heartbeat context");
@@ -5966,6 +5984,137 @@ describe("background controller", () => {
     });
   });
 
+  it.each([
+    { outcome: "success", result: { ok: true, live: true } },
+    { outcome: "failure", result: { ok: false, live: true, message: "old heartbeat rejected" } },
+  ] as const)(
+    "rejects a stale heartbeat $outcome without changing the replacement session",
+    async ({ outcome, result }) => {
+      const oldResult = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+      const oldWatcher = fakeTablessWatcher(() => oldResult.promise);
+      const newWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+      const env = tablessEnv({ tablessFallbackFailureLimit: 1 });
+      env.twitch.createTablessWatcher = vi.fn()
+        .mockReturnValueOnce(oldWatcher)
+        .mockReturnValueOnce(newWatcher);
+      env.state.authHealth.twitch = { status: "healthy" };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "watching",
+        offlineChecks: 0,
+        watchMode: "tabless",
+        channel: channel("twitch", { broadcastId: "old-broadcast" }),
+        campaignId: "old-campaign",
+        rewardId: "old-reward",
+        heartbeatChecks: outcome === "success" ? 1 : 0,
+        lastHeartbeatAt: "2026-09-02T11:59:00.000Z",
+        lastHeartbeatOk: false,
+      };
+      env.state.sessions.twitch.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.twitch);
+
+      const oldHeartbeat = env.controller.runWatchHeartbeat();
+      await vi.waitFor(() => expect(oldWatcher.tick).toHaveBeenCalledOnce());
+      env.reportEvents.mockClear();
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "watching",
+        offlineChecks: 0,
+        watchMode: "tabless",
+        channel: channel("twitch", {
+          username: "new-creator",
+          url: "https://www.twitch.tv/new-creator",
+          broadcastId: "new-broadcast",
+        }),
+        campaignId: "new-campaign",
+        rewardId: "new-reward",
+        heartbeatChecks: 0,
+      };
+      const replacementHeartbeat = env.controller.runWatchHeartbeat();
+      await vi.waitFor(() => expect(newWatcher.start).toHaveBeenCalledOnce());
+
+      oldResult.resolve(result);
+      await Promise.all([oldHeartbeat, replacementHeartbeat]);
+
+      expect(env.state.sessions.twitch).toMatchObject({
+        channel: expect.objectContaining({
+          username: "new-creator",
+          broadcastId: "new-broadcast",
+        }),
+        campaignId: "new-campaign",
+        rewardId: "new-reward",
+        heartbeatChecks: 0,
+      });
+      expect(env.state.sessions.twitch.lastHeartbeatAt).toBeUndefined();
+      expect(env.state.sessions.twitch.lastHeartbeatOk).toBeUndefined();
+      expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+      const diagnostics = allDiagnostics(env).map((event) => event.message);
+      expect(diagnostics).not.toContain("Tabless watch heartbeat recovered");
+      expect(diagnostics).not.toContain("old heartbeat rejected");
+      expect(diagnostics).not.toContain(
+        "Tabless watch heartbeat keeps failing; falling back to a watch tab",
+      );
+      expect(env.reportEvents.mock.calls
+        .flatMap(([events]) => events)
+        .filter((event) => event.category === "activity")).toEqual([]);
+      expect(aggregateHeartbeatDiagnostics(env, "twitch")).toHaveLength(1);
+      expect(lastAggregateDiagnostic(env, "twitch")).toContain(
+        `outcome=${outcome === "success" ? "ok" : "failed"}`,
+      );
+      expect(lastAggregateDiagnostic(env, "twitch")).toContain("staleResult=true");
+    },
+  );
+
+  it("rejects a stale heartbeat after the same context advances generation", async () => {
+    const oldResult = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+    const watcher = fakeTablessWatcher(() => oldResult.promise);
+    const env = tablessEnv({ tablessFallbackFailureLimit: 1 });
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    env.state.authHealth.twitch = { status: "healthy" };
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("twitch", { broadcastId: "same-broadcast" }),
+      campaignId: "same-campaign",
+      rewardId: "same-reward",
+      heartbeatChecks: 0,
+    };
+    env.state.sessions.twitch.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.twitch);
+
+    const heartbeat = env.controller.runWatchHeartbeat();
+    await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledOnce());
+    env.reportEvents.mockClear();
+    env.state.sessions.twitch = {
+      ...env.state.sessions.twitch,
+      lastHeartbeatAt: "2026-09-02T12:00:30.000Z",
+      lastHeartbeatOk: true,
+      tablessHeartbeat: {
+        ...env.state.sessions.twitch.tablessHeartbeat!,
+        generation: 2,
+      },
+    };
+
+    oldResult.resolve({ ok: false, live: true, message: "obsolete generation failed" });
+    await heartbeat;
+
+    expect(env.state.sessions.twitch).toMatchObject({
+      channel: expect.objectContaining({ broadcastId: "same-broadcast" }),
+      campaignId: "same-campaign",
+      rewardId: "same-reward",
+      heartbeatChecks: 0,
+      lastHeartbeatAt: "2026-09-02T12:00:30.000Z",
+      lastHeartbeatOk: true,
+      tablessHeartbeat: expect.objectContaining({ generation: 2 }),
+    });
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(allDiagnostics(env).map((event) => event.message))
+      .not.toContain("obsolete generation failed");
+    expect(aggregateHeartbeatDiagnostics(env, "twitch")).toHaveLength(1);
+    expect(lastAggregateDiagnostic(env, "twitch")).toContain("outcome=failed");
+    expect(lastAggregateDiagnostic(env, "twitch")).toContain("staleResult=true");
+  });
+
   it("does not let a slow old-target start overwrite or stop the newer committed watcher", async () => {
     const slowStart = deferred<void>();
     const oldWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
@@ -6110,7 +6259,8 @@ describe("background controller", () => {
       .mockResolvedValueOnce(winningState)
       .mockResolvedValueOnce(winningState)
       .mockImplementationOnce(() => staleRead.promise)
-      .mockImplementationOnce(() => staleRead.promise);
+      .mockImplementationOnce(() => staleRead.promise)
+      .mockResolvedValueOnce(winningState);
 
     const winningRecovery = env.controller.runWatchHeartbeat();
     await vi.waitFor(() => expect(winner.start).toHaveBeenCalled());
@@ -6162,7 +6312,8 @@ describe("background controller", () => {
       .mockImplementationOnce(() => staleRead.promise)
       .mockImplementationOnce(() => staleRead.promise)
       .mockImplementationOnce(() => candidateRead.promise)
-      .mockImplementationOnce(() => candidateRead.promise);
+      .mockImplementationOnce(() => candidateRead.promise)
+      .mockResolvedValueOnce(candidateState);
 
     const staleRemoval = env.controller.runWatchHeartbeat();
     const winningRecovery = env.controller.runWatchHeartbeat();
@@ -6294,10 +6445,11 @@ describe("background controller", () => {
     },
   );
 
-  it("persists page-context lifecycle metadata changed during a heartbeat", async () => {
+  it("merge-safely persists page-context lifecycle metadata changed during a heartbeat", async () => {
+    const heartbeatResult = deferred<{ ok: boolean; live?: boolean; message?: string }>();
     const watcher = fakeTablessWatcher(async () => {
       recordManagedPageContextFallback("twitch", "gql.twitch.tv", undefined, Date.parse("2026-07-21T12:00:00.000Z"));
-      return { ok: true, live: true };
+      return heartbeatResult.promise;
     });
     const env = tablessEnv();
     env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
@@ -6313,14 +6465,71 @@ describe("background controller", () => {
     registerManagedPageContextTabs({ twitch: context });
 
     advanceToNextHeartbeatDue();
-    await env.controller.runWatchHeartbeat();
+    const heartbeat = env.controller.runWatchHeartbeat();
+    await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledOnce());
+    env.state.sessions.twitch.offlineChecks = 3;
+    heartbeatResult.resolve({ ok: true, live: true });
+    await heartbeat;
 
+    expect(env.state.sessions.twitch.offlineChecks).toBe(3);
     expect(env.state.managedPageContextTabs?.twitch).toMatchObject({
       tabId: 66,
       fallbackHost: "gql.twitch.tv",
       backgroundSuccesses: 0,
       lastFallbackAt: "2026-07-21T12:00:00.000Z",
     });
+  });
+
+  it("records the first current-generation failure before heartbeat fallback", async () => {
+    const watcher = fakeTablessWatcher(async () => ({
+      ok: false,
+      live: true,
+      message: "heartbeat transport rejected",
+    }));
+    const env = tablessEnv({ tablessFallbackFailureLimit: 2 });
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    await env.controller.tick();
+    env.reportEvents.mockClear();
+
+    advanceToNextHeartbeatDue();
+    await env.controller.runWatchHeartbeat();
+
+    expect(env.state.sessions.twitch).toMatchObject({
+      lastHeartbeatOk: false,
+      heartbeatChecks: 1,
+    });
+    expect(allDiagnostics(env).filter((event) =>
+      event.message === "heartbeat transport rejected")).toHaveLength(1);
+    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+  });
+
+  it("reports heartbeat recovered for a current-generation result", async () => {
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    env.state.authHealth.twitch = { status: "healthy" };
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("twitch"),
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+      heartbeatChecks: 1,
+      lastHeartbeatAt: "2026-09-02T11:59:00.000Z",
+      lastHeartbeatOk: false,
+    };
+    env.state.sessions.twitch.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.twitch);
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(env.state.sessions.twitch).toMatchObject({
+      lastHeartbeatOk: true,
+      heartbeatChecks: 0,
+    });
+    expect(allDiagnostics(env).filter((event) =>
+      event.message === "Tabless watch heartbeat recovered")).toHaveLength(1);
   });
 
   it("publishes persistent watcher diagnostics once through the current operation batch", async () => {
@@ -6363,7 +6572,7 @@ describe("background controller", () => {
     expect(reported.flat().filter((event) => event.category === "diagnostic" && event.message === "connected-after-start")).toHaveLength(1);
   });
 
-  it("falls back to a watch tab once the tabless heartbeat keeps failing", async () => {
+  it("starts heartbeat fallback at the configured failure limit", async () => {
     const watcher = fakeTablessWatcher(async () => ({ ok: false, live: true }));
     const env = tablessEnv({ offlineRetryLimit: 1, tablessFallbackFailureLimit: 2 });
     env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
@@ -6383,6 +6592,66 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.tablessFallback).toBe(true);
     expect(watcher.stop).toHaveBeenCalled();
   });
+
+  it.each(["generation", "context"] as const)(
+    "skips heartbeat fallback when the persisted $authority changes after result commit",
+    async (authority) => {
+      let env!: ReturnType<typeof harness>;
+      let replaceAuthorityAfterCommit = false;
+      env = tablessEnv({ tablessFallbackFailureLimit: 1 });
+      env.twitch.createTablessWatcher = () => fakeTablessWatcher(
+        async () => ({ ok: false, live: true }),
+      ) as unknown as TablessWatchController;
+      const reportEvents = env.deps.reportEvents.getMockImplementation()!;
+      env.deps.reportEvents.mockImplementation(async (events) => {
+        await reportEvents(events);
+        if (
+          replaceAuthorityAfterCommit
+          && events.some((event) =>
+            event.category === "diagnostic"
+            && event.message.startsWith("Tabless heartbeat timing "))
+        ) {
+          replaceAuthorityAfterCommit = false;
+          const current = env.state.sessions.twitch;
+          const nextSession: WatchSession = authority === "generation"
+            ? {
+                ...current,
+                tablessHeartbeat: {
+                  ...current.tablessHeartbeat!,
+                  generation: current.tablessHeartbeat!.generation + 1,
+                },
+              }
+            : {
+                ...current,
+                campaignId: "replacement-campaign",
+                rewardId: "replacement-reward",
+              };
+          if (authority === "context") {
+            nextSession.tablessHeartbeat = {
+              ...current.tablessHeartbeat!,
+              contextKey: heartbeatContextKey(nextSession)!,
+            };
+          }
+          env.state.sessions.twitch = nextSession;
+        }
+      });
+      await env.controller.tick();
+      vi.mocked(env.twitch.refreshCampaigns).mockClear();
+      vi.mocked(env.twitch.prepareWatchTab).mockClear();
+      replaceAuthorityAfterCommit = true;
+
+      advanceToNextHeartbeatDue();
+      await env.controller.runWatchHeartbeat();
+
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
+      expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+      expect(env.state.sessions.twitch.tablessHeartbeat).toMatchObject(
+        authority === "generation"
+          ? { generation: 2 }
+          : { contextKey: expect.stringContaining("replacement-campaign") },
+      );
+    },
+  );
 
   it("keeps successful scheduler state when stopping a tabless watcher fails", async () => {
     const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
