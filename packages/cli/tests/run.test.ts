@@ -164,7 +164,9 @@ describe("CLI scheduler tick baseline", () => {
         heartbeatAttempts: 1,
         heartbeatBlockedByDiscovery: 0,
         discoveryBlockedByHeartbeat: 0,
-        adapterConstructions: 6,
+        // The non-once loop now performs one recovery pass for both providers
+        // at startup before the first discovery completes.
+        adapterConstructions: 8,
         watcherReconciliations: 1,
       });
       expect(result.durationsMs).toEqual({
@@ -578,6 +580,23 @@ describe("runLoop heartbeat driver", () => {
     }
   });
 
+  it("recovers a due heartbeat before the first discovery finishes and still shuts down", async () => {
+    const blockedDiscovery = deferred<DropCampaign[]>();
+    vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+    const { running, transport, twitch, watcher } = await startHeartbeatDriver({
+      refreshCampaigns: async () => blockedDiscovery.promise,
+    });
+
+    expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
+    expect(watcher.tick).toHaveBeenCalledOnce();
+
+    process.emit("SIGTERM");
+    await running;
+    expect(transport.dispose).toHaveBeenCalledOnce();
+
+    blockedDiscovery.resolve([HEARTBEAT_TEST_CAMPAIGN]);
+  });
+
   it("attempts a due heartbeat while discovery is blocked", async () => {
     const blockedDiscovery = deferred<DropCampaign[]>();
     const { running, statePath, twitch, watcher } = await startHeartbeatDriver({
@@ -699,6 +718,90 @@ describe("runLoop heartbeat driver", () => {
 
     finishDispose.resolve();
     await running;
+  });
+
+  it("removes only its own SIGINT and SIGTERM listeners after shutdown", async () => {
+    const existingSigint = vi.fn();
+    const existingSigterm = vi.fn();
+    process.on("SIGINT", existingSigint);
+    process.on("SIGTERM", existingSigterm);
+    const sigintListenersBefore = process.listeners("SIGINT");
+    const sigtermListenersBefore = process.listeners("SIGTERM");
+    const removeRunListeners = () => {
+      for (const listener of process.listeners("SIGINT")) {
+        if (!sigintListenersBefore.includes(listener)) process.removeListener("SIGINT", listener);
+      }
+      for (const listener of process.listeners("SIGTERM")) {
+        if (!sigtermListenersBefore.includes(listener)) process.removeListener("SIGTERM", listener);
+      }
+    };
+
+    try {
+      const { running } = await startHeartbeatDriver();
+      process.emit("SIGTERM");
+      await running;
+
+      expect(process.listeners("SIGINT")).toEqual(sigintListenersBefore);
+      expect(process.listeners("SIGTERM")).toEqual(sigtermListenersBefore);
+      expect(existingSigterm).toHaveBeenCalledOnce();
+      expect(existingSigint).not.toHaveBeenCalled();
+    } finally {
+      removeRunListeners();
+      process.removeListener("SIGINT", existingSigint);
+      process.removeListener("SIGTERM", existingSigterm);
+    }
+  });
+
+  it("removes only its own signal listeners when shutdown disposal rejects", async () => {
+    const existingSigint = vi.fn();
+    const existingSigterm = vi.fn();
+    process.on("SIGINT", existingSigint);
+    process.on("SIGTERM", existingSigterm);
+    const sigintListenersBefore = process.listeners("SIGINT");
+    const sigtermListenersBefore = process.listeners("SIGTERM");
+    const disposeStarted = deferred<void>();
+    const removeRunListeners = () => {
+      for (const listener of process.listeners("SIGINT")) {
+        if (!sigintListenersBefore.includes(listener)) process.removeListener("SIGINT", listener);
+      }
+      for (const listener of process.listeners("SIGTERM")) {
+        if (!sigtermListenersBefore.includes(listener)) process.removeListener("SIGTERM", listener);
+      }
+    };
+
+    try {
+      const { running } = await startHeartbeatDriver({
+        dispose: async () => {
+          disposeStarted.resolve();
+          throw new Error("transport disposal failed");
+        },
+      });
+      const settlement = running.then(
+        () => ({ status: "resolved" as const }),
+        (error: unknown) => ({ status: "rejected" as const, error }),
+      );
+
+      process.emit("SIGTERM");
+      await disposeStarted.promise;
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(await Promise.race([
+        settlement,
+        Promise.resolve({ status: "pending" as const }),
+      ])).toEqual({
+        status: "rejected",
+        error: expect.objectContaining({ message: "transport disposal failed" }),
+      });
+      expect(process.listeners("SIGINT")).toEqual(sigintListenersBefore);
+      expect(process.listeners("SIGTERM")).toEqual(sigtermListenersBefore);
+      expect(existingSigterm).toHaveBeenCalledOnce();
+      expect(existingSigint).not.toHaveBeenCalled();
+    } finally {
+      removeRunListeners();
+      process.removeListener("SIGINT", existingSigint);
+      process.removeListener("SIGTERM", existingSigterm);
+    }
   });
 
   it("runs one discovery tick without starting recurring drivers in once mode", async () => {

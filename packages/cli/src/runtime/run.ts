@@ -102,35 +102,47 @@ export async function runLoop(options: RunOptions): Promise<void> {
   };
 
   logger.info("Starting farming loop", "run");
-  await tickOnce();
-
   if (options.once) {
+    await tickOnce();
     await transport.dispose();
     return;
   }
 
   const periodMs = Math.max(1, settings.pollIntervalMinutes) * 60_000;
-  await new Promise<void>((resolveLoop) => {
+  await new Promise<void>((resolveLoop, rejectLoop) => {
     let stopped = false;
     const discoveryTimer = setInterval(() => void tickOnce(), periodMs);
     const heartbeatTimer = setInterval(
       () => void heartbeatOnce(),
       HEARTBEAT_INTERVAL_MS,
     );
+    const handleSigint = () => void shutdown("SIGINT");
+    const handleSigterm = () => void shutdown("SIGTERM");
     const shutdown = async (signal: string) => {
       if (stopped) return;
       stopped = true;
       logger.info(`Received ${signal}; shutting down`, "run");
       clearInterval(discoveryTimer);
       clearInterval(heartbeatTimer);
+      process.removeListener("SIGINT", handleSigint);
+      process.removeListener("SIGTERM", handleSigterm);
       // Before disposing the transport: a post-claim handoff started by the last
       // tick would otherwise keep refreshing against disposed resources, and its
       // pending delay would hold the process open until the handoff's deadline.
-      controller.shutdown();
-      await transport.dispose();
-      resolveLoop();
+      try {
+        controller.shutdown();
+        await transport.dispose();
+        resolveLoop();
+      } catch (error) {
+        rejectLoop(error);
+      }
     };
-    process.once("SIGINT", () => void shutdown("SIGINT"));
-    process.once("SIGTERM", () => void shutdown("SIGTERM"));
+    process.once("SIGINT", handleSigint);
+    process.once("SIGTERM", handleSigterm);
+    // Recovery and shutdown must not wait for initial discovery. A persisted
+    // cadence may already be due while the first campaign refresh is slow or
+    // blocked, and signal handlers need to be live for that entire interval.
+    void heartbeatOnce();
+    void tickOnce();
   });
 }
