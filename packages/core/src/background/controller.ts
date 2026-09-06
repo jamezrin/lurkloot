@@ -125,11 +125,41 @@ interface HeartbeatFallback {
   readonly contextKey: string;
 }
 
+interface HeartbeatResultCommit {
+  readonly attempt: HeartbeatAttempt;
+  readonly settled: Promise<void>;
+  readonly settle: () => void;
+}
+
+interface HeartbeatContextPublication {
+  accepted: boolean;
+  cadence?: TablessHeartbeatCadence;
+  committed?: CommittedHeartbeatContext;
+  replaced?: TablessWatchController;
+}
+
+type HeartbeatContextPublicationDecision = HeartbeatContextPublication | {
+  waitFor: Promise<void>;
+};
+
+interface HeartbeatWatcherRemoval {
+  accepted: boolean;
+  watcher?: TablessWatchController;
+}
+
+type HeartbeatWatcherRemovalDecision = HeartbeatWatcherRemoval | {
+  waitFor: Promise<void>;
+};
+
 interface HeartbeatLane {
   mutation: Promise<unknown>;
   revision: number;
   committed?: CommittedHeartbeatContext;
   inFlight?: HeartbeatAttempt;
+  // Reserved only after transport completes. Context publishers wait for this
+  // promise outside the lane, so either publication wins and rejects the old
+  // result or the current result persists before publication becomes visible.
+  resultCommit?: HeartbeatResultCommit;
   coalescedWithoutAttempt: number;
 }
 
@@ -472,79 +502,96 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     session: WatchSession,
     watcher: TablessWatchController,
     expectedRevision: number,
-  ): Promise<{
-    accepted: boolean;
-    cadence?: TablessHeartbeatCadence;
-    committed?: CommittedHeartbeatContext;
-    replaced?: TablessWatchController;
-  }> {
+  ): Promise<HeartbeatContextPublication> {
     const contextKey = heartbeatContextKey(session);
-    return withHeartbeatLane(platform, async (lane) => {
-      if (lane.revision !== expectedRevision) {
-        return { accepted: false, committed: lane.committed };
-      }
-      const previous = lane.committed;
-      if (!contextKey) {
-        lane.committed = undefined;
-        tablessWatchers.set(platform, watcher);
-        lane.revision += 1;
-        return {
-          accepted: true,
-          replaced: previous?.watcher === watcher ? undefined : previous?.watcher,
-        };
-      }
+    while (true) {
+      const decision: HeartbeatContextPublicationDecision = await withHeartbeatLane(
+        platform,
+        async (lane) => {
+          if (lane.revision !== expectedRevision) {
+            return { accepted: false, committed: lane.committed };
+          }
+          if (lane.resultCommit) return { waitFor: lane.resultCommit.settled };
+          const previous = lane.committed;
+          if (!contextKey) {
+            lane.committed = undefined;
+            tablessWatchers.set(platform, watcher);
+            lane.revision += 1;
+            return {
+              accepted: true,
+              replaced: previous?.watcher === watcher ? undefined : previous?.watcher,
+            };
+          }
 
-      const persisted = session.tablessHeartbeat;
-      const retained = persisted?.contextKey === contextKey
-        && Number.isFinite(Date.parse(persisted.nextDueAt));
-      const previousCadence = previous?.contextKey === contextKey
-        ? previous.session.tablessHeartbeat
-        : undefined;
-      const generation = retained
-        ? persisted.generation
-        : previousCadence?.generation
-          ?? Math.max(previous?.generation ?? 0, persisted?.generation ?? 0) + 1;
-      const cadence: TablessHeartbeatCadence = Object.freeze(retained
-        ? { ...persisted }
-        : previousCadence
-          ? { ...previousCadence }
-          : {
-              generation,
-              contextKey,
-              nextDueAt: new Date(Date.now() + HEARTBEAT_INTERVAL_MS).toISOString(),
-            });
-      const committed = Object.freeze({
-        generation,
-        contextKey,
-        session: frozenHeartbeatSession(session, cadence),
-        watcher,
-      });
-      lane.committed = committed;
-      tablessWatchers.set(platform, watcher);
-      lane.revision += 1;
-      return {
-        accepted: true,
-        cadence,
-        committed,
-        replaced: previous?.watcher === watcher ? undefined : previous?.watcher,
-      };
-    });
+          const persisted = session.tablessHeartbeat;
+          const retained = persisted?.contextKey === contextKey
+            && Number.isFinite(Date.parse(persisted.nextDueAt));
+          const previousCadence = previous?.contextKey === contextKey
+            ? previous.session.tablessHeartbeat
+            : undefined;
+          const generation = retained
+            ? persisted.generation
+            : previousCadence?.generation
+              ?? Math.max(previous?.generation ?? 0, persisted?.generation ?? 0) + 1;
+          const cadence: TablessHeartbeatCadence = Object.freeze(retained
+            ? { ...persisted }
+            : previousCadence
+              ? { ...previousCadence }
+              : {
+                  generation,
+                  contextKey,
+                  nextDueAt: new Date(Date.now() + HEARTBEAT_INTERVAL_MS).toISOString(),
+                });
+          const committed = Object.freeze({
+            generation,
+            contextKey,
+            session: frozenHeartbeatSession(session, cadence),
+            watcher,
+          });
+          lane.committed = committed;
+          tablessWatchers.set(platform, watcher);
+          lane.revision += 1;
+          return {
+            accepted: true,
+            cadence,
+            committed,
+            replaced: previous?.watcher === watcher ? undefined : previous?.watcher,
+          };
+        },
+      );
+      if ("waitFor" in decision) {
+        await decision.waitFor;
+        continue;
+      }
+      return decision;
+    }
   }
 
-  function takeHeartbeatWatcher(
+  async function takeHeartbeatWatcher(
     platform: Platform,
     expectedRevision?: number,
-  ): Promise<{ accepted: boolean; watcher?: TablessWatchController }> {
-    return withHeartbeatLane(platform, async (lane) => {
-      if (expectedRevision !== undefined && lane.revision !== expectedRevision) {
-        return { accepted: false };
+  ): Promise<HeartbeatWatcherRemoval> {
+    while (true) {
+      const decision: HeartbeatWatcherRemovalDecision = await withHeartbeatLane(
+        platform,
+        async (lane) => {
+          if (expectedRevision !== undefined && lane.revision !== expectedRevision) {
+            return { accepted: false };
+          }
+          if (lane.resultCommit) return { waitFor: lane.resultCommit.settled };
+          const watcher = lane.committed?.watcher ?? tablessWatchers.get(platform);
+          lane.committed = undefined;
+          tablessWatchers.delete(platform);
+          lane.revision += 1;
+          return { accepted: true, watcher };
+        },
+      );
+      if ("waitFor" in decision) {
+        await decision.waitFor;
+        continue;
       }
-      const watcher = lane.committed?.watcher ?? tablessWatchers.get(platform);
-      lane.committed = undefined;
-      tablessWatchers.delete(platform);
-      lane.revision += 1;
-      return { accepted: true, watcher };
-    });
+      return decision;
+    }
   }
   const campaignEvaluationFingerprints: Partial<Record<Platform, string>> = {};
   const discoverySignalControllers = new Map<Platform, DiscoverySignalController>();
@@ -2334,72 +2381,110 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     message: string | undefined,
     emit: EventEmitter,
   ): Promise<{ stale: boolean; fallback: boolean }> {
+    const reservation = await reserveHeartbeatResultCommit(platform, attempt);
+    if (!reservation) return { stale: true, fallback: false };
+
     let committedSession: WatchSession | undefined;
-    const result = await withStateCommit(async () => {
-      const latest = await deps.loadState();
-      const current = latest.sessions[platform];
-      if (!heartbeatAuthorityMatches(current, attempt.generation, attempt.contextKey)) {
-        return { stale: true, fallback: false };
-      }
+    try {
+      return await withStateCommit(async () => {
+        const latest = await deps.loadState();
+        const current = latest.sessions[platform];
+        if (!heartbeatAuthorityMatches(current, attempt.generation, attempt.contextKey)) {
+          return { stale: true, fallback: false };
+        }
 
-      const previousChecks = current.heartbeatChecks ?? 0;
-      const heartbeatChecks = ok ? 0 : previousChecks + 1;
-      const nextSession: WatchSession = {
-        ...current,
-        lastHeartbeatAt: new Date().toISOString(),
-        lastHeartbeatOk: ok,
-        heartbeatChecks,
-        tablessHeartbeat: {
-          generation: attempt.generation,
-          contextKey: attempt.contextKey,
-          nextDueAt: new Date(nextHeartbeatDueAt(attempt.dueAt, attempt.attemptAt)).toISOString(),
-        },
-      };
-      const managedPageContextTabs = { ...latest.managedPageContextTabs };
-      const pageContext = currentManagedPageContextTabs()[platform];
-      if (pageContext) managedPageContextTabs[platform] = pageContext;
-      else delete managedPageContextTabs[platform];
+        const previousChecks = current.heartbeatChecks ?? 0;
+        const heartbeatChecks = ok ? 0 : previousChecks + 1;
+        const nextSession: WatchSession = {
+          ...current,
+          lastHeartbeatAt: new Date().toISOString(),
+          lastHeartbeatOk: ok,
+          heartbeatChecks,
+          tablessHeartbeat: {
+            generation: attempt.generation,
+            contextKey: attempt.contextKey,
+            nextDueAt: new Date(nextHeartbeatDueAt(attempt.dueAt, attempt.attemptAt)).toISOString(),
+          },
+        };
+        const managedPageContextTabs = { ...latest.managedPageContextTabs };
+        const pageContext = currentManagedPageContextTabs()[platform];
+        if (pageContext) managedPageContextTabs[platform] = pageContext;
+        else delete managedPageContextTabs[platform];
 
-      if (ok && previousChecks > 0) {
-        emit({ category: "diagnostic", platform, level: "info", message: "Tabless watch heartbeat recovered" });
-      } else if (!ok && previousChecks === 0) {
-        emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
-      }
-      const fallback = !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
-      if (fallback) {
-        emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
-      }
+        if (ok && previousChecks > 0) {
+          emit({ category: "diagnostic", platform, level: "info", message: "Tabless watch heartbeat recovered" });
+        } else if (!ok && previousChecks === 0) {
+          emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
+        }
+        const fallback = !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
+        if (fallback) {
+          emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
+        }
 
-      await saveOperationalStateDirect({
-        ...latest,
-        sessions: {
-          ...latest.sessions,
-          [platform]: nextSession,
-        },
-        managedPageContextTabs,
+        await saveOperationalStateDirect({
+          ...latest,
+          sessions: {
+            ...latest.sessions,
+            [platform]: nextSession,
+          },
+          managedPageContextTabs,
+        });
+        committedSession = nextSession;
+        return { stale: false, fallback };
       });
-      committedSession = nextSession;
-      return { stale: false, fallback };
-    });
+    } finally {
+      await finishHeartbeatResultCommit(platform, reservation, committedSession);
+    }
+  }
 
-    const nextCommittedSession = committedSession;
-    if (nextCommittedSession) {
-      await withHeartbeatLane(platform, async (lane) => {
+  async function reserveHeartbeatResultCommit(
+    platform: Platform,
+    attempt: HeartbeatAttempt,
+  ): Promise<HeartbeatResultCommit | undefined> {
+    let settle!: () => void;
+    const settled = new Promise<void>((resolve) => {
+      settle = resolve;
+    });
+    const reservation: HeartbeatResultCommit = { attempt, settled, settle };
+    const accepted = await withHeartbeatLane(platform, async (lane) => {
+      if (
+        lane.resultCommit
+        || lane.committed?.generation !== attempt.generation
+        || lane.committed.contextKey !== attempt.contextKey
+      ) {
+        return false;
+      }
+      lane.resultCommit = reservation;
+      return true;
+    });
+    return accepted ? reservation : undefined;
+  }
+
+  async function finishHeartbeatResultCommit(
+    platform: Platform,
+    reservation: HeartbeatResultCommit,
+    committedSession: WatchSession | undefined,
+  ): Promise<void> {
+    await withHeartbeatLane(platform, async (lane) => {
+      try {
         if (
-          lane.committed?.generation === attempt.generation
-          && lane.committed.contextKey === attempt.contextKey
+          committedSession
+          && lane.committed?.generation === reservation.attempt.generation
+          && lane.committed.contextKey === reservation.attempt.contextKey
         ) {
           lane.committed = Object.freeze({
             ...lane.committed,
             session: frozenHeartbeatSession(
-              nextCommittedSession,
-              nextCommittedSession.tablessHeartbeat!,
+              committedSession,
+              committedSession.tablessHeartbeat!,
             ),
           });
         }
-      });
-    }
-    return result;
+      } finally {
+        if (lane.resultCommit === reservation) lane.resultCommit = undefined;
+        reservation.settle();
+      }
+    });
   }
 
   function heartbeatAuthorityMatches(
