@@ -109,6 +109,8 @@ interface CommittedHeartbeatContext {
   readonly watcher: TablessWatchController;
 }
 
+type HeartbeatAttemptKind = "scheduled" | "immediate";
+
 interface HeartbeatAttempt {
   readonly generation: number;
   readonly contextKey: string;
@@ -127,6 +129,13 @@ interface HeartbeatFallback {
 
 interface HeartbeatResultCommit {
   readonly attempt: HeartbeatAttempt;
+  readonly settled: Promise<void>;
+  readonly settle: () => void;
+}
+
+interface HeartbeatRecoveryCommit {
+  readonly generation: number;
+  readonly contextKey: string;
   readonly settled: Promise<void>;
   readonly settle: () => void;
 }
@@ -160,6 +169,10 @@ interface HeartbeatLane {
   // promise outside the lane, so either publication wins and rejects the old
   // result or the current result persists before publication becomes visible.
   resultCommit?: HeartbeatResultCommit;
+  recoveryCommit?: HeartbeatRecoveryCommit;
+  generationHighWater?: number;
+  lastCompletedGeneration?: number;
+  lastCompletedContextKey?: string;
   coalescedWithoutAttempt: number;
 }
 
@@ -511,6 +524,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           if (lane.revision !== expectedRevision) {
             return { accepted: false, committed: lane.committed };
           }
+          if (lane.recoveryCommit) return { waitFor: lane.recoveryCommit.settled };
           if (lane.resultCommit) return { waitFor: lane.resultCommit.settled };
           const previous = lane.committed;
           if (!contextKey) {
@@ -548,6 +562,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             session: frozenHeartbeatSession(session, cadence),
             watcher,
           });
+          lane.generationHighWater = Math.max(lane.generationHighWater ?? 0, generation);
           lane.committed = committed;
           tablessWatchers.set(platform, watcher);
           lane.revision += 1;
@@ -2061,6 +2076,18 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     });
   }
 
+  function clearHeartbeatOwnershipInBackground(platforms: readonly Platform[]): void {
+    const run = clearHeartbeatOwnership(platforms).catch((error) => {
+      const platform = platforms.length === 1 ? platforms[0] : undefined;
+      diagnosticEvent(
+        "warn",
+        `Tabless watcher cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+        platform,
+      );
+    });
+    backgroundWork = backgroundWork.then(() => run, () => run);
+  }
+
   function drainDiscoverySignalEvents(
     controller: DiscoverySignalController,
     emit: EventEmitter,
@@ -2220,24 +2247,225 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     platform: Platform,
     settings: S,
   ): Promise<HeartbeatFallback | undefined> {
-    return withEventCollector(async (emit, events) => {
-      const nextState = await deps.loadState();
-      registerManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, [platform]);
-      // After a service-worker restart the in-memory watcher map is empty, so
-      // rebuild this platform's watcher from its persisted tabless session.
-      // Otherwise the 1-minute watch alarm would do nothing until the next
-      // (possibly distant) discovery tick re-armed the watchers, stalling
-      // tabless farming. This recovery only rebuilds normalized watch context;
-      // it never starts discovery or target selection.
-      const adapters = createSelectedAdapters(settings, emit, [platform]);
-      await reconcileTablessWatchers(
-        nextState,
-        settings,
-        adapters,
-        emit,
-        [platform],
-      );
+    if (controllerShutdown) return undefined;
+    await withEventCollector(async (emit, events) => {
+      while (!controllerShutdown) {
+        // Capture the lane revision before loading storage. If another recovery
+        // publishes while this read is pending, the loaded snapshot must not
+        // remove or replace that newer owner.
+        const expectedRevision = heartbeatLanes[platform].revision;
+        const nextState = await deps.loadState();
+        registerManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, [platform]);
+        const adapters = createSelectedAdapters(settings, emit, [platform]);
+        const prepared = await preparePlatformHeartbeatContext(
+          platform,
+          settings,
+          nextState,
+          adapters,
+          emit,
+          expectedRevision,
+        );
+        if (prepared) break;
+      }
+      await reportBestEffort(events);
+    });
+    if (controllerShutdown) return undefined;
+    return requestPlatformHeartbeat(platform, settings, "scheduled");
+  }
 
+  async function preparePlatformHeartbeatContext(
+    platform: Platform,
+    settings: S,
+    state: SchedulerState,
+    adapters: Record<Platform, PlatformAdapter>,
+    emit: EventEmitter,
+    expectedRevision: number,
+  ): Promise<boolean> {
+    const session = state.sessions[platform];
+    const contextKey = heartbeatContextKey(session);
+    const wantsTabless = settings.platform[platform].enabled
+      && state.authHealth[platform].status === "healthy"
+      && session.status === "watching"
+      && session.watchMode === "tabless"
+      && Boolean(session.channel)
+      && Boolean(contextKey)
+      && Boolean(adapters[platform].createTablessWatcher);
+
+    let recoveryCommit: HeartbeatRecoveryCommit | undefined;
+    const decision = await withHeartbeatLane(platform, async (lane) => {
+      if (lane.recoveryCommit) return { waitFor: lane.recoveryCommit.settled };
+      if (lane.revision !== expectedRevision) {
+        // A same-context winner makes this invocation redundant. A different
+        // normalized target asks the caller to reload storage and retry. An
+        // invalid stale snapshot never tears down the winner that appeared
+        // after its read began.
+        if (contextKey && lane.committed?.contextKey !== contextKey) return { retry: true };
+        return { ready: true };
+      }
+
+      const persisted = session.tablessHeartbeat;
+      const retainedCadence = contextKey
+        && persisted?.contextKey === contextKey
+        && Number.isFinite(Date.parse(persisted.nextDueAt))
+        ? persisted
+        : undefined;
+      if (lane.committed) {
+        const sameAuthority = wantsTabless
+          && lane.committed.contextKey === contextKey
+          && retainedCadence?.generation === lane.committed.generation;
+        if (sameAuthority) return { ready: true };
+        if (lane.resultCommit) return { waitFor: lane.resultCommit.settled };
+        const discarded = lane.committed.watcher;
+        lane.committed = undefined;
+        tablessWatchers.delete(platform);
+        lane.revision += 1;
+        return { discarded, retry: wantsTabless };
+      }
+      if (!wantsTabless || !session.channel || !contextKey) return { ready: true };
+      if (lane.resultCommit) return { waitFor: lane.resultCommit.settled };
+
+      // A fresh service worker has no watcher instance to reserve. Construct
+      // and start exactly one under the narrow lane synchronization, then make
+      // the immutable context visible before any provider heartbeat transport.
+      const watcher = adapters[platform].createTablessWatcher!();
+      drainWatcherEvents(watcher, emit);
+      try {
+        await watcher.start(session.channel, tablessWatchContext());
+      } catch (error) {
+        emit({
+          category: "diagnostic",
+          platform,
+          level: "warn",
+          message: error instanceof Error ? error.message : "Could not start the tabless watcher",
+        });
+      } finally {
+        drainWatcherEvents(watcher, emit);
+      }
+      if (controllerShutdown) return { discarded: watcher, ready: true };
+
+      const persistedGeneration = Number.isFinite(persisted?.generation)
+        ? persisted!.generation
+        : 0;
+      const generation = retainedCadence?.generation
+        ?? Math.max(lane.generationHighWater ?? 0, persistedGeneration) + 1;
+      const cadence: TablessHeartbeatCadence = Object.freeze(retainedCadence
+        ? { ...retainedCadence }
+        : {
+            generation,
+            contextKey,
+            nextDueAt: new Date(Date.now()).toISOString(),
+          });
+      if (!retainedCadence) {
+        let settle!: () => void;
+        const settled = new Promise<void>((resolve) => {
+          settle = resolve;
+        });
+        recoveryCommit = { generation, contextKey, settled, settle };
+        lane.recoveryCommit = recoveryCommit;
+      }
+      lane.committed = Object.freeze({
+        generation,
+        contextKey,
+        session: frozenHeartbeatSession(session, cadence),
+        watcher,
+      });
+      lane.generationHighWater = Math.max(lane.generationHighWater ?? 0, generation);
+      tablessWatchers.set(platform, watcher);
+      lane.revision += 1;
+      return { cadence, ready: true };
+    });
+
+    if ("waitFor" in decision) {
+      await decision.waitFor;
+      return false;
+    }
+    if ("discarded" in decision && decision.discarded) {
+      await stopTablessWatcher(decision.discarded, platform, emit);
+      return !("retry" in decision && decision.retry);
+    }
+    if ("retry" in decision) return false;
+    const candidateRecovery = recoveryCommit;
+    const candidateCadence = "cadence" in decision ? decision.cadence : undefined;
+    if (!candidateRecovery || !candidateCadence) return true;
+
+    let accepted = false;
+    try {
+      accepted = await persistRecoveredHeartbeatCadence(
+        platform,
+        settings,
+        candidateRecovery,
+        candidateCadence,
+      );
+    } finally {
+      let discarded: TablessWatchController | undefined;
+      await withHeartbeatLane(platform, async (lane) => {
+        if (lane.recoveryCommit === candidateRecovery) {
+          lane.recoveryCommit = undefined;
+          if (
+            !accepted
+            && lane.committed?.generation === candidateRecovery.generation
+            && lane.committed.contextKey === candidateRecovery.contextKey
+          ) {
+            discarded = lane.committed.watcher;
+            lane.committed = undefined;
+            tablessWatchers.delete(platform);
+            lane.revision += 1;
+          }
+          candidateRecovery.settle();
+        }
+      });
+      if (discarded) await stopTablessWatcher(discarded, platform, emit);
+    }
+    return accepted;
+  }
+
+  async function persistRecoveredHeartbeatCadence(
+    platform: Platform,
+    settings: S,
+    recovery: HeartbeatRecoveryCommit,
+    cadence: TablessHeartbeatCadence,
+  ): Promise<boolean> {
+    return withStateCommit(async () => {
+      if (controllerShutdown || !settings.platform[platform].enabled) return false;
+      const latest = await deps.loadState();
+      const current = latest.sessions[platform];
+      if (
+        latest.authHealth[platform].status !== "healthy"
+        || current.status !== "watching"
+        || current.watchMode !== "tabless"
+        || heartbeatContextKey(current) !== recovery.contextKey
+      ) {
+        return false;
+      }
+      const persisted = current.tablessHeartbeat;
+      if (
+        persisted?.contextKey === recovery.contextKey
+        && Number.isFinite(Date.parse(persisted.nextDueAt))
+      ) {
+        return persisted.generation === recovery.generation
+          && persisted.nextDueAt === cadence.nextDueAt;
+      }
+      await saveOperationalStateDirect({
+        ...latest,
+        sessions: {
+          ...latest.sessions,
+          [platform]: {
+            ...current,
+            tablessHeartbeat: cadence,
+          },
+        },
+      });
+      return true;
+    });
+  }
+
+  async function requestPlatformHeartbeat(
+    platform: Platform,
+    settings: S,
+    kind: HeartbeatAttemptKind,
+    session?: WatchSession,
+  ): Promise<HeartbeatFallback | undefined> {
+    return withEventCollector(async (emit, events) => {
       const requestedAt = Date.now();
       let resolveAttempt!: (fallback: HeartbeatFallback | undefined) => void;
       let rejectAttempt!: (error: unknown) => void;
@@ -2246,22 +2474,43 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         rejectAttempt = reject;
       });
       const reservation = await withHeartbeatLane(platform, async (lane) => {
-        if (lane.inFlight) {
-          lane.inFlight.coalescedCalls += 1;
-          return { attempt: lane.inFlight, start: false, standaloneCoalescedCalls: 0 };
-        }
-
         const committed = lane.committed;
-        if (!committed) {
+        const requestedContextKey = session ? heartbeatContextKey(session) : committed?.contextKey;
+        const requestedGeneration = session?.tablessHeartbeat?.generation;
+        if (
+          !committed
+          || requestedContextKey !== committed.contextKey
+          || (kind === "immediate" && requestedGeneration !== committed.generation)
+        ) {
           const standaloneCoalescedCalls = lane.coalescedWithoutAttempt;
           lane.coalescedWithoutAttempt = 0;
           return { start: false, standaloneCoalescedCalls };
         }
 
-        const dueAt = Date.parse(committed.session.tablessHeartbeat?.nextDueAt ?? "");
+        if (
+          lane.inFlight
+          && lane.inFlight.generation === committed.generation
+          && lane.inFlight.contextKey === committed.contextKey
+        ) {
+          lane.inFlight.coalescedCalls += 1;
+          return { attempt: lane.inFlight, start: false, standaloneCoalescedCalls: 0 };
+        }
+
         const attemptAt = Date.now();
-        if (!Number.isFinite(dueAt) || attemptAt < dueAt) {
-          return { start: false, standaloneCoalescedCalls: 0 };
+        let dueAt = attemptAt;
+        if (kind === "scheduled") {
+          dueAt = Date.parse(committed.session.tablessHeartbeat?.nextDueAt ?? "");
+          if (!Number.isFinite(dueAt) || attemptAt < dueAt) {
+            return { start: false, standaloneCoalescedCalls: 0 };
+          }
+        } else if (
+          lane.lastCompletedGeneration === committed.generation
+          && lane.lastCompletedContextKey === committed.contextKey
+        ) {
+          const lastHeartbeatAt = Date.parse(committed.session.lastHeartbeatAt ?? "");
+          if (Number.isFinite(lastHeartbeatAt) && attemptAt - lastHeartbeatAt < RECENT_HEARTBEAT_MS) {
+            return { start: false, standaloneCoalescedCalls: 0 };
+          }
         }
 
         const attempt: HeartbeatAttempt = {
@@ -2472,6 +2721,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           && lane.committed?.generation === reservation.attempt.generation
           && lane.committed.contextKey === reservation.attempt.contextKey
         ) {
+          lane.lastCompletedGeneration = reservation.attempt.generation;
+          lane.lastCompletedContextKey = reservation.attempt.contextKey;
           lane.committed = Object.freeze({
             ...lane.committed,
             session: frozenHeartbeatSession(
@@ -2568,6 +2819,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     closeTwitchIntegrityLifecycle("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     abortClaimHandoffs();
+    clearHeartbeatOwnershipInBackground(PLATFORMS);
     stopDiscoverySignalControllersInBackground(PLATFORMS);
   }
 
@@ -2649,7 +2901,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const before = await deps.loadState();
       if (abort.signal.aborted) return;
       if (isSuccessor(before.sessions[platform])) {
-        await sendImmediateHeartbeat(platform, before.sessions[platform]);
+        await requestPlatformHeartbeat(platform, settings, "immediate", before.sessions[platform]);
         return;
       }
 
@@ -2672,7 +2924,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         // transmit.
         if (abort.signal.aborted) break;
         if (isSuccessor(session)) {
-          await sendImmediateHeartbeat(platform, session);
+          await requestPlatformHeartbeat(platform, settings, "immediate", session);
           return;
         }
         // Nothing eligible left on this platform: the chain is finished, so stop
@@ -2862,61 +3114,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         handoffPlatforms[index],
       );
     }
-  }
-
-  // Transmits one heartbeat for a freshly-selected tabless target instead of
-  // waiting for the next watch alarm. A visible tab needs nothing: it earns
-  // progress continuously and the detecting tick already re-pointed it.
-  async function sendImmediateHeartbeat(platform: Platform, session: WatchSession): Promise<void> {
-    if (session.watchMode !== "tabless") return;
-    const watcher = tablessWatchers.get(platform);
-    if (!watcher) return;
-
-    // A channel switch always transmits: lastHeartbeatAt then refers to the
-    // previous target, so its recency says nothing about the new one.
-    const sameChannel = watcher.channelUrl != null && watcher.channelUrl === session.channel?.url;
-    const lastHeartbeatAt = session.lastHeartbeatAt ? Date.parse(session.lastHeartbeatAt) : Number.NaN;
-    const recent = !Number.isNaN(lastHeartbeatAt) && Date.now() - lastHeartbeatAt < RECENT_HEARTBEAT_MS;
-    if (sameChannel && recent) return;
-
-    await withStateLock(() => withEventCollector(async (emit, events) => {
-      let ok = false;
-      let message: string | undefined;
-      drainWatcherEvents(watcher, emit);
-      try {
-        const result = await watcher.tick(tablessWatchContext());
-        ok = result.ok;
-        message = result.message;
-      } catch (error) {
-        message = error instanceof Error ? error.message : "Post-claim heartbeat failed";
-      } finally {
-        drainWatcherEvents(watcher, emit);
-      }
-
-      const state = await deps.loadState();
-      const current = state.sessions[platform];
-      const nextState: SchedulerState = {
-        ...state,
-        sessions: {
-          ...state.sessions,
-          [platform]: {
-            ...current,
-            lastHeartbeatAt: new Date().toISOString(),
-            lastHeartbeatOk: ok,
-            heartbeatChecks: ok ? 0 : (current.heartbeatChecks ?? 0) + 1,
-          },
-        },
-      };
-      emit({
-        category: "diagnostic",
-        platform,
-        level: ok ? "debug" : "warn",
-        message: ok
-          ? "Post-claim handoff started the next reward without waiting for the watch alarm"
-          : message ?? "Post-claim heartbeat failed",
-      });
-      await persistAndReport(nextState, events);
-    }));
   }
 
   async function recordPlaybackTelemetry(
