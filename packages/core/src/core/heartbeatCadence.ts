@@ -17,6 +17,7 @@ export function heartbeatContextKey(session: WatchSession): string | undefined {
     channel.username,
     channel.broadcastId ?? "",
     channel.channelId ?? "",
+    channel.categoryId ?? "",
     session.campaignId,
     session.rewardId,
   ]);

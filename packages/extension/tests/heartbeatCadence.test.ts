@@ -41,6 +41,26 @@ describe("tabless heartbeat cadence", () => {
     expect(heartbeatContextKey(session)).toContain("reward");
     expect(heartbeatContextKey({ ...session, channel: undefined })).toBeUndefined();
   });
+
+  it("changes the normalized context key when the channel category changes", () => {
+    const first = tablessSession({
+      platform: "kick",
+      channel: {
+        platform: "kick",
+        username: "channel",
+        url: "https://kick.com/channel",
+        categoryId: "category-a",
+      },
+    });
+    const second = {
+      ...first,
+      channel: { ...first.channel!, categoryId: "category-b" },
+    };
+
+    expect(heartbeatContextKey(first)).not.toBe(heartbeatContextKey(second));
+    expect(heartbeatContextKey(first)).toContain("category-a");
+    expect(heartbeatContextKey(second)).toContain("category-b");
+  });
 });
 
 function heartbeatCampaign(id = "campaign", rewardId = "reward"): DropCampaign {
@@ -100,7 +120,7 @@ function heartbeatState(session: WatchSession, campaigns: DropCampaign[]): Sched
   };
 }
 
-const PERSISTED_CONTEXT_KEY = "[\"twitch\",\"https://www.twitch.tv/channel\",\"channel\",\"broadcast\",\"channel-id\",\"campaign\",\"reward\"]";
+const PERSISTED_CONTEXT_KEY = "[\"twitch\",\"https://www.twitch.tv/channel\",\"channel\",\"broadcast\",\"channel-id\",\"\",\"campaign\",\"reward\"]";
 
 describe("scheduler tabless heartbeat cadence state", () => {
   it("retains cadence metadata when the normalized tabless target is unchanged", async () => {

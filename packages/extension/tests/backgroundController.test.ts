@@ -6116,6 +6116,66 @@ describe("background controller", () => {
     expect(lastAggregateDiagnostic(env, "twitch")).toContain("staleResult=true");
   });
 
+  it("replaces a Kick watcher when the same channel URL changes category", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const oldResult = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+    const oldWatcher = fakeTablessWatcher(() => oldResult.promise, "kick");
+    const replacement = fakeTablessWatcher(async () => ({ ok: true, live: true }), "kick");
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      tablessMode: true,
+      platform: {
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+      },
+    });
+    env.kick.supportsTabless = true;
+    env.kick.createTablessWatcher = vi.fn()
+      .mockReturnValueOnce(oldWatcher)
+      .mockReturnValueOnce(replacement);
+    env.state.authHealth.kick = { status: "healthy" };
+    env.state.sessions.kick = {
+      platform: "kick",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("kick", { categoryId: "category-a" }),
+      campaignId: "kick-campaign",
+      rewardId: "reward",
+      heartbeatChecks: 0,
+    };
+    env.state.sessions.kick.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.kick);
+
+    const oldHeartbeat = env.controller.runWatchHeartbeat();
+    await vi.waitFor(() => expect(oldWatcher.tick).toHaveBeenCalledOnce());
+    env.state.sessions.kick = {
+      ...env.state.sessions.kick,
+      channel: { ...env.state.sessions.kick.channel!, categoryId: "category-b" },
+    };
+    const replacementHeartbeat = env.controller.runWatchHeartbeat();
+    await vi.waitFor(() => expect(replacement.tick).toHaveBeenCalledOnce());
+
+    oldResult.resolve({ ok: false, live: true, message: "obsolete category failed" });
+    await Promise.all([oldHeartbeat, replacementHeartbeat]);
+
+    expect(oldWatcher.stop).toHaveBeenCalledOnce();
+    expect(replacement.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://kick.com/kick-creator",
+        categoryId: "category-b",
+      }),
+      expect.any(Object),
+    );
+    expect(env.state.sessions.kick).toMatchObject({
+      channel: expect.objectContaining({ categoryId: "category-b" }),
+      heartbeatChecks: 0,
+      lastHeartbeatOk: true,
+      tablessHeartbeat: expect.objectContaining({ generation: 2 }),
+    });
+    expect(lastAggregateDiagnostic(env, "kick")).toContain("staleResult=true");
+  });
+
   it("rejects an old heartbeat while a successor lane waits to save scheduler state", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
@@ -6192,7 +6252,7 @@ describe("background controller", () => {
       expect(env.state.sessions.twitch.lastHeartbeatOk).toBeUndefined();
       expect(env.state.sessions.twitch.tablessHeartbeat).toEqual({
         generation: 1,
-        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"old-broadcast\",\"\",\"old-campaign\",\"old-reward\"]",
+        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"old-broadcast\",\"\",\"\",\"old-campaign\",\"old-reward\"]",
         nextDueAt: "2026-09-02T12:00:00.000Z",
       });
       expect(env.deps.saveState).toHaveBeenCalledTimes(savesBeforeOldResult);
@@ -6818,7 +6878,7 @@ describe("background controller", () => {
       lastHeartbeatOk: true,
       tablessHeartbeat: {
         generation: 1,
-        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"\",\"\",\"twitch-campaign\",\"reward\"]",
+        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"\",\"\",\"\",\"twitch-campaign\",\"reward\"]",
         nextDueAt: "2026-09-02T12:02:00.000Z",
       },
     });
@@ -6832,7 +6892,7 @@ describe("background controller", () => {
       lastHeartbeatOk: true,
       tablessHeartbeat: {
         generation: 1,
-        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"\",\"\",\"twitch-campaign\",\"reward\"]",
+        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"\",\"\",\"\",\"twitch-campaign\",\"reward\"]",
         nextDueAt: "2026-09-02T12:02:00.000Z",
       },
     });
