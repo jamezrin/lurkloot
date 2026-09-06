@@ -136,6 +136,7 @@ interface HeartbeatResultCommit {
 interface HeartbeatRecoveryCommit {
   readonly generation: number;
   readonly contextKey: string;
+  readonly expectedPersistedCadence?: Readonly<TablessHeartbeatCadence>;
   readonly settled: Promise<void>;
   readonly settle: () => void;
 }
@@ -543,18 +544,27 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           const previousCadence = previous?.contextKey === contextKey
             ? previous.session.tablessHeartbeat
             : undefined;
-          const generation = retained
-            ? persisted.generation
-            : previousCadence?.generation
-              ?? Math.max(previous?.generation ?? 0, persisted?.generation ?? 0) + 1;
-          const cadence: TablessHeartbeatCadence = Object.freeze(retained
-            ? { ...persisted }
-            : previousCadence
-              ? { ...previousCadence }
+          const mayRestorePersisted = retained
+            && (lane.generationHighWater === undefined
+              || persisted.generation > lane.generationHighWater);
+          const generation = previousCadence?.generation
+            ?? (mayRestorePersisted
+              ? persisted.generation
+              : Math.max(
+                  lane.generationHighWater ?? 0,
+                  previous?.generation ?? 0,
+                  persisted?.generation ?? 0,
+                ) + 1);
+          const cadence: TablessHeartbeatCadence = Object.freeze(previousCadence
+            ? { ...previousCadence }
+            : mayRestorePersisted
+              ? { ...persisted }
               : {
                   generation,
                   contextKey,
-                  nextDueAt: new Date(Date.now() + HEARTBEAT_INTERVAL_MS).toISOString(),
+                  nextDueAt: retained
+                    ? persisted.nextDueAt
+                    : new Date(Date.now() + HEARTBEAT_INTERVAL_MS).toISOString(),
                 });
           const committed = Object.freeze({
             generation,
@@ -2313,7 +2323,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         const sameAuthority = wantsTabless
           && lane.committed.contextKey === contextKey
           && retainedCadence?.generation === lane.committed.generation;
-        if (sameAuthority) return { ready: true };
+        const stalePersistedAuthority = wantsTabless
+          && retainedCadence !== undefined
+          && retainedCadence.generation < lane.committed.generation;
+        if (sameAuthority || stalePersistedAuthority) return { ready: true };
         if (lane.resultCommit) return { waitFor: lane.resultCommit.settled };
         const discarded = lane.committed.watcher;
         lane.committed = undefined;
@@ -2346,21 +2359,33 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const persistedGeneration = Number.isFinite(persisted?.generation)
         ? persisted!.generation
         : 0;
-      const generation = retainedCadence?.generation
-        ?? Math.max(lane.generationHighWater ?? 0, persistedGeneration) + 1;
-      const cadence: TablessHeartbeatCadence = Object.freeze(retainedCadence
+      const mayRestorePersisted = retainedCadence
+        && (lane.generationHighWater === undefined
+          || retainedCadence.generation > lane.generationHighWater);
+      const generation = mayRestorePersisted
+        ? retainedCadence.generation
+        : Math.max(lane.generationHighWater ?? 0, persistedGeneration) + 1;
+      const cadence: TablessHeartbeatCadence = Object.freeze(mayRestorePersisted
         ? { ...retainedCadence }
         : {
             generation,
             contextKey,
-            nextDueAt: new Date(Date.now()).toISOString(),
+            nextDueAt: retainedCadence?.nextDueAt ?? new Date(Date.now()).toISOString(),
           });
-      if (!retainedCadence) {
+      if (!mayRestorePersisted) {
         let settle!: () => void;
         const settled = new Promise<void>((resolve) => {
           settle = resolve;
         });
-        recoveryCommit = { generation, contextKey, settled, settle };
+        recoveryCommit = {
+          generation,
+          contextKey,
+          expectedPersistedCadence: retainedCadence
+            ? Object.freeze({ ...retainedCadence })
+            : undefined,
+          settled,
+          settle,
+        };
         lane.recoveryCommit = recoveryCommit;
       }
       lane.committed = Object.freeze({
@@ -2442,8 +2467,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         persisted?.contextKey === recovery.contextKey
         && Number.isFinite(Date.parse(persisted.nextDueAt))
       ) {
-        return persisted.generation === recovery.generation
-          && persisted.nextDueAt === cadence.nextDueAt;
+        if (
+          persisted.generation === recovery.generation
+          && persisted.nextDueAt === cadence.nextDueAt
+        ) {
+          return true;
+        }
+        if (
+          !recovery.expectedPersistedCadence
+          || persisted.generation !== recovery.expectedPersistedCadence.generation
+          || persisted.nextDueAt !== recovery.expectedPersistedCadence.nextDueAt
+        ) {
+          return false;
+        }
       }
       await saveOperationalStateDirect({
         ...latest,
@@ -2466,6 +2502,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     session?: WatchSession,
   ): Promise<HeartbeatFallback | undefined> {
     return withEventCollector(async (emit, events) => {
+      if (controllerShutdown) return undefined;
       const requestedAt = Date.now();
       let resolveAttempt!: (fallback: HeartbeatFallback | undefined) => void;
       let rejectAttempt!: (error: unknown) => void;
@@ -2474,6 +2511,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         rejectAttempt = reject;
       });
       const reservation = await withHeartbeatLane(platform, async (lane) => {
+        if (controllerShutdown) {
+          return { start: false, standaloneCoalescedCalls: 0 };
+        }
         const committed = lane.committed;
         const requestedContextKey = session ? heartbeatContextKey(session) : committed?.contextKey;
         const requestedGeneration = session?.tablessHeartbeat?.generation;
@@ -2546,6 +2586,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       }
 
       const { attempt, committed } = reservation;
+      if (controllerShutdown) {
+        await withHeartbeatLane(platform, async (lane) => {
+          if (lane.inFlight === attempt) lane.inFlight = undefined;
+        });
+        resolveAttempt(undefined);
+        await reportBestEffort(events);
+        return attempt.promise;
+      }
       void (async () => {
         try {
           const fallback = await performReservedHeartbeatAttempt(

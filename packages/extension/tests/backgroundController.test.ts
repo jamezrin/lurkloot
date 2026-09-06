@@ -6226,6 +6226,119 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBeUndefined();
   });
 
+  it("keeps the published successor authoritative while its scheduler save is pending", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const allowSuccessorSave = deferred<void>();
+    const successorSaveStarted = deferred<void>();
+    const oldWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const successorWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const obsoleteRecovery = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const successorChannel = channel("twitch", {
+      username: "successor-creator",
+      url: "https://www.twitch.tv/successor-creator",
+      broadcastId: "successor-broadcast",
+    });
+    const successorCampaign: DropCampaign = {
+      ...campaign("twitch"),
+      id: "successor-campaign",
+      rewards: [{ ...reward(), id: "successor-reward" }],
+    };
+    const env = tablessEnv({ postClaimHandoff: true });
+    env.twitch.supportsPostClaimHandoff = true;
+    env.twitch.createTablessWatcher = vi.fn()
+      .mockReturnValueOnce(oldWatcher)
+      .mockReturnValueOnce(successorWatcher)
+      .mockReturnValueOnce(obsoleteRecovery);
+    await env.controller.tick(["twitch"]);
+    vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([successorCampaign]);
+    vi.mocked(env.twitch.listCandidateChannels).mockResolvedValue([successorChannel]);
+    const persist = env.deps.saveState.getMockImplementation()!;
+    env.deps.saveState.mockImplementation(async (next) => {
+      if (next.sessions.twitch.rewardId === "successor-reward") {
+        successorSaveStarted.resolve();
+        await allowSuccessorSave.promise;
+      }
+      await persist(next);
+    });
+
+    const successorTick = env.controller.tick(["twitch"]);
+    await successorSaveStarted.promise;
+    expect(successorWatcher.start).toHaveBeenCalledOnce();
+    // The lane now owns generation 2, while loadState still returns the old
+    // generation-1 session until the blocked scheduler save completes.
+    const alarm = env.controller.runWatchHeartbeat();
+    await drainMicrotasks();
+    allowSuccessorSave.resolve();
+    await Promise.all([successorTick, alarm]);
+
+    expect(successorWatcher.stop).not.toHaveBeenCalled();
+    expect(obsoleteRecovery.start).not.toHaveBeenCalled();
+    expect(obsoleteRecovery.tick).not.toHaveBeenCalled();
+    expect(env.twitch.createTablessWatcher).toHaveBeenCalledTimes(2);
+
+    await env.controller.runClaimHandoff("twitch", ["reward"]);
+
+    expect(successorWatcher.tick).toHaveBeenCalledOnce();
+    expect(env.state.sessions.twitch).toMatchObject({
+      campaignId: "successor-campaign",
+      rewardId: "successor-reward",
+      lastHeartbeatOk: true,
+      tablessHeartbeat: expect.objectContaining({ generation: 2 }),
+    });
+  });
+
+  it("advances generation when the same context is recreated after detachment", async () => {
+    const oldResult = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+    const oldWatcher = fakeTablessWatcher(() => oldResult.promise);
+    const replacement = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = tablessEnv({ tablessFallbackFailureLimit: 1 });
+    env.twitch.createTablessWatcher = vi.fn()
+      .mockReturnValueOnce(oldWatcher)
+      .mockReturnValueOnce(replacement);
+    env.state.authHealth.twitch = { status: "healthy" };
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("twitch", { broadcastId: "same-broadcast" }),
+      campaignId: "same-campaign",
+      rewardId: "same-reward",
+      heartbeatChecks: 0,
+    };
+    env.state.sessions.twitch.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.twitch);
+
+    const oldHeartbeat = env.controller.runWatchHeartbeat();
+    await vi.waitFor(() => expect(oldWatcher.tick).toHaveBeenCalledOnce());
+    env.state.authHealth.twitch = {
+      status: "invalid_credentials",
+      checkedAt: "2026-09-02T12:00:01.000Z",
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    };
+    await env.controller.runWatchHeartbeat();
+    expect(oldWatcher.stop).toHaveBeenCalledOnce();
+
+    env.state.authHealth.twitch = { status: "healthy" };
+    const replacementHeartbeat = env.controller.runWatchHeartbeat();
+    try {
+      await drainMicrotasks();
+      expect(replacement.tick).toHaveBeenCalledOnce();
+    } finally {
+      oldResult.resolve({ ok: false, live: true, message: "obsolete recreation failed" });
+      await Promise.all([oldHeartbeat, replacementHeartbeat]);
+    }
+
+    expect(env.state.sessions.twitch).toMatchObject({
+      lastHeartbeatOk: true,
+      heartbeatChecks: 0,
+      tablessHeartbeat: expect.objectContaining({ generation: 2 }),
+    });
+    expect(lastAggregateDiagnostic(env, "twitch")).toContain("staleResult=true");
+  });
+
   it("serializes service-worker restart recovery without letting a slow old target win", async () => {
     const slowStart = deferred<void>();
     const oldWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
@@ -6486,6 +6599,78 @@ describe("background controller", () => {
     cleanup.resolve();
     await env.controller.settleBackgroundWork();
   });
+
+  it.each(["scheduled", "immediate"] as const)(
+    "does not reserve a queued %s heartbeat after shutdown wins lane admission",
+    async (kind) => {
+      const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+      const env = tablessEnv({ postClaimHandoff: true });
+      env.twitch.supportsPostClaimHandoff = true;
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+      await env.controller.tick(["twitch"]);
+      if (kind === "scheduled") advanceToNextHeartbeatDue();
+
+      // Queue shutdown immediately before withHeartbeatLane queues its callback.
+      // The request therefore entered the common path while live, but the lane
+      // reservation itself must observe shutdown and avoid even reading attemptAt.
+      const now = Date.now();
+      let reads = 0;
+      const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => {
+        reads += 1;
+        if (reads === 1) queueMicrotask(() => env.controller.shutdown());
+        return now;
+      });
+      try {
+        if (kind === "scheduled") {
+          await env.controller.runWatchHeartbeat();
+        } else {
+          await env.controller.runClaimHandoff("twitch", ["claimed-reward"]);
+        }
+      } finally {
+        nowSpy.mockRestore();
+        await env.controller.settleBackgroundWork();
+      }
+
+      expect(watcher.tick).not.toHaveBeenCalled();
+      expect(aggregateHeartbeatDiagnostics(env, "twitch")).toEqual([]);
+    },
+  );
+
+  it.each(["scheduled", "immediate"] as const)(
+    "does not launch an admitted %s heartbeat when shutdown begins before transport",
+    async (kind) => {
+      const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+      const env = tablessEnv({ postClaimHandoff: true });
+      env.twitch.supportsPostClaimHandoff = true;
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+      await env.controller.tick(["twitch"]);
+      if (kind === "scheduled") advanceToNextHeartbeatDue();
+
+      // Date.now is read once before queueing and once while reserving. Landing
+      // shutdown on the latter exercises the final pre-transport admission
+      // check after the lane has already created an attempt.
+      const now = Date.now();
+      let reads = 0;
+      const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => {
+        reads += 1;
+        if (reads === 2) env.controller.shutdown();
+        return now;
+      });
+      try {
+        if (kind === "scheduled") {
+          await env.controller.runWatchHeartbeat();
+        } else {
+          await env.controller.runClaimHandoff("twitch", ["claimed-reward"]);
+        }
+      } finally {
+        nowSpy.mockRestore();
+        await env.controller.settleBackgroundWork();
+      }
+
+      expect(watcher.tick).not.toHaveBeenCalled();
+      expect(aggregateHeartbeatDiagnostics(env, "twitch")).toEqual([]);
+    },
+  );
 
   it("farms tablessly without opening a tab and records heartbeat health", async () => {
     const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
@@ -6876,6 +7061,40 @@ describe("background controller", () => {
     expect(watcher.tick).toHaveBeenCalledOnce();
     expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
       .toBe("2026-09-02T12:01:00.000Z");
+  });
+
+  it("normalizes an invalid persisted due time with exactly one immediate restart attempt", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    env.state.authHealth.twitch = { status: "healthy" };
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("twitch"),
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+    };
+    const contextKey = heartbeatContextKey(env.state.sessions.twitch)!;
+    env.state.sessions.twitch.tablessHeartbeat = {
+      generation: 7,
+      contextKey,
+      nextDueAt: "not-a-date",
+    };
+    env.deps.loadState.mockImplementation(async () => structuredClone(env.state));
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(watcher.tick).toHaveBeenCalledOnce();
+    expect(env.state.sessions.twitch.tablessHeartbeat).toEqual({
+      generation: 8,
+      contextKey,
+      nextDueAt: "2026-09-02T12:01:00.000Z",
+    });
   });
 
   it.each([
