@@ -1,4 +1,5 @@
 import { createBackgroundController, type CredentialAvailability } from "@lurkloot/core/controller";
+import { HEARTBEAT_INTERVAL_MS } from "@lurkloot/core/heartbeatCadence";
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 import { loadState, saveState } from "../storage";
 import { toEngineSettings, type CliSettings } from "../settings";
@@ -92,6 +93,14 @@ export async function runLoop(options: RunOptions): Promise<void> {
     }
   };
 
+  const heartbeatOnce = async () => {
+    try {
+      await controller.runWatchHeartbeat();
+    } catch (error) {
+      logger.error(error instanceof Error ? error.message : String(error), "heartbeat");
+    }
+  };
+
   logger.info("Starting farming loop", "run");
   await tickOnce();
 
@@ -103,12 +112,17 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const periodMs = Math.max(1, settings.pollIntervalMinutes) * 60_000;
   await new Promise<void>((resolveLoop) => {
     let stopped = false;
-    const timer = setInterval(() => void tickOnce(), periodMs);
+    const discoveryTimer = setInterval(() => void tickOnce(), periodMs);
+    const heartbeatTimer = setInterval(
+      () => void heartbeatOnce(),
+      HEARTBEAT_INTERVAL_MS,
+    );
     const shutdown = async (signal: string) => {
       if (stopped) return;
       stopped = true;
       logger.info(`Received ${signal}; shutting down`, "run");
-      clearInterval(timer);
+      clearInterval(discoveryTimer);
+      clearInterval(heartbeatTimer);
       // Before disposing the transport: a post-claim handoff started by the last
       // tick would otherwise keep refreshing against disposed resources, and its
       // pending delay would hold the process open until the handoff's deadline.

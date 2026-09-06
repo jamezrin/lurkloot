@@ -4,14 +4,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CredentialAvailability } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
-import type { ChannelCandidate, ChannelCheck, DropCampaign, EngineSettings, Platform, PlatformAuthHealth, SchedulerState } from "@lurkloot/shared/models";
+import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
+import type { ChannelCandidate, ChannelCheck, DropCampaign, EngineSettings, Platform, PlatformAuthHealth, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import type { PlatformAdapter, PreparedWatchTab } from "@lurkloot/core/adapter";
+import type { HeartbeatResult, TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { createTransport } from "../src/transport";
 import type { TransportHandle } from "../src/transport";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
 import { runLoop } from "../src/runtime/run";
 import { createLogger } from "../src/logger";
+import type { Logger } from "../src/logger";
 import { runCliBaselineCell } from "./helpers/tickBaseline";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { saveState } from "../src/storage";
@@ -371,5 +374,297 @@ describe("runLoop interval baseline", () => {
     await vi.waitFor(() => expect(refreshCalls).toBe(3));
     process.emit("SIGTERM");
     await running;
+  });
+});
+
+const HEARTBEAT_TEST_START = new Date("2026-09-02T12:00:00.000Z");
+const HEARTBEAT_TEST_CHANNEL: ChannelCandidate = {
+  platform: "twitch",
+  username: "heartbeat-creator",
+  url: "https://www.twitch.tv/heartbeat-creator",
+  broadcastId: "heartbeat-broadcast",
+};
+const HEARTBEAT_TEST_CAMPAIGN: DropCampaign = {
+  id: "heartbeat-campaign",
+  platform: "twitch",
+  name: "Heartbeat campaign",
+  status: "active",
+  rewards: [{
+    id: "heartbeat-reward",
+    name: "Heartbeat reward",
+    requiredMinutes: 60,
+    watchedMinutes: 10,
+    status: "in_progress",
+  }],
+};
+
+function fakeHeartbeatWatcher(
+  tick: () => Promise<HeartbeatResult> = async () => ({ ok: true, live: true }),
+): TablessWatchController & { tick: ReturnType<typeof vi.fn> } {
+  const watcher = {
+    platform: "twitch" as const,
+    channelUrl: undefined as string | undefined,
+    start: vi.fn(async (channel: ChannelCandidate) => {
+      watcher.channelUrl = channel.url;
+    }),
+    tick: vi.fn(tick),
+    drainEvents: vi.fn(() => []),
+    stop: vi.fn(async () => {
+      watcher.channelUrl = undefined;
+    }),
+  };
+  return watcher;
+}
+
+interface HeartbeatDriverHarnessOptions {
+  refreshCampaigns?: (call: number) => Promise<DropCampaign[]>;
+  heartbeat?: () => Promise<HeartbeatResult>;
+  dispose?: () => Promise<void>;
+  beforeCreateAdapter?: (platform: Platform) => void;
+  logger?: Logger;
+  once?: boolean;
+}
+
+async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {}) {
+  const statePath = join(dir, "heartbeat-driver-state.json");
+  const session: WatchSession = {
+    platform: "twitch",
+    status: "watching",
+    offlineChecks: 0,
+    watchMode: "tabless",
+    channel: HEARTBEAT_TEST_CHANNEL,
+    campaignId: HEARTBEAT_TEST_CAMPAIGN.id,
+    rewardId: HEARTBEAT_TEST_CAMPAIGN.rewards[0]!.id,
+  };
+  const contextKey = heartbeatContextKey(session);
+  if (!contextKey) throw new Error("Expected a complete heartbeat test session");
+  session.tablessHeartbeat = {
+    generation: 1,
+    contextKey,
+    nextDueAt: new Date(HEARTBEAT_TEST_START.getTime() + 60_000).toISOString(),
+  };
+  await saveState(statePath, {
+    ...structuredClone(DEFAULT_STATE),
+    authHealth: {
+      ...DEFAULT_STATE.authHealth,
+      twitch: HEALTHY,
+    },
+    campaigns: {
+      ...DEFAULT_STATE.campaigns,
+      twitch: [HEARTBEAT_TEST_CAMPAIGN],
+    },
+    sessions: {
+      ...DEFAULT_STATE.sessions,
+      twitch: session,
+    },
+  });
+
+  let refreshCalls = 0;
+  const watcher = fakeHeartbeatWatcher(options.heartbeat);
+  const twitch = fakeAdapter("twitch", HEALTHY);
+  twitch.supportsTabless = true;
+  twitch.createTablessWatcher = () => watcher;
+  twitch.refreshCampaigns = vi.fn(async () => {
+    refreshCalls += 1;
+    return options.refreshCampaigns?.(refreshCalls) ?? [HEARTBEAT_TEST_CAMPAIGN];
+  });
+  twitch.checkChannel = vi.fn(async (candidate: ChannelCandidate): Promise<ChannelCheck> => ({
+    live: true,
+    categoryMatches: true,
+    campaignMatches: true,
+    candidate,
+  }));
+  const kick = fakeAdapter("kick", HEALTHY);
+  const compatibility = resolveCompatibility(
+    DEFAULT_CLI_SETTINGS.compatibility,
+    { host: "cli", twitchIdentity: "web" },
+  );
+  const adapterFor = (platform: Platform): PlatformAdapter =>
+    platform === "twitch" ? twitch : kick;
+  const transport: TransportHandle = {
+    adapters: { twitch, kick },
+    createAdapter: (platform) => {
+      options.beforeCreateAdapter?.(platform);
+      return { adapter: adapterFor(platform), ...compatibility };
+    },
+    createAdapters: () => ({ adapters: { twitch, kick }, ...compatibility }),
+    dispose: vi.fn(options.dispose ?? (async () => undefined)),
+  };
+  const settings = {
+    ...DEFAULT_CLI_SETTINGS,
+    pollIntervalMinutes: 7,
+    platform: {
+      twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, enabled: true },
+      kick: { ...DEFAULT_CLI_SETTINGS.platform.kick, enabled: false },
+    },
+  };
+  const running = runLoop({
+    settings,
+    statePath,
+    transport,
+    logger: options.logger ?? createLogger("error"),
+    checkCredentialAvailability: async () => ({ status: "available" }),
+    ...(options.once ? { once: true } : {}),
+  });
+  await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledOnce());
+  await vi.waitFor(() => expect(watcher.start).toHaveBeenCalledOnce());
+  return { running, statePath, transport, twitch, watcher };
+}
+
+describe("runLoop heartbeat driver", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(HEARTBEAT_TEST_START);
+  });
+
+  it("attempts heartbeats every minute independently of the seven-minute discovery period", async () => {
+    const { running, twitch, watcher } = await startHeartbeatDriver();
+    try {
+      expect(watcher.tick).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledTimes(1));
+      expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledTimes(2));
+      expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
+    } finally {
+      process.emit("SIGTERM");
+      await running;
+    }
+  });
+
+  it("attempts a due heartbeat while discovery is blocked", async () => {
+    const blockedDiscovery = deferred<DropCampaign[]>();
+    const { running, statePath, twitch, watcher } = await startHeartbeatDriver({
+      refreshCampaigns: async (call) => call === 1
+        ? [HEARTBEAT_TEST_CAMPAIGN]
+        : blockedDiscovery.promise,
+    });
+    try {
+      for (let minute = 1; minute <= 6; minute += 1) {
+        await vi.advanceTimersByTimeAsync(60_000);
+        await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledTimes(minute));
+        await vi.waitFor(async () => {
+          const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
+          expect(state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
+            new Date(HEARTBEAT_TEST_START.getTime() + (minute + 1) * 60_000).toISOString(),
+          );
+        });
+      }
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledTimes(7));
+    } finally {
+      blockedDiscovery.resolve([HEARTBEAT_TEST_CAMPAIGN]);
+      await vi.waitFor(async () => {
+        const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
+        expect(Date.parse(state.sessions.twitch.lastCheckedAt ?? "")).toBeGreaterThanOrEqual(
+          HEARTBEAT_TEST_START.getTime() + 7 * 60_000,
+        );
+        expect(state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
+          new Date(HEARTBEAT_TEST_START.getTime() + 8 * 60_000).toISOString(),
+        );
+      });
+      process.emit("SIGTERM");
+      await running;
+    }
+  });
+
+  it("runs seven-minute discovery while a heartbeat is blocked", async () => {
+    const blockedHeartbeat = deferred<HeartbeatResult>();
+    const { running, statePath, twitch, watcher } = await startHeartbeatDriver({
+      heartbeat: () => blockedHeartbeat.promise,
+    });
+    try {
+      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledOnce());
+
+      await vi.advanceTimersByTimeAsync(6 * 60_000);
+      await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2));
+      expect(watcher.tick).toHaveBeenCalledOnce();
+    } finally {
+      blockedHeartbeat.resolve({ ok: true, live: true });
+      await vi.waitFor(async () => {
+        const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
+        expect(state.sessions.twitch.lastHeartbeatOk).toBe(true);
+      });
+      process.emit("SIGTERM");
+      await running;
+    }
+  });
+
+  it("logs heartbeat driver errors independently and continues discovery", async () => {
+    let failAdapterCreation = false;
+    const logger: Logger = {
+      level: "debug",
+      log: vi.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    const { running, twitch, watcher } = await startHeartbeatDriver({
+      logger,
+      beforeCreateAdapter: (platform) => {
+        if (failAdapterCreation && platform === "twitch") {
+          throw new Error("heartbeat adapter failed");
+        }
+      },
+    });
+    try {
+      failAdapterCreation = true;
+      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.waitFor(() => expect(logger.error).toHaveBeenCalledWith(
+        "heartbeat adapter failed",
+        "heartbeat",
+      ));
+      expect(watcher.tick).not.toHaveBeenCalled();
+
+      failAdapterCreation = false;
+      await vi.advanceTimersByTimeAsync(6 * 60_000);
+      await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2));
+      expect(logger.error).not.toHaveBeenCalledWith(expect.any(String), "tick");
+    } finally {
+      process.emit("SIGTERM");
+      await running;
+    }
+  });
+
+  it("clears both recurring drivers before transport disposal on SIGTERM", async () => {
+    const disposeStarted = deferred<void>();
+    const finishDispose = deferred<void>();
+    const timerCountsAtDispose: number[] = [];
+    const { running, twitch, watcher } = await startHeartbeatDriver({
+      dispose: async () => {
+        timerCountsAtDispose.push(vi.getTimerCount());
+        disposeStarted.resolve();
+        await finishDispose.promise;
+      },
+    });
+
+    expect(vi.getTimerCount()).toBe(2);
+    process.emit("SIGTERM");
+    await disposeStarted.promise;
+    expect(timerCountsAtDispose).toEqual([0]);
+
+    await vi.advanceTimersByTimeAsync(7 * 60_000);
+    expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
+    expect(watcher.tick).not.toHaveBeenCalled();
+
+    finishDispose.resolve();
+    await running;
+  });
+
+  it("runs one discovery tick without starting recurring drivers in once mode", async () => {
+    const { running, transport, twitch, watcher } = await startHeartbeatDriver({ once: true });
+    await running;
+
+    expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
+    expect(watcher.tick).not.toHaveBeenCalled();
+    expect(transport.dispose).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
