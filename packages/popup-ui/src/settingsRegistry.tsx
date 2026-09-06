@@ -121,6 +121,12 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             descriptionKey: "hideTipsDescription",
             render: () => <SettingRow title={t("hideTipsTitle")} description={t("hideTipsDescription")} checked={!settings.showTips} onChange={(hideTips) => void onSettingsChange({ showTips: !hideTips })} />,
           },
+          {
+            id: "general.appearance.inPagePanel",
+            titleKey: "inPagePanelTitle",
+            descriptionKey: "inPagePanelDescription",
+            render: () => <SettingRow title={t("inPagePanelTitle")} description={t("inPagePanelDescription")} checked={settings.showInPagePanel} onChange={setFlag("showInPagePanel")} />,
+          },
         ],
       },
       {

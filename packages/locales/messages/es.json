@@ -155,6 +155,12 @@
   "hideTipsDescription": {
     "message": "Oculta los consejos de la ventana principal."
   },
+  "inPagePanelTitle": {
+    "message": "Mostrar panel en Twitch y Kick"
+  },
+  "inPagePanelDescription": {
+    "message": "Añade un botón de Lurkloot en twitch.tv y kick.com que abre esta ventana en un panel dentro de la página."
+  },
   "tipCampaignPriority": {
     "message": "Los drops tienen prioridad sobre la lista. Arrastra las campañas por el agarre para ordenar el farmeo."
   },
@@ -587,24 +593,60 @@
   "insufficientTimeRemaining": {
     "message": "No queda tiempo suficiente"
   },
-  "campaignRejectionExcluded": { "message": "Esta campaña está excluida del farmeo." },
-  "campaignRejectionUpcoming": { "message": "Esta campaña aún no ha comenzado." },
-  "campaignRejectionExpired": { "message": "Esta campaña ha finalizado." },
-  "campaignRejectionCompleted": { "message": "Todas las recompensas de esta campaña están completadas." },
-  "campaignRejectionUnlinkedDisabled": { "message": "El farmeo de campañas sin una cuenta vinculada está desactivado." },
-  "campaignRejectionTwitchLinkRequired": { "message": "Esta campaña de Twitch requiere vincular una cuenta." },
-  "campaignRejectionSubscriptionDisabled": { "message": "El farmeo de campañas de suscripción está desactivado." },
-  "campaignRejectionCategoryFiltered": { "message": "Esta campaña no coincide con las categorías seleccionadas." },
-  "campaignRejectionPriorityNotSelected": { "message": "Esta campaña no está en la lista de prioridad." },
-  "campaignRejectionNoRewards": { "message": "Esta campaña no tiene recompensas farmeables." },
-  "campaignRejectionNoUnclaimedRewards": { "message": "Esta campaña no tiene recompensas sin reclamar." },
-  "campaignRejectionPrerequisites": { "message": "$1 espera una recompensa o requisito anterior." },
-  "campaignRejectionRewardNotStarted": { "message": "$1 aún no está disponible." },
-  "campaignRejectionRewardWindowEnded": { "message": "$1 ya no está disponible." },
-  "campaignRejectionInsufficientTime": { "message": "$1 no puede completarse antes de su fecha límite." },
-  "campaignRejectionSubscriptionRequired": { "message": "$1 requiere una suscripción válida." },
-  "campaignRejectionActionRequired": { "message": "$1 requiere una acción distinta de mirar." },
-  "campaignRejectionNoFarmableReward": { "message": "Ahora mismo no se puede farmear ninguna recompensa de esta campaña." },
+  "campaignRejectionExcluded": {
+    "message": "Esta campaña está excluida del farmeo."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "Esta campaña aún no ha comenzado."
+  },
+  "campaignRejectionExpired": {
+    "message": "Esta campaña ha finalizado."
+  },
+  "campaignRejectionCompleted": {
+    "message": "Todas las recompensas de esta campaña están completadas."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "El farmeo de campañas sin una cuenta vinculada está desactivado."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "Esta campaña de Twitch requiere vincular una cuenta."
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "El farmeo de campañas de suscripción está desactivado."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "Esta campaña no coincide con las categorías seleccionadas."
+  },
+  "campaignRejectionPriorityNotSelected": {
+    "message": "Esta campaña no está en la lista de prioridad."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "Esta campaña no tiene recompensas farmeables."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "Esta campaña no tiene recompensas sin reclamar."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 espera una recompensa o requisito anterior."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 aún no está disponible."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 ya no está disponible."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1 no puede completarse antes de su fecha límite."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1 requiere una suscripción válida."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "$1 requiere una acción distinta de mirar."
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "Ahora mismo no se puede farmear ninguna recompensa de esta campaña."
+  },
   "automationSectionTitle": {
     "message": "Automatización"
   },
@@ -1294,5 +1336,14 @@
   },
   "manualWatchPauseDetail": {
     "message": "El farmeo está pausado mientras ves un stream por tu cuenta. Paúsalo, ciérralo o cambia a otra pestaña para que el farmeo se reanude automáticamente en la próxima comprobación."
+  },
+  "reorderItem": {
+    "message": "Reordenar $1"
+  },
+  "scrollRewardsLeft": {
+    "message": "Desplazar recompensas a la izquierda"
+  },
+  "scrollRewardsRight": {
+    "message": "Desplazar recompensas a la derecha"
   }
 }
