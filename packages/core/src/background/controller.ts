@@ -25,7 +25,14 @@ import type { TablessWatchController, WatchContext } from "../core/tablessWatch"
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import { applyPlatformAuthHealth } from "../core/authHealth";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
-import { heartbeatContextKey, HEARTBEAT_INTERVAL_MS, nextHeartbeatDueAt } from "../core/heartbeatCadence";
+import {
+  heartbeatContextKey,
+  HEARTBEAT_INTERVAL_MS,
+  nextHeartbeatDueAt,
+  nextHeartbeatGeneration,
+  validHeartbeatGeneration,
+  validTablessHeartbeatCadence,
+} from "../core/heartbeatCadence";
 import { mergePlatformState } from "./platformState";
 
 export const ALARM_NAME = "lurkloot.tick";
@@ -538,23 +545,22 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             };
           }
 
-          const persisted = session.tablessHeartbeat;
-          const retained = persisted?.contextKey === contextKey
-            && Number.isFinite(Date.parse(persisted.nextDueAt));
+          const persistedMetadata = session.tablessHeartbeat;
+          const persisted = validTablessHeartbeatCadence(session);
           const previousCadence = previous?.contextKey === contextKey
             ? previous.session.tablessHeartbeat
             : undefined;
-          const mayRestorePersisted = retained
+          const mayRestorePersisted = persisted !== undefined
             && (lane.generationHighWater === undefined
               || persisted.generation > lane.generationHighWater);
           const generation = previousCadence?.generation
             ?? (mayRestorePersisted
               ? persisted.generation
-              : Math.max(
-                  lane.generationHighWater ?? 0,
-                  previous?.generation ?? 0,
-                  persisted?.generation ?? 0,
-                ) + 1);
+              : nextHeartbeatGeneration(
+                  lane.generationHighWater,
+                  previous?.generation,
+                  persistedMetadata?.generation,
+                ));
           const cadence: TablessHeartbeatCadence = Object.freeze(previousCadence
             ? { ...previousCadence }
             : mayRestorePersisted
@@ -562,7 +568,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
               : {
                   generation,
                   contextKey,
-                  nextDueAt: retained
+                  nextDueAt: persisted
                     ? persisted.nextDueAt
                     : new Date(Date.now() + HEARTBEAT_INTERVAL_MS).toISOString(),
                 });
@@ -1088,8 +1094,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const latest = await deps.loadState();
       const currentSession = latest.sessions[platform];
       const nextSession = state.sessions[platform];
-      const currentCadence = currentSession.tablessHeartbeat;
-      const nextCadence = nextSession.tablessHeartbeat;
+      const currentCadence = validTablessHeartbeatCadence(currentSession);
+      const nextCadence = validTablessHeartbeatCadence(nextSession);
       const retainsHeartbeatAuthority = currentCadence !== undefined
         && nextCadence !== undefined
         && currentCadence.generation === nextCadence.generation
@@ -2338,12 +2344,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         return { ready: true };
       }
 
-      const persisted = session.tablessHeartbeat;
-      const retainedCadence = contextKey
-        && persisted?.contextKey === contextKey
-        && Number.isFinite(Date.parse(persisted.nextDueAt))
-        ? persisted
-        : undefined;
+      const persistedMetadata = session.tablessHeartbeat;
+      const retainedCadence = validTablessHeartbeatCadence(session);
       if (lane.committed) {
         const sameAuthority = wantsTabless
           && lane.committed.contextKey === contextKey
@@ -2381,15 +2383,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       }
       if (controllerShutdown) return { discarded: watcher, ready: true };
 
-      const persistedGeneration = Number.isFinite(persisted?.generation)
-        ? persisted!.generation
+      const persistedGeneration = validHeartbeatGeneration(persistedMetadata?.generation)
+        ? persistedMetadata.generation
         : 0;
       const mayRestorePersisted = retainedCadence
         && (lane.generationHighWater === undefined
           || retainedCadence.generation > lane.generationHighWater);
       const generation = mayRestorePersisted
         ? retainedCadence.generation
-        : Math.max(lane.generationHighWater ?? 0, persistedGeneration) + 1;
+        : nextHeartbeatGeneration(lane.generationHighWater, persistedGeneration);
       const cadence: TablessHeartbeatCadence = Object.freeze(mayRestorePersisted
         ? { ...retainedCadence }
         : {
@@ -2487,11 +2489,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       ) {
         return false;
       }
-      const persisted = current.tablessHeartbeat;
-      if (
-        persisted?.contextKey === recovery.contextKey
-        && Number.isFinite(Date.parse(persisted.nextDueAt))
-      ) {
+      const persisted = validTablessHeartbeatCadence(current);
+      if (persisted) {
         if (
           persisted.generation === recovery.generation
           && persisted.nextDueAt === cadence.nextDueAt
@@ -2541,7 +2540,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         }
         const committed = lane.committed;
         const requestedContextKey = session ? heartbeatContextKey(session) : committed?.contextKey;
-        const requestedGeneration = session?.tablessHeartbeat?.generation;
+        const requestedGeneration = session
+          ? validTablessHeartbeatCadence(session)?.generation
+          : undefined;
         if (
           !committed
           || requestedContextKey !== committed.contextKey
@@ -2816,9 +2817,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     generation: number,
     contextKey: string,
   ): boolean {
-    return session.tablessHeartbeat?.generation === generation
-      && session.tablessHeartbeat.contextKey === contextKey
-      && heartbeatContextKey(session) === contextKey;
+    const cadence = validTablessHeartbeatCadence(session);
+    return cadence?.generation === generation && cadence.contextKey === contextKey;
   }
 
   async function runHeartbeatFallback(fallback: HeartbeatFallback): Promise<void> {

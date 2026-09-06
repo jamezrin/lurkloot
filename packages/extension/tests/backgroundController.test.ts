@@ -7200,6 +7200,102 @@ describe("background controller", () => {
   });
 
   it.each([
+    { metadata: "missing cadence", build: () => undefined, expectedGeneration: 1 },
+    {
+      metadata: "missing generation",
+      build: (contextKey: string) => ({ contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 1,
+    },
+    {
+      metadata: "null generation",
+      build: (contextKey: string) => ({ generation: null, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 1,
+    },
+    {
+      metadata: "string generation",
+      build: (contextKey: string) => ({ generation: "7", contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 1,
+    },
+    {
+      metadata: "fractional generation",
+      build: (contextKey: string) => ({ generation: 7.5, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 1,
+    },
+    {
+      metadata: "unsafe generation",
+      build: (contextKey: string) => ({ generation: Number.MAX_SAFE_INTEGER + 1, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 1,
+    },
+    {
+      metadata: "NaN generation",
+      build: (contextKey: string) => ({ generation: Number.NaN, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 1,
+    },
+    {
+      metadata: "zero generation",
+      build: (contextKey: string) => ({ generation: 0, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 1,
+    },
+    {
+      metadata: "negative generation",
+      build: (contextKey: string) => ({ generation: -7, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 1,
+    },
+    {
+      metadata: "mismatched context key",
+      build: () => ({ generation: 7, contextKey: "obsolete-context", nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 8,
+    },
+    {
+      metadata: "missing due timestamp",
+      build: (contextKey: string) => ({ generation: 7, contextKey }),
+      expectedGeneration: 8,
+    },
+    {
+      metadata: "null due timestamp",
+      build: (contextKey: string) => ({ generation: 7, contextKey, nextDueAt: null }),
+      expectedGeneration: 8,
+    },
+    {
+      metadata: "numeric due timestamp",
+      build: (contextKey: string) => ({ generation: 7, contextKey, nextDueAt: 0 }),
+      expectedGeneration: 8,
+    },
+  ] as const)(
+    "reconstructs $metadata with a safe generation and one immediate heartbeat",
+    async ({ build, expectedGeneration }) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+      const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+      const env = tablessEnv();
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+      env.state.authHealth.twitch = { status: "healthy" };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "watching",
+        offlineChecks: 0,
+        watchMode: "tabless",
+        channel: channel("twitch"),
+        campaignId: "twitch-campaign",
+        rewardId: "reward",
+      };
+      const contextKey = heartbeatContextKey(env.state.sessions.twitch)!;
+      env.state.sessions.twitch.tablessHeartbeat = build(contextKey) as WatchSession["tablessHeartbeat"];
+      env.deps.loadState.mockImplementation(async () => structuredClone(env.state));
+
+      await env.controller.runWatchHeartbeat();
+
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      expect(env.state.sessions.twitch.tablessHeartbeat).toEqual({
+        generation: expectedGeneration,
+        contextKey,
+        nextDueAt: "2026-09-02T12:01:00.000Z",
+      });
+      expect(Number.isSafeInteger(env.state.sessions.twitch.tablessHeartbeat?.generation)).toBe(true);
+    },
+  );
+
+  it.each([
     {
       timing: "before",
       now: "2026-09-02T12:00:59.999Z",

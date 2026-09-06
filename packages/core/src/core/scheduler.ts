@@ -31,7 +31,7 @@ import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
 import { isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
-import { heartbeatContextKey } from "./heartbeatCadence";
+import { heartbeatContextKey, validTablessHeartbeatCadence } from "./heartbeatCadence";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -535,6 +535,7 @@ function retainTablessHeartbeat(previous: WatchSession, next: WatchSession): Wat
     || next.status !== "watching"
     || previousContextKey === undefined
     || previousContextKey !== nextContextKey
+    || validTablessHeartbeatCadence(previous) === undefined
   ) {
     return { ...next, tablessHeartbeat: undefined };
   }
