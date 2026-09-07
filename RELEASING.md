@@ -69,10 +69,11 @@ Candidate pointers are deliberately mutable:
 Every push to a labelled head rebuilds and refreshes those targets, as does every generated
 release-branch push, so the candidate always describes the commit that would be released rather
 than whichever commit was current when the label went on. Ownership metadata binds
-the candidate release to its pull request. An exact-SHA tag left behind by interrupted initial
-creation is recovered; a tag at any other SHA is rejected. Automation never modifies a stable
-release through the candidate path: promotion clears the prerelease flag, and every later candidate
-build against that tag fails.
+the candidate release to its pull request. While the candidate release object still exists, its tag
+is moved to the commit being built — that is what makes the candidate mutable. A tag left behind
+with no release object is recovered only when it points at the exact commit being published; at any
+other commit it is rejected. Automation never modifies a stable release through the candidate path:
+promotion clears the prerelease flag, and every later candidate build against that tag fails.
 
 The candidate and the stable release are the same object. `vX.Y.Z` is created during candidacy at the
 release branch head and is never moved; merging the release pull request flips it from prerelease to
@@ -216,12 +217,17 @@ The repository default workflow token remains read-only.
 - Candidate failure: re-run the failed workflow or push the corrected release branch.
 - Stable failure after merge: fix the external/configuration problem and manually dispatch
   **Release** on `main`. Matching completed steps are no-ops.
+- Release merged but never approved, then re-cut: dispatch **Release**, do not re-apply a release
+  label. `main` already carries the bump, so preparation has an empty commit and no pull request to
+  open; it detects that and comments with this instruction. The tag is fine — a still-prerelease tag
+  is moved rather than rejected — and a dispatch resolves the merged release commit and publishes
+  from it.
 - Existing stable tag at another SHA: stop and prepare a new version. Never move it.
 - Sync conflict: merge `main` into `develop` locally, run `pnpm verify`, and push with the dedicated
   App credential; alternatively use a one-off reviewed synchronization PR. Do not disable branch
   protection.
-- Missing App configuration: publication reports the completed stable steps and fails at sync. Add
-  the two production secrets and rerun Release.
+- Missing App configuration: the credential check is the first step of publication, so the job
+  fails before anything is published. Add the two production secrets and rerun Release.
 
 The Chrome Web Store intentionally trails the GitHub release while Google reviews the submission.
 There is no polling, cancellation, or rollback workflow.
