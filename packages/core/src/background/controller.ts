@@ -36,6 +36,12 @@ import {
   validTablessHeartbeatCadence,
 } from "../core/heartbeatCadence";
 import { mergePlatformState } from "./platformState";
+import {
+  collectDiscoverySnapshot,
+  adapterFromDiscoverySnapshot,
+  DiscoverySnapshotLane,
+  type DiscoverySnapshotState,
+} from "../core/discoverySnapshot";
 
 export const ALARM_NAME = "lurkloot.tick";
 export const TWITCH_ALARM_NAME = "lurkloot.tick.twitch";
@@ -718,11 +724,74 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   let integrityLifecycleOpen = true;
   let discoverySignalLifecycleOpen = true;
   let controllerShutdown = false;
+  const discoveryEvents: Record<Platform, EngineEvent[]> = { twitch: [], kick: [] };
+  const discoveryLanes: Record<Platform, DiscoverySnapshotLane> = {
+    twitch: createDiscoveryLane("twitch"),
+    kick: createDiscoveryLane("kick"),
+  };
   let installedTwitchIntegrity: TwitchIntegrity | undefined;
   let persistedIntegrityToken: string | undefined;
   // A missing rejectedToken means there was no usable bundle when the refresh
   // became due. Keeping the wrapper object distinguishes that from "not due."
   let twitchIntegrityRefreshDue: { rejectedToken?: string } | undefined;
+
+  function createDiscoveryLane(platform: Platform): DiscoverySnapshotLane {
+    return new DiscoverySnapshotLane(
+      platform,
+      async ({ signal }) => {
+        const [settings, state] = await withSettingsLock(() => withStateCommit(() =>
+          Promise.all([deps.loadSettings(), deps.loadState()])));
+        if (!settings.platform[platform].enabled) {
+          return {
+            campaigns: [],
+            complete: false,
+            failure: "Platform disabled",
+            metrics: { campaigns: 0, candidates: 0, cacheHits: 0, cacheMisses: 0, batchRequests: 0, singleFallbacks: 0 },
+          };
+        }
+        return withEventCollector(async (emit, events) => {
+          const adapter = createAdapter(platform, settings, emit, true);
+          try {
+            return await collectDiscoverySnapshot(adapter, state.sessions[platform], signal);
+          } finally {
+            discoveryEvents[platform].push(...events);
+          }
+        });
+      },
+      async (discoveryState) => queueDiscoveryAttempt(platform, discoveryState),
+    );
+  }
+
+  function queueDiscoveryAttempt(
+    platform: Platform,
+    discoveryState: Readonly<DiscoverySnapshotState>,
+  ): void {
+    const attempt = discoveryState.lastAttempt;
+    if (!attempt) return;
+    const snapshot = discoveryState.snapshot;
+    const metrics = attempt.metrics;
+    const duration = attempt.finishedAt - attempt.startedAt;
+    const age = snapshot ? Math.max(0, Date.now() - snapshot.observedAt) : 0;
+    const outcome = attempt.discarded
+      ? `discarded=${attempt.discarded}`
+      : attempt.complete
+        ? "complete"
+        : `incomplete (${attempt.failure ?? "unknown failure"})`;
+    discoveryEvents[platform].push({
+      category: "diagnostic",
+      platform,
+      level: attempt.complete ? "debug" : "warn",
+      message: `Discovery refresh finished in ${duration}ms (${outcome}, revision=${snapshot?.revision ?? 0}, age=${age}ms, coalesced=${attempt.coalesced}, campaigns=${metrics?.campaigns ?? 0}, candidates=${metrics?.candidates ?? 0}, cache hits=${metrics?.cacheHits ?? 0}, cache misses=${metrics?.cacheMisses ?? 0}, batch requests=${metrics?.batchRequests ?? 0}, single fallbacks=${metrics?.singleFallbacks ?? 0})`,
+    });
+    if (attempt.complete && snapshot) {
+      discoveryEvents[platform].push({
+        category: "diagnostic",
+        platform,
+        level: "debug",
+        message: `Campaign refresh finished in ${duration}ms (${snapshot.metrics.campaigns} ${snapshot.metrics.campaigns === 1 ? "campaign" : "campaigns"})`,
+      });
+    }
+  }
 
   // Prime the in-memory integrity token from storage whenever the background
   // script (re)evaluates, so a claim right after a service-worker wake can use
@@ -1422,6 +1491,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     afterLoad?: (settings: S) => void,
   ): Promise<S> {
     return withSettingsLock(async () => {
+      const patchKeys = Object.keys(patch);
+      const invalidatedPlatforms = patchKeys.every((key) => key === "platform") && patch.platform
+        ? PLATFORMS.filter((platform) => patch.platform?.[platform] !== undefined)
+        : PLATFORMS;
+      for (const platform of invalidatedPlatforms) discoveryLanes[platform].invalidate();
       if (!deps.applySettingsPatch) {
         throw new Error("applySettingsPatch dependency is required to mutate settings");
       }
@@ -1799,6 +1873,22 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }, {});
   }
 
+  async function refreshDiscovery(platforms: Platform[] = PLATFORMS): Promise<void> {
+    if (controllerShutdown) return;
+    const settings = await deps.loadSettings();
+    await Promise.all(platforms.map(async (platform) => {
+      if (!settings.platform[platform].enabled) {
+        discoveryLanes[platform].invalidate();
+        return;
+      }
+      await discoveryLanes[platform].requestAndWait();
+    }));
+  }
+
+  function discoverySnapshot(platform: Platform): Readonly<DiscoverySnapshotState> {
+    return discoveryLanes[platform].current();
+  }
+
   async function tickPlatform(
     platform: Platform,
     trigger: TickTrigger,
@@ -1898,6 +1988,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const schedulerPlatforms = requestedPlatforms.filter((platform) =>
       !excludedPlatforms.has(platform));
     if (schedulerPlatforms.length === 0) return claimedRewards;
+    const currentState = await withStateCommit(() => deps.loadState());
+    const discoveryPlatforms = schedulerPlatforms.filter((platform) =>
+      currentState.authHealth[platform].status === "healthy");
+    await refreshDiscovery(discoveryPlatforms);
+    signal.throwIfAborted();
     const platform = schedulerPlatforms[0];
     await withStateLock(() => withEventCollector(async (emit, events) => {
       signal.throwIfAborted();
@@ -1911,6 +2006,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
       try {
         const adapters = createSelectedAdapters(settings, emit, schedulerPlatforms);
+        for (const discoveryPlatform of schedulerPlatforms) {
+          adapters[discoveryPlatform] = adapterFromDiscoverySnapshot(
+            adapters[discoveryPlatform],
+            discoveryLanes[discoveryPlatform].current().snapshot,
+            state.sessions[discoveryPlatform],
+          );
+        }
         // Observed here rather than returned by the scheduler: the controller
         // already sees every emitted event, and the post-claim handoff only
         // needs to know which platforms claimed.
@@ -1921,6 +2023,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           emit(event);
         };
         const eventsBeforeTick = events.length;
+        for (const discoveryPlatform of schedulerPlatforms) {
+          for (const event of discoveryEvents[discoveryPlatform].splice(0)) claimObservingEmit(event);
+        }
         const result = await runSchedulerTick(state, settings, adapters, {
           platforms: schedulerPlatforms,
           stopPageContextTabs: deps.stopPageContextTabs,
@@ -1928,6 +2033,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           emit: claimObservingEmit,
           signal,
           campaignEvaluationFingerprints,
+          discovery: Object.fromEntries(schedulerPlatforms.map((discoveryPlatform) => {
+            const discoveryState = discoveryLanes[discoveryPlatform].current();
+            return [discoveryPlatform, {
+              campaigns: discoveryState.snapshot?.campaigns.map(({ campaign }) => campaign)
+                ?? state.campaigns[discoveryPlatform],
+              complete: discoveryState.snapshot !== undefined,
+            }];
+          })),
         });
         signal.throwIfAborted();
         const lifecycleEvents = farmingLifecycleEvents(state, result.state);
@@ -2005,6 +2118,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function invalidateAuthHealth(platform: Platform): Promise<void> {
+    discoveryLanes[platform].invalidate();
     const releaseDiscoverySignalAuthRefresh = reserveDiscoverySignalAuthRefresh(platform);
     try {
       const generations = await beginAuthRefresh([platform]);
@@ -3074,6 +3188,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   function shutdown(): void {
     controllerShutdown = true;
+    for (const platform of PLATFORMS) discoveryLanes[platform].stop();
     discoverySignalLifecycleOpen = false;
     for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
     twitchSettingsTransitionGeneration += 1;
@@ -3090,6 +3205,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     discoverySignalLifecycleOpen = false;
     for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
     twitchSettingsTransitionGeneration += 1;
+    for (const platform of PLATFORMS) discoveryLanes[platform].invalidate();
     abortActiveTicks("Host reset");
     closeTwitchIntegrityLifecycle("Host reset");
     await stopDiscoverySignalControllersAndReport(PLATFORMS);
@@ -3868,6 +3984,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     invalidateAuthHealth,
     tick,
     tickAndHandOff,
+    refreshDiscovery,
+    discoverySnapshot,
     runWatchHeartbeat,
     runClaimHandoff,
     abortClaimHandoffs,

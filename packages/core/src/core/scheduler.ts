@@ -567,6 +567,10 @@ export interface SchedulerTickOptions {
   // it in memory so unchanged minute ticks stay quiet, while a worker restart
   // naturally emits a fresh snapshot for the next exported diagnostic log.
   campaignEvaluationFingerprints?: Partial<Record<Platform, string>>;
+  discovery?: Partial<Record<Platform, {
+    campaigns: DropCampaign[];
+    complete: boolean;
+  }>>;
 }
 
 const CAMPAIGN_REJECTION_LABELS: Record<CampaignFarmingRejectionCode, string> = {
@@ -922,7 +926,11 @@ export async function runSchedulerTick(
 
       let campaigns: DropCampaign[];
       let discoveryFailed = false;
-      try {
+      const committedDiscovery = options.discovery?.[platform];
+      if (committedDiscovery) {
+        campaigns = preserveClaimedRewards(committedDiscovery.campaigns, state.campaigns[platform]);
+        discoveryFailed = !committedDiscovery.complete;
+      } else try {
         const refreshStartedAt = Date.now();
         campaigns = await adapter.refreshCampaigns(previous, { signal: options.signal });
         emitDiagnostic(
