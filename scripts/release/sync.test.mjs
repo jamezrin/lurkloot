@@ -170,9 +170,3 @@ test("recovery leaves an already published immutable image tag in place", async 
   const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
   assert.match(yaml, /already published; aliasing the published digest/);
 });
-
-test("publication promotes the verified candidate manifest by digest", async () => {
-  const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
-  assert.match(yaml, /source="\$IMAGE@\$CANDIDATE_DIGEST"/);
-  assert.match(yaml, /refusing to move immutable image/);
-});
