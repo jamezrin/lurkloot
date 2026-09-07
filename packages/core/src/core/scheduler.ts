@@ -11,7 +11,7 @@ import type {
   WatchReasonCode,
   WatchSession,
 } from "@lurkloot/shared/models";
-import { categoryListIndex } from "@lurkloot/shared/categories";
+import { campaignPassesCategoryFilter, categoryPriorityScore } from "@lurkloot/shared/categories";
 import { evaluateCampaignFarming, type CampaignFarmingEvaluation, type CampaignFarmingRejectionCode } from "@lurkloot/shared/campaignFarming";
 import { campaignFarmable, campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import {
@@ -162,7 +162,8 @@ export function sortCampaigns(campaigns: DropCampaign[], settings: EngineSetting
     if (leftPriority != null && rightPriority == null) return -1;
     if (rightPriority != null && leftPriority == null) return 1;
 
-    const categoryOrder = categoryPriorityScore(left, settings) - categoryPriorityScore(right, settings);
+    const categoryOrder = categoryPriorityScore(left, settings.platform[left.platform])
+      - categoryPriorityScore(right, settings.platform[right.platform]);
     if (categoryOrder !== 0) return categoryOrder;
 
     const normalizedLeftPriority = leftPriority ?? 0;
@@ -178,16 +179,6 @@ export function sortCampaigns(campaigns: DropCampaign[], settings: EngineSetting
     if (ends !== 0) return ends;
     return left.name.localeCompare(right.name);
   });
-}
-
-// Order within the per-platform categories list sets farming priority — but only
-// while the filter is active. When "Farm all categories" is on the (hidden) list
-// must never silently reorder, so every campaign scores equal.
-function categoryPriorityScore(campaign: DropCampaign, settings: EngineSettings): number {
-  const platformSettings = settings.platform[campaign.platform];
-  if (platformSettings.farmAllCategories) return Number.MAX_SAFE_INTEGER;
-  const index = categoryListIndex(campaign, platformSettings.categories);
-  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
 // Ranks candidates the user has a relationship with above anonymous directory
@@ -395,10 +386,7 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   if (notExcluded.every((campaign) => campaign.accountLinked === false || campaign.eligibility === "account_not_linked")) {
     return "Campaign accounts are not linked";
   }
-  if (notExcluded.every((campaign) => {
-    const platformSettings = settings.platform[campaign.platform];
-    return !platformSettings.farmAllCategories && categoryListIndex(campaign, platformSettings.categories) === -1;
-  })) {
+  if (notExcluded.every((campaign) => !campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform]))) {
     return "No campaigns match the categories filter";
   }
   if (settings.priorityMode === "priority_list_only" && !notExcluded.some((campaign) => isInPriorityList(campaign, settings))) {

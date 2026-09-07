@@ -149,19 +149,34 @@ describe("scheduler campaign selection", () => {
 
     const sorted = sortCampaigns([first, second], settings({
       platform: {
-        twitch: { farmAllCategories: false, categories: [{ id: "second game", name: "Second Game" }, { id: "first game", name: "First Game" }] },
+        twitch: { categoryMode: "include", categories: [{ id: "second game", name: "Second Game" }, { id: "first game", name: "First Game" }] },
       },
     }));
 
     expect(sorted.map((item) => item.id)).toEqual(["second", "first"]);
   });
 
-  it("does not use category-list order while Farm all categories is on", () => {
+  it("does not use category-list order in all mode", () => {
     const first = campaign("first", { gameName: "First Game", endsAt: "2026-06-01T00:00:00.000Z" });
     const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
 
-    // farmAllCategories stays on (default), so the list is inert: ends-soonest wins.
+    // categoryMode stays "all" (default), so the list is inert: ends-soonest wins.
     const sorted = sortCampaigns([second, first], settings({}));
+
+    expect(sorted.map((item) => item.id)).toEqual(["first", "second"]);
+  });
+
+  it("does not use category-list order in exclude mode", () => {
+    const first = campaign("first", { gameName: "First Game", endsAt: "2026-06-01T00:00:00.000Z" });
+    const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
+
+    // The same list that would put "second" first in include mode is a denylist
+    // here, so position in it must not become a priority: ends-soonest wins.
+    const sorted = sortCampaigns([second, first], settings({
+      platform: {
+        twitch: { categoryMode: "exclude", categories: [{ id: "third game", name: "Third Game" }, { id: "second game", name: "Second Game" }] },
+      },
+    }));
 
     expect(sorted.map((item) => item.id)).toEqual(["first", "second"]);
   });
@@ -175,7 +190,7 @@ describe("scheduler campaign selection", () => {
       [unlisted, listed],
       settings({
         platform: {
-          twitch: { farmAllCategories: false, categories: [{ id: "listed game", name: "Listed Game" }] },
+          twitch: { categoryMode: "include", categories: [{ id: "listed game", name: "Listed Game" }] },
         },
       }),
       {
@@ -197,7 +212,7 @@ describe("scheduler campaign selection", () => {
       [categorized, uncategorized],
       settings({
         platform: {
-          twitch: { farmAllCategories: false, categories: [{ id: NO_CATEGORY_ID, name: "No category" }] },
+          twitch: { categoryMode: "include", categories: [{ id: NO_CATEGORY_ID, name: "No category" }] },
         },
       }),
       {
@@ -210,13 +225,72 @@ describe("scheduler campaign selection", () => {
     expect(decision.campaign?.id).toBe("uncategorized");
   });
 
-  it("category filter with an empty list farms nothing", async () => {
+  it("exclude mode farms every category except the listed ones", async () => {
+    const excluded = campaign("excluded", { gameName: "Excluded Game" });
+    const other = campaign("other", { gameName: "Other Game" });
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [excluded, other],
+      settings({
+        platform: {
+          twitch: { categoryMode: "exclude", categories: [{ id: "excluded game", name: "Excluded Game" }] },
+        },
+      }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("other");
+  });
+
+  it("exclude mode with an empty list farms everything", async () => {
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any", { gameName: "Any Game" })],
+      settings({ platform: { twitch: { categoryMode: "exclude", categories: [] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("any");
+  });
+
+  it("exclude mode reports the shared categories-filter reason when everything is excluded", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("any", { gameName: "Any Game" })],
-      settings({ platform: { twitch: { farmAllCategories: false, categories: [] } } }),
+      settings({
+        platform: {
+          twitch: { categoryMode: "exclude", categories: [{ id: "any game", name: "Any Game" }] },
+        },
+      }),
+      {
+        listCandidateChannels,
+        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+      },
+    );
+
+    expect(decision.action).toBe("idle");
+    expect(decision.reason).toContain("No campaigns match the categories filter");
+    expect(listCandidateChannels).not.toHaveBeenCalled();
+  });
+
+  it("category filter with an empty include list farms nothing", async () => {
+    const listCandidateChannels = vi.fn(async () => [channel("creator")]);
+
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("any", { gameName: "Any Game" })],
+      settings({ platform: { twitch: { categoryMode: "include", categories: [] } } }),
       {
         listCandidateChannels,
         checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
@@ -257,7 +331,7 @@ describe("scheduler campaign selection", () => {
       settings({
         priorityMode: "priority_list_only",
         platform: {
-          twitch: { farmAllCategories: false, categories: [{ id: "listed game", name: "Listed Game" }] },
+          twitch: { categoryMode: "include", categories: [{ id: "listed game", name: "Listed Game" }] },
         },
       }),
       {

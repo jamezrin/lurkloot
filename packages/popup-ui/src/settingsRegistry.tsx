@@ -380,26 +380,30 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       {
         id: `${platform}.categories`,
         titleKey: "settingsGroupCategories",
-        // No description: the farm-all row directly below carries its own. The
-        // count only means anything while an explicit allowlist is in use.
-        badge: settings.platform[platform].farmAllCategories
+        // No description: the mode row directly below carries its own. The count
+        // only means anything while the list is actually being consulted, which
+        // is both filtered modes but not "all".
+        badge: settings.platform[platform].categoryMode === "all"
           ? undefined
           : <Pill tone="outline">{settings.platform[platform].categories.length}</Pill>,
         entries: [
           {
-            id: `${platform}.categories.farmAll`,
-            titleKey: "farmAllCategoriesTitle",
-            descriptionKey: "farmAllCategoriesDescription",
-            // "Farm drops in every $1 category" — without this the search
-            // haystack holds the literal "$1" instead of "Twitch"/"Kick", and
-            // a query for the platform name never finds this entry.
+            id: `${platform}.categories.mode`,
+            titleKey: "categoryModeTitle",
+            descriptionKey: "categoryModeDescription",
+            // "Choose which $1 categories…" — without this the search haystack
+            // holds the literal "$1" instead of "Twitch"/"Kick", and a query for
+            // the platform name never finds this entry.
             descriptionSubstitution: details.label,
             render: () => (
               <PlatformCategorySettings
                 platform={platform}
                 suggestions={ctx.suggestions[platform]}
                 settings={settings}
-                onFarmAllCategoriesChange={(farmAllCategories) => void platformPatch(platform, { farmAllCategories })}
+                // Rides the same platformPatch path as every other per-platform
+                // setting, so a mode change invalidates the current target
+                // through the existing tickAfterSave lifecycle.
+                onCategoryModeChange={(categoryMode) => void platformPatch(platform, { categoryMode })}
                 onCategoriesChange={(categories) => void platformPatch(platform, { categories })}
                 onSearchCategories={(query) => ctx.onSearchCategories(platform, query)}
               />

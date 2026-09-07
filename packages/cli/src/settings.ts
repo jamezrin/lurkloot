@@ -4,6 +4,8 @@ import {
   clampInteger,
   clampNumber,
   mergeEngineSettings,
+  CATEGORY_MODES,
+  normalizeCategoryMode,
   normalizeCategorySelections,
   normalizeFarmingEligibility,
   normalizeChannelList,
@@ -121,8 +123,8 @@ const CLI_SETTING_KEYS = new Set<string>([
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
-  twitch: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChannelPoints", "strictCampaignAvailability"]),
-  kick: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "farmAllCategories", "categories", "autoClaimChallenges"]),
+  twitch: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChannelPoints", "strictCampaignAvailability"]),
+  kick: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChallenges"]),
 };
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
@@ -246,8 +248,15 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
           continue;
         }
         if (entry && typeof entry === "object" && !Array.isArray(entry)) {
-          for (const key of Object.keys(entry as Record<string, unknown>)) {
+          const block = entry as Record<string, unknown>;
+          for (const key of Object.keys(block)) {
             if (!CLI_PLATFORM_KEYS[name as Platform].has(key)) offenders.push(`unknown setting "${key}" under platform.${name}`);
+          }
+          // Like the farmingEligibility values below: normalizeCategoryMode
+          // would quietly fall back to "all" for a typo such as "exclude_all",
+          // silently farming the whole directory instead of the chosen subset.
+          if (Object.hasOwn(block, "categoryMode") && !CATEGORY_MODES.includes(block.categoryMode as never)) {
+            offenders.push(`"platform.${name}.categoryMode" must be one of: ${CATEGORY_MODES.join(", ")}`);
           }
         }
       }
@@ -358,7 +367,7 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Platfor
         enabled: booleanOr(ps.enabled, defaults.enabled),
         idleWatchlistChannels: normalizeChannelList(ps.idleWatchlistChannels),
         excludedChannels: normalizeChannelList(ps.excludedChannels),
-        farmAllCategories: booleanOr(ps.farmAllCategories, defaults.farmAllCategories),
+        categoryMode: normalizeCategoryMode(ps.categoryMode),
         categories: normalizeCategorySelections(ps.categories),
       },
     };

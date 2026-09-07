@@ -692,11 +692,26 @@
   "settingsGroupCategories": {
     "message": "Категории"
   },
-  "farmAllCategoriesTitle": {
-    "message": "Фармить все категории"
+  "categoryModeTitle": {
+    "message": "Фильтр категорий"
   },
-  "farmAllCategoriesDescription": {
-    "message": "Фармит drops во всех категориях $1. Отключите, чтобы фармить только выбранные."
+  "categoryModeDescription": {
+    "message": "Выберите, какие категории $1 охватывает фарм drops."
+  },
+  "categoryModeAll": {
+    "message": "Все категории"
+  },
+  "categoryModeInclude": {
+    "message": "Только выбранные"
+  },
+  "categoryModeExclude": {
+    "message": "Все, кроме выбранных"
+  },
+  "includeCategoriesInstruction": {
+    "message": "На $1 фармятся только эти категории."
+  },
+  "excludeCategoriesInstruction": {
+    "message": "На $1 фармятся все категории, кроме этих."
   },
   "categoriesToFarm": {
     "message": "Категории для фарма"
@@ -706,6 +721,9 @@
   },
   "noCategoriesSelected": {
     "message": "Категории не выбраны: на $1 ничего не будет фармиться. Добавьте категории ниже."
+  },
+  "noCategoriesExcluded": {
+    "message": "Категории не исключены: будут фармиться все категории $1. Добавьте категории ниже, чтобы пропускать их."
   },
   "hasActiveDrops": {
     "message": "Есть активные drops"

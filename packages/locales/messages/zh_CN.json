@@ -692,11 +692,26 @@
   "settingsGroupCategories": {
     "message": "分类"
   },
-  "farmAllCategoriesTitle": {
-    "message": "挂机所有分类"
+  "categoryModeTitle": {
+    "message": "分类筛选"
   },
-  "farmAllCategoriesDescription": {
-    "message": "挂机获取 $1 所有分类中的掉宝。关闭后，只挂机所选分类。"
+  "categoryModeDescription": {
+    "message": "选择挂机掉宝涵盖哪些 $1 分类。"
+  },
+  "categoryModeAll": {
+    "message": "所有分类"
+  },
+  "categoryModeInclude": {
+    "message": "仅所选分类"
+  },
+  "categoryModeExclude": {
+    "message": "所选分类除外"
+  },
+  "includeCategoriesInstruction": {
+    "message": "在 $1 上只挂机这些分类。"
+  },
+  "excludeCategoriesInstruction": {
+    "message": "在 $1 上挂机除这些以外的所有分类。"
   },
   "categoriesToFarm": {
     "message": "要挂机的分类"
@@ -706,6 +721,9 @@
   },
   "noCategoriesSelected": {
     "message": "未选择分类：不会在 $1 上挂机获取掉宝。请在下方添加分类。"
+  },
+  "noCategoriesExcluded": {
+    "message": "未排除任何分类：将挂机 $1 的所有分类。在下方添加分类即可跳过它们。"
   },
   "hasActiveDrops": {
     "message": "有进行中的掉宝"

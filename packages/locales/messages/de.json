@@ -692,11 +692,26 @@
   "settingsGroupCategories": {
     "message": "Kategorien"
   },
-  "farmAllCategoriesTitle": {
-    "message": "Alle Kategorien farmen"
+  "categoryModeTitle": {
+    "message": "Kategoriefilter"
   },
-  "farmAllCategoriesDescription": {
-    "message": "Farmt Drops in jeder $1-Kategorie. Deaktivieren, um nur eine ausgewählte Gruppe zu farmen."
+  "categoryModeDescription": {
+    "message": "Lege fest, welche $1-Kategorien das Drop-Farmen umfasst."
+  },
+  "categoryModeAll": {
+    "message": "Alle Kategorien"
+  },
+  "categoryModeInclude": {
+    "message": "Nur ausgewählte"
+  },
+  "categoryModeExclude": {
+    "message": "Alle außer ausgewählten"
+  },
+  "includeCategoriesInstruction": {
+    "message": "Auf $1 werden nur diese Kategorien gefarmt."
+  },
+  "excludeCategoriesInstruction": {
+    "message": "Auf $1 werden alle Kategorien außer diesen gefarmt."
   },
   "categoriesToFarm": {
     "message": "Kategorien zum Farmen"
@@ -706,6 +721,9 @@
   },
   "noCategoriesSelected": {
     "message": "Keine Kategorien ausgewählt: Auf $1 wird nichts gefarmt. Kategorien unten hinzufügen."
+  },
+  "noCategoriesExcluded": {
+    "message": "Keine Kategorien ausgeschlossen – alle $1-Kategorien werden gefarmt. Füge unten Kategorien hinzu, um sie zu überspringen."
   },
   "hasActiveDrops": {
     "message": "Hat aktive Drops"

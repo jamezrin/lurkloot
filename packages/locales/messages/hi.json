@@ -692,11 +692,26 @@
   "settingsGroupCategories": {
     "message": "श्रेणियाँ"
   },
-  "farmAllCategoriesTitle": {
-    "message": "सभी श्रेणियाँ फ़ार्म करें"
+  "categoryModeTitle": {
+    "message": "श्रेणी फ़िल्टर"
   },
-  "farmAllCategoriesDescription": {
-    "message": "$1 की हर श्रेणी में drops फ़ार्म करें। केवल चुने हुए सेट के लिए बंद करें।"
+  "categoryModeDescription": {
+    "message": "चुनें कि drops फ़ार्मिंग में $1 की कौन-सी श्रेणियाँ शामिल हों।"
+  },
+  "categoryModeAll": {
+    "message": "सभी श्रेणियाँ"
+  },
+  "categoryModeInclude": {
+    "message": "केवल चयनित"
+  },
+  "categoryModeExclude": {
+    "message": "चयनित को छोड़कर सभी"
+  },
+  "includeCategoriesInstruction": {
+    "message": "$1 पर केवल ये श्रेणियाँ फ़ार्म की जाती हैं।"
+  },
+  "excludeCategoriesInstruction": {
+    "message": "$1 पर इन्हें छोड़कर सभी श्रेणियाँ फ़ार्म की जाती हैं।"
   },
   "categoriesToFarm": {
     "message": "फ़ार्म करने की श्रेणियाँ"
@@ -706,6 +721,9 @@
   },
   "noCategoriesSelected": {
     "message": "कोई श्रेणी चयनित नहीं: $1 पर कुछ फ़ार्म नहीं होगा। नीचे श्रेणियाँ जोड़ें।"
+  },
+  "noCategoriesExcluded": {
+    "message": "कोई श्रेणी बाहर नहीं की गई: $1 की सभी श्रेणियाँ फ़ार्म होंगी। उन्हें छोड़ने के लिए नीचे श्रेणियाँ जोड़ें।"
   },
   "hasActiveDrops": {
     "message": "सक्रिय drops हैं"

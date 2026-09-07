@@ -692,11 +692,26 @@
   "settingsGroupCategories": {
     "message": "Categories"
   },
-  "farmAllCategoriesTitle": {
-    "message": "Farm all categories"
+  "categoryModeTitle": {
+    "message": "Category filter"
   },
-  "farmAllCategoriesDescription": {
-    "message": "Farm drops in every $1 category. Turn off to farm only a chosen set."
+  "categoryModeDescription": {
+    "message": "Choose which $1 categories drop farming covers."
+  },
+  "categoryModeAll": {
+    "message": "All categories"
+  },
+  "categoryModeInclude": {
+    "message": "Only selected"
+  },
+  "categoryModeExclude": {
+    "message": "All except selected"
+  },
+  "includeCategoriesInstruction": {
+    "message": "Only these categories are farmed on $1."
+  },
+  "excludeCategoriesInstruction": {
+    "message": "Every $1 category is farmed except these."
   },
   "categoriesToFarm": {
     "message": "Categories to farm"
@@ -706,6 +721,9 @@
   },
   "noCategoriesSelected": {
     "message": "No categories selected — nothing will be farmed on $1. Add categories below."
+  },
+  "noCategoriesExcluded": {
+    "message": "No categories excluded — every $1 category will be farmed. Add categories below to skip them."
   },
   "hasActiveDrops": {
     "message": "Has active drops"

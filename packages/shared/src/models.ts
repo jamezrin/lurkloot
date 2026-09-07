@@ -263,14 +263,20 @@ export interface CategorySelection {
   imageUrl?: string;
 }
 
+// How `categories` is interpreted. One list serves all three modes, so the
+// user's selection survives every mode switch untouched:
+// - "all": every category is farmable; the list is retained but inactive.
+// - "include": only listed categories are farmed (an empty list farms nothing).
+//   List order sets farming priority (see categoryPriorityScore).
+// - "exclude": every category except the listed ones is farmed (an empty list
+//   is equivalent to "all"). List order has no scheduling effect.
+export type CategoryMode = "all" | "include" | "exclude";
+
 export interface PlatformSettings {
   enabled: boolean;
   idleWatchlistChannels: string[];
   excludedChannels?: string[];
-  // When true, every category is farmable. When false, only `categories` are
-  // farmed (an empty list then means nothing is farmed). The list is ordered:
-  // order sets farming priority (see categoryPriorityScore in the scheduler).
-  farmAllCategories: boolean;
+  categoryMode: CategoryMode;
   categories: CategorySelection[];
 }
 
