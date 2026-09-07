@@ -138,7 +138,7 @@ These are product constraints, not just style preferences:
 - No telemetry, no Lurkloot account, and no routing of user activity through a Lurkloot server.
 
 If you believe you have found a security vulnerability, please report it privately by email to
-jaime@jamezrin.name rather than opening a public issue, and give the maintainer a chance to ship a
+[jaime@jamezrin.name](mailto:jaime@jamezrin.name) rather than opening a public issue, and give the maintainer a chance to ship a
 fix before disclosing it.
 
 ## Branches and commits
@@ -151,6 +151,22 @@ git fetch upstream develop
 git switch -c feat/popup-schedule-refresh upstream/develop
 ```
 
+If you work in a clone of this repository directly rather than a fork, use `origin` in place of
+`upstream` above, and develop in a git worktree under `.worktrees/` rather than in the main
+checkout — several sessions share that checkout, and feature work there ends up on the wrong
+branch:
+
+```bash
+git fetch origin develop
+git worktree add .worktrees/popup-schedule-refresh -b feat/popup-schedule-refresh origin/develop
+cd .worktrees/popup-schedule-refresh
+pnpm install --frozen-lockfile   # each worktree needs its own node_modules
+```
+
+Name the directory after the branch with the `<type>/` prefix dropped, create it before the first
+edit, and leave the main checkout parked on `develop`. Run `git worktree list` first to reuse an
+existing worktree, and `git worktree remove .worktrees/<name>` once the branch is merged.
+
 Name branches `<type>/<short-kebab-case-description>`, using the same types as commits — for example
 `feat/popup-schedule-refresh`, `fix/scheduler-viewer-count`, or `docs/release-process`. Only include
 an issue number when it helps identify the work, as in `fix/123-scheduler-timeout`.
@@ -161,7 +177,7 @@ description with no trailing period. The allowed types are `feat`, `fix`, `docs`
 `refactor`, `perf`, `test`, `build`, `ci`, `chore`, and `revert`. Mark a breaking change with `!`
 before the colon and explain it in a `BREAKING CHANGE:` footer.
 
-```
+```text
 feat(popup): add schedule refresh button
 fix(scheduler): refresh viewer counts
 ```
