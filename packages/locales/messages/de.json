@@ -696,7 +696,7 @@
     "message": "Kategoriefilter"
   },
   "categoryModeDescription": {
-    "message": "Lege fest, welche $1-Kategorien das Drop-Farmen umfasst."
+    "message": "Farme alle $1-Kategorien, schließe nur die ausgewählten ein oder schließe sie aus."
   },
   "categoryModeAll": {
     "message": "Alle Kategorien"

@@ -696,7 +696,7 @@
     "message": "تصفية الفئات"
   },
   "categoryModeDescription": {
-    "message": "اختر فئات $1 التي يشملها فارم Drops."
+    "message": "افرم كل فئات $1، أو ضمّن الفئات المحددة فقط، أو استبعدها."
   },
   "categoryModeAll": {
     "message": "كل الفئات"

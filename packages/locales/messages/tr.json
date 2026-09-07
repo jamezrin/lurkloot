@@ -696,7 +696,7 @@
     "message": "Kategori filtresi"
   },
   "categoryModeDescription": {
-    "message": "Drop toplamanın hangi $1 kategorilerini kapsayacağını seçin."
+    "message": "Tüm $1 kategorilerini toplayın, yalnızca seçtiklerinizi dahil edin ya da onları hariç tutun."
   },
   "categoryModeAll": {
     "message": "Tüm kategoriler"

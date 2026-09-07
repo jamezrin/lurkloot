@@ -696,7 +696,7 @@
     "message": "Category filter"
   },
   "categoryModeDescription": {
-    "message": "Choose which $1 categories drop farming covers."
+    "message": "Farm every $1 category, include only the categories you select, or exclude them."
   },
   "categoryModeAll": {
     "message": "All categories"

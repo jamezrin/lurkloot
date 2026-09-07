@@ -696,7 +696,7 @@
     "message": "分类筛选"
   },
   "categoryModeDescription": {
-    "message": "选择挂机掉宝涵盖哪些 $1 分类。"
+    "message": "挂机 $1 的所有分类、仅包含所选分类，或排除所选分类。"
   },
   "categoryModeAll": {
     "message": "所有分类"

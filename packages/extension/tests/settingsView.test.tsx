@@ -106,7 +106,7 @@ const labels: Record<string, string> = {
   autoClaimChallengesTitle: "Auto-claim daily challenges",
   autoClaimChallengesDescription: "Claim Kick's daily challenge reward once its watch-time goal is met.",
   categoryModeTitle: "Category filter",
-  categoryModeDescription: "Choose which $1 categories drop farming covers.",
+  categoryModeDescription: "Farm every $1 category, include only the categories you select, or exclude them.",
   categoryModeAll: "All categories",
   categoryModeInclude: "Only selected",
   categoryModeExclude: "All except selected",

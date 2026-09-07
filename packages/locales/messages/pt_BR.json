@@ -696,7 +696,7 @@
     "message": "Filtro de categorias"
   },
   "categoryModeDescription": {
-    "message": "Escolha quais categorias da $1 o farm de drops abrange."
+    "message": "Farme todas as categorias da $1, inclua apenas as que você selecionar ou exclua-as."
   },
   "categoryModeAll": {
     "message": "Todas as categorias"
