@@ -9,6 +9,8 @@ import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, type
 import { isTimestampStale } from "../core/timestamps";
 import {
   currentManagedPageContextTabs,
+  currentManagedPageContextTabsRevision,
+  hydrateManagedPageContextTabs,
   INTEGRITY_REFRESH_TIMEOUT_MS,
   isValidTwitchIntegrity,
   noteTwitchGqlRequest,
@@ -148,6 +150,11 @@ interface HeartbeatRecoveryCommit {
   readonly settle: () => void;
 }
 
+interface HeartbeatPublicationLease {
+  readonly settled: Promise<void>;
+  readonly settle: () => void;
+}
+
 interface HeartbeatContextPublication {
   accepted: boolean;
   cadence?: TablessHeartbeatCadence;
@@ -172,6 +179,11 @@ interface HeartbeatLane {
   mutation: Promise<unknown>;
   revision: number;
   committed?: CommittedHeartbeatContext;
+  // Discovery reserves this before starting, switching, or stopping a watcher
+  // and holds it until the corresponding scheduler state has been persisted.
+  // Recovery must wait for the handoff rather than reconstructing the old
+  // persisted session while the new owner is only published in memory.
+  publicationLease?: HeartbeatPublicationLease;
   inFlight?: HeartbeatAttempt;
   // Reserved only after transport completes. Context publishers wait for this
   // promise outside the lane, so either publication wins and rejects the old
@@ -507,6 +519,36 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return run;
   }
 
+  function newHeartbeatPublicationLease(): HeartbeatPublicationLease {
+    let settle!: () => void;
+    const settled = new Promise<void>((resolve) => {
+      settle = resolve;
+    });
+    return { settled, settle };
+  }
+
+  async function releaseHeartbeatPublicationLease(
+    platform: Platform,
+    lease: HeartbeatPublicationLease,
+  ): Promise<void> {
+    await withHeartbeatLane(platform, async (lane) => {
+      if (lane.publicationLease !== lease) return;
+      lane.publicationLease = undefined;
+      lease.settle();
+    });
+  }
+
+  async function cancelHeartbeatPublicationLeases(
+    platforms: readonly Platform[],
+  ): Promise<void> {
+    await Promise.all(platforms.map((platform) => withHeartbeatLane(platform, async (lane) => {
+      const lease = lane.publicationLease;
+      if (!lease) return;
+      lane.publicationLease = undefined;
+      lease.settle();
+    })));
+  }
+
   function frozenHeartbeatSession(
     session: WatchSession,
     cadence: TablessHeartbeatCadence,
@@ -523,6 +565,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     session: WatchSession,
     watcher: TablessWatchController,
     expectedRevision: number,
+    publicationLease?: HeartbeatPublicationLease,
   ): Promise<HeartbeatContextPublication> {
     const contextKey = heartbeatContextKey(session);
     while (true) {
@@ -531,6 +574,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         async (lane) => {
           if (lane.revision !== expectedRevision) {
             return { accepted: false, committed: lane.committed };
+          }
+          if (lane.publicationLease && lane.publicationLease !== publicationLease) {
+            return { waitFor: lane.publicationLease.settled };
           }
           if (lane.recoveryCommit) return { waitFor: lane.recoveryCommit.settled };
           if (lane.resultCommit) return { waitFor: lane.resultCommit.settled };
@@ -1091,33 +1137,50 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     state: SchedulerState,
   ): Promise<void> {
     await withStateCommit(async () => {
-      const latest = await deps.loadState();
-      const currentSession = latest.sessions[platform];
-      const nextSession = state.sessions[platform];
-      const currentCadence = validTablessHeartbeatCadence(currentSession);
-      const nextCadence = validTablessHeartbeatCadence(nextSession);
-      const retainsHeartbeatAuthority = currentCadence !== undefined
-        && nextCadence !== undefined
-        && currentCadence.generation === nextCadence.generation
-        && currentCadence.contextKey === nextCadence.contextKey
-        && heartbeatContextKey(currentSession) === currentCadence.contextKey
-        && heartbeatContextKey(nextSession) === nextCadence.contextKey;
-      const mergeSource = retainsHeartbeatAuthority
-        ? {
-            ...state,
-            sessions: {
-              ...state.sessions,
-              [platform]: {
-                ...nextSession,
-                lastHeartbeatAt: currentSession.lastHeartbeatAt,
-                lastHeartbeatOk: currentSession.lastHeartbeatOk,
-                heartbeatChecks: currentSession.heartbeatChecks,
-                tablessHeartbeat: currentCadence,
+      // The registry can change while storage I/O is in flight (for example a
+      // page-context fallback reported by the heartbeat watcher). Retry the
+      // short merge when its revision moved, so the last write is a compare-
+      // and-swap style recapture rather than a stale snapshot overwrite.
+      while (true) {
+        const latest = await deps.loadState();
+        const currentSession = latest.sessions[platform];
+        const nextSession = state.sessions[platform];
+        const currentCadence = validTablessHeartbeatCadence(currentSession);
+        const nextCadence = validTablessHeartbeatCadence(nextSession);
+        const retainsHeartbeatAuthority = currentCadence !== undefined
+          && nextCadence !== undefined
+          && currentCadence.generation === nextCadence.generation
+          && currentCadence.contextKey === nextCadence.contextKey
+          && heartbeatContextKey(currentSession) === currentCadence.contextKey
+          && heartbeatContextKey(nextSession) === nextCadence.contextKey;
+        const pageContextRevision = currentManagedPageContextTabsRevision();
+        const livePageContexts = currentManagedPageContextTabs();
+        const mergeSourcePageContexts = { ...state.managedPageContextTabs };
+        const livePageContext = livePageContexts[platform];
+        if (livePageContext) mergeSourcePageContexts[platform] = livePageContext;
+        else delete mergeSourcePageContexts[platform];
+        const stateForMerge = {
+          ...state,
+          managedPageContextTabs: mergeSourcePageContexts,
+        };
+        const mergeSource = retainsHeartbeatAuthority
+          ? {
+              ...stateForMerge,
+              sessions: {
+                ...state.sessions,
+                [platform]: {
+                  ...nextSession,
+                  lastHeartbeatAt: currentSession.lastHeartbeatAt,
+                  lastHeartbeatOk: currentSession.lastHeartbeatOk,
+                  heartbeatChecks: currentSession.heartbeatChecks,
+                  tablessHeartbeat: currentCadence,
+                },
               },
-            },
-          }
-        : state;
-      await saveOperationalStateDirect(mergePlatformState(latest, mergeSource, platform));
+            }
+          : stateForMerge;
+        await saveOperationalStateDirect(mergePlatformState(latest, mergeSource, platform));
+        if (currentManagedPageContextTabsRevision() === pageContextRevision) return;
+      }
     });
   }
 
@@ -1816,6 +1879,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         kick: new Set(waitingClaimRewardIds.kick),
       };
       let nextState: SchedulerState;
+      let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
       try {
         const adapters = createSelectedAdapters(settings, emit, schedulerPlatforms);
         // Observed here rather than returned by the scheduler: the controller
@@ -1843,7 +1907,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         signal.throwIfAborted();
         await applyAdFocusForState(result.state, emit, schedulerPlatforms);
         signal.throwIfAborted();
-        await reconcileTablessWatchers(result.state, settings, adapters, emit, schedulerPlatforms);
+        publicationLeases = await reconcileTablessWatchers(
+          result.state,
+          settings,
+          adapters,
+          emit,
+          schedulerPlatforms,
+        );
         signal.throwIfAborted();
         await reconcileDiscoverySignalControllers(result.state, settings, adapters, emit, schedulerPlatforms);
         signal.throwIfAborted();
@@ -1870,17 +1940,27 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         // The tick was rolled back, so any partial claim set is not actionable.
         for (const key of Object.keys(claimedRewards) as Platform[]) delete claimedRewards[key];
         clearOperationalEvents(events);
-        if (signal.aborted) return;
-        const detail = error instanceof Error ? error.message : "Scheduler tick failed";
-        emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
-        emit({ category: "diagnostic", level: "error", platform, message: detail });
-        await persistPlatformAndReport(platform, state, correlateTickDiagnostics(events, tickContext));
+        try {
+          if (signal.aborted) return;
+          const detail = error instanceof Error ? error.message : "Scheduler tick failed";
+          emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
+          emit({ category: "diagnostic", level: "error", platform, message: detail });
+          await persistPlatformAndReport(platform, state, correlateTickDiagnostics(events, tickContext));
+        } finally {
+          await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
+            releaseHeartbeatPublicationLease(leasePlatform, lease)));
+        }
         return;
       }
-      await persistPlatformAndReport(platform, nextState, correlateTickDiagnostics(events, tickContext));
-      waitingClaimRewardIds[platform].clear();
-      for (const rewardId of nextWaitingClaimRewardIds[platform]) {
-        waitingClaimRewardIds[platform].add(rewardId);
+      try {
+        await persistPlatformAndReport(platform, nextState, correlateTickDiagnostics(events, tickContext));
+        waitingClaimRewardIds[platform].clear();
+        for (const rewardId of nextWaitingClaimRewardIds[platform]) {
+          waitingClaimRewardIds[platform].add(rewardId);
+        }
+      } finally {
+        await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
+          releaseHeartbeatPublicationLease(leasePlatform, lease)));
       }
     }), schedulerPlatforms);
     return claimedRewards;
@@ -2010,8 +2090,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     adapters: Record<Platform, PlatformAdapter>,
     emit: EventEmitter,
     platforms?: Platform[],
-  ): Promise<void> {
+  ): Promise<Array<readonly [Platform, HeartbeatPublicationLease]>> {
     const targets = platforms ?? PLATFORMS;
+    const publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
     for (const platform of targets) {
       const session = state.sessions[platform];
       const adapter = adapters[platform];
@@ -2023,69 +2104,93 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const ownership = await withHeartbeatLane(platform, async (lane) => {
         const committed = lane.committed;
         const watcher = committed?.watcher ?? tablessWatchers.get(platform);
-        if (wantsTabless) lane.revision += 1;
+        const needsPublicationLease = wantsTabless || watcher !== undefined;
+        let publicationLease = lane.publicationLease;
+        if (needsPublicationLease && !publicationLease) {
+          publicationLease = newHeartbeatPublicationLease();
+          lane.publicationLease = publicationLease;
+          // Invalidate recovery that captured storage before this handoff
+          // started. The lease remains held until scheduler persistence.
+          lane.revision += 1;
+        }
         return {
           revision: lane.revision,
           committed,
           watcher,
+          publicationLease,
         };
       });
+      if (ownership.publicationLease) {
+        publicationLeases.push([platform, ownership.publicationLease]);
+      }
       const existing = ownership.watcher;
 
-      if (wantsTabless && session.channel && adapter.createTablessWatcher) {
-        const contextKey = heartbeatContextKey(session);
-        const changingContext = ownership.committed != null
-          && ownership.committed.contextKey !== contextKey;
-        const watcher = !existing || changingContext
-          ? adapter.createTablessWatcher()
-          : existing;
-        const created = watcher !== existing;
-        drainWatcherEvents(watcher, emit);
-        if (watcher.channelUrl !== session.channel.url) {
-          let startFailed = false;
-          let startError: unknown;
-          try {
-            await watcher.start(session.channel, tablessWatchContext());
-          } catch (error) {
-            startFailed = true;
-            startError = error;
-          } finally {
-            drainWatcherEvents(watcher, emit);
+      try {
+        if (wantsTabless && session.channel && adapter.createTablessWatcher) {
+          const contextKey = heartbeatContextKey(session);
+          const changingContext = ownership.committed != null
+            && ownership.committed.contextKey !== contextKey;
+          const watcher = !existing || changingContext
+            ? adapter.createTablessWatcher()
+            : existing;
+          const created = watcher !== existing;
+          drainWatcherEvents(watcher, emit);
+          if (watcher.channelUrl !== session.channel.url) {
+            let startFailed = false;
+            let startError: unknown;
+            try {
+              await watcher.start(session.channel, tablessWatchContext());
+            } catch (error) {
+              startFailed = true;
+              startError = error;
+            } finally {
+              drainWatcherEvents(watcher, emit);
+            }
+            if (startFailed) {
+              emit({
+                category: "diagnostic",
+                platform,
+                level: "warn",
+                message: startError instanceof Error ? startError.message : "Could not start the tabless watcher",
+              });
+            }
           }
-          if (startFailed) {
-            emit({
-              category: "diagnostic",
-              platform,
-              level: "warn",
-              message: startError instanceof Error ? startError.message : "Could not start the tabless watcher",
-            });
-          }
+          const publication = await commitHeartbeatContext(
+            platform,
+            session,
+            watcher,
+            ownership.revision,
+            ownership.publicationLease,
+          );
+          const winningContext = publication.committed;
+          session.tablessHeartbeat = publication.accepted || !winningContext
+            || winningContext.contextKey !== contextKey
+            ? publication.cadence
+            : winningContext.session.tablessHeartbeat;
+          const discarded = publication.accepted
+            ? publication.replaced
+            : created ? watcher : undefined;
+          if (discarded) await stopTablessWatcher(discarded, platform, emit);
+        } else if (existing) {
+          const removal = await takeHeartbeatWatcher(platform, ownership.revision);
+          session.tablessHeartbeat = undefined;
+          if (!removal.accepted || !removal.watcher) continue;
+          await stopTablessWatcher(removal.watcher, platform, emit);
+        } else {
+          await takeHeartbeatWatcher(platform, ownership.revision);
+          session.tablessHeartbeat = undefined;
         }
-        const publication = await commitHeartbeatContext(
-          platform,
-          session,
-          watcher,
-          ownership.revision,
-        );
-        const winningContext = publication.committed;
-        session.tablessHeartbeat = publication.accepted || !winningContext
-          || winningContext.contextKey !== contextKey
-          ? publication.cadence
-          : winningContext.session.tablessHeartbeat;
-        const discarded = publication.accepted
-          ? publication.replaced
-          : created ? watcher : undefined;
-        if (discarded) await stopTablessWatcher(discarded, platform, emit);
-      } else if (existing) {
-        const removal = await takeHeartbeatWatcher(platform, ownership.revision);
-        session.tablessHeartbeat = undefined;
-        if (!removal.accepted || !removal.watcher) continue;
-        await stopTablessWatcher(removal.watcher, platform, emit);
-      } else {
-        await takeHeartbeatWatcher(platform, ownership.revision);
-        session.tablessHeartbeat = undefined;
+      } catch (error) {
+        if (ownership.publicationLease) {
+          await releaseHeartbeatPublicationLease(platform, ownership.publicationLease);
+          const index = publicationLeases.findIndex(([leasePlatform, lease]) =>
+            leasePlatform === platform && lease === ownership.publicationLease);
+          if (index >= 0) publicationLeases.splice(index, 1);
+        }
+        throw error;
       }
     }
+    return publicationLeases;
   }
 
   function drainWatcherEvents(watcher: TablessWatchController, emit: EventEmitter): void {
@@ -2295,8 +2400,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         // publishes while this read is pending, the loaded snapshot must not
         // remove or replace that newer owner.
         const expectedRevision = heartbeatLanes[platform].revision;
+        const expectedPageContextRevision = currentManagedPageContextTabsRevision();
         const nextState = await deps.loadState();
-        registerManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, [platform]);
+        hydrateManagedPageContextTabs(
+          nextState.managedPageContextTabs ?? {},
+          [platform],
+          expectedPageContextRevision,
+        );
         const adapters = createSelectedAdapters(settings, emit, [platform]);
         const prepared = await preparePlatformHeartbeatContext(
           platform,
@@ -2334,6 +2444,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
     let recoveryCommit: HeartbeatRecoveryCommit | undefined;
     const decision = await withHeartbeatLane(platform, async (lane) => {
+      if (lane.publicationLease) return { waitFor: lane.publicationLease.settled };
       if (lane.recoveryCommit) return { waitFor: lane.recoveryCommit.settled };
       if (lane.revision !== expectedRevision) {
         // A same-context winner makes this invocation redundant. A different
@@ -2534,64 +2645,79 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         resolveAttempt = resolve;
         rejectAttempt = reject;
       });
-      const reservation = await withHeartbeatLane(platform, async (lane) => {
-        if (controllerShutdown) {
-          return { start: false, standaloneCoalescedCalls: 0 };
-        }
-        const committed = lane.committed;
-        const requestedContextKey = session ? heartbeatContextKey(session) : committed?.contextKey;
-        const requestedGeneration = session
-          ? validTablessHeartbeatCadence(session)?.generation
-          : undefined;
-        if (
-          !committed
-          || requestedContextKey !== committed.contextKey
-          || (kind === "immediate" && requestedGeneration !== committed.generation)
-        ) {
-          const standaloneCoalescedCalls = lane.coalescedWithoutAttempt;
+      let reservation: {
+        start: boolean;
+        standaloneCoalescedCalls: number;
+        attempt?: HeartbeatAttempt;
+        committed?: CommittedHeartbeatContext;
+      };
+      while (true) {
+        const decision = await withHeartbeatLane(platform, async (lane) => {
+          if (controllerShutdown) {
+            return { start: false, standaloneCoalescedCalls: 0 };
+          }
+          if (lane.publicationLease) return { waitFor: lane.publicationLease.settled };
+          const committed = lane.committed;
+          const requestedContextKey = session ? heartbeatContextKey(session) : committed?.contextKey;
+          const requestedGeneration = session
+            ? validTablessHeartbeatCadence(session)?.generation
+            : undefined;
+          if (
+            !committed
+            || requestedContextKey !== committed.contextKey
+            || (kind === "immediate" && requestedGeneration !== committed.generation)
+          ) {
+            const standaloneCoalescedCalls = lane.coalescedWithoutAttempt;
+            lane.coalescedWithoutAttempt = 0;
+            return { start: false, standaloneCoalescedCalls };
+          }
+
+          if (
+            lane.inFlight
+            && lane.inFlight.generation === committed.generation
+            && lane.inFlight.contextKey === committed.contextKey
+          ) {
+            lane.inFlight.coalescedCalls += 1;
+            return { attempt: lane.inFlight, start: false, standaloneCoalescedCalls: 0 };
+          }
+
+          const attemptAt = Date.now();
+          let dueAt = attemptAt;
+          if (kind === "scheduled") {
+            dueAt = Date.parse(committed.session.tablessHeartbeat?.nextDueAt ?? "");
+            if (!Number.isFinite(dueAt) || attemptAt < dueAt) {
+              return { start: false, standaloneCoalescedCalls: 0 };
+            }
+          } else if (
+            lane.lastCompletedGeneration === committed.generation
+            && lane.lastCompletedContextKey === committed.contextKey
+          ) {
+            const lastHeartbeatAt = Date.parse(committed.session.lastHeartbeatAt ?? "");
+            if (Number.isFinite(lastHeartbeatAt) && attemptAt - lastHeartbeatAt < RECENT_HEARTBEAT_MS) {
+              return { start: false, standaloneCoalescedCalls: 0 };
+            }
+          }
+
+          const attempt: HeartbeatAttempt = {
+            generation: committed.generation,
+            contextKey: committed.contextKey,
+            dueAt,
+            attemptAt,
+            synchronizationDelayMs: Math.max(0, attemptAt - requestedAt),
+            coalescedCalls: lane.coalescedWithoutAttempt,
+            promise: attemptPromise,
+          };
           lane.coalescedWithoutAttempt = 0;
-          return { start: false, standaloneCoalescedCalls };
+          lane.inFlight = attempt;
+          return { attempt, committed, start: true, standaloneCoalescedCalls: 0 };
+        });
+        if ("waitFor" in decision) {
+          await decision.waitFor;
+          continue;
         }
-
-        if (
-          lane.inFlight
-          && lane.inFlight.generation === committed.generation
-          && lane.inFlight.contextKey === committed.contextKey
-        ) {
-          lane.inFlight.coalescedCalls += 1;
-          return { attempt: lane.inFlight, start: false, standaloneCoalescedCalls: 0 };
-        }
-
-        const attemptAt = Date.now();
-        let dueAt = attemptAt;
-        if (kind === "scheduled") {
-          dueAt = Date.parse(committed.session.tablessHeartbeat?.nextDueAt ?? "");
-          if (!Number.isFinite(dueAt) || attemptAt < dueAt) {
-            return { start: false, standaloneCoalescedCalls: 0 };
-          }
-        } else if (
-          lane.lastCompletedGeneration === committed.generation
-          && lane.lastCompletedContextKey === committed.contextKey
-        ) {
-          const lastHeartbeatAt = Date.parse(committed.session.lastHeartbeatAt ?? "");
-          if (Number.isFinite(lastHeartbeatAt) && attemptAt - lastHeartbeatAt < RECENT_HEARTBEAT_MS) {
-            return { start: false, standaloneCoalescedCalls: 0 };
-          }
-        }
-
-        const attempt: HeartbeatAttempt = {
-          generation: committed.generation,
-          contextKey: committed.contextKey,
-          dueAt,
-          attemptAt,
-          synchronizationDelayMs: Math.max(0, attemptAt - requestedAt),
-          coalescedCalls: lane.coalescedWithoutAttempt,
-          promise: attemptPromise,
-        };
-        lane.coalescedWithoutAttempt = 0;
-        lane.inFlight = attempt;
-        return { attempt, committed, start: true, standaloneCoalescedCalls: 0 };
-      });
+        reservation = decision;
+        break;
+      }
 
       if (!reservation.attempt) {
         if (reservation.standaloneCoalescedCalls > 0) {
@@ -2892,6 +3018,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     closeTwitchIntegrityLifecycle("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     abortClaimHandoffs();
+    void cancelHeartbeatPublicationLeases(PLATFORMS);
     clearHeartbeatOwnershipInBackground(PLATFORMS);
     stopDiscoverySignalControllersInBackground(PLATFORMS);
   }

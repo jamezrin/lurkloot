@@ -24,7 +24,7 @@ import {
 } from "@lurkloot/shared/rewards";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
-import { currentManagedPageContextTabs, forgetManagedPageContextTabs, registerManagedPageContextTabs, syncManagedTabBreakers, type SchedulerManagedPageContexts } from "./tabs";
+import { currentManagedPageContextTabs, currentManagedPageContextTabsRevision, forgetManagedPageContextTabs, hydrateManagedPageContextTabs, syncManagedTabBreakers, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { applyPlatformAuthHealth } from "./authHealth";
@@ -656,7 +656,8 @@ export async function runSchedulerTick(
   options.signal?.throwIfAborted();
   const stopPageContextTabs = options.stopPageContextTabs ?? forgetManagedPageContextTabs;
   const platforms = options.platforms ?? PLATFORMS;
-  registerManagedPageContextTabs(state.managedPageContextTabs ?? {}, platforms);
+  const pageContextRevision = currentManagedPageContextTabsRevision();
+  hydrateManagedPageContextTabs(state.managedPageContextTabs ?? {}, platforms, pageContextRevision);
   let nextState: SchedulerState = {
     ...state,
     campaigns: { ...state.campaigns },

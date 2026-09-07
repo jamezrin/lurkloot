@@ -36,6 +36,8 @@ export function validTablessHeartbeatCadence(
     !cadence
     || !contextKey
     || !validHeartbeatGeneration(cadence.generation)
+    || typeof cadence.contextKey !== "string"
+    || cadence.contextKey.length === 0
     || cadence.contextKey !== contextKey
     || typeof cadence.nextDueAt !== "string"
     || !Number.isFinite(Date.parse(cadence.nextDueAt))

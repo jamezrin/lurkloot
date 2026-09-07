@@ -22,6 +22,7 @@ import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import {
   cancelTwitchIntegrityAcquisition,
+  currentManagedPageContextTabs,
   currentValidTwitchIntegrity,
   ensureTwitchIntegrityWithBrowser,
   forgetManagedPageContextTabs,
@@ -6286,6 +6287,114 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBeUndefined();
   });
 
+  it("keeps a scheduler target switch authoritative while its watcher start is blocked", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const allowSuccessorStart = deferred<void>();
+    const oldWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const successorWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    successorWatcher.start.mockImplementation(async (candidate) => {
+      await allowSuccessorStart.promise;
+      successorWatcher.channelUrl = candidate.url;
+    });
+    const successorChannel = channel("twitch", {
+      username: "lease-successor",
+      url: "https://www.twitch.tv/lease-successor",
+      broadcastId: "lease-successor-broadcast",
+    });
+    const successorCampaign: DropCampaign = {
+      ...campaign("twitch"),
+      id: "lease-successor-campaign",
+      rewards: [{ ...reward(), id: "lease-successor-reward" }],
+    };
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = vi.fn()
+      .mockReturnValueOnce(oldWatcher)
+      .mockReturnValueOnce(successorWatcher);
+    await env.controller.tick(["twitch"]);
+    vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([successorCampaign]);
+    vi.mocked(env.twitch.listCandidateChannels).mockResolvedValue([successorChannel]);
+
+    const successorTick = env.controller.tick(["twitch"]);
+    await vi.waitFor(() => expect(successorWatcher.start).toHaveBeenCalledOnce());
+    const alarm = env.controller.runWatchHeartbeat();
+    try {
+      await drainMicrotasks();
+      expect(oldWatcher.tick).not.toHaveBeenCalled();
+    } finally {
+      allowSuccessorStart.resolve();
+      await Promise.all([successorTick, alarm]);
+    }
+
+    expect(oldWatcher.stop).toHaveBeenCalledOnce();
+    expect(successorWatcher.stop).not.toHaveBeenCalled();
+    expect(env.state.sessions.twitch).toMatchObject({
+      channel: expect.objectContaining({ username: "lease-successor" }),
+      campaignId: "lease-successor-campaign",
+      rewardId: "lease-successor-reward",
+      tablessHeartbeat: expect.objectContaining({ generation: 2 }),
+    });
+    // The blocked-start wait uses Vitest's polling clock, so the new anchor can
+    // be a few fake milliseconds after 12:02:00. Advance past that slot.
+    vi.setSystemTime(new Date("2026-09-02T12:03:00.000Z"));
+    await env.controller.runWatchHeartbeat();
+    expect(oldWatcher.tick).not.toHaveBeenCalled();
+    expect(successorWatcher.tick).toHaveBeenCalledOnce();
+  });
+
+  it("keeps an initial published watcher authoritative until scheduler persistence", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const allowSchedulerSave = deferred<void>();
+    const schedulerSaveStarted = deferred<void>();
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const obsoleteRecovery = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = tablessEnv({ postClaimHandoff: true });
+    env.twitch.supportsPostClaimHandoff = true;
+    env.twitch.createTablessWatcher = vi.fn()
+      .mockReturnValueOnce(watcher)
+      .mockReturnValueOnce(obsoleteRecovery);
+    const persist = env.deps.saveState.getMockImplementation()!;
+    env.deps.saveState.mockImplementation(async (next) => {
+      if (
+        next.sessions.twitch.status === "watching"
+        && next.sessions.twitch.tablessHeartbeat !== undefined
+      ) {
+        schedulerSaveStarted.resolve();
+        await allowSchedulerSave.promise;
+      }
+      await persist(next);
+    });
+
+    const schedulerTick = env.controller.tick(["twitch"]);
+    await schedulerSaveStarted.promise;
+    expect(watcher.start).toHaveBeenCalledOnce();
+    const alarm = env.controller.runWatchHeartbeat();
+    try {
+      await drainMicrotasks();
+      expect(watcher.stop).not.toHaveBeenCalled();
+      expect(obsoleteRecovery.start).not.toHaveBeenCalled();
+    } finally {
+      allowSchedulerSave.resolve();
+      await Promise.all([schedulerTick, alarm]);
+    }
+
+    expect(watcher.tick).not.toHaveBeenCalled();
+    expect(watcher.stop).not.toHaveBeenCalled();
+    expect(obsoleteRecovery.start).not.toHaveBeenCalled();
+    expect(env.twitch.createTablessWatcher).toHaveBeenCalledOnce();
+
+    await env.controller.runClaimHandoff("twitch");
+    expect(watcher.tick).toHaveBeenCalledOnce();
+    expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
+      .toBe("2026-09-02T12:01:00.000Z");
+
+    vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+    await env.controller.runWatchHeartbeat();
+    expect(watcher.tick).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps the published successor authoritative while its scheduler save is pending", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
@@ -6856,6 +6965,94 @@ describe("background controller", () => {
     });
   });
 
+  it("does not hydrate an old persisted page context over a newer registry update", async () => {
+    const staleRead = deferred<SchedulerState>();
+    const env = tablessEnv();
+    const oldContext = {
+      platform: "twitch" as const,
+      tabId: 66,
+      originUrl: "https://www.twitch.tv/old-context",
+      origin: "https://www.twitch.tv",
+      ownedByExtension: true as const,
+    };
+    const newerContext = {
+      ...oldContext,
+      tabId: 77,
+      originUrl: "https://www.twitch.tv/newer-context",
+      lastFallbackAt: "2026-09-02T12:00:00.000Z",
+      fallbackHost: "gql.twitch.tv",
+      backgroundSuccesses: 0,
+    };
+    const staleState = structuredClone(env.state);
+    staleState.managedPageContextTabs = { twitch: oldContext };
+    env.deps.loadState
+      .mockImplementationOnce(() => staleRead.promise)
+      .mockResolvedValue(env.state);
+
+    const heartbeat = env.controller.runWatchHeartbeat();
+    await vi.waitFor(() => expect(env.deps.loadState).toHaveBeenCalled());
+    registerManagedPageContextTabs({ twitch: newerContext });
+    staleRead.resolve(staleState);
+    try {
+      await heartbeat;
+      expect(currentManagedPageContextTabs().twitch).toEqual(newerContext);
+    } finally {
+      registerManagedPageContextTabs({});
+    }
+  });
+
+  it("retains a heartbeat page-context update when a completed scheduler snapshot persists later", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const allowScheduler = deferred<void>();
+    const schedulerReachedPostTickWork = deferred<void>();
+    const baseContext = {
+      platform: "twitch" as const,
+      tabId: 66,
+      originUrl: "https://www.twitch.tv/drops/inventory",
+      origin: "https://www.twitch.tv",
+      ownedByExtension: true as const,
+    };
+    const watcher = fakeTablessWatcher(async () => {
+      recordManagedPageContextFallback(
+        "twitch",
+        "gql.twitch.tv",
+        undefined,
+        Date.parse("2026-09-02T12:01:00.000Z"),
+      );
+      return { ok: true, live: true };
+    });
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    env.state.managedPageContextTabs = { twitch: baseContext };
+    registerManagedPageContextTabs({ twitch: baseContext });
+    await env.controller.tick(["twitch"]);
+    env.deps.applyAdFocus.mockImplementation(async () => {
+      schedulerReachedPostTickWork.resolve();
+      await allowScheduler.promise;
+    });
+    vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+
+    const schedulerTick = env.controller.tick(["twitch"]);
+    await schedulerReachedPostTickWork.promise;
+    await env.controller.runWatchHeartbeat();
+    expect(env.state.managedPageContextTabs?.twitch).toMatchObject({
+      fallbackHost: "gql.twitch.tv",
+      backgroundSuccesses: 0,
+      lastFallbackAt: "2026-09-02T12:01:00.000Z",
+    });
+
+    allowScheduler.resolve();
+    await schedulerTick;
+
+    expect(env.state.managedPageContextTabs?.twitch).toMatchObject({
+      fallbackHost: "gql.twitch.tv",
+      backgroundSuccesses: 0,
+      lastFallbackAt: "2026-09-02T12:01:00.000Z",
+    });
+    registerManagedPageContextTabs({});
+  });
+
   it("retains a current heartbeat when a stale scheduler snapshot persists the same target", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
@@ -7244,6 +7441,21 @@ describe("background controller", () => {
     {
       metadata: "mismatched context key",
       build: () => ({ generation: 7, contextKey: "obsolete-context", nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 8,
+    },
+    {
+      metadata: "missing context key",
+      build: () => ({ generation: 7, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 8,
+    },
+    {
+      metadata: "null context key",
+      build: () => ({ generation: 7, contextKey: null, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      expectedGeneration: 8,
+    },
+    {
+      metadata: "numeric context key",
+      build: () => ({ generation: 7, contextKey: 42, nextDueAt: "2026-09-02T12:00:00.000Z" }),
       expectedGeneration: 8,
     },
     {
