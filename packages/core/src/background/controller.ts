@@ -2948,6 +2948,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const reservation: HeartbeatResultCommit = { attempt, settled, settle };
     while (true) {
       const decision = await withHeartbeatLane(platform, async (lane) => {
+        if (lane.publicationLease && !lane.publicationLease.published) {
+          return { waitFor: lane.publicationLease.admissionReady };
+        }
         if (
           lane.committed?.generation !== attempt.generation
           || lane.committed.contextKey !== attempt.contextKey

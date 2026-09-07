@@ -6263,6 +6263,75 @@ describe("background controller", () => {
     expect(env.state.sessions.kick.lastHeartbeatOk).toBe(true);
   });
 
+  it("publishes a successor before an old heartbeat result can block the handoff", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const oldResult = deferred<{ ok: boolean; live?: boolean; message?: string }>();
+    const allowSuccessorStart = deferred<void>();
+    const allowOldResultSave = deferred<void>();
+    const oldWatcher = fakeTablessWatcher(() => oldResult.promise);
+    const successorWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    successorWatcher.start.mockImplementation(async (candidate) => {
+      await allowSuccessorStart.promise;
+      successorWatcher.channelUrl = candidate.url;
+    });
+    const successorChannel = channel("twitch", {
+      username: "unpublished-successor",
+      url: "https://www.twitch.tv/unpublished-successor",
+      broadcastId: "unpublished-successor-broadcast",
+    });
+    const successorCampaign: DropCampaign = {
+      ...campaign("twitch"),
+      id: "unpublished-successor-campaign",
+      rewards: [{ ...reward(), id: "unpublished-successor-reward" }],
+    };
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = vi.fn()
+      .mockReturnValueOnce(oldWatcher)
+      .mockReturnValueOnce(successorWatcher);
+    await env.controller.tick(["twitch"]);
+    vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+
+    const oldHeartbeat = env.controller.runWatchHeartbeat();
+    await vi.waitFor(() => expect(oldWatcher.tick).toHaveBeenCalledOnce());
+    const persist = env.deps.saveState.getMockImplementation()!;
+    let oldResultSaveBlocked = false;
+    env.deps.saveState.mockImplementation(async (next) => {
+      if (
+        next.sessions.twitch.campaignId === "twitch-campaign"
+        && next.sessions.twitch.lastHeartbeatAt !== undefined
+      ) {
+        oldResultSaveBlocked = true;
+        await allowOldResultSave.promise;
+      }
+      await persist(next);
+    });
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([successorCampaign]);
+    vi.mocked(env.twitch.listCandidateChannels).mockResolvedValue([successorChannel]);
+
+    const successorTick = env.controller.tick(["twitch"]);
+    await vi.waitFor(() => expect(successorWatcher.start).toHaveBeenCalledOnce());
+    oldResult.resolve({ ok: true, live: true });
+    await drainMicrotasks();
+    allowSuccessorStart.resolve();
+    try {
+      await drainMicrotasks();
+      expect(oldWatcher.stop).toHaveBeenCalledOnce();
+      expect(oldResultSaveBlocked).toBe(false);
+    } finally {
+      allowOldResultSave.resolve();
+      await Promise.all([successorTick, oldHeartbeat]);
+    }
+
+    expect(env.state.sessions.twitch).toMatchObject({
+      campaignId: "unpublished-successor-campaign",
+      rewardId: "unpublished-successor-reward",
+      tablessHeartbeat: expect.objectContaining({ generation: 2 }),
+    });
+    expect(env.state.sessions.twitch.lastHeartbeatAt).toBeUndefined();
+    expect(lastAggregateDiagnostic(env, "twitch")).toContain("staleResult=true");
+  });
+
   it("rejects an old heartbeat while a successor lane waits to save scheduler state", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
