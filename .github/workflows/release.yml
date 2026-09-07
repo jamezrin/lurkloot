@@ -146,9 +146,6 @@ jobs:
           RELEASE_SYNC_APP_ID: ${{ secrets.RELEASE_SYNC_APP_ID }}
           RELEASE_SYNC_APP_PRIVATE_KEY: ${{ secrets.RELEASE_SYNC_APP_PRIVATE_KEY }}
         run: node scripts/release/cli.mjs app-token
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.26.0
       - uses: actions/download-artifact@v8
         with:
           pattern: stable-docker-${{ github.run_id }}-${{ github.run_attempt }}-oci-*
@@ -240,6 +237,40 @@ jobs:
           directory: site-artifact
           api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Report stable publication
+        run: >-
+          gh pr comment "$RELEASE_PR"
+          --body "Released v$VERSION. Chrome Web Store review was requested with automatic publication: https://chrome.google.com/webstore/devconsole/5fdc4582-d1e8-4714-819e-d4bdcee7da79/aobaackpofkghaejdnnmpmeaiaoibhdn"
+
+  # Synchronization is deliberately outside publish. It verifies the merged `develop` tree, which is
+  # not the tree being released, so a develop-side failure must not be able to wedge a release that
+  # has already shipped: this leaves a completed release plus one retryable job, instead of a rerun
+  # that repeats the entire publication before failing in the same place. Its own checkout is clean,
+  # so nothing has to be restored before switching branches.
+  sync:
+    needs: [resolve, publish]
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.26.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - id: sync-token
+        name: Mint the dedicated synchronization credential
+        env:
+          RELEASE_SYNC_APP_ID: ${{ secrets.RELEASE_SYNC_APP_ID }}
+          RELEASE_SYNC_APP_PRIVATE_KEY: ${{ secrets.RELEASE_SYNC_APP_PRIVATE_KEY }}
+        run: node scripts/release/cli.mjs app-token
       - name: Merge main directly into develop with the dedicated App
         env:
           SYNC_TOKEN: ${{ steps.sync-token.outputs.token }}
@@ -249,17 +280,9 @@ jobs:
           export GIT_CONFIG_COUNT=1
           export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
           export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
-          # Publication dirties the workspace before this runs: the site deploy installs wrangler on
-          # demand, which rewrites package.json. Synchronization switches branches, so it aborts on a
-          # dirty tree. Everything is already published by now, so tracked edits are discarded.
-          git restore --staged --worktree -- .
           # Playwright browsers live in the runner cache, not the worktree, so they survive the
           # branch switch inside sync-branches. Candidate and PR verify jobs already install
-          # Chromium; this publish checkout may be an older release SHA whose defaultVerify does not.
+          # Chromium; this checkout may be an older release SHA whose defaultVerify does not.
           pnpm install --frozen-lockfile
           pnpm --filter @lurkloot/extension exec playwright install chromium
           node scripts/release/cli.mjs sync-branches --remote origin
-      - name: Report stable publication
-        run: >-
-          gh pr comment "$RELEASE_PR"
-          --body "Released v$VERSION. Chrome Web Store review was requested with automatic publication: https://chrome.google.com/webstore/devconsole/5fdc4582-d1e8-4714-819e-d4bdcee7da79/aobaackpofkghaejdnnmpmeaiaoibhdn"
