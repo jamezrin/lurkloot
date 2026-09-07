@@ -1336,5 +1336,14 @@
   },
   "manualWatchPauseDetail": {
     "message": "Farming is paused while you’re watching a stream yourself. Pause it, close it, or switch away from that tab to resume automatically on the next check."
+  },
+  "reorderItem": {
+    "message": "Reorder $1"
+  },
+  "scrollRewardsLeft": {
+    "message": "Scroll rewards left"
+  },
+  "scrollRewardsRight": {
+    "message": "Scroll rewards right"
   }
 }

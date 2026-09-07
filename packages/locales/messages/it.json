@@ -1336,5 +1336,14 @@
   },
   "manualWatchPauseDetail": {
     "message": "Il farming è in pausa mentre guardi una diretta per conto tuo. Mettila in pausa, chiudila o passa a un'altra scheda per riprendere automaticamente il farming al prossimo controllo."
+  },
+  "reorderItem": {
+    "message": "Riordina $1"
+  },
+  "scrollRewardsLeft": {
+    "message": "Scorri le ricompense a sinistra"
+  },
+  "scrollRewardsRight": {
+    "message": "Scorri le ricompense a destra"
   }
 }

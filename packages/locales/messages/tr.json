@@ -1336,5 +1336,14 @@
   },
   "manualWatchPauseDetail": {
     "message": "Bir yayını kendiniz izlerken farm duraklatılır. Bir sonraki kontrolde farmın otomatik olarak devam etmesi için yayını duraklatın, kapatın veya bu sekmeden başka bir yere geçin."
+  },
+  "reorderItem": {
+    "message": "$1 sırasını değiştir"
+  },
+  "scrollRewardsLeft": {
+    "message": "Ödülleri sola kaydır"
+  },
+  "scrollRewardsRight": {
+    "message": "Ödülleri sağa kaydır"
   }
 }
