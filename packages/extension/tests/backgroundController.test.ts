@@ -6177,6 +6177,92 @@ describe("background controller", () => {
     expect(lastAggregateDiagnostic(env, "kick")).toContain("staleResult=true");
   });
 
+  it("completes a due heartbeat while unchanged-target scheduler persistence is blocked", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const { env, watcher } = await establishedTablessEnv("twitch");
+    const schedulerSaveStarted = deferred<void>();
+    const allowSchedulerSave = deferred<void>();
+    const persist = env.deps.saveState.getMockImplementation()!;
+    let blockNextSave = false;
+    env.deps.applyAdFocus.mockImplementation(async () => {
+      blockNextSave = true;
+    });
+    env.deps.saveState.mockImplementation(async (next) => {
+      if (blockNextSave) {
+        blockNextSave = false;
+        schedulerSaveStarted.resolve();
+        await allowSchedulerSave.promise;
+      }
+      await persist(next);
+    });
+    let transportCompleted = false;
+    watcher.tick.mockClear();
+    watcher.tick.mockImplementation(async () => {
+      transportCompleted = true;
+      return { ok: true, live: true };
+    });
+
+    const schedulerTick = env.controller.tick(["twitch"]);
+    await schedulerSaveStarted.promise;
+    const heartbeat = env.controller.runWatchHeartbeat();
+    try {
+      await drainMicrotasks();
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      expect(transportCompleted).toBe(true);
+    } finally {
+      allowSchedulerSave.resolve();
+      await Promise.all([schedulerTick, heartbeat]);
+    }
+
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+  });
+
+  it("completes a due initial heartbeat while discovery-signal start is blocked after publication", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const observerStartReached = deferred<void>();
+    const allowObserverStart = deferred<void>();
+    let transportCompleted = false;
+    const watcher = fakeTablessWatcher(async () => {
+      transportCompleted = true;
+      return { ok: true, live: true };
+    }, "kick");
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      tablessMode: true,
+      platform: {
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+      },
+    });
+    env.kick.supportsTabless = true;
+    env.kick.createTablessWatcher = vi.fn(() => watcher);
+    const startObserver = env.discoverySignalController.start.bind(env.discoverySignalController);
+    vi.spyOn(env.discoverySignalController, "start").mockImplementation(async (target, onSignal) => {
+      await startObserver(target, onSignal);
+      observerStartReached.resolve();
+      await allowObserverStart.promise;
+    });
+
+    const schedulerTick = env.controller.tick(["kick"]);
+    await observerStartReached.promise;
+    expect(watcher.start).toHaveBeenCalledOnce();
+    vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+    const heartbeat = env.controller.runWatchHeartbeat();
+    try {
+      await drainMicrotasks();
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      expect(transportCompleted).toBe(true);
+    } finally {
+      allowObserverStart.resolve();
+      await Promise.all([schedulerTick, heartbeat]);
+    }
+
+    expect(env.kick.createTablessWatcher).toHaveBeenCalledOnce();
+    expect(env.state.sessions.kick.lastHeartbeatOk).toBe(true);
+  });
+
   it("rejects an old heartbeat while a successor lane waits to save scheduler state", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));

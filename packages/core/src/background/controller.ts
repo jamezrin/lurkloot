@@ -151,6 +151,9 @@ interface HeartbeatRecoveryCommit {
 }
 
 interface HeartbeatPublicationLease {
+  published?: CommittedHeartbeatContext;
+  readonly admissionReady: Promise<void>;
+  readonly markPublished: (context: CommittedHeartbeatContext) => void;
   readonly settled: Promise<void>;
   readonly settle: () => void;
 }
@@ -181,8 +184,9 @@ interface HeartbeatLane {
   committed?: CommittedHeartbeatContext;
   // Discovery reserves this before starting, switching, or stopping a watcher
   // and holds it until the corresponding scheduler state has been persisted.
-  // Recovery must wait for the handoff rather than reconstructing the old
-  // persisted session while the new owner is only published in memory.
+  // Recovery waits while a new owner is unpublished, while a heartbeat may use
+  // the complete published context before persistence finishes. Its result then
+  // waits for lease settlement outside provider I/O and every lock.
   publicationLease?: HeartbeatPublicationLease;
   inFlight?: HeartbeatAttempt;
   // Reserved only after transport completes. Context publishers wait for this
@@ -520,11 +524,33 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   function newHeartbeatPublicationLease(): HeartbeatPublicationLease {
-    let settle!: () => void;
-    const settled = new Promise<void>((resolve) => {
-      settle = resolve;
+    let signalAdmission!: () => void;
+    let settleLease!: () => void;
+    let admissionSignalled = false;
+    const admissionReady = new Promise<void>((resolve) => {
+      signalAdmission = resolve;
     });
-    return { settled, settle };
+    const settled = new Promise<void>((resolve) => {
+      settleLease = resolve;
+    });
+    const signalAdmissionOnce = () => {
+      if (admissionSignalled) return;
+      admissionSignalled = true;
+      signalAdmission();
+    };
+    const lease: HeartbeatPublicationLease = {
+      admissionReady,
+      markPublished: (context) => {
+        lease.published = context;
+        signalAdmissionOnce();
+      },
+      settled,
+      settle: () => {
+        signalAdmissionOnce();
+        settleLease();
+      },
+    };
+    return lease;
   }
 
   async function releaseHeartbeatPublicationLease(
@@ -627,6 +653,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           lane.generationHighWater = Math.max(lane.generationHighWater ?? 0, generation);
           lane.committed = committed;
           tablessWatchers.set(platform, watcher);
+          if (publicationLease && lane.publicationLease === publicationLease) {
+            publicationLease.markPublished(committed);
+          }
           lane.revision += 1;
           return {
             accepted: true,
@@ -2101,17 +2130,27 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         && session.status === "watching"
         && session.watchMode === "tabless"
         && Boolean(session.channel);
+      const contextKey = heartbeatContextKey(session);
       const ownership = await withHeartbeatLane(platform, async (lane) => {
         const committed = lane.committed;
         const watcher = committed?.watcher ?? tablessWatchers.get(platform);
-        const needsPublicationLease = wantsTabless || watcher !== undefined;
-        let publicationLease = lane.publicationLease;
-        if (needsPublicationLease && !publicationLease) {
-          publicationLease = newHeartbeatPublicationLease();
-          lane.publicationLease = publicationLease;
-          // Invalidate recovery that captured storage before this handoff
-          // started. The lease remains held until scheduler persistence.
-          lane.revision += 1;
+        const keepsCommittedContext = wantsTabless
+          && adapter.createTablessWatcher !== undefined
+          && contextKey !== undefined
+          && committed?.contextKey === contextKey;
+        const needsPublicationLease = keepsCommittedContext
+          ? false
+          : (wantsTabless && adapter.createTablessWatcher !== undefined) || watcher !== undefined;
+        let publicationLease: HeartbeatPublicationLease | undefined;
+        if (needsPublicationLease) {
+          publicationLease = lane.publicationLease;
+          if (!publicationLease) {
+            publicationLease = newHeartbeatPublicationLease();
+            lane.publicationLease = publicationLease;
+            // Invalidate recovery that captured storage before this handoff
+            // started. The lease remains held until scheduler persistence.
+            lane.revision += 1;
+          }
         }
         return {
           revision: lane.revision,
@@ -2127,7 +2166,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       try {
         if (wantsTabless && session.channel && adapter.createTablessWatcher) {
-          const contextKey = heartbeatContextKey(session);
           const changingContext = ownership.committed != null
             && ownership.committed.contextKey !== contextKey;
           const watcher = !existing || changingContext
@@ -2444,7 +2482,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
     let recoveryCommit: HeartbeatRecoveryCommit | undefined;
     const decision = await withHeartbeatLane(platform, async (lane) => {
-      if (lane.publicationLease) return { waitFor: lane.publicationLease.settled };
+      if (lane.publicationLease) {
+        if (
+          lane.committed
+          && lane.publicationLease.published === lane.committed
+        ) {
+          return { ready: true };
+        }
+        return { waitFor: lane.publicationLease.admissionReady };
+      }
       if (lane.recoveryCommit) return { waitFor: lane.recoveryCommit.settled };
       if (lane.revision !== expectedRevision) {
         // A same-context winner makes this invocation redundant. A different
@@ -2656,7 +2702,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           if (controllerShutdown) {
             return { start: false, standaloneCoalescedCalls: 0 };
           }
-          if (lane.publicationLease) return { waitFor: lane.publicationLease.settled };
+          if (
+            lane.publicationLease
+            && lane.publicationLease.published !== lane.committed
+          ) {
+            return { waitFor: lane.publicationLease.admissionReady };
+          }
           const committed = lane.committed;
           const requestedContextKey = session ? heartbeatContextKey(session) : committed?.contextKey;
           const requestedGeneration = session
@@ -2895,18 +2946,27 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       settle = resolve;
     });
     const reservation: HeartbeatResultCommit = { attempt, settled, settle };
-    const accepted = await withHeartbeatLane(platform, async (lane) => {
-      if (
-        lane.resultCommit
-        || lane.committed?.generation !== attempt.generation
-        || lane.committed.contextKey !== attempt.contextKey
-      ) {
-        return false;
+    while (true) {
+      const decision = await withHeartbeatLane(platform, async (lane) => {
+        if (
+          lane.committed?.generation !== attempt.generation
+          || lane.committed.contextKey !== attempt.contextKey
+        ) {
+          return { accepted: false };
+        }
+        if (lane.publicationLease?.published === lane.committed) {
+          return { waitFor: lane.publicationLease.settled };
+        }
+        if (lane.resultCommit) return { accepted: false };
+        lane.resultCommit = reservation;
+        return { accepted: true };
+      });
+      if ("waitFor" in decision) {
+        await decision.waitFor;
+        continue;
       }
-      lane.resultCommit = reservation;
-      return true;
-    });
-    return accepted ? reservation : undefined;
+      return decision.accepted ? reservation : undefined;
+    }
   }
 
   async function finishHeartbeatResultCommit(
