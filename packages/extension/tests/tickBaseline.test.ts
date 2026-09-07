@@ -30,6 +30,9 @@ describe("scheduler tick baseline recorder", () => {
         campaignDiscovery: 0,
         candidateListings: 0,
         channelChecks: 0,
+        heartbeatAttempts: 0,
+        heartbeatBlockedByDiscovery: 0,
+        discoveryBlockedByHeartbeat: 0,
         campaignsEvaluated: 0,
         candidatesEvaluated: 0,
         watcherReconciliations: 0,
@@ -77,6 +80,43 @@ describe("scheduler tick baseline recorder", () => {
 });
 
 describe("extension scheduler tick baseline", () => {
+  it.each(["twitch", "kick"] as const)("measures isolated %s heartbeat/discovery overlap", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+
+    const result = await runExtensionBaselineCell(
+      platform,
+      "heartbeatOverlap",
+    );
+    reportBaseline(result);
+
+    expect(result.counts).toEqual({
+      adapterOperations: 3,
+      campaignDiscovery: 1,
+      candidateListings: 0,
+      channelChecks: 1,
+      heartbeatAttempts: 1,
+      heartbeatBlockedByDiscovery: 0,
+      discoveryBlockedByHeartbeat: 0,
+      campaignsEvaluated: 0,
+      candidatesEvaluated: 1,
+      watcherReconciliations: 1,
+      adapterConstructions: 4,
+      settingsLoads: 4,
+      stateLoads: 6,
+      stateSaves: 3,
+      eventPublications: 6,
+    });
+    expect(result.durationsMs).toEqual({
+      discovery: 30,
+      selection: 10,
+      watcher: 5,
+      persistence: 15,
+      total: 60,
+    });
+    expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
+  });
+
   it.each(["twitch", "kick"] as const)("measures an idle %s alarm tick", async (platform) => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");

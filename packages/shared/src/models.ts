@@ -153,6 +153,13 @@ export interface WatchSession {
   lastHeartbeatAt?: string;
   lastHeartbeatOk?: boolean;
   heartbeatChecks?: number;
+  tablessHeartbeat?: TablessHeartbeatCadence;
+}
+
+export interface TablessHeartbeatCadence {
+  generation: number;
+  contextKey: string;
+  nextDueAt: string;
 }
 
 export type WatchReasonCode =
