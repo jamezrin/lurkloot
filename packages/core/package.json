@@ -20,6 +20,8 @@
     "./fetchError": "./src/core/fetchError.ts",
     "./staleCache": "./src/core/staleCache.ts",
     "./timestamps": "./src/core/timestamps.ts",
+    "./heartbeatCadence": "./src/core/heartbeatCadence.ts",
+    "./discoverySnapshot": "./src/core/discoverySnapshot.ts",
     "./adapter": "./src/platforms/adapter.ts",
     "./twitch": "./src/platforms/twitch/index.ts",
     "./twitch/parser": "./src/platforms/twitch/parser.ts",

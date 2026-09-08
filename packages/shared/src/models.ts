@@ -153,6 +153,13 @@ export interface WatchSession {
   lastHeartbeatAt?: string;
   lastHeartbeatOk?: boolean;
   heartbeatChecks?: number;
+  tablessHeartbeat?: TablessHeartbeatCadence;
+}
+
+export interface TablessHeartbeatCadence {
+  generation: number;
+  contextKey: string;
+  nextDueAt: string;
 }
 
 export type WatchReasonCode =
@@ -431,12 +438,19 @@ export interface SchedulerState {
   // Persisted because adapters are rebuilt every tick, so an in-memory throttle
   // would never survive to the next one.
   gamification?: Partial<Record<Platform, { lastCheckedAt: string }>>;
+  campaignSearchBackoffs?: Partial<Record<Platform, CampaignSearchBackoff>>;
   campaigns: Record<Platform, DropCampaign[]>;
   deadlineInfeasibleRewardIds?: Partial<Record<Platform, string[]>>;
   lastTickAt?: string;
   // ISO timestamp recorded once by the background on install; drives the
   // time-based rate/review nudge. Undefined means "unknown" (pre-feature state).
   installedAt?: string;
+}
+
+export interface CampaignSearchBackoff {
+  campaignId: string;
+  retryAt: string;
+  fingerprint: string;
 }
 
 export interface WatchDecision {
