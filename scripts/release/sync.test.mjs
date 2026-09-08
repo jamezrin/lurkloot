@@ -143,7 +143,7 @@ test("defaultVerify includes command stdout when verification fails", async () =
   );
 });
 
-test("publish installs Playwright Chromium before synchronizing develop", async () => {
+test("the sync job installs Playwright Chromium before synchronizing develop", async () => {
   const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
   assert.match(
     yaml,

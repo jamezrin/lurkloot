@@ -2,8 +2,8 @@
 
 Label a pull request into `main`, inspect the candidate, and merge that pull request normally. A
 generated release pull request carrying the version bump then opens against `main`; merging it starts
-publication automatically, pausing once for approval on the `production` environment. Do not create
-or move tags by hand.
+publication automatically, pausing for approval on the `production` environment. Do not create or
+move tags by hand.
 
 ## Before you start: write the changelog
 
@@ -36,11 +36,15 @@ empty entry. That intentionally permits build-only releases, but produces an emp
    generated pull request's diff is only the version bump and changelog date.
 6. Review and merge the generated `release/X.Y.Z` pull request with a **merge commit**. Squash and
    rebase are blocked on `main`; the original `develop` commit SHAs remain in `main` history.
-7. Release runs from the merged `main` commit. Approve its single `production` job. It promotes the
-   `vX.Y.Z` prerelease to the latest release, publishing the extension artifacts it already carries
-   rather than rebuilding them, retags the verified `candidate-X.Y.Z` GHCR manifest by digest, then
-   publishes the Chrome Web Store and the production site, and merges `main` directly into `develop`
-   with the dedicated synchronization App.
+7. Release runs from the merged `main` commit. Approve its `production` publication job. It promotes
+   the `vX.Y.Z` prerelease to the latest release, publishing the extension artifacts it already
+   carries rather than rebuilding them, retags the verified `candidate-X.Y.Z` GHCR manifest by
+   digest, then publishes the Chrome Web Store and the production site.
+8. A separate `sync` job then merges `main` directly into `develop` with the dedicated
+   synchronization App, after verifying the merged tree. It is also gated on `production`, so it
+   asks for a second approval. That separation is deliberate: it verifies a tree that is not the one
+   being released, and a failure there must leave a completed release plus one retryable job rather
+   than wedge publication.
 
 `workflow_dispatch` remains on **Release** only for idempotent recovery. A successful release does
 not require a manual dispatch.
@@ -130,7 +134,8 @@ Stable publication operates on the exact merged commit and is idempotent:
   after review approval.
 - The production site deploys to `https://lurkloot.jamezrin.com`.
 - The owned mutable candidate release and tag are removed after the stable release exists.
-- `main` is merged directly into `develop` after local `pnpm verify` succeeds.
+- `main` is merged directly into `develop` after local `pnpm verify` succeeds, in the separate
+  `sync` job. The release is complete before it runs; nothing it does can unpublish anything.
 
 Firefox Add-ons publication remains manual. Upload the Firefox and source ZIPs from the GitHub
 release to AMO.
@@ -156,7 +161,7 @@ There are exactly two environments:
 | Environment | Approval | Credentials and purpose |
 | --- | --- | --- |
 | `preview` | none | `CRX_PRIVATE_KEY`; candidate signing, candidate GHCR, preview site |
-| `production` | `jamezrin` | CWS credentials and sync App credentials; all stable publication |
+| `production` | `jamezrin` | CWS credentials and sync App credentials; stable publication and the `develop` synchronization, approved separately |
 
 Repository secrets used from both channels remain `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID`. Variables are `CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID`.
@@ -230,6 +235,8 @@ SHAs; do not replace one with a floating tag.
 - Stable failure after merge: fix the external/configuration problem and manually dispatch
   **Release** on `main`. Matching completed steps are no-ops.
 - Existing stable tag at another SHA: stop and prepare a new version. Never move it.
+- Sync failure, including a `develop` tree that no longer passes `pnpm verify`: the release itself
+  is complete. Fix `develop`, then rerun the failed `sync` job alone; publication is not repeated.
 - Sync conflict: merge `main` into `develop` locally, run `pnpm verify`, and push with the dedicated
   App credential; alternatively use a one-off reviewed synchronization PR. Do not disable branch
   protection.
