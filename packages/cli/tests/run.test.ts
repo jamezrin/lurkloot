@@ -12,7 +12,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import { createTransport } from "../src/transport";
 import type { TransportHandle } from "../src/transport";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
-import { runLoop } from "../src/runtime/run";
+import { runCliTickOnce, runLoop } from "../src/runtime/run";
 import { createLogger } from "../src/logger";
 import type { Logger } from "../src/logger";
 import { runCliBaselineCell } from "./helpers/tickBaseline";
@@ -102,6 +102,119 @@ async function runOnce(health: Record<Platform, PlatformAuthHealth>, availabilit
   });
   return statePath;
 }
+
+function stateWithSubscriptionWait(id: string): SchedulerState {
+  return {
+    ...structuredClone(DEFAULT_STATE),
+    campaigns: {
+      ...DEFAULT_STATE.campaigns,
+      twitch: [{
+        id: `campaign-${id}`,
+        platform: "twitch",
+        name: `Campaign ${id}`,
+        status: "active",
+        eligibility: "waiting_for_subscription",
+        rewards: [{
+          id: `reward-${id}`,
+          name: `Reward ${id}`,
+          requirement: "subscription",
+          requiredSubs: 1,
+          requiredMinutes: 0,
+          watchedMinutes: 0,
+          status: "in_progress",
+        }],
+      }],
+    },
+  };
+}
+
+describe("CLI committed tick consumption", () => {
+  const engineSettings = DEFAULT_CLI_SETTINGS as unknown as EngineSettings;
+  const enabledPlatforms: Platform[] = ["twitch"];
+
+  it("uses the returned committed state without a fallback load", async () => {
+    const state = stateWithSubscriptionWait("success");
+    const loadState = vi.fn(async () => structuredClone(DEFAULT_STATE));
+    const logger = createLogger("error");
+    logger.info = vi.fn();
+
+    await runCliTickOnce({
+      controller: { tickAndHandOff: vi.fn(async () => state) },
+      enabledPlatforms,
+      engineSettings,
+      loadState,
+      seenSubscriptionWaits: new Set(),
+      logger,
+    });
+
+    expect(loadState).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward success"), "twitch");
+  });
+
+  it("logs a failed tick without consuming fallback state", async () => {
+    const logger = createLogger("error");
+    logger.error = vi.fn();
+    const loadState = vi.fn(async () => stateWithSubscriptionWait("stale"));
+
+    await runCliTickOnce({
+      controller: { tickAndHandOff: vi.fn(async () => { throw new Error("tick failed"); }) },
+      enabledPlatforms,
+      engineSettings,
+      loadState,
+      seenSubscriptionWaits: new Set(),
+      logger,
+    });
+
+    expect(loadState).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith("tick failed", "tick");
+  });
+
+  it("consumes the final handoff result and clears resolved subscription waits", async () => {
+    const seen = new Set<string>();
+    const logger = createLogger("error");
+    logger.info = vi.fn();
+    const tickAndHandOff = vi.fn()
+      .mockResolvedValueOnce(stateWithSubscriptionWait("handoff"))
+      .mockResolvedValueOnce(structuredClone(DEFAULT_STATE))
+      .mockResolvedValueOnce(stateWithSubscriptionWait("handoff"));
+    const options = {
+      controller: { tickAndHandOff }, enabledPlatforms, engineSettings,
+      loadState: vi.fn(async () => structuredClone(DEFAULT_STATE)),
+      seenSubscriptionWaits: seen, logger,
+    };
+
+    await runCliTickOnce(options);
+    await runCliTickOnce(options);
+    await runCliTickOnce(options);
+
+    expect(logger.info).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not associate overlapping results with each other", async () => {
+    const first = deferred<SchedulerState>();
+    const second = deferred<SchedulerState>();
+    const logger = createLogger("error");
+    logger.info = vi.fn();
+    const tickAndHandOff = vi.fn()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const options = () => ({
+      controller: { tickAndHandOff }, enabledPlatforms, engineSettings,
+      loadState: vi.fn(async () => structuredClone(DEFAULT_STATE)),
+      seenSubscriptionWaits: new Set<string>(), logger,
+    });
+
+    const firstRun = runCliTickOnce(options());
+    const secondRun = runCliTickOnce(options());
+    second.resolve(stateWithSubscriptionWait("second"));
+    await secondRun;
+    first.resolve(stateWithSubscriptionWait("first"));
+    await firstRun;
+
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward first"), "twitch");
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward second"), "twitch");
+  });
+});
 
 describe("runLoop authentication health reporting", () => {
   it("records missing credentials without invoking the live probe", async () => {
@@ -195,6 +308,9 @@ describe("CLI scheduler tick baseline", () => {
       host: "cli",
       platform,
       scenario: "idle",
+      // The stacked controller now performs five shared-engine loads in both
+      // hosts; the former CLI-only post-tick reload would make this six.
+      stateLoads: 5,
       counts: {
         adapterOperations: 2,
         campaignDiscovery: 1,
