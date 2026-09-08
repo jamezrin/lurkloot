@@ -3,7 +3,10 @@
 // and the proof (revolving 3D wall of box art). Merges the old Platforms and
 // Games sections, which repeated each other's copy.
 import { Image } from "astro:assets";
+import { LINKS } from "../consts";
 
+// Each card ends in a descriptive link to that platform's landing page — the
+// homepage stays the broad hub and the deep pages carry the search intent.
 const platforms = [
   {
     key: "twitch",
@@ -11,6 +14,7 @@ const platforms = [
     blurb:
       "It finds the Twitch drops you can earn, keeps you on a channel that's actually dropping them, and claims every reward for you — channel points included.",
     points: ["Finds every drop you can earn", "Always on a dropping channel", "Claims drops + channel points"],
+    more: { href: LINKS.twitchFarmer, label: "How to farm Twitch Drops automatically" },
   },
   {
     key: "kick",
@@ -18,6 +22,7 @@ const platforms = [
     blurb:
       "Full Kick drops support, right in your browser. It follows live campaigns, picks the right channel for the reward you want, and claims it the moment it unlocks — daily challenge cards included.",
     points: ["Follows live Kick campaigns", "Picks the right channel for you", "Claims drops + daily challenges"],
+    more: { href: LINKS.kickFarmer, label: "How to farm Kick Drops automatically" },
   },
 ];
 
@@ -92,6 +97,7 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
           <ul>
             {p.points.map((pt) => <li>{pt}</li>)}
           </ul>
+          <a class="cov__more" href={p.more.href}>{p.more.label} →</a>
         </article>
         </div>
       ))}
@@ -242,6 +248,18 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
     left: 0;
     color: var(--purple-soft);
   }
+  .cov__more {
+    display: inline-block;
+    margin-top: 1.4rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--lime);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: rgba(83, 252, 24, 0.4);
+    transition: text-decoration-color 0.2s var(--ease);
+  }
+  .cov__more:hover { text-decoration-color: var(--lime); }
 
   /* ---------- games lede ---------- */
   .cov__games-lede {

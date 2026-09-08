@@ -1,4 +1,6 @@
 ---
+import { LINKS } from "../consts";
+
 const steps = [
   {
     n: "01",
@@ -34,6 +36,11 @@ const steps = [
         </li>
       ))}
     </ol>
+
+    <p class="how__deeper reveal">
+      Platform specifics: <a href={LINKS.twitchFarmer}>farm Twitch Drops automatically</a>
+      or <a href={LINKS.kickFarmer}>farm Kick Drops automatically</a>.
+    </p>
   </div>
 </section>
 
@@ -84,4 +91,17 @@ const steps = [
     font-size: 1.02rem;
     max-width: 36ch;
   }
+  .how__deeper {
+    margin-top: clamp(2.5rem, 5vw, 3.5rem);
+    color: var(--muted);
+    font-size: 0.98rem;
+  }
+  .how__deeper a {
+    color: var(--lime);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: rgba(83, 252, 24, 0.4);
+    transition: text-decoration-color 0.2s var(--ease);
+  }
+  .how__deeper a:hover { text-decoration-color: var(--lime); }
 </style>
