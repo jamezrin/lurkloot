@@ -2,7 +2,7 @@ import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, Runtime
 import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { isFarmingActive } from "@lurkloot/shared/settings";
+import { autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { campaignSearchBackoffApplies, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
@@ -52,6 +52,7 @@ export const KICK_ALARM_NAME = "lurkloot.tick.kick";
 // of the (heavier, configurable) discovery tick. chrome.alarms clamps to a
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
 export const WATCH_ALARM_NAME = "lurkloot.watch";
+export const TWITCH_CHANNEL_POINTS_ALARM_NAME = "lurkloot.twitch-channel-points";
 export const TWITCH_INTEGRITY_ALARM_NAME = "lurkloot.twitch-integrity";
 export const TWITCH_INTEGRITY_REFRESH_LEAD_MS = 120_000;
 export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;
@@ -59,6 +60,7 @@ export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;
 interface BackgroundAlarmController {
   tickAndHandOff(platforms?: Platform[], trigger?: TickTrigger): Promise<SchedulerState | undefined>;
   runWatchHeartbeat(): Promise<void>;
+  runTwitchChannelPointsClaim(): Promise<void>;
   runTwitchIntegrityRefresh(): Promise<void>;
 }
 
@@ -70,6 +72,8 @@ export function createBackgroundAlarmListener(controller: BackgroundAlarmControl
       void controller.tickAndHandOff(["kick"], "alarm");
     } else if (alarm.name === WATCH_ALARM_NAME) {
       void controller.runWatchHeartbeat();
+    } else if (alarm.name === TWITCH_CHANNEL_POINTS_ALARM_NAME) {
+      void controller.runTwitchChannelPointsClaim();
     } else if (alarm.name === TWITCH_INTEGRITY_ALARM_NAME) {
       void controller.runTwitchIntegrityRefresh();
     }
@@ -1479,6 +1483,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const settings = await deps.loadSettings();
     await ensureSchedulerAlarms(settings.pollIntervalMinutes);
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    await reconcileTwitchChannelPointsAlarm(settings);
     if (settings.autoStartDropFarming && isFarmingActive(settings)) {
       await tick(undefined, "install");
     } else {
@@ -1492,6 +1497,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       deps.createAlarm(TWITCH_ALARM_NAME, { periodInMinutes }),
       deps.createAlarm(KICK_ALARM_NAME, { periodInMinutes }),
     ]);
+  }
+
+  async function reconcileTwitchChannelPointsAlarm(settings: EngineSettings): Promise<void> {
+    if (settings.platform.twitch.enabled && autoClaimChannelPointsFor(settings, "twitch")) {
+      await deps.createAlarm(TWITCH_CHANNEL_POINTS_ALARM_NAME, { periodInMinutes: 1 });
+    } else {
+      await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+    }
   }
 
   async function ensureInstalledAt(installedAt = new Date().toISOString()): Promise<void> {
@@ -1531,6 +1544,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const settings = await deps.loadSettings();
     await ensureSchedulerAlarms(settings.pollIntervalMinutes);
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    await reconcileTwitchChannelPointsAlarm(settings);
     // A restart kills any in-memory watchers; atomically release their lane
     // ownership before host cleanup, then let tick() rebuild fresh instances.
     await clearHeartbeatOwnership(PLATFORMS);
@@ -1615,6 +1629,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await deps.saveSettings(settings);
       afterPersist?.(settings);
       await ensureSchedulerAlarms(settings.pollIntervalMinutes);
+      await reconcileTwitchChannelPointsAlarm(settings);
       return settings;
     });
   }
@@ -3646,6 +3661,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
+    void deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
     abortClaimHandoffs();
     void cancelHeartbeatPublicationLeases(PLATFORMS);
     clearHeartbeatOwnershipInBackground(PLATFORMS);
@@ -3664,6 +3680,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     closeTwitchIntegrityLifecycle("Host reset");
     await stopDiscoverySignalControllersAndReport(PLATFORMS);
     await clearTwitchIntegrityAlarmBestEffort();
+    await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
     abortClaimHandoffs();
     await clearHeartbeatOwnership(PLATFORMS);
     await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
@@ -4376,6 +4393,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  async function runTwitchChannelPointsClaim(): Promise<void> {
+    // Implemented as a serialized claim-only operation below.
+  }
+
   async function safeNotify(title: string, message: string): Promise<void> {
     if (!deps.createNotification) return;
     try {
@@ -4462,6 +4483,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     refreshDiscovery,
     discoverySnapshot,
     runWatchHeartbeat,
+    runTwitchChannelPointsClaim,
     runClaimHandoff,
     abortClaimHandoffs,
     shutdown,

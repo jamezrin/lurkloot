@@ -4,6 +4,7 @@ import {
   createBackgroundController,
   KICK_ALARM_NAME,
   TWITCH_ALARM_NAME,
+  TWITCH_CHANNEL_POINTS_ALARM_NAME,
   TWITCH_INTEGRITY_ALARM_NAME,
   type BackgroundControllerDeps,
   type CredentialAvailability,
@@ -379,6 +380,69 @@ function dueHeartbeatCadence(session: WatchSession, dueAt = Date.now()) {
 describe("background controller", () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  describe("Twitch channel points alarm lifecycle", () => {
+    it("creates a fixed one-minute alarm independently of the scheduler interval", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pollIntervalMinutes: 60 }));
+
+      await env.controller.ensureAlarm();
+
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_CHANNEL_POINTS_ALARM_NAME,
+        { periodInMinutes: 1 },
+      );
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_ALARM_NAME,
+        { periodInMinutes: 60 },
+      );
+    });
+
+    it.each([
+      { twitchEnabled: false, autoClaimChannelPoints: true },
+      { twitchEnabled: true, autoClaimChannelPoints: false },
+    ])("clears the alarm when a prerequisite is disabled", async ({ twitchEnabled, autoClaimChannelPoints }) => {
+      const enabledSettings = farming(DEFAULT_SETTINGS);
+      const env = harness({
+        ...enabledSettings,
+        platform: {
+          ...enabledSettings.platform,
+          twitch: {
+            ...enabledSettings.platform.twitch,
+            enabled: twitchEnabled,
+            autoClaimChannelPoints,
+          },
+        },
+      });
+
+      await env.controller.ensureAlarm();
+
+      expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+      expect(env.deps.createAlarm).not.toHaveBeenCalledWith(
+        TWITCH_CHANNEL_POINTS_ALARM_NAME,
+        expect.anything(),
+      );
+    });
+
+    it("reconciles the alarm after settings changes", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { autoClaimChannelPoints: false } } },
+      });
+
+      expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+    });
+
+    it("clears the alarm during reset and shutdown", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+
+      await env.controller.prepareForHostReset();
+      env.controller.shutdown();
+
+      expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+    });
   });
 
   describe("Twitch integrity expiry scheduling", () => {
