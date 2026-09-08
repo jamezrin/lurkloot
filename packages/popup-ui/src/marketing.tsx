@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Gem, Gift, ListVideo, type LucideIcon } from "lucide-react";
 import type { SupportedLocale } from "@lurkloot/shared/models";
 import { DEFAULT_LOCALE, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
@@ -63,20 +62,25 @@ function PopupFrame({ children, className }: { children: React.ReactNode; classN
   );
 }
 
-function ExtrasCard({
-  icon: Icon,
+function ExtraCallout({
+  dot,
   name,
   meta,
 }: {
-  icon: LucideIcon;
+  dot: string;
   name: string;
   meta: string;
 }): React.ReactElement {
   return (
-    <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-white/8 bg-white/[0.03] p-5 backdrop-blur-sm">
-      <Icon size={22} className="mb-4 text-[#c4a7ff]" strokeWidth={1.75} />
-      <div className="text-[17px] font-semibold text-[#ecedf5]">{name}</div>
-      <div className="mt-1.5 text-[13px] leading-snug text-[#9c9db4]">{meta}</div>
+    <div className="flex min-w-0 items-start gap-3">
+      <span
+        className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+        style={{ background: dot, boxShadow: `0 0 9px ${dot}` }}
+      />
+      <div className="min-w-0">
+        <div className="text-[17px] font-semibold text-[#ecedf5]">{name}</div>
+        <div className="mt-1 text-[13px] leading-snug text-[#9c9db4]">{meta}</div>
+      </div>
     </div>
   );
 }
@@ -91,10 +95,19 @@ function StepItem({
   sub: string;
 }): React.ReactElement {
   return (
-    <div className="min-w-0 flex-1">
+    <div className="relative min-w-0 ps-5">
       <div className="font-display text-[32px] font-bold leading-none text-[#c4a7ff]/80">{number}</div>
       <div className="mt-3 text-[18px] font-semibold text-[#ecedf5]">{title}</div>
       <div className="mt-1.5 text-[14px] leading-snug text-[#9c9db4]">{sub}</div>
+    </div>
+  );
+}
+
+function RuntimeTile({ title, sub }: { title: string; sub: string }): React.ReactElement {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col justify-center rounded-2xl border border-white/8 bg-white/[0.03] px-8 py-7">
+      <div className="font-display text-[32px] font-bold leading-[1.05] tracking-normal text-[#ecedf5]">{title}</div>
+      <div className="mt-3 text-[16px] leading-snug text-[#9c9db4]">{sub}</div>
     </div>
   );
 }
@@ -140,44 +153,46 @@ export function StoreScreenshot({
 
       {variant.layout === "extras" ? (
         <>
-          <CopyBlock
-            className="absolute start-[7%] top-[12%] end-[40%] z-10"
-            eyebrowKey={variant.eyebrowKey}
-            headlineKey={variant.headlineKey}
-            subcopyKey={variant.subcopyKey}
-            translate={translate}
-          />
-          <div className="absolute start-[7%] bottom-[12%] end-[7%] z-10 flex gap-3">
-            <ExtrasCard
-              icon={Gem}
-              name={translate("screenshotExtrasPointsName")}
-              meta={translate("screenshotExtrasPointsMeta")}
+          <div className="absolute start-[7%] top-[12%] end-[42%] z-10">
+            <CopyBlock
+              eyebrowKey={variant.eyebrowKey}
+              headlineKey={variant.headlineKey}
+              subcopyKey={variant.subcopyKey}
+              translate={translate}
             />
-            <ExtrasCard
-              icon={Gift}
-              name={translate("screenshotExtrasChallengesName")}
-              meta={translate("screenshotExtrasChallengesMeta")}
-            />
-            <ExtrasCard
-              icon={ListVideo}
-              name={translate("screenshotExtrasWatchlistName")}
-              meta={translate("screenshotExtrasWatchlistMeta")}
-            />
+            <div className="mt-8 flex flex-col gap-5">
+              <ExtraCallout
+                dot="#a970ff"
+                name={translate("screenshotExtrasPointsName")}
+                meta={translate("screenshotExtrasPointsMeta")}
+              />
+              <ExtraCallout
+                dot="#53fc18"
+                name={translate("screenshotExtrasChallengesName")}
+                meta={translate("screenshotExtrasChallengesMeta")}
+              />
+            </div>
           </div>
+          {popup ? (
+            <div className={`absolute end-[7%] top-[9%] z-20 origin-center ${rtl ? "rotate-[2deg]" : "rotate-[-2deg]"}`}>
+              <PopupFrame>{popup}</PopupFrame>
+            </div>
+          ) : null}
         </>
       ) : null}
 
       {variant.layout === "steps" ? (
         <>
           <CopyBlock
-            className="absolute start-[7%] top-[12%] end-[40%] z-10"
+            className="absolute start-[7%] top-[10%] end-[46%] z-10"
             eyebrowKey={variant.eyebrowKey}
             headlineKey={variant.headlineKey}
             subcopyKey={variant.subcopyKey}
             translate={translate}
             showSubcopy={false}
           />
-          <div className="absolute start-[7%] end-[7%] bottom-[14%] z-10 flex gap-7">
+          <div data-steps className="absolute start-[7%] top-[34%] bottom-[10%] z-10 flex w-[34%] flex-col justify-between">
+            <div className="pointer-events-none absolute start-0 top-2 bottom-6 w-0.5 bg-linear-to-b from-[#9147ff] to-[#53fc18]" />
             <StepItem
               number="01"
               title={translate("screenshotEasyInstallTitle")}
@@ -199,6 +214,11 @@ export function StoreScreenshot({
               sub={translate("screenshotEasyProfitSub")}
             />
           </div>
+          {popup ? (
+            <div className={`absolute end-[7%] top-[9%] z-20 origin-center ${rtl ? "rotate-[-2deg]" : "rotate-[2deg]"}`}>
+              <PopupFrame>{popup}</PopupFrame>
+            </div>
+          ) : null}
         </>
       ) : null}
 
@@ -220,13 +240,28 @@ export function StoreScreenshot({
       ) : null}
 
       {variant.layout === "updated" ? (
-        <CopyBlock
-          className="absolute start-[8%] end-[18%] bottom-[14%] max-w-[640px] z-10"
-          eyebrowKey={variant.eyebrowKey}
-          headlineKey={variant.headlineKey}
-          subcopyKey={variant.subcopyKey}
-          translate={translate}
-        />
+        <>
+          <CopyBlock
+            className="absolute start-[7%] top-[14%] end-[42%] z-10"
+            eyebrowKey={variant.eyebrowKey}
+            headlineKey={variant.headlineKey}
+            subcopyKey={variant.subcopyKey}
+            translate={translate}
+          />
+          <p className="absolute start-[7%] bottom-[12%] z-10 text-[13px] tracking-[0.08em] text-[#9c9db4]">
+            {translate("screenshotUpdatedLicense")}
+          </p>
+          <div className="absolute end-[7%] top-[12%] bottom-[12%] z-10 flex w-[400px] flex-col gap-4">
+            <RuntimeTile
+              title={translate("screenshotUpdatedBrowsersTitle")}
+              sub={translate("screenshotUpdatedBrowsersSub")}
+            />
+            <RuntimeTile
+              title={translate("screenshotUpdatedHeadlessTitle")}
+              sub={translate("screenshotUpdatedHeadlessSub")}
+            />
+          </div>
+        </>
       ) : null}
     </div>
   );

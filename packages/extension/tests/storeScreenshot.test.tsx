@@ -85,28 +85,29 @@ describe("store screenshot variants", () => {
 });
 
 describe("store screenshot cameras", () => {
-  it("renders extras cards and no live popup chrome", async () => {
+  it("places extras copy and chips beside a live popup", async () => {
     const container = await mountShot("extras", "LIVE_POPUP");
     expect(container.textContent).toContain("More than drops.");
-    expect(container.textContent).toContain("also claimed for you");
-    expect(container.textContent).toContain("Idle watchlist");
-    expect(container.textContent).not.toContain("LIVE_POPUP");
+    expect(container.textContent).toContain("Channel points");
+    expect(container.textContent).toContain("Daily challenges");
+    expect(container.textContent).toContain("LIVE_POPUP");
+    expect(container.textContent).not.toContain("Idle watchlist");
+    expect(container.querySelector('[data-layout="extras"]')).not.toBeNull();
   });
 
-  it("renders the four easy steps", async () => {
-    const container = await mountShot("easy");
+  it("stacks easy steps on the start side and mounts a live popup", async () => {
+    const container = await mountShot("easy", "LIVE_POPUP");
     expect(container.textContent).toContain("That easy.");
     expect(container.textContent).toContain("Install");
     expect(container.textContent).toContain("Pin it");
     expect(container.textContent).toContain("Enable a platform");
     expect(container.textContent).toContain("Profit");
-
-    const stepsRow = container.querySelector('[data-layout="steps"] div.absolute.flex.gap-7');
-    expect(stepsRow).not.toBeNull();
-    const className = stepsRow?.getAttribute("class") ?? "";
-    expect(className).not.toContain("inset-inline-[7%]");
+    expect(container.textContent).toContain("LIVE_POPUP");
+    const steps = container.querySelector('[data-layout="steps"] [data-steps]');
+    expect(steps).not.toBeNull();
+    const className = steps?.getAttribute("class") ?? "";
     expect(className).toMatch(/\bstart-\[7%\]/);
-    expect(className).toMatch(/\bend-\[7%\]/);
+    expect(className).not.toMatch(/\bgap-7\b/);
   });
 
   it("places the live popup inside hero and settings cameras", async () => {
@@ -118,10 +119,14 @@ describe("store screenshot cameras", () => {
     expect(settings.textContent).toContain("LIVE_POPUP");
   });
 
-  it("keeps updated as type-only", async () => {
+  it("fills updated with a text runtime board and no popup", async () => {
     const container = await mountShot("updated", "LIVE_POPUP");
     expect(container.textContent).toContain("Featureful. Always updated.");
-    expect(container.textContent).toContain("open to ideas");
+    expect(container.textContent).toContain("Chromium-based browsers");
+    expect(container.textContent).toContain("Chrome Web Store listing. Same extension.");
+    expect(container.textContent).toContain("CLI · Docker");
+    expect(container.textContent).toContain("Headless. Same engine.");
+    expect(container.textContent).toContain("Apache-2.0");
     expect(container.textContent).not.toContain("LIVE_POPUP");
   });
 });
