@@ -21,6 +21,10 @@ export interface RunOptions {
   // transiently unavailable one. Stays independent of any browser cookie
   // observation — it reads only the CLI's file/env credential store.
   checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
+  stateStore?: {
+    load(): Promise<SchedulerState>;
+    save(state: SchedulerState): Promise<void>;
+  };
 }
 
 function disabledPlatformsNeedingCleanup(
@@ -39,6 +43,39 @@ function disabledPlatformsNeedingCleanup(
   });
 }
 
+interface CliTickDriver {
+  tickAndHandOff(platforms?: Platform[]): Promise<SchedulerState | undefined>;
+}
+
+export async function runCliTickOnce(options: {
+  controller: CliTickDriver;
+  enabledPlatforms: Platform[];
+  engineSettings: ReturnType<typeof toEngineSettings>;
+  loadState(): Promise<SchedulerState>;
+  seenSubscriptionWaits: Set<string>;
+  logger: Logger;
+}): Promise<void> {
+  const { controller, enabledPlatforms, engineSettings, loadState, seenSubscriptionWaits, logger } = options;
+  try {
+    let state = await controller.tickAndHandOff(enabledPlatforms) ?? await loadState();
+    const staleDisabledPlatforms = disabledPlatformsNeedingCleanup(state, engineSettings);
+    if (staleDisabledPlatforms.length > 0) {
+      state = await controller.tickAndHandOff(staleDisabledPlatforms) ?? await loadState();
+    }
+    const waits = subscriptionWaitKeys([...state.campaigns.twitch, ...state.campaigns.kick]);
+    for (const key of seenSubscriptionWaits) {
+      if (!waits.has(key)) seenSubscriptionWaits.delete(key);
+    }
+    for (const [key, message] of waits) {
+      if (seenSubscriptionWaits.has(key)) continue;
+      seenSubscriptionWaits.add(key);
+      logger.info(message, key.slice(0, key.indexOf(":")) as Platform);
+    }
+  } catch (error) {
+    logger.error(error instanceof Error ? error.message : String(error), "tick");
+  }
+}
+
 // Headless farming loop. Reuses the engine's background controller — the same
 // tick (discovery → watch decisions → claims → state persistence) the extension
 // runs — backed by file storage and a self-driven interval instead of the
@@ -52,8 +89,10 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const enabledPlatforms = (["twitch", "kick"] as const).filter((platform) =>
     engineSettings.platform[platform].enabled);
   const seenSubscriptionWaits = new Set<string>();
-  const loadRuntimeState = async (): Promise<SchedulerState> => loadState(statePath);
-  const saveRuntimeState = async (state: SchedulerState): Promise<void> => saveState(statePath, state);
+  const loadRuntimeState = options.stateStore?.load
+    ?? (async (): Promise<SchedulerState> => loadState(statePath));
+  const saveRuntimeState = options.stateStore?.save
+    ?? (async (state: SchedulerState): Promise<void> => saveState(statePath, state));
 
   const controller = createBackgroundController({
     loadSettings: async () => engineSettings,
@@ -71,26 +110,14 @@ export async function runLoop(options: RunOptions): Promise<void> {
   });
 
   const tickOnce = async () => {
-    try {
-      await controller.tickAndHandOff(enabledPlatforms);
-      let state = await loadRuntimeState();
-      const staleDisabledPlatforms = disabledPlatformsNeedingCleanup(state, engineSettings);
-      if (staleDisabledPlatforms.length > 0) {
-        await controller.tickAndHandOff(staleDisabledPlatforms);
-        state = await loadRuntimeState();
-      }
-      const waits = subscriptionWaitKeys([...state.campaigns.twitch, ...state.campaigns.kick]);
-      for (const key of seenSubscriptionWaits) {
-        if (!waits.has(key)) seenSubscriptionWaits.delete(key);
-      }
-      for (const [key, message] of waits) {
-        if (seenSubscriptionWaits.has(key)) continue;
-        seenSubscriptionWaits.add(key);
-        logger.info(message, key.slice(0, key.indexOf(":")) as Platform);
-      }
-    } catch (error) {
-      logger.error(error instanceof Error ? error.message : String(error), "tick");
-    }
+    await runCliTickOnce({
+      controller,
+      enabledPlatforms,
+      engineSettings,
+      loadState: loadRuntimeState,
+      seenSubscriptionWaits,
+      logger,
+    });
   };
 
   const heartbeatOnce = async () => {

@@ -69,6 +69,157 @@ const HEALTHY_AUTH: SchedulerState["authHealth"] = {
 };
 
 describe("scheduler campaign selection", () => {
+  function negativeSearchFixture(eligible: boolean | "unknown" = false) {
+    const higher = campaign("higher");
+    const current = campaign("current");
+    const currentChannel = channel("current-channel");
+    const snapshot = {
+      platform: "twitch" as const,
+      revision: 1,
+      observedAt: Date.now(),
+      complete: true as const,
+      idleCandidates: [],
+      followedChannels: [],
+      metrics: { campaigns: 2, candidates: 2, cacheHits: 0, cacheMisses: 2, batchRequests: 1, singleFallbacks: 0 },
+      campaigns: [
+        { campaign: higher, candidates: [{ candidate: channel("higher-channel"), live: true, categoryMatches: true, eligible, observedAt: Date.now() }] },
+        { campaign: current, candidates: [{ candidate: currentChannel, live: true, categoryMatches: true, eligible: true as const, observedAt: Date.now() }] },
+      ],
+    };
+    const previous = {
+      platform: "twitch" as const,
+      status: "watching" as const,
+      channel: currentChannel,
+      campaignId: current.id,
+      rewardId: current.rewards[0]?.id,
+      offlineChecks: 0,
+      playbackChecks: 0,
+      watchMode: "tabless" as const,
+      lastHeartbeatOk: true,
+      lastHeartbeatAt: new Date().toISOString(),
+    };
+    return { higher, current, snapshot, previous };
+  }
+
+  it("records and reuses a bounded authoritative Twitch higher-priority miss", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-08T04:00:00.000Z");
+    const fixture = negativeSearchFixture();
+    const first = await selectWatchTargetFromSnapshot({
+      snapshot: fixture.snapshot,
+      previous: fixture.previous,
+      previousCampaigns: [fixture.higher, fixture.current],
+      settings: settings({ campaignPriorities: { higher: 10 } }),
+    } as Parameters<typeof selectWatchTargetFromSnapshot>[0]);
+
+    expect((first as unknown as { backoff?: { campaignId: string; retryAt: string } }).backoff).toMatchObject({
+      campaignId: "higher",
+      retryAt: "2026-09-08T04:05:00.000Z",
+    });
+    expect(first.candidatesChecked).toBe(2);
+
+    const second = await selectWatchTargetFromSnapshot({
+      snapshot: { ...fixture.snapshot, revision: 2 },
+      previous: fixture.previous,
+      previousCampaigns: [fixture.higher, fixture.current],
+      settings: settings({ campaignPriorities: { higher: 10 } }),
+      previousBackoff: (first as unknown as { backoff: unknown }).backoff,
+    } as Parameters<typeof selectWatchTargetFromSnapshot>[0]);
+
+    expect(second.candidatesChecked).toBe(1);
+    expect(second.decision.campaign?.id).toBe("current");
+  });
+
+  it("retries an authoritative Twitch miss after its deadline", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-08T04:06:00.000Z");
+    const fixture = negativeSearchFixture();
+    const result = await selectWatchTargetFromSnapshot({
+      snapshot: fixture.snapshot,
+      previous: fixture.previous,
+      previousCampaigns: [fixture.higher, fixture.current],
+      settings: settings({ campaignPriorities: { higher: 10 } }),
+      previousBackoff: { campaignId: "higher", retryAt: "2026-09-08T04:05:00.000Z", fingerprint: "ignored-until-implemented" },
+    } as Parameters<typeof selectWatchTargetFromSnapshot>[0]);
+
+    expect(result.candidatesChecked).toBe(2);
+    expect((result as unknown as { backoff?: { retryAt: string } }).backoff?.retryAt).toBe("2026-09-08T04:11:00.000Z");
+  });
+
+  it("invalidates a Twitch miss when settings, inventory, or current health changes", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-08T04:00:00.000Z");
+    const fixture = negativeSearchFixture();
+    const originalSettings = settings({ campaignPriorities: { higher: 10 } });
+    const first = await selectWatchTargetFromSnapshot({
+      snapshot: fixture.snapshot,
+      previous: fixture.previous,
+      previousCampaigns: [fixture.higher, fixture.current],
+      settings: originalSettings,
+    });
+    const previousBackoff = (first as unknown as { backoff: { campaignId: string; retryAt: string; fingerprint: string } }).backoff;
+    const cases = [
+      { snapshot: fixture.snapshot, previous: fixture.previous, settings: settings({ campaignPriorities: { higher: 20 } }), expectedCandidates: 2 },
+      {
+        snapshot: {
+          ...fixture.snapshot,
+          campaigns: fixture.snapshot.campaigns.map((entry) => entry.campaign.id === "higher"
+            ? { ...entry, campaign: { ...entry.campaign, name: "Changed inventory" } }
+            : entry),
+        },
+        previous: fixture.previous,
+        settings: originalSettings,
+        expectedCandidates: 2,
+      },
+      {
+        snapshot: fixture.snapshot,
+        previous: { ...fixture.previous, lastHeartbeatOk: false },
+        settings: originalSettings,
+        expectedCandidates: 2,
+      },
+      {
+        snapshot: {
+          ...fixture.snapshot,
+          campaigns: fixture.snapshot.campaigns.map((entry) => entry.campaign.id === "current"
+            ? { ...entry, campaign: { ...entry.campaign, rewards: entry.campaign.rewards.map((item) => ({ ...item, status: "claimed" as const })) } }
+            : entry),
+        },
+        previous: fixture.previous,
+        settings: originalSettings,
+        expectedCandidates: 1,
+      },
+    ];
+
+    for (const input of cases) {
+      const result = await selectWatchTargetFromSnapshot({
+        ...input,
+        previousCampaigns: [fixture.higher, fixture.current],
+        previousBackoff,
+      });
+      expect(result.candidatesChecked).toBe(input.expectedCandidates);
+      expect(result.backoffSkippedMs).toBeUndefined();
+    }
+  });
+
+  it("does not back off an ambiguous Twitch miss or any Kick search", async () => {
+    const ambiguous = negativeSearchFixture("unknown");
+    const twitch = await selectWatchTargetFromSnapshot({
+      snapshot: ambiguous.snapshot,
+      previous: ambiguous.previous,
+      previousCampaigns: [ambiguous.higher, ambiguous.current],
+      settings: settings({ campaignPriorities: { higher: 10 } }),
+    });
+    const kick = await selectWatchTargetFromSnapshot({
+      snapshot: { ...ambiguous.snapshot, platform: "kick", campaigns: ambiguous.snapshot.campaigns.map(({ campaign: item, ...rest }) => ({ ...rest, campaign: { ...item, platform: "kick" as const } })) },
+      previous: { ...ambiguous.previous, platform: "kick" },
+      previousCampaigns: [ambiguous.higher, ambiguous.current].map((item) => ({ ...item, platform: "kick" })),
+      settings: settings({ campaignPriorities: { higher: 10 } }),
+    });
+
+    expect((twitch as unknown as { backoff?: unknown }).backoff).toBeUndefined();
+    expect((kick as unknown as { backoff?: unknown }).backoff).toBeUndefined();
+  });
+
   it("selects from a named committed snapshot without provider discovery I/O", async () => {
     const selectedCampaign = campaign("snapshot-campaign");
     const selectedChannel = channel("snapshot-channel");
