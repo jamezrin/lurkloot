@@ -109,8 +109,11 @@ const labels: Record<string, string> = {
   autoClaimChannelPointsDescription: "Claim channel-point bonuses while farming this platform.",
   autoClaimChallengesTitle: "Auto-claim daily challenges",
   autoClaimChallengesDescription: "Claim Kick's daily challenge reward once its watch-time goal is met.",
-  farmAllCategoriesTitle: "Farm all categories",
-  farmAllCategoriesDescription: "Farm drops in every $1 category.",
+  categoryModeTitle: "Category filter",
+  categoryModeDescription: "Farm every $1 category, include only the categories you select, or exclude them.",
+  categoryModeAll: "All categories",
+  categoryModeInclude: "Only selected",
+  categoryModeExclude: "All except selected",
   excludedChannelsTitle: "Excluded drop channels",
   excludedChannelsDescription: "Campaign farming will skip these streamers.",
   excludedChannelsEmpty: "No excluded drop channels.",
@@ -291,6 +294,21 @@ describe("settings search view", () => {
     expect(container.textContent).toContain("Export settings");
     expect(container.textContent).toContain("Import settings");
     expect(container.textContent).not.toContain("No settings match");
+  });
+
+  // The mode names live in the option labels, which the search haystack (title
+  // + description) never sees, so the description has to carry them or the one
+  // control that excludes categories is unfindable by the word "exclude".
+  it("finds the category filter by the mode the user is looking for", () => {
+    for (const query of ["exclude", "include", "categor"]) {
+      const { container } = mountSettings();
+      const search = openSearch(container);
+
+      act(() => setInputValue(search, query));
+
+      expect(container.textContent, query).toContain("Category filter");
+      expect(container.textContent, query).not.toContain("No settings match");
+    }
   });
 
   it("restores the full tree when the query is cleared", () => {

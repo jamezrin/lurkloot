@@ -692,11 +692,26 @@
   "settingsGroupCategories": {
     "message": "الفئات"
   },
-  "farmAllCategoriesTitle": {
-    "message": "فارم كل الفئات"
+  "categoryModeTitle": {
+    "message": "تصفية الفئات"
   },
-  "farmAllCategoriesDescription": {
-    "message": "فارم Drops في كل فئات $1. أوقفه لفارم مجموعة مختارة فقط."
+  "categoryModeDescription": {
+    "message": "افرم كل فئات $1، أو ضمّن الفئات المحددة فقط، أو استبعدها."
+  },
+  "categoryModeAll": {
+    "message": "كل الفئات"
+  },
+  "categoryModeInclude": {
+    "message": "المحددة فقط"
+  },
+  "categoryModeExclude": {
+    "message": "الكل عدا المحددة"
+  },
+  "includeCategoriesInstruction": {
+    "message": "لن يتم الفارم على $1 إلا في هذه الفئات."
+  },
+  "excludeCategoriesInstruction": {
+    "message": "يتم الفارم في كل فئات $1 عدا هذه."
   },
   "categoriesToFarm": {
     "message": "الفئات للفارم"
@@ -706,6 +721,9 @@
   },
   "noCategoriesSelected": {
     "message": "لم يتم تحديد فئات: لن يتم فارم أي شيء على $1. أضف فئات أدناه."
+  },
+  "noCategoriesExcluded": {
+    "message": "لم يتم استبعاد أي فئة: سيتم الفارم في كل فئات $1. أضف فئات أدناه لتخطيها."
   },
   "hasActiveDrops": {
     "message": "لديه Drops نشطة"

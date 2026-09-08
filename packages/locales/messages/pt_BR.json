@@ -692,11 +692,26 @@
   "settingsGroupCategories": {
     "message": "Categorias"
   },
-  "farmAllCategoriesTitle": {
-    "message": "Farmar todas as categorias"
+  "categoryModeTitle": {
+    "message": "Filtro de categorias"
   },
-  "farmAllCategoriesDescription": {
-    "message": "Farma drops em todas as categorias do $1. Desative para farmar apenas um conjunto escolhido."
+  "categoryModeDescription": {
+    "message": "Farme todas as categorias da $1, inclua apenas as que você selecionar ou exclua-as."
+  },
+  "categoryModeAll": {
+    "message": "Todas as categorias"
+  },
+  "categoryModeInclude": {
+    "message": "Apenas as selecionadas"
+  },
+  "categoryModeExclude": {
+    "message": "Todas exceto as selecionadas"
+  },
+  "includeCategoriesInstruction": {
+    "message": "Na $1, apenas estas categorias são farmadas."
+  },
+  "excludeCategoriesInstruction": {
+    "message": "Na $1, todas as categorias são farmadas, exceto estas."
   },
   "categoriesToFarm": {
     "message": "Categorias para farmar"
@@ -706,6 +721,9 @@
   },
   "noCategoriesSelected": {
     "message": "Nenhuma categoria selecionada: nada será farmado no $1. Adicione categorias abaixo."
+  },
+  "noCategoriesExcluded": {
+    "message": "Nenhuma categoria excluída: todas as categorias da $1 serão farmadas. Adicione categorias abaixo para ignorá-las."
   },
   "hasActiveDrops": {
     "message": "Tem drops ativos"

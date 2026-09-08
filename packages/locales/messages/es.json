@@ -692,11 +692,26 @@
   "settingsGroupCategories": {
     "message": "Categorías"
   },
-  "farmAllCategoriesTitle": {
-    "message": "Farmear todas las categorías"
+  "categoryModeTitle": {
+    "message": "Filtro de categorías"
   },
-  "farmAllCategoriesDescription": {
-    "message": "Farmea drops en todas las categorías de $1. Desactívalo para farmear solo un conjunto elegido."
+  "categoryModeDescription": {
+    "message": "Farmea todas las categorías de $1, incluye solo las que selecciones o exclúyelas."
+  },
+  "categoryModeAll": {
+    "message": "Todas las categorías"
+  },
+  "categoryModeInclude": {
+    "message": "Solo las seleccionadas"
+  },
+  "categoryModeExclude": {
+    "message": "Todas menos las seleccionadas"
+  },
+  "includeCategoriesInstruction": {
+    "message": "En $1 solo se farmean estas categorías."
+  },
+  "excludeCategoriesInstruction": {
+    "message": "En $1 se farmean todas las categorías excepto estas."
   },
   "categoriesToFarm": {
     "message": "Categorías para farmear"
@@ -706,6 +721,9 @@
   },
   "noCategoriesSelected": {
     "message": "No hay categorías seleccionadas: no se farmeará nada en $1. Añade categorías abajo."
+  },
+  "noCategoriesExcluded": {
+    "message": "Ninguna categoría excluida: se farmearán todas las de $1. Añade categorías abajo para omitirlas."
   },
   "hasActiveDrops": {
     "message": "Tiene drops activos"

@@ -692,11 +692,26 @@
   "settingsGroupCategories": {
     "message": "Kategoriler"
   },
-  "farmAllCategoriesTitle": {
-    "message": "Tüm oyunlarda/kategorilerde topla"
+  "categoryModeTitle": {
+    "message": "Kategori filtresi"
   },
-  "farmAllCategoriesDescription": {
-    "message": "$1 platformundaki tüm kategorilerde çalışır. Sadece belli oyunları seçmek için kapatın."
+  "categoryModeDescription": {
+    "message": "Tüm $1 kategorilerini toplayın, yalnızca seçtiklerinizi dahil edin ya da onları hariç tutun."
+  },
+  "categoryModeAll": {
+    "message": "Tüm kategoriler"
+  },
+  "categoryModeInclude": {
+    "message": "Yalnızca seçilenler"
+  },
+  "categoryModeExclude": {
+    "message": "Seçilenler dışındaki tümü"
+  },
+  "includeCategoriesInstruction": {
+    "message": "$1 üzerinde yalnızca bu kategoriler toplanır."
+  },
+  "excludeCategoriesInstruction": {
+    "message": "$1 üzerinde bunlar dışındaki tüm kategoriler toplanır."
   },
   "categoriesToFarm": {
     "message": "Seçili kategoriler"
@@ -706,6 +721,9 @@
   },
   "noCategoriesSelected": {
     "message": "Kategori seçilmedi. $1 üzerinde işlem yapılmayacak."
+  },
+  "noCategoriesExcluded": {
+    "message": "Hiçbir kategori hariç tutulmadı: tüm $1 kategorileri toplanacak. Atlamak için aşağıdan kategori ekleyin."
   },
   "hasActiveDrops": {
     "message": "Aktif droplar var"

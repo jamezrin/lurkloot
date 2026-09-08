@@ -692,11 +692,26 @@
   "settingsGroupCategories": {
     "message": "Categorie"
   },
-  "farmAllCategoriesTitle": {
-    "message": "Farma tutte le categorie"
+  "categoryModeTitle": {
+    "message": "Filtro categorie"
   },
-  "farmAllCategoriesDescription": {
-    "message": "Farma drop in ogni categoria $1. Disattiva per farmare solo un set scelto."
+  "categoryModeDescription": {
+    "message": "Farma tutte le categorie di $1, includi solo quelle che selezioni oppure escludile."
+  },
+  "categoryModeAll": {
+    "message": "Tutte le categorie"
+  },
+  "categoryModeInclude": {
+    "message": "Solo le selezionate"
+  },
+  "categoryModeExclude": {
+    "message": "Tutte tranne le selezionate"
+  },
+  "includeCategoriesInstruction": {
+    "message": "Su $1 vengono farmate solo queste categorie."
+  },
+  "excludeCategoriesInstruction": {
+    "message": "Su $1 vengono farmate tutte le categorie tranne queste."
   },
   "categoriesToFarm": {
     "message": "Categorie da farmare"
@@ -706,6 +721,9 @@
   },
   "noCategoriesSelected": {
     "message": "Nessuna categoria selezionata: non verrà farmato nulla su $1. Aggiungi categorie sotto."
+  },
+  "noCategoriesExcluded": {
+    "message": "Nessuna categoria esclusa: verranno farmate tutte le categorie di $1. Aggiungine qui sotto per saltarle."
   },
   "hasActiveDrops": {
     "message": "Ha drop attivi"

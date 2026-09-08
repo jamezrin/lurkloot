@@ -45,7 +45,19 @@ Important setting groups:
 
 - Global automation: `running`, `autoStartDropFarming`, per-platform `enabled`.
 - Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `idleWatchlistFallbackOnly`, `priorityMode`, `campaignPriorities`, `excludedCampaignIds`, `farmingEligibility`.
-- Platform preferences: `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].farmAllCategories`, and `platform[platform].categories`.
+- Platform preferences: `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, and `platform[platform].categories`.
+
+`categoryMode` is `"all"`, `"include"` or `"exclude"`, and one stored `categories`
+list serves all three: `all` farms everything and leaves the list inactive,
+`include` farms only the listed categories (an empty list farms nothing) with
+list order supplying category priority, and `exclude` farms everything except the
+listed categories (an empty list is equivalent to `all`) with list order carrying
+no scheduling meaning. Switching mode never rewrites the array, so returning to
+`include` restores the ordering the user had set. Both questions — does a
+campaign pass, and what is its category priority — are answered only by
+`campaignPassesCategoryFilter` and `categoryPriorityScore` in
+`@lurkloot/shared/categories`, so farming eligibility, Drops-list visibility,
+scheduler rejection reasons and priority scoring cannot disagree.
 - Tab/playback behavior: `tablessMode`, `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`, `autoCloseFinishedDrops`, `offlineRetryLimit`.
 - Notifications: `notifyRewardEarned`, `notifyNoDropsLeft`.
 
