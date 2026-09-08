@@ -813,7 +813,7 @@
     "message": "Больше, чем дропы."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Баллы канала и челленджи Kick тоже клеймятся за вас. Idle-список, когда фармить больше нечего."
+    "message": "Баллы канала, челленджи Kick и 2-минутные дропы тоже клеймятся за вас. Idle-список, когда фармить больше нечего."
   },
   "screenshotExtrasPointsName": {
     "message": "Баллы канала"
@@ -826,6 +826,18 @@
   },
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · тоже клеймятся за вас"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Idle-список"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Смотрит ваших стримеров между кампаниями"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "2-минутные дропы"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · сразу как появляются"
   },
   "screenshotEasyEyebrow": {
     "message": "Просто использовать"
@@ -882,13 +894,25 @@
     "message": "Страница Chrome Web Store. То же расширение."
   },
   "screenshotUpdatedHeadlessTitle": {
-    "message": "CLI · Docker"
+    "message": "CLI"
   },
   "screenshotUpdatedHeadlessSub": {
     "message": "Без интерфейса. Тот же движок."
   },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "Тот же движок. В контейнере."
+  },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
+  },
+  "screenshotUpdatedRating": {
+    "message": "4.9"
+  },
+  "screenshotUpdatedUsers": {
+    "message": "более 1 000 пользователей"
   },
   "autoClaimReady": {
     "message": "Автополучение готово"

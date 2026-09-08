@@ -813,7 +813,7 @@
     "message": "Mais do que drops."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Pontos de canal e desafios da Kick, também resgatados para você. Uma lista ociosa quando não resta nada para farmar."
+    "message": "Pontos de canal, desafios da Kick e drops de 2 minutos, também resgatados para você. Uma lista ociosa quando não resta nada para farmar."
   },
   "screenshotExtrasPointsName": {
     "message": "Pontos de canal"
@@ -826,6 +826,18 @@
   },
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · também resgatados para você"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Lista ociosa"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Assiste seus streamers entre campanhas"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "Drops de 2 minutos"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · assim que aparecem"
   },
   "screenshotEasyEyebrow": {
     "message": "Fácil de usar"
@@ -882,13 +894,25 @@
     "message": "Página da Chrome Web Store. A mesma extensão."
   },
   "screenshotUpdatedHeadlessTitle": {
-    "message": "CLI · Docker"
+    "message": "CLI"
   },
   "screenshotUpdatedHeadlessSub": {
     "message": "Sem interface. O mesmo motor."
   },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "O mesmo motor. Em um container."
+  },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
+  },
+  "screenshotUpdatedRating": {
+    "message": "4.9"
+  },
+  "screenshotUpdatedUsers": {
+    "message": "mais de 1.000 usuários"
   },
   "autoClaimReady": {
     "message": "Auto-resgate pronto"

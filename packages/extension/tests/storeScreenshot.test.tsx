@@ -134,8 +134,9 @@ describe("store screenshot cameras", () => {
     expect(container.textContent).toContain("More than drops.");
     expect(container.textContent).toContain("Channel points");
     expect(container.textContent).toContain("Daily challenges");
+    expect(container.textContent).toContain("Idle watchlist");
+    expect(container.textContent).toContain("2-minute drops");
     expect(container.textContent).toContain("LIVE_POPUP");
-    expect(container.textContent).not.toContain("Idle watchlist");
     expect(container.querySelector('[data-layout="extras"]')).not.toBeNull();
   });
 
@@ -166,11 +167,21 @@ describe("store screenshot cameras", () => {
   it("fills updated with a text runtime board and no popup", async () => {
     const container = await mountShot("updated", "LIVE_POPUP");
     expect(container.textContent).toContain("Featureful. Always updated.");
+    expect(container.textContent).toContain("4.9");
+    expect(container.textContent).toContain("1,000+ users");
+    expect(container.textContent).not.toContain("25 reviews");
     expect(container.textContent).toContain("Chromium-based browsers");
     expect(container.textContent).toContain("Chrome Web Store listing. Same extension.");
-    expect(container.textContent).toContain("CLI · Docker");
+    expect(container.textContent).toContain("CLI");
     expect(container.textContent).toContain("Headless. Same engine.");
+    expect(container.textContent).toContain("Docker");
+    expect(container.textContent).toContain("Same engine. In a container.");
+    expect(container.textContent).not.toContain("CLI · Docker");
+    expect(container.textContent).toContain("GitHub");
+    expect(container.textContent).toContain("Open source");
     expect(container.textContent).toContain("Apache-2.0");
     expect(container.textContent).not.toContain("LIVE_POPUP");
+    expect(container.querySelector('[data-layout="updated"] svg')).not.toBeNull();
+    expect(container.querySelector("[data-updated-board]")).not.toBeNull();
   });
 });

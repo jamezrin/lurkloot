@@ -813,7 +813,7 @@
     "message": "أكثر من دروبس."
   },
   "screenshotExtrasSubcopy": {
-    "message": "نقاط القناة وتحديات Kick تُطالب أيضاً لأجلك. قائمة مشاهدة خاملة عندما لا يبقى شيء للفارم."
+    "message": "نقاط القناة وتحديات Kick ودروبات الدقيقتين تُطالب أيضاً لأجلك. قائمة مشاهدة خاملة عندما لا يبقى شيء للفارم."
   },
   "screenshotExtrasPointsName": {
     "message": "نقاط القناة"
@@ -826,6 +826,18 @@
   },
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · تُطالب أيضاً لأجلك"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "قائمة المشاهدة الخاملة"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "تشاهد ستريمرك بين الحملات"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "دروبات دقيقتين"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · لحظة إعلانها"
   },
   "screenshotEasyEyebrow": {
     "message": "سهل الاستخدام"
@@ -882,13 +894,25 @@
     "message": "صفحة Chrome Web Store. نفس الإضافة."
   },
   "screenshotUpdatedHeadlessTitle": {
-    "message": "CLI · Docker"
+    "message": "CLI"
   },
   "screenshotUpdatedHeadlessSub": {
     "message": "بلا واجهة. نفس المحرك."
   },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "نفس المحرك. في حاوية."
+  },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
+  },
+  "screenshotUpdatedRating": {
+    "message": "4.9"
+  },
+  "screenshotUpdatedUsers": {
+    "message": "أكثر من 1,000 مستخدم"
   },
   "autoClaimReady": {
     "message": "الاستلام التلقائي جاهز"

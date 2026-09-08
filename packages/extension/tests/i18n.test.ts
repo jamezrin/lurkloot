@@ -174,11 +174,15 @@ describe("i18n", () => {
       screenshotHeroSubcopy: "Auto-claim from your own logged-in session. No passwords.",
       screenshotExtrasEyebrow: "Beyond campaigns",
       screenshotExtrasHeadline: "More than drops.",
-      screenshotExtrasSubcopy: "Channel points and Kick challenges, also claimed for you. An idle watchlist when nothing is left to farm.",
+      screenshotExtrasSubcopy: "Channel points, Kick challenges, and 2-minute drops — also claimed for you. An idle watchlist when nothing is left to farm.",
       screenshotExtrasPointsName: "Channel points",
       screenshotExtrasPointsMeta: "Twitch · also claimed for you",
       screenshotExtrasChallengesName: "Daily challenges",
       screenshotExtrasChallengesMeta: "Kick · also claimed for you",
+      screenshotExtrasWatchlistName: "Idle watchlist",
+      screenshotExtrasWatchlistMeta: "Watches your streamers between campaigns",
+      screenshotExtrasFlashName: "2-minute drops",
+      screenshotExtrasFlashMeta: "Kick · picked up as they land",
       screenshotEasyEyebrow: "Easy to use",
       screenshotEasyHeadline: "That easy.",
       screenshotEasyInstallTitle: "Install",
@@ -197,9 +201,13 @@ describe("i18n", () => {
       screenshotUpdatedSubcopy: "Frequent releases as Twitch and Kick change — and open to ideas and improvements.",
       screenshotUpdatedBrowsersTitle: "Chromium-based browsers",
       screenshotUpdatedBrowsersSub: "Chrome Web Store listing. Same extension.",
-      screenshotUpdatedHeadlessTitle: "CLI · Docker",
+      screenshotUpdatedHeadlessTitle: "CLI",
       screenshotUpdatedHeadlessSub: "Headless. Same engine.",
+      screenshotUpdatedDockerTitle: "Docker",
+      screenshotUpdatedDockerSub: "Same engine. In a container.",
       screenshotUpdatedLicense: "Apache-2.0",
+      screenshotUpdatedRating: "4.9",
+      screenshotUpdatedUsers: "1,000+ users",
     };
     const catalog = readCatalog("en");
     for (const [key, message] of Object.entries(english)) {
@@ -214,8 +222,7 @@ describe("i18n", () => {
       "screenshotIdleWatchlistSubcopy",
       "screenshotActivityHeadline",
       "screenshotActivitySubcopy",
-      "screenshotExtrasWatchlistName",
-      "screenshotExtrasWatchlistMeta",
+      "screenshotUpdatedReviews",
     ]) {
       expect(catalog[stale], stale).toBeUndefined();
     }
@@ -251,7 +258,9 @@ describe("i18n", () => {
       // Brand-only store screenshot eyebrow.
       "screenshotHeroEyebrow",
       "screenshotUpdatedHeadlessTitle",
+      "screenshotUpdatedDockerTitle",
       "screenshotUpdatedLicense",
+      "screenshotUpdatedRating",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

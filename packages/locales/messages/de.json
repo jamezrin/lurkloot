@@ -813,7 +813,7 @@
     "message": "Mehr als Drops."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Kanalpunkte und Kick-Challenges, ebenfalls für dich geclaimt. Eine Idle-Watchlist, wenn nichts mehr zu farmen ist."
+    "message": "Kanalpunkte, Kick-Challenges und 2-Minuten-Drops, ebenfalls für dich geclaimt. Eine Idle-Watchlist, wenn nichts mehr zu farmen ist."
   },
   "screenshotExtrasPointsName": {
     "message": "Kanalpunkte"
@@ -826,6 +826,18 @@
   },
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · ebenfalls für dich geclaimt"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Idle-Watchlist"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Schaut deine Streamer zwischen Kampagnen"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "2-Minuten-Drops"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · sobald sie live gehen"
   },
   "screenshotEasyEyebrow": {
     "message": "Einfach zu nutzen"
@@ -882,13 +894,25 @@
     "message": "Chrome Web Store-Eintrag. Dieselbe Erweiterung."
   },
   "screenshotUpdatedHeadlessTitle": {
-    "message": "CLI · Docker"
+    "message": "CLI"
   },
   "screenshotUpdatedHeadlessSub": {
     "message": "Headless. Dieselbe Engine."
   },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "Dieselbe Engine. Im Container."
+  },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
+  },
+  "screenshotUpdatedRating": {
+    "message": "4.9"
+  },
+  "screenshotUpdatedUsers": {
+    "message": "über 1.000 Nutzer"
   },
   "autoClaimReady": {
     "message": "Auto-Beanspruchen bereit"

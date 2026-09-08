@@ -45,18 +45,18 @@ Copy stays:
 
 - Eyebrow: `Beyond campaigns`
 - Headline: `More than drops.`
-- Subcopy: `Channel points and Kick challenges, also claimed for you. An idle watchlist when nothing is left to farm.`
+- Subcopy: `Channel points, Kick challenges, and 2-minute drops — also claimed for you. An idle watchlist when nothing is left to farm.`
 
-Camera: copy **upper-left** (not 01’s lower-third). Two compact platform-dotted callouts under the subcopy, not three equal glass cards:
+Camera: copy **upper-left** (not 01’s lower-third). Four platform-dotted callouts in a 2×2 under the subcopy, names at 24px:
 
 - Channel points — `Twitch · also claimed for you`
 - Daily challenges — `Kick · also claimed for you`
+- Idle watchlist — `Watches your streamers between campaigns`
+- 2-minute drops — `Kick · picked up as they land`
 
-The idle watchlist is the only extra with a real UI, so it is the product object: a 400×600 popup on the end side, slight −2deg tilt, Twitch selected, watchlist section expanded, 2–3 rows showing live pills and viewer counts. Do not card the watchlist. Do not sell Kick watch time as farmable.
+The idle watchlist is also the product object: a 400×600 popup on the end side, slight −2deg tilt, Twitch selected, watchlist section expanded, 2–3 rows showing live pills and viewer counts. Do not sell Kick watch time as farmable. 2-minute drops are Kick flash campaigns discovered immediately, not a watch-time outcome.
 
 Demo data for this capture must mark watchlist channels live (today only the current farming session channel counts as live). Screenshot-specific demo overlay is allowed; do not change normal demo behavior for the site popup demo.
-
-Remove `screenshotExtrasWatchlistName` / `screenshotExtrasWatchlistMeta` from the layout. Delete those keys from every catalog in the same change so they do not drift.
 
 ## Shot 03 — easy
 
@@ -80,14 +80,12 @@ Copy stays:
 - Eyebrow: `Open source`
 - Headline: `Featureful. Always updated.`
 - Subcopy: `Frequent releases as Twitch and Kick change — and open to ideas and improvements.`
-- Quiet footer on the copy column: `Apache-2.0`
+No popup, no changelog dump, no activity-log pitch, no Firefox. Legal constraint: we may say Chromium-based browsers are supported; we must not put trademarked browser (or Docker) marks in the screenshots. Generic window / terminal / box icons and a GitHub mark are allowed.
 
-No popup, no changelog dump, no activity-log pitch, no Firefox, **no icons**. Legal constraint: we may say Chromium-based browsers are supported; we must not put trademarked browser (or Docker) marks in the screenshots.
+Copy sits upper-left, aligned with the rating. The object that fills the void is a **listing board** on the end side (400×600), one glass plaque rather than stretched tiles:
 
-The object that fills the void is a **runtime board** on the end side (~400×560): two stacked glass tiles, display-size type, no glyphs.
-
-1. **Browsers** — title `Chromium-based browsers`. Sub `Chrome Web Store listing. Same extension.`
-2. **Headless** — title `CLI · Docker`. Sub `Headless. Same engine.`
+- Rating `4.9` with five generic stars, then `1,000+ users`. No review count — that number moves too often to bake into store screenshots.
+- Compact runtime rows, one icon each: Chromium-based browsers, CLI, Docker, GitHub / Apache-2.0.
 
 Do not list Edge/Brave/Opera/Vivaldi by name on this shot, and do not copy site browser SVGs into popup-ui. `CLI`, `Docker`, and `Chrome Web Store` stay untranslated.
 
@@ -111,15 +109,15 @@ Do not list Edge/Brave/Opera/Vivaldi by name on this shot, and do not copy site 
 
 Keep existing extras/easy/updated copy keys except:
 
-- Delete `screenshotExtrasWatchlistName` and `screenshotExtrasWatchlistMeta` from all 11 catalogs.
-- Add `screenshotUpdatedBrowsersTitle` (`Chromium-based browsers`), `screenshotUpdatedBrowsersSub` (`Chrome Web Store listing. Same extension.`), `screenshotUpdatedHeadlessTitle` (`CLI · Docker`), `screenshotUpdatedHeadlessSub` (`Headless. Same engine.`), and `screenshotUpdatedLicense` (`Apache-2.0`) to all 11 catalogs.
+- Keep `screenshotExtrasWatchlistName` / `screenshotExtrasWatchlistMeta` and add `screenshotExtrasFlashName` (`2-minute drops`) / `screenshotExtrasFlashMeta` (`Kick · picked up as they land`) in all 11 catalogs.
+- Add `screenshotUpdatedBrowsersTitle` (`Chromium-based browsers`), `screenshotUpdatedBrowsersSub` (`Chrome Web Store listing. Same extension.`), `screenshotUpdatedHeadlessTitle` (`CLI`), `screenshotUpdatedHeadlessSub` (`Headless. Same engine.`), `screenshotUpdatedDockerTitle` (`Docker`), `screenshotUpdatedDockerSub` (`Same engine. In a container.`), `screenshotUpdatedLicense` (`Apache-2.0`), `screenshotUpdatedRating` (`4.9`), and `screenshotUpdatedUsers` (`1,000+ users`) to all 11 catalogs. Do not bake a review count into screenshot copy.
 
 `CLI`, `Docker`, `Apache-2.0`, and `Chrome Web Store` stay untranslated, same as Twitch / Kick. Translate `Chromium-based browsers`, the rest of the browsers sub around the `Chrome Web Store` token, and `Headless. Same engine.`
 
 ## Tests and docs
 
 - `packages/extension/tests/storeScreenshot.test.tsx`: extras and easy show a popup; updated does not; `variantShowsPopup` matches the table above; watchlist view is wired.
-- `packages/extension/tests/i18n.test.ts`: new keys exist in every catalog; deleted watchlist card keys are gone; placeholders still match.
+- `packages/extension/tests/i18n.test.ts`: new keys exist in every catalog; extras watchlist and flash keys are present; placeholders still match.
 - Capture config tests: extras and easy are `popup: true`.
 - `docs/chrome-web-store-submission.md` only if it still describes 02/03/05 as popup-free marketing frames.
 
