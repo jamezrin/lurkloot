@@ -5,7 +5,7 @@ import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
-import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, type StopPageContextTabs } from "../core/scheduler";
+import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
 import { isTimestampStale } from "../core/timestamps";
 import {
   currentManagedPageContextTabs,
@@ -40,6 +40,7 @@ import {
   collectDiscoverySnapshot,
   adapterFromDiscoverySnapshot,
   DiscoverySnapshotLane,
+  type DiscoverySnapshot,
   type DiscoverySnapshotState,
 } from "../core/discoverySnapshot";
 
@@ -326,6 +327,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   // Omitted in headless/test runs, where the scheduler forgets contexts from
   // state only (see runSchedulerTick / StopPageContextTabs).
   stopPageContextTabs?: StopPageContextTabs;
+  selectWatchTarget?: typeof selectWatchTargetFromSnapshot;
   // Delay used by the bounded post-claim handoff. Injected so tests can drive
   // the loop deterministically instead of racing real timers. Resolves early
   // (without throwing) when the signal aborts, so callers check `signal.aborted`
@@ -729,6 +731,27 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     twitch: createDiscoveryLane("twitch"),
     kick: createDiscoveryLane("kick"),
   };
+  interface SelectionInput {
+    platform: Platform;
+    trigger: TickTrigger;
+    snapshot: DiscoverySnapshot;
+    settings: S;
+    state: SchedulerState;
+    key: string;
+    force: boolean;
+    signal: AbortSignal;
+    generation: number;
+  }
+  interface CommittedSelection {
+    key: string;
+    snapshotRevision: number;
+    generation: number;
+    result: SnapshotSelectionResult;
+  }
+  const selectionCache: Partial<Record<Platform, CommittedSelection>> = {};
+  const selectionRuns: Partial<Record<Platform, Promise<CommittedSelection>>> = {};
+  const pendingSelections: Partial<Record<Platform, SelectionInput>> = {};
+  const selectionGeneration: Record<Platform, number> = { twitch: 0, kick: 0 };
   let installedTwitchIntegrity: TwitchIntegrity | undefined;
   let persistedIntegrityToken: string | undefined;
   // A missing rejectedToken means there was no usable bundle when the refresh
@@ -744,6 +767,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (!settings.platform[platform].enabled) {
           return {
             campaigns: [],
+            idleCandidates: [],
+            followedChannels: [],
             complete: false,
             failure: "Platform disabled",
             metrics: { campaigns: 0, candidates: 0, cacheHits: 0, cacheMisses: 0, batchRequests: 0, singleFallbacks: 0 },
@@ -752,7 +777,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         return withEventCollector(async (emit, events) => {
           const adapter = createAdapter(platform, settings, emit, true);
           try {
-            return await collectDiscoverySnapshot(adapter, state.sessions[platform], signal);
+            return await collectDiscoverySnapshot(
+              adapter,
+              state.sessions[platform],
+              signal,
+              Date.now,
+              settings.preferKnownChannels,
+              settings.platform[platform].idleWatchlistChannels
+                .map((username) => username.trim().toLowerCase())
+                .filter(Boolean)
+                .map((username) => ({
+                  platform,
+                  username,
+                  displayName: username,
+                  url: platform === "twitch"
+                    ? `https://www.twitch.tv/${username}`
+                    : `https://kick.com/${username}`,
+                })),
+            );
           } finally {
             discoveryEvents[platform].push(...events);
           }
@@ -1225,16 +1267,20 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     platform: Platform,
     state: SchedulerState,
     events: readonly EngineEvent[] = [],
-  ): Promise<void> {
-    await persistPlatformState(platform, state);
+    isCurrent?: () => boolean,
+  ): Promise<boolean> {
+    const persisted = await persistPlatformState(platform, state, isCurrent);
+    if (!persisted) return false;
     await reportBestEffort(events);
+    return true;
   }
 
   async function persistPlatformState(
     platform: Platform,
     state: SchedulerState,
-  ): Promise<void> {
-    await withStateCommit(async () => {
+    isCurrent?: () => boolean,
+  ): Promise<boolean> {
+    return withStateCommit(async () => {
       // The registry can change while storage I/O is in flight (for example a
       // page-context fallback reported by the heartbeat watcher). Retry the
       // short merge when its revision moved, so the last write is a compare-
@@ -1276,8 +1322,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
               },
             }
           : stateForMerge;
+        if (isCurrent?.() === false) return false;
         await saveOperationalStateDirect(mergePlatformState(latest, mergeSource, platform));
-        if (currentManagedPageContextTabsRevision() === pageContextRevision) return;
+        if (currentManagedPageContextTabsRevision() === pageContextRevision) return true;
       }
     });
   }
@@ -1495,7 +1542,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const invalidatedPlatforms = patchKeys.every((key) => key === "platform") && patch.platform
         ? PLATFORMS.filter((platform) => patch.platform?.[platform] !== undefined)
         : PLATFORMS;
-      for (const platform of invalidatedPlatforms) discoveryLanes[platform].invalidate();
+      for (const platform of invalidatedPlatforms) {
+        discoveryLanes[platform].invalidate();
+        invalidateSelection(platform);
+      }
       if (!deps.applySettingsPatch) {
         throw new Error("applySettingsPatch dependency is required to mutate settings");
       }
@@ -1879,6 +1929,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     await Promise.all(platforms.map(async (platform) => {
       if (!settings.platform[platform].enabled) {
         discoveryLanes[platform].invalidate();
+        invalidateSelection(platform);
         return;
       }
       await discoveryLanes[platform].requestAndWait();
@@ -1887,6 +1938,162 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   function discoverySnapshot(platform: Platform): Readonly<DiscoverySnapshotState> {
     return discoveryLanes[platform].current();
+  }
+
+  function selectionKey(platform: Platform, snapshot: DiscoverySnapshot, settings: S, state: SchedulerState): string {
+    const session = state.sessions[platform];
+    return JSON.stringify({
+      discovery: {
+        campaigns: snapshot.campaigns.map(({ campaign, candidates }) => ({
+          campaign,
+          candidates: candidates.map(({ observedAt: _observedAt, ...candidate }) => candidate),
+        })),
+        idleCandidates: snapshot.idleCandidates.map(({ observedAt: _observedAt, ...candidate }) => candidate),
+        followedChannels: snapshot.followedChannels,
+      },
+      persistedCampaigns: state.campaigns[platform],
+      settings,
+      target: {
+        status: session.status,
+        channel: session.channel,
+        campaignId: session.campaignId,
+        rewardId: session.rewardId,
+        watchMode: session.watchMode,
+        offlineChecks: session.offlineChecks,
+        playbackHealthy: session.playback ? isPlaybackTelemetryHealthy(session.playback) : undefined,
+        playbackChecks: session.playbackChecks,
+        heartbeatChecks: session.heartbeatChecks,
+        lastHeartbeatOk: session.lastHeartbeatOk,
+        noProgressChecks: session.noProgressChecks,
+        lastWatchedMinutes: session.lastWatchedMinutes,
+      },
+    });
+  }
+
+  function selectionIsForced(trigger: TickTrigger): boolean {
+    return trigger === "manual_tick" || trigger === "claim_handoff" || trigger === "startup";
+  }
+
+  function invalidateSelection(platform: Platform): void {
+    selectionGeneration[platform] += 1;
+    delete selectionCache[platform];
+    delete pendingSelections[platform];
+  }
+
+  async function evaluateSelection(input: SelectionInput): Promise<CommittedSelection> {
+    const startedAt = Date.now();
+    const result = await (deps.selectWatchTarget ?? selectWatchTargetFromSnapshot)({
+      snapshot: input.snapshot,
+      previous: input.state.sessions[input.platform],
+      previousCampaigns: input.state.campaigns[input.platform],
+      settings: input.settings,
+      signal: input.signal,
+    });
+    discoveryEvents[input.platform].push({
+      category: "diagnostic",
+      platform: input.platform,
+      level: "debug",
+      message: `Snapshot selection finished in ${Date.now() - startedAt}ms (trigger=${input.trigger}, revision=${input.snapshot.revision}, age=${Math.max(0, Date.now() - input.snapshot.observedAt)}ms, material=${selectionCache[input.platform]?.key !== input.key}, campaigns=${result.campaignsChecked}, candidates=${result.candidatesChecked}, outcome=${result.decision.action}, retention=${result.retention.reasonCode})`,
+    });
+    return { key: input.key, snapshotRevision: input.snapshot.revision, generation: input.generation, result };
+  }
+
+  async function prepareSelection(input: SelectionInput): Promise<CommittedSelection> {
+    const cached = selectionCache[input.platform];
+    if (!input.force && cached?.key === input.key && cached.generation === input.generation) {
+      discoveryEvents[input.platform].push({
+        category: "diagnostic",
+        platform: input.platform,
+        level: "debug",
+        message: `Snapshot selection skipped (trigger=${input.trigger}, revision=${input.snapshot.revision}, age=${Math.max(0, Date.now() - input.snapshot.observedAt)}ms, material=false)`,
+      });
+      const reused = {
+        ...cached,
+        snapshotRevision: input.snapshot.revision,
+        generation: input.generation,
+      };
+      selectionCache[input.platform] = reused;
+      return reused;
+    }
+    const running = selectionRuns[input.platform];
+    if (running) {
+      pendingSelections[input.platform] = input;
+      return running;
+    }
+    const run = (async () => {
+      let current = input;
+      while (true) {
+        const evaluated = await evaluateSelection(current);
+        const pending = pendingSelections[current.platform];
+        delete pendingSelections[current.platform];
+        if (!pending) {
+          if (current.generation === selectionGeneration[current.platform]) {
+            selectionCache[current.platform] = evaluated;
+          } else {
+            discoveryEvents[current.platform].push({
+              category: "diagnostic",
+              platform: current.platform,
+              level: "debug",
+              message: `Snapshot selection discarded stale lifecycle work (trigger=${current.trigger}, revision=${current.snapshot.revision})`,
+            });
+          }
+          return evaluated;
+        }
+        discoveryEvents[current.platform].push({
+          category: "diagnostic",
+          platform: current.platform,
+          level: "debug",
+          message: `Snapshot selection discarded stale work (trigger=${current.trigger}, revision=${current.snapshot.revision})`,
+        });
+        current = pending;
+      }
+    })();
+    selectionRuns[input.platform] = run;
+    try {
+      return await run;
+    } finally {
+      if (selectionRuns[input.platform] === run) delete selectionRuns[input.platform];
+    }
+  }
+
+  function selectionAlreadyCommitted(
+    prepared: CommittedSelection,
+    snapshot: DiscoverySnapshot,
+    state: SchedulerState,
+    platform: Platform,
+  ): SnapshotSelectionResult | undefined {
+    if (prepared.snapshotRevision !== snapshot.revision) return undefined;
+    if (prepared.generation !== selectionGeneration[platform]) return undefined;
+    const session = state.sessions[platform];
+    const decision = prepared.result.decision;
+    const action = session.status === "watching"
+      ? session.campaignId ? "watch" : "fallback"
+      : "idle";
+    if (action !== decision.action
+      || session.campaignId !== decision.campaign?.id
+      || session.rewardId !== decision.reward?.id
+      || session.channel?.url !== decision.channel?.url) return undefined;
+    return {
+      ...prepared.result,
+      decision: {
+        ...decision,
+        reason: "Keeping already committed snapshot selection",
+        reasonCode: "keeping_current_watch",
+      },
+      retention: {
+        keep: true,
+        offlineChecks: session.offlineChecks,
+        playbackChecks: session.playbackChecks ?? 0,
+        noProgressChecks: session.noProgressChecks,
+        lastWatchedMinutes: session.lastWatchedMinutes,
+        channel: session.channel,
+        reason: "Keeping already committed snapshot selection",
+        reasonCode: "keeping_current_watch",
+      },
+      campaignsChecked: 0,
+      candidatesChecked: 0,
+      fastPath: true,
+    };
   }
 
   async function tickPlatform(
@@ -1908,7 +2115,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       tickContext,
     );
     try {
-      const claimed = await runTick(tickContext, [platform], abort.signal);
+      const claimed = await runTick(tickContext, [platform], abort.signal, trigger);
       return [platform, claimed[platform] ?? []];
     } catch (error) {
       if (abort.signal.aborted) return [platform, []];
@@ -1930,6 +2137,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     tickContext: TickDiagnosticContext,
     platforms: Platform[] | undefined,
     signal: AbortSignal,
+    trigger: TickTrigger,
   ): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
     const settings = await deps.loadSettings();
@@ -1993,6 +2201,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       currentState.authHealth[platform].status === "healthy");
     await refreshDiscovery(discoveryPlatforms);
     signal.throwIfAborted();
+    const preparedSelections: Partial<Record<Platform, CommittedSelection>> = {};
+    await Promise.all(discoveryPlatforms.map(async (selectionPlatform) => {
+      const snapshot = discoveryLanes[selectionPlatform].current().snapshot;
+      if (!snapshot) return;
+      const input: SelectionInput = {
+        platform: selectionPlatform,
+        trigger,
+        snapshot,
+        settings,
+        state: currentState,
+        key: selectionKey(selectionPlatform, snapshot, settings, currentState),
+        force: selectionIsForced(trigger),
+        signal,
+        generation: selectionGeneration[selectionPlatform],
+      };
+      preparedSelections[selectionPlatform] = await prepareSelection(input);
+    }));
+    signal.throwIfAborted();
     const platform = schedulerPlatforms[0];
     await withStateLock(() => withEventCollector(async (emit, events) => {
       signal.throwIfAborted();
@@ -2013,6 +2239,62 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             state.sessions[discoveryPlatform],
           );
         }
+        const selections: Partial<Record<Platform, SnapshotSelectionResult>> = {};
+        for (const selectionPlatform of schedulerPlatforms) {
+          const snapshot = discoveryLanes[selectionPlatform].current().snapshot;
+          if (!snapshot) continue;
+          const key = selectionKey(selectionPlatform, snapshot, settings, state);
+          let prepared = preparedSelections[selectionPlatform];
+          if (!prepared || prepared.key !== key || prepared.snapshotRevision !== snapshot.revision) {
+            const committed = prepared
+              ? selectionAlreadyCommitted(prepared, snapshot, state, selectionPlatform)
+              : undefined;
+            if (committed) {
+              selections[selectionPlatform] = committed;
+              continue;
+            }
+            if (prepared) {
+              discoveryEvents[selectionPlatform].push({
+                category: "diagnostic",
+                platform: selectionPlatform,
+                level: "debug",
+                message: `Snapshot selection discarded before commit (trigger=${trigger}, revision=${prepared.snapshotRevision})`,
+              });
+            }
+            prepared = await prepareSelection({
+              platform: selectionPlatform,
+              trigger,
+              snapshot,
+              settings,
+              state,
+              key,
+              force: false,
+              signal,
+              generation: selectionGeneration[selectionPlatform],
+            });
+          }
+          preparedSelections[selectionPlatform] = prepared;
+          if (prepared.generation !== selectionGeneration[selectionPlatform]) {
+            discoveryEvents[selectionPlatform].push({
+              category: "diagnostic",
+              platform: selectionPlatform,
+              level: "debug",
+              message: `Snapshot selection discarded before commit after lifecycle change (trigger=${trigger}, revision=${prepared.snapshotRevision})`,
+            });
+            continue;
+          }
+          selections[selectionPlatform] = prepared.result;
+        }
+        const selectionsAreCurrent = (): boolean => schedulerPlatforms.every((selectionPlatform) => {
+          const prepared = preparedSelections[selectionPlatform];
+          const snapshot = discoveryLanes[selectionPlatform].current().snapshot;
+          return !prepared || (prepared.generation === selectionGeneration[selectionPlatform]
+            && prepared.snapshotRevision === snapshot?.revision);
+        });
+        const staleSelection = new Error("Snapshot selection lifecycle changed before publication");
+        const assertSelectionsCurrent = (): void => {
+          if (!selectionsAreCurrent()) throw staleSelection;
+        };
         // Observed here rather than returned by the scheduler: the controller
         // already sees every emitted event, and the post-claim handoff only
         // needs to know which platforms claimed.
@@ -2033,6 +2315,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           emit: claimObservingEmit,
           signal,
           campaignEvaluationFingerprints,
+          selections,
+          selectionIsCurrent: Object.fromEntries(schedulerPlatforms.map((selectionPlatform) => {
+            const prepared = preparedSelections[selectionPlatform];
+            return [selectionPlatform, () => prepared?.generation === selectionGeneration[selectionPlatform]];
+          })),
           discovery: Object.fromEntries(schedulerPlatforms.map((discoveryPlatform) => {
             const discoveryState = discoveryLanes[discoveryPlatform].current();
             return [discoveryPlatform, {
@@ -2043,12 +2330,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           })),
         });
         signal.throwIfAborted();
+        assertSelectionsCurrent();
         const lifecycleEvents = farmingLifecycleEvents(state, result.state);
         for (const event of lifecycleEvents) emit(event);
         await emitNotifications(settings, state, result.state, result.events);
         signal.throwIfAborted();
+        assertSelectionsCurrent();
         await applyAdFocusForState(result.state, emit, schedulerPlatforms);
         signal.throwIfAborted();
+        assertSelectionsCurrent();
         publicationLeases = await reconcileTablessWatchers(
           result.state,
           settings,
@@ -2057,8 +2347,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           schedulerPlatforms,
         );
         signal.throwIfAborted();
+        assertSelectionsCurrent();
         await reconcileDiscoverySignalControllers(result.state, settings, adapters, emit, schedulerPlatforms);
         signal.throwIfAborted();
+        assertSelectionsCurrent();
         nextState = result.state;
         if (settings.criticalFailurePromptEnabled) {
           // Page-context tabs are created deep inside tabs.ts, which has no access
@@ -2084,6 +2376,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         clearOperationalEvents(events);
         try {
           if (signal.aborted) return;
+          if (error instanceof Error && error.message === "Snapshot selection lifecycle changed before publication") {
+            await applyAdFocusForState(state, emit, schedulerPlatforms);
+            publicationLeases.push(...await reconcileTablessWatchers(
+              state,
+              settings,
+              createSelectedAdapters(settings, emit, schedulerPlatforms),
+              emit,
+              schedulerPlatforms,
+            ));
+            emit({ category: "diagnostic", level: "debug", platform, message: error.message });
+            await reportBestEffort(correlateTickDiagnostics(events, tickContext));
+            return;
+          }
           const detail = error instanceof Error ? error.message : "Scheduler tick failed";
           emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
           emit({ category: "diagnostic", level: "error", platform, message: detail });
@@ -2095,7 +2400,18 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         return;
       }
       try {
-        await persistPlatformAndReport(platform, nextState, correlateTickDiagnostics(events, tickContext));
+        const persisted = await persistPlatformAndReport(
+          platform,
+          nextState,
+          correlateTickDiagnostics(events, tickContext),
+          () => schedulerPlatforms.every((selectionPlatform) => {
+            const prepared = preparedSelections[selectionPlatform];
+            const snapshot = discoveryLanes[selectionPlatform].current().snapshot;
+            return !prepared || (prepared.generation === selectionGeneration[selectionPlatform]
+              && prepared.snapshotRevision === snapshot?.revision);
+          }),
+        );
+        if (!persisted) return;
         waitingClaimRewardIds[platform].clear();
         for (const rewardId of nextWaitingClaimRewardIds[platform]) {
           waitingClaimRewardIds[platform].add(rewardId);
@@ -2119,6 +2435,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function invalidateAuthHealth(platform: Platform): Promise<void> {
     discoveryLanes[platform].invalidate();
+    invalidateSelection(platform);
     const releaseDiscoverySignalAuthRefresh = reserveDiscoverySignalAuthRefresh(platform);
     try {
       const generations = await beginAuthRefresh([platform]);
@@ -3043,6 +3360,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           },
           managedPageContextTabs,
         });
+        if (current.lastHeartbeatOk !== ok || previousChecks !== heartbeatChecks) {
+          invalidateSelection(platform);
+        }
         committedSession = nextSession;
         return { stale: false, fallback };
       });
@@ -3188,7 +3508,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   function shutdown(): void {
     controllerShutdown = true;
-    for (const platform of PLATFORMS) discoveryLanes[platform].stop();
+    for (const platform of PLATFORMS) {
+      discoveryLanes[platform].stop();
+      invalidateSelection(platform);
+    }
     discoverySignalLifecycleOpen = false;
     for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
     twitchSettingsTransitionGeneration += 1;
@@ -3205,7 +3528,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     discoverySignalLifecycleOpen = false;
     for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
     twitchSettingsTransitionGeneration += 1;
-    for (const platform of PLATFORMS) discoveryLanes[platform].invalidate();
+    for (const platform of PLATFORMS) {
+      discoveryLanes[platform].invalidate();
+      invalidateSelection(platform);
+    }
     abortActiveTicks("Host reset");
     closeTwitchIntegrityLifecycle("Host reset");
     await stopDiscoverySignalControllersAndReport(PLATFORMS);
@@ -3550,6 +3876,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       for (const event of playbackDiagnostics) emit(event);
 
       await persistPlatformState(message.platform, nextState);
+      if ((previous ? isPlaybackTelemetryHealthy(previous) : undefined)
+        !== isPlaybackTelemetryHealthy(telemetry)) {
+        invalidateSelection(message.platform);
+      }
       try {
         if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
           await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), emit);

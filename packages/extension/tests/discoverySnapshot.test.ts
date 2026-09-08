@@ -16,7 +16,7 @@ const metrics: DiscoveryRefreshMetrics = {
   singleFallbacks: 0,
 };
 
-const complete = (): DiscoveryRefreshResult => ({ campaigns: [], complete: true, metrics });
+const complete = (): DiscoveryRefreshResult => ({ campaigns: [], idleCandidates: [], followedChannels: [], complete: true, metrics });
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -63,7 +63,7 @@ describe("DiscoverySnapshotLane", () => {
   it("retains the last coherent snapshot after failed and incomplete attempts", async () => {
     const refresh = vi.fn()
       .mockResolvedValueOnce(complete())
-      .mockResolvedValueOnce({ campaigns: [], complete: false, failure: "partial", metrics })
+      .mockResolvedValueOnce({ campaigns: [], idleCandidates: [], followedChannels: [], complete: false, failure: "partial", metrics })
       .mockRejectedValueOnce(new Error("offline"));
     const lane = new DiscoverySnapshotLane("kick", refresh);
 
@@ -109,6 +109,46 @@ describe("DiscoverySnapshotLane", () => {
 });
 
 describe("collectDiscoverySnapshot", () => {
+  it("captures followed-channel preference evidence inside discovery", async () => {
+    const listFollowedChannels = vi.fn(async () => ["friend"]);
+    const adapter = {
+      platform: "twitch" as const,
+      refreshCampaigns: vi.fn(async () => []),
+      listCandidateChannels: vi.fn(),
+      checkChannel: vi.fn(),
+      selectCandidateChannel: undefined,
+      listFollowedChannels,
+    };
+
+    const result = await collectDiscoverySnapshot(adapter, undefined, new AbortController().signal);
+
+    expect(result.followedChannels).toEqual(["friend"]);
+    expect(listFollowedChannels).toHaveBeenCalledOnce();
+  });
+
+  it("skips followed-channel discovery when preference is disabled", async () => {
+    const listFollowedChannels = vi.fn(async () => ["friend"]);
+    const adapter = {
+      platform: "twitch" as const,
+      refreshCampaigns: vi.fn(async () => []),
+      listCandidateChannels: vi.fn(),
+      checkChannel: vi.fn(),
+      selectCandidateChannel: undefined,
+      listFollowedChannels,
+    };
+
+    const result = await collectDiscoverySnapshot(
+      adapter,
+      undefined,
+      new AbortController().signal,
+      Date.now,
+      false,
+    );
+
+    expect(result.followedChannels).toEqual([]);
+    expect(listFollowedChannels).not.toHaveBeenCalled();
+  });
+
   it("keeps Kick channel-specific eligibility unknown", async () => {
     const campaign = {
       id: "campaign",
