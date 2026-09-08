@@ -989,6 +989,15 @@
   "rateNudgeDismiss": {
     "message": "Agora não"
   },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot é código aberto"
+  },
+  "githubStarNudgeBody": {
+    "message": "Se foi útil, uma estrela no GitHub ajuda outras pessoas a encontrá-lo."
+  },
+  "githubStarNudgeAction": {
+    "message": "Dar estrela no GitHub"
+  },
   "removeItem": {
     "message": "Remover $1"
   },

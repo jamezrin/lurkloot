@@ -989,6 +989,15 @@
   "rateNudgeDismiss": {
     "message": "Daha sonra"
   },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot açık kaynaklıdır"
+  },
+  "githubStarNudgeBody": {
+    "message": "İşine yaradıysa GitHub yıldızı, başkalarının onu bulmasına yardımcı olur."
+  },
+  "githubStarNudgeAction": {
+    "message": "GitHub'da yıldızla"
+  },
   "removeItem": {
     "message": "$1 öğesini sil"
   },

@@ -989,6 +989,15 @@
   "rateNudgeDismiss": {
     "message": "暂不"
   },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot 是开源的"
+  },
+  "githubStarNudgeBody": {
+    "message": "如果它对你有帮助，在 GitHub 上点一颗星能让更多人发现它。"
+  },
+  "githubStarNudgeAction": {
+    "message": "在 GitHub 上加星"
+  },
   "removeItem": {
     "message": "移除 $1"
   },
