@@ -4898,12 +4898,17 @@ describe("background controller", () => {
         blockedPlaybackCount: 0,
         documentHidden: false,
       },
-    }, { tab: { id: 999 } });
+    }, { tab: { id: 999, url: "https://www.twitch.tv/FirstCreator" } });
 
     expect(env.state.manualWatch?.twitch).toMatchObject({
       platform: "twitch",
       tabId: 999,
       active: true,
+      channel: {
+        platform: "twitch",
+        username: "firstcreator",
+        url: "https://www.twitch.tv/firstcreator",
+      },
     });
     expect(env.state.sessions.twitch).toMatchObject({
       status: "paused",
@@ -4913,6 +4918,41 @@ describe("background controller", () => {
     expect(env.state.sessions.kick.status).toBe("watching");
     expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.state.sessions.twitch.playback).toBeUndefined();
+  });
+
+  it("replaces or clears the manual Twitch channel when the same tab navigates", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    const telemetry = {
+      videoCount: 1,
+      mutedVideoCount: 0,
+      unmutedVideoCount: 1,
+      playingVideoCount: 1,
+      blockedPlaybackCount: 0,
+      documentHidden: false,
+    };
+
+    await env.controller.handleMessage(
+      { type: "playbackTelemetry", platform: "twitch", telemetry },
+      { tab: { id: 999, url: "https://www.twitch.tv/FirstCreator" } },
+    );
+    await env.controller.settleBackgroundWork();
+    await env.controller.handleMessage(
+      { type: "playbackTelemetry", platform: "twitch", telemetry },
+      { tab: { id: 999, url: "https://www.twitch.tv/SecondCreator" } },
+    );
+
+    expect(env.state.manualWatch?.twitch?.channel).toEqual({
+      platform: "twitch",
+      username: "secondcreator",
+      url: "https://www.twitch.tv/secondcreator",
+    });
+
+    await env.controller.handleMessage(
+      { type: "playbackTelemetry", platform: "twitch", telemetry },
+      { tab: { id: 999, url: "https://www.twitch.tv/directory" } },
+    );
+
+    expect(env.state.manualWatch?.twitch?.channel).toBeUndefined();
   });
 
   it("runs only one immediate tick while the same manual playback stays active", async () => {

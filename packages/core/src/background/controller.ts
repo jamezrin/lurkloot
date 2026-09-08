@@ -36,6 +36,7 @@ import {
   validTablessHeartbeatCadence,
 } from "../core/heartbeatCadence";
 import { mergePlatformState } from "./platformState";
+import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import {
   collectDiscoverySnapshot,
   adapterFromDiscoverySnapshot,
@@ -3963,6 +3964,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function recordPlaybackTelemetry(
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId?: number,
+    senderTabUrl?: string,
   ): Promise<void> {
     let manualWatchStarted = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
@@ -3975,7 +3977,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       if (!isManagedWatchTab) {
         if (senderTabId != null) {
-          const manualWatch = recordManualWatchTelemetry(state, settings, message, senderTabId);
+          const manualWatch = recordManualWatchTelemetry(state, settings, message, senderTabId, senderTabUrl);
           manualWatchStarted = manualWatch.started;
           await persistPlatformAndReport(
             message.platform,
@@ -4037,6 +4039,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     settings: EngineSettings,
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
+    senderTabUrl?: string,
   ): { state: SchedulerState; started: boolean } {
     const manualWatch = { ...state.manualWatch };
     if (!settings.pauseOnManualWatch) {
@@ -4056,6 +4059,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       tabId: senderTabId,
       checkedAt: new Date().toISOString(),
       active,
+      ...(message.platform === "twitch"
+        ? { channel: twitchChannelFromUrl(senderTabUrl) }
+        : {}),
     };
     return {
       state: { ...state, manualWatch },
@@ -4196,14 +4202,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function handleMessage(
     message: CoreRuntimeMessage,
-    sender?: { tab?: { id?: number } },
+    sender?: { tab?: { id?: number; url?: string } },
   ): Promise<RuntimeSnapshot<S> | PlaybackControl | CategorySearchResult | void> {
     if (message.type === "getPlaybackControl") {
       return getPlaybackControl(message, sender?.tab?.id);
     }
 
     if (message.type === "playbackTelemetry") {
-      await recordPlaybackTelemetry(message, sender?.tab?.id);
+      await recordPlaybackTelemetry(message, sender?.tab?.id, sender?.tab?.url);
       return undefined;
     }
 
