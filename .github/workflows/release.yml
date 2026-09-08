@@ -83,11 +83,6 @@ jobs:
           EXPECTED: ${{ steps.policy.outputs.version }}
         run: test "$COMMITTED" = "$EXPECTED"
       - run: node scripts/release.mjs check
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       # The candidate image is what verification approved, so publication promotes that exact
       # manifest rather than rebuilding it. Resolving the digest here, rather than in publish, is
       # what lets the rebuild job below stay skipped on the normal path. A missing candidate is not
@@ -95,13 +90,24 @@ jobs:
       - id: candidate-image
         name: Resolve the verified candidate image digest
         env:
-          IMAGE: ghcr.io/${{ github.repository_owner }}/lurkloot-cli
+          ACTOR: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
           VERSION: ${{ steps.metadata.outputs.version }}
         run: |
-          digest=$(docker buildx imagetools inspect "$IMAGE:candidate-$VERSION" \
-            --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          image="ghcr.io/$OWNER/lurkloot-cli"
+          registry_token=$(curl --fail --silent --show-error \
+            --user "$ACTOR:$GHCR_TOKEN" \
+            "https://ghcr.io/token?service=ghcr.io&scope=repository:$OWNER/lurkloot-cli:pull" \
+            | jq -er '.token')
+          digest=$(curl --fail --silent --show-error --head \
+            --header "Authorization: Bearer $registry_token" \
+            --header 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+            "https://ghcr.io/v2/$OWNER/lurkloot-cli/manifests/candidate-$VERSION" 2>/dev/null \
+            | tr -d '\r' \
+            | sed -n 's/^Docker-Content-Digest: //Ip' || true)
           case "$digest" in
-            sha256:*) echo "promoting $IMAGE@$digest" ;;
+            sha256:*) echo "promoting $image@$digest" ;;
             *) digest=""; echo "no candidate-$VERSION image; publication will rebuild" ;;
           esac
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
