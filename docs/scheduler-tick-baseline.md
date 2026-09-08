@@ -60,4 +60,39 @@ The CLI interval baseline blocks one refresh across another elapsed interval. Pr
 - Snapshot candidate enumeration and validation are attributed to the controller's discovery duration. The legacy scheduler still performs its selection pass, but reads the committed normalized observations through an in-memory adapter view; #395 will make that selection lifecycle independently triggered and coalesced.
 - Real Twitch transport counts are pinned in `twitchCampaignDetailsReuse.test.ts`: the three-campaign cold refresh performs three `fetchJson` calls, while the following warm refresh adds only inventory and dashboard (five cumulative). `adapters.test.ts` pins a Kick refresh at two concurrent transport calls (campaigns and progress). The host matrix does not relabel adapter calls as HTTP requests.
 
+## v1.13.0 final gate
+
+The final deterministic gate was recorded from the stacked v1.13.0 implementation after #336, #394, #395, #337, #457, and #458. Twitch and Kick have identical normalized counts in both hosts for each single-provider scenario.
+
+| Scenario | Adapter operations | Discovery | Candidate lists | Channel checks | Watcher reconciliations | Adapter constructions |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| idle / failed | 2 | 1 | 0 | 0 | 0 | 1 |
+| stable retained | 4 | 1 | 1 | 1 | 1 | 1 |
+| switch | 4 | 1 | 1 | 1 | 1 | 1 |
+| higher priority unavailable | 6 | 1 | 2 | 2 | 1 | 1 |
+| slow provider | 4 | 1 | 1 | 1 | 1 | 1 |
+
+| Host cells | State loads | State saves | Persistence attribution |
+| --- | ---: | ---: | ---: |
+| extension/Twitch and extension/Kick | 5 | 2 | 10 ms |
+| CLI/Twitch and CLI/Kick | 5 | 2 | not synthetically timed |
+
+The original baseline used three extension state loads and four CLI state loads. Snapshot-owned discovery and short commit boundaries make five shared-engine loads explicit in the final architecture; #458 removes the additional CLI-only post-tick load, restoring host parity. Two saves remain deliberate: authentication health is durable before fallible discovery, then the scheduler result is committed independently. Adapter construction falls from two per single-provider tick to one.
+
+| Scenario | Before total (extension / CLI) | Final total (extension / CLI) |
+| --- | ---: | ---: |
+| idle / failed | 40 / 30 ms | 40 / 30 ms |
+| stable retained | 55 / 45 ms | 65 / 55 ms |
+| switch | 65 / 55 ms | 65 / 55 ms |
+| higher priority unavailable | 95 / 85 ms | 85 / 75 ms |
+| slow provider | 515 / 505 ms | 515 / 505 ms |
+
+The stable path now spends an attributable extra 10 ms enumerating the coherent discovery snapshot; selection itself performs no provider work and unchanged decisions are reused. The unavailable-priority path removes one redundant channel check and 10 ms. Controlled values remain structural test costs rather than production latency claims.
+
+The heartbeat-overlap cells record one heartbeat attempt with both blocking counters at zero for all four host/provider combinations. Extension and CLI therefore exercise the same platform-scoped controller lanes and fixed heartbeat contract; neither Twitch nor Kick waits for its sibling. CLI startup recovery performs additional intentional constructions and discovery passes outside the isolated single-provider tick, which the overlap row records separately.
+
+Remaining work is unavoidable under the published safety contract: every normal tick probes auth, refreshes authoritative campaign data, commits auth health before fallible work, and merges the platform result against the latest persisted state. Provider caches remain inside adapters. No duplicated host timer, redundant unchanged-state publication, repeated target-selection provider call, or cross-provider blocking was found after the focused v1.13.0 changes, so this audit creates no additional performance issue.
+
+All measurements use normalized synthetic data. No credentials, cookies, tokens, authorization headers, raw authenticated payloads, or new browser permissions are recorded or introduced. Authenticated live timing was not required because the gate measures deterministic work ownership and controlled phase attribution, not provider latency.
+
 PR #450 / issue #339 merged before this baseline. Its Twitch campaign-details reuse is part of the starting behavior.
