@@ -64,7 +64,7 @@ export const twitchFaqItems: FaqItem[] = [
   },
   {
     q: "Can I farm Twitch Drops on a server, with no browser?",
-    a: "Yes. The headless CLI talks to Twitch as the Android app client, which Twitch does not gate behind Client-Integrity, so discovery, watch progress and drop claims all work over plain HTTP with no browser and no integrity token. You authorize once with Twitch's device-code login — an activation URL and a short code you approve on any device — and a prebuilt multi-arch Docker image runs it 24/7 on a server, NAS or Raspberry Pi.",
+    a: "Yes. The headless CLI talks to Twitch as the Android app client, which Twitch does not gate behind Client-Integrity, so discovery, watch progress and drop claims all work through Twitch's API with no browser and no integrity token. You authorize once with Twitch's device-code login — an activation URL and a short code you approve on any device — and a prebuilt multi-arch Docker image runs it 24/7 on a server, NAS or Raspberry Pi.",
   },
   {
     q: "Which browsers does the Twitch Drops extension work in?",
@@ -103,6 +103,6 @@ export const kickFaqItems: FaqItem[] = [
   },
   {
     q: "Do I need a Kick password or a cookie export?",
-    a: "Neither. In the browser the extension reuses the Kick session you are already logged into. Headless, the smart-TV link approval hands back a session token directly, so there is no cookie file to copy around — and if you would rather move an existing session over, the extension can export it for the CLI to import.",
+    a: "Neither. In the browser the extension reuses the Kick session you are already logged into. Headless, the smart-TV link approval hands back a session token directly, so the CLI requires no export. An optional, user-initiated session-token transfer from the extension is also available if you want to move an existing session.",
   },
 ];

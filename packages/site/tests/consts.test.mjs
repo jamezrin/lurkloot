@@ -39,6 +39,13 @@ async function structuredData(page) {
 }
 
 const ldOfType = (blocks, type) => blocks.find((block) => block["@type"] === type);
+const indexablePages = [
+  "index.html",
+  "privacy/index.html",
+  "changelog/index.html",
+  "twitch-drops-farmer/index.html",
+  "kick-drops-farmer/index.html",
+];
 
 test("keeps the structured download URL canonical", async () => {
   const software = ldOfType(await structuredData("index.html"), "SoftwareApplication");
@@ -69,24 +76,17 @@ test("scopes FAQ structured data to pages that render the questions", async () =
 });
 
 test("drops the meta keywords tag from every page", async () => {
-  for (const page of ["index.html", "privacy/index.html", "twitch-drops-farmer/index.html"]) {
+  for (const page of indexablePages) {
     const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8");
     assert.ok(!/<meta name="keywords"/.test(html), `${page} should not declare meta keywords`);
   }
 });
 
 test("gives each indexable page a distinct title and description", async () => {
-  const pages = [
-    "index.html",
-    "privacy/index.html",
-    "changelog/index.html",
-    "twitch-drops-farmer/index.html",
-    "kick-drops-farmer/index.html",
-  ];
   const titles = new Set();
   const descriptions = new Set();
 
-  for (const page of pages) {
+  for (const page of indexablePages) {
     const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8");
     const title = html.match(/<title>([^<]+)<\/title>/)?.[1];
     const description = html.match(/<meta name="description" content="([^"]+)"/)?.[1];
@@ -97,8 +97,23 @@ test("gives each indexable page a distinct title and description", async () => {
     descriptions.add(description);
   }
 
-  assert.equal(titles.size, pages.length);
-  assert.equal(descriptions.size, pages.length);
+  assert.equal(titles.size, indexablePages.length);
+  assert.equal(descriptions.size, indexablePages.length);
+});
+
+test("describes encrypted transport and only user-initiated credential transfer", async () => {
+  const twitch = await readFile(
+    new URL("../dist/twitch-drops-farmer/index.html", import.meta.url),
+    "utf8",
+  );
+  const kick = await readFile(
+    new URL("../dist/kick-drops-farmer/index.html", import.meta.url),
+    "utf8",
+  );
+
+  assert.doesNotMatch(twitch, /plain HTTP/);
+  assert.match(twitch, /through Twitch(?:'s|&#39;s) API/);
+  assert.match(kick, /optional, user-initiated session-token transfer/i);
 });
 
 test("links the platform landing pages from the homepage and the sitemap", async () => {
