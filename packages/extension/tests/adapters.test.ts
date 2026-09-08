@@ -4099,7 +4099,18 @@ describe("TwitchAdapter", () => {
       isAclMatch: true,
     }]);
 
-    expect(selection).toEqual({ checked: 1 });
+    expect(selection).toMatchObject({
+      checked: 1,
+      metrics: {
+        cacheHits: 0,
+        cacheMisses: 0,
+        batchRequests: 1,
+        singleFallbacks: 0,
+      },
+    });
+    expect(selection?.observations).toEqual([
+      expect.objectContaining({ live: false, categoryMatches: true }),
+    ]);
     expect(events).toContainEqual(expect.objectContaining({
       category: "diagnostic",
       message: expect.stringMatching(/^Twitch idle channel selection finished in \d+ms/),

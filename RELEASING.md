@@ -38,8 +38,8 @@ empty entry. That intentionally permits build-only releases, but produces an emp
    rebase are blocked on `main`; the original `develop` commit SHAs remain in `main` history.
 7. Release runs from the merged `main` commit. Approve its `production` publication job. It promotes
    the `vX.Y.Z` prerelease to the latest release, publishing the extension artifacts it already
-   carries rather than rebuilding them, then publishes GHCR, Chrome Web Store, and the production
-   site.
+   carries rather than rebuilding them, retags the verified `candidate-X.Y.Z` GHCR manifest by
+   digest, then publishes the Chrome Web Store and the production site.
 8. A separate `sync` job then merges `main` directly into `develop` with the dedicated
    synchronization App, after verifying the merged tree. It is also gated on `production`, so it
    asks for a second approval. That separation is deliberate: it verifies a tree that is not the one
@@ -119,9 +119,17 @@ Stable publication operates on the exact merged commit and is idempotent:
 - `vX.Y.Z` is created once and is never moved.
 - The signed CRX, Chrome ZIP, Firefox ZIP, Firefox source ZIP, and checksums are uploaded to the
   stable GitHub release.
-- Docker architectures are exported as checksummed OCI archives before approval. GHCR receives
-  `X.Y.Z`, `X.Y`, `X`, and `latest` only inside the approved production job; an existing `X.Y.Z`
-  digest is never replaced.
+- The GHCR `candidate-X.Y.Z` manifest built during candidacy is promoted by digest: the approved
+  production job retags that exact manifest as `X.Y.Z`, `X.Y`, `X`, and `latest`, so the published
+  image is the one the required checks passed against. Nothing is rebuilt on the normal path, and an
+  existing `X.Y.Z` digest is never replaced.
+- If that candidate image no longer exists, the approved job falls back to rebuilding checksummed
+  OCI archives from the merged commit. A rebuild is not bit-identical, so when `X.Y.Z` is already
+  published the published digest stays authoritative and only the moving aliases are re-pointed.
+- Build provenance is attested during candidacy, for the signed extension assets and for the CLI
+  image digest, and stable publication ships those same bytes. Verify a downloaded asset with
+  `gh attestation verify <file> --repo jamezrin/lurkloot`, and the image with
+  `gh attestation verify oci://ghcr.io/jamezrin/lurkloot-cli:X.Y.Z --repo jamezrin/lurkloot`.
 - Chrome Web Store receives the Chrome ZIP with `DEFAULT_PUBLISH`; Google publishes it automatically
   after review approval.
 - The production site deploys to `https://lurkloot.jamezrin.com`.
@@ -215,6 +223,10 @@ only then removes the conflicting classic protections. It refuses to run without
 - only the Lurkloot Release Sync App as an always-allowed bypass actor.
 
 The repository default workflow token remains read-only.
+
+Third-party actions (`pnpm/*`, `docker/*`, `cloudflare/*`) are pinned to a commit SHA with the
+version in a trailing comment. GitHub-owned `actions/*` stay tag-pinned. Renovate updates the pinned
+SHAs; do not replace one with a floating tag.
 
 ## Recovery
 
