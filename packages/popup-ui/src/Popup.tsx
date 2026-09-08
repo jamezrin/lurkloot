@@ -21,6 +21,7 @@ import {
   PLATFORMS,
   RATE_NUDGE_MIN_DAYS,
   SCREENSHOT_VARIANTS,
+  SCREENSHOT_WATCHLIST_LIVE,
   SELECTED_PLATFORM_KEY,
 } from "./constants";
 import type {
@@ -89,7 +90,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   );
   // Drops and the Idle Watchlist share one view; the watchlist folds away under
   // the campaigns until asked for (or until a screenshot variant wants it).
-  const [watchlistExpanded, setWatchlistExpanded] = useState(false);
+  const [watchlistExpanded, setWatchlistExpanded] = useState(
+    preview && variantShowsPopup(initialVariant) && initialVariant.view === "watchlist",
+  );
   const [watchlistAdding, setWatchlistAdding] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(
     preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings",
@@ -628,6 +631,13 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const gameMap = Object.fromEntries(games.map((game) => [game.id, game]));
   const idleWatchlistChannels = settings.platform[platform].idleWatchlistChannels;
   const idleWatchlist = idleWatchlistChannels.map((username) => streamerItemFromFallback(username, session, t));
+  const screenshotWatchlist = preview && variantShowsPopup(initialVariant) && initialVariant.view === "watchlist"
+    ? idleWatchlist.map((item) => {
+        const live = SCREENSHOT_WATCHLIST_LIVE[item.id];
+        if (!live) return item;
+        return { ...item, name: live.displayName, live: true, viewers: live.viewers, subtitle: live.subtitle };
+      })
+    : idleWatchlist;
   const automation = {
     twitch: pendingAutomation.twitch ?? settings.platform.twitch.enabled,
     kick: pendingAutomation.kick ?? settings.platform.kick.enabled,
@@ -834,7 +844,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                 <IdleWatchlistPanel
                   key={platform}
                   platform={platform}
-                  streamers={idleWatchlist}
+                  streamers={screenshotWatchlist}
                   expanded={watchlistExpanded}
                   adding={watchlistAdding}
                   onExpandedChange={(next) => { setWatchlistExpanded(next); if (!next) setWatchlistAdding(false); }}

@@ -157,5 +157,11 @@ export const SCREENSHOT_VARIANTS: Record<string, ScreenshotVariant> = {
   activity: updated,
 };
 
+export const SCREENSHOT_WATCHLIST_LIVE: Record<string, { displayName: string; viewers: number; subtitle: string }> = {
+  rivalspilot: { displayName: "RivalsPilot", viewers: 18420, subtitle: "Marathon Legends" },
+  lootforge: { displayName: "LootForge", viewers: 6210, subtitle: "Starfall Arena" },
+  nightrunlive: { displayName: "NightRunLive", viewers: 2480, subtitle: "Spellforge" },
+};
+
 export const PROMO_GRADIENT =
   "radial-gradient(circle at 16% 18%, rgba(145,71,255,0.40), transparent 38%), radial-gradient(circle at 86% 82%, rgba(83,252,24,0.26), transparent 40%)";

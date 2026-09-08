@@ -3,7 +3,14 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SCREENSHOT_VARIANTS, StoreScreenshot, screenshotVariant, variantShowsPopup } from "@lurkloot/popup-ui";
+import {
+  createDemoPopupAdapter,
+  Popup,
+  SCREENSHOT_VARIANTS,
+  StoreScreenshot,
+  screenshotVariant,
+  variantShowsPopup,
+} from "@lurkloot/popup-ui";
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
@@ -81,6 +88,44 @@ describe("store screenshot variants", () => {
       "drops", "extras", "easy", "settings", "updated",
       "twitch-drops", "kick-drops", "idle-watchlist", "activity",
     ]));
+  });
+});
+
+describe("extras screenshot popup", () => {
+  it("expands the idle watchlist with live demo rows", async () => {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(Date.now());
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+    const container = document.getElementById("app")!;
+    await act(async () => {
+      root = createRoot(container);
+      root.render(
+        <Popup
+          adapter={createDemoPopupAdapter()}
+          initialState={{ preview: true, locale: "en", variant: screenshotVariant("extras") }}
+        />,
+      );
+    });
+    await waitForCatalog();
+    const watchlistToggle = Array.from(container.querySelectorAll("button"))
+      .find((button) => button.textContent?.includes("Idle Watchlist"));
+    expect(watchlistToggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.textContent).toContain("RivalsPilot");
+    expect(container.textContent).toContain("LootForge");
+    expect(container.textContent).toContain("NightRunLive");
+    expect(container.textContent).toContain("Marathon Legends");
+    expect(container.textContent).toContain("Starfall Arena");
+    expect(container.textContent).toContain("Spellforge");
+    expect(container.textContent).toContain("18K");
+    expect(container.textContent).toContain("6.2K");
+    expect(container.textContent).toContain("2.5K");
   });
 });
 
