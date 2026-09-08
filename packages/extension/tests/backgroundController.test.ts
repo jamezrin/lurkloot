@@ -5,6 +5,7 @@ import {
   KICK_ALARM_NAME,
   TWITCH_ALARM_NAME,
   TWITCH_INTEGRITY_ALARM_NAME,
+  type BackgroundControllerDeps,
   type CredentialAvailability,
 } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
@@ -19,7 +20,7 @@ import { createKickFetcher, KickClaimState } from "@lurkloot/core/kick";
 import { TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { kickAdapter, twitchAdapter } from "./helpers/adapters";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
-import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
+import { selectWatchTargetFromSnapshot, type StopPageContextTabs } from "@lurkloot/core/scheduler";
 import {
   cancelTwitchIntegrityAcquisition,
   currentManagedPageContextTabs,
@@ -241,6 +242,7 @@ function harness(
       request?: TwitchIntegrityRequest,
     ) => Promise<boolean>;
     cancelTwitchIntegrityAcquisition?: (reason?: unknown) => void;
+    selectWatchTarget?: BackgroundControllerDeps<ExtensionSettings>["selectWatchTarget"];
   } = {},
 ) {
   let currentSettings = settings;
@@ -291,6 +293,7 @@ function harness(
     })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
     stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? forgetManagedPageContextTabs),
+    ...(overrides.selectWatchTarget ? { selectWatchTarget: vi.fn(overrides.selectWatchTarget) } : {}),
     wait: overrides.wait,
     ...(overrides.checkCredentialAvailability
       ? { checkCredentialAvailability: vi.fn(overrides.checkCredentialAvailability) }
@@ -2271,10 +2274,29 @@ describe("background controller", () => {
     detailsFail = true;
     await env.controller.tick();
 
-    // Each platform tick now constructs one discovery adapter and one legacy
-    // selection adapter. #457 will reuse construction across the phases.
+    // Snapshot selection is provider-free, so it adds no adapter construction
+    // beyond the discovery and scheduler phases introduced by #394.
     expect(env.deps.createAdapter).toHaveBeenCalledTimes(8);
     expect(env.state.campaigns.twitch.map((item) => item.id)).toEqual(["retained"]);
+  });
+
+  it("skips redundant target evaluation when a new discovery revision is materially unchanged", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, tablessMode: true }));
+    env.twitch.supportsTabless = true;
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
+      ...campaign("twitch"),
+      rewards: [{ ...reward("in_progress"), isWatchBased: false }],
+    }]);
+
+    await env.controller.tick(["twitch"]);
+    await env.controller.tick(["twitch"]);
+    await env.controller.tick(["twitch"]);
+    await env.controller.tick(["twitch"]);
+
+    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringMatching(/^Snapshot selection skipped \(trigger=unknown, revision=\d+, age=\d+ms, material=false\)$/),
+    }));
   });
 
   it("starts enabled auth probes concurrently and persists each before scheduler work", async () => {
@@ -6218,6 +6240,88 @@ describe("background controller", () => {
     }
 
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+  });
+
+  it("completes a due heartbeat while snapshot selection is blocked", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const selectionStarted = deferred<void>();
+    const allowSelection = deferred<void>();
+    let blockSelection = false;
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      tablessMode: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+      },
+    }, {
+      selectWatchTarget: async (...args) => {
+        if (blockSelection) {
+          selectionStarted.resolve();
+          await allowSelection.promise;
+        }
+        return selectWatchTargetFromSnapshot(...args);
+      },
+    });
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    env.twitch.supportsTabless = true;
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    await env.controller.tick(["twitch"]);
+    advanceToNextHeartbeatDue();
+    watcher.tick.mockClear();
+
+    blockSelection = true;
+    const selection = env.controller.tick(["twitch"], "manual_tick");
+    await selectionStarted.promise;
+    const heartbeat = env.controller.runWatchHeartbeat();
+    try {
+      await drainMicrotasks();
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      await heartbeat;
+    } finally {
+      allowSelection.resolve();
+      await selection;
+    }
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringContaining("Snapshot selection discarded stale lifecycle work"),
+    }));
+  });
+
+  it("coalesces concurrent snapshot selection requests to one pending evaluation", async () => {
+    const selectionStarted = deferred<void>();
+    const allowSelection = deferred<void>();
+    let blockSelection = false;
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      selectWatchTarget: async (...args) => {
+        if (blockSelection) {
+          selectionStarted.resolve();
+          await allowSelection.promise;
+        }
+        return selectWatchTargetFromSnapshot(...args);
+      },
+    });
+    await env.controller.tick(["twitch"]);
+    const selectWatchTarget = env.deps.selectWatchTarget!;
+    selectWatchTarget.mockClear();
+
+    blockSelection = true;
+    const first = env.controller.tick(["twitch"], "manual_tick");
+    await selectionStarted.promise;
+    const second = env.controller.tick(["twitch"], "manual_tick");
+    const third = env.controller.tick(["twitch"], "manual_tick");
+    await vi.waitFor(() => expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBeGreaterThanOrEqual(3));
+    allowSelection.resolve();
+    await Promise.all([first, second, third]);
+
+    expect(selectWatchTarget).toHaveBeenCalledTimes(2);
+    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringContaining("Snapshot selection discarded stale work"),
+    }));
   });
 
   it("completes a due initial heartbeat while discovery-signal start is blocked after publication", async () => {

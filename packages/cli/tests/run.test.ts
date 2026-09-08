@@ -166,7 +166,9 @@ describe("CLI scheduler tick baseline", () => {
         discoveryBlockedByHeartbeat: 0,
         // The non-once loop now performs one recovery pass for both providers
         // at startup before the first discovery completes.
-        adapterConstructions: 10,
+        // A heartbeat health transition invalidates the in-flight selection;
+        // the shared controller reconstructs once to restore the prior context.
+        adapterConstructions: 11,
         watcherReconciliations: 1,
       });
       expect(result.durationsMs).toEqual({
@@ -215,7 +217,7 @@ describe("CLI scheduler tick baseline", () => {
     });
   });
 
-  it.each(["twitch", "kick"] as const)("matches retained %s core work with the extension host", async (platform) => {
+  it.each(["twitch", "kick"] as const)("uses the shared snapshot-driven %s selection lifecycle", async (platform) => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
@@ -223,6 +225,8 @@ describe("CLI scheduler tick baseline", () => {
     reportBaseline(result);
 
     expect(result.counts).toMatchObject({
+      // Candidate listing and validation happen once while building the
+      // committed discovery snapshot. Core selection adds no provider calls.
       adapterOperations: 4,
       campaignDiscovery: 1,
       candidateListings: 1,
@@ -230,6 +234,7 @@ describe("CLI scheduler tick baseline", () => {
       adapterConstructions: 3,
       watcherReconciliations: 1,
     });
+    expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
     expect(result.durationsMs).toEqual({
       discovery: 30,
       selection: 20,

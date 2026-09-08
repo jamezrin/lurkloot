@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, KickPlatformSettings, Platform, SchedulerState, TwitchPlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
-import { chooseCampaignDecision, runSchedulerTick, sortCampaigns } from "@lurkloot/core/scheduler";
+import { chooseCampaignDecision, runSchedulerTick, selectWatchTargetFromSnapshot, sortCampaigns } from "@lurkloot/core/scheduler";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers } from "@lurkloot/core/tabs";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
@@ -69,6 +69,92 @@ const HEALTHY_AUTH: SchedulerState["authHealth"] = {
 };
 
 describe("scheduler campaign selection", () => {
+  it("selects from a named committed snapshot without provider discovery I/O", async () => {
+    const selectedCampaign = campaign("snapshot-campaign");
+    const selectedChannel = channel("snapshot-channel");
+    const result = await selectWatchTargetFromSnapshot({
+      snapshot: {
+        platform: "twitch",
+        revision: 7,
+        observedAt: Date.now(),
+        complete: true,
+        idleCandidates: [],
+        followedChannels: ["snapshot-channel"],
+        metrics: { campaigns: 1, candidates: 1, cacheHits: 0, cacheMisses: 0, batchRequests: 0, singleFallbacks: 0 },
+        campaigns: [{
+          campaign: selectedCampaign,
+          candidates: [{ candidate: selectedChannel, live: true, categoryMatches: true, eligible: true, observedAt: Date.now() }],
+        }],
+      },
+      previous: { platform: "twitch", status: "idle", offlineChecks: 0, playbackChecks: 0, errorChecks: 0 },
+      previousCampaigns: [],
+      settings: settings(),
+    });
+
+    expect(result.decision).toMatchObject({ action: "watch", campaign: { id: "snapshot-campaign" }, channel: { username: "snapshot-channel" } });
+  });
+
+  it("selects an idle-watchlist fallback only from committed snapshot observations", async () => {
+    const idleChannel = channel("snapshot-idle");
+    const result = await selectWatchTargetFromSnapshot({
+      snapshot: {
+        platform: "twitch",
+        revision: 9,
+        observedAt: Date.now(),
+        complete: true,
+        campaigns: [],
+        idleCandidates: [{ candidate: idleChannel, live: true, categoryMatches: true, eligible: true, observedAt: Date.now() }],
+        followedChannels: [],
+        metrics: { campaigns: 0, candidates: 1, cacheHits: 0, cacheMisses: 1, batchRequests: 1, singleFallbacks: 0 },
+      },
+      previous: { platform: "twitch", status: "idle", offlineChecks: 0, playbackChecks: 0, errorChecks: 0 },
+      previousCampaigns: [],
+      settings: {
+        ...settings(),
+        platform: {
+          ...settings().platform,
+          twitch: { ...settings().platform.twitch, idleWatchlistChannels: [idleChannel.username] },
+        },
+      },
+    });
+
+    expect(result.decision).toMatchObject({ action: "fallback", channel: { username: "snapshot-idle" } });
+  });
+
+  it("rejects a current candidate with fresh explicit provider-negative evidence", async () => {
+    const selectedCampaign = campaign("negative-campaign");
+    const selectedChannel = channel("negative-channel");
+    const result = await selectWatchTargetFromSnapshot({
+      snapshot: {
+        platform: "twitch",
+        revision: 8,
+        observedAt: Date.now(),
+        complete: true,
+        idleCandidates: [],
+        followedChannels: [],
+        metrics: { campaigns: 1, candidates: 1, cacheHits: 0, cacheMisses: 1, batchRequests: 1, singleFallbacks: 0 },
+        campaigns: [{
+          campaign: selectedCampaign,
+          candidates: [{ candidate: selectedChannel, live: true, categoryMatches: true, eligible: false, observedAt: Date.now() }],
+        }],
+      },
+      previous: {
+        platform: "twitch",
+        status: "watching",
+        channel: selectedChannel,
+        campaignId: selectedCampaign.id,
+        rewardId: selectedCampaign.rewards[0]?.id,
+        offlineChecks: 0,
+        playbackChecks: 0,
+      },
+      previousCampaigns: [selectedCampaign],
+      settings: settings(),
+    });
+
+    expect(result.retention).toMatchObject({ keep: false, reasonCode: "campaign_ineligible" });
+    expect(result.decision.action).toBe("idle");
+  });
+
   it("skips an infeasible in-progress reward for a feasible locked reward", async () => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-07-19T12:00:00.000Z");
@@ -1046,6 +1132,57 @@ describe("scheduler tick", () => {
     },
     campaigns: { twitch: [], kick: [] },
   };
+
+  it("retains a healthy current watch when committed discovery is incomplete", async () => {
+    const activeCampaign = campaign("current");
+    const activeChannel = channel("current");
+    const twitch = adapter("twitch", [], []);
+    twitch.checkChannel = vi.fn(async () => { throw new Error("selection must not validate through the provider"); });
+    const current: SchedulerState = {
+      ...baseState,
+      campaigns: { ...baseState.campaigns, twitch: [activeCampaign] },
+      sessions: {
+        ...baseState.sessions,
+        twitch: {
+          platform: "twitch",
+          status: "watching",
+          channel: activeChannel,
+          campaignId: activeCampaign.id,
+          rewardId: activeCampaign.rewards[0]?.id,
+          offlineChecks: 0,
+          playbackChecks: 0,
+          watchMode: "tab",
+          tabId: 42,
+          playback: {
+            platform: "twitch",
+            checkedAt: new Date().toISOString(),
+            videoCount: 1,
+            playingVideoCount: 1,
+            mutedVideoCount: 1,
+            unmutedVideoCount: 0,
+            blockedPlaybackCount: 0,
+            documentHidden: true,
+          },
+        },
+      },
+    };
+
+    const result = await runSchedulerTick(current, settings({ autoClaim: false }), {
+      twitch,
+      kick: adapter("kick", [], []),
+    }, {
+      platforms: ["twitch"],
+      discovery: { twitch: { campaigns: [activeCampaign], complete: false } },
+    });
+
+    expect(result.state.sessions.twitch).toMatchObject({
+      status: "watching",
+      campaignId: activeCampaign.id,
+      rewardId: activeCampaign.rewards[0]?.id,
+      channel: { username: "current" },
+    });
+    expect(twitch.checkChannel).not.toHaveBeenCalled();
+  });
 
   function realtimeCampaigns(): [DropCampaign, DropCampaign] {
     const ordinary = campaign("ordinary", {
