@@ -5,7 +5,7 @@ import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
-import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
+import { campaignSearchBackoffApplies, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
 import { isTimestampStale } from "../core/timestamps";
 import {
   currentManagedPageContextTabs,
@@ -731,6 +731,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     twitch: createDiscoveryLane("twitch"),
     kick: createDiscoveryLane("kick"),
   };
+  const discoveryBackoffBypasses: Record<Platform, number> = { twitch: 0, kick: 0 };
   interface SelectionInput {
     platform: Platform;
     trigger: TickTrigger;
@@ -794,6 +795,20 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
                     ? `https://www.twitch.tv/${username}`
                     : `https://kick.com/${username}`,
                 })),
+              (campaign, campaigns) => {
+                const backoff = state.campaignSearchBackoffs?.[platform];
+                if (!campaignSearchBackoffApplies(
+                  campaign,
+                  settings,
+                  state.sessions[platform],
+                  backoff,
+                  discoveryBackoffBypasses[platform] > 0,
+                  campaigns.find((candidate) => candidate.id === state.sessions[platform].campaignId),
+                )) return undefined;
+                return discoveryLanes[platform].current().snapshot?.campaigns
+                  .find(({ campaign: previous }) => previous.id === campaign.id)
+                  ?.candidates ?? [];
+              },
             );
           } finally {
             discoveryEvents[platform].push(...events);
@@ -1923,16 +1938,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }, {});
   }
 
-  async function refreshDiscovery(platforms: Platform[] = PLATFORMS): Promise<void> {
+  async function refreshDiscovery(platforms: Platform[] = PLATFORMS, bypassBackoff = false): Promise<void> {
     if (controllerShutdown) return;
     const settings = await deps.loadSettings();
     await Promise.all(platforms.map(async (platform) => {
-      if (!settings.platform[platform].enabled) {
-        discoveryLanes[platform].invalidate();
-        invalidateSelection(platform);
-        return;
+      if (bypassBackoff) discoveryBackoffBypasses[platform] += 1;
+      try {
+        if (!settings.platform[platform].enabled) {
+          discoveryLanes[platform].invalidate();
+          invalidateSelection(platform);
+          return;
+        }
+        await discoveryLanes[platform].requestAndWait();
+      } finally {
+        if (bypassBackoff) discoveryBackoffBypasses[platform] -= 1;
       }
-      await discoveryLanes[platform].requestAndWait();
     }));
   }
 
@@ -1952,6 +1972,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         followedChannels: snapshot.followedChannels,
       },
       persistedCampaigns: state.campaigns[platform],
+      campaignSearchBackoff: state.campaignSearchBackoffs?.[platform],
       settings,
       target: {
         status: session.status,
@@ -1971,7 +1992,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   function selectionIsForced(trigger: TickTrigger): boolean {
-    return trigger === "manual_tick" || trigger === "claim_handoff" || trigger === "startup";
+    return trigger === "manual_tick" || trigger === "manual_resume" || trigger === "claim_handoff" || trigger === "startup";
+  }
+
+  function selectionBypassesBackoff(trigger: TickTrigger): boolean {
+    return trigger === "manual_tick" || trigger === "manual_resume" || trigger === "claim_handoff";
+  }
+
+  function selectionBackoffDue(platform: Platform, state: SchedulerState): boolean {
+    const retryAt = state.campaignSearchBackoffs?.[platform]?.retryAt;
+    return retryAt !== undefined && Date.parse(retryAt) <= Date.now();
   }
 
   function invalidateSelection(platform: Platform): void {
@@ -1988,6 +2018,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       previousCampaigns: input.state.campaigns[input.platform],
       settings: input.settings,
       signal: input.signal,
+      previousBackoff: input.state.campaignSearchBackoffs?.[input.platform],
+      bypassBackoff: selectionBypassesBackoff(input.trigger),
     });
     discoveryEvents[input.platform].push({
       category: "diagnostic",
@@ -1995,6 +2027,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       level: "debug",
       message: `Snapshot selection finished in ${Date.now() - startedAt}ms (trigger=${input.trigger}, revision=${input.snapshot.revision}, age=${Math.max(0, Date.now() - input.snapshot.observedAt)}ms, material=${selectionCache[input.platform]?.key !== input.key}, campaigns=${result.campaignsChecked}, candidates=${result.candidatesChecked}, outcome=${result.decision.action}, retention=${result.retention.reasonCode})`,
     });
+    if (result.backoffSkippedMs !== undefined && result.backoff) {
+      discoveryEvents[input.platform].push({
+        category: "diagnostic",
+        platform: input.platform,
+        level: "debug",
+        message: `Skipped authoritative negative campaign search for ${result.backoff.campaignId} (${result.backoffSkippedMs}ms remaining)`,
+      });
+    } else if (result.backoff && input.state.campaignSearchBackoffs?.[input.platform]?.fingerprint !== result.backoff.fingerprint) {
+      discoveryEvents[input.platform].push({
+        category: "diagnostic",
+        platform: input.platform,
+        level: "debug",
+        message: `Authoritative negative campaign search for ${result.backoff.campaignId}; retry at ${result.backoff.retryAt}`,
+      });
+    }
     return { key: input.key, snapshotRevision: input.snapshot.revision, generation: input.generation, result };
   }
 
@@ -2007,6 +2054,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         level: "debug",
         message: `Snapshot selection skipped (trigger=${input.trigger}, revision=${input.snapshot.revision}, age=${Math.max(0, Date.now() - input.snapshot.observedAt)}ms, material=false)`,
       });
+      const retryAt = cached.result.backoff ? Date.parse(cached.result.backoff.retryAt) : Number.NaN;
+      if (cached.result.backoff && Number.isFinite(retryAt) && retryAt > Date.now()) {
+        discoveryEvents[input.platform].push({
+          category: "diagnostic",
+          platform: input.platform,
+          level: "debug",
+          message: `Skipped authoritative negative campaign search for ${cached.result.backoff.campaignId} (${retryAt - Date.now()}ms remaining)`,
+        });
+      }
       const reused = {
         ...cached,
         snapshotRevision: input.snapshot.revision,
@@ -2199,7 +2255,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const currentState = await withStateCommit(() => deps.loadState());
     const discoveryPlatforms = schedulerPlatforms.filter((platform) =>
       currentState.authHealth[platform].status === "healthy");
-    await refreshDiscovery(discoveryPlatforms);
+    await refreshDiscovery(discoveryPlatforms, selectionBypassesBackoff(trigger));
     signal.throwIfAborted();
     const preparedSelections: Partial<Record<Platform, CommittedSelection>> = {};
     await Promise.all(discoveryPlatforms.map(async (selectionPlatform) => {
@@ -2212,7 +2268,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         settings,
         state: currentState,
         key: selectionKey(selectionPlatform, snapshot, settings, currentState),
-        force: selectionIsForced(trigger),
+        force: selectionIsForced(trigger) || selectionBackoffDue(selectionPlatform, currentState),
         signal,
         generation: selectionGeneration[selectionPlatform],
       };
@@ -2268,7 +2324,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
               settings,
               state,
               key,
-              force: false,
+              force: selectionBackoffDue(selectionPlatform, state),
               signal,
               generation: selectionGeneration[selectionPlatform],
             });

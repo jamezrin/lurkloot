@@ -1,6 +1,7 @@
 import type { PlatformAdapter } from "../platforms/adapter";
 import type {
   ChannelCandidate,
+  CampaignSearchBackoff,
   DropCampaign,
   DropReward,
   EngineSettings,
@@ -560,7 +561,11 @@ export interface SnapshotSelectionResult {
   campaignsChecked: number;
   candidatesChecked: number;
   fastPath: boolean;
+  backoff?: CampaignSearchBackoff;
+  backoffSkippedMs?: number;
 }
+
+export const TWITCH_NEGATIVE_SEARCH_BACKOFF_MS = 5 * 60 * 1000;
 
 /** Pure provider-I/O-free selection when paired with a committed snapshot adapter. */
 async function selectWatchTarget(
@@ -623,6 +628,73 @@ export interface SnapshotSelectionInput {
   previousCampaigns: DropCampaign[];
   settings: EngineSettings;
   signal?: AbortSignal;
+  previousBackoff?: CampaignSearchBackoff;
+  bypassBackoff?: boolean;
+}
+
+function stableHash(value: unknown): string {
+  const text = JSON.stringify(value);
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function campaignSearchFingerprint(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+): string {
+  return stableHash({
+    campaign,
+    settings: {
+      campaignPriorities: settings.campaignPriorities,
+      excludedCampaignIds: settings.excludedCampaignIds,
+      priorityMode: settings.priorityMode,
+      farmingEligibility: settings.farmingEligibility,
+      platform: settings.platform.twitch,
+    },
+  });
+}
+
+export function campaignSearchBackoffApplies(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+  session: WatchSession,
+  backoff: CampaignSearchBackoff | undefined,
+  bypass = false,
+  currentCampaign?: DropCampaign,
+): boolean {
+  return campaign.platform === "twitch"
+    && !bypass
+    && session.status === "watching"
+    && isSessionHealthy(session)
+    && (session.noProgressChecks ?? 0) < settings.offlineRetryLimit
+    && currentCampaign !== undefined
+    && isEligible(currentCampaign, settings)
+    && activeReward(currentCampaign, settings)?.id === session.rewardId
+    && backoff?.campaignId === campaign.id
+    && backoff.fingerprint === campaignSearchFingerprint(campaign, settings)
+    && Date.parse(backoff.retryAt) > Date.now();
+}
+
+function authoritativeUnavailableCampaign(
+  snapshot: DiscoverySnapshot,
+  campaigns: DropCampaign[],
+  previous: WatchSession,
+  settings: EngineSettings,
+): DropCampaign | undefined {
+  if (snapshot.platform !== "twitch" || previous.status !== "watching" || !isSessionHealthy(previous)) return undefined;
+  const eligible = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
+  const currentIndex = eligible.findIndex((campaign) => campaign.id === previous.campaignId);
+  if (currentIndex <= 0) return undefined;
+  return eligible.slice(0, currentIndex).find((campaign) => {
+    const observation = snapshot.campaigns.find(({ campaign: candidate }) => candidate.id === campaign.id);
+    return observation !== undefined
+      && observation.candidates.length > 0
+      && observation.candidates.every((candidate) => !candidate.live || !candidate.categoryMatches || candidate.eligible === false);
+  });
 }
 
 export async function selectWatchTargetFromSnapshot({
@@ -631,19 +703,49 @@ export async function selectWatchTargetFromSnapshot({
   previousCampaigns,
   settings,
   signal,
+  previousBackoff,
+  bypassBackoff = false,
 }: SnapshotSelectionInput): Promise<SnapshotSelectionResult> {
   const campaigns = preserveClaimedRewards(
     snapshot.campaigns.map(({ campaign }) => campaign),
     previousCampaigns,
   );
-  return selectWatchTarget(
+  const backedOffCampaign = previousBackoff
+    ? snapshot.campaigns.find(({ campaign }) => campaign.id === previousBackoff.campaignId)?.campaign
+    : undefined;
+  const currentCampaign = snapshot.campaigns.find(({ campaign }) => campaign.id === previous.campaignId)?.campaign;
+  const retryAt = previousBackoff ? Date.parse(previousBackoff.retryAt) : Number.NaN;
+  const mayReuseBackoff = snapshot.platform === "twitch"
+    && !bypassBackoff
+    && backedOffCampaign !== undefined
+    && campaignSearchBackoffApplies(backedOffCampaign, settings, previous, previousBackoff, bypassBackoff, currentCampaign);
+  const selectionCampaigns = mayReuseBackoff
+    ? campaigns.filter((campaign) => campaign.id !== previousBackoff?.campaignId)
+    : campaigns;
+  const result = await selectWatchTarget(
     snapshot.platform,
     previous,
-    campaigns,
+    selectionCampaigns,
     settings,
     selectionAdapterFromDiscoverySnapshot(snapshot, previous),
     signal,
   );
+  if (mayReuseBackoff) {
+    return { ...result, backoff: previousBackoff, backoffSkippedMs: retryAt - Date.now() };
+  }
+  const unavailable = authoritativeUnavailableCampaign(snapshot, campaigns, previous, settings);
+  if (!unavailable || result.decision.campaign?.id !== previous.campaignId) return result;
+  return {
+    ...result,
+    backoff: {
+      campaignId: unavailable.id,
+      retryAt: new Date(Date.now() + TWITCH_NEGATIVE_SEARCH_BACKOFF_MS).toISOString(),
+      fingerprint: campaignSearchFingerprint(
+        snapshot.campaigns.find(({ campaign }) => campaign.id === unavailable.id)?.campaign ?? unavailable,
+        settings,
+      ),
+    },
+  };
 }
 
 function retainHealthyWatchOnAmbiguousDiscovery(
@@ -1218,6 +1320,10 @@ export async function runSchedulerTick(
         emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
         continue;
       }
+      const campaignSearchBackoffs = { ...nextState.campaignSearchBackoffs };
+      if (selection.backoff) campaignSearchBackoffs[platform] = selection.backoff;
+      else delete campaignSearchBackoffs[platform];
+      nextState.campaignSearchBackoffs = campaignSearchBackoffs;
       if (selection.fastPath) {
         emitDiagnostic(
           emit,

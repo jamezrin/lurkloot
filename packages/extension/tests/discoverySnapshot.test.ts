@@ -109,6 +109,25 @@ describe("DiscoverySnapshotLane", () => {
 });
 
 describe("collectDiscoverySnapshot", () => {
+  it("retains a backed-off campaign observation without candidate provider calls", async () => {
+    const campaign = { id: "backed-off", platform: "twitch" as const, name: "Backed off", status: "active" as const, rewards: [] };
+    const candidate = { platform: "twitch" as const, username: "offline", url: "https://www.twitch.tv/offline" };
+    const retained = [{ candidate, live: true, categoryMatches: true, eligible: false as const, observedAt: 41 }];
+    const listCandidateChannels = vi.fn(async () => [candidate]);
+    const result = await collectDiscoverySnapshot({
+      platform: "twitch",
+      refreshCampaigns: vi.fn(async () => [campaign]),
+      listCandidateChannels,
+      checkChannel: vi.fn(),
+      selectCandidateChannel: undefined,
+    }, undefined, new AbortController().signal, () => 42, false, [], (item) =>
+      item.id === campaign.id ? retained : undefined);
+
+    expect(result.campaigns).toEqual([{ campaign, candidates: retained }]);
+    expect(listCandidateChannels).not.toHaveBeenCalled();
+    expect(result.metrics.candidates).toBe(0);
+  });
+
   it("captures followed-channel preference evidence inside discovery", async () => {
     const listFollowedChannels = vi.fn(async () => ["friend"]);
     const adapter = {

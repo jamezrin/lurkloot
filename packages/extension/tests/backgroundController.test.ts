@@ -243,10 +243,11 @@ function harness(
     ) => Promise<boolean>;
     cancelTwitchIntegrityAcquisition?: (reason?: unknown) => void;
     selectWatchTarget?: BackgroundControllerDeps<ExtensionSettings>["selectWatchTarget"];
+    initialState?: SchedulerState;
   } = {},
 ) {
   let currentSettings = settings;
-  let currentState: SchedulerState = {
+  let currentState: SchedulerState = overrides.initialState ?? {
     ...DEFAULT_STATE,
     sessions: {
       twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
@@ -6322,6 +6323,105 @@ describe("background controller", () => {
       platform: "twitch",
       message: expect.stringContaining("Snapshot selection discarded stale work"),
     }));
+  });
+
+  it("passes persisted backoff state and bypasses it for explicit selection triggers", async () => {
+    const inputs: Array<{ previousBackoff?: unknown; bypassBackoff?: boolean }> = [];
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      selectWatchTarget: async (input) => {
+        inputs.push(input as typeof input & { previousBackoff?: unknown; bypassBackoff?: boolean });
+        const result = await selectWatchTargetFromSnapshot(input);
+        return {
+          ...result,
+          backoff: { campaignId: "higher", retryAt: "2099-01-01T00:00:00.000Z", fingerprint: "material" },
+        };
+      },
+    });
+    env.state.campaignSearchBackoffs = {
+      twitch: { campaignId: "higher", retryAt: "2099-01-01T00:00:00.000Z", fingerprint: "material" },
+    };
+
+    await env.controller.tick(["twitch"], "alarm");
+    await env.controller.tick(["twitch"], "manual_tick");
+
+    expect(inputs[0]).toMatchObject({
+      previousBackoff: { campaignId: "higher", fingerprint: "material" },
+      bypassBackoff: false,
+    });
+    expect(inputs.at(-1)).toMatchObject({ bypassBackoff: true });
+    expect(env.state.campaignSearchBackoffs?.twitch).toMatchObject({ campaignId: "higher" });
+  });
+
+  it("skips backed-off Twitch candidate discovery across controller restart", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime("2026-09-08T04:00:00.000Z");
+    const higher = { ...campaign("twitch"), id: "higher" };
+    const current = { ...campaign("twitch"), id: "current" };
+    const currentChannel = channel("twitch");
+    const configured = farming({ ...DEFAULT_SETTINGS, campaignPriorities: { higher: 10 } });
+    const initialState: SchedulerState = {
+      ...structuredClone(DEFAULT_STATE),
+      campaigns: { ...DEFAULT_STATE.campaigns, twitch: [higher, current] },
+      sessions: {
+        ...DEFAULT_STATE.sessions,
+        twitch: {
+          platform: "twitch",
+          status: "watching",
+          channel: currentChannel,
+          campaignId: current.id,
+          rewardId: current.rewards[0]?.id,
+          offlineChecks: 0,
+          watchMode: "tab",
+          playback: {
+            platform: "twitch",
+            videoCount: 1,
+            playingVideoCount: 1,
+            mutedVideoCount: 1,
+            unmutedVideoCount: 0,
+            blockedPlaybackCount: 0,
+            documentHidden: false,
+            checkedAt: new Date().toISOString(),
+          },
+        },
+      },
+    };
+    const configure = (env: ReturnType<typeof harness>) => {
+      env.twitch.refreshCampaigns = vi.fn(async () => [higher, current]);
+      env.twitch.listCandidateChannels = vi.fn(async (selected) => [
+        selected.id === current.id ? currentChannel : { ...currentChannel, username: "higher", url: "https://www.twitch.tv/higher" },
+      ]);
+      env.twitch.checkChannel = vi.fn(async (candidate, options) => ({
+        live: true,
+        categoryMatches: true,
+        campaignMatches: options?.campaign?.id === higher.id ? false : true,
+        candidate,
+      }));
+    };
+    const first = harness(configured, { initialState });
+    configure(first);
+    await first.controller.tick(["twitch"], "alarm");
+    expect(first.twitch.listCandidateChannels).toHaveBeenCalledTimes(2);
+    expect(first.state.campaignSearchBackoffs?.twitch?.campaignId).toBe("higher");
+
+    const restarted = harness(configured, { initialState: structuredClone(first.state) });
+    configure(restarted);
+    await restarted.controller.tick(["twitch"], "startup");
+
+    expect(vi.mocked(restarted.twitch.listCandidateChannels).mock.calls.map(([item]) => item.id)).toEqual(["current"]);
+    expect(restarted.twitch.listCandidateChannels).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "current" }),
+      expect.anything(),
+    );
+    expect(allDiagnostics(restarted)).toContainEqual(expect.objectContaining({
+      message: expect.stringMatching(/^Skipped authoritative negative campaign search for higher \(\d+ms remaining\)$/),
+    }));
+
+    await restarted.controller.tick(["twitch"], "manual_tick");
+    expect(vi.mocked(restarted.twitch.listCandidateChannels).mock.calls.map(([item]) => item.id)).toEqual([
+      "current",
+      "higher",
+      "current",
+    ]);
   });
 
   it("completes a due initial heartbeat while discovery-signal start is blocked after publication", async () => {

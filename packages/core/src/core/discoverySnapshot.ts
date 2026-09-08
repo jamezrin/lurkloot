@@ -74,6 +74,7 @@ export async function collectDiscoverySnapshot(
   now: () => number = Date.now,
   includeFollowedChannels = true,
   idleCandidates: ChannelCandidate[] = [],
+  retainedCampaignCandidates?: (campaign: DropCampaign, campaigns: DropCampaign[]) => DiscoveryCandidateObservation[] | undefined,
 ): Promise<DiscoveryRefreshResult> {
   const [campaigns, followedChannels] = await Promise.all([
     adapter.refreshCampaigns(session, { signal }),
@@ -89,6 +90,11 @@ export async function collectDiscoverySnapshot(
   let singleFallbacks = 0;
   for (const campaign of campaigns) {
     signal.throwIfAborted();
+    const retainedCandidates = retainedCampaignCandidates?.(campaign, campaigns);
+    if (retainedCandidates) {
+      observations.push({ campaign, candidates: retainedCandidates });
+      continue;
+    }
     const listedCandidates = await adapter.listCandidateChannels(campaign, { signal });
     const candidates = session?.campaignId === campaign.id && session.channel
       ? [...new Map(
