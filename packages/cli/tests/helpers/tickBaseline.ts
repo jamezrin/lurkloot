@@ -139,6 +139,8 @@ export async function runCliBaselineCell(
     adapterConstructions: 0,
     watcherReconciliations: 0,
   };
+  let stateLoads = 0;
+  let stateSaves = 0;
   const durationsMs: Durations = {
     discovery: 0,
     selection: 0,
@@ -222,6 +224,16 @@ export async function runCliBaselineCell(
     transport,
     logger: silentLogger,
     once: true,
+    stateStore: {
+      load: async () => {
+        stateLoads += 1;
+        return loadState(statePath);
+      },
+      save: async (state) => {
+        stateSaves += 1;
+        await saveState(statePath, state);
+      },
+    },
   });
   const finalState = await loadState(statePath);
 
@@ -230,6 +242,8 @@ export async function runCliBaselineCell(
     platform,
     scenario,
     counts,
+    stateLoads,
+    stateSaves,
     durationsMs,
     outcomeCampaignId: finalState.sessions[platform].campaignId,
   };

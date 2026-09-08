@@ -2875,6 +2875,45 @@ describe("background controller", () => {
     expect(env.state.authHealth.twitch.status).toBe("healthy");
   });
 
+  it("returns the state committed by the current tick invocation", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    const committed = await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(committed).toEqual(env.state);
+    expect(committed?.sessions.twitch.campaignId).toBe("twitch-campaign");
+  });
+
+  it("does not return a scheduler snapshot when the tick rolls back", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, tablessMode: true }));
+    env.twitch.supportsTabless = true;
+    env.twitch.createTablessWatcher = () => {
+      throw new Error("watcher setup failed");
+    };
+
+    const committed = await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(committed).toBeUndefined();
+  });
+
+  it("keeps committed results scoped to overlapping tick invocations", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    const kickDiscovery = deferred<DropCampaign[]>();
+    vi.mocked(env.twitch.refreshCampaigns).mockReturnValueOnce(twitchDiscovery.promise);
+    vi.mocked(env.kick.refreshCampaigns).mockReturnValueOnce(kickDiscovery.promise);
+
+    const twitchTick = env.controller.tickAndHandOff(["twitch"]);
+    const kickTick = env.controller.tickAndHandOff(["kick"]);
+    kickDiscovery.resolve([campaign("kick")]);
+    const kickCommitted = await kickTick;
+    twitchDiscovery.resolve([campaign("twitch")]);
+    const twitchCommitted = await twitchTick;
+
+    expect(kickCommitted?.sessions.kick.campaignId).toBe("kick-campaign");
+    expect(twitchCommitted?.sessions.twitch.campaignId).toBe("twitch-campaign");
+  });
+
   it("blocks startup account work when credentials are missing without disabling the platform", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
@@ -8466,9 +8505,10 @@ describe("background controller", () => {
 
       const handoff = env.controller.tickAndHandOff();
       for (let index = 0; index < 12; index += 1) await env.timer.flush();
-      await handoff;
+      const committed = await handoff;
 
       expect(env.timer.wait).toHaveBeenCalled();
+      expect(committed).toEqual(env.state);
     });
 
     it("does not start a nested handoff for a claim inside a handoff", async () => {
