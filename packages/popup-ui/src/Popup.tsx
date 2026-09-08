@@ -17,6 +17,7 @@ import { loadCatalog } from "@lurkloot/locales";
 import { buildFailureReport } from "@lurkloot/shared/failureReport";
 import { I18nContext, PopupRuntimeContext } from "./context";
 import {
+  GITHUB_STAR_NUDGE_MIN_DAYS,
   PLATFORM_INVENTORY_URLS,
   PLATFORMS,
   RATE_NUDGE_MIN_DAYS,
@@ -61,7 +62,9 @@ import {
   type ActivityStream,
 } from "./activity.logic";
 import { AttributionFooter } from "./footer";
-import { RateNudge, shouldShowRateNudge } from "./rateNudge";
+import { RateNudge, shouldShowGithubStarNudge, shouldShowRateNudge } from "./rateNudge";
+import { GithubStarNudge } from "./githubStarNudge";
+import { popupNoticeSlot } from "./popupNoticeSlot";
 import { UpdateNotice } from "./updateNotice";
 import { DropsPanel } from "./drops";
 import { CriticalFailurePanel } from "./criticalFailure";
@@ -671,6 +674,13 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const updateNotice = pendingChangelogVersion && adapter.changelogUrl
     ? { version: pendingChangelogVersion, href: adapter.changelogUrl(pendingChangelogVersion) }
     : undefined;
+  const now = new Date();
+  const noticeSlot = popupNoticeSlot({
+    preview,
+    hasUpdateNotice: Boolean(updateNotice),
+    showRateNudge: shouldShowRateNudge(snapshot.state.installedAt, settings.rateNudgeStatus, now, RATE_NUDGE_MIN_DAYS),
+    showGithubStarNudge: shouldShowGithubStarNudge(snapshot.state.installedAt, settings.githubStarNudgeStatus, now, GITHUB_STAR_NUDGE_MIN_DAYS),
+  });
 
   return (
       <PopupRuntimeContext.Provider value={{ adapter, preview }}>
@@ -788,7 +798,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
                 <AnimatePresence initial={false}>
-                  {updateNotice ? (
+                  {noticeSlot === "update" && updateNotice ? (
                     <UpdateNotice
                       key="update-notice"
                       version={updateNotice.version}
@@ -796,11 +806,18 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                       onDismiss={dismissUpdateNotice}
                     />
                   ) : null}
-                  {!updateNotice && !preview && shouldShowRateNudge(snapshot.state.installedAt, settings.rateNudgeStatus, new Date(), RATE_NUDGE_MIN_DAYS) ? (
+                  {noticeSlot === "rate" ? (
                     <RateNudge
                       key="rate-nudge"
                       onRate={() => void updateSettings({ rateNudgeStatus: "rated" })}
                       onDismiss={() => void updateSettings({ rateNudgeStatus: "dismissed" })}
+                    />
+                  ) : null}
+                  {noticeSlot === "github-star" ? (
+                    <GithubStarNudge
+                      key="github-star-nudge"
+                      onStar={() => void updateSettings({ githubStarNudgeStatus: "starred" })}
+                      onDismiss={() => void updateSettings({ githubStarNudgeStatus: "dismissed" })}
                     />
                   ) : null}
                 </AnimatePresence>
